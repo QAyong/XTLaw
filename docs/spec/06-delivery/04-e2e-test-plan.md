@@ -1621,18 +1621,20 @@ identify the platform validation still needed.
 - **Status**: Source-level regression covered
   (`apps/desktop/test/plugins-page-style.test.mjs`); full UI scenario Draft
 
-#### E2E-088: Composer Agent/Plan/Goal chip updates the session
+#### E2E-088: Composer Agent/Plan/Goal menu updates the session
 
 - **Preconditions**: Chat route active; a session selected.
-- **Steps**: 1) Click the left-of-input Composer mode chip to enter Plan. 2)
-  Send a prompt that would normally require Write/Edit and observe behavior. 3)
-  Click the same Composer chip to return to Agent. 4) Begin a turn and try to
-  toggle mode mid-run or while a pending Plan approval is visible.
-- **Expected**: The Composer chip updates the active session `mode` (Plan and
+- **Steps**: 1) Click the left-of-input Composer mode chip and verify an anchored
+  menu lists Agent, Plan, and Goal with a check mark on the current mode. 2)
+  Select Plan and send a prompt that would normally require Write/Edit and
+  observe behavior. 3) Reopen the same menu and select Agent. 4) Begin a turn
+  and try to open the menu while a pending Plan approval is visible.
+- **Expected**: The menu updates the active session `mode` (Plan and
   Goal hard-deny Write/Edit and plugin tools while Bash follows the selected
   permission mode; Agent allows its normal tools per permission settings). The
-  chip is disabled while a turn or active pending approval exists and re-enables
-  after the session returns idle/planning. No top-bar mode control is rendered.
+  menu closes after selection, Escape, or an outside press; the mode chip is
+  disabled while a turn or active pending approval exists and re-enables after
+  the session returns idle/planning. No top-bar mode control is rendered.
 - **Specs linked**: `04-ux/08-component-spec.md` (§2, §11),
   `03-runtime/03-tools-and-permissions.md` (§10),
   `03-runtime/04-data-storage.md` (§8)
@@ -4219,17 +4221,18 @@ identify the platform validation still needed.
   publishes thinking levels, and a fresh session (schema v18, default
   `thinkingLevelMode: "auto"`).
 - **Steps**: 1) Confirm the Composer thinking menu lists `auto` first and
-  it is the selected default, with the chip rendering `auto · medium`. 2) Send a
+  it is the selected default, with the chip rendering `auto` only. 2) Send a
   trivial turn and confirm the dispatched provider request carries the
   `medium` baseline. 3) Have the agent call
   `set_thinking_level { level: "high", persist: false }` mid-turn and
   confirm the next provider request in the same turn carries `high`, then
   that the level reverts to the baseline at turn end. 4) Have the agent
   call `set_thinking_level { level: "low", persist: true }` and confirm the
-  session baseline updates (host `session.configure`), the Composer reflects
-  the persisted level on the next turn, and `thinkingLevelMode` stays
-  `"auto"`. 5) Switch the menu to a concrete level and confirm manual mode
-  behaves exactly as before. 6) Toggle the settings switch off and confirm
+  session baseline updates (host `session.configure`), while the Composer
+  continues to render `auto` and `thinkingLevelMode` stays `"auto"`. 5) Switch
+  the menu to a concrete level, close and reopen the same session, and confirm
+  the Composer restores that manual choice and manual mode behaves exactly as
+  before. 6) Toggle the settings switch off and confirm
   new sessions default to `medium` without an `auto` auto-selection.
 - **Expected**: Only concrete levels ever reach the wire; `auto` never
   appears in a provider request. Existing sessions without the mode field

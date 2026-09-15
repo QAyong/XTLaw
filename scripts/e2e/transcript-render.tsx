@@ -146,7 +146,7 @@ globalThis.transcriptRenderProbe = async () => {
       task,
       message("between", "assistant", "Waiting"),
       lifecycle,
-      message("tail", "assistant", "Continuing"),
+      message("tail", "assistant", ""),
     ];
     render(taskMessages());
     const processGroup = container.querySelector(

@@ -181,7 +181,7 @@ globalThis.transcriptRenderProbe = async () => {
     );
     const topology = container.querySelector(".has-subagents");
     const taskDuration = () => container
-      .querySelector(".has-subagents .subagent-activity-metrics")
+      .querySelector(".has-subagents .subagent-topology-node-status")
       ?.textContent?.split("·").at(-1)?.trim();
     assert(
       taskDuration() === "2s",

@@ -1,53 +1,53 @@
+import "../styles/model-icons.css";
 import { IconBot } from "../components/icons";
 
 type ProviderIconDefinition = {
   symbol: string;
-  color: boolean;
 };
 
 /** Provider ids used by pi-ai, models.dev, and common compatible gateways. */
 const PROVIDER_ICONS: Readonly<Record<string, ProviderIconDefinition>> = {
-  anthropic: { symbol: "anthropic", color: false },
-  openai: { symbol: "openai", color: false },
-  "openai-codex": { symbol: "openai", color: false },
-  google: { symbol: "google", color: true },
-  "google-vertex": { symbol: "google", color: true },
-  "ant-ling": { symbol: "antgroup", color: true },
-  deepseek: { symbol: "deepseek", color: true },
-  groq: { symbol: "groq", color: false },
-  mistral: { symbol: "mistral", color: true },
-  moonshotai: { symbol: "moonshot", color: false },
-  "moonshotai-cn": { symbol: "moonshot", color: false },
-  moonshot: { symbol: "moonshot", color: false },
-  minimax: { symbol: "minimax", color: true },
-  "minimax-cn": { symbol: "minimax", color: true },
-  fireworks: { symbol: "fireworks", color: true },
-  huggingface: { symbol: "huggingface", color: true },
-  cerebras: { symbol: "cerebras", color: true },
-  openrouter: { symbol: "openrouter", color: false },
-  xai: { symbol: "xai", color: false },
-  "cloudflare-ai-gateway": { symbol: "cloudflare", color: true },
-  "cloudflare-workers-ai": { symbol: "cloudflare", color: true },
-  "vercel-ai-gateway": { symbol: "vercel", color: false },
-  "github-copilot": { symbol: "githubcopilot", color: false },
-  "amazon-bedrock": { symbol: "aws", color: true },
-  "azure-openai-responses": { symbol: "azure", color: true },
-  "kimi-coding": { symbol: "kimi", color: true },
-  nvidia: { symbol: "nvidia", color: true },
-  opencode: { symbol: "opencode", color: false },
-  "opencode-go": { symbol: "opencode", color: false },
-  qwen: { symbol: "qwen", color: true },
-  xiaomi: { symbol: "xiaomimimo", color: false },
-  "xiaomi-token-plan-ams": { symbol: "xiaomimimo", color: false },
-  "xiaomi-token-plan-cn": { symbol: "xiaomimimo", color: false },
-  "xiaomi-token-plan-sgp": { symbol: "xiaomimimo", color: false },
-  zai: { symbol: "zai", color: false },
-  "zai-coding-cn": { symbol: "zai", color: false },
-  zhipu: { symbol: "zhipu", color: true },
-  cohere: { symbol: "cohere", color: true },
-  perplexity: { symbol: "perplexity", color: true },
-  together: { symbol: "together", color: true },
-  grok: { symbol: "grok", color: false },
+  anthropic: { symbol: "anthropic" },
+  openai: { symbol: "openai" },
+  "openai-codex": { symbol: "openai" },
+  google: { symbol: "google" },
+  "google-vertex": { symbol: "google" },
+  "ant-ling": { symbol: "antgroup" },
+  deepseek: { symbol: "deepseek" },
+  groq: { symbol: "groq" },
+  mistral: { symbol: "mistral" },
+  moonshotai: { symbol: "moonshot" },
+  "moonshotai-cn": { symbol: "moonshot" },
+  moonshot: { symbol: "moonshot" },
+  minimax: { symbol: "minimax" },
+  "minimax-cn": { symbol: "minimax" },
+  fireworks: { symbol: "fireworks" },
+  huggingface: { symbol: "huggingface" },
+  cerebras: { symbol: "cerebras" },
+  openrouter: { symbol: "openrouter" },
+  xai: { symbol: "xai" },
+  "cloudflare-ai-gateway": { symbol: "cloudflare" },
+  "cloudflare-workers-ai": { symbol: "cloudflare" },
+  "vercel-ai-gateway": { symbol: "vercel" },
+  "github-copilot": { symbol: "githubcopilot" },
+  "amazon-bedrock": { symbol: "aws" },
+  "azure-openai-responses": { symbol: "azure" },
+  "kimi-coding": { symbol: "kimi" },
+  nvidia: { symbol: "nvidia" },
+  opencode: { symbol: "opencode" },
+  "opencode-go": { symbol: "opencode" },
+  qwen: { symbol: "qwen" },
+  xiaomi: { symbol: "xiaomimimo" },
+  "xiaomi-token-plan-ams": { symbol: "xiaomimimo" },
+  "xiaomi-token-plan-cn": { symbol: "xiaomimimo" },
+  "xiaomi-token-plan-sgp": { symbol: "xiaomimimo" },
+  zai: { symbol: "zai" },
+  "zai-coding-cn": { symbol: "zai" },
+  zhipu: { symbol: "zhipu" },
+  cohere: { symbol: "cohere" },
+  perplexity: { symbol: "perplexity" },
+  together: { symbol: "together" },
+  grok: { symbol: "grok" },
 };
 
 const MODEL_ICON_RULES: ReadonlyArray<readonly [RegExp, string]> = [
@@ -76,30 +76,24 @@ export function resolveModelIconSymbol(
   );
 }
 
-function SpriteIcon({
-  symbol,
-  color,
-  size,
-}: {
-  symbol: string;
-  color: boolean;
-  size: number;
-}) {
+function SpriteIcon({ symbol, size }: { symbol: string; size: number }) {
   return (
     <svg
       aria-hidden="true"
+      className="model-icon-sprite"
+      data-symbol={symbol}
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill={color ? undefined : "currentColor"}
-      style={{ color: "var(--text-muted)", flexShrink: 0 }}
+      fill="currentColor"
+      style={{ flexShrink: 0 }}
     >
       <use href={`/provider-icons.svg#${symbol}`} />
     </svg>
   );
 }
 
-/** Model-aware icon with the existing bot glyph as the unknown-model fallback. */
+/** Model-aware monochrome icon with the existing bot glyph as the fallback. */
 export function ModelIcon({
   provider,
   modelId,
@@ -112,7 +106,6 @@ export function ModelIcon({
   size?: number;
 }) {
   const symbol = resolveModelIconSymbol(provider, modelId, modelName);
-  const icon = symbol ? Object.values(PROVIDER_ICONS).find((entry) => entry.symbol === symbol) : undefined;
-  if (!symbol || !icon) return <IconBot size={size} aria-hidden="true" />;
-  return <SpriteIcon symbol={symbol} color={icon.color} size={size} />;
+  if (!symbol) return <IconBot size={size} aria-hidden="true" />;
+  return <SpriteIcon symbol={symbol} size={size} />;
 }

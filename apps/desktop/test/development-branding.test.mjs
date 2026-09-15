@@ -56,7 +56,7 @@ test("Windows packages pin PI-Desktop executable and shortcut names", () => {
   assert.equal(packageJson.build.nsis.shortcutName, "PI-Desktop");
 });
 
-test("Windows packages and windows use the canonical PI-Desktop icon", () => {
+test("Windows packages and windows use the legibility-optimized PI-Desktop icon", () => {
   assert.equal(packageJson.build.win.icon, "build/icon.ico");
   assert.deepEqual(
     packageJson.build.win.extraResources.find((resource) => resource.to === "app-icon.ico"),
@@ -68,6 +68,12 @@ test("Windows packages and windows use the canonical PI-Desktop icon", () => {
   assert.deepEqual([...windowsIcon.subarray(0, 4)], [0, 0, 1, 0]);
   assert.ok(windowsIcon.readUInt16LE(4) >= 4, "ICO must contain multiple sizes");
   assert.match(iconScriptSource, /windows_icon = BUILD \/ "icon\.ico"/);
+  assert.match(
+    iconScriptSource,
+    /WINDOWS_CROP_BOX = \(150, 150, 874, 874\)/,
+  );
+  assert.match(iconScriptSource, /windows_master_from_canonical\(master\)/);
+  assert.match(iconScriptSource, /windows_master\.save\(\s*windows_icon/);
   assert.match(iconScriptSource, /format="ICO"/);
   assert.match(windowSource, /function windowsIconPath\(\)/);
   assert.match(windowSource, /app\.isPackaged\s*\n?\s*\?\s*process\.resourcesPath/);

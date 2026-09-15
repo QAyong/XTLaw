@@ -156,7 +156,7 @@ test("sidebar project and session lists stay coordinated with the global type sc
 test("pinned project rows replace the folder glyph with a filled star", () => {
   assert.match(
     sidebarSource,
-    /entry\.meta\.pinned \? \([\s\S]*?<IconStar\s+size=\{13\}\s+fill="currentColor"[\s\S]*?className="sidebar-project-pin"[\s\S]*?\) : \([\s\S]*?<IconFolder size=\{13\} aria-hidden \/>/,
+    /className="sidebar-project-folder-toggle"[\s\S]*?entry\.meta\.pinned \? \([\s\S]*?<IconStar\s+size=\{13\}\s+fill="currentColor"[\s\S]*?className="sidebar-project-pin"[\s\S]*?\) : collapsedProject \? \([\s\S]*?<IconFolder size=\{13\} aria-hidden \/>/,
   );
   assert.match(
     globalStyles,
@@ -251,12 +251,28 @@ test("project rows expose folder actions and full-path hover", () => {
   assert.doesNotMatch(sidebarSource, /api\.openSessionFolder\(/);
   assert.match(
     sidebarSource,
-    /className="sidebar-session-group-title project-toggle"[\s\S]*?tooltip=\{entry\.path\}[\s\S]*?tooltipDelayMs=\{500\}[\s\S]*?aria-describedby=\{`\$\{projectId\}-path-description`\}/,
+    /className="sidebar-project-name"[\s\S]*?tooltip=\{entry\.path\}[\s\S]*?tooltipDelayMs=\{500\}[\s\S]*?aria-describedby=\{`\$\{projectId\}-path-description`\}/,
   );
   assert.match(sidebarSource, /<TooltipButton/);
   assert.match(globalStyles, /\.ui-tooltip-path\s*\{[^}]*width:\s*max-content/);
   assert.match(globalStyles, /\.ui-tooltip-path\s*\{[^}]*max-width:\s*min\(420px,\s*calc\(100vw - 16px\)\)/);
   assert.match(sidebarSource, /className="sr-only">\s*\{entry\.path\}/);
+});
+
+test("project and session rows share one full-width bubble", () => {
+  assert.match(
+    globalStyles,
+    /\.sidebar-session-group-header\s*\{[\s\S]*?width:\s*100%;[\s\S]*?border-radius:\s*var\(--radius-sm\);/,
+  );
+  assert.match(
+    globalStyles,
+    /\.sidebar-session-group-body\.project,\n\.sidebar-session-group-body\.temporary\s*\{[\s\S]*?margin-left:\s*0;[\s\S]*?padding-left:\s*0;/,
+  );
+  assert.match(
+    globalStyles,
+    /\.sidebar-session-group-body\.project \.thread-item-main\s*\{[\s\S]*?padding-left:\s*30px;/,
+  );
+  assert.match(globalStyles, /\.project-group\.active > \.sidebar-session-group-header\s*\{[\s\S]*?background:\s*var\(--ds-bg-active\);/);
 });
 
 test("sidebar row menus omit project reassignment and switching actions", () => {
@@ -265,7 +281,7 @@ test("sidebar row menus omit project reassignment and switching actions", () => 
   assert.doesNotMatch(sidebarSource, /t\("project\.switch"/);
   assert.match(
     sidebarSource,
-    /if \(!entry\.active && !\(await selectProject\(entry\.path\)\)\) return;/,
+    /className="sidebar-project-name"[\s\S]*?void selectProject\(entry\.path\)/,
   );
 });
 

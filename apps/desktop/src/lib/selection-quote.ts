@@ -429,8 +429,8 @@ export function clampRangeToElement(range: Range, element: Element): Range {
 /**
  * The visible band the pill may use: every scrollable ancestor's rect (the
  * transcript scroller is one) intersected with the viewport, and capped by the
- * docked composer — which floats over the transcript, so the scroller's own
- * bottom edge is not the visible bottom.
+ * docked composer's top edge, which is the transcript's visible bottom
+ * boundary.
  */
 export function selectionQuoteBounds({
   element,

@@ -164,9 +164,9 @@ excerpt and the side-chat target stay PI-Desktop's own contracts (D-LOCAL-messag
   its **bounds** on both axes with `SELECTION_QUOTE_MARGIN` (8 px) of slack. The
   bounds are the intersection of every clipping ancestor's rect (the transcript
   scroller is one) with the viewport, capped by the top of the docked composer —
-  which floats over the transcript, so the scroller's own bottom edge is not the
-  visible bottom. `Composer` publishes the `data-composer-dock` hook for that cap
-  instead of the overlay guessing a class name. The overlay is portaled to
+  which is the transcript's visible bottom boundary. `Composer` publishes the
+  `data-composer-dock` hook for that cap instead of the overlay guessing a class
+  name. The overlay is portaled to
   `document.body` and lives in the body-portaled popover layer, so it never
   participates in the transcript's layout or scroll extent.
 - The selection has to live in **one** row: a drag that crosses rows raises no

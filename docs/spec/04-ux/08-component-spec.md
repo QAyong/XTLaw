@@ -5,7 +5,7 @@
 > Interaction behavior: [09-interaction-patterns.md](09-interaction-patterns.md)
 
 
-> Shell layout is Codex-aligned: left thread sidebar (fixed 275px), main transcript, floating bottom composer with runtime mode/permission/model controls, and a compact action-only top bar. Prefer neutral charcoal surfaces over blue-slate chrome.
+> Shell layout is Codex-aligned: left thread sidebar (fixed 275px), main transcript, a bottom composer region containing a floating-pill shell with runtime mode/permission/model controls, and a compact action-only top bar. Prefer neutral charcoal surfaces over blue-slate chrome.
 >
 > **Precedence rule**: where a metric or copy string below disagrees with a
 > Codex parity decision in [decisions-log §D](../08-meta/decisions-log.md)
@@ -70,7 +70,10 @@ Outer frame that positions Topbar, Sidebar, MainChat, and WorkPanel. Owns resize
   left in windowed mode and 8px in fullscreen for the traffic lights.
 - Work panel resize: its inner left-edge handle changes the committed panel
   width in the renderer, so dragging left gives the panel more internal space
-  and dragging right returns space to MainChat (§5.4)
+  and dragging right returns space to MainChat (§5.4). The same 10px handle
+  paints a centered 1px `--ds-border-default` divider at rest, promoted to
+  `--ds-focus` while hovered, focused, or resizing, so white nested views keep
+  a visible boundary without changing layout width.
 - Window resize: native edges and corners resize the fixed application window;
   they never resize or reserve the work panel. Responsive layout follows
   [07-ui-design-system.md](07-ui-design-system.md) §10.1
@@ -234,8 +237,10 @@ combined model × reasoning selection (§11).
 - Position: absolute 46px frameless band; `-webkit-app-region: drag` with
   `no-drag` on interactive controls; macOS reserves the left ~76px for traffic
   lights (only when the sidebar is collapsed), Windows/Linux reserve the right
-  120px for native window controls (112px hit targets plus an 8px visual
-  buffer). The conversation titlebar also reserves the 28px work-panel toggle
+  120px for native window controls. Each of the three controls is a 28px
+  square whose visible surface and hit target are the same box; the remaining
+  lane space provides separation from adjacent work-panel actions. The
+  conversation titlebar also reserves the 28px work-panel toggle
   while the panel is closed. While the panel is open, that 120px band plus the
   toggle overlay the panel header instead, and the header ends its box before
   the band so the panel tab strip and `+` stay clear of the native control band.
@@ -258,7 +263,7 @@ combined model × reasoning selection (§11).
 - Shell consistency: the chat topbar, non-chat drag band, Settings drag band,
   sidebar header, work-panel header, and native window-control band all use
   `--ds-toolbar-height`. Windows/Linux keep the same `--ds-window-controls-width`
-  for the viewport-fixed control band; when the work panel opens, that
+  for the viewport-fixed control lane; when the work panel opens, that
   reservation moves from the conversation titlebar onto the panel header so the
   controls do not travel with MainPane (D357). The panel header carries it by
   ending its own box before the band — a margin, not padding — because the
@@ -333,9 +338,9 @@ Expanded (~275px, D034/D070):
 | SESSIONS         [msg+][↕]|
 |   • Path-less session   ↕|
 | PROJECTS            [dir+]|
-| [v] project-A      [+] … |
-|   • Project session      |
-| project-B      [>] [+] … |
+| project-A [folder] [+] … |
+| Project session           |
+| project-B [folder] [+] … |
 |                           |
 | [⚙][plug][bell]          [version]|
 +---------------------------+
@@ -354,7 +359,7 @@ Collapsed (48px):
 
 Primary left-rail chrome stays body-sized so destinations remain readable next
 to the 14px chat body. Session and project/group titles use the adjacent compact
-tier; weight, indentation, and disclosure icons preserve their hierarchy:
+tier; weight, shared row bounds, and folder state preserve their hierarchy:
 
 | Surface | Token | Notes |
 |---|---|---|
@@ -376,14 +381,14 @@ visually distinct from list content.
 | Expanded | Full session titles visible |
 | Sidebar width | Fixed at 275px; collapse/open changes only column presence |
 | Collapsed | Icon rail — hover shows tooltip with session title |
-| Active session | Accent-blue outlined status ring plus active row background |
+| Active session | Accent-blue outlined status ring plus full-width active row background |
 | Selecting session | Destination row receives the active treatment immediately while transcript/workspace resolution continues |
 | Session in progress | Orange breathing dot; static under reduced motion |
 | Session completed | Green check mark from the latest unread task notification when the row is not selected |
 | Session failed | Red circled alert mark from the latest unread task notification when the row is not selected |
-| Hover session | bg-tertiary background |
-| Active project | Header carries active state; topbar follows that workspace; composer exposes no workspace identity |
-| Collapsed project | Header remains visible; unpinned child conversations are hidden; global pins remain visible |
+| Hover session | Full-width row uses bg-tertiary background |
+| Active project | Full-width header bubble carries active state; topbar follows that workspace; composer exposes no workspace identity |
+| Collapsed project | Folder icon changes to the closed state; header remains visible; unpinned child conversations are hidden; global pins remain visible |
 | Archived row | Hidden by default; visible in the explicit archived view |
 | No retained project | Compact Open project entry; standalone Sessions rows remain available |
 | Empty group | Muted one-line empty state; group create action remains available |
@@ -396,9 +401,11 @@ visually distinct from list content.
 
 ### 3.5 Interactions
 
-- Click the project directory row (chevron, folder, label, or remaining
-  disclosure hit area): activate its path when necessary, then toggle only
-  that project's conversation group; retain the other project groups
+- Click the project folder icon: toggle only that project's conversation group;
+  the icon changes between closed and open folder states without a separate
+  chevron. Click the project name: activate its path when necessary without
+  changing the group's expanded state. Both controls share one full-width
+  rounded row bubble and retain the other project groups.
 - Click session: activate its bound project when necessary and switch the active
   session. A destination that still has a retained pane (warm switch) is revealed
   immediately with its own content and its own scroll position, so the first
@@ -454,22 +461,24 @@ visually distinct from list content.
   without deleting tabs; the work-panel header keeps its tab strip and fixed `+`
   menu, while each tab owns resource closing
 - Click the `Projects` heading folder-plus action: open the Create project
-  dialog. The dialog accepts a project name and one or more local folders,
-  lists every selected folder with a remove action, and marks the first folder
-  as Primary. Creation makes one logical project group: the primary folder is
+  dialog. The dialog accepts one or more local folders, lists every selected
+  folder with a remove action, and marks the first folder as Primary. Creation
+  derives the new group's display name from the primary folder, so selecting a
+  local folder does not require a second naming step. A single folder already
+  registered to a project activates that existing project and preserves its
+  display name. Creation makes one logical project group: the primary folder is
   activated and names the group, while every other selected folder is retained
   as a group root and is shown in Project archive details, not as an open
   project tab. Group chats, instructions, and memory use the same group
   identity. The dialog follows
   the shell's neutral gray surfaces, with a 480px maximum width,
   `--radius-lg-plus` (18px) corners, and the shared `--ds-shadow-dialog`
-  elevation. Its compact type hierarchy uses `--text-lg` for the title,
-  `--text-base` for the name field, and `--text-sm-plus` or smaller for labels
-  and metadata. The header and action row use the shared 18px dialog gutter,
-  while distinct sections use a 16px gap and shared button/input metrics. One
-  Create project title leads into an explicitly labeled filled name field and
-  the workspace list with a softly filled Add folder action; the field does not
-  repeat its label as placeholder text. Edit project reuses the same surface,
+  elevation. Its compact type hierarchy uses `--text-lg` for the title and
+  `--text-sm-plus` or smaller for labels and metadata. The header and action
+  row use the shared 18px dialog gutter, while distinct sections use a 16px
+  gap and shared button/input metrics. One Create project title leads into the
+  workspace list with a softly filled Add folder action; no project-name field
+  is required on creation. Edit project reuses the same surface,
   loads the host-owned group, allows the name and non-primary folders to be
   adjusted, keeps Primary first and non-removable, and rejects removal of a
   folder that still owns chats. The folder section exposes the current
@@ -632,14 +641,14 @@ controls.
 | Element | Contract |
 |---|---|
 | Group root | localized project name; hover and keyboard focus expose the full path in a portaled tooltip plus an accessible description without changing row geometry |
-| Directory disclosure | single full-row target with `aria-expanded` / `aria-controls`; may activate an inactive project before toggling, but never archives |
+| Directory disclosure | folder-icon target with `aria-expanded` / `aria-controls`; toggles child visibility without a separate chevron or project activation, and never archives |
 | Project pin | presentation priority only; no host row deletion/move |
-| Project reorder | press-and-move on the title (8px), or ArrowUp/ArrowDown on that title, writes contiguous normalized-path order to sidebar preferences; accent insertion line; no visible grip |
+| Project reorder | press-and-move on the project name (8px), or ArrowUp/ArrowDown on that name, writes contiguous normalized-path order to sidebar preferences; accent insertion line; no visible grip |
 | Project archive | omitted from default view; restorable from archived view |
 | Project close | removes retained tab only; durable project/sessions remain |
 | Project delete | row-menu danger action behind a second confirmation that names the project and the number of its sessions; refused with a message while any of those sessions is running; removes the durable project row, those sessions, their transcripts, and its project memory; never deletes the folder on disk; a path owned by a multi-folder project group is refused with a message, and a path the host no longer knows is still removed from the list |
 | Project memory | row-menu editor reads and saves a compact list of titled or untitled memory cards for the exact project path; cards can be added, edited, and removed, the context is available in later chats, and it is never a higher-priority instruction |
-| Session list | exact-path matches only; no basename grouping |
+| Session list | exact-path matches only; no basename grouping; project sessions use full-width rows with no indented bubble |
 | Active group | exactly one group reflects the selected host workspace |
 | Task state | In-progress, selected, completed, and failed indicators update by session without replacing the visible transcript; precedence is in-progress, selected, then terminal outcome |
 
@@ -726,14 +735,15 @@ reading surface of the workstation.
   and the pane keeps it across later switches. When the first commit is bounded,
   an opaque skeleton veil covers the scroller from that same commit until the
   scroller geometry has held still for consecutive frames (600ms cap), then
-  fades out; the composer stays visible and usable above it (D287).
-- The transcript's bottom reserve is **height-aware**, not a fixed gap. The
-  docked composer measures its real rendered height (it grows with multi-line
-  drafts) and publishes it as the `--composer-dock-height` custom property on
-  `:root`; `.thread-content` reserves `calc(var(--composer-dock-height) + 16px)`
-  so the last message sits ~16px above the box and is never overlapped even as
-  the draft grows. `.jump-latest-btn` and `.minimap-rail` anchor to the same
-  variable so they stay just above the composer.
+  fades out; the composer stays visible and usable below it (D287).
+- The transcript and docked composer are sibling flex regions. The composer
+  occupies a normal-flow bottom region (`flex: 0 0 auto`), so the thread
+  scrollport ends at the composer's top edge instead of extending underneath it.
+  Its inner shell keeps the Codex-style pill surface; the shell's top edge and
+  elevation provide separation without a visible full-width divider. Multi-line
+  drafts grow the bottom region and reduce the transcript viewport naturally.
+  `.jump-latest-btn` and `.minimap-rail` stay inside the unobstructed transcript
+  region.
 
 ### 4.4 States
 
@@ -1809,9 +1819,9 @@ Renderer: `apps/desktop/src/components/Markdown.tsx` + `apps/desktop/src/lib/shi
   property per dash, and dash centers are measured in a separate read-only pass.
   Reading a dash's geometry inside the same loop that writes to it forces one
   synchronous layout per dash on every hover frame. The measurement is refreshed
-  when the marker set changes and whenever the rail's own box resizes: the rail's
-  height derives from `--composer-dock-height`, which the composer republishes as
-  its draft grows, so dashes move without a marker change or a window resize.
+  when the marker set changes and whenever the rail's own box resizes: the
+  in-flow composer changes the transcript viewport as its draft grows, so dashes
+  move without a marker change or a window resize.
 
 ### 8.8 Quote and side-chat actions (D-LOCAL-message-quotes, D-LOCAL-selection-overlay)
 
@@ -1837,7 +1847,8 @@ Renderer: `apps/desktop/src/components/Markdown.tsx` + `apps/desktop/src/lib/shi
   above the transcript in the body-portaled popover layer.
 - The overlay's bounds are the clipping ancestors' rects (the transcript
   scroller is one) intersected with the viewport, capped by the docked
-  composer's top edge, which floats over the transcript. Scrolling the thread
+  composer's top edge, which is the transcript's visible bottom boundary.
+  Scrolling the thread
   recomputes and follows the selection; scrolling something unrelated leaves the
   overlay alone. It also recomputes on selection change, double click, key up,
   pointer up, pointer cancel, and resize (at most once per frame), and it hides
@@ -2484,7 +2495,8 @@ reasoning-level control.
 - Scroll stability: The thread scrollport reserves one stable trailing gutter,
   so the transcript does not shift when overflow appears while the minimap
   does not create a matching blank strip on the left.
-- Bottom-anchored: fixed at bottom of MainChat area
+- Bottom-anchored: in-flow at the bottom of MainChat, after the transcript
+  region
 - Placeholder guidance: home uses `chat.placeholderHome`,
   `chat.placeholderHomeHint`, and `chat.placeholderShortcut`; a session
   composer uses `chat.placeholder`, `chat.placeholderHint`, and the same
@@ -2496,7 +2508,7 @@ reasoning-level control.
 - Queue rows: while a session is running, each accepted prompt is held in a
   renderer-owned FIFO list above the shell. Rows show the visible prompt (or
   file-reference names), expose independent Remove and Send now actions, and
-  increase the dock height measured by `--composer-dock-height`.
+  increase the bottom composer region's height.
 
 ### 11.4 States
 
@@ -2579,10 +2591,11 @@ reasoning-level control.
 - Auto-grow: textarea measures wrapped visual lines, starts at one visible
   line, expands through seven lines, then scrolls internally; deleting content
   shrinks it back to one line
-- Resize writes are idempotent (D264): an unchanged height performs no DOM
-  write, so `--composer-dock-height` is not republished and the document's
-  style is not invalidated while typing inside one row. The `height: auto`
-  measurement probe is taken only when the box may need to shrink.
+- Auto-grow geometry is local to the editor: an unchanged height performs no
+  DOM write while typing inside one row, and the `height: auto` measurement
+  probe is taken only when the box may need to shrink. The composer does not
+  publish a document-level dock-height variable; the normal-flow bottom region
+  provides the layout reservation.
 - Draft text and file-reference chips are retained in renderer memory per
   session (D301). The cache is module-scoped, not instance state, so a remount
   — empty-home ↔ docked, chat ↔ Settings/Plugins/other pages, or the window

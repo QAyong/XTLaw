@@ -594,13 +594,15 @@
 }
 
 .sidebar-session-group-title.project-toggle {
-  gap: 5px;
+  gap: 0;
+  padding: 0;
+  background: transparent;
 }
 
 .sidebar-session-group-title.project-toggle:hover,
 .sidebar-session-group-title.project-toggle:focus-visible {
-  background: var(--ds-bg-hover);
-  color: var(--ds-text-primary);
+  background: transparent;
+  color: inherit;
 }
 
 
@@ -857,15 +859,6 @@
   min-width: 0;
 }
 
-.sidebar-disclosure-icon {
-  flex: 0 0 auto;
-  transition: transform var(--motion-duration-fast) var(--motion-ease-out);
-}
-
-.sidebar-disclosure-icon.collapsed {
-  transform: rotate(-90deg);
-}
-
 .sidebar-session-group-header:hover .sidebar-session-group-add,
 .sidebar-session-group-header:focus-within .sidebar-session-group-add,
 .sidebar-session-group-header:hover .sidebar-menu-wrap,
@@ -907,7 +900,18 @@
 
 .project-group.active > .sidebar-session-group-header {
   border-radius: var(--radius-sm);
-  background: color-mix(in oklab, var(--ds-accent) 4%, transparent);
+  background: var(--ds-bg-active);
+  color: var(--ds-text-primary);
+}
+
+.sidebar[data-window-blur="true"] .sidebar-session-group-header:hover {
+  background: transparent;
+  color: var(--ds-text-secondary);
+}
+
+.sidebar[data-window-blur="true"] .project-group.active > .sidebar-session-group-header:hover {
+  background: var(--ds-bg-active);
+  color: var(--ds-text-primary);
 }
 
 .project-menu {

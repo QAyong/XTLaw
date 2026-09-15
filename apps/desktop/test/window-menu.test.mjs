@@ -173,7 +173,7 @@ test("Windows and Linux use menu-free frameless chrome with window controls", ()
   );
   assert.match(
     stylesSource,
-    /\.window-controls\s*\{[^}]*height:\s*var\(--ds-toolbar-height\)[^}]*padding-left:\s*8px;[^}]*background:\s*var\(--ds-bg-primary\);/s,
+    /\.window-controls\s*\{[^}]*height:\s*var\(--ds-toolbar-height\)[^}]*padding:\s*0 8px;[^}]*background:\s*var\(--ds-bg-primary\);/s,
   );
   // D297: no side seam between the control band and the titlebar.
   assert.doesNotMatch(stylesSource, /\.window-controls\s*\{[^}]*border-left/s);
@@ -182,6 +182,10 @@ test("Windows and Linux use menu-free frameless chrome with window controls", ()
     /\.window-controls\s*\{[^}]*border-bottom:/s,
   );
   assert.match(stylesSource, /--ds-window-controls-width:\s*120px;/);
+  assert.match(
+    stylesSource,
+    /\.window-control-btn\s*\{[^}]*width:\s*var\(--ds-work-panel-toggle-size\)[^}]*height:\s*var\(--ds-work-panel-toggle-size\)[^}]*flex:\s*0 0 var\(--ds-work-panel-toggle-size\)/s,
+  );
   assert.match(
     stylesSource,
     /:root\[data-platform="win32"\] \.main-titlebar,[\s\S]*:root\[data-platform="linux"\] \.settings-titlebar\s*\{[^}]*right:\s*var\(--ds-window-controls-width\);/,

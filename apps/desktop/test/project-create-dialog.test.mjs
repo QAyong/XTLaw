@@ -15,9 +15,11 @@ const [dialog, store, api, protocol, main, styles] = await Promise.all([
   read("../src/styles/project-create-dialog.css"),
 ]);
 
-test("create project dialog supports named multi-folder setup", () => {
+test("create project dialog creates from folders without a second naming step", () => {
   assert.match(dialog, /role="dialog"/);
-  assert.doesNotMatch(dialog, /project\.createNamePlaceholder/);
+  assert.doesNotMatch(dialog, /project\.createNameLabel/);
+  assert.doesNotMatch(dialog, /project-create-name/);
+  assert.doesNotMatch(dialog, /MAX_PROJECT_NAME_CHARS/);
   assert.match(dialog, /api\.pickProjectFolders\(\)/);
   assert.match(dialog, /result\.folders/);
   assert.match(dialog, /project\.createRemoveFolder/);
@@ -28,8 +30,8 @@ test("create project dialog supports named multi-folder setup", () => {
   assert.doesNotMatch(dialog, /aria-describedby="project-create-memory-hint"/);
   assert.match(dialog, /project-create-dialog-content/);
   assert.match(dialog, /project-create-dialog-section/);
-  assert.match(dialog, /project-create-dialog-field-label/);
-  assert.match(dialog, /disabled=\{!name\.trim\(\) \|\| folders\.length === 0 \|\| busy\}/);
+  assert.match(dialog, /ref=\{addFolderButtonRef\}/);
+  assert.match(dialog, /disabled=\{folders\.length === 0 \|\| busy\}/);
   assert.match(dialog, /querySelectorAll<HTMLElement>\(/);
 });
 
@@ -38,7 +40,11 @@ test("project creation creates one logical group with a primary workspace", () =
   assert.match(store, /openProject: async \(\) => \{\s*set\(\{ createProjectDialogOpen: true \}\)/);
   assert.match(store, /createProjectFromFolders: async \(\{ name, folders, primaryPath \}\)/);
   assert.match(store, /const orderedFolders = \[/);
+  assert.match(store, /const normalizedName = name\?\.trim\(\) \|\| projectNameFromPath\(primary\)/);
   assert.match(store, /api\.createProjectGroup\(normalizedName, orderedFolders\)/);
+  assert.match(store, /api\.listProjectGroups\(\)/);
+  assert.match(store, /existing\.primaryPath/);
+  assert.match(store, /group\.roots\.some/);
   assert.match(store, /created\.group\.primaryPath/);
   assert.doesNotMatch(store, /for \(const path of orderedFolders\)/);
   assert.match(store, /get\(\)\.renameProject\(groupPrimary, normalizedName\)/);

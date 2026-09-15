@@ -29,6 +29,26 @@
   color: inherit;
 }
 
+.sidebar-session-group-header {
+  display: flex;
+  width: 100%;
+  min-height: 28px;
+  align-items: center;
+  gap: 2px;
+  border-radius: var(--radius-sm);
+  padding: 0 2px;
+  color: var(--ds-text-secondary);
+  transition:
+    background var(--motion-duration-fast) var(--motion-ease-out),
+    color var(--motion-duration-fast) var(--motion-ease-out);
+}
+
+.sidebar-session-group-header:hover,
+.sidebar-session-group-header:focus-within {
+  background: var(--ds-bg-hover);
+  color: var(--ds-text-primary);
+}
+
 .thread-item-title {
   overflow: hidden;
   font-size: var(--text-md); /* session titles stay compact within the sidebar */
@@ -77,24 +97,60 @@
   position: relative;
 }
 
-.sidebar-session-group-header {
-  display: flex;
-  min-height: 28px;
-  align-items: center;
-  gap: 2px;
-  padding: 0 2px;
-}
-
 .project-group.is-dragging {
   opacity: 0.5;
 }
 
 .sidebar-session-group-title.project-toggle {
-  cursor: grab;
+  gap: 0;
+  padding: 0;
+  background: transparent;
+  cursor: default;
 }
 
-.project-group.is-dragging .sidebar-session-group-title {
+.project-group.is-dragging .sidebar-project-name {
   cursor: grabbing;
+}
+
+.sidebar-project-folder-toggle {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-2xs);
+  background: transparent;
+  color: var(--ds-text-muted);
+  cursor: pointer;
+}
+
+.sidebar-project-folder-toggle:hover,
+.sidebar-project-folder-toggle:focus-visible {
+  background: transparent;
+  color: var(--ds-text-primary);
+}
+
+.sidebar-project-name {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  padding: 5px 6px;
+  background: transparent;
+  color: inherit;
+  cursor: grab;
+  font: inherit;
+  line-height: var(--leading-compact);
+  text-align: left;
+}
+
+.sidebar-project-name:focus-visible,
+.sidebar-project-folder-toggle:focus-visible {
+  outline: 2px solid var(--ds-focus);
+  outline-offset: -1px;
 }
 
 .project-group.is-drop-before::before,
@@ -201,16 +257,16 @@
   pointer-events: none;
 }
 
-/* Nested session rows read as children through the indent alone; the tree
-   rail is gone (D297). */
-.sidebar-session-group-body.project {
-  margin-left: 13px;
-  padding-left: 9px;
+/* Session rows use the same full-width bubble as project rows. The hierarchy
+   comes from order and the shared content alignment, not a nested bubble. */
+.sidebar-session-group-body.project,
+.sidebar-session-group-body.temporary {
+  margin-left: 0;
+  padding-left: 0;
 }
 
-.sidebar-session-group-body.temporary {
-  margin-left: 13px;
-  padding-left: 9px;
+.sidebar-session-group-body.project .thread-item-main {
+  padding-left: 30px;
 }
 
 .sidebar-time-group-header {

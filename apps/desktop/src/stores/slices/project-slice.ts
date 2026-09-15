@@ -30,6 +30,7 @@ import {
   sessionIsPinned,
   sortProjects,
   sortSessions,
+  MAX_PROJECT_NAME_CHARS,
   normalizeProjectName,
   type ProjectMeta,
   type ProjectSort,
@@ -140,6 +141,12 @@ function clearLocalSessionState(
       navIndex: Math.min(state.navIndex, navStack.length - 1),
     };
   });
+}
+
+function projectNameFromPath(path: string): string {
+  const parts = path.replace(/\\/g, "/").split("/").filter(Boolean);
+  const leaf = parts.at(-1)?.trim() || path.trim();
+  return Array.from(leaf).slice(0, MAX_PROJECT_NAME_CHARS).join("") || "Project";
 }
 
 export function createProjectSlice({
@@ -320,10 +327,6 @@ export function createProjectSlice({
       set({ createProjectDialogOpen: false });
     },
     createProjectFromFolders: async ({ name, folders, primaryPath }) => {
-      const normalizedName = name.trim();
-      if (!normalizedName) {
-        throw new Error(i18n.t("errors.projectNameLength"));
-      }
       const uniqueFolders = folders.filter(
         (path, index, all) =>
           Boolean(normalizeProjectPath(path)) &&
@@ -345,6 +348,33 @@ export function createProjectSlice({
         ),
       ];
       const intent = runtime.beginNavigationIntent();
+
+      // A single folder that already belongs to a project is an open action,
+      // not a second project creation. Existing custom names remain intact.
+      if (orderedFolders.length === 1) {
+        const { groups } = await api.listProjectGroups();
+        if (!runtime.navigationIntentIsCurrent(intent)) return;
+        const existing = groups.find((group) =>
+          group.roots.some(
+            (root) => normalizeProjectPath(root.path) === normalizeProjectPath(primary),
+          ),
+        );
+        if (existing) {
+          const workspace = await get().activateProject(existing.primaryPath, {
+            navigationIntent: intent,
+          });
+          if (!workspace || !runtime.navigationIntentIsCurrent(intent)) return;
+          const onboarding = await api.getOnboarding();
+          if (!runtime.navigationIntentIsCurrent(intent)) return;
+          set({ createProjectDialogOpen: false, onboarding, page: "chat" });
+          return;
+        }
+      }
+
+      const normalizedName = name?.trim() || projectNameFromPath(primary);
+      if (!normalizedName) {
+        throw new Error(i18n.t("errors.projectNameLength"));
+      }
       const created = await api.createProjectGroup(normalizedName, orderedFolders);
       if (!runtime.navigationIntentIsCurrent(intent)) return;
       const groupPrimary = created.group.primaryPath || primary;

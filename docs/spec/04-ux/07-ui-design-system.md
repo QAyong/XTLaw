@@ -222,7 +222,7 @@ opacity-only changes, so actions remain legible in dark and light themes.
 
 Light-surface polish (D148):
 
-- Docked work panel uses quiet inset paper (`#fafafa`) with a white header band and a combined create trigger in the header so the tool column stays on content without any divider (D297 removed the remaining edge rules).
+- Docked work panel uses quiet inset paper (`#fafafa`) with a white header band and a combined create trigger in the header. The existing resize overlay paints a persistent 1px `--ds-border-default` divider against the chat column so white file/plugin content cannot erase the column boundary; internal work-panel surfaces remain divider-free (D297).
 - The work-panel header keeps its add-tab action in a separated rail: a tokenized 60px safe lane reserves the viewport-fixed panel toggle, with at least 24px of visual separation between the two hit targets on supported window sizes.
 - Shared form fields, browser URL, settings segment tracks, and shortcut keycaps use `--ds-tile` fills with no stroke (D297); focus lifts to white with an accent-tinted ring. An Unbound shortcut uses a localized text state instead of an empty keycap and keeps its recorder and restore controls keyboard-focusable.
 - Settings toggles keep a near-black on-track and force a white knob in light mode.
@@ -510,9 +510,10 @@ the expanded sidebar's Collapse sidebar icon button right-aligned
 in that same row. The macOS row omits the sidebar logo/title, reserves `76px`
 on the left for native chrome in windowed mode, and reclaims that padding in
 fullscreen. Windows/Linux keep the identity and sidebar actions in their first
-row and reserve the rightmost 120px for three frameless-window controls. The
-controls retain 112px of full-height hit targets, while the outer band adds an
-8px visual buffer before adjacent work-panel actions. The band paints an opaque
+row and reserve the rightmost 120px for three frameless-window controls. Each
+control is a 28px square whose visible surface and hit target are the same box;
+the remaining lane space separates the controls from adjacent work-panel
+actions. The band paints an opaque
 `bg-primary` surface so page content never shows through the controls, and its
 leading and bottom edges use the same `border-subtle` rule as the adjacent
 titlebar so the 46px chrome reads as one continuous surface. Main, Settings,
@@ -558,9 +559,12 @@ shadow-lg:  0 8px 24px rgba(0,0,0,0.12)
 
 ### 6.4 Border rules
 
-In-flow surfaces draw no strokes (D297). Structure inside a page comes from
-three tonal layers plus spacing, and the border tokens are reserved for
-floating layers where an edge is an elevation cue rather than a partition.
+In-flow content surfaces draw no strokes (D297). The chat/work-panel shell
+boundary is the deliberate exception: the existing 10px resize hit area paints
+a centered 1px `--ds-border-default` divider at rest and promotes it to
+`--ds-focus` during hover, focus, or resize. Structure inside each surface still
+comes from three tonal layers plus spacing, and border tokens remain reserved
+for floating layers and this explicit shell partition.
 
 | Layer | Token | Use |
 |---|---|---|
@@ -777,8 +781,9 @@ model):
   content block reachable by scrolling; the bottom composer remains visible
   and never covers the checklist
 - The home composer is a bottom-reserved sibling of the scroller. Thread mode
-  keeps its absolute bottom dock and reserves its measured height without a
-  full-width fade veil
+  keeps its composer in a normal-flow bottom region; the transcript ends before
+  that region, while the inner Codex-style pill's top edge and elevation provide
+  separation without a visible full-width divider or fade veil
 - Composer radius uses Codex `radius-3xl-base` (**20px** / `1.25rem`)
 - Empty-home composer height is content-driven: a one-line draft renders the
   compact shell, grows with the draft through seven visible rows, and then
@@ -801,11 +806,11 @@ model):
   draft aligns directly with the input gutter. Light placeholder ~`#525355`
 - Disabled send is a **solid gray chip** (`#8e8e90` light, white arrow), not
   opacity-only fade
-- Floating composer plates use one solid semantic surface with no internal
-  gradient: `--ds-bg-composer` in light and elevated-primary in dark. A
-  hairline stroke plus the restrained `--elevation-prominent` shadow provides
-  separation; the transcript reserves the measured dock height instead of
-  painting a full-width gradient veil.
+- Composer shells use one solid semantic surface with no internal gradient:
+  `--ds-bg-composer` in light and elevated-primary in dark. In thread mode the
+  shell sits in an in-flow bottom region, and its top edge plus restrained
+  `--elevation-prominent` shadow provide separation; no visible full-width
+  divider or gradient veil is painted.
 - Dark elevated shell reads as elevated-primary (`#212121f5` / gray-800 96%)
   on `#181818` with standard elevation-prominent
 - Starter cards use a two-column grid at workstation widths and collapse to

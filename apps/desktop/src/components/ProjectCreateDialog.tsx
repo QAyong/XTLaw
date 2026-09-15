@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { MAX_PROJECT_NAME_CHARS } from "../lib/sidebar-preferences";
 import { api } from "../lib/api";
 import { useAppStore } from "../stores/app-store";
 import { Button, TooltipButton } from "./ui";
@@ -38,23 +37,21 @@ export function ProjectCreateDialog() {
   const close = useAppStore((state) => state.closeProjectDialog);
   const createProject = useAppStore((state) => state.createProjectFromFolders);
   const showToast = useAppStore((state) => state.showToast);
-  const [name, setName] = useState("");
   const [folders, setFolders] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
-  const inputRef = useRef<HTMLInputElement | null>(null);
+  const addFolderButtonRef = useRef<HTMLButtonElement | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const busyRef = useRef(false);
 
   useEffect(() => {
     if (!open) return;
-    setName("");
     setFolders([]);
     busyRef.current = false;
     setBusy(false);
     const previousOverflow = document.body.style.overflow;
     const previouslyFocused = document.activeElement as HTMLElement | null;
     document.body.style.overflow = "hidden";
-    requestAnimationFrame(() => inputRef.current?.focus());
+    requestAnimationFrame(() => addFolderButtonRef.current?.focus());
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -107,13 +104,11 @@ export function ProjectCreateDialog() {
   };
 
   const submit = async () => {
-    const trimmedName = name.trim();
-    if (!trimmedName || folders.length === 0 || busyRef.current) return;
+    if (folders.length === 0 || busyRef.current) return;
     busyRef.current = true;
     setBusy(true);
     try {
       await createProject({
-        name: trimmedName,
         folders,
         primaryPath: folders[0],
       });
@@ -170,37 +165,6 @@ export function ProjectCreateDialog() {
         >
           <div className="project-create-dialog-content">
             <section
-              className="project-create-dialog-section project-create-dialog-identity"
-              aria-labelledby="project-create-name-heading"
-            >
-              <div className="project-create-dialog-section-head project-create-dialog-name-head">
-                <label
-                  id="project-create-name-heading"
-                  className="project-create-dialog-section-title project-create-dialog-field-label"
-                  htmlFor="project-create-name"
-                >
-                  {t("project.createNameLabel")}
-                </label>
-                <span className="project-create-dialog-name-count" aria-live="polite">
-                  {name.length}/{MAX_PROJECT_NAME_CHARS}
-                </span>
-              </div>
-              <input
-                ref={inputRef}
-                id="project-create-name"
-                className="field-input project-create-dialog-name-field"
-                value={name}
-                maxLength={MAX_PROJECT_NAME_CHARS}
-                onChange={(event) => setName(event.target.value)}
-                aria-label={t("project.createNameLabel")}
-                disabled={busy}
-                spellCheck={false}
-                autoCorrect="off"
-                autoCapitalize="off"
-              />
-            </section>
-
-            <section
               className="project-create-dialog-section project-create-dialog-folders"
               aria-labelledby="project-create-folders-heading"
             >
@@ -254,6 +218,7 @@ export function ProjectCreateDialog() {
               ) : null}
 
               <button
+                ref={addFolderButtonRef}
                 type="button"
                 aria-label={t("project.createAddFolder")}
                 className={`project-create-add-folder${folders.length === 0 ? " is-empty" : ""}`}
@@ -279,7 +244,7 @@ export function ProjectCreateDialog() {
             <Button
               type="submit"
               variant="primary"
-              disabled={!name.trim() || folders.length === 0 || busy}
+              disabled={folders.length === 0 || busy}
             >
               {busy ? t("project.createSaving") : t("project.createAction")}
             </Button>

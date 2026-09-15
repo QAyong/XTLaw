@@ -70,8 +70,8 @@ export function SelectionQuoteButton({
       setTarget(
         selectionQuoteTarget({
           scrollRoot: scrollRef.current,
-          // The composer floats over the transcript, so the scroller's own
-          // bottom edge is under it.
+          // The composer is a sibling of the transcript, so its top edge is
+          // the visible reading boundary.
           bottomBoundaryTop: dock ? dock.getBoundingClientRect().top : null,
         }),
       );

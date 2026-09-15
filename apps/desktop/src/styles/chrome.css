@@ -692,8 +692,9 @@
   flex: 0 0 28px;
 }
 
-/* Frameless Windows/Linux controls own a 120px band at the conversation pane's
- * right edge: 112px of controls plus an 8px visual buffer. */
+/* Frameless Windows/Linux controls own a 120px titlebar lane at the viewport's
+ * right edge. The lane is 46px high, while each visible control is a 28px
+ * square so its hit target and visual surface are exactly the same box. */
 :root[data-platform="win32"] .conversation-topbar,
 :root[data-platform="linux"] .conversation-topbar {
   right: var(--ds-window-controls-width);
@@ -984,12 +985,14 @@
   z-index: 200; /* above titlebar (10) and work panel chrome */
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
   width: var(--ds-window-controls-width);
   height: var(--ds-toolbar-height);
   box-sizing: border-box;
-  padding-left: 8px;
-  /* Paint a separate full hit band so page content cannot show through the
-   * controls and panel actions cannot read as part of the same button group. */
+  padding: 0 8px;
+  /* Paint the same titlebar surface across the lane without making the
+   * unbuttoned buffer look like another control. */
   background: var(--ds-bg-primary);
   /* Continuous with the adjacent titlebar: no side seam (D297). */
 }
@@ -1005,14 +1008,15 @@
   app-region: no-drag;
   pointer-events: auto;
   display: inline-flex;
-  height: 100%;
-  min-width: 0;
-  flex: 1 1 0;
+  width: var(--ds-work-panel-toggle-size);
+  height: var(--ds-work-panel-toggle-size);
+  flex: 0 0 var(--ds-work-panel-toggle-size);
   align-items: center;
   justify-content: center;
-  border-radius: 0;
-  color: color-mix(in oklab, var(--ds-text-primary) 55%, transparent);
+  border-radius: var(--radius-md);
+  color: var(--ds-text-secondary);
   background: transparent;
+  line-height: 0;
   transition: background var(--motion-duration-fast) var(--motion-ease-out), color var(--motion-duration-fast) var(--motion-ease-out);
 }
 

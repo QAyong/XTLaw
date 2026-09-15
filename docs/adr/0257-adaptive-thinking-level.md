@@ -38,8 +38,10 @@ thinking-level enum.
    configuration contract. Turn-scoped overrides are cleared when the run ends.
 4. The global AI settings page provides a switch for the default auto mode. The
    setting is optional and defaults to enabled for existing installs.
-5. The Composer displays the selected mode and effective concrete level, for
-   example `auto · medium`, so the user can see what will be sent.
+5. The Composer displays the selected mode. Auto is rendered as `auto` even
+   when its concrete baseline changes during or between turns; a user-selected
+   concrete level is rendered as that level and remains the session's manual
+   choice when the session is reopened.
 
 ## Consequences
 

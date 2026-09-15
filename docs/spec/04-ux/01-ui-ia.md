@@ -140,7 +140,8 @@ destination, chat as the home surface, tools and permissions inline.
   (D111/D204/D206), bottom-docked in a transcript, with no project / Local / branch
   rail (D095).
   Its left-of-input operating-mode chip is the sole active-session control for
-  **Agent**, **Plan**, and **Goal**. Plan shows the same Agent's planning state;
+  **Agent**, **Plan**, and **Goal**; clicking it opens a selection menu with the
+  three modes and marks the current mode. Plan shows the same Agent's planning state;
   Goal shows the same approval boundary for an outcome contract. Both keep the
   permission-mode chip and expose their host-written immutable `.pi/plan/*.md`
   or `.pi/goal/*.md` artifact opener after submission. The conversation top bar

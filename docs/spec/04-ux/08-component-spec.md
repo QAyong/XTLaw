@@ -2446,8 +2446,10 @@ reasoning-level control.
 - The Agent/Plan/Goal mode chip reserves one fixed 88px width, sized from the
   longest built-in label in English and zh-CN ("Agent" / "智能体"). Its label
   stays single-line and ellipsizes if a future locale exceeds that budget, so
-  switching modes never reflows the adjacent Composer controls. Cycling the
-  chip cross-fades the icon and label in place. While the live turn is
+  switching modes never reflows the adjacent Composer controls. Clicking the
+  chip opens an anchored menu listing Agent, Plan, and Goal, with a check mark
+  on the active mode; selecting an item updates the session and closes the menu.
+  The chip cross-fades the icon and label in place. While the live turn is
   `planning`, the chip pulses on its icon (purple) instead of leaving a
   second status row parked above the composer; a staged mode choice still
   updates the chip immediately and does not start that pulse until the
@@ -2646,7 +2648,7 @@ reasoning-level control.
   to Off-only. An active pending Plan or Goal approval still disables these
   controls. Approval actions are the exception while awaiting approval. The
   Composer-left Agent/Plan/Goal chip is the sole mode
-  control and cycles Agent → Plan → Goal → Agent on click. The Composer-right
+  control and opens an anchored Agent/Plan/Goal menu on click. The Composer-right
   model × reasoning chip owns both selections. Palette and Composer slash mode commands use the
   same active-session configuration path; after host confirmation resolves an
   approval, the approval surface is removed rather than remaining as a terminal

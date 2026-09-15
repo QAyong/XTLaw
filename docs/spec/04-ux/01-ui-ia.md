@@ -135,10 +135,12 @@ destination, chat as the home surface, tools and permissions inline.
   minimum supported size of 1040×700. Replaces
   the former context-panel overlay; workspace/model/status info lives in the
   composer chips and Settings instead.
-- **Composer**: workspace-agnostic floating pill anchored to the conversation
-  destination — centered empty-home content above a bottom-reserved composer
-  (D111/D204/D206), bottom-docked in a transcript, with no project / Local / branch
-  rail (D095).
+- **Composer**: workspace-agnostic Codex-style pill anchored to the
+  conversation destination — centered empty-home content above a
+  bottom-reserved composer (D111/D204/D206), and a normal-flow bottom composer
+  region in a transcript. The transcript ends at the top of that region, while
+  the pill's own top edge and elevation provide the visual separation; there is
+  no project / Local / branch rail (D095).
   Its left-of-input operating-mode chip is the sole active-session control for
   **Agent**, **Plan**, and **Goal**; clicking it opens a selection menu with the
   three modes and marks the current mode. Plan shows the same Agent's planning state;
@@ -185,11 +187,12 @@ destination, chat as the home surface, tools and permissions inline.
 - **Identity**: each project group is keyed by a host-owned logical group id;
   each root path remains canonical and is never inferred from an ambiguous
   folder basename. Legacy single-folder projects are compatibility groups.
-- **Header**: project name, active state, disclosure, new-task action, and an
-  overflow menu. The directory title is one full-row disclosure target;
-  collapse/expand affects only child visibility, and adjacent groups form one
-  dense tree rather than detached cards. Hovering or focusing the project title
-  reveals the full project path. Pressing the title and moving 8px reorders
+- **Header**: project name, active state, interactive folder state, new-task
+  action, and an overflow menu. The folder icon toggles child visibility while
+  the project name activates the project; both controls share one full-width
+  rounded row bubble with no separate disclosure arrow. Adjacent groups form
+  one dense list rather than detached cards. Hovering or focusing the project
+  name reveals the full project path. Pressing the name and moving 8px reorders
   the group.
 - **Project actions**: open folder reveals the primary project directory; Edit
   project changes the host-owned logical group name and adjusts eligible
@@ -207,10 +210,11 @@ destination, chat as the home surface, tools and permissions inline.
   to `manual` by dragging a title or using ArrowUp/ArrowDown on that
   title. Session `manual` remains a compatibility value.
 - **Conversation list**: each group shows the ten most-recent sessions in the
-  active sort order by default; the remainder folds behind a **Load N more…**
-  row that expands the full time-grouped list on click. Pinned rows precede
-  unpinned rows and are never pushed behind the fold; the expansion state is
-  not persisted.
+  active sort order by default; each session is a full-width rounded row with
+  no indented bubble. The remainder folds behind a **Load N more…** row that
+  expands the full time-grouped list on click. Pinned rows precede unpinned
+  rows and are never pushed behind the fold; the expansion state is not
+  persisted.
 - **Standalone sessions**: path-less sessions remain in the separate Sessions
   section and never inherit the last active project's workspace.
 - **Concurrency**: the shell selects one visible project at a time, while

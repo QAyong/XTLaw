@@ -202,10 +202,11 @@
   overflow-anchor: none;
 }
 
-/* Floats above the docked composer fade when the user scrolls away from latest */
+/* The transcript ends above the in-flow composer, so this control only needs
+ * to clear the bottom edge of the reading region. */
 .jump-latest-btn {
   position: absolute;
-  bottom: calc(var(--composer-dock-height, 168px) + 12px);
+  bottom: 12px;
   left: 50%;
   translate: -50% 0;
   z-index: 5;
@@ -247,10 +248,10 @@
   width: min(100%, var(--chat-content-max-width));
   margin: 0 auto;
   transition: width var(--chat-width-transition);
-  /* Reserve exactly the composer's real height (+ a small gap) so the last
-   * message sits just above the box instead of far below it. The variable is
-   * published by Composer.tsx from the docked composer's measured height. */
-  padding: 20px 32px calc(var(--composer-dock-height, 228px) + 16px);
+  /* The composer is an in-flow sibling, so only the normal message-to-edge
+   * breathing room belongs to the transcript. Its viewport already ends above
+   * the composer region and cannot paint messages behind the shell. */
+  padding: 20px 32px 24px;
 }
 
 /* Holds enough scroll height for the bounded first commit of a session switch to
@@ -267,10 +268,8 @@
 
 /* Settle veil (D287). Covers the scroller while a long transcript's first frames
  * still move (expansion, late row heights) and fades once the geometry holds.
- * Positioned without a z-index so tree order keeps it above the scroller and
- * beneath the docked composer, which stays usable. It is inside `.thread-wrap`,
- * not `.thread-scroll`, so wheel input over it reaches no scroller and cannot
- * unpin the transcript before the veil lifts. */
+ * It is inside `.thread-wrap`, not `.thread-scroll`, so wheel input over it
+ * reaches no scroller and cannot unpin the transcript before the veil lifts. */
 .transcript-settle-veil {
   position: absolute;
   inset: 0;
@@ -288,9 +287,9 @@
   pointer-events: none;
 }
 
-/* Same band and reserves as `.thread-content`, so the skeleton rows sit where
- * the settled rows will. They stack from the bottom because that is where the
- * newest turn, and therefore the reader's attention, lands on reveal. */
+/* Same band and edge spacing as `.thread-content`, so the skeleton rows sit
+ * where the settled rows will. They stack from the bottom because that is where
+ * the newest turn, and therefore the reader's attention, lands on reveal. */
 .transcript-settle-veil-band {
   display: flex;
   flex-direction: column;
@@ -298,8 +297,7 @@
   gap: 24px;
   box-sizing: border-box;
   width: min(100%, var(--chat-content-max-width));
-  padding: calc(var(--ds-toolbar-height) + 20px) 28px
-    calc(var(--composer-dock-height, 228px) + 16px);
+  padding: calc(var(--ds-toolbar-height) + 20px) 28px 24px;
 }
 
 .transcript-skeleton-row {
@@ -372,7 +370,7 @@
   position: absolute;
   left: 8px;
   top: var(--ds-toolbar-height);
-  bottom: calc(var(--composer-dock-height, 200px) + 16px);
+  bottom: 16px;
   z-index: 6;
   display: flex;
   width: 26px;

@@ -65,11 +65,11 @@ import {
   IconPlug,
   IconBranch,
   IconCheck,
-  IconChevronDown,
   IconCopy,
   IconCircleAlert,
   IconNewSession,
   IconFolder,
+  IconFolderOpen,
   IconMore,
   IconNewProject,
   IconPin,
@@ -1553,6 +1553,9 @@ export function Sidebar({
     const collapsedProject = entry.meta.collapsed ?? projectCollapsed[entry.key] ?? false;
     const projectId = projectDomId(entry.key);
     const isMenuOpen = projectMenu === entry.key;
+    const folderToggleLabel = collapsedProject
+      ? t("project.expandSessions", { defaultValue: "Expand project sessions" })
+      : t("project.collapseSessions", { defaultValue: "Collapse project sessions" });
 
     // Show the most recent MAX_VISIBLE_SESSIONS rows by default; the remaining
     // sessions stay folded behind the same load-more affordance used for the
@@ -1618,17 +1621,6 @@ export function Sidebar({
       >
         <div
           className="sidebar-session-group-header"
-          onClick={(event) => {
-            // Same one-target rule as a session row: the header's own controls
-            // stay the only spelled-out targets, so the gutter next to a hidden
-            // control still activates and toggles the group.
-            const target = event.target as HTMLElement | null;
-            if (target?.closest("button, [data-action]")) return;
-            void (async () => {
-              if (!entry.active && !(await selectProject(entry.path))) return;
-              setCollapsed(entry.path, !collapsedProject);
-            })();
-          }}
           onContextMenu={(event) => {
             if (projectReorderRef.current) {
               event.preventDefault();
@@ -1646,51 +1638,60 @@ export function Sidebar({
             );
           }}
         >
-          <TooltipButton
-            type="button"
-            id={projectId}
-            className="sidebar-session-group-title project-toggle"
-            tooltip={entry.path}
-            tooltipDelayMs={500}
-            tooltipClassName="ui-tooltip-path"
-            ariaLabel={entry.name}
-            aria-describedby={`${projectId}-path-description`}
-            aria-expanded={!collapsedProject}
-            aria-controls={`${projectId}-sessions`}
-            aria-keyshortcuts="ArrowUp ArrowDown"
-            aria-grabbed={draggingProjectKey === entry.key}
-            data-action="toggle-project-collapse"
-            onDragStart={(event) => event.preventDefault()}
-            onPointerDown={(event) => beginProjectReorderPress(event, entry.key)}
-            onKeyDown={(event) => moveProjectWithKeyboard(event, entry.key)}
-            onClick={() => {
-              if (suppressProjectTitleClickRef.current) {
-                suppressProjectTitleClickRef.current = false;
-                return;
-              }
-              void (async () => {
-                if (!entry.active && !(await selectProject(entry.path))) return;
+          <div className="sidebar-session-group-title project-toggle">
+            <TooltipButton
+              type="button"
+              className="sidebar-project-folder-toggle"
+              tooltip={folderToggleLabel}
+              ariaLabel={folderToggleLabel}
+              aria-expanded={!collapsedProject}
+              aria-controls={`${projectId}-sessions`}
+              data-action="toggle-project-collapse"
+              onClick={(event) => {
+                event.stopPropagation();
                 setCollapsed(entry.path, !collapsedProject);
-              })();
-            }}
-          >
-            <IconChevronDown
-              size={13}
-              className={`sidebar-disclosure-icon ${collapsedProject ? "collapsed" : ""}`}
-            />
-            {entry.meta.pinned ? (
-              <IconStar
-                size={13}
-                fill="currentColor"
-                className="sidebar-project-pin"
-                aria-hidden
-              />
-            ) : (
-              <IconFolder size={13} aria-hidden />
-            )}
-            <span>{entry.name}</span>
-            {entry.active ? <span className="sidebar-project-active-dot" aria-label={t("project.active", { defaultValue: "Active" })} /> : null}
-          </TooltipButton>
+              }}
+            >
+              {entry.meta.pinned ? (
+                <IconStar
+                  size={13}
+                  fill="currentColor"
+                  className="sidebar-project-pin"
+                  aria-hidden
+                />
+              ) : collapsedProject ? (
+                <IconFolder size={13} aria-hidden />
+              ) : (
+                <IconFolderOpen size={13} aria-hidden />
+              )}
+            </TooltipButton>
+            <TooltipButton
+              type="button"
+              id={projectId}
+              className="sidebar-project-name"
+              tooltip={entry.path}
+              tooltipDelayMs={500}
+              tooltipClassName="ui-tooltip-path"
+              ariaLabel={entry.name}
+              aria-describedby={`${projectId}-path-description`}
+              aria-keyshortcuts="ArrowUp ArrowDown"
+              aria-grabbed={draggingProjectKey === entry.key}
+              onDragStart={(event) => event.preventDefault()}
+              onPointerDown={(event) => beginProjectReorderPress(event, entry.key)}
+              onKeyDown={(event) => moveProjectWithKeyboard(event, entry.key)}
+              onClick={(event) => {
+                event.stopPropagation();
+                if (suppressProjectTitleClickRef.current) {
+                  suppressProjectTitleClickRef.current = false;
+                  return;
+                }
+                void selectProject(entry.path);
+              }}
+            >
+              <span>{entry.name}</span>
+              {entry.active ? <span className="sidebar-project-active-dot" aria-label={t("project.active", { defaultValue: "Active" })} /> : null}
+            </TooltipButton>
+          </div>
           <span id={`${projectId}-path-description`} className="sr-only">
             {entry.path}
             {". "}

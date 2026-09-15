@@ -15,10 +15,10 @@
   height: 100%;
   min-height: 0;
   z-index: 20;
-  /* The dock is a step lighter than the conversation pane, and that tone
-     change is its only edge (D297): no divider against the chat column.
-     `--ds-bg-dock` is a token, not a literal, so a contributed theme can move
-     the whole column (D419). */
+  /* The dock is a step lighter than the conversation pane. Its boundary is
+     clarified by the existing resize overlay, while internal surfaces remain
+     divider-free (D297). `--ds-bg-dock` is a token, not a literal, so a
+     contributed theme can move the whole column (D419). */
   background: var(--ds-bg-dock);
   /*
    * Animate the allocated dock width as well as its small compositor slide.
@@ -95,7 +95,9 @@
   inset-block: 0;
   left: 50%;
   width: 1px;
-  background: transparent;
+  /* Keep the chat/work-panel boundary visible when a nested view is also
+     white, without adding layout width or a second box around the dock. */
+  background: var(--ds-border-default);
   transform: translateX(-50%);
   transition:
     width var(--motion-duration-fast) var(--motion-ease-out),

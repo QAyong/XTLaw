@@ -29,6 +29,24 @@ test("window chrome reserves the same titlebar height and native control band", 
   assert.match(stylesSource, /--ds-toolbar-height:\s*46px;/);
 });
 
+test("window control hit targets match their visible button boxes", () => {
+  const controls = styleBlock("\\.window-control-btn");
+  assert.match(
+    controls,
+    /width:\s*var\(--ds-work-panel-toggle-size\);[^}]*height:\s*var\(--ds-work-panel-toggle-size\);/s,
+  );
+  assert.match(
+    controls,
+    /flex:\s*0 0 var\(--ds-work-panel-toggle-size\);/,
+  );
+  assert.match(controls, /border-radius:\s*var\(--radius-md\);/);
+  assert.match(controls, /line-height:\s*0;/);
+  assert.match(
+    stylesSource,
+    /\.window-controls\s*\{[^}]*justify-content:\s*flex-end;[^}]*gap:\s*4px;/s,
+  );
+});
+
 test("window control band draws no boundary of its own", () => {
   // D297: the band paints the titlebar tone and nothing else; no side seam.
   const controls = styleBlock("\\.window-controls");

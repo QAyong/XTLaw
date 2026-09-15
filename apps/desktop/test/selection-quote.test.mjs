@@ -114,8 +114,8 @@ test("the overlay is clamped into its bounds on both axes", () => {
 });
 
 test("the bounds are the scroll container, capped above the docked composer", () => {
-  // The composer floats over the transcript, so the scroller's own bottom is not
-  // the visible bottom (D-LOCAL-selection-overlay).
+  // The composer is a sibling of the transcript, and its top edge is the
+  // visible bottom boundary (D-LOCAL-selection-overlay).
   assert.match(source, /export const COMPOSER_DOCK_SELECTOR = '\[data-composer-dock="docked"\]'/);
   assert.match(source, /bottomBoundaryTop/);
   assert.match(composer, /data-composer-dock=\{variant\}/);

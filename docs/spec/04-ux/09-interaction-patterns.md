@@ -176,6 +176,10 @@ their create and sort controls. Its bounded list keeps standalone work visible
 without consuming the full sidebar. The following `Projects` section heading
 exposes the project picker above retained project groups. Several project groups
 may be retained while exactly one workspace supplies the visible shell context.
+Selecting folders in the project picker derives a new project's display name from
+the first (Primary) folder. A single folder already registered to a project is
+activated instead of being registered a second time; its existing display name
+is preserved. Manual renaming remains available from Edit project.
 
 #### Project tab lifecycle
 
@@ -1306,10 +1310,10 @@ Project drag/drop follows these patterns:
   treated as layout noise and re-baselined instead of being mistaken for a
   user scrolling up
 - A pinned transcript re-pins in the same frame the content or the viewport
-  changes size, never one frame later. That includes the composer growing under
-  a multi-line draft: the bottom reserve is padding on the transcript content, so
-  the content is observed on its border box and the newest turn moves up with
-  the composer instead of sliding behind it (D287).
+  changes size, never one frame later. That includes the composer growing with
+  a multi-line draft: the in-flow bottom composer region reduces the transcript
+  viewport, so the newest turn moves up with the composer instead of sliding
+  behind it (D287).
 - User send / retry / regenerate: re-pins, hides the jump control, and positions the latest content in the layout phase so the new turn is visible without a top-of-history flash; subsequent persisted and streamed rows continue to follow the bottom
 - Scroll-to-bottom button: position fixed at bottom-right of transcript area, offset 12px
 - Button appears as soon as upward scrolling releases follow mode

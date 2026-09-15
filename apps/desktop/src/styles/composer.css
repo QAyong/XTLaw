@@ -13,15 +13,14 @@
   container-name: composer-stack;
 }
 
-/* Thread mode: floating bottom dock. The transcript already reserves the
- * composer's measured height, so a full-width gradient veil is unnecessary
- * and makes the lower half of the conversation look hazy. */
+/* Thread mode: reserve a real bottom region for the composer. The shell keeps
+ * the Codex-style floating-pill treatment, while the transcript stops before
+ * this region instead of scrolling underneath it. */
 .composer-dock-docked {
-  position: absolute;
-  inset-inline: 0;
-  bottom: 0;
+  position: relative;
+  flex: 0 0 auto;
   padding: 0 24px 16px;
-  background: transparent;
+  background: var(--ds-bg-primary);
 }
 
 /* Home mode: the shell is owned by the bottom-reserved home composer region. */

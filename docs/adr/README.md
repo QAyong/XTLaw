@@ -292,3 +292,5 @@ Each ADR includes:
 | 0265 | [Priority block and row actions for the Host-owned turn queue](0265-turn-queue-priority-block-and-row-actions.md) | Accepted for implementation (D429; amends ADR 0213 / 0118) |
 | session-content-search | [Discover sessions by indexed message text](session-content-search.md) | Accepted |
 | transcript-reading-ownership | [Share renderer history and search views](transcript-reading-ownership.md) | Accepted |
+| work-panel-boundary-divider | [Theme-aware work-panel boundary divider](work-panel-boundary-divider.md) | Accepted (amends D297) |
+| composer-in-flow-boundary | [Keep the thread composer in flow](composer-in-flow-boundary.md) | Accepted (amends 0065) |

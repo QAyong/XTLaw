@@ -249,7 +249,8 @@ export type AppState = {
   openProject: () => Promise<void>;
   closeProjectDialog: () => void;
   createProjectFromFolders: (input: {
-    name: string;
+    /** Optional compatibility override; new UI derives it from the primary folder. */
+    name?: string;
     folders: string[];
     primaryPath: string;
   }) => Promise<void>;

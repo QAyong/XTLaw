@@ -149,8 +149,16 @@ test("transcript density and hover actions are quiet", () => {
   assert.match(stylesSource, /\.message-row \{[\s\S]*?padding:\s*12px 0;/);
   assert.match(
     stylesSource,
-    /\.thread-content \{[\s\S]*?padding:\s*20px 32px calc\(var\(--composer-dock-height, 228px\) \+ 16px\);/,
+    /\.thread-content \{[\s\S]*?padding:\s*20px 32px 24px;/,
   );
+  const dockedComposer = stylesSource.match(
+    /\.composer-dock-docked\s*\{([^}]*)\}/,
+  )?.[1] ?? "";
+  assert.match(dockedComposer, /position:\s*relative/);
+  assert.match(dockedComposer, /flex:\s*0 0 auto/);
+  assert.match(dockedComposer, /background:\s*var\(--ds-bg-primary\)/);
+  assert.doesNotMatch(dockedComposer, /border(?:-top)?:/);
+  assert.doesNotMatch(dockedComposer, /position:\s*absolute|bottom:\s*0/);
   assert.match(
     stylesSource,
     /\.message-actions \{[\s\S]*?opacity:\s*0;[\s\S]*?\.message-row:hover \.message-actions/,
@@ -455,7 +463,7 @@ test("conversation minimap stays centered below titlebar at high density", () =>
   );
   assert.match(
     stylesSource,
-    /\.minimap-rail \{[\s\S]*?top:\s*var\(--ds-toolbar-height\);[\s\S]*?bottom:\s*calc\(var\(--composer-dock-height, 200px\) \+ 16px\);[\s\S]*?justify-content:\s*center;/,
+    /\.minimap-rail \{[\s\S]*?top:\s*var\(--ds-toolbar-height\);[\s\S]*?bottom:\s*16px;[\s\S]*?justify-content:\s*center;/,
   );
   assert.match(
     stylesSource,

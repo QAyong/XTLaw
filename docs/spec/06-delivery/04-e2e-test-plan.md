@@ -1047,7 +1047,12 @@ identify the platform validation still needed.
   repeat with reduced motion enabled. 6) Observe chat content and workspace
   chrome.
 - **Expected**: The sidebar contains no Recents aggregate; retained projects
-  have scoped groups and path-less sessions remain under Temporary; each
+  have scoped groups and path-less sessions remain under Temporary. Each
+  project row is one full-width rounded bubble with an interactive folder icon
+  that switches between open and closed states; there is no separate disclosure
+  arrow. Each project session is also a full-width rounded row with no indented
+  bubble. Clicking the project name activates the project without changing its
+  expanded state, while clicking the folder only toggles child visibility. Each
   transcript loads correctly; selecting Temporary clears project context and
   inherits no workspace access; both sessions remain persisted. Every session
   first activation paints its distinct final record at the transcript bottom
@@ -1668,7 +1673,9 @@ identify the platform validation still needed.
   controls do not start a window drag.
   macOS leaves the left ~76px clear for traffic lights only while the sidebar is
   collapsed (8px in fullscreen); Windows/Linux leave the right 120px clear for
-  native window controls.
+  native window controls. Each of its three controls is a 28px square, and its
+  visible button surface exactly matches its hit target; no control area
+  extends beyond the 46px titlebar band.
 - **Specs linked**: `04-ux/08-component-spec.md` (§2 Topbar)
 - **Acceptance**: C (send/UI), Quality
 - **Milestone**: M2
@@ -1867,33 +1874,39 @@ identify the platform validation still needed.
 - **Milestone**: M3
 - **Status**: Draft
 
-#### E2E-012a: Create a named project from multiple folders
+#### E2E-012a: Create a project from multiple folders without naming it twice
 
 - **Preconditions**: App running; no project dialog open; at least two local
   folders are available, including one with a long name or path.
 - **Steps**:
   1. Invoke Add project from Settings → Project archive or the sidebar Projects
      heading and inspect the empty dialog.
-  2. Enter a project name and add two folders with the folder picker. Confirm
-     both rows render and the first row is marked Primary.
+  2. Add two folders with the folder picker. Confirm both rows render and the
+     first row is marked Primary; no project name is requested.
   3. Remove one row, check the count, and add it again.
   4. Inspect the empty and populated states in light and dark themes, including
      a narrow window and reduced-motion settings.
   5. Use Tab and Shift+Tab to traverse the controls. Close with Escape, then
      reopen and close by clicking outside; check focus after each close.
-  6. Reopen, enter the name, add the folders, and create the project. Inspect
-     the in-flight controls and the resulting active primary workspace and one
-     grouped project entry with both roots.
-  7. Start a session in the group and ask the agent to read a file using the
+  6. Reopen, add the folders, and create the project. Inspect the in-flight
+     controls and the resulting active primary workspace and one grouped
+     project entry with both roots. Confirm the group name equals the primary
+     folder name.
+  7. Reopen the picker, select one of the already registered folders, and
+     confirm it activates the existing project without creating a duplicate or
+     changing its display name.
+  8. Start a session in the group and ask the agent to read a file using the
      additional root's absolute path; then try an unrelated outside path.
 - **Expected**: The dialog traps focus, closes on Escape or outside click while
-  idle, and keeps the name and selected folders visible without horizontal
-  overflow. The native picker allows multiple directories in one selection.
-  Removing a folder updates the count and never removes another row. Create is
-  disabled until both a name and one folder are present. On creation one
-  logical project group receives the entered display name; its primary folder
-  becomes the active workspace and every selected folder is retained as a group
-  root. The Project archive shows one group row, and its sessions, shared
+  idle, and keeps the selected folders visible without horizontal overflow.
+  The native picker allows multiple directories in one selection. Removing a
+  folder updates the count and never removes another row. Create is disabled
+  until one folder is present. On creation one logical project group receives
+  the primary folder's display name; its primary folder becomes the active
+  workspace and every selected folder is retained as a group root. Selecting an
+  already registered single folder activates its existing group, creates no
+  duplicate, and preserves its current display name. The Project archive shows
+  one group row, and its sessions, shared
   instructions, and shared memory use the group identity. Read/Glob/Grep/
   Write/Edit can use an explicitly addressed additional root only after host
   canonical containment; an unrelated outside path still follows the normal
@@ -1905,8 +1918,8 @@ identify the platform validation still needed.
   heading size, the name field uses the body/input size, and labels/metadata
   remain on the smaller global steps. The header and action row use the shared
   18px dialog gutter; sections use a 16px gap. It shows one Create project
-  title, a filled name field without duplicate placeholder copy, a compact
-  local source chip, and a softly filled Add folder action. It does not add
+  title, a compact local source chip, and a softly filled Add folder action;
+  creation has no required name field. It does not add
   explanatory memory or multi-selection copy. The workspace section keeps the
   current local folder selection behavior while staying neutral about future
   remote sources. No outer stroke, section rules,
@@ -3408,8 +3421,9 @@ identify the platform validation still needed.
   retains runtime tabs but hides the panel until another artifact reopens it.
   Width follows the shared three-column budget with no fixed pixel cap and
   previews its current/minimum/maximum values through the panel separator. The
-  inner divider exposes the panel width to assistive technology and supports
-  the documented keyboard steps. Pointer-down preserves the starting width,
+  inner divider is a centered 1px theme-token rule at rest and an accent rule
+  while hovered, focused, or resizing; it exposes the panel width to assistive
+  technology and supports the documented keyboard steps. Pointer-down preserves the starting width,
   movement follows the pointer continuously, and release commits once only when
   the target changed. Escape or cancellation restores the press-time width.
   Browser preview does not intercept an active divider drag.
@@ -4878,7 +4892,7 @@ identify the platform validation still needed.
      custom surface variables, keyboard-focus both searches, then remove the
      custom theme.
 - **Expected**:
-  - Work panel body reads as quiet `#fafafa` inset paper with a white header band.
+  - Work panel body reads as quiet `#fafafa` inset paper with a white header band; its chat boundary remains a visible 1px theme-token divider even when the Files or plugin view is white, and the divider strengthens to the accent during resize interaction.
   - Settings fields, browser URL, segment tracks, and shortcut keycaps use light inset fills; focused fields lift with a neutral ring.
   - Toggle on-state keeps a white knob on the near-black track.
   - Hover fills on file-tree/diff/resize ease with shared motion tokens.

@@ -369,6 +369,14 @@ test("work panel separator exposes internal panel width resizing", () => {
   assert.match(panelSource, /onKeyDown=\{onPanelResizeKeyDown\}/);
   assert.match(panelSource, /data-work-panel-resizing/);
   assert.match(globalStyles, /\.work-panel-resize \{[^}]*width:\s*10px;/s);
+  const resizeDivider =
+    globalStyles.match(/\.work-panel-resize::after\s*\{[^}]*\}/s)?.[0] ?? "";
+  assert.match(resizeDivider, /width:\s*1px/);
+  assert.match(resizeDivider, /background:\s*var\(--ds-border-default\)/);
+  assert.match(
+    globalStyles,
+    /\.work-panel-resize:hover::after,[\s\S]*?background:\s*var\(--ds-focus\)/,
+  );
   assert.match(globalStyles, /touch-action:\s*none/);
   assert.match(globalStyles, /\.work-panel-resize:focus-visible/);
 });

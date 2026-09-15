@@ -108,6 +108,9 @@ test("home and docked composers share one width envelope", () => {
   assert.match(homeComposer, /width:\s*100%/);
   assert.match(homeComposer, /padding:\s*0 24px 16px/);
   assert.match(dockedComposer, /padding:\s*0 24px 16px/);
+  assert.match(dockedComposer, /position:\s*relative/);
+  assert.match(dockedComposer, /flex:\s*0 0 auto/);
+  assert.doesNotMatch(dockedComposer, /position:\s*absolute|bottom:\s*0/);
   assert.match(
     homeStack,
     /width:\s*min\(100%,\s*var\(--chat-composer-max-width,\s*768px\)\)/,

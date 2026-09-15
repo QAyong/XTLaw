@@ -8,11 +8,15 @@ import { TooltipButton } from "./ui";
  * Renderer-drawn window controls for Windows/Linux (D-frameless chrome).
  *
  * macOS keeps native inset traffic lights; other platforms run a frameless
- * window, so minimize/maximize/close live here — flat Codex-style glyph
- * buttons pinned to the top-right of the 46px titlebar band. The main shell
- * can contain the controls in the conversation pane while Settings keeps them
- * fixed to the full window.
+ * window, so minimize/maximize/close live here — compact 28px controls pinned
+ * to the top-right of the 46px titlebar band. The visible button box is also
+ * the complete hit target. The main shell can contain the controls in the
+ * conversation pane while Settings keeps them fixed to the full window.
  */
+
+const WINDOW_CONTROL_ICON_SIZE = 14;
+const WINDOW_CONTROL_ICON_STROKE = 1.75;
+
 export function WindowControls({
   contained = false,
 }: {
@@ -52,7 +56,11 @@ export function WindowControls({
         ariaLabel={t("window.minimize", "Minimize")}
         onClick={() => void api.windowControl("minimize")}
       >
-        <IconMinus size={12} strokeWidth={1.5} aria-hidden />
+        <IconMinus
+          size={WINDOW_CONTROL_ICON_SIZE}
+          strokeWidth={WINDOW_CONTROL_ICON_STROKE}
+          aria-hidden
+        />
       </TooltipButton>
       <TooltipButton
         type="button"
@@ -74,9 +82,17 @@ export function WindowControls({
         }
       >
         {maximized ? (
-          <IconCopy size={11} strokeWidth={1.4} aria-hidden />
+          <IconCopy
+            size={WINDOW_CONTROL_ICON_SIZE}
+            strokeWidth={WINDOW_CONTROL_ICON_STROKE}
+            aria-hidden
+          />
         ) : (
-          <IconSquare size={10} strokeWidth={1.4} aria-hidden />
+          <IconSquare
+            size={WINDOW_CONTROL_ICON_SIZE}
+            strokeWidth={WINDOW_CONTROL_ICON_STROKE}
+            aria-hidden
+          />
         )}
       </TooltipButton>
       <TooltipButton
@@ -86,7 +102,11 @@ export function WindowControls({
         ariaLabel={t("window.close", "Close")}
         onClick={() => void api.windowControl("close")}
       >
-        <IconClose size={12} strokeWidth={1.5} aria-hidden />
+        <IconClose
+          size={WINDOW_CONTROL_ICON_SIZE}
+          strokeWidth={WINDOW_CONTROL_ICON_STROKE}
+          aria-hidden
+        />
       </TooltipButton>
     </div>
   );

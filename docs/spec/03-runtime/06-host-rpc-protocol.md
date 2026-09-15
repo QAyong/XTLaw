@@ -159,12 +159,14 @@ Rules:
    advertises `"a2a"`. A v10 host or client is rejected before the UI becomes
    interactive, so a mixed pair cannot call a missing domain.
 
-Protocol v11 is paired with host-core storage schema v16. Schema v12 had added
+Protocol v11 is paired with host-core storage schema v18. Schema v12 had added
 the A2A tables (`a2a_tasks`, `a2a_messages`, `a2a_artifacts`,
 `a2a_push_configs`) via `migrate_v11_to_v12`; `migrate_v12_to_v13` drops those
 tables, and v14 adds the plugin-session ownership sidecar and soft-delete
-column. Schema v15 adds the Host-owned turn queue, and schema v16 adds the
-session collaboration ledger and its turn-queue binding. A fresh database
+column. Schema v15 adds the Host-owned turn queue, schema v16 adds the
+session collaboration ledger and its turn-queue binding, schema v17 adds
+plugin provider ownership, and schema v18 adds the session thinking-level
+mode. A fresh database
 creates neither A2A tables nor unowned plugin-session rows. The schema version is an
 internal persistence invariant, not an additional JSON-RPC field; the
 checkpoint architecture remains host-owned.
@@ -274,9 +276,11 @@ to later refresh and inference; the vendor picker does not collect them.
 - `session.list` — returns summaries with host-authoritative `messageCount`
   alongside the existing session metadata
 - `session.create` — accepts optional `thinkingLevel` and optional
+  `thinkingLevelMode` (`manual` | `auto`) and optional
   `inheritPermissionFromSessionId`; when present, the host copies the existing
   session's persisted permission mode atomically, while omission preserves the
-  existing `inherit` default. Missing/null thinking level defaults to `off`.
+  existing `inherit` default. Missing/null thinking level defaults to `off`,
+  and missing/null thinking-level mode defaults to `manual`.
 - `session.fork` — accepts `sessionId`, an optional caller-provided display
   `title`, and optional `throughMessageId`; creates
   one independent session from the source's current active canonical
@@ -317,8 +321,9 @@ to later refresh and inference; the vendor picker does not collect them.
   only session metadata and does not update `updated_at`, transcript content,
   message count, or historical notification title snapshots.
 - `session.configure` — atomically persists `mode`, `providerId`, `modelId`,
-  and optional `thinkingLevel` for the next pi turn; omitting/null
-  `thinkingLevel` preserves the current value; invalid modes or levels return
+  and optional `thinkingLevel` and `thinkingLevelMode` for the next pi turn;
+  omitting/null either field preserves the current value; invalid modes, levels,
+  or thinking-level modes return
   `INVALID_PARAMS`; mode is `plan | goal | agent` and changing any session
   configuration is allowed only while idle and without a pending/queued/running
   Plan or Goal record
@@ -528,7 +533,8 @@ off | minimal | low | medium | high | xhigh | max
 
 Session summaries/details always return `thinkingLevel`. Assistant messages
 may return `thinking`; host storage maps it to a canonical content block rather
-than appending it to answer `content`.
+than appending it to answer `content`. They also return
+`thinkingLevelMode` (`manual` or `auto`).
 
 ### Tools
 - `tools.list`

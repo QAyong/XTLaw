@@ -56,8 +56,8 @@ const MODEL_ICON_RULES: ReadonlyArray<readonly [RegExp, string]> = [
   [/\b(?:gemini|gemma)\b/i, "google"],
   [/\bdeepseek\b/i, "deepseek"],
   [/\b(?:grok|xai)\b/i, "grok"],
-  [/\b(?:qwen|通义)\b/i, "qwen"],
-  [/\b(?:glm|chatglm|智谱)\b/i, "zhipu"],
+  [/(?:\bqwen(?:\d+(?:\.\d+)*)?\b|通义)/i, "qwen"],
+  [/(?:\b(?:glm|chatglm)\b|智谱)/i, "zhipu"],
   [/\b(?:mistral|mixtral)\b/i, "mistral"],
   [/\b(?:kimi|moonshot)\b/i, "moonshot"],
   [/\bminimax\b/i, "minimax"],
@@ -88,7 +88,7 @@ function SpriteIcon({ symbol, size }: { symbol: string; size: number }) {
       fill="currentColor"
       style={{ flexShrink: 0 }}
     >
-      <use href={`/provider-icons.svg#${symbol}`} />
+      <use href={`./provider-icons.svg#${symbol}`} />
     </svg>
   );
 }

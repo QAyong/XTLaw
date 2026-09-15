@@ -536,6 +536,36 @@ fn thinking_level_param(params: &Value) -> Result<Option<String>, JsonRpcError> 
     Ok(Some(level.to_string()))
 }
 
+/// Parse the optional session thinking-mode selector at the RPC boundary
+/// (ADR 0257). A missing/null value keeps the persisted mode; present values
+/// must be `"manual"` or `"auto"`.
+fn thinking_level_mode_param(params: &Value) -> Result<Option<String>, JsonRpcError> {
+    let Some(value) = params.get("thinkingLevelMode") else {
+        return Ok(None);
+    };
+    if value.is_null() {
+        return Ok(None);
+    }
+    let Some(mode) = value.as_str() else {
+        return Err(rpc_err(
+            1002,
+            "thinkingLevelMode must be a string",
+            "INVALID_PARAMS",
+        ));
+    };
+    if !sessions::is_valid_thinking_level_mode(mode) {
+        return Err(rpc_err(
+            1002,
+            format!(
+                "thinkingLevelMode must be one of {}",
+                sessions::THINKING_LEVEL_MODES.join(", ")
+            ),
+            "INVALID_PARAMS",
+        ));
+    }
+    Ok(Some(mode.to_string()))
+}
+
 /// Parse the optional parent session used for permission inheritance. The
 /// caller supplies an existing session id, never an arbitrary permission mode;
 /// the host resolves the persisted mode while holding its state lock.
@@ -1795,6 +1825,7 @@ async fn handle_request(
         "session.create" => {
             let thinking_level = thinking_level_param(&params)?;
             let permission_parent = permission_parent_param(&params)?;
+            let thinking_level_mode = thinking_level_mode_param(&params)?;
             let st = state.lock().await;
             let permission_mode = if let Some(parent_id) = permission_parent {
                 Some(
@@ -1829,6 +1860,7 @@ async fn handle_request(
                         .and_then(|v| v.as_str())
                         .map(str::to_string),
                     thinking_level,
+                    thinking_level_mode,
                     permission_mode,
                 },
             )
@@ -1945,6 +1977,7 @@ async fn handle_request(
                 .and_then(|v| v.as_str())
                 .ok_or_else(|| rpc_err(1002, "mode required", "INVALID_PARAMS"))?;
             let thinking_level = thinking_level_param(&params)?;
+            let thinking_level_mode = thinking_level_mode_param(&params)?;
             let st = state.lock().await;
             let session = sessions::configure_session_with_thinking(
                 &st.db,
@@ -1953,6 +1986,7 @@ async fn handle_request(
                 params.get("providerId").and_then(|v| v.as_str()),
                 params.get("modelId").and_then(|v| v.as_str()),
                 thinking_level.as_deref(),
+                thinking_level_mode.as_deref(),
                 params.get("permissionMode").and_then(|v| v.as_str()),
             )
             .map_err(|e| {
@@ -5958,6 +5992,7 @@ mod tests {
             None,
             None,
             None,
+            None,
             Some("auto"),
         )
         .unwrap();
@@ -6073,6 +6108,7 @@ mod tests {
             None,
             None,
             None,
+            None,
             Some("ask"),
         )
         .unwrap();
@@ -6157,6 +6193,7 @@ mod tests {
             &app_state.db,
             &session.id,
             "agent",
+            None,
             None,
             None,
             None,
@@ -6273,6 +6310,7 @@ mod tests {
             None,
             None,
             None,
+            None,
             Some("ask"),
         )
         .unwrap();
@@ -6367,6 +6405,7 @@ mod tests {
             None,
             None,
             None,
+            None,
             Some("auto"),
         )
         .unwrap();
@@ -6456,6 +6495,7 @@ mod tests {
             None,
             None,
             None,
+            None,
             Some("auto"),
         )
         .unwrap();
@@ -6532,6 +6572,7 @@ mod tests {
             &app_state.db,
             &session.id,
             "agent",
+            None,
             None,
             None,
             None,
@@ -7089,6 +7130,7 @@ mod tests {
             None,
             None,
             None,
+            None,
             Some("ask"),
         )
         .unwrap();
@@ -7182,6 +7224,7 @@ mod tests {
             None,
             None,
             None,
+            None,
             Some("auto"),
         )
         .unwrap();
@@ -7226,6 +7269,7 @@ mod tests {
             &app_state.db,
             &session.id,
             "agent",
+            None,
             None,
             None,
             None,
@@ -7376,6 +7420,7 @@ mod tests {
             None,
             None,
             None,
+            None,
             Some("auto"),
         )
         .unwrap();
@@ -7438,6 +7483,7 @@ mod tests {
             &app_state.db,
             &session_id,
             "plan",
+            None,
             None,
             None,
             None,
@@ -7510,6 +7556,7 @@ mod tests {
             None,
             None,
             None,
+            None,
             Some("ask"),
         )
         .unwrap();
@@ -7574,6 +7621,7 @@ mod tests {
             &app_state.db,
             &session_id,
             "goal",
+            None,
             None,
             None,
             None,

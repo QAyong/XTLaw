@@ -1398,9 +1398,9 @@ fn normalize_project_path_strips_extended_length_prefix() {
     );
 }
 
-/// The v16 → v17 step runs after the v15 → v16 step in the same launch, so a
-/// file one version behind must land on the current version with both changes
-/// applied rather than stopping at the version the first step stamps.
+/// The v16 → v17 and v17 → v18 steps run in the same launch, so a file two
+/// versions behind must land on the current version with both changes applied
+/// rather than stopping at the version the first step stamps.
 #[test]
 fn a_v16_file_gains_the_provider_owner_column() {
     let dir = tempfile::tempdir().unwrap();
@@ -1417,12 +1417,13 @@ fn a_v16_file_gains_the_provider_owner_column() {
                 |row| row.get::<_, String>(0),
             )
             .unwrap();
-        // Back to a file that predates the ownership column. SQLite will not
+        // Back to a file that predates both v17/v18 additions. SQLite will not
         // drop a column an index still references, so the index goes first.
         db.conn()
             .execute_batch(
                 "DROP INDEX idx_providers_owner;
                  ALTER TABLE providers DROP COLUMN owner_plugin_id;
+                 ALTER TABLE sessions DROP COLUMN thinking_level_mode;
                  PRAGMA user_version=16;",
             )
             .unwrap();
@@ -1445,4 +1446,13 @@ fn a_v16_file_gains_the_provider_owner_column() {
         )
         .unwrap();
     assert!(owner.is_none());
+    let thinking_mode: String = db
+        .conn()
+        .query_row(
+            "SELECT thinking_level_mode FROM sessions LIMIT 1",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or_else(|_| "manual".into());
+    assert_eq!(thinking_mode, "manual");
 }

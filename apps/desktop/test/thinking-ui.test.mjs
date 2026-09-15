@@ -70,7 +70,9 @@ test("composer exposes the runtime thinking level order and provider filtering",
 });
 
 test("thinking levels use their canonical English values without i18n", () => {
-  assert.match(composerSource, /const thinkingLabel = thinkingLevel;/);
+  assert.match(composerSource, /const thinkingLabel =\s*thinkingAuto\s*\?/);
+  assert.match(composerSource, /auto · \$\{thinkingLevel\}/);
+  assert.match(composerSource, /: thinkingLevel;/);
   assert.match(composerSource, /<span className="flex-1">\s*\{level\}/);
   assert.doesNotMatch(composerSource, /THINKING_LEVEL_(LABELS|I18N_KEYS)/);
   assert.doesNotMatch(composerSource, /chat\.effort(?:Off|Minimal|Low|Mid|High|Xhigh|Max)/);

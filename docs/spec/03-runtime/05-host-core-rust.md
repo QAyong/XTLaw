@@ -160,3 +160,5 @@ notification.list
     settlement, cancellation, permission ceilings, hop limits, and schema v16
     recovery are durable and test-covered without changing the core `Task`
     family
+11. Schema v18 session thinking-level modes are validated and persisted without
+    changing the canonical provider thinking-level enum

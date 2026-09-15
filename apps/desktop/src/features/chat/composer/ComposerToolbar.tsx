@@ -6,6 +6,7 @@ import {
   type PermissionMode,
   type ShortcutPlatform,
   type ThinkingLevel,
+  type ThinkingLevelMode,
 } from "@pi-desktop/shared";
 import type { AppState } from "../../../stores/app-store";
 import { AnchoredMenu } from "../../../components/settings/AnchoredMenu";
@@ -40,6 +41,7 @@ export type ComposerToolbarProps = {
   modelId?: string;
   thinkingLevel: ThinkingLevel;
   composerPermissionMode: Exclude<PermissionMode, "inherit">;
+  thinkingLevelMode: ThinkingLevelMode;
   permissionOpen: boolean;
   setPermissionOpen: Dispatch<SetStateAction<boolean>>;
   controlsBlocked: boolean;
@@ -74,6 +76,7 @@ export function ComposerToolbar({
   providerId,
   modelId,
   thinkingLevel,
+  thinkingLevelMode,
   composerPermissionMode,
   permissionOpen,
   setPermissionOpen,
@@ -138,6 +141,10 @@ export function ComposerToolbar({
                 providerId,
                 modelId,
                 thinkingLevel,
+                // Preserve the session-layer auto mode (ADR 0257).
+                ...(thinkingLevelMode === "auto"
+                  ? { thinkingLevelMode: "auto" as const }
+                  : {}),
               });
             } catch (error) {
               showToast(error instanceof Error ? error.message : String(error), {
@@ -213,6 +220,10 @@ export function ComposerToolbar({
                     modelId,
                     thinkingLevel,
                     permissionMode: candidate,
+                    // Preserve the session-layer auto mode (ADR 0257).
+                    ...(thinkingLevelMode === "auto"
+                      ? { thinkingLevelMode: "auto" as const }
+                      : {}),
                   });
                 } catch (error) {
                   showToast(error instanceof Error ? error.message : String(error), {
@@ -240,6 +251,7 @@ export function ComposerToolbar({
           thinkingLevel={thinkingLevel}
           selectedProviderId={providerId}
           selectedModelId={modelId}
+          thinkingLevelMode={thinkingLevelMode}
           controlsBlocked={controlsBlocked}
           onCloseOtherMenus={() => setPermissionOpen(false)}
         />

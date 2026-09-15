@@ -1,4 +1,4 @@
-# 04. Data Storage (Schema v17)
+# 04. Data Storage (Schema v18)
 
 ## 0. Ownership decision
 
@@ -378,6 +378,8 @@ CREATE TABLE sessions (
   thinking_level TEXT NOT NULL DEFAULT 'off'
                 CHECK (thinking_level IN ('off', 'minimal', 'low', 'medium',
                                           'high', 'xhigh', 'max')),
+  thinking_level_mode TEXT NOT NULL DEFAULT 'manual'
+                CHECK (thinking_level_mode IN ('manual', 'auto')),
   permission_mode TEXT NOT NULL DEFAULT 'inherit' -- D115: inherit follows settings
                 CHECK (permission_mode IN ('inherit', 'ask', 'accept-edits', 'auto')),
   source      TEXT,                            -- import origin: claude-code | codex | opencode | pi
@@ -414,9 +416,15 @@ CREATE INDEX idx_session_import_origins_plugin
 - `provider_id`/`model_id` are **loose references** (no FK), like on `turns`:
   selection is `(providerId, modelId)` per spec 13 with custom ids always
   allowed, and built-in runtimes (e.g. `pi`) never exist in `providers`.
-- `thinking_level` is the durable session selector. New and v2-migrated
-  sessions default to `off`; capability resolution may clamp the effective
-  request without rewriting the stored preference.
+- `thinking_level` is the durable concrete session baseline. Existing and
+  migrated sessions default to `off`; new Auto sessions default to `medium`.
+  A non-reasoning model resolves the effective request to `off` without
+  rewriting the stored preference.
+- `thinking_level_mode` is the session-layer selector: `manual` preserves the
+  explicit concrete level, while `auto` allows the trusted thinking extension
+  to adjust the baseline for the current or future turn. Existing rows default
+  to `manual`; the desktop creates new sessions in `auto` unless its global
+  default is disabled.
 
 - `project_id` normalizes v1's free-text `project_path` (grouping, badges,
   hover-`+` new-session-in-project all become indexed lookups).
@@ -1256,6 +1264,11 @@ truncating at a guessed position.
   step. The v15→v16 session-collaboration step now stamps `16` (its own version)
   instead of the latest schema constant, so a v15 file can walk both steps in one
   launch.
+- **Schema v18 is additive.** It adds `sessions.thinking_level_mode` with a
+  `manual` default, so every pre-v18 session keeps its explicit thinking-level
+  behavior. New desktop sessions use `auto` with a concrete `medium` baseline
+  when the global default is enabled; non-reasoning models still resolve to
+  `off`. A `pi.sqlite.v17.bak` copy precedes the migration.
 - **Schema v14 is additive.** It adds nullable `sessions.deleted_at`, the
   partial deletion index, and `session_import_origins`. Existing sessions stay
   active and have no origin rows. The migration runs in the same guarded

@@ -157,7 +157,8 @@ content. Ordinary `@path` tokens are not transformed anywhere in the pipeline
 so a pasted image does not depend on the model being able to interpret a path
 token.
 
-Prompt execution resolves `mode`, `providerId`, `modelId`, and `thinkingLevel`
+Prompt execution resolves `mode`, `providerId`, `modelId`, `thinkingLevel`, and
+the session-layer `thinkingLevelMode`
 from the durable session record and snapshots the effective command shell ID and
 dialect for Bash.
 The renderer changes those values through
@@ -174,6 +175,7 @@ type SessionConfigureRequest = {
   providerId?: string;
   modelId?: string;
   thinkingLevel: ThinkingLevel;
+  thinkingLevelMode?: "manual" | "auto";
 };
 ```
 
@@ -835,6 +837,7 @@ type SessionSummary = {
  providerId?: string;
   mode: "plan" | "goal" | "agent";
  thinkingLevel: ThinkingLevel;
+ thinkingLevelMode?: "manual" | "auto";
  supportsReasoning?: boolean;
  supportedThinkingLevels?: ThinkingLevel[];
  updatedAt: string;
@@ -919,7 +922,7 @@ for the reserved `Alt+Space` binding. Host-core emits the notification
 keyboard hook detects the chord; the hook consumes that chord so the active
 window system menu does not open. Non-Windows hosts treat the method as a
 no-op. `responseDurationMs` and `responseOutputTokens` are optional transcript
-  metadata persisted in message metadata, so protocol v11 and storage schema v16
+  metadata persisted in message metadata, so protocol v11 and storage schema v18
 remain unchanged.
 
 The Settings font picker (ADR 0083) reads installed system font families

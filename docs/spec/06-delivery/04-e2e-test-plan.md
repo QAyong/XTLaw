@@ -24,6 +24,24 @@
   the app to General.
 - **Status:** Documented; run after integration into main.
 
+### E2E-MODEL-provider-icons-match-model-name
+
+- **Preconditions:** The Composer has configured models whose ids include known
+  families such as `claude`, `gpt`, `gemini`, `deepseek`, or `qwen`, plus an
+  unknown custom model.
+- **Steps:** Open the Composer model picker and inspect the trigger, the model
+  menu, and the selected model while switching between those entries. Switch
+  between light and dark themes and inspect the chat activity summary.
+- **Expected:** A known model shows the corresponding monochrome provider mark
+  using the model id/display name match; when the model name is not recognized,
+  the configured provider match is used. The same monochrome model icon replaces
+  the default sparkle icon in the chat activity summary row. The icon remains
+  readable in both light and dark themes. An unknown custom model retains the
+  monochrome default bot glyph. Model selection, keyboard navigation, activity
+  expansion, and fallback text remain unchanged.
+- **Specs linked:** `00-baseline.md`, `06-delivery/03-ai-development-workflow.md`
+- **Status:** Documented; run after integration into main.
+
 - Document every user-visible and protocol-visible behavior that MVP must verify.
 - Provide a scenario catalog that maps to acceptance criteria (A–H) and milestones (M1–M6).
 - Serve as the traceability backbone: scenario ID ↔ acceptance criterion ↔ spec.
@@ -4195,8 +4213,32 @@ identify the platform validation still needed.
   `sessions::tests::bounded_reads_use_physical_line_positions_not_the_dedup_counter`);
   UI scenario Draft
 
-#### E2E-SESSION-list-refresh-keeps-desktop-responsive: Large session-list refreshes keep Electron responsive
+#### E2E-SESSION-auto-thinking-resolves-per-turn: Auto thinking mode resolves a concrete level per turn
 
+- **Preconditions**: A reasoning-capable provider binding whose catalog
+  publishes thinking levels, and a fresh session (schema v18, default
+  `thinkingLevelMode: "auto"`).
+- **Steps**: 1) Confirm the Composer thinking menu lists `auto` first and
+  it is the selected default, with the chip rendering `auto · medium`. 2) Send a
+  trivial turn and confirm the dispatched provider request carries the
+  `medium` baseline. 3) Have the agent call
+  `set_thinking_level { level: "high", persist: false }` mid-turn and
+  confirm the next provider request in the same turn carries `high`, then
+  that the level reverts to the baseline at turn end. 4) Have the agent
+  call `set_thinking_level { level: "low", persist: true }` and confirm the
+  session baseline updates (host `session.configure`), the Composer reflects
+  the persisted level on the next turn, and `thinkingLevelMode` stays
+  `"auto"`. 5) Switch the menu to a concrete level and confirm manual mode
+  behaves exactly as before. 6) Toggle the settings switch off and confirm
+  new sessions default to `medium` without an `auto` auto-selection.
+- **Expected**: Only concrete levels ever reach the wire; `auto` never
+  appears in a provider request. Existing sessions without the mode field
+  keep manual semantics.
+- **Specs linked**: `03-runtime/01-ipc-protocol.md`,
+  `07-plugins/16-trusted-extensions.md`, ADR 0257
+- **Acceptance**: C (sessions), Quality
+
+#### E2E-SESSION-list-refresh-keeps-desktop-responsive: Large session-list refreshes keep Electron responsive
 - **Preconditions**: A built Electron desktop, the bundled models.dev catalog,
   and a fresh temporary profile with no configured providers. The probe uses
   only a synthetic `authKind: none` provider and never starts an Agent turn.

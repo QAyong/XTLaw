@@ -372,9 +372,10 @@ export function Composer({
     thinkingProvider,
     configuredThinkingLevel,
   );
-  const thinkingLabel = thinkingAuto
-    ? `auto · ${thinkingLevel}`
-    : thinkingLevel;
+  // `auto` is the user-facing mode. Its concrete baseline may change during
+  // the turn, but that implementation detail must not replace the selected
+  // mode in the Composer chip.
+  const thinkingLabel = thinkingAuto ? "auto" : thinkingLevel;
   const selectedModel = provider?.id
     ? composerModelsForProvider(provider, providerModels[provider.id]).find(
         (model) => modelIdsMatch(model.modelId, modelId ?? ""),

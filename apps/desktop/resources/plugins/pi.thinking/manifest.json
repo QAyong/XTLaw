@@ -16,7 +16,7 @@
   },
   "author": "PI-Desktop core",
   "license": "MIT",
-  "main": "main.js",
+  "main": "main.cjs",
   "contributes": {
     "agentExtensions": ["extension.js"]
   },

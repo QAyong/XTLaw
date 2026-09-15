@@ -30,12 +30,14 @@
   families such as `claude`, `gpt`, `gemini`, `deepseek`, or `qwen`, plus an
   unknown custom model.
 - **Steps:** Open the Composer model picker and inspect the trigger, the model
-  menu, and the selected model while switching between those entries.
+  menu, and the selected model while switching between those entries. Then
+  inspect the collapsed activity summary row in the chat transcript.
 - **Expected:** A known model shows the corresponding provider mark using the
   model id/display name match; when the model name is not recognized, the
-  configured provider match is used; an unknown custom model retains the
-  default bot glyph. Model selection, keyboard navigation, and fallback text
-  remain unchanged.
+  configured provider match is used. The same resolved model icon replaces the
+  default sparkle icon in the chat activity summary row. An unknown custom
+  model retains the default bot glyph. Model selection, keyboard navigation,
+  activity expansion, and fallback text remain unchanged.
 - **Specs linked:** `00-baseline.md`, `06-delivery/03-ai-development-workflow.md`
 - **Status:** Documented; run after integration into main.
 

@@ -4015,8 +4015,9 @@ identify the platform validation still needed.
   share one continuous 1px `border-subtle` separator; the control band's
   leading divider uses the same token and its bottom edge does not disappear
   under the window buttons. Unknown actions fail closed. The installed Windows
-  taskbar button and Start menu shortcut use the PI-Desktop icon, never
-  Electron's default icon. Each package contains the target-native host binary
+  taskbar button and Start menu shortcut use the legibility-optimized
+  PI-Desktop ICO at both the small taskbar size and the larger shortcut size,
+  never Electron's default icon. Each package contains the target-native host binary
   (`.exe` only on Windows). Passing this scenario on Windows/Linux proves
   shell readiness, not first-release qualification.
 - **Specs linked**: `03-runtime/01-ipc-protocol.md`,

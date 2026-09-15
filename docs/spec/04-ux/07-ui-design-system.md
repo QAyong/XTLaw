@@ -111,9 +111,11 @@ Codex as a visual reference. The identity contract is deliberately small:
   historical design-reference text.
 - `build/icon_1024.png` is the canonical shell logo master; the renderer
   imports the 192x192 marks derived from it under `src/assets/brand/`
-  (ADR 0125). `BrandLogo` imports those
-  through Vite so the renderer bundle, development Dock, and packaged
-  application all use the same visual asset.
+  (ADR 0125). `BrandLogo` imports those through Vite so the renderer bundle
+  and application chrome keep the same visual asset. The Windows
+  `build/icon.ico` is derived with a tighter platform-specific crop of the
+  same master so the PI mark remains legible in 16px and 32px taskbar and
+  shortcut slots; the canonical source and macOS icon treatment are unchanged.
 - On macOS, both development and packaged launches expose `PI-Desktop` as the
   native application-menu name. The native About panel uses the PI-Desktop
   name, version, and canonical icon; no stock Electron name or icon is visible.
@@ -123,7 +125,8 @@ Codex as a visual reference. The identity contract is deliberately small:
   AppUserModelID before readiness. The runtime ID, packaged executable name,
   and NSIS shortcut identity stay aligned so native notifications,
   notification settings, and taskbar groups identify the app as `PI-Desktop`
-  rather than Electron.
+  rather than Electron. Taskbar and Start menu icons use the legibility-optimized
+  Windows ICO composition instead of the more generously padded macOS artwork.
 - The empty-home hero uses a 100px `HomeMascotLogo` GIF: an eight-frame waving
   mascot compiled from the supplied light and dark action sets, with a short
   idle hold on the first frame. CSS selects the pair from

@@ -37,8 +37,9 @@ The first `pnpm dev` on Electron 43+ downloads the Electron binary on demand
 (the package no longer installs it during `pnpm install`).
 Packaged lanes use `build/icon.icns` through electron-builder on macOS and
 `build/icon.ico` for the Windows executable and native window icon. The
-renderer imports the same PNG through `BrandLogo`. The PNG is canonical;
-`scripts/make-icon.py` derives the multi-size Windows ICO, the 512px
+renderer imports the derived 192px marks through `BrandLogo`. The PNG is
+canonical; `scripts/make-icon.py` derives the multi-size Windows ICO with a
+tighter crop for small Windows surfaces, plus the 512px
 Windows/Linux package PNG, the
 transparent monochrome `build/tray-icon-mac.png` template, and the iconset/ICNS
 when macOS `iconutil` is available, without overwriting the canonical source.
@@ -75,7 +76,8 @@ when macOS `iconutil` is available, without overwriting the canonical source.
   Turkish, German, Spanish, French, and Korean. Product catalogs remain bundled
   independently of Chromium locales.
 - App icons `build/icon.icns` and `build/icon.ico` (derived from canonical
-  `build/icon_1024.png` by `scripts/make-icon.py`).
+  `build/icon_1024.png` by `scripts/make-icon.py`; the Windows ICO uses its
+  platform-specific tighter crop for small-size legibility).
 - macOS menu bar template `build/tray-icon-mac.png`, derived from the dark PI
   mark with a transparent background; Windows/Linux use the product PNG tray
   resource.

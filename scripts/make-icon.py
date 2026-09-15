@@ -27,6 +27,41 @@ SOURCE = BUILD / "icon_1024.png"
 
 BASE = 1024
 
+# The canonical artwork is shared with macOS and the renderer. Its generous
+# tile padding reads well at large sizes, but makes the PI mark too small in
+# Windows taskbar and shortcut slots. Keep the Windows treatment local to the
+# derived ICO: crop to the mark's visual center, then restore a modest rounded
+# transparent edge so the icon remains a platform asset rather than changing
+# the canonical brand source.
+WINDOWS_CROP_BOX = (150, 150, 874, 874)
+WINDOWS_TILE_MARGIN = 16
+WINDOWS_TILE_RADIUS = 184
+
+
+def windows_master_from_canonical(master: Image.Image) -> Image.Image:
+    left, top, right, bottom = WINDOWS_CROP_BOX
+    if right - left != bottom - top:
+        raise ValueError("Windows icon crop must be square")
+
+    windows_master = master.crop(WINDOWS_CROP_BOX).resize(
+        (BASE, BASE), Image.LANCZOS
+    )
+    tile_mask = Image.new("L", windows_master.size, 0)
+    ImageDraw.Draw(tile_mask).rounded_rectangle(
+        (
+            WINDOWS_TILE_MARGIN,
+            WINDOWS_TILE_MARGIN,
+            BASE - WINDOWS_TILE_MARGIN - 1,
+            BASE - WINDOWS_TILE_MARGIN - 1,
+        ),
+        radius=WINDOWS_TILE_RADIUS,
+        fill=255,
+    )
+    windows_master.putalpha(
+        ImageChops.multiply(windows_master.getchannel("A"), tile_mask)
+    )
+    return windows_master
+
 
 def main() -> None:
     if not SOURCE.is_file():
@@ -41,7 +76,8 @@ def main() -> None:
 
     BUILD.mkdir(parents=True, exist_ok=True)
     windows_icon = BUILD / "icon.ico"
-    master.save(
+    windows_master = windows_master_from_canonical(master)
+    windows_master.save(
         windows_icon,
         format="ICO",
         sizes=[

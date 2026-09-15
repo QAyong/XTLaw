@@ -552,6 +552,28 @@ pub(crate) fn migrate_v14_to_v15_tx(tx: &rusqlite::Transaction<'_>) -> Result<()
     Ok(())
 }
 
+/// v17 → v18 adds the adaptive thinking mode switch (ADR 0257). The column is
+/// additive: every existing session reads back as `manual`, preserving the
+/// previous behavior where the persisted thinking level was always explicit.
+pub(crate) fn migrate_v17_to_v18_tx(tx: &rusqlite::Transaction<'_>) -> Result<()> {
+    let has_column: bool = tx.query_row(
+        "SELECT EXISTS(
+            SELECT 1 FROM pragma_table_info('sessions') WHERE name = 'thinking_level_mode'
+        )",
+        [],
+        |row| row.get(0),
+    )?;
+    if !has_column {
+        tx.execute_batch(
+            r#"
+            ALTER TABLE sessions ADD COLUMN thinking_level_mode TEXT NOT NULL DEFAULT 'manual';
+            "#,
+        )?;
+    }
+    tx.pragma_update(None, "user_version", 18i64)?;
+    Ok(())
+}
+
 pub(crate) fn migration_backup_path(path: &Path, version: i64) -> PathBuf {
     path.with_extension(format!("sqlite.v{version}.bak"))
 }
@@ -743,6 +765,19 @@ pub(crate) fn migrate_v14_to_v15(conn: &Connection, path: &Path) -> Result<()> {
     tx.commit().with_context(|| {
         format!(
             "commit schema v14 to v15 migration; backup {} remains",
+            backup.display()
+        )
+    })?;
+    Ok(())
+}
+
+pub(crate) fn migrate_v17_to_v18(conn: &Connection, path: &Path) -> Result<()> {
+    let backup = create_migration_backup(conn, path, 17)?;
+    let tx = conn.unchecked_transaction()?;
+    migrate_v17_to_v18_tx(&tx)?;
+    tx.commit().with_context(|| {
+        format!(
+            "commit schema v17 to v18 migration; backup {} remains",
             backup.display()
         )
     })?;

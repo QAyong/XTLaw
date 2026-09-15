@@ -24,6 +24,7 @@ import type {
   ReviewRollbackResult,
   SessionSummary,
   ThinkingLevel,
+  ThinkingLevelMode,
   UiMessage,
 } from "@pi-desktop/shared";
 import type { SettingsTabId } from "../lib/settings-search";
@@ -93,6 +94,7 @@ export type RefreshSessionsOptions = {
 export type DraftSessionConfiguration = {
   mode: Mode;
   thinkingLevel: ThinkingLevel;
+  thinkingLevelMode?: ThinkingLevelMode;
   providerId?: string;
   modelId?: string;
   permissionMode?: PermissionMode;
@@ -198,6 +200,7 @@ export type AppState = {
     providerId?: string;
     modelId?: string;
     thinkingLevel: ThinkingLevel;
+    thinkingLevelMode?: ThinkingLevelMode;
     permissionMode?: PermissionMode;
   }) => Promise<void>;
   /** Returns true once accepted unless concurrent smart Stop restores it. */

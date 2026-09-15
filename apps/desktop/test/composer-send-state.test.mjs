@@ -80,7 +80,7 @@ test("composer send/stop button follows draft content and the visible session's 
       /className=\{`icon-btn composer-model-thinking-chip[\s\S]*?<\/button>/,
     )?.[0] ?? "";
   assert.ok(modelTrigger.length > 0, "model selector trigger not found");
-  assert.match(modelTrigger, /<IconBot size=\{14\} \/>/);
+  assert.match(modelTrigger, /<ModelIcon[\s\S]*?size=\{14\}/);
   assert.doesNotMatch(modelTrigger, /IconSparkles/);
   assert.doesNotMatch(
     composerRight,

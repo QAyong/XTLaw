@@ -149,10 +149,14 @@ globalThis.transcriptRenderProbe = async () => {
       message("tail", "assistant", "Continuing"),
     ];
     render(taskMessages());
-    assert(
-      container.querySelector(".has-subagents")?.classList.contains("active"),
-      "running Task group is not active",
+    const processGroup = container.querySelector(
+      '[data-testid="process-details-group"]',
     );
+    assert(
+      processGroup?.classList.contains("active"),
+      "running process group is not active",
+    );
+    assert(container.querySelector(".has-subagents"), "Task group is missing");
     globalThis.__activityGroupRenders = [];
     lifecycle = {
       ...lifecycle,

@@ -759,6 +759,10 @@ may be retained while exactly one workspace supplies the visible shell context.
 
 ### 4.2 Collapse indicator
 
+- Assistant narration before the final answer, thinking, and tool activity are
+  wrapped in one lightweight process disclosure. The final assistant message
+  block after the last activity remains outside it and is expanded as the
+  answer.
 - Tool activity starts as a lightweight collapsed row; failed calls open
   automatically so the error remains local to its invocation.
 - Consecutive tool activity is wrapped in one processing group. Its header
@@ -766,12 +770,13 @@ may be retained while exactly one workspace supplies the visible shell context.
   transcript message, and exposes the number of contained steps. The latest
   action remains in the activity rows or dedicated runtime indicator; no
   additional status capsule is rendered.
-- While the turn is active, the latest processing group opens automatically so
-  its activity list is visible, but tool-call details remain collapsed by
-  default. The latest thinking row opens automatically while it streams. When
-  the activity settles, only automatic thinking disclosures close. A click or
-  keyboard activation on a group, row, or collapse rail makes that disclosure
-  user-owned; stream updates and completion never override it.
+- While the process phase is active, its disclosure opens automatically so the
+  narration and activity list are visible, but tool-call details remain
+  collapsed by default. The latest thinking row opens automatically while it
+  streams. When the answer phase begins or the activity settles, automatic
+  process and thinking disclosures close. A click or keyboard activation on a
+  group, row, or collapse rail makes that disclosure user-owned; stream updates
+  and completion never override it.
 - A failed row is invocation-local truth and remains visible immediately. The
   containing group reports processing duration only and settles as processed,
   even when a later call recovers. Terminal turn failure is derived only from

@@ -147,6 +147,8 @@ type ActivityGroupProps = {
   items: ActivityItem[];
   isActive: boolean;
   endedAt?: string;
+  /** Render the rows inside a parent process disclosure without another head. */
+  embedded?: boolean;
   /** Current runtime wait phase, when the group owns the live turn tail. */
   runtimeActivity?: AgentActivity;
   /** Delegation statuses from the entire assistant turn (cross-activity-part). */
@@ -176,6 +178,7 @@ function activityGroupPropsEqual(
   if (
     previous.isActive !== next.isActive ||
     previous.endedAt !== next.endedAt ||
+    previous.embedded !== next.embedded ||
     previous.runtimeActivity !== next.runtimeActivity ||
     previous.items.length !== next.items.length
   ) {
@@ -201,6 +204,7 @@ export const ActivityGroup = memo(function ActivityGroup({
   items,
   isActive,
   endedAt,
+  embedded = false,
   runtimeActivity,
   turnDelegationStatuses,
   turnDelegationTimings,
@@ -349,6 +353,16 @@ export const ActivityGroup = memo(function ActivityGroup({
       );
     });
   };
+
+  if (embedded) {
+    return (
+      <div
+        className={`tool-activity-group embedded ${hasSubagentTopology ? "has-subagents" : ""}`}
+      >
+        <div className="tool-activity-body">{renderActivityItems()}</div>
+      </div>
+    );
+  }
 
   return (
     <div

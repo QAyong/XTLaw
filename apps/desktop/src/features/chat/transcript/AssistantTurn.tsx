@@ -8,14 +8,17 @@ import { useTranslation } from "react-i18next";
 import type {
   AgentActivity,
   ContextCompactionMark,
+  UiMessage,
 } from "@pi-desktop/shared";
 import {
+  assistantTurnAnswerMessages,
   assistantTurnContent,
   assistantTurnMessages,
   assistantTurnResponseDuration,
   assistantTurnResponseOutputTokens,
   assistantTurnUsage,
   reuseReadonlyMap,
+  splitAssistantTurnParts,
   subagentRunsEqual,
   type AssistantTurnEntry,
   type TranscriptEntry,
@@ -38,14 +41,39 @@ import {
   MessageMeta,
   formatTokenCount,
 } from "./shared";
-import { activityItemsEqual, ActivityGroup } from "./ActivityGroup";
+import { activityItemsEqual } from "./ActivityGroup";
 import { MessageRow } from "./MessageRow";
+import { ProcessDetailsGroup } from "./ProcessDetailsGroup";
 
 type AssistantTurnProps = {
   entry: AssistantTurnEntry;
   isActive: boolean;
   runtimeActivity?: AgentActivity;
 };
+
+function AssistantMessageFragment({
+  message,
+  streaming,
+  process = false,
+}: {
+  message: UiMessage;
+  streaming: boolean;
+  process?: boolean;
+}) {
+  return (
+    <div
+      className={`message-bubble ${process ? "assistant-turn-process-fragment" : "assistant-turn-fragment"}${streaming ? " streaming" : ""}`}
+      data-message-id={message.id}
+    >
+      {message.content ? (
+        <div className="prose-chat">
+          <Markdown source={message.content} />
+        </div>
+      ) : null}
+      {message.error ? <AssistantErrorMessage message={message} /> : null}
+    </div>
+  );
+}
 
 function assistantTurnPropsEqual(
   previous: AssistantTurnProps,
@@ -230,8 +258,11 @@ export const AssistantTurn = memo(function AssistantTurn({
     s.activeSessionId ? s.runningSessions[s.activeSessionId] === true : false,
   );
   const messages = assistantTurnMessages(entry);
+  const { process: processParts, answer: answerParts } =
+    splitAssistantTurnParts(entry);
+  const answerMessages = assistantTurnAnswerMessages(entry);
   const content = assistantTurnContent(entry);
-  const actionMessage = [...messages]
+  const actionMessage = [...answerMessages]
     .reverse()
     .find((message) => (message.content || "").trim());
   const metaMessage = [...messages]
@@ -288,6 +319,9 @@ export const AssistantTurn = memo(function AssistantTurn({
   );
   statusesRef.current = turnDelegationStatuses;
   timingsRef.current = turnDelegationTimings;
+  const processIsTurnTail = processParts.length === entry.parts.length;
+  const processEndedAt =
+    answerParts[0]?.kind === "message" ? answerParts[0].message.createdAt : undefined;
 
   return (
     <div
@@ -298,22 +332,25 @@ export const AssistantTurn = memo(function AssistantTurn({
       aria-label={t("chat.assistantMessage")}
     >
       <div className="message-col">
-        {entry.parts.map((part, index) =>
-          part.kind === "activity" ? (
-            <ActivityGroup
-              key={`activity-${part.items[0].message.id}`}
-              items={part.items}
-              endedAt={part.endedAt}
-              isActive={isActive && index === entry.parts.length - 1}
-              runtimeActivity={
-                isActive && index === entry.parts.length - 1
-                  ? runtimeActivity
-                  : undefined
-              }
-              turnDelegationStatuses={turnDelegationStatuses}
-              turnDelegationTimings={turnDelegationTimings}
-            />
-          ) : (
+        {processParts.length > 0 ? (
+          <ProcessDetailsGroup
+            parts={processParts}
+            isActive={isActive}
+            endedAt={processEndedAt}
+            runtimeActivity={processIsTurnTail ? runtimeActivity : undefined}
+            turnDelegationStatuses={turnDelegationStatuses}
+            turnDelegationTimings={turnDelegationTimings}
+            renderMessage={(message) => (
+              <AssistantMessageFragment
+                message={message}
+                process
+                streaming={isActive && message.status === "streaming"}
+              />
+            )}
+          />
+        ) : null}
+        {answerParts.map((part) =>
+          part.kind === "message" ? (
             <div
               className={`message-bubble assistant-turn-fragment${
                 isActive && part.message.status === "streaming"
@@ -332,7 +369,7 @@ export const AssistantTurn = memo(function AssistantTurn({
                 <AssistantErrorMessage message={part.message} />
               ) : null}
             </div>
-          ),
+          ) : null,
         )}
         {!isActive && metaMessage ? (
           <MessageMeta

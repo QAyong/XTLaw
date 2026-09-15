@@ -1279,7 +1279,10 @@ SESSIONS                                      [msg+][↕]
 Scrollable container rendering the ordered sequence of user messages, assistant
 turns, lightweight tool activity rows, and permission cards for a session.
 Provider-level assistant fragments separated by tool calls remain distinct in
-storage but compose into one assistant turn until the next user message.
+storage but compose into one assistant turn until the next user message. Within
+that turn, narration, thinking, and tool activity before the trailing final
+assistant message compose into one collapsed process disclosure; the final
+assistant message block remains a separate expanded Markdown answer.
 
 ### 7.2 Anatomy
 
@@ -1288,10 +1291,10 @@ storage but compose into one assistant turn until the next user message.
 |map | [User MessageBubble]                |
 |rail| [Thinking disclosure]               |
 |    | [Assistant Turn]                    |
-|    |   [Assistant fragment]              |
-|    |   [ToolCallRow]                     |
-|    |   [PermissionCard] (interrupt)      |
-|    |   [Assistant fragment (resume)]     |
+|    |   [Process disclosure]              |
+|    |     [Narration / ToolCallRow]       |
+|    |     [PermissionCard] (interrupt)    |
+|    |   [Final assistant Markdown]        |
 |    |   [Meta + one action toolbar]       |
 |    | [User MessageBubble]                |
 |    | ...                                 |
@@ -1324,14 +1327,16 @@ storage but compose into one assistant turn until the next user message.
   per-turn actions. Quote prefills the composer per §11.9 and Open side chat
   opens §5.8; neither sends or leaves the visible session.
 - Assistant fragments emitted before and after tool calls compose into one
-  `role="article"` turn. The turn exposes one trailing meta row and one action
-  toolbar; Copy joins all contentful fragments in order, while Fork and
-  Regenerate use the last contentful assistant message as the durable boundary.
-- Toggle Thinking disclosure: expand/collapse reasoning independently from the
-  final answer. The latest reasoning row opens while it streams and closes when
-  the turn settles only if the user has not interacted with it. The expanded
-  content's left rule is itself a pointer and keyboard-focusable collapse
-  control.
+  `role="article"` turn. Narration before the final answer belongs to the
+  process disclosure; only the trailing assistant message block is rendered as
+  the answer. The turn exposes one trailing meta row and one action toolbar;
+  Copy, Fork, and Regenerate use the final answer boundary.
+- Toggle the process disclosure to expand/collapse narration, thinking, and
+  tool rows together. Nested thinking and tool details retain their own
+  disclosures. The latest thinking row opens while it streams and the process
+  disclosure closes when the answer phase begins or the turn settles, unless
+  the user has interacted with it. The expanded content's left rule is itself
+  a pointer and keyboard-focusable collapse control.
 - Hover code block: copy button appears
 - Hover or focus a minimap marker: show the localized sender and a bounded
   plaintext preview; multiple assistant fragments produced within one user
@@ -1692,7 +1697,7 @@ message its checkpoint covers.
 
 - No message reactions/annotations
 - No edit user message (deferred)
-- Copy assistant answer excludes thinking text
+- Copy assistant answer excludes process narration, tool output, and thinking
 
 ### 8.7 Markdown & code rendering (implemented)
 
@@ -1871,14 +1876,16 @@ Lightweight inline disclosure row showing a semantic tool action, its primary
 argument hint, status, and a readable rendering of the result. It follows D071
 and is intentionally not an elevated card.
 
-Consecutive tool calls form one ChatGPT-style processing group. Historical
-groups are collapsed by default. While the turn is active, the latest live
-group opens automatically so the process list is visible. Tool-call details
-remain collapsed by default, including failed tool calls; only the latest
-thinking row opens automatically. When the group or turn settles, automatically
-managed thinking disclosures close so the answer remains the visual focus. A
-user click on a group, row, or collapse rail takes ownership of that disclosure;
-later stream updates and completion never reverse that choice.
+Consecutive tool calls form one ChatGPT-style processing group inside the
+turn-level process disclosure. Historical process disclosures are collapsed by
+default. While the turn is active, the live process disclosure opens
+automatically so the process list is visible. Tool-call details remain
+collapsed by default, including failed tool calls; only the latest thinking
+row opens automatically. When the answer phase begins or the turn settles,
+automatically managed process and thinking disclosures close so the answer
+remains the visual focus. A user click on a group, row, or collapse rail takes
+ownership of that disclosure; later stream updates and completion never
+reverse that choice.
 The group header shows `Processing · 12s` while active or `Processed for 12s`
 after completion. Expanding it reveals the ordered tool activity rows and their
 nested result disclosures. The group

@@ -151,6 +151,8 @@ type ActivityGroupProps = {
   /** Provider/model metadata for the assistant turn owning this activity. */
   providerId?: string;
   modelId?: string;
+  /** Render the rows inside a parent process disclosure without another head. */
+  embedded?: boolean;
   /** Current runtime wait phase, when the group owns the live turn tail. */
   runtimeActivity?: AgentActivity;
   /** Delegation statuses from the entire assistant turn (cross-activity-part). */
@@ -182,6 +184,7 @@ function activityGroupPropsEqual(
     previous.modelId !== next.modelId ||
     previous.isActive !== next.isActive ||
     previous.endedAt !== next.endedAt ||
+    previous.embedded !== next.embedded ||
     previous.runtimeActivity !== next.runtimeActivity ||
     previous.items.length !== next.items.length
   ) {
@@ -209,6 +212,7 @@ export const ActivityGroup = memo(function ActivityGroup({
   endedAt,
   providerId,
   modelId,
+  embedded = false,
   runtimeActivity,
   turnDelegationStatuses,
   turnDelegationTimings,
@@ -357,6 +361,16 @@ export const ActivityGroup = memo(function ActivityGroup({
       );
     });
   };
+
+  if (embedded) {
+    return (
+      <div
+        className={`tool-activity-group embedded ${hasSubagentTopology ? "has-subagents" : ""}`}
+      >
+        <div className="tool-activity-body">{renderActivityItems()}</div>
+      </div>
+    );
+  }
 
   return (
     <div

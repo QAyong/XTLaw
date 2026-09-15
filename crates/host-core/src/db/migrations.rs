@@ -552,9 +552,8 @@ pub(crate) fn migrate_v14_to_v15_tx(tx: &rusqlite::Transaction<'_>) -> Result<()
     Ok(())
 }
 
-/// v17 → v18 adds the adaptive thinking mode switch (ADR 0257). The column is
-/// additive: every existing session reads back as `manual`, preserving the
-/// previous behavior where the persisted thinking level was always explicit.
+/// v17 → v18 adds the adaptive thinking mode switch (ADR 0257) and the
+/// nullable turn queue priority column.
 pub(crate) fn migrate_v17_to_v18_tx(tx: &rusqlite::Transaction<'_>) -> Result<()> {
     let has_column: bool = tx.query_row(
         "SELECT EXISTS(
@@ -569,6 +568,19 @@ pub(crate) fn migrate_v17_to_v18_tx(tx: &rusqlite::Transaction<'_>) -> Result<()
             ALTER TABLE sessions ADD COLUMN thinking_level_mode TEXT NOT NULL DEFAULT 'manual';
             "#,
         )?;
+    }
+    let has_queue: bool = tx.query_row(
+        "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'turn_queue')",
+        [],
+        |row| row.get(0),
+    )?;
+    let has_priority: bool = tx.query_row(
+        "SELECT EXISTS(SELECT 1 FROM pragma_table_info('turn_queue') WHERE name = 'priority')",
+        [],
+        |row| row.get(0),
+    )?;
+    if has_queue && !has_priority {
+        tx.execute_batch("ALTER TABLE turn_queue ADD COLUMN priority INTEGER;")?;
     }
     tx.pragma_update(None, "user_version", 18i64)?;
     Ok(())
@@ -770,7 +782,6 @@ pub(crate) fn migrate_v14_to_v15(conn: &Connection, path: &Path) -> Result<()> {
     })?;
     Ok(())
 }
-
 pub(crate) fn migrate_v17_to_v18(conn: &Connection, path: &Path) -> Result<()> {
     let backup = create_migration_backup(conn, path, 17)?;
     let tx = conn.unchecked_transaction()?;

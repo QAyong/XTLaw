@@ -915,13 +915,17 @@ query still ranks relevance first and uses recency only as a tiebreaker.
   `g`/`y`/`p` stay fully visible. Long model IDs still truncate horizontally via
   ellipsis without crushing the line box (D150).
 
-## 8.3 Thinking disclosure
+## 8.3 Process and thinking disclosure
 
-- Assistant thinking renders before the final answer as a lightweight inline
-  disclosure aligned with tool activity rows: transparent transcript surface,
-  Sparkles cue, rotating chevron, secondary text, and a subtle left rule only
-  around expanded reasoning. It uses semantic theme and focus-ring tokens in
+- Assistant narration, thinking, and tool activity before the final answer
+  render in one lightweight inline process disclosure aligned with the
+  existing activity rows: transparent transcript surface, Sparkles cue,
+  rotating chevron, secondary text, and a subtle left rule only around
+  expanded details. It reuses the existing theme and focus-ring tokens in
   light and dark modes; it must not introduce a separate inset card.
+- The trailing assistant message block after the last activity is the final
+  answer. It stays outside the process disclosure and remains expanded as
+  Markdown when the process is collapsed.
 - The latest thinking disclosure opens while a thinking-only response is
   streaming and closes when the turn settles if it was not touched. A manual
   toggle owns the disclosure and remains effective through later deltas and
@@ -930,8 +934,9 @@ query still ranks relevance first and uses recency only as a tiebreaker.
   Show/Hide labels. Collapsed reasoning is hidden from focus and accessibility
   traversal; reduced-motion mode disables the running marker pulse and
   disclosure transitions.
-- Thinking never enters the answer bubble, answer copy action, transcript
-  minimap excerpt, or searchable answer text.
+- Process narration and thinking never enter the answer bubble or answer copy
+  action. Thinking also stays out of the transcript minimap excerpt and
+  searchable answer text.
 - A thinking-only stream opens the transcript surface without an empty answer
   bubble or a duplicate Working indicator.
 

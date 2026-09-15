@@ -91,6 +91,8 @@ fn declaration_manifest(providers: Value, permissions: Value) -> Value {
 #[test]
 fn schema_is_current_with_the_owner_column() {
     let (_dir, db, _secrets) = test_context();
+    // v17 added the owner column and v18 the turn-queue priority column; a fresh
+    // database is stamped with the newest, so the column set is the current one.
     assert_eq!(SCHEMA_VERSION, 18);
     let version: i64 = db
         .conn()

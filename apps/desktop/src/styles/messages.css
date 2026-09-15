@@ -2003,6 +2003,24 @@
   contain-intrinsic-size: auto 40px;
 }
 
+/* A turn-level process group reuses the same inline disclosure surface. Its
+   nested activity groups contribute rows only; the final answer stays outside
+   this boundary so it remains visible after the process collapses. */
+.tool-activity-group.process-details-group {
+  margin-top: 3px;
+  margin-bottom: 3px;
+}
+
+.tool-activity-group.embedded {
+  margin: 4px 0;
+}
+
+.assistant-turn-process-fragment {
+  margin: 4px 0;
+  color: var(--ds-text-secondary);
+  font-size: var(--text-sm-plus);
+}
+
 .tool-activity-header {
   display: inline-flex;
   min-width: 0;

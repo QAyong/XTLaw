@@ -49,6 +49,13 @@ export type AssistantTurnEntry = {
   parts: AssistantTurnPart[];
 };
 
+export type AssistantTurnDisplayParts = {
+  /** Assistant narration, thinking, and tools that precede the final answer. */
+  process: AssistantTurnPart[];
+  /** The trailing assistant message block that is presented as the answer. */
+  answer: AssistantTurnPart[];
+};
+
 export type TranscriptEntry =
   | { kind: "message"; message: UiMessage }
   | { kind: "compaction"; mark: ContextCompactionMark }
@@ -381,6 +388,46 @@ export function assistantTurnMessages(
 }
 
 /**
+ * Split one provider-composed assistant turn into process and answer blocks.
+ *
+ * Providers commonly emit a short narration before a tool call and another
+ * narration after it. Those fragments are part of the turn, but they are not
+ * the answer the user came for. The final answer is the trailing message block
+ * after the last activity part; when a turn ends on activity, it has no final
+ * answer yet and all content remains process content.
+ */
+export function splitAssistantTurnParts(
+  entry: AssistantTurnEntry,
+): AssistantTurnDisplayParts {
+  let lastActivityIndex = -1;
+  for (let index = entry.parts.length - 1; index >= 0; index -= 1) {
+    if (entry.parts[index].kind === "activity") {
+      lastActivityIndex = index;
+      break;
+    }
+  }
+
+  const answer = entry.parts.slice(lastActivityIndex + 1);
+  const hasAnswer = answer.some(
+    (part) =>
+      part.kind === "message" &&
+      (Boolean((part.message.content || "").trim()) || Boolean(part.message.error)),
+  );
+
+  return hasAnswer
+    ? { process: entry.parts.slice(0, lastActivityIndex + 1), answer }
+    : { process: [...entry.parts], answer: [] };
+}
+
+export function assistantTurnAnswerMessages(
+  entry: AssistantTurnEntry,
+): UiMessage[] {
+  return splitAssistantTurnParts(entry).answer.flatMap((part) =>
+    part.kind === "message" ? [part.message] : [],
+  );
+}
+
+/**
  * The rows these entries actually render, in transcript order.
  *
  * The minimap resolves a click by finding the marker's `data-minimap-id` node in
@@ -448,7 +495,7 @@ export function assistantTurnResponseOutputIsEstimated(
 }
 
 export function assistantTurnContent(entry: AssistantTurnEntry): string {
-  return assistantTurnMessages(entry)
+  return assistantTurnAnswerMessages(entry)
     .map((message) => (message.content || "").trim())
     .filter(Boolean)
     .join("\n\n");

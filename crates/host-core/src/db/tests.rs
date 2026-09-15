@@ -1398,11 +1398,11 @@ fn normalize_project_path_strips_extended_length_prefix() {
     );
 }
 
-/// The v16 → v17 and v17 → v18 steps run in the same launch, so a file two
-/// versions behind must land on the current version with both changes applied
-/// rather than stopping at the version the first step stamps.
+/// The v16 → v17, v17 → v18, and v18 → v19 steps run in the same launch, so a
+/// file three versions behind must land on the current version with all changes
+/// applied rather than stopping at the version the first step stamps.
 #[test]
-fn a_v16_file_gains_the_provider_owner_column() {
+fn a_v16_file_gains_current_schema_columns() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("pi.sqlite");
     let provider_id;
@@ -1417,7 +1417,7 @@ fn a_v16_file_gains_the_provider_owner_column() {
                 |row| row.get::<_, String>(0),
             )
             .unwrap();
-        // Back to a file that predates both v17/v18 additions. SQLite will not
+        // Back to a file that predates the v17/v18/v19 additions. SQLite will not
         // drop a column an index still references, so the index goes first.
         db.conn()
             .execute_batch(
@@ -1455,4 +1455,13 @@ fn a_v16_file_gains_the_provider_owner_column() {
         )
         .unwrap_or_else(|_| "manual".into());
     assert_eq!(thinking_mode, "manual");
+    let has_priority: bool = db
+        .conn()
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM pragma_table_info('turn_queue') WHERE name = 'priority')",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert!(has_priority);
 }

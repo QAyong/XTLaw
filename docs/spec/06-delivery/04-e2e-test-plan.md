@@ -24,6 +24,21 @@
   the app to General.
 - **Status:** Documented; run after integration into main.
 
+### E2E-MODEL-provider-icons-match-model-name
+
+- **Preconditions:** The Composer has configured models whose ids include known
+  families such as `claude`, `gpt`, `gemini`, `deepseek`, or `qwen`, plus an
+  unknown custom model.
+- **Steps:** Open the Composer model picker and inspect the trigger, the model
+  menu, and the selected model while switching between those entries.
+- **Expected:** A known model shows the corresponding provider mark using the
+  model id/display name match; when the model name is not recognized, the
+  configured provider match is used; an unknown custom model retains the
+  default bot glyph. Model selection, keyboard navigation, and fallback text
+  remain unchanged.
+- **Specs linked:** `00-baseline.md`, `06-delivery/03-ai-development-workflow.md`
+- **Status:** Documented; run after integration into main.
+
 - Document every user-visible and protocol-visible behavior that MVP must verify.
 - Provide a scenario catalog that maps to acceptance criteria (A–H) and milestones (M1–M6).
 - Serve as the traceability backbone: scenario ID ↔ acceptance criterion ↔ spec.

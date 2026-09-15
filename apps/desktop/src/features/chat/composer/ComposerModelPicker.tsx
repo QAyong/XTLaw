@@ -1,8 +1,6 @@
-import type { TFunction } from "i18next";
 import { formatTokenCount, modelIdsMatch } from "@pi-desktop/shared";
-import { AnchoredMenu } from "../../../components/settings/AnchoredMenu";
+import type { TFunction } from "i18next";
 import {
-  IconBot,
   IconCheck,
   IconChevronDown,
   IconChevronLeft,
@@ -10,8 +8,10 @@ import {
   IconSearch,
   IconSparkles,
 } from "../../../components/icons";
+import { AnchoredMenu } from "../../../components/settings/AnchoredMenu";
 import { TooltipButton } from "../../../components/ui";
 import { composerModelBadges } from "../../../lib/composer-models";
+import { ModelIcon } from "../../../lib/model-icons";
 import type { useComposerModelMenu } from "./hooks/useComposerModelMenu";
 
 type ModelMenuController = ReturnType<typeof useComposerModelMenu>;
@@ -97,7 +97,7 @@ export function ComposerModelPicker({
           }}
         >
           <span className="composer-model-thinking-icon" aria-hidden="true">
-            <IconBot size={14} />
+            <ModelIcon provider={selectedProviderId ?? ""} modelId={selectedModelId ?? modelLabel} modelName={modelLabel} size={14} />
           </span>
           <span className="composer-model-thinking-model">{modelLabel}</span>
           {thinkingLevel !== "off" ? (
@@ -119,7 +119,7 @@ export function ComposerModelPicker({
             aria-haspopup="menu"
             onClick={() => showView("model")}
           >
-            <IconBot size={14} aria-hidden="true" />
+            <ModelIcon provider={selectedProviderId ?? ""} modelId={selectedModelId ?? modelLabel} modelName={modelLabel} size={14} />
             <span className="composer-menu-entry-label">{t("chat.model")}</span>
             <span className="composer-menu-entry-value" title={modelLabel}>{modelLabel}</span>
             <IconChevronRight size={14} aria-hidden="true" />
@@ -196,6 +196,7 @@ export function ComposerModelPicker({
                             onClick={() => void selectModel(group.provider, model.modelId)}
                           >
                             <span className="composer-model-option-main">
+                              <ModelIcon provider={group.provider.id} modelId={model.modelId} modelName={optionTitle} size={14} />
                               <span className="truncate">{optionTitle}</span>
                               <span className="composer-model-option-meta">
                                 {composerModelBadges(model, group.provider).map((badge) => (

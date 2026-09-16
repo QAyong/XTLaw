@@ -156,7 +156,7 @@ test("sidebar project and session lists stay coordinated with the global type sc
 test("pinned project rows replace the folder glyph with a filled star", () => {
   assert.match(
     sidebarSource,
-    /className="sidebar-project-folder-toggle"[\s\S]*?entry\.meta\.pinned \? \([\s\S]*?<IconStar\s+size=\{13\}\s+fill="currentColor"[\s\S]*?className="sidebar-project-pin"[\s\S]*?\) : collapsedProject \? \([\s\S]*?<IconFolder size=\{13\} aria-hidden \/>/,
+    /className="sidebar-project-folder-toggle"[\s\S]*?entry\.meta\.pinned \? \([\s\S]*?<IconStar\s+size=\{16\}\s+fill="currentColor"[\s\S]*?className="sidebar-project-pin"[\s\S]*?\) : collapsedProject \? \([\s\S]*?<IconFolder size=\{16\} aria-hidden \/>/,
   );
   assert.match(
     globalStyles,
@@ -279,9 +279,15 @@ test("sidebar row menus omit project reassignment and switching actions", () => 
   assert.doesNotMatch(sidebarSource, /data-action="move-session-to-project"/);
   assert.doesNotMatch(sidebarSource, /t\("nav\.moveToProject"/);
   assert.doesNotMatch(sidebarSource, /t\("project\.switch"/);
+  // E2E-047: the row bubble owns both the disclosure and project
+  // activation, so no menu needs a switching action.
   assert.match(
     sidebarSource,
-    /className="sidebar-project-name"[\s\S]*?void selectProject\(entry\.path\)/,
+    /className="sidebar-session-group-header"[\s\S]*?void selectProject\(entry\.path\);/,
+  );
+  assert.match(
+    sidebarSource,
+    /className="sidebar-session-group-header"[\s\S]*?setCollapsed\(entry\.path, !collapsedProject\);/,
   );
 });
 

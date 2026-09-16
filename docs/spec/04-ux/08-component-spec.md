@@ -501,9 +501,12 @@ visually distinct from list content.
   visually hidden at rest
 - Right-click the `Sessions` heading or empty standalone-list chrome: open a
   single-item create menu that applies the same temporary-group reuse rule
+- Project row: the folder icon toggles child visibility without switching the
+  workspace, and the project name selects that project and toggles the same
+  children, so every non-action point of the row bubble toggles it. Project
+  activation stays on the directory row rather than in its overflow menu.
 - Project overflow: open folder, rename, pin/unpin, archive/restore, close
-  retained tab. Project activation remains on the directory row rather than
-  in its overflow menu. Rename edits the local display name only; open folder
+  retained tab. Rename edits the local display name only; open folder
   reveals the project directory in the system file manager for the selected
   project row.
 - Conversation overflow: pin/unpin, archive/restore, Create branch, delete.
@@ -641,7 +644,7 @@ controls.
 | Element | Contract |
 |---|---|
 | Group root | localized project name; hover and keyboard focus expose the full path in a portaled tooltip plus an accessible description without changing row geometry |
-| Directory disclosure | folder-icon target with `aria-expanded` / `aria-controls`; toggles child visibility without a separate chevron or project activation, and never archives |
+| Directory disclosure | the folder target carries `aria-expanded` / `aria-controls` and toggles child visibility without switching the workspace; the row's project name and remaining background toggle the same children while selecting that project; no separate chevron, and it never archives |
 | Project pin | presentation priority only; no host row deletion/move |
 | Project reorder | press-and-move on the project name (8px), or ArrowUp/ArrowDown on that name, writes contiguous normalized-path order to sidebar preferences; accent insertion line; no visible grip |
 | Project archive | omitted from default view; restorable from archived view |

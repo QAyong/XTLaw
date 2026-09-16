@@ -1052,9 +1052,11 @@ identify the platform validation still needed.
   project row is one full-width rounded bubble with an interactive folder icon
   that switches between open and closed states; there is no separate disclosure
   arrow. Each project session is also a full-width rounded row with no indented
-  bubble. Clicking the project name activates the project without changing its
-  expanded state, while clicking the folder only toggles child visibility. Each
-  transcript loads correctly; selecting Temporary clears project context and
+  bubble. Clicking the folder toggles child visibility without switching the
+  workspace, while clicking the project name selects that project and toggles
+  the same children; the row's `+` and overflow controls keep their own
+  actions.
+  Each transcript loads correctly; selecting Temporary clears project context and
   inherits no workspace access; both sessions remain persisted. Every session
   first activation paints its distinct final record at the transcript bottom
   without first exposing the transcript top, another session's scroll position,

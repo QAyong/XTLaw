@@ -24,7 +24,10 @@
   flex: 1;
   align-items: center;
   gap: 5px;
-  padding: 5px 6px 5px 20px;
+  /* Sidebar content grid: level-1 chrome sits at a 16px inset and every
+     nested row shares a 40px text column, so 30px here resolves to 40px for
+     pinned, standalone, and project sessions alike. */
+  padding: 5px 6px 5px 30px;
   text-align: left;
   color: inherit;
 }
@@ -36,7 +39,9 @@
   align-items: center;
   gap: 2px;
   border-radius: var(--radius-sm);
-  padding: 0 2px;
+  /* No left padding: the 24px folder target starts at the 10px row inset so
+     its centered 13px icon reads on the 16px content column. */
+  padding: 0 2px 0 0;
   color: var(--ds-text-secondary);
   transition:
     background var(--motion-duration-fast) var(--motion-ease-out),
@@ -138,7 +143,7 @@
   align-items: center;
   gap: 5px;
   border: 0;
-  padding: 5px 6px;
+  padding: 5px 6px 5px 4px;
   background: transparent;
   color: inherit;
   cursor: grab;
@@ -270,7 +275,7 @@
 }
 
 .sidebar-time-group-header {
-  padding: 6px 6px 2px 20px;
+  padding: 6px 6px 2px 30px;
   color: var(--ds-text-muted);
   font-size: var(--text-2xs);
   font-weight: var(--font-weight-medium);
@@ -285,7 +290,7 @@
   display: flex;
   width: 100%;
   align-items: center;
-  padding: 4px 6px 4px 20px;
+  padding: 4px 6px 4px 30px;
   border-radius: var(--radius-sm);
   color: var(--ds-text-muted);
   font-size: var(--text-xs-plus);
@@ -313,7 +318,7 @@
 }
 
 .sidebar-session-empty {
-  padding: 5px 8px;
+  padding: 5px 8px 5px 30px;
   color: var(--ds-text-muted);
   font-size: var(--text-md); /* empty-state copy tracks group titles */
   line-height: var(--leading-compact);

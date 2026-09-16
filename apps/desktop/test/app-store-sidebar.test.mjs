@@ -77,7 +77,7 @@ test("durable empty sessions render and title heuristics do not filter them", ()
   assert.doesNotMatch(sidebarSource, /keptEmptyScopes/);
 });
 
-test("project folder toggles disclosure while the project name activates it", () => {
+test("project folder toggles disclosure while the project row selects and toggles it", () => {
   const projectFolderBlock = sidebarSource.match(
     /className="sidebar-project-folder-toggle"[\s\S]*?<\/TooltipButton>/,
   )?.[0] ?? "";
@@ -85,9 +85,11 @@ test("project folder toggles disclosure while the project name activates it", ()
   assert.match(projectFolderBlock, /data-action="toggle-project-collapse"/);
   assert.match(projectFolderBlock, /setCollapsed\(entry\.path, !collapsedProject\)/);
   assert.doesNotMatch(projectFolderBlock, /IconChevronDown|sidebar-disclosure-icon/);
+  // E2E-047: every non-action point of the row bubble toggles the group,
+  // and the name also selects that project.
   assert.match(
     sidebarSource,
-    /className="sidebar-project-name"[\s\S]*?void selectProject\(entry\.path\)/,
+    /className="sidebar-session-group-header"[\s\S]*?void selectProject\(entry\.path\);[\s\S]*?setCollapsed\(entry\.path, !collapsedProject\);/,
   );
   assert.doesNotMatch(sidebarSource, /className="sidebar-session-group-title project-toggle"[\s\S]*?<IconChevronDown/);
   assert.doesNotMatch(sidebarSource, /className="project-collapse-toggle"/);

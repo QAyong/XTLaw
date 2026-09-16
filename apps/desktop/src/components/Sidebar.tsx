@@ -949,8 +949,8 @@ export function Sidebar({
     const label = t(labelKey, { defaultValue: fallback });
     return (
       <span className={`thread-item-status ${status}`} aria-label={label} title={label}>
-        {status === "completed" ? <IconCheck size={10} aria-hidden /> : null}
-        {status === "failed" ? <IconCircleAlert size={11} aria-hidden /> : null}
+        {status === "completed" ? <IconCheck size={12} aria-hidden /> : null}
+        {status === "failed" ? <IconCircleAlert size={12} aria-hidden /> : null}
       </span>
     );
   };
@@ -1637,6 +1637,21 @@ export function Sidebar({
               ),
             );
           }}
+          onClick={(event) => {
+            // The whole row is the disclosure target (E2E-047): every
+            // non-action point toggles this project's sessions, and an
+            // inactive row also becomes the selected workspace.
+            const target = event.target as Element | null;
+            if (
+              target?.closest(
+                ".sidebar-menu-wrap, .sidebar-session-group-add, .sidebar-project-folder-toggle",
+              )
+            ) {
+              return;
+            }
+            void selectProject(entry.path);
+            setCollapsed(entry.path, !collapsedProject);
+          }}
         >
           <div className="sidebar-session-group-title project-toggle">
             <TooltipButton
@@ -1654,15 +1669,15 @@ export function Sidebar({
             >
               {entry.meta.pinned ? (
                 <IconStar
-                  size={13}
+                  size={16}
                   fill="currentColor"
                   className="sidebar-project-pin"
                   aria-hidden
                 />
               ) : collapsedProject ? (
-                <IconFolder size={13} aria-hidden />
+                <IconFolder size={16} aria-hidden />
               ) : (
-                <IconFolderOpen size={13} aria-hidden />
+                <IconFolderOpen size={16} aria-hidden />
               )}
             </TooltipButton>
             <TooltipButton
@@ -1680,12 +1695,11 @@ export function Sidebar({
               onPointerDown={(event) => beginProjectReorderPress(event, entry.key)}
               onKeyDown={(event) => moveProjectWithKeyboard(event, entry.key)}
               onClick={(event) => {
+                // A press that turned into a reorder must not also toggle the
+                // row; everything else falls through to the row disclosure.
+                if (!suppressProjectTitleClickRef.current) return;
+                suppressProjectTitleClickRef.current = false;
                 event.stopPropagation();
-                if (suppressProjectTitleClickRef.current) {
-                  suppressProjectTitleClickRef.current = false;
-                  return;
-                }
-                void selectProject(entry.path);
               }}
             >
               <span>{entry.name}</span>
@@ -2191,7 +2205,7 @@ export function Sidebar({
             <section className="sidebar-session-group" aria-labelledby="sidebar-project-group-label">
               <div className="sidebar-session-group-header">
                 <button type="button" id="sidebar-project-group-label" className="sidebar-session-group-title" onClick={() => void openProjectPicker()}>
-                  <IconFolder size={13} />
+                  <IconFolder size={16} />
                   <span>{t("project.open")}</span>
                 </button>
               </div>

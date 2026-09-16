@@ -189,8 +189,10 @@ destination, chat as the home surface, tools and permissions inline.
   folder basename. Legacy single-folder projects are compatibility groups.
 - **Header**: project name, active state, interactive folder state, new-task
   action, and an overflow menu. The folder icon toggles child visibility while
-  the project name activates the project; both controls share one full-width
-  rounded row bubble with no separate disclosure arrow. Adjacent groups form
+  the project name selects the project and toggles the same children, so every
+  non-action point of the row bubble toggles it; both controls share one
+  full-width rounded row bubble with no separate disclosure arrow. Adjacent
+  groups form
   one dense list rather than detached cards. Hovering or focusing the project
   name reveals the full project path. Pressing the name and moving 8px reorders
   the group.

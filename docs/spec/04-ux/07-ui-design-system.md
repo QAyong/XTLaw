@@ -249,7 +249,8 @@ Light-surface polish (D148):
 
 ### 4.5 Sidebar task status semantics
 
-Compact task rows reserve one `12px` leading status slot. State is never
+Compact task rows reserve one `16px` leading status slot, centred on the
+same vertical axis as the project folder icon above it. State is never
 communicated by color alone, and each status consumes an existing semantic
 token rather than introducing a decorative palette:
 

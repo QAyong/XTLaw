@@ -159,8 +159,12 @@
 
 .thread-item-status {
   display: inline-flex;
-  width: 12px;
-  height: 12px;
+  /* Leading status column: one 16px slot whose box starts at x=14, so every
+     indicator centres on x=22, the same axis as the 24px project folder
+     button above it. Absolute positioning keeps the 40px title column
+     untouched. */
+  width: 16px;
+  height: 16px;
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
@@ -172,8 +176,8 @@
 }
 
 .thread-item-status.running::before {
-  width: 7px;
-  height: 7px;
+  width: 9px;
+  height: 9px;
   border-radius: var(--radius-full);
   background: var(--ds-warning);
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--ds-warning) 15%, transparent);
@@ -182,8 +186,8 @@
 }
 
 .thread-item-status.permission::before {
-  width: 7px;
-  height: 7px;
+  width: 9px;
+  height: 9px;
   border-radius: var(--radius-full);
   background: var(--ds-purple);
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--ds-purple) 15%, transparent);
@@ -192,8 +196,8 @@
 }
 
 .thread-item-status.selected::before {
-  width: 9px;
-  height: 9px;
+  width: 12px;
+  height: 12px;
   border: 1.5px solid var(--ds-accent);
   border-radius: var(--radius-full);
   content: "";
@@ -473,7 +477,8 @@
   align-items: center;
   justify-content: space-between;
   min-height: 24px;
-  padding: 4px 4px 0;
+  /* 8px body gutter + 8px here = the shared 16px sidebar content column. */
+  padding: 4px 4px 0 8px;
   border-radius: var(--radius-sm);
 }
 
@@ -531,7 +536,7 @@
 
 .sidebar-list-toolbar-secondary {
   padding-right: 2px;
-  padding-left: 2px;
+  padding-left: 8px;
 }
 
 .sidebar-toolbar-actions {

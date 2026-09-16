@@ -165,11 +165,10 @@ Outer frame that positions Topbar, Sidebar, MainChat, and WorkPanel. Owns resize
   glyph reflects the initial native state plus later maximize/unmaximize
   events. Each Windows/Linux button is an explicit non-drag pointer target so
   the surrounding titlebar drag region cannot consume minimize, maximize,
-  restore, or close clicks. Their shared 112×46px control band is opaque
-  `bg-primary`, preventing destination content from bleeding through the
-  reserved titlebar surface. The band uses the same 1px `border-subtle` rule
-  on its leading and bottom edges as the adjacent titlebar, completing one
-  continuous chrome separator rather than introducing a stronger box seam.
+  restore, or close clicks. Their shared 120×46px control band paints the same
+  titlebar surface underneath it: `bg-primary` on the main pane and the dock
+  header surface while the work panel is open. It carries no separator of its
+  own, so the full-width header reads as one continuous shell region.
 - Minimize uses the platform's normal window model: Windows/Linux renderer and
   native-menu actions call native minimize and keep the taskbar entry, while
   the macOS traffic light/Window menu role remains tray-resident. Clicking a
@@ -233,7 +232,7 @@ combined model × reasoning selection (§11).
   the old 44px)
 - Background: bg-primary for the conversation bar and every route-owned
   frameless drag band
-- Border: border-subtle bottom on every route-owned titlebar surface
+- Border: none; titlebar surfaces are continuous with their owned panes
 - Position: absolute 46px frameless band; `-webkit-app-region: drag` with
   `no-drag` on interactive controls; macOS reserves the left ~76px for traffic
   lights (only when the sidebar is collapsed), Windows/Linux reserve the right
@@ -242,8 +241,10 @@ combined model × reasoning selection (§11).
   lane space provides separation from adjacent work-panel actions. The
   conversation titlebar also reserves the 28px work-panel toggle
   while the panel is closed. While the panel is open, that 120px band plus the
-  toggle overlay the panel header instead, and the header ends its box before
-  the band so the panel tab strip and `+` stay clear of the native control band.
+  toggle overlay the panel header instead. The header itself spans the full
+  dock width; only its tab-strip/action content and dedicated drag region end
+  before the native control band, so the top boundary stays aligned without
+  blocking the buttons.
   In macOS windowed preview mode, a collapsed sidebar also adds the 76px
   traffic-light reserve and the preview action lane plus an 8px gap to the
   panel header itself, keeping its first tab clear; fullscreen uses the 8px
@@ -265,11 +266,11 @@ combined model × reasoning selection (§11).
   `--ds-toolbar-height`. Windows/Linux keep the same `--ds-window-controls-width`
   for the viewport-fixed control lane; when the work panel opens, that
   reservation moves from the conversation titlebar onto the panel header so the
-  controls do not travel with MainPane (D357). The panel header carries it by
-  ending its own box before the band — a margin, not padding — because the
-  native drag rectangle is the border box. The control band continues the
-  titlebar's `border-subtle` bottom rule and uses the same token for its
-  leading divider.
+  controls do not travel with MainPane (D357). The panel header remains a
+  full-width visual surface; an absolutely positioned drag region ends before
+  the control band while the tab strip/action content reserves that lane. This
+  preserves the native hit targets without creating a shorter titlebar or a
+  separator at the dock's right edge.
 - Band reservation is platform-independent (D269). The band is opaque and
   absolutely positioned, so scrolling route content passes underneath it on
   every platform, macOS included. Every route surface that starts its own

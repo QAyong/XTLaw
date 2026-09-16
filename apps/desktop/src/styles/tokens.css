@@ -54,7 +54,7 @@
    * literals in work-panel.css, which no theme could reach.
    */
   --ds-bg-dock: var(--ds-bg-secondary);
-  --ds-bg-dock-raised: transparent;
+  --ds-bg-dock-raised: var(--ds-bg-dock);
   --ds-bg-elevated: color-mix(in oklab, var(--gray-800) 96%, transparent);
   --ds-bg-elevated-opaque: var(--gray-750);
   --ds-bg-hover: color-mix(in oklab, var(--gray-0) 6%, transparent);

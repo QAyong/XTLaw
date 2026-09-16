@@ -475,6 +475,7 @@ export function WorkPanel({
       />
       <div className="work-panel-main">
         <header className="work-panel-header">
+          <div className="work-panel-header-drag-region" aria-hidden="true" />
           <div className="work-panel-tab-strip-wrap no-drag">
             {subagentPanel ? (
               <div className="work-panel-subagent-heading" aria-label={t("panel.subagent")}>

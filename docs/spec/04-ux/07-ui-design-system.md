@@ -516,15 +516,15 @@ fullscreen. Windows/Linux keep the identity and sidebar actions in their first
 row and reserve the rightmost 120px for three frameless-window controls. Each
 control is a 28px square whose visible surface and hit target are the same box;
 the remaining lane space separates the controls from adjacent work-panel
-actions. The band paints an opaque
-`bg-primary` surface so page content never shows through the controls, and its
-leading and bottom edges use the same `border-subtle` rule as the adjacent
-titlebar so the 46px chrome reads as one continuous surface. Main, Settings,
-and work-panel drag regions must terminate before this reservation rather than
-overlap it and rely only on descendant `no-drag`, so every visible control
-pixel remains clickable. Termination is geometric: a region ends where the
-element's border box ends, so an element that only pads its content clear of
-the band still covers the controls with its rectangle. The open work-panel
+actions. The band paints the surface of the titlebar beneath it — `bg-primary`
+on the main pane and the work-panel header surface while the dock is open — so
+the 46px chrome reads as one continuous, borderless surface. Main and Settings
+drag regions must terminate before this reservation rather than overlap it and
+rely only on descendant `no-drag`, so every visible control pixel remains
+clickable. The open work-panel header is intentionally full-width; its dedicated
+drag-region element ends before the reservation and its tab/action content
+reserves the lane. That keeps the header's visual boundary aligned with the
+sidebar and chat headers without covering window controls. The open work-panel
 header uses a horizontally scrollable tab strip with a fixed `+` add trigger;
 each tab owns its close action and the header does not add a second `×` beside
 the native Windows close control. The band

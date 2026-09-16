@@ -1611,7 +1611,9 @@ Single message render — either user (plaintext) or assistant (markdown streami
   copies all contentful fragments in order; Fork and Regenerate target the last
   contentful fragment so existing durable transcript semantics remain intact
   (D157).
-- Assistant meta: optional model badge under the answer. The compact
+- Assistant meta: the answer tail does not render a standalone model-name
+  badge. Model identity remains available in the Composer model selector and
+  relevant error details. The compact
   Codex-style context inspector lives in the composer right toolbar,
   immediately left of the model × reasoning chip, and always mirrors the
   newest assistant turn that reported usage (D347). Occupancy, remaining
@@ -2505,7 +2507,7 @@ reasoning-level control.
   only Model and Reasoning level entries, each showing its current value and a
   chevron. Selecting an entry replaces the menu contents in place with a back
   row and its submenu; selecting a model or level returns to the two-entry root
-  without closing the popover. The menu is `min(300px, 100vw - 24px)`, uses the
+  without closing the popover. The menu is `min(240px, 100vw - 24px)`, uses the
   large radius/dialog shadow tokens, and enters with a short upward fade.
 - The Model submenu establishes a clear provider → model hierarchy: sticky
   provider headings use the stronger `--text-md` section treatment, while

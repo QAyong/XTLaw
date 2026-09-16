@@ -99,12 +99,10 @@ export function formatTokenCount(value: number): string {
 
 
 export function MessageMeta({
-  modelId,
   usage,
   responseDurationMs,
   responseOutputTokens,
 }: {
-  modelId?: string;
   usage?: MessageUsage;
   responseDurationMs?: number;
   responseOutputTokens?: number;
@@ -115,23 +113,16 @@ export function MessageMeta({
     responseDurationMs,
   );
   const showThroughput = !usage && throughput !== undefined;
-  if (!modelId && !showThroughput) {
+  if (!showThroughput) {
     return null;
   }
   return (
     <div className="message-meta">
-      {modelId ? (
-        <span className="message-meta-chip model" title={modelId}>
-          {modelId}
-        </span>
-      ) : null}
-      {showThroughput ? (
-        <span className="message-meta-chip throughput">
-          {t("chat.usageThroughputEstimated", {
-            count: formatTokenCount(throughput),
-          })}
-        </span>
-      ) : null}
+      <span className="message-meta-chip throughput">
+        {t("chat.usageThroughputEstimated", {
+          count: formatTokenCount(throughput),
+        })}
+      </span>
     </div>
   );
 }

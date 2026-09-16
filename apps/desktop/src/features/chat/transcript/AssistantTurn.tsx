@@ -375,7 +375,6 @@ export const AssistantTurn = memo(function AssistantTurn({
         )}
         {!isActive && metaMessage ? (
           <MessageMeta
-            modelId={modelId}
             usage={usage}
             responseDurationMs={responseDurationMs}
             responseOutputTokens={responseOutputTokens}

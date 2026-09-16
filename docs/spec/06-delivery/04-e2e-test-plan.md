@@ -3667,8 +3667,9 @@ identify the platform validation still needed.
   usage; another completed assistant message has content but no usage. The
   selected model has a published 1m-class context window, while its provider
   binding still contains the legacy 128k generic seed.
-- **Steps**: 1) Open the session. 2) Confirm the completed turn shows a model
-  badge and no context inspector under the answer. 3) Hover the composer
+- **Steps**: 1) Open the session. 2) Confirm the completed turn has no
+  standalone model-name badge under the answer and no context inspector under
+  the answer. 3) Hover the composer
   toolbar inspector trigger, confirm the panel stays closed, then click it.
   4) Inspect the remaining-token-plus-percentage heading, used/window counts,
   unboxed turn/speed values, one inline provider-usage summary, and one
@@ -3683,8 +3684,8 @@ identify the platform validation still needed.
   a narrow pane. 8) Click Retry on that turn while idle. 9) Confirm a session
   without usage still offers Retry on completed turns and omits the composer
   inspector.
-- **Expected**: Model badge appears under completed assistant answers when a
-  model id exists. The compact Context inspector appears in the composer
+- **Expected**: Completed assistant answers do not render a standalone
+  model-name badge. The compact Context inspector appears in the composer
   right toolbar, left of the model picker, once any usage exists, and always
   mirrors the newest usage-bearing assistant turn. The trigger shows the ring
   plus remaining-capacity percentage (no Context label) and low-space
@@ -8500,8 +8501,8 @@ This test plan spec is accepted when:
 
 ### US-UI-61 Assistant context summary + retry (D103, D184, D244, D347)
 - Complete an assistant turn that reports usage.
-- Expect a model badge under the answer and the compact Context inspector in
-  the composer toolbar, left of the model picker. The trigger shows the
+- Expect no standalone model-name badge under the answer and the compact
+  Context inspector in the composer toolbar, left of the model picker. The trigger shows the
   remaining-capacity ring and percentage; clicking it (or activating it from
   the keyboard) shows remaining tokens plus percentage, used/window counts,
   two unboxed turn/speed values, one inline exact provider-usage summary, and

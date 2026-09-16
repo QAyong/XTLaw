@@ -5443,3 +5443,15 @@ that was sitting at the bottom — including after the turn had finished.
 - See ADR 0266, `07-plugins/03-plugin-api.md` §3,
   `07-plugins/13-plugin-permissions-matrix.md` §6, and
   E2E-PLUGIN-fs-root-follows-the-calling-session.
+
+## 2026-09-16 — Model-aware process summaries and quiet assistant tails (D433)
+
+- The collapsed process summary uses the owning assistant turn's provider and
+  model metadata, so its icon stays consistent with the expanded activity and
+  Thinking rows instead of always showing the generic sparkle.
+- Completed assistant answer tails do not render a standalone model-name chip.
+  The Composer model selector and structured assistant error details remain the
+  places where model identity is exposed to the user.
+- Renderer-only presentation change; no protocol, persistence, provider, or
+  permission behavior changes. See `04-ux/08-component-spec.md`,
+  E2E-MODEL-provider-icons-match-model-name, and E2E-060d.

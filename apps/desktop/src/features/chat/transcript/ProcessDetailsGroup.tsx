@@ -22,7 +22,8 @@ import {
 } from "./shared";
 import type { SubagentOutcome, SubagentTiming } from "../../../lib/subagent-topology";
 import { formatToolDuration } from "../../../lib/tool-display";
-import { IconChevronRight, IconSparkles } from "../../../components/icons";
+import { IconChevronRight } from "../../../components/icons";
+import { ModelIcon } from "../../../lib/model-icons";
 import { TranscriptSearchContext } from "../../../lib/transcript-search-context";
 
 type ProcessDetailsGroupProps = {
@@ -157,7 +158,11 @@ export function ProcessDetailsGroup({
         onClick={toggleDisclosure}
       >
         <span className="tool-activity-icon" aria-hidden>
-          <IconSparkles size={14} />
+          <ModelIcon
+            provider={providerId ?? ""}
+            modelId={modelId ?? ""}
+            size={14}
+          />
         </span>
         <span className={`tool-activity-label ${live ? "running" : ""}`}>
           {t(live ? "chat.processingFor" : "chat.processedFor", {

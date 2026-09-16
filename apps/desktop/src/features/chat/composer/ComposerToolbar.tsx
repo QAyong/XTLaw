@@ -132,7 +132,7 @@ export function ComposerToolbar({
           menuClassName="composer-mode-menu"
           label={t("settings.mode")}
           role="menu"
-          align="center"
+          align="start"
           side="top"
           trigger={(ref) => (
             <TooltipButton
@@ -204,7 +204,7 @@ export function ComposerToolbar({
           menuClassName="composer-permission-menu"
           label={t("chat.permissionMode")}
           role="menu"
-          align="center"
+          align="start"
           side="top"
           trigger={(ref) => (
             <TooltipButton

@@ -19,6 +19,7 @@ const transcriptSource = await readTranscriptSource();
 const transcriptSharedSource = await readTranscriptModule("shared.tsx");
 const transcriptToolRowSource = await readTranscriptModule("ToolRow.tsx");
 const transcriptActivityGroupSource = await readTranscriptModule("ActivityGroup.tsx");
+const transcriptProcessDetailsSource = await readTranscriptModule("ProcessDetailsGroup.tsx");
 const appSource = await readFile(
   new URL("../src/components/ChatSurface.tsx", import.meta.url),
   "utf8",
@@ -63,7 +64,7 @@ test("composer exposes the runtime thinking level order and provider filtering",
   assert.doesNotMatch(stylesSource, /\.composer-thinking-level\b/);
   assert.match(
     stylesSource,
-    /\.composer-model-thinking-menu\s*\{[\s\S]*?width:\s*min\(300px,\s*calc\(100vw - 24px\)\);/,
+    /\.composer-model-thinking-menu\s*\{[\s\S]*?width:\s*min\(240px,\s*calc\(100vw - 24px\)\);/,
   );
   assert.match(composerSource, /availableThinkingLevels/);
   assert.match(composerSource, /thinkingMenuLevels/);
@@ -101,7 +102,7 @@ test("Composer owns the mode and model controls", () => {
   assert.match(composerModelPickerSource, /composer-model-thinking-chip/);
   assert.match(composerModelPickerSource, /composer-model-thinking-menu/);
   assert.match(composerModelPickerSource, /align="center"/);
-  assert.equal((composerToolbarSource.match(/align="center"/g) ?? []).length, 2);
+  assert.equal((composerToolbarSource.match(/align="start"/g) ?? []).length, 2);
   assert.match(composerModelPickerSource, /composer-menu-entry/);
   assert.match(composerModelPickerSource, /composer-menu-back/);
 });
@@ -221,12 +222,22 @@ test("transcript keeps assistant thinking in a separate disclosure", () => {
     /<ModelIcon[\s\S]*?provider=\{providerId \?\? ""\}[\s\S]*?modelId=\{modelId \?\? ""\}/,
   );
   assert.doesNotMatch(transcriptSharedSource, /IconSparkles/);
+  assert.match(
+    transcriptProcessDetailsSource,
+    /<ModelIcon[\s\S]*?provider=\{providerId \?\? ""\}[\s\S]*?modelId=\{modelId \?\? ""\}/,
+  );
+  assert.doesNotMatch(transcriptProcessDetailsSource, /IconSparkles/);
   assert.match(transcriptSource, /messageThinking as thinkingText/);
   assert.match(transcriptSource, /thinking-prose[\s\S]*?Markdown source=\{text\}/);
   assert.match(transcriptSource, /CopyButton text=\{content\}/);
   assert.match(transcriptSource, /messageThinking as thinkingText/);
   assert.match(transcriptSource, /onlyThinking = items\.every/);
   assert.match(stylesSource, /\.thinking-prose/);
+});
+
+test("assistant message tails do not render a standalone model name", () => {
+  assert.doesNotMatch(transcriptSharedSource, /message-meta-chip model/);
+  assert.match(transcriptSharedSource, /message-meta-chip throughput/);
 });
 
 test("expanded assistant activity rails collapse their disclosures", () => {

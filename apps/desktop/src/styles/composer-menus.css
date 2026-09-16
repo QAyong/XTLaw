@@ -102,7 +102,7 @@
 
 .composer-model-thinking-menu {
   z-index: 60;
-  width: min(300px, calc(100vw - 24px));
+  width: min(240px, calc(100vw - 24px));
 }
 
 .composer-model-thinking-menu.is-open {

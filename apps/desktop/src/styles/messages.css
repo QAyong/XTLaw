@@ -1346,11 +1346,6 @@
   white-space: nowrap;
 }
 
-.message-meta-chip.model {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .context-inspector {
   position: relative;
   display: inline-flex;

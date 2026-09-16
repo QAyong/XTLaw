@@ -107,35 +107,36 @@ Changing a frozen architecture, public interface, data ownership model, or secur
 
 ---
 
-## 4. Multi-Agent Isolation Is Mandatory
+## 4. Branch and Worktree Policy
 
-Assume multiple agents are working concurrently.
-
-Every development request must use:
+Work in the primary checkout by default.
 
 ```text
 1 request
 =
-1 branch
-+
-1 dedicated worktree
+one coherent set of changes
 ```
+
+Do not create a branch or a worktree unless the user explicitly asks for one.
+Commit on the branch that is already checked out.
 
 Never:
 
-* develop directly on `main`
-* develop in the primary checkout
 * reuse another task's worktree
 * modify another agent's branch
 * delete another agent's branch or worktree
 * reset or discard unrelated work
 * include unrelated changes in your task
 
-Start from current `main`:
+Refresh against `main` before starting work and before integration:
 
 ```bash
 git fetch origin main
+```
 
+Only when the user explicitly requests a branch:
+
+```bash
 git worktree add \
   -b <type>/<short-description> \
   <worktree-path> \
@@ -144,21 +145,21 @@ git worktree add \
 cd <worktree-path>
 ```
 
-Before integration, refresh against the latest `main` and resolve conflicts inside your own worktree.
+Resolve conflicts in your own checkout before integration.
 
 The delivery order for every request is fixed:
 
 ```text
-1. implement and commit on the request branch in its worktree
-2. merge the request branch into local `main`
-3. run the required E2E suites on the integrated local `main` (§15)
-4. push the request branch and open the PR/MR
-5. merge into remote `main` through the PR/MR gates
-6. synchronize local `main`, remove the worktree, delete the merged branch
+1. implement and commit
+2. run the required E2E suites on the integrated local `main` (§15)
+3. push the working branch and open the PR/MR
+4. merge into remote `main` through the PR/MR gates
+5. synchronize local `main`
+6. if a branch or worktree was requested, remove it and delete the merged branch
 ```
 
 A code-bearing change must not be pushed for review, opened as a PR/MR, or
-declared delivered before step 3 has run against the integrated local `main`
+declared delivered before step 2 has run against the integrated local `main`
 commit, or before its environment limitation is recorded per §15.
 
 ---
@@ -440,7 +441,7 @@ implement
 → unit/integration validation
 → diff review
 → commit
-→ merge into local `main`
+→ integrate into local `main`
 → relevant E2E on the integrated local `main`
 → push branch + open PR
 → PR checks
@@ -470,13 +471,13 @@ Never report a skipped command as passing.
 ## 15. E2E Runs on Integrated `main` Before the PR
 
 Every **code-bearing change** must pass relevant E2E on the integrated `main`
-that contains its commits. That run happens before the request branch is
+that contains its commits. That run happens before the working branch is
 pushed for review, and before a delivery that stops at local `main` is
 declared delivered.
 
-The order is fixed (§4): merge the request branch into local `main`, run the
+The order is fixed (§4): integrate the change into local `main`, run the
 selected suites from that integrated checkout, and only then push the branch
-and open the PR/MR. An E2E run on the request branch itself is exploratory and
+and open the PR/MR. An E2E run on a separate branch is exploratory and
 does not satisfy this requirement.
 
 Required validation is part of an authorized integration request and needs no
@@ -497,7 +498,7 @@ If a required suite cannot run in the current environment:
 
 * record the suite, reason, alternative validation, and remaining risk as
   **NOT RUN**
-* pushing the request branch and opening the PR/MR stay permitted so the change
+* pushing the working branch and opening the PR/MR stay permitted so the change
   can be validated in a capable environment, but the gate is not satisfied
 * keep delivery/release status incomplete until the suite passes against the
   integrated `main` that carries the change
@@ -647,18 +648,18 @@ Do not push merely because local development is complete unless remote delivery 
 
 When the user requests a commit, a push, or both, complete this task's
 integration into local `main` after the applicable gates pass. Do not stop at
-a task-branch commit or push, or ask again for merge permission. Explicit
+a feature-branch commit or push, or ask again for merge permission. Explicit
 branch-only or draft-only instructions override that completion target.
 
 A commit-only or local-merge request does not authorize remote publishing.
-A push request requires the existing PR workflow: push the task branch, pass
-the required checks and reviews, merge into remote `main`, and synchronize
-local `main`. It does not authorize a direct push to `main` or a force-push.
-Report genuine validation, conflict, or access blockers; never bypass a merge
-gate to satisfy the delivery request.
+A push request requires the existing PR workflow: push the working branch,
+pass the required checks and reviews, merge into remote `main`, and
+synchronize local `main`. It does not authorize a direct push to `main` or a
+force-push. Report genuine validation, conflict, or access blockers; never
+bypass a merge gate to satisfy the delivery request.
 
-The remote route is the last step of the fixed order in §4: the request branch
-is merged into local `main` and the §15 E2E gate runs against that integrated
+The remote route is the last step of the fixed order in §4: the change is
+integrated into local `main` and the §15 E2E gate runs against that integrated
 commit before the branch is pushed and its PR/MR is opened.
 
 Before pushing, verify:
@@ -682,14 +683,14 @@ Before integration:
 
 1. refresh against current `main`
 2. resolve conflicts carefully
-3. run the targeted pre-integration checks for the change on the request branch
+3. run the targeted pre-integration checks for the change
 4. review the final diff
-5. merge the request branch into local `main`
+5. commit the change on the working branch
 6. run the §15 E2E gate from the integrated local `main`
 
 When remote publishing is authorized, continue in the fixed §4 order:
 
-7. push the request branch and open the PR/MR
+7. push the working branch and open the PR/MR
 8. verify required PR/MR checks and reviews, then merge into remote `main`
 9. synchronize local `main` with the landed change
 
@@ -699,11 +700,10 @@ After merge:
    remote delivery
 2. rerun the affected E2E suites when the landed executable content differs
    from the commit the §15 gate ran on
-3. remove your request worktree
-4. delete your merged local branch
-5. prune stale worktree metadata
+3. if a branch or worktree was explicitly requested, remove the worktree,
+   delete the merged local branch, and prune stale worktree metadata
 
-Example:
+Example, only when a branch or worktree was requested:
 
 ```bash
 git worktree remove <worktree-path>
@@ -739,7 +739,7 @@ When one of those workflows applies, read the relevant spec before implementatio
 
 A code task is Done only when all applicable conditions are true:
 
-* [ ] Dedicated branch and worktree were used
+* [ ] No branch or worktree was created unless the user explicitly asked for one
 * [ ] Work started from current `main`
 * [ ] Relevant specs / ADRs were reviewed
 * [ ] Implementation is complete
@@ -752,8 +752,8 @@ A code task is Done only when all applicable conditions are true:
 * [ ] E2E documentation was updated when required
 * [ ] New E2E IDs use the multi-agent-safe semantic format
 * [ ] Relevant static / unit / integration checks pass
-* [ ] The fixed order in §4 was followed: branch → local `main` → §15 E2E →
-  push/PR → remote `main`
+* [ ] The fixed order in §4 was followed: commit → §15 E2E → push/PR →
+  remote `main`
 * [ ] Relevant E2E ran against the integrated local `main` commit before the
   branch was pushed, the PR/MR was opened, or a commit-only delivery was
   declared delivered, or its NOT RUN limitation is recorded
@@ -766,7 +766,7 @@ A code task is Done only when all applicable conditions are true:
 * [ ] Requested commit/push delivery reaches local `main`; authorized remote
   delivery also reaches remote `main` through a PR, unless explicitly limited
   to a branch or draft
-* [ ] Worktree and branch cleanup are complete after integration
+* [ ] Requested worktrees and branches are cleaned up after integration
 * [ ] Any requested launch uses the integrated `main` build/development environment
 
 The following are **not** equivalent to Done:

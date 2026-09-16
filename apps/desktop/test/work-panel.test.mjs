@@ -94,13 +94,13 @@ test("a viewport-fixed toggle is the sole pointer collapse control", () => {
   assert.doesNotMatch(mainSource, /WORK_PANEL_MENU_PROBE|pi-panel-browser-menu|pi-panel-menu/);
   assert.match(
     globalStyles,
-    /:root\[data-platform="win32"\] \.work-panel-header,[\s\S]*:root\[data-platform="linux"\] \.work-panel-header\s*\{[^}]*margin-right:\s*var\(--ds-window-controls-width\);/,
+    /:root\[data-platform="win32"\] \.work-panel-header,[\s\S]*:root\[data-platform="linux"\] \.work-panel-header\s*\{[^}]*padding-right:\s*calc\([\s\S]*?var\(--ds-window-controls-width\)/,
   );
-  // The reservation ends the header's box so its native drag rectangle stops
-  // before the control band: padding alone still covers the window controls.
-  assert.doesNotMatch(
+  // The visual header is full-width; its dedicated drag rectangle ends before
+  // the control band so padding does not make the controls unclickable.
+  assert.match(
     globalStyles,
-    /padding-right:\s*calc\(var\(--ds-window-controls-width\)/,
+    /:root\[data-platform="win32"\] \.work-panel-header-drag-region,[\s\S]*:root\[data-platform="linux"\] \.work-panel-header-drag-region\s*\{[^}]*right:\s*var\(--ds-window-controls-width\);/,
   );
   assert.match(
     globalStyles,

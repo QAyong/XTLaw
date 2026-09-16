@@ -12276,8 +12276,13 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   budget is exhausted the expanded sidebar collapses immediately, and the panel
   may keep growing afterwards. A manual reopen spends panel width first;
   MainChat is preserved where possible and otherwise lands on the 460px reopen
-  target. Closing the panel restores only a sidebar the layout collapsed. The
-  separator's ARIA minimum/maximum follow the same dynamic budget.
+  target. With all three columns visible, the sidebar, chat, and work-panel
+  headers share the 46px top baseline; the work-panel header spans its full dock
+  width even where the viewport-fixed window controls overlay it. Its dedicated
+  drag region ends before the native-control lane, and the tab/action content
+  stays clear of both that lane and the panel toggle. Closing the panel restores
+  only a sidebar the layout collapsed. The separator's ARIA minimum/maximum
+  follow the same dynamic budget.
 - **Specs linked**: `04-ux/01-ui-ia.md`, `04-ux/07-ui-design-system.md` §10,
   `04-ux/08-component-spec.md` §1 and §5, `04-ux/09-interaction-patterns.md` §8,
   ADR 0238

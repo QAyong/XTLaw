@@ -16,7 +16,7 @@ destination, chat as the home surface, tools and permissions inline.
 +----------------------------------------------------------------------+
 | Platform titlebar: macOS traffic lights / Windows/Linux actions     |
 +------------------+--------------------------------+------------------+
-| Sidebar (275px) | Main pane (active destination) | Work panel       |
+| Sidebar (240–520px) | Main pane (active destination) | Work panel       |
 |                  |  chat home / transcript        |  (optional,      |
 |                  |  or Extensions page            |   resizable      |
 |                  |                                |   ≥244px, dynamic|
@@ -40,8 +40,9 @@ destination, chat as the home surface, tools and permissions inline.
   non-destructive pin/archive actions, an independent conversation-branch
   command, and sortable views. Projects not retained in the sidebar remain
   discoverable through Settings → Project archive.
-  Collapsible to an icon rail (Cmd/Ctrl+B). Its expanded column is fixed at
-  275px; persisted resize preferences from older builds are ignored.
+  Collapsible to an icon rail (Cmd/Ctrl+B). Its expanded column defaults to
+  275px and can be resized from 240px to 520px; the preferred width persists
+  independently from the collapsed icon rail.
 - **Product identity**: runtime shell copy uses `PI-Desktop`; the home hero and
   sidebar reuse the derived `src/assets/brand/logo-*.png` marks, while composer prompt
   rows have no leading brand icon and session-creation controls use a dedicated

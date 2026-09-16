@@ -1,9 +1,11 @@
+import { useLayoutEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { UiMessage } from "@pi-desktop/shared";
 import { ChatTranscript, TranscriptReadOnlyContext } from "../ChatTranscript";
 import { PermissionCard } from "../PermissionCard";
 import { AskToolCard } from "../AskToolCard";
-import { Button } from "../ui";
+import { Button, TooltipButton } from "../ui";
+import { IconArrowUp, IconStop } from "../icons";
 import { useAppStore } from "../../stores/app-store";
 import { sideChatSendBlockReason } from "../../lib/side-chat";
 import { headAsk, queuedAskCount } from "../../lib/pending-asks";
@@ -45,10 +47,23 @@ export function SideChatTab({ sessionId }: { sessionId: string }) {
   const selectSession = useAppStore((s) => s.selectSession);
   const draft = entry?.draft ?? "";
   const sending = entry?.sending ?? false;
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const blockedReason = useAppStore((state) => sideChatSendBlockReason(
     state.sideChats[sessionId], state.sessions, state.runningSessions,
   ));
   const sendBlocked = Boolean(blockedReason);
+
+  useLayoutEffect(() => {
+    const input = inputRef.current;
+    if (!input) return;
+
+    const lineHeight = Number.parseFloat(getComputedStyle(input).lineHeight) || 20;
+    const maxHeight = lineHeight * 7;
+    input.style.height = "auto";
+    const contentHeight = input.scrollHeight;
+    input.style.height = `${Math.max(lineHeight * 3, Math.min(contentHeight, maxHeight))}px`;
+    input.style.overflowY = contentHeight > maxHeight ? "auto" : "hidden";
+  }, [draft]);
 
   const send = async () => {
     const text = draft.trim();
@@ -121,54 +136,69 @@ export function SideChatTab({ sessionId }: { sessionId: string }) {
           void send();
         }}
       >
-        <textarea
-          className="side-chat-input selectable"
-          value={draft}
-          rows={2}
-          placeholder={t("sideChat.placeholder")}
-          aria-label={t("sideChat.placeholder")}
-          spellCheck={false}
-          autoCorrect="off"
-          autoCapitalize="off"
-          onChange={(event) => updateSideChatDraft(sessionId, event.target.value)}
-          onKeyDown={(event) => {
-            // Same contract as the composer: Enter sends, Shift+Enter breaks the
-            // line, and an in-flight IME composition owns Enter (D125).
-            if (event.key !== "Enter" || event.shiftKey) return;
-            if (event.nativeEvent.isComposing) return;
-            event.preventDefault();
-            void send();
-          }}
-        />
-        <div className="side-chat-composer-row">
-          <span className="side-chat-hint">
-            {blockedReason
-              ? t(blockedReason)
-              : messages.length === 0
-                ? t("sideChat.empty")
-                : null}
-          </span>
-          {isRunning ? (
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              className="side-chat-action"
-              data-side-chat-action="stop"
-              onClick={() => void abortSession(sessionId)}
-            >
-              {t("chat.stopGenerating")}
-            </Button>
-          ) : null}
-          <Button
-            type="submit"
-            variant="primary"
-            size="sm"
-            className="side-chat-action"
-            disabled={!draft.trim() || sending || sendBlocked}
-          >
-            {t("chat.send")}
-          </Button>
+        <div className="composer-stack side-chat-composer-stack">
+          <div className="composer-shell side-chat-composer-shell">
+            <div className="composer-input-wrap">
+              <div className="composer-input-stage">
+                <textarea
+                  ref={inputRef}
+                  className="composer-input side-chat-input selectable"
+                  value={draft}
+                  rows={3}
+                  placeholder={t("sideChat.placeholder")}
+                  aria-label={t("sideChat.placeholder")}
+                  spellCheck={false}
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  onChange={(event) => updateSideChatDraft(sessionId, event.target.value)}
+                  onKeyDown={(event) => {
+                    // Same contract as the composer: Enter sends, Shift+Enter breaks the
+                    // line, and an in-flight IME composition owns Enter (D125).
+                    if (event.key !== "Enter" || event.shiftKey) return;
+                    if (event.nativeEvent.isComposing) return;
+                    event.preventDefault();
+                    void send();
+                  }}
+                />
+              </div>
+            </div>
+            <div className="composer-toolbar side-chat-composer-toolbar">
+              <div className="composer-left side-chat-composer-left">
+                <span className="side-chat-hint">
+                  {blockedReason
+                    ? t(blockedReason)
+                    : messages.length === 0
+                      ? t("sideChat.empty")
+                      : null}
+                </span>
+              </div>
+              <div className="composer-right">
+                {isRunning ? (
+                  <TooltipButton
+                    type="button"
+                    className="stop-btn"
+                    data-side-chat-action="stop"
+                    tooltip={t("chat.stopGenerating")}
+                    ariaLabel={t("chat.stopGenerating")}
+                    onClick={() => void abortSession(sessionId)}
+                  >
+                    <IconStop size={14} />
+                  </TooltipButton>
+                ) : (
+                  <TooltipButton
+                    type="submit"
+                    className="send-btn"
+                    data-side-chat-action="send"
+                    tooltip={t("chat.send")}
+                    ariaLabel={t("chat.send")}
+                    disabled={!draft.trim() || sending || sendBlocked}
+                  >
+                    <IconArrowUp size={15} />
+                  </TooltipButton>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </form>
       {pendingPermission ? (

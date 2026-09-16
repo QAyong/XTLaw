@@ -13,6 +13,7 @@
   [08-component-spec §1 and §5](../spec/04-ux/08-component-spec.md) ·
   [09-interaction-patterns §8](../spec/04-ux/09-interaction-patterns.md) ·
   E2E-LAYOUT-three-column-width-priority
+- Amended by: [ADR 0267](0267-restore-sidebar-width-resize.md)
 
 ## Context
 
@@ -90,9 +91,11 @@ MainChat usable in the fixed window.
 
 ### Let the sidebar resize continuously to preserve every column
 
-Rejected because the sidebar remains a discrete expanded/collapsed column for
-this interaction. Its user-selected preferred width is not silently mutated by
-window pressure.
+Rejected for automatic window-pressure behavior because the sidebar remains a
+discrete expanded/collapsed column and its user-selected preferred width is not
+silently mutated by layout pressure. Explicit user resizing is restored by
+ADR 0267; the MainChat floor and automatic yield rules in this ADR remain in
+force.
 
 ### Mirror the committed panel width into native window bounds
 

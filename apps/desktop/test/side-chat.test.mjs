@@ -136,6 +136,16 @@ test("the panel can stop the child and quote its answer into the main chat", () 
   assert.match(sideChatTab, /t\("sideChat\.empty"\)/);
 });
 
+test("the side-chat composer shares the main composer surfaces", () => {
+  assert.match(sideChatTab, /className="composer-stack side-chat-composer-stack"/);
+  assert.match(sideChatTab, /className="composer-shell side-chat-composer-shell"/);
+  assert.match(sideChatTab, /className="composer-input side-chat-input selectable"/);
+  assert.match(sideChatTab, /className="composer-toolbar side-chat-composer-toolbar"/);
+  assert.match(sideChatTab, /className="stop-btn"/);
+  assert.match(sideChatTab, /className="send-btn"/);
+  assert.match(sideChatTab, /useLayoutEffect\(/);
+});
+
 test("promoting a side chat activates it and releases the panel entry", () => {
   assert.match(sideChatTab, /const openAsConversation = async \(\) => \{/);
   assert.match(sideChatTab, /closeSideChat\(sessionId\);\s*\n\s*await selectSession\(sessionId\)/);

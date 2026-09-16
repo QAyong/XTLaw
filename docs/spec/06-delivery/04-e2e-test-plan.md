@@ -1457,7 +1457,8 @@ identify the platform validation still needed.
   child that needs approval or an answer never stalls behind an invisible prompt.
   side-chat title, Add to main chat (`sideChat.addToMain`), Open as a
   conversation (`sideChat.openAsSession`), and the shared close control; the
-  input uses `sideChat.placeholder` and `sideChat.empty`, Send reuses
+  input uses the shared Composer shell and responsive input/toolbar geometry,
+  while retaining `sideChat.placeholder` and `sideChat.empty`, Send reuses
   `chat.send`, and Stop reuses `chat.stopGenerating`.
 - **Specs linked**: `04-ux/08-component-spec.md` §5.8, §11.2;
   `03-runtime/10-session-state-machine.md`; ADR message-quotes-and-side-chats, ADR 0023
@@ -9896,23 +9897,24 @@ This test plan spec is accepted when:
 - **Expected**: The handle is discoverable on direct hover/focus without a
   full-height white/accent rail when the sidebar body is hovered, has no native
   window drag or text-selection side effect, and remains anchored to the press
-  point. MainChat follows the live width until its 515px floor. Pointer release saves one clamped
+  point. MainChat follows the live width until its 450px floor. Pointer release saves one clamped
   preferred width; Escape/cancellation restores the starting width without
   saving it. Keyboard changes commit immediately and expose localized width
   semantics. The saved width survives relaunch and is restored after sidebar
   collapse; collapse does not convert the preferred width into the icon-rail
-  width. MainChat never falls below its reserved 515px width, and the composer
+  width. MainChat never falls below its 450px floor, and the composer
   toolbar keeps its left and right groups on one row without squeezed buttons.
   Mode/permission labels remain single-line and ellipsized; no toolbar text is
   vertically split or overlapped.
 - **Specs linked**: `04-ux/01-ui-ia.md`, `04-ux/07-ui-design-system.md`,
   `04-ux/08-component-spec.md`, `04-ux/09-interaction-patterns.md`,
-  ADR 0141, ADR 0226, D280, D401
+  ADR 0141, ADR 0226, ADR 0238, ADR 0267, D280, D408
 - **Acceptance**: A (app shell), F (persistence), Quality
 - **Milestone**: M6+
-- **Status**: Unit/source-contract covered (`sidebar-preferences.test.mjs`,
-  `sidebar-resize.test.mjs`); rendered desktop drag and relaunch journey
-  remains pending
+- **Status**: Unit/source-contract and rendered desktop drag/bounds covered
+  (`sidebar-preferences.test.mjs`, `sidebar-resize.test.mjs`,
+  `scripts/e2e-three-column-layout.mjs`); relaunch persistence journey remains
+  pending
 
 #### E2E-162: A vendor account and an AI service offer the same model picker
 
@@ -12281,8 +12283,13 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   width even where the viewport-fixed window controls overlay it. Its dedicated
   drag region ends before the native-control lane, and the tab/action content
   stays clear of both that lane and the panel toggle. Closing the panel restores
-  only a sidebar the layout collapsed. The separator's ARIA minimum/maximum
-  follow the same dynamic budget.
+  only a sidebar the layout collapsed. The sidebar resize separator keeps its
+  240px/520px ARIA bounds while the MainChat floor and work-panel budget remain
+  enforced by the surrounding shell. At the MainChat floor, the composer remains
+  one row without horizontal clipping: the model × reasoning chip gives up its
+  reasoning and model labels and keeps the model icon plus chevron as its
+  trigger, while the full values remain available from the menu and accessible
+  name.
 - **Specs linked**: `04-ux/01-ui-ia.md`, `04-ux/07-ui-design-system.md` §10,
   `04-ux/08-component-spec.md` §1 and §5, `04-ux/09-interaction-patterns.md` §8,
   ADR 0238

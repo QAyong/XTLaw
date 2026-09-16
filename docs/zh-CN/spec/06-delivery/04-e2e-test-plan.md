@@ -6244,14 +6244,15 @@ IPC 请求无法关闭。
   4. 聚焦边缘手柄，按左右方向键、Home 和 End，并检查分隔器当前的 ARIA 值。
   5. 开始一次调整后按 Escape 或取消指针，再重启应用；单独检查折叠并重新展开侧边栏。
 - **预期**：手柄在悬停/聚焦时可发现，不会触发原生窗口拖动或文本选中，并保持按下点锚定。
-  MainChat 跟随实时宽度回流。指针释放保存一次限制后的首选宽度；Escape/取消恢复起始宽度而不保存。
+  MainChat 跟随实时宽度回流，且保持 450px 下限。指针释放保存一次限制后的首选宽度；Escape/取消恢复起始宽度而不保存。
   键盘调整立即提交并暴露本地化宽度语义。保存的宽度在重启后保留，折叠后重新展开仍会恢复；折叠不会把首选宽度变成图标栏宽度。
 - **链接规格**：`04-ux/01-ui-ia.md`、`04-ux/07-ui-design-system.md`、
-  `04-ux/08-component-spec.md`、`04-ux/09-interaction-patterns.md`、ADR 0141、D280
+  `04-ux/08-component-spec.md`、`04-ux/09-interaction-patterns.md`、ADR 0141、
+  ADR 0238、ADR 0267、D280、D434
 - **验收**：A（应用外壳）、F（持久性）、质量
 - **里程碑**：M6+
-- **状态**：单元/源码契约已覆盖（`sidebar-preferences.test.mjs`、`sidebar-resize.test.mjs`）；
-  渲染桌面拖动与重启旅程仍待补
+- **状态**：单元/源码契约和渲染桌面拖动/边界已覆盖（`sidebar-preferences.test.mjs`、
+  `sidebar-resize.test.mjs`、`scripts/e2e-three-column-layout.mjs`）；重启持久化旅程仍待补
 
 #### E2E-162：厂商账户与 AI 服务提供同一个模型选择器
 
@@ -7213,11 +7214,11 @@ runner 会在运行时的隔离临时目录中生成六个插件形态 fixture�
   3. 在布局收起左栏后手动重开左栏。
   4. 关闭工作面板并确认左栏恢复；再在手动收起左栏后重复一次。
   5. 用 `ArrowLeft`、`ArrowRight`、`Home`、`End` 重复调整分隔线。
-- **预期**：原生窗口宽度全程不变。MainChat 永不低于 360px —— 包含拖动过程中以及 `sidebar-out` 仍占位弹性空间期间。工作面板有效上限为客户端宽度减去 360px 下限与展开的左栏宽度，且无固定像素上限。预算耗尽时展开的左栏立即收起，面板之后仍可继续增长。手动重开优先占用右栏宽度；能保住当前 MainChat 则保持，否则落在 370px 的重开目标。关闭面板只恢复由布局机制收起的左栏。分隔线的 ARIA 最小/最大值遵循同一动态预算。
+- **预期**：原生窗口宽度全程不变。MainChat 永不低于 450px —— 包含拖动过程中以及 `sidebar-out` 仍占位弹性空间期间。工作面板有效上限为客户端宽度减去 450px 下限与展开的左栏宽度，且无固定像素上限。预算耗尽时展开的左栏立即收起，面板之后仍可继续增长。手动重开优先占用右栏宽度；能保住当前 MainChat 则保持，否则落在 460px 的重开目标。关闭面板只恢复由布局机制收起的左栏。分隔线的 ARIA 最小/最大值遵循同一动态预算。
 - **链接规格**：`04-ux/01-ui-ia.md`、`04-ux/07-ui-design-system.md` §10、`04-ux/08-component-spec.md` §1 与 §5、`04-ux/09-interaction-patterns.md` §8、ADR 0238
 - **验收**：F（持久化）、品质
 - **里程碑**：M6 之后的桌面外壳维护
-- **状态**：已自动化（`scripts/e2e-three-column-layout.mjs`，经 `pnpm test:e2e:layout` —— 固定窗口宽度不变、指针拖动全程 360px 下限、左栏让位/恢复、370px 重开目标）；单元覆盖见 `work-panel-resize.test.mjs`
+- **状态**：已自动化（`scripts/e2e-three-column-layout.mjs`，经 `pnpm test:e2e:layout` —— 固定窗口宽度不变、指针拖动全程 450px 下限、左栏让位/恢复、460px 重开目标）；单元覆盖见 `work-panel-resize.test.mjs`
 
 #### E2E-AGENT-alt-enter-steers-active-turn：Enter 排队跟进，Alt+Enter 向当前回合补充指令
 

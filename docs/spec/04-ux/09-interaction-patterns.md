@@ -1110,9 +1110,10 @@ Work-panel and application-window resizing are implemented in MVP:
   panel header reserves the 76px windowed (8px fullscreen) traffic-light inset,
   the preview action lane, and an 8px gap before its first tab.
 
-The expanded sidebar is fixed at 275px. Collapse/open changes only whether the
-column is present; the historical resize handle is hidden and legacy width
-preferences are ignored.
+The expanded sidebar defaults to 275px and can be resized from 240px to 520px
+with its right-edge handle. Collapse/open changes only whether the column is
+present; the preferred expanded width is retained independently from the
+collapsed icon rail.
 
 Project ordering is implemented for retained project groups. There is no
 reorder grip. Pressing the project title and moving 8px starts a project drag,

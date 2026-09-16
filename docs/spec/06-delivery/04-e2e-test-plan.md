@@ -3016,15 +3016,17 @@ identify the platform validation still needed.
 - **Steps**: 1) Start a turn in both light and dark themes. 2) Observe a
   thinking-only phase. 3) Let the answer complete. 4) Toggle the disclosure,
   test keyboard focus, enable reduced motion, and use Copy answer.
-- **Expected**: The transcript opens during thinking-only streaming; the latest
-  Thinking disclosure opens and updates without an empty answer bubble or
-  duplicate Working indicator. If the user collapses or expands it, that choice
+- **Expected**: The transcript opens during thinking-only streaming; the live
+  process disclosure contains narration, thinking, and tools without an empty
+  answer bubble or duplicate Working indicator. When the answer phase begins,
+  the final assistant Markdown remains visible while the process disclosure
+  settles collapsed unless the user took ownership of it. If the user
+  collapses or expands the process or nested thinking disclosure, that choice
   remains authoritative through later thinking deltas and completion. The
   disclosure uses the transcript surface, theme tokens, a Sparkles/chevron
   trigger, and a left rule instead of an inset card; collapsed content leaves
   focus traversal and reduced motion disables the running marker pulse and
-  transitions. Final answer markdown renders separately; Copy answer contains
-  no thinking text.
+  transitions. Copy answer contains no process narration or thinking text.
 - **Specs linked**: `03-runtime/01-ipc-protocol.md`,
   `04-ux/07-ui-design-system.md`, `04-ux/08-component-spec.md`, ADR 0018
 - **Acceptance**: C (chat and stream), Quality

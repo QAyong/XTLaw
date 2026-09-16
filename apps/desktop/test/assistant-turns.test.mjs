@@ -8,6 +8,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 register(pathToFileURL(join(here, "helpers/ts-import-hooks.mjs")));
 const {
   assistantTurnContent,
+  splitAssistantTurnParts,
   assistantTurnResponseOutputTokens,
   assistantTurnResponseOutputIsEstimated,
   assistantTurnUsage,
@@ -50,10 +51,13 @@ test("groups assistant fragments and tools into one conversational turn", () => 
     ["message", "activity", "message", "activity", "message"],
   );
   assert.equal(entries[1].anchorId, "intro");
-  assert.equal(
-    assistantTurnContent(entries[1]),
-    "I will inspect the code.\n\nThe problem is in the renderer.\n\nFixed and verified.",
+  const displayParts = splitAssistantTurnParts(entries[1]);
+  assert.deepEqual(
+    displayParts.process.map((part) => part.kind),
+    ["message", "activity", "message", "activity"],
   );
+  assert.deepEqual(displayParts.answer.map((part) => part.kind), ["message"]);
+  assert.equal(assistantTurnContent(entries[1]), "Fixed and verified.");
 });
 
 test("assistant turn output prefers exact usage and falls back to stopped estimates", () => {

@@ -8,6 +8,10 @@ const [modelMenuSource, pickerSource] = await Promise.all([
   readComposerModule("hooks/useComposerModelMenu.ts"),
   readComposerModule("ComposerModelPicker.tsx"),
 ]);
+const anchoredMenuSource = await readFile(
+  new URL("../src/components/settings/AnchoredMenu.tsx", import.meta.url),
+  "utf8",
+);
 const composerSource = `${modelMenuSource}\n${pickerSource}`;
 const stylesSource = await loadStyles();
 
@@ -54,6 +58,15 @@ test("the combined chip and menu meet the compact accessible visual contract", (
   assert.match(composerSource, /className="composer-model-thinking-icon"[\s\S]*?<ModelIcon /);
   assert.doesNotMatch(stylesSource, /\.composer-model-thinking-icon\.is-off/);
   assert.match(stylesSource, /@media \(prefers-reduced-motion: reduce\)/);
+});
+
+test("Composer popovers center on their trigger and remain viewport-clamped", () => {
+  assert.match(anchoredMenuSource, /align\?: "start" \| "center" \| "end"/);
+  assert.match(
+    anchoredMenuSource,
+    /align === "center"\s*\? anchorRect\.left \+ \(anchorRect\.width - surfaceWidth\) \/ 2/,
+  );
+  assert.match(pickerSource, /align="center"/);
 });
 
 test("model options are visually nested under their provider heading", () => {

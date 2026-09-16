@@ -1710,7 +1710,9 @@ identify the platform validation still needed.
   permission mode; Agent allows its normal tools per permission settings). The
   menu closes after selection, Escape, or an outside press; the mode chip is
   disabled while a turn or active pending approval exists and re-enables after
-  the session returns idle/planning. No top-bar mode control is rendered.
+  the session returns idle/planning. The mode and permission menus are
+  horizontally centered on their triggers and remain fully inside the viewport.
+  No top-bar mode control is rendered.
 - **Specs linked**: `04-ux/08-component-spec.md` (§2, §11),
   `03-runtime/03-tools-and-permissions.md` (§10),
   `03-runtime/04-data-storage.md` (§8)
@@ -1804,7 +1806,8 @@ identify the platform validation still needed.
   level submenu lists only the selected model's published levels. Selecting
   updates the active session model/reasoning configuration without dismissing
   the menu; Settings opens from the command palette/menu. The Composer model
-  trigger ellipsizes long IDs. Each option shows one display name only, and
+  trigger ellipsizes long IDs. The menu is horizontally centered on the trigger
+  and remains fully inside the viewport. Each option shows one display name only, and
   hovering a long option exposes its complete display name in the tooltip
   without changing the menu layout or adding a visible model ID.
 - **Specs linked**: `04-ux/08-component-spec.md` (§11, model menu),

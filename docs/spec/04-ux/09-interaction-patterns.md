@@ -342,6 +342,7 @@ may be retained while exactly one workspace supplies the visible shell context.
   layer, outside its triggering row or card, so opening it never changes parent
   height, width, or scroll allocation.
 - Shared anchored menus are measured before reveal, clamp to the viewport,
+  align their start, center, or end edge according to the surface contract,
   prefer the requested side, and recalculate on anchor movement, scroll, and
   resize. Outside press and Escape close the surface and restore focus to its
   trigger unless the pattern explicitly retains input focus.

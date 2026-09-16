@@ -31,11 +31,13 @@ import { readWindowState, writeWindowState } from "../window-preferences";
 function windowsIconPath(): string | undefined {
   if (process.platform !== "win32") return undefined;
 
-  const resourceRoot = app.isPackaged
-    ? process.resourcesPath
-    : join(app.getAppPath(), "build");
-  const iconPath = join(resourceRoot, app.isPackaged ? "app-icon.ico" : "icon.ico");
-  return existsSync(iconPath) ? iconPath : undefined;
+  const candidates = app.isPackaged
+    ? [join(process.resourcesPath, "app-icon.ico")]
+    : [
+        join(app.getAppPath(), "build", "icon.ico"),
+        join(__dirname, "../../build", "icon.ico"),
+      ];
+  return candidates.find((iconPath) => existsSync(iconPath));
 }
 
 export type WindowLifecycleState = {
@@ -145,6 +147,7 @@ export async function createWindow({
     windowMinWidth,
     windowMinHeight,
   );
+  const iconPath = windowsIconPath();
   windowState.mainWindow = new BrowserWindow({
     ...(savedState ?? { width: 1200, height: 800 }),
     minWidth: windowMinWidth,
@@ -172,11 +175,7 @@ export async function createWindow({
             nativeTheme.shouldUseDarkColors ? "dark" : "light",
           ),
         }),
-    ...(process.platform === "win32"
-      ? {
-          icon: windowsIconPath(),
-        }
-      : {}),
+    ...(iconPath ? { icon: iconPath } : {}),
     webPreferences: {
       preload: join(__dirname, "../preload/index.cjs"),
       contextIsolation: true,
@@ -188,6 +187,7 @@ export async function createWindow({
       additionalArguments: [`--pi-desktop-locale=${app.getLocale()}`],
     },
   });
+  if (iconPath) windowState.mainWindow.setIcon(iconPath);
   const window = windowState.mainWindow;
   const initialBounds = window.getBounds();
   windowState.workPanelBaseBounds = savedState ? { ...savedState } : { ...initialBounds };

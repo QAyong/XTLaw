@@ -76,9 +76,11 @@ test("Windows packages and windows use the legibility-optimized PI-Desktop icon"
   assert.match(iconScriptSource, /windows_master\.save\(\s*windows_icon/);
   assert.match(iconScriptSource, /format="ICO"/);
   assert.match(windowSource, /function windowsIconPath\(\)/);
-  assert.match(windowSource, /app\.isPackaged\s*\n?\s*\?\s*process\.resourcesPath/);
+  assert.match(windowSource, /app\.isPackaged[\s\S]*?process\.resourcesPath/);
   assert.match(windowSource, /app-icon\.ico/);
-  assert.match(windowSource, /icon: windowsIconPath\(\)/);
+  assert.match(windowSource, /join\(__dirname, "\.\.\/\.\.\/build", "icon\.ico"\)/);
+  assert.match(windowSource, /\.\.\.\(iconPath \? \{ icon: iconPath \} : \{\}\)/);
+  assert.match(windowSource, /if \(iconPath\) windowState\.mainWindow\.setIcon\(iconPath\)/);
 });
 
 test("Linux packages align the desktop entry with the Wayland app identity", () => {

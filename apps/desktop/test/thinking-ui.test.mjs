@@ -100,6 +100,8 @@ test("Composer owns the mode and model controls", () => {
   assert.doesNotMatch(stylesSource, /\.conversation-topbar \.ct-mode/);
   assert.match(composerModelPickerSource, /composer-model-thinking-chip/);
   assert.match(composerModelPickerSource, /composer-model-thinking-menu/);
+  assert.match(composerModelPickerSource, /align="center"/);
+  assert.equal((composerToolbarSource.match(/align="center"/g) ?? []).length, 2);
   assert.match(composerModelPickerSource, /composer-menu-entry/);
   assert.match(composerModelPickerSource, /composer-menu-back/);
 });
@@ -214,7 +216,11 @@ test("transcript keeps assistant thinking in a separate disclosure", () => {
   assert.match(transcriptSource, /aria-expanded=\{open\}/);
   assert.match(transcriptSource, /aria-hidden=\{!open\}/);
   assert.match(transcriptSource, /inert=\{!open\}/);
-  assert.match(transcriptSource, /IconSparkles/);
+  assert.match(
+    transcriptSharedSource,
+    /<ModelIcon[\s\S]*?provider=\{providerId \?\? ""\}[\s\S]*?modelId=\{modelId \?\? ""\}/,
+  );
+  assert.doesNotMatch(transcriptSharedSource, /IconSparkles/);
   assert.match(transcriptSource, /messageThinking as thinkingText/);
   assert.match(transcriptSource, /thinking-prose[\s\S]*?Markdown source=\{text\}/);
   assert.match(transcriptSource, /CopyButton text=\{content\}/);

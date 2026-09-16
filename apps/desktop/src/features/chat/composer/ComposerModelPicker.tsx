@@ -75,7 +75,7 @@ export function ComposerModelPicker({
       menuClassName="composer-model-menu composer-model-thinking-menu"
       label={`${t("chat.model")} ${t("chat.reasoningLevel")}`}
       role="menu"
-      align="end"
+      align="center"
       side="top"
       initialFocus="none"
       onMenuKeyDown={onMenuKeyDown}

@@ -5350,3 +5350,96 @@ its menu instead of the conversation.
   dropped. See ADR 0265, `03-runtime/01-ipc-protocol.md` (§5.6),
   `03-runtime/04-data-storage.md`, `04-ux/08-component-spec.md` (§11), and
   E2E-QUEUE-promote-orders-delivery-by-click.
+
+## 2026-09-16 — A manual disclosure keeps the reader's place (D430)
+
+- **A manual disclosure hands its own title to the scroller that owns it,
+  synchronously, before the expansion state changes.** The content
+  `ResizeObserver` still re-pins a pinned transcript on every content resize
+  (D287) and cannot tell a stream from a reader expanding a row, so the reader
+  states their intent first: the transcript leaves follow mode and the scroller
+  restores that title's viewport offset from inside the same observer, for as
+  many frames as the height keeps changing (an activity group animates its
+  `grid-template-rows`). `overflow-anchor: none` on `.thread-scroll` means this
+  has to be explicit.
+- **The anchor is the title element's offset from the scroller's top edge, not a
+  `scrollTop`, and the browser's own boundary clamping is adopted as the new
+  anchor.** A correction the content cannot reach, and a height change above the
+  title, are both handled without fighting the browser frame after frame. There
+  is no delayed "take the bottom back" compensation: the hold ends on real scroll
+  input, the jump-to-latest control, a new turn, or a navigation.
+- **Every scroll owner holds its own position and passes the hold outward.** The
+  transcript scroller and the nested delegate dock (`useFollowScroll`, D302) share
+  one controller; growing the dock grows the transcript's content, so an outer
+  scroller still in follow mode would drag the same title away.
+- **Input is attributed to the scroller that can consume it.** Only input that
+  really moves a container may release follow or a held position: a press on a
+  row, a control or an editable field is an ordinary click, a keystroke in a text
+  field belongs to the field, and input a nested scroller consumes is not the
+  outer scroller's gesture. Arrow keys still scroll and Space still activates a
+  focused title.
+- **Programmatic immediate scrolling records the `scrollTop` the scroller
+  actually reached**, and a sub-pixel tolerance is applied only to scroll events
+  no gesture produced. At DPR 1.1 follow asked for 841 and got 840.909; compared
+  strictly that fraction read as the reader scrolling up and dropped follow mode.
+  Real gestures are still compared exactly, so a one-pixel scroll unpins.
+- Renderer only: no protocol, storage, host, permission, or migration change.
+  See `04-ux/09-interaction-patterns.md` §9.1 and
+  E2E-CHAT-disclosure-toggle-keeps-reading-position.
+
+Readers reported that clicking a tool, thinking or activity title to expand it
+dragged the whole transcript up by the height of the opened detail, in a session
+that was sitting at the bottom — including after the turn had finished.
+## 2026-09-16 — The delete dialog, not the menu, owns the running-task refusal (#360, D431)
+
+- Amends the renderer half of D421. The sidebar menu and the Projects index menu
+  refused Delete project with a transient `project.deleteRunningBlocked` warning
+  whenever any of the project's sessions was running, and returned before
+  `ProjectDeleteDialog` was ever mounted. The refusal vanished with the toast
+  and left no path forward, so a project with one live task could not be deleted
+  at all — which is how #360 ("项目管理中无法真正删除项目") reads.
+- Both menus now always open the dialog. Each surface passes the project's live
+  running session ids (`runningSessions[session.id]`, over the rows it already
+  matches: `entry.sessions` in the sidebar, `sessionMatchesIndexProject` in the
+  index), and the dialog derives its copy from that prop on every render, so a
+  turn that starts or finishes while the dialog is open is reflected before the
+  user confirms.
+- The dialog adds a warning line naming `{{count}}` running sessions and swaps
+  its confirm label to `project.deleteRunningConfirm` ("Stop tasks and delete").
+  Confirming aborts exactly those sessions and only then calls `deleteProject`,
+  so removing a running turn stays a second, explicit confirmation of a stated
+  consequence. Cancelling removes nothing.
+- The host guard is unchanged: `projects.remove` still refuses with 1008 /
+  `CONFLICT` while an attached session has a running turn, and the dialog still
+  maps that refusal to `project.deleteRunningBlocked`. A turn that starts after
+  the abort loop is what that fallback covers.
+- Renderer only: no protocol, storage, host, permission, or migration change,
+  and no new default. `project.deleteRunningBlocked` keeps its meaning, copy,
+  and every translation. See ADR 0251, D421, and
+  E2E-PROJECT-delete-running-sessions-are-named-and-stopped.
+## 2026-09-16 — Plugin `workspace` fs roots follow the calling session (D432)
+
+- Every plugin `pi.fs.*` call whose mode root is `workspace` resolved the one
+  window-global visible workspace, so a plugin agent tool invoked from session B
+  (project B) read project A's root as soon as the user switched tabs, and failed
+  `NOT_FOUND` for every session at once when no workspace was visible (D093 fixed
+  the same rule for built-in tool execution; it never reached a plugin).
+- `plugin-runtime.ts` now resolves that root with a new private `fsRoot(loaded, rule)`
+  helper: the project of the tool session that invoked the call, asked for through
+  the additive host service `getWorkspacePathForSession`. `plugin-services.ts` wires
+  it from the session-to-project map it already keeps, so no new source of truth is
+  introduced.
+- Unchanged: the visible workspace stays the root for a panel-bridge call, which has
+  no tool session, and for a session the host does not track; a `userSelected` mode
+  still keeps the directory the user picked through `requestDirectory()`.
+- A session root now resolves when no workspace is visible at all, so a temporary
+  chat keeps working per session instead of failing for every session at once. A
+  panel call in that state still fails closed. `NOT_FOUND` for a `workspace` root is
+  therefore narrower: neither the invoking session's project nor a visible workspace
+  resolved.
+- No permission, realpath-containment, deny-list, or declared-scope/consent gate
+  changes, and the plugin API surface does not change: `pi.workspace.get` still
+  answers with the visible workspace and its project group.
+- See ADR 0266, `07-plugins/03-plugin-api.md` §3,
+  `07-plugins/13-plugin-permissions-matrix.md` §6, and
+  E2E-PLUGIN-fs-root-follows-the-calling-session.

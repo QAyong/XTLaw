@@ -89,10 +89,10 @@ fn declaration_manifest(providers: Value, permissions: Value) -> Value {
 }
 
 #[test]
-fn schema_is_current_with_the_owner_column() {
+fn schema_is_current_with_owner_and_priority_columns() {
     let (_dir, db, _secrets) = test_context();
     // v17 added the owner column and v18 the turn-queue priority column; a fresh
-    // database is stamped with the newest, so the column set is the current one.
+    // database is stamped with the newest, so both columns must be present.
     assert_eq!(SCHEMA_VERSION, 18);
     let version: i64 = db
         .conn()
@@ -108,6 +108,15 @@ fn schema_is_current_with_the_owner_column() {
         )
         .unwrap();
     assert!(has_owner);
+    let has_priority: bool = db
+        .conn()
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM pragma_table_info('turn_queue') WHERE name = 'priority')",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert!(has_priority);
 }
 
 #[test]

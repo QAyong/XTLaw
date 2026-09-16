@@ -553,7 +553,9 @@ pub(crate) fn migrate_v14_to_v15_tx(tx: &rusqlite::Transaction<'_>) -> Result<()
 }
 
 /// v17 → v18 adds the adaptive thinking mode switch (ADR 0257) and the
-/// nullable turn queue priority column.
+/// nullable turn-queue priority column. Both changes are additive: existing
+/// sessions read back as `manual`, and existing queue rows keep their position
+/// order with a NULL priority.
 pub(crate) fn migrate_v17_to_v18_tx(tx: &rusqlite::Transaction<'_>) -> Result<()> {
     let has_column: bool = tx.query_row(
         "SELECT EXISTS(
@@ -569,6 +571,7 @@ pub(crate) fn migrate_v17_to_v18_tx(tx: &rusqlite::Transaction<'_>) -> Result<()
             "#,
         )?;
     }
+
     let has_queue: bool = tx.query_row(
         "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'turn_queue')",
         [],
@@ -582,6 +585,7 @@ pub(crate) fn migrate_v17_to_v18_tx(tx: &rusqlite::Transaction<'_>) -> Result<()
     if has_queue && !has_priority {
         tx.execute_batch("ALTER TABLE turn_queue ADD COLUMN priority INTEGER;")?;
     }
+
     tx.pragma_update(None, "user_version", 18i64)?;
     Ok(())
 }

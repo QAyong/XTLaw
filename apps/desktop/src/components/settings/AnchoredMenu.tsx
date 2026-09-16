@@ -39,8 +39,8 @@ export type AnchoredMenuProps = {
   role?: "listbox" | "menu" | "dialog";
   /** Extra class for the row-level wrapper that owns the trigger. */
   className?: string;
-  /** Aligns the menu's right edge with the trigger's; defaults to left. */
-  align?: "start" | "end";
+  /** Aligns the menu with the trigger; defaults to the trigger's left edge. */
+  align?: "start" | "center" | "end";
   /**
    * Where to put focus after the menu is measured. `selected` keeps Enter on
    * the current option (default-model picker). `input` is for searchable menus.
@@ -144,7 +144,11 @@ export function AnchoredMenu({
     const surfaceWidth = width ?? menuRect.width;
     const maxLeft = Math.max(MARGIN, window.innerWidth - surfaceWidth - MARGIN);
     const preferredLeft =
-      align === "end" ? anchorRect.right - surfaceWidth : anchorRect.left;
+      align === "end"
+        ? anchorRect.right - surfaceWidth
+        : align === "center"
+          ? anchorRect.left + (anchorRect.width - surfaceWidth) / 2
+          : anchorRect.left;
     const left = Math.min(Math.max(MARGIN, preferredLeft), maxLeft);
     const below = anchorRect.bottom + GAP;
     const above = anchorRect.top - menuRect.height - GAP;

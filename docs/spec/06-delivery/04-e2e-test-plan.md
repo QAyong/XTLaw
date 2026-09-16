@@ -35,10 +35,11 @@
 - **Expected:** A known model shows the corresponding monochrome provider mark
   using the model id/display name match; when the model name is not recognized,
   the configured provider match is used. The same monochrome model icon replaces
-  the default sparkle icon in the chat activity summary row. The icon remains
-  readable in both light and dark themes. An unknown custom model retains the
-  monochrome default bot glyph. Model selection, keyboard navigation, activity
-  expansion, and fallback text remain unchanged.
+  the default sparkle icon in both the chat activity summary row and its
+  Thinking detail row. The icon remains readable in both light and dark themes.
+  An unknown custom model retains the monochrome default bot glyph. Model
+  selection, keyboard navigation, activity expansion, and fallback text remain
+  unchanged.
 - **Specs linked:** `00-baseline.md`, `06-delivery/03-ai-development-workflow.md`
 - **Status:** Documented; run after integration into main.
 

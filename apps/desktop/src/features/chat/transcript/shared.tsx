@@ -44,11 +44,11 @@ import {
   IconPencil,
   IconSearch,
   IconSheet,
-  IconSparkles,
   IconTerminal,
   IconVideo,
   IconWrench,
 } from "../../../components/icons";
+import { ModelIcon } from "../../../lib/model-icons";
 import { TooltipButton } from "../../../components/ui";
 
 export function CopyButton({
@@ -509,11 +509,15 @@ export const ThinkingRow = memo(function ThinkingRow({
   streaming,
   autoOpen = false,
   onUserInteraction,
+  providerId,
+  modelId,
 }: {
   message: UiMessage;
   streaming: boolean;
   autoOpen?: boolean;
   onUserInteraction?: () => void;
+  providerId?: string;
+  modelId?: string;
 }) {
   const { t } = useTranslation();
   const detailsId = useId();
@@ -539,7 +543,11 @@ export const ThinkingRow = memo(function ThinkingRow({
         onClick={toggleRow}
       >
         <span className="tool-row-icon">
-          <IconSparkles size={15} aria-hidden />
+          <ModelIcon
+            provider={providerId ?? ""}
+            modelId={modelId ?? ""}
+            size={15}
+          />
         </span>
         <span className={`tool-row-name ${streaming ? "running" : ""}`}>
           {t("chat.thinking", { defaultValue: "Thinking" })}
@@ -566,5 +574,7 @@ export const ThinkingRow = memo(function ThinkingRow({
   previous.message === next.message &&
   previous.streaming === next.streaming &&
   previous.autoOpen === next.autoOpen &&
+  previous.providerId === next.providerId &&
+  previous.modelId === next.modelId &&
   previous.onUserInteraction === next.onUserInteraction,
 );

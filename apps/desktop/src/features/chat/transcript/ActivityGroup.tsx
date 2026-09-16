@@ -353,6 +353,8 @@ export const ActivityGroup = memo(function ActivityGroup({
           streaming={isActive && item.message.status === "streaming"}
           autoOpen={live && itemIndex === items.length - 1}
           onUserInteraction={claimDisclosure}
+          providerId={providerId}
+          modelId={modelId}
         />
       );
     });

@@ -8,8 +8,8 @@
   Chat prose — refined markdown typography for the assistant transcript.
   Goal: calm reading surface with clear hierarchy — headings without rules,
   links always discoverable, borderless inline code, quotes as soft tiles, and
-  code/table shells that sit in the same family as the rest of the UI. No block
-  draws a stroke (D297): tone and spacing carry the structure.
+  code/table shells that sit in the same family as the rest of the UI. Thematic
+  breaks use one subtle divider; other prose surfaces remain borderless (D297).
   Blocks render as direct children of .prose-chat.
 */
 .prose-chat {
@@ -30,14 +30,14 @@
   margin-bottom: 0 !important;
 }
 
-/* Body rhythm: breathing room between blocks so multi-part answers read as
-   distinct thoughts, while consecutive paragraphs stay conversational. */
+/* Chat rhythm: keep blocks distinct without turning a response into a
+   document-sized column of whitespace. */
 .prose-chat p {
-  margin: 0.65em 0;
+  margin: 0.35em 0;
 }
 
 .prose-chat p + p {
-  margin-top: 0.8em;
+  margin-top: 0.45em;
 }
 
 .prose-chat strong {
@@ -89,7 +89,7 @@
 .prose-chat h4,
 .prose-chat h5,
 .prose-chat h6 {
-  margin: 1.25em 0 0.45em;
+  margin: 0.8em 0 0.35em;
   color: var(--ds-text-primary);
   font-weight: var(--font-weight-semibold);
   letter-spacing: var(--tracking-tight);
@@ -135,7 +135,7 @@
 .prose-chat h4 + *,
 .prose-chat h5 + *,
 .prose-chat h6 + * {
-  margin-top: 0.4em;
+  margin-top: 0.25em;
 }
 
 /* Consecutive headings stack tighter — the second one belongs to the same
@@ -145,12 +145,12 @@
 .prose-chat h3 + h4,
 .prose-chat h4 + h5,
 .prose-chat h5 + h6 {
-  margin-top: 0.75em;
+  margin-top: 0.55em;
 }
 
 .prose-chat ul,
 .prose-chat ol {
-  margin: 0.65em 0;
+  margin: 0.35em 0;
   padding-left: 1.4em;
 }
 
@@ -164,7 +164,7 @@
 }
 
 .prose-chat li {
-  margin: 0.28em 0;
+  margin: 0.18em 0;
   padding-left: 0.15em;
 }
 
@@ -196,7 +196,7 @@
   display: flex;
   align-items: flex-start;
   gap: 0.45em;
-  margin: 0.28em 0;
+  margin: 0.18em 0;
   padding-left: 0;
 }
 
@@ -215,11 +215,11 @@
   min-width: 0;
 }
 
-/* Blockquote: a soft tile plus muted text (D297) — the rail is gone, and the
-   tint stays faint so long citations don't read as heavy boxes. */
+/* Blockquote: a soft tile plus muted text (D297) — keep the citation grouped
+   without letting it create article-sized section gaps. */
 .prose-chat blockquote {
   position: relative;
-  margin: 0.85em 0;
+  margin: 0.5em 0;
   padding: 0.55em 0.9em;
   border-radius: var(--radius-md);
   background: var(--ds-tile);
@@ -242,12 +242,14 @@
   margin: 0.5em 0;
 }
 
-/* A thematic break is pure space: no line is drawn (D297). */
+/* A thematic break is a quiet, visible section boundary. It must not become
+   an unexplained blank band in a chat answer. */
 .prose-chat hr {
-  margin: 1.8em 0;
+  width: 100%;
+  margin: 10px 0;
   border: 0;
-  height: 0;
-  background: none;
+  height: 1px;
+  background: var(--ds-border-subtle);
 }
 
 /* Links stay monochrome but are always discoverable: a soft permanent
@@ -285,7 +287,7 @@
 .prose-chat .chat-image-remote {
   display: block;
   max-width: min(100%, 560px);
-  margin: 0.65em 0;
+  margin: 0.45em 0;
   border-radius: var(--radius-md-plus);
   background: var(--ds-tile);
 }
@@ -328,7 +330,7 @@
   border-radius: var(--radius-md-plus);
   padding: 14px 16px;
   overflow: auto;
-  margin: 0.85em 0;
+  margin: 0.6em 0;
   box-shadow: none;
   color: #abb2bf;
 }
@@ -353,7 +355,7 @@
 /* GFM tables (D297): no shell, no cell rules. The header row is the deepest
    tile, body rows alternate a faint tile, and hover lifts the row a step. */
 .prose-chat .table-wrap {
-  margin: 0.9em 0;
+  margin: 0.6em 0;
   max-width: 100%;
   width: 100%;
   overflow-x: auto;
@@ -403,7 +405,7 @@
 
 /* KaTeX display math: keep long formulas scrollable, not overflowing */
 .prose-chat .katex-display {
-  margin: 0.85em 0;
+  margin: 0.6em 0;
   padding: 0.55em 0.75em;
   overflow-x: auto;
   overflow-y: hidden;
@@ -422,7 +424,7 @@
 */
 .code-block {
   --code-block-bg: #282c34; /* one-dark-pro editor background */
-  margin: 0.9em 0;
+  margin: 0.6em 0;
   border-radius: var(--radius-md-plus);
   background: var(--code-block-bg);
   overflow: hidden;

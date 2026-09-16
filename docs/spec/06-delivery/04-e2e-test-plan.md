@@ -3577,8 +3577,10 @@ identify the platform validation still needed.
   longer user prompt, and a completed assistant answer; light and dark themes
   available.
 - **Steps**: 1) Open the session in dark theme. 2) Inspect user and assistant
-  rows at rest and on hover. 3) Start a streaming assistant answer. 4) Switch
-  to light theme and repeat. 5) Focus the copy control with the keyboard.
+  rows at rest and on hover. 3) Open an assistant answer containing paragraphs,
+  headings, a thematic break (`---`), and a table. 4) Start a streaming
+  assistant answer. 5) Switch to light theme and repeat. 6) Focus the copy
+  control with the keyboard.
 - **Expected**: User turns are right-aligned, theme-neutral soft plates capped
   near 560px, derived from each theme's primary text ink rather than an accent
   tint, with a subtle border; assistant answers remain transparent full-width
@@ -3586,7 +3588,10 @@ identify the platform validation still needed.
   and no whole-turn `--ds-tile` (D323). The tile belongs only to a
   subagent/delegation card (D319). Row spacing is denser (~10px). Copy chips are
   hidden at rest, appear on hover/focus-within, and stay right-aligned under
-  user turns. Both themes keep readable contrast on the user plate.
+  user turns. Markdown thematic breaks render as one subtle 1px divider with
+  compact margins rather than an invisible blank band. Paragraph, heading,
+  list, code, and table spacing stays compact without reducing the 14px chat
+  body size. Both themes keep readable contrast on the user plate.
 - **Specs linked**: `04-ux/07-ui-design-system.md`,
   `04-ux/08-component-spec.md` §8.3 / §8.4, `04-ux/10-workbuddy-benchmark-ux.md`,
   decisions-log D101, D323

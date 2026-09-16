@@ -1773,7 +1773,7 @@ Renderer: `apps/desktop/src/components/Markdown.tsx` + `apps/desktop/src/lib/shi
   pretty wrapping; heading ramp h1 `text-xl` (no underline since D297) → h2
   `text-lg-plus` → h3 `text-lg` → h4 `text-base-plus` → h5/h6 `text-base`
   secondary; blockquotes are a soft `--ds-tile` plate with no rule (D297);
-  hr is pure spacing; lists use quieter markers and flex task
+  thematic breaks use one subtle divider with compact margins; lists use quieter markers and flex task
   rows; inline code gets a soft gray tint and no border; tables drop cell
   borders for a `--ds-tile-deep` header and zebra `--ds-tile` rows and wrap
   in `.table-wrap` (rounded shell, header row, even-row wash, hover wash).

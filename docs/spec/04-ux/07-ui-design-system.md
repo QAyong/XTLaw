@@ -400,7 +400,7 @@ Letter-spacing tokens: `--tracking-tighter` −0.03em, `--tracking-tight` −0.0
 
 - Code blocks and tool output: `--text-sm`/`--text-sm-plus` with `font-mono`
 - Inline code within messages: `--text-sm-plus` `font-mono`, soft text-tint background, borderless, rounded
-- Chat prose (`.prose-chat`) uses `--text-base` / `--leading-prose` for body, with a heading ramp of `text-xl` → `text-lg-plus` → `text-lg` → `text-base-plus` → `text-base` so multi-block answers stay scannable without document-scale drama. Headings carry no rules/borders (hierarchy comes from size, weight, and space above); links keep a soft permanent underline that firms up on hover instead of relying on color alone; blockquotes are a quiet 2px left rail without a background fill
+- Chat prose (`.prose-chat`) uses `--text-base` / `--leading-prose` for body, with a heading ramp of `text-xl` → `text-lg-plus` → `text-lg` → `text-base-plus` → `text-base` so multi-block answers stay scannable without document-scale drama. Headings carry no rules/borders (hierarchy comes from size, weight, and space above); thematic breaks use one subtle divider with compact margins instead of invisible whitespace; links keep a soft permanent underline that firms up on hover instead of relying on color alone; blockquotes are quiet soft tiles
 
 ### 5.4 Weight rules
 
@@ -562,8 +562,9 @@ shadow-lg:  0 8px 24px rgba(0,0,0,0.12)
 
 ### 6.4 Border rules
 
-In-flow content surfaces draw no strokes (D297). The chat/work-panel shell
-boundary is the deliberate exception: the existing 10px resize hit area paints
+In-flow content surfaces draw no strokes (D297), except for semantic thematic
+breaks in chat prose, which use one subtle 1px divider with compact margins.
+The chat/work-panel shell boundary is another deliberate exception: the existing 10px resize hit area paints
 a centered 1px `--ds-border-default` divider at rest and promotes it to
 `--ds-focus` during hover, focus, or resize. Structure inside each surface still
 comes from three tonal layers plus spacing, and border tokens remain reserved

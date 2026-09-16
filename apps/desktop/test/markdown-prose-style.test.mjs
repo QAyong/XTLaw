@@ -21,10 +21,13 @@ test("chat prose keeps a refined hierarchy and quieter chrome", () => {
   assert.match(stylesSource, /\.prose-chat\s*\{/);
   assert.match(stylesSource, /\.prose-chat h1\s*\{[\s\S]*?font-size:\s*var\(--text-xl\)/);
   assert.match(stylesSource, /\.prose-chat h2\s*\{[\s\S]*?font-size:\s*var\(--text-lg-plus\)/);
-  // D297: a blockquote is a soft tile, not a rail; no prose block draws a stroke.
+  // D297 still governs blockquotes; thematic breaks use a separate subtle divider.
   assert.match(stylesSource, /\.prose-chat blockquote\s*\{[^}]*background:\s*var\(--ds-tile\)/);
   assert.doesNotMatch(stylesSource, /\.prose-chat blockquote\s*\{[^}]*border-left/);
-  assert.match(stylesSource, /\.prose-chat hr\s*\{[^}]*height:\s*0/);
+  assert.match(
+    stylesSource,
+    /\.prose-chat hr\s*\{[^}]*margin:\s*10px 0;[^}]*height:\s*1px[^}]*background:\s*var\(--ds-border-subtle\)/,
+  );
   assert.match(stylesSource, /\.prose-chat code\s*\{/);
   // Tables carry no shell or cell rules: header is the deep tile, body rows
   // alternate the faint tile, hover lifts a step.

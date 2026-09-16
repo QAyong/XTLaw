@@ -146,7 +146,7 @@ test("assistant turns stay transparent full-width prose", () => {
 });
 
 test("transcript density and hover actions are quiet", () => {
-  assert.match(stylesSource, /\.message-row \{[\s\S]*?padding:\s*12px 0;/);
+  assert.match(stylesSource, /\.message-row \{[\s\S]*?padding:\s*6px 0;/);
   assert.match(
     stylesSource,
     /\.thread-content \{[\s\S]*?padding:\s*20px 32px 24px;/,
@@ -161,7 +161,7 @@ test("transcript density and hover actions are quiet", () => {
   assert.doesNotMatch(dockedComposer, /position:\s*absolute|bottom:\s*0/);
   assert.match(
     stylesSource,
-    /\.message-actions \{[\s\S]*?opacity:\s*0;[\s\S]*?\.message-row:hover \.message-actions/,
+    /\.message-actions \{[\s\S]*?min-height:\s*24px;[\s\S]*?padding-top:\s*0;[\s\S]*?opacity:\s*0;[\s\S]*?pointer-events:\s*none;[\s\S]*?\.message-row:hover \.message-actions/,
   );
   assert.match(stylesSource, /\.message-row\.user \.message-actions \{[\s\S]*?justify-content:\s*flex-end;/);
 });

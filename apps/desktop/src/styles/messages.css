@@ -7,7 +7,7 @@
 .message-row {
   display: flex;
   gap: 12px;
-  padding: 12px 0;
+  padding: 6px 0;
   /* Skip layout/paint for far-offscreen rows in long transcripts. */
   content-visibility: auto;
   contain-intrinsic-size: auto 140px;
@@ -931,15 +931,18 @@
   }
 }
 
-/* Hover actions under a message: quiet icon chips, WorkBuddy/Codex density. */
+/* Hover actions under a message: quiet icon chips, WorkBuddy/Codex density.
+ * Keep the hit targets available for keyboard focus, but do not let the
+ * invisible toolbar intercept pointer input while it is at rest. */
 .message-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 2px;
   min-height: 24px;
-  padding-top: 2px;
+  padding-top: 0;
   opacity: 0;
+  pointer-events: none;
   transition: opacity var(--motion-duration-fast) var(--motion-ease-out);
 }
 
@@ -951,6 +954,7 @@
 .message-row:focus-within .message-actions,
 .message-actions:focus-within {
   opacity: 1;
+  pointer-events: auto;
 }
 
 /*

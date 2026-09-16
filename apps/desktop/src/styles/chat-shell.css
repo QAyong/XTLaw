@@ -17,15 +17,15 @@
   border-radius: var(--radius-lg-plus);
   border-bottom-right-radius: var(--radius-xs);
   background: color-mix(in oklab, var(--ds-text-primary) 8%, transparent);
-  padding: 10px 15px;
+  padding: 8px 12px;
   color: var(--ds-text-primary);
   font-size: var(--text-base);
   line-height: var(--leading-chat);
 }
 
 .message-row.assistant {
-  padding-top: 6px;
-  padding-bottom: 14px;
+  padding-top: 4px;
+  padding-bottom: 8px;
 }
 
 .drag {

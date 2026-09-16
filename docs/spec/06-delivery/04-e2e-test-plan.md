@@ -1251,21 +1251,31 @@ identify the platform validation still needed.
   button present. Send two more prompts and inspect the queue above the
   composer. 3) Remove the second queued row and switch to B. 4) Send a prompt
   in B, then return to A before either run completes. 5) Choose Send now on A's
-  remaining queued row. 6) Observe A through the current tool/reply boundary
-  and then the next turn. 7) Start another run in A, clear the draft to expose
-  the single Stop button, press Stop, and inspect the queue. 8) Repeat with
-  two queued prompts, let the active turn finish without Send now, and delay
-  its host `session.endTurn` response until after `agent_end` is delivered.
-  Release finalization and observe both follow-ups through their turn
-  boundaries. Repeat with a provider error and an immediate abort.
+  remaining queued row, then choose Send now on a second row. 6) Observe A
+  through the current tool/reply boundary and then the next turn. 7) Start
+  another run in A, clear the draft to expose the single Stop button, press
+  Stop, and inspect the queue. 8) Repeat with two queued prompts, let the active
+  turn finish without Send now, and delay its host `session.endTurn` response
+  until after `agent_end` is delivered. Release finalization and observe both
+  follow-ups through their turn boundaries. Repeat with a provider error and an
+  immediate abort. 9) With waiting rows, use move up and move down and confirm
+  the persisted order follows. 10) Edit a waiting row while the composer holds
+  text, then with an empty composer.
 - **Expected**: The single submit slot contains exactly one button in every
   state: disabled Send while idle and empty, enabled Send while running with
   content (which queues the prompt), and Stop while running with an empty
   draft. A's two prompts appear in FIFO order, the removed row never sends,
   and B's queue remains independent. Send now requests a graceful stop: the
   current batch completes with a normal `agent_end`/completed turn, then the
-  selected row starts before any remaining FIFO rows without `AGENT_BUSY`.
-  Immediate Stop aborts the current reply and preserves A's queued row;
+  promoted rows are delivered in the order they were promoted, before any
+  waiting row, without `AGENT_BUSY`: the first starts the turn and the rest join
+  it as adjacent user messages, so the model answers once for the whole block.
+  remove, and its Send now button reads as already decided; promotion is
+  one-way. Move up/down swaps only waiting rows, never crosses the promoted
+  block, and persists. Edit is refused with a visible message while the input
+  is non-empty, and otherwise removes the row and returns its text plus its
+  file-reference chips to the composer. Immediate Stop aborts the current reply
+  and preserves A's queued row;
   switching sessions preserves both queues. Ordinary completion, provider
   failure, and abort all resume queued sending automatically after durable
   finalization releases the session. No queued prompt starts while finalization
@@ -1273,14 +1283,79 @@ identify the platform validation still needed.
   click or session switch. Repeated terminal handling does not double-dispatch.
   Other sessions' queues remain unchanged, and quitting while finalization is
   pending preserves queued work without starting another turn.
-- **Specs linked**: `03-runtime/01-ipc-protocol.md` (§5.2),
+- **Specs linked**: `03-runtime/01-ipc-protocol.md` (§5.6),
   `04-ux/08-component-spec.md` (§11),
-  `04-ux/09-interaction-patterns.md` (§3.4), ADR 0118, ADR 0213
+  `04-ux/09-interaction-patterns.md` (§3.4), ADR 0118, ADR 0213, ADR 0265
 - **Acceptance**: C (chat, stream, and session isolation), Quality
 - **Milestone**: M6+
 - **Status**: Source-level regression and deterministic desktop finalization /
-  Agent Host integration covered (`queued-turn-finalization.test.mjs`); full
-  UI scenario Draft
+  Agent Host integration covered (`queued-turn-finalization.test.mjs`);
+  promotion, reorder, and edit contracts covered at source level
+  (`composer-send-state.test.mjs`); full UI scenario Draft
+
+#### E2E-QUEUE-promote-orders-delivery-by-click: Two Send now clicks deliver in click order
+
+- **Preconditions**: Provider configured; session A is running a turn with at
+  least one completed tool batch; three prompts are queued behind it.
+  the first queued row. 3) Confirm the promoted block orders third → first, that
+  both rows lock their move/edit/remove actions, and that the remaining row is
+  still editable. 4) Let the boundary pass and observe the transcript.
+- **Expected**: The first click is delivered first and the second second — the
+  click order is the delivery order, not "last click wins" and not the original
+  queue order. Both rows appear as adjacent user messages in one turn and the
+  model answers once; the queue no longer lists either promoted row. Both
+  promoted rows show as already decided and cannot be edited, removed, or
+  reordered. The waiting row keeps its actions and is not delivered before
+  either promoted row.
+- **Specs linked**: `03-runtime/01-ipc-protocol.md` (§5.6),
+  `04-ux/08-component-spec.md` (§11), ADR 0265
+- **Acceptance**: C (chat, stream)
+- **Milestone**: M6+
+- **Status**: Draft; ordering and the adjacent delivery are covered by
+  `turn_queue`, `turn-queue`, and `agent-host` unit tests
+- **Specs linked**: `03-runtime/01-ipc-protocol.md` (§5.6),
+  `04-ux/08-component-spec.md` (§11), ADR 0265
+- **Acceptance**: C (chat, stream)
+- **Milestone**: M6+
+- **Status**: Draft; underlying ordering covered by `turn_queue`,
+  `turn-queue`, and `agent-host` unit tests
+
+#### E2E-QUEUE-reorder-moves-plain-neighbours: Move up/down reorders the waiting queue
+
+- **Preconditions**: Provider configured; a turn is running with at least three
+  prompts queued and no promoted row.
+- **Steps**: 1) Move the third row up twice and confirm it becomes first. 2) Move
+  the first row up once and confirm nothing moves. 3) Promote a row, then try to
+  move the adjacent waiting row across it. 4) Reload the renderer and inspect the
+  queue order.
+- **Expected**: Each move swaps the row with its adjacent waiting neighbour and
+  the Host persists the new order, so a reload reproduces it. The waiting-block
+  boundary and the promoted block are immovable: a move at the block edge is a
+  no-op that never reaches the Host, and no move changes a promoted row's place.
+- **Specs linked**: `03-runtime/01-ipc-protocol.md` (§5.6), ADR 0265
+- **Acceptance**: C (chat), F (persistence)
+- **Milestone**: M6+
+- **Status**: Draft; host-side reorder covered by `turn_queue` unit tests
+
+#### E2E-QUEUE-edit-restores-draft-only-when-input-empty: Edit restores the queued draft
+
+- **Preconditions**: Provider configured; a turn is running with a queued prompt
+  that carries text and a file-reference chip; the composer input is empty.
+- **Steps**: 1) Type a draft, then choose edit on the queued row. 2) Clear the
+  composer and choose edit again. 3) Confirm the queue no longer lists the row
+  and the composer holds the row's text and its file-reference chip. 4) Send it
+  and compare the transcript with the original queued prompt.
+- **Expected**: With a non-empty input (or an attachment chip) the edit is
+  refused with a visible message and the row stays queued. With an empty input
+  the row leaves the queue, the Host no longer lists it, and the composer holds
+  the exact text plus the original file-reference chip — not the
+  annotation-stripped inline content. Re-sending produces the same prompt as the
+  queued row would have.
+- **Specs linked**: `04-ux/08-component-spec.md` (§11), ADR 0265
+- **Acceptance**: C (chat, stream)
+- **Milestone**: M6+
+- **Status**: Draft; composer-side contract covered by
+  `composer-send-state.test.mjs`
 
 #### E2E-011g: New Task does not leave the previous transcript on screen
 
@@ -2150,8 +2225,8 @@ identify the platform validation still needed.
      unmatched locales disappear. Type a theme name into the theme search and
      confirm unmatched options disappear.
 - **Expected**: Theme and Language are searchable picker rows (not a card grid
-  and not a native select); each closed trigger fills the settings control
-  column without overflowing the row. Theme lists System, Light, and Dark,
+  and not a native select); each closed trigger sizes to the current label,
+  capped by the settings control column, without overflowing the row. Theme lists System, Light, and Dark,
   then any plugin themes after a divider. Auto resolves the OS locale through
   the main process (`app.getLocale()`), passes it safely through the sandboxed
   preload bridge, and reflects the detected native name inline in the menu;
@@ -2177,7 +2252,7 @@ identify the platform validation still needed.
 
 - **Preconditions**: App running with a host that reports at least one configured command shell and at least one catalog shell that is unavailable on this platform.
 - **Steps**: 1) Open Settings → General and open the Theme and Language pickers; note the pill trigger and the opened surface. 2) Open 全局 AI. 3) Open the Permissions card's permission-mode control and select ask, accept-edits, and auto in turn. 4) Open the Defaults card's Command shell control; inspect the unavailable entries and select an available shell. 5) Dismiss each open menu with Escape and then with an outside press. 6) Close Settings, reopen it, and read both rows.
-- **Expected**: Both rows open the same anchored menu surface as the Appearance pickers — the app-drawn frame with the shared radius, elevation, border, and theme tokens, a check mark on the current option, and a hover/keyboard highlight — and never a platform-drawn `<select>` popup. Unavailable shells stay listed with their suffix, are not selectable, and cannot become the current value. Escape and an outside press close the menu and restore focus to the trigger; arrow keys move between selectable options with wraparound. The selected permission mode and command shell persist across closing and reopening Settings, and the selected shell stays the only configured-state indicator.
+- **Expected**: Both rows open the same anchored menu surface as the Appearance pickers — the app-drawn frame with the shared radius, elevation, border, and theme tokens, a check mark on the current option, and a hover/keyboard highlight — and never a platform-drawn `<select>` popup. Closed triggers size to the current label, capped by the settings control column. Unavailable shells stay listed with their suffix, are not selectable, and cannot become the current value. Escape and an outside press close the menu and restore focus to the trigger; arrow keys move between selectable options with wraparound. The selected permission mode and command shell persist across closing and reopening Settings, and the selected shell stays the only configured-state indicator.
 - **Specs linked**: `04-ux/06-settings-ia.md`, `04-ux/09-interaction-patterns.md`
 - **Acceptance**: A (core shell)
 - **Milestone**: M4
@@ -4538,11 +4613,13 @@ identify the platform validation still needed.
 
 - **Preconditions**: PI-Desktop is running on Windows with light and dark
   themes available.
-- **Steps**: 1) In light theme, open native selects in Settings → Basics,
-  Settings → Model configuration, Settings → Import, and one scheduled-task
-  form. 2) Repeat every surface in dark theme. 3) Open each list after
+- **Steps**: 1) In light theme, open remaining native selects (scheduled-task
+  form) and confirm Settings pickers on General, 全局 AI, Model configuration,
+  and Import open as in-app menus rather than platform `<select>` popups. 2)
+  Repeat every remaining native list in dark theme. 3) Open each list after
   switching themes without restarting the app.
-- **Expected**: Every closed trigger and opened native option list uses the
+- **Expected**: Settings compact pickers use the shared anchored menu. Every
+  remaining closed native trigger and opened native option list uses the
   active theme's readable foreground/background pairing. No dark-theme list
   falls back to a light Windows surface with light text, no light-theme list
   uses dark-theme ink, and changing theme updates subsequent openings. The
@@ -4798,7 +4875,9 @@ identify the platform validation still needed.
   4. Hover file-tree rows or diff headers; focus the browser URL field.
   5. Open a confirmation/provider dialog and inspect the scrim.
   6. In both light and dark palettes, inspect the settings rail, search, selected
-     item, on-state knob, composer shell, and plugin/capability searches. Apply
+     item, on-state knob, composer shell, plugin/capability searches, the code
+     card's head band, the Mermaid canvas, tool output, the composer placeholder
+     and disabled send chip, and the dialog scrim and permission backdrop. Apply
      custom surface variables, keyboard-focus both searches, then remove the
      custom theme.
 - **Expected**:
@@ -4807,9 +4886,14 @@ identify the platform validation still needed.
   - Toggle on-state keeps a white knob on the near-black track.
   - Hover fills on file-tree/diff/resize ease with shared motion tokens.
   - Light dialog scrim is softer than the dark 45% veil (~28% ink).
-  - Custom variables repaint the corresponding fills and search focus states;
-    removing them restores the built-in 8-bit RGBA paint and existing shadows/
-    focus rings. This batch does not migrate prose or scrims or change plugin APIs.
+  - Tool output keeps its cascade: light paints the same lighter tile over error
+    output and over plain tool blocks, while dark shows the error tint and leaves
+    plain blocks transparent.
+  - Custom variables repaint the corresponding fills, keycap ink, and search
+    focus states; removing them restores the built-in 8-bit RGBA paint and the
+    existing shadows/focus rings. Prose ink mixes follow `--ds-text-primary`,
+    and the `one-dark-pro` / `one-light` Shiki plate and its ink stay with the
+    Shiki theme by design. This batch does not change plugin APIs.
 - **Specs linked**: `04-ux/07-ui-design-system.md`, `04-ux/08-component-spec.md`
 - **Acceptance**: D148
 - **Milestone**: M5
@@ -4945,8 +5029,44 @@ identify the platform validation still needed.
   credentials; requires installed Electron and a graphical session, or Xvfb on
   Linux). It mounts production transcript components, counts ActivityGroup
   renders across 20 text updates with 100 completed groups, checks changed tool
-  content, and checks cross-part Task terminal status/timing updates. Styles
-  are omitted; full provider streaming and shell responsiveness remain Draft.
+  content, and checks cross-part Task terminal status/timing updates. The page
+  links the app's built stylesheet, which the runtime-status scenario below
+  measures real geometry against; full provider streaming and shell
+  responsiveness remain Draft.
+
+#### E2E-CHAT-runtime-status-keeps-row-position
+
+- **Preconditions**: An active session whose transcript is taller than the
+  conversation viewport, with a completed tool row owning the tail; the pane is
+  built (`pnpm build:js`) and Electron is installed.
+- **Steps**:
+  1. Mount the production `ChatTranscript` with fixed messages, the tail owned
+     by a completed activity group, and the session running.
+  2. Record the content height, scroller scroll height/offset, and the first and
+     last rendered row positions with no runtime activity reported.
+  3. Switch the session's runtime activity to the waiting-for-model phase only;
+     let the layout settle.
+  4. Clear the runtime activity again and let the layout settle.
+  5. Finish the turn (`isRunning` false) and inspect the tail.
+- **Expected**:
+  - The waiting row occupies the reserved status lane: the content height,
+    scroll height, scroll offset, and the position of every already-rendered row
+    are unchanged (within 0.01px) while the status appears and after it clears.
+  - The empty lane stays reserved and invisible — no background, border, or
+    shadow — in both the dark and light themes.
+  - The status row keeps its live-region semantics (`role="status"`,
+    `aria-live="polite"`), while the empty lane carries no text to announce.
+  - An idle finished transcript renders no status lane at all, so its layout is
+    unchanged.
+- **Specs linked**: `04-ux/08-component-spec.md`
+- **Acceptance**: C (chat stream), Quality
+- **Milestone**: M5
+- **Status**: Unit-covered (`active-turn-surface.test.mjs`) and automated
+  React/Chromium geometry regression via `pnpm test:e2e:transcript`
+  (`scripts/e2e/transcript-render.tsx`, no provider credentials; requires an
+  installed Electron and a graphical session, or Xvfb on Linux). The scenario
+  fails by 40.125px of content height and 40px of row movement when the reserved
+  lane is removed (issue #323).
 
 #### E2E-STREAM-long-turn-keeps-realtime
 
@@ -7582,10 +7702,10 @@ identify the platform validation still needed.
 | E — Tools & permissions | E2E-008a, E2E-014, E2E-015, E2E-016, E2E-017, E2E-018, E2E-019, E2E-024I, E2E-024K, E2E-040, E2E-049, E2E-074, E2E-093, E2E-097, E2E-099, E2E-100, E2E-101, E2E-102, E2E-102d, E2E-102e, E2E-102g, E2E-103, E2E-105, E2E-106, E2E-107, E2E-111, E2E-112, E2E-113, E2E-114, E2E-115, E2E-116, E2E-119, E2E-121, E2E-122, E2E-142, E2E-145, E2E-147, E2E-155, E2E-158, E2E-166, E2E-181, E2E-PLUGIN-imported-pi-package-skills, E2E-CHAT-side-chat-stream |
 | F — Persistence | E2E-020, E2E-021, E2E-021a, E2E-036, E2E-037, E2E-038, E2E-040, E2E-042, E2E-047, E2E-048, E2E-051, E2E-054, E2E-056, E2E-061, E2E-062, E2E-064, E2E-066, E2E-068, E2E-071, E2E-072, E2E-073, E2E-082, E2E-084, E2E-096, E2E-098, E2E-102, E2E-102b, E2E-102c, E2E-102d, E2E-102g, E2E-102i, E2E-103, E2E-AGENTS-001, E2E-061a, E2E-073a, E2E-104, E2E-106, E2E-107, E2E-108, E2E-109, E2E-110, E2E-112, E2E-118, E2E-119, E2E-120, E2E-121, E2E-123, E2E-142, E2E-146, E2E-146a, E2E-148, E2E-151, E2E-158, E2E-160, E2E-168, E2E-171, E2E-177, E2E-178, E2E-183, E2E-186, E2E-005J, E2E-PLUGIN-session-orchestrator-real-workers, E2E-CHAT-side-chat-fork, E2E-CHAT-side-chat-promote, E2E-CHAT-side-chat-close, E2E-CHAT-annotation-session-state |
 | F — Persistence (project ordering) | E2E-251 |
-| G — Plugins | E2E-022, E2E-022A, E2E-022B, E2E-022C, E2E-023, E2E-024, E2E-024B, E2E-024C, E2E-024D, E2E-024E, E2E-024W, E2E-024F, E2E-024G, E2E-024H, E2E-024I, E2E-024J, E2E-024K, E2E-024L, E2E-024M, E2E-024N, E2E-024O, E2E-024P, E2E-025, E2E-026, E2E-105, E2E-117, E2E-120, E2E-122, E2E-123, E2E-024Q, E2E-148, E2E-152, E2E-153, E2E-PLUGIN-imported-pi-package-skills, E2E-PLUGIN-import-extension-installs-dependencies, E2E-PLUGIN-import-extension-reports-missing-dependency, E2E-PLUGIN-global-shortcut-owns-only-its-own-command, E2E-PLUGIN-permission-gate-for-real-time-capabilities, E2E-PLUGIN-background-audio-and-realtime-connection |
+| G — Plugins | E2E-022, E2E-022A, E2E-022B, E2E-022C, E2E-023, E2E-024, E2E-024B, E2E-024C, E2E-024D, E2E-024E, E2E-024W, E2E-024F, E2E-024G, E2E-024H, E2E-024I, E2E-024J, E2E-024K, E2E-024L, E2E-024M, E2E-024N, E2E-024O, E2E-024P, E2E-025, E2E-026, E2E-105, E2E-117, E2E-120, E2E-122, E2E-123, E2E-024Q, E2E-148, E2E-152, E2E-153, E2E-PLUGIN-imported-pi-package-skills, E2E-PLUGIN-import-extension-installs-dependencies, E2E-PLUGIN-import-extension-reports-missing-dependency, E2E-PLUGIN-global-shortcut-owns-only-its-own-command, E2E-PLUGIN-permission-gate-for-real-time-capabilities, E2E-PLUGIN-background-audio-and-realtime-connection, E2E-PLUGIN-fs-root-follows-the-calling-session |
 | H — Diagnostics | E2E-027, E2E-031, E2E-034, E2E-042, E2E-096, E2E-098, E2E-104, E2E-107, E2E-108, E2E-109, E2E-110, E2E-113, E2E-115, E2E-116, E2E-118, E2E-121, E2E-146, E2E-146a, E2E-155, E2E-159, E2E-176, E2E-194, E2E-195 |
-| Security | E2E-028, E2E-029, E2E-030, E2E-024J, E2E-024K, E2E-024M, E2E-049, E2E-068, E2E-086, E2E-102c, E2E-102d, E2E-102e, E2E-105, E2E-106, E2E-107, E2E-108, E2E-109, E2E-110, E2E-112, E2E-113, E2E-115, E2E-116, E2E-117, E2E-119, E2E-121, E2E-122, E2E-123, E2E-142, E2E-148, E2E-151, E2E-153, E2E-158, E2E-187, E2E-196c, E2E-196b, E2E-196 |
-| Quality | E2E-032, E2E-033, E2E-039, E2E-043, E2E-044, E2E-045, E2E-046, E2E-047, E2E-048, E2E-048A, E2E-049, E2E-050, E2E-053, E2E-055, E2E-056, E2E-057, E2E-058, E2E-059, E2E-060, E2E-061, E2E-062, E2E-063, E2E-064, E2E-065, E2E-066, E2E-067, E2E-068, E2E-069, E2E-070, E2E-071, E2E-072, E2E-073, E2E-074, E2E-075, E2E-076, E2E-077, E2E-078, E2E-079, E2E-080, E2E-081, E2E-082, E2E-083, E2E-084, E2E-085, E2E-086, E2E-092, E2E-093, E2E-094, E2E-095, E2E-096, E2E-097, E2E-098, E2E-099, E2E-100, E2E-101, E2E-102, E2E-102a, E2E-102b, E2E-102c, E2E-102d, E2E-102e, E2E-103, E2E-AGENTS-001, E2E-021a, E2E-024N, E2E-059a, E2E-060b, E2E-060c, E2E-061a, E2E-073a, E2E-111, E2E-114, E2E-117, E2E-118, E2E-119, E2E-120, E2E-122, E2E-123, E2E-142, E2E-143, E2E-144, E2E-145, E2E-146, E2E-147, E2E-148, E2E-150, E2E-151, E2E-153, E2E-155, E2E-158, E2E-159, E2E-160, E2E-161, E2E-162, E2E-163, E2E-168, E2E-172, E2E-173, E2E-174, E2E-011g, E2E-176, E2E-177, E2E-178, E2E-179, E2E-180, E2E-181, E2E-182, E2E-183, E2E-186, E2E-187, E2E-194, E2E-195, E2E-196a, E2E-196b, E2E-196c, E2E-198, E2E-199, E2E-200, E2E-196, E2E-201, E2E-204, E2E-202, E2E-203, E2E-205, E2E-206, E2E-207, E2E-208, E2E-209, E2E-210, E2E-218, E2E-219, E2E-250, E2E-252, E2E-102i, E2E-SUBAGENT-settlement-updates-before-parent-poll, E2E-PLUGIN-imported-pi-package-skills, E2E-CHAT-quote-prefill, E2E-CHAT-side-chat-fork, E2E-CHAT-side-chat-stream, E2E-CHAT-side-chat-add-to-main, E2E-CHAT-side-chat-promote, E2E-CHAT-side-chat-close, E2E-CHAT-selection-markdown, E2E-CHAT-selection-side-chat, E2E-CHAT-annotation-attachments, E2E-CHAT-annotation-session-state, E2E-CHAT-annotation-source-index, E2E-CHAT-annotation-ack-and-steering |
+| Security | E2E-028, E2E-029, E2E-030, E2E-024J, E2E-024K, E2E-024M, E2E-049, E2E-068, E2E-086, E2E-102c, E2E-102d, E2E-102e, E2E-105, E2E-106, E2E-107, E2E-108, E2E-109, E2E-110, E2E-112, E2E-113, E2E-115, E2E-116, E2E-117, E2E-119, E2E-121, E2E-122, E2E-123, E2E-142, E2E-148, E2E-151, E2E-153, E2E-158, E2E-187, E2E-196c, E2E-196b, E2E-196, E2E-PLUGIN-fs-root-follows-the-calling-session |
+| Quality | E2E-032, E2E-033, E2E-039, E2E-043, E2E-044, E2E-045, E2E-046, E2E-047, E2E-048, E2E-048A, E2E-049, E2E-050, E2E-053, E2E-055, E2E-056, E2E-057, E2E-058, E2E-059, E2E-060, E2E-061, E2E-062, E2E-063, E2E-064, E2E-065, E2E-066, E2E-067, E2E-068, E2E-069, E2E-070, E2E-071, E2E-072, E2E-073, E2E-074, E2E-075, E2E-076, E2E-077, E2E-078, E2E-079, E2E-080, E2E-081, E2E-082, E2E-083, E2E-084, E2E-085, E2E-086, E2E-092, E2E-093, E2E-094, E2E-095, E2E-096, E2E-097, E2E-098, E2E-099, E2E-100, E2E-101, E2E-102, E2E-102a, E2E-102b, E2E-102c, E2E-102d, E2E-102e, E2E-103, E2E-AGENTS-001, E2E-021a, E2E-024N, E2E-059a, E2E-060b, E2E-060c, E2E-061a, E2E-073a, E2E-111, E2E-114, E2E-117, E2E-118, E2E-119, E2E-120, E2E-122, E2E-123, E2E-142, E2E-143, E2E-144, E2E-145, E2E-146, E2E-147, E2E-148, E2E-150, E2E-151, E2E-153, E2E-155, E2E-158, E2E-159, E2E-160, E2E-161, E2E-162, E2E-163, E2E-168, E2E-172, E2E-173, E2E-174, E2E-011g, E2E-176, E2E-177, E2E-178, E2E-179, E2E-180, E2E-181, E2E-182, E2E-183, E2E-186, E2E-187, E2E-194, E2E-195, E2E-196a, E2E-196b, E2E-196c, E2E-198, E2E-199, E2E-200, E2E-196, E2E-201, E2E-204, E2E-202, E2E-203, E2E-205, E2E-206, E2E-207, E2E-208, E2E-209, E2E-210, E2E-218, E2E-219, E2E-250, E2E-252, E2E-102i, E2E-SUBAGENT-settlement-updates-before-parent-poll, E2E-PLUGIN-imported-pi-package-skills, E2E-CHAT-quote-prefill, E2E-CHAT-side-chat-fork, E2E-CHAT-side-chat-stream, E2E-CHAT-side-chat-add-to-main, E2E-CHAT-side-chat-promote, E2E-CHAT-side-chat-close, E2E-CHAT-selection-markdown, E2E-CHAT-selection-side-chat, E2E-CHAT-annotation-attachments, E2E-CHAT-annotation-session-state, E2E-CHAT-annotation-source-index, E2E-CHAT-annotation-ack-and-steering, E2E-PLUGIN-fs-root-follows-the-calling-session |
 | Quality (project ordering) | E2E-253 |
 | C — Conversation & stream (IME slash alias) | E2E-255 |
 | E — Tools & permissions (Skill residency) | E2E-254 |
@@ -7616,6 +7736,8 @@ identify the platform validation still needed.
 | F — Persistence (project delete) | E2E-PROJECT-delete-removes-project-and-owned-sessions |
 | Quality (project delete) | E2E-PROJECT-delete-removes-project-and-owned-sessions |
 | Security (plugin real-time capabilities) | E2E-PLUGIN-global-shortcut-owns-only-its-own-command, E2E-PLUGIN-permission-gate-for-real-time-capabilities, E2E-PLUGIN-background-audio-and-realtime-connection |
+| C — Conversation & stream (disclosure reading position) | E2E-CHAT-disclosure-toggle-keeps-reading-position |
+| E — Tools & permissions (disclosure reading position) | E2E-CHAT-disclosure-toggle-keeps-reading-position |
 
 | Milestone | Scenarios |
 |---|---|
@@ -7628,7 +7750,7 @@ identify the platform validation still needed.
 | M2 (IME slash alias) | E2E-255 |
 | M5 (Skill residency) | E2E-254 |
 | M6 | E2E-104, E2E-105, E2E-106, E2E-107, E2E-108, E2E-109, E2E-110, E2E-111, E2E-112, E2E-113, E2E-114, E2E-115, E2E-116, E2E-117, E2E-118, E2E-119, E2E-120, E2E-103, E2E-172 |
-| M6+ | E2E-121, E2E-122, E2E-148, E2E-150, E2E-151, E2E-154, E2E-155, E2E-158, E2E-159, E2E-160, E2E-161, E2E-162, E2E-163, E2E-166, E2E-168, E2E-173, E2E-174, E2E-176, E2E-179, E2E-196a, E2E-196b, E2E-196c, E2E-198, E2E-199, E2E-200, E2E-202, E2E-203, E2E-205, E2E-209, E2E-210, E2E-212, E2E-213, E2E-214, E2E-215, E2E-216, E2E-217, E2E-218, E2E-219, E2E-257, E2E-SUBAGENT-settlement-updates-before-parent-poll, E2E-CHAT-quote-prefill, E2E-CHAT-side-chat-fork, E2E-CHAT-side-chat-stream, E2E-CHAT-side-chat-add-to-main, E2E-CHAT-side-chat-promote, E2E-CHAT-side-chat-close, E2E-CHAT-selection-markdown, E2E-CHAT-selection-side-chat, E2E-CHAT-annotation-attachments, E2E-CHAT-annotation-session-state, E2E-CHAT-annotation-source-index, E2E-CHAT-annotation-ack-and-steering |
+| M6+ | E2E-121, E2E-122, E2E-148, E2E-150, E2E-151, E2E-154, E2E-155, E2E-158, E2E-159, E2E-160, E2E-161, E2E-162, E2E-163, E2E-166, E2E-168, E2E-173, E2E-174, E2E-176, E2E-179, E2E-196a, E2E-196b, E2E-196c, E2E-198, E2E-199, E2E-200, E2E-202, E2E-203, E2E-205, E2E-209, E2E-210, E2E-212, E2E-213, E2E-214, E2E-215, E2E-216, E2E-217, E2E-218, E2E-219, E2E-257, E2E-SUBAGENT-settlement-updates-before-parent-poll, E2E-CHAT-quote-prefill, E2E-CHAT-side-chat-fork, E2E-CHAT-side-chat-stream, E2E-CHAT-side-chat-add-to-main, E2E-CHAT-side-chat-promote, E2E-CHAT-side-chat-close, E2E-CHAT-selection-markdown, E2E-CHAT-selection-side-chat, E2E-CHAT-annotation-attachments, E2E-CHAT-annotation-session-state, E2E-CHAT-annotation-source-index, E2E-CHAT-annotation-ack-and-steering, E2E-PLUGIN-fs-root-follows-the-calling-session |
 | M6+ (Session Orchestrator) | E2E-PLUGIN-session-orchestrator-real-workers |
 | M6+ (Session list responsiveness) | E2E-SESSION-list-refresh-keeps-desktop-responsive |
 | M6+ (Independent session communication) | E2E-SESSION-independent-top-level-communication, E2E-SESSION-hover-card-model-and-links |
@@ -7644,6 +7766,7 @@ identify the platform validation still needed.
 | Quality (model fallback isolation) | E2E-SUBAGENT-ordered-model-fallback-preserves-work |
 | C — Conversation & stream (legacy subagent turn limit) | E2E-SUBAGENT-legacy-turn-limit-frontmatter-is-ignored |
 | Quality (legacy subagent turn limit) | E2E-SUBAGENT-legacy-turn-limit-frontmatter-is-ignored |
+| M6+ (disclosure reading position) | E2E-CHAT-disclosure-toggle-keeps-reading-position |
 
 The `US-UI-*` visual scenarios (§UI shell visual scenarios) trace to the
 Codex parity decisions in [decisions-log §D](../08-meta/decisions-log.md)
@@ -8264,9 +8387,11 @@ This test plan spec is accepted when:
   was moved or deleted on disk is still removable. Deleting C is refused with a
   message and the group is unchanged; a path the host has no durable row for is
   removed from the archive and the sidebar anyway, without a missing-project
-  error. Deleting D while its task runs is refused with a message and removes
-  nothing — the project row, its session, and the running turn all survive —
-  and the same delete succeeds once that task has stopped.
+  error. Deleting D while its task runs opens the confirmation dialog instead
+  of a warning that disappears with its toast; the dialog names the running
+  sessions and its confirm button reads as stopping them, cancelling removes
+  nothing, and confirming stops exactly those turns and then deletes D (see
+  E2E-PROJECT-delete-running-sessions-are-named-and-stopped).
 - **Specs linked**: `03-runtime/06-host-rpc-protocol.md` §Projects,
   `03-runtime/04-data-storage.md`, `04-ux/08-component-spec.md` §3.9, ADR 0251
 - **Acceptance criterion**: D (workspace), F (persistence), Quality
@@ -8279,6 +8404,36 @@ This test plan spec is accepted when:
   sandboxed preload; the Settings archive → dialog → sidebar journey remains
   Draft
 
+
+### E2E-PROJECT-delete-running-sessions-are-named-and-stopped
+
+- **Preconditions**: a durable project D with one session whose turn is still
+  streaming, reachable both from the sidebar project menu and from Settings →
+  Project archive.
+- **Steps**: from each surface, open D's row menu and choose Delete project
+  without stopping the turn. Expect the confirmation dialog with a
+  running-session line and a stop-and-delete confirm label; press Cancel and
+  expect nothing to change. Open the dialog again and confirm.
+- **Expected**: the menu never replaces the dialog with a bare warning, so the
+  action stays reachable while a task runs. The dialog keeps naming the
+  project, its session count, and the untouched folder; while a turn is live it
+  also names how many sessions are still running, its confirm button reads as
+  stopping them, and that line joins the dialog's `aria-describedby` only while
+  it is rendered. Cancelling deletes nothing and leaves the turn streaming.
+  Confirming stops exactly the listed sessions and only then removes the
+  project, its sessions, their transcripts, and its durable memory, leaving the
+  folder on disk. A turn that starts between the dialog opening and the
+  confirmation is still refused by the host, and the dialog reports that
+  refusal with `project.deleteRunningBlocked` while removing nothing.
+- **Specs linked**: `03-runtime/06-host-rpc-protocol.md` §Projects,
+  `04-ux/08-component-spec.md` §3.9, ADR 0251, D421, D431
+- **Acceptance criterion**: D (workspace), Quality
+- **Milestone**: M6+
+- **Status**: Partially automated — `apps/desktop/test/project-delete.test.mjs`
+  pins both menus reaching the dialog with the project's live running session
+  ids, the dialog's running-session line and stop-and-delete label, the abort
+  loop running before `deleteProject`, the `CONFLICT` fallback, and the new
+  copy in every shipped catalog; the end-to-end journey remains Draft
 ### US-UI-59 Session-rooted background tools
 - Start a visible turn in project A, switch to project B while it runs, and
   inspect both sidebar status indicators.
@@ -10261,14 +10416,18 @@ are withdrawn with ADR 0165.
   the work panel is closed. The open session's scratch store holds one file and
   the attachment store one blob. The project is a group whose primary folder
   contains an `.html` page and a text file, and whose second folder holds a text
-  file of its own.
+  file of its own. The same session's transcript carries a `Read` row whose
+  summary names a project file, a `Glob` result listing project paths, and a
+  `Grep` result grouping its hits by file.
 - **Steps**: 1) Click a project file reference in an assistant reply. 2) Type an
   unsaved edit into that view and click the same reference again. 3) Click a
   reference that resolves into the session scratch store, then the
   `attachments/<sha256>` reference. 4) Click a workspace `.html` reference in an
-  assistant reply and the same reference as a sent user chip. 5) Disable the
-  File Manager plugin, click a project file reference again, then re-enable it
-  and click that reference once more. 6) Click a reference that resolves in the
+  assistant reply and the same reference as a sent user chip. 5) Click the file
+  path in the tool row's summary, then a path in the `Glob` result's file list
+  and a path heading of the `Grep` result. 6) Disable the File Manager plugin,
+  click a project file reference and the tool row summary again, then re-enable
+  it and click both once more. 7) Click a reference that resolves in the
   project's second folder, then one that resolves in its primary folder.
 - **Expected**:
   - A project file opens in the File Manager work-panel view on that file, with
@@ -10283,22 +10442,30 @@ are withdrawn with ADR 0165.
     page in a sibling folder is a project file like any other and opens in the
     File Manager view, because the side browser is rooted at the primary folder
     (ADR 0263).
+  - A tool surface reaches the destination of the file it names, not one of its
+    own: the tool row's summary path and the paths of the `Glob` file list and
+    the `Grep` path headings open the same project file in the File Manager view.
+    A summary path that is a link opens the file without expanding the row, and
+    only a summary without a resolvable target falls through to the row's own
+    disclosure.
   - A reference that resolved in the project's second folder opens in the File
     Manager view on that file, reached by its absolute path, with no host
     `file:` tab; the reference from the primary folder opens in that same view
     addressed project-relative (ADR 0263).
-  - With the plugin disabled, a project file reference falls back to the host
-    `file:` tab — the surface the click used before, which now also reaches the
-    project's other folders — instead of opening nothing; re-enabling the plugin
-    restores the File Manager destination.
-- **Specs linked**: `04-ux/08-component-spec.md` §8.3,
+  - With the plugin disabled, a project file reference — from the reply and from
+    a tool row or result list alike — falls back to the host `file:` tab, the
+    surface those clicks used before, which now also reaches the project's other
+    folders; re-enabling the plugin restores the File Manager destination.
+- **Specs linked**: `04-ux/08-component-spec.md` §8.3, §9.6,
   `04-ux/09-interaction-patterns.md` §8a.2, ADR 0104, ADR 0163, ADR 0241,
   ADR 0249, ADR 0262, ADR 0263
 - **Acceptance**: C (conversation & stream), G (plugins), Quality
 - **Milestone**: M5
 - **Status**: Unit-covered
-  (`apps/desktop/test/transcript-file-chips.test.mjs`); full UI journey Draft
-  (run only in a capable environment when this surface changes)
+  (`apps/desktop/test/transcript-file-chips.test.mjs` for the wiring and
+  `apps/desktop/test/tool-row-file-refs.test.mjs` for the work-panel entry each
+  shape of resolution produces); full UI journey Draft (run only in a capable
+  environment when this surface changes)
 
 #### E2E-181: An imported skill is listed in the next session catalog
 
@@ -12256,13 +12423,18 @@ plugin-form fixtures in an isolated temporary directory at runtime.
 - **Expected**: Every bypass form is rejected. A public CDN URL is accepted.
   DNS that yields a private address and a redirect onto loopback both throw a
   policy error without fetching the private target. Policy failures are not
-  retried.
+  retried. Each refusal carries `NETWORK_POLICY_BLOCKED` (spec 08 §3.1) so the
+  install sheet can name the reason and offer a retry instead of leaving the
+  install button disabled with no explanation, and the market list can tell a
+  refused source apart from a merely unreachable one.
 - **Specs linked**: `05-security/01-security.md`, ADR 0243,
   `03-runtime/01-ipc-protocol.md` §12b
 - **Acceptance**: Security, Quality
 - **Milestone**: M6+
 - **Status**: Automated (`pnpm test:e2e:skill-market`,
   `apps/desktop/test/public-https-fetch.test.mjs`,
+  `apps/desktop/test/skill-market-scan.test.mjs`,
+  `apps/desktop/test/skill-market-failure.test.mjs`,
   `packages/shared/src/public-network.test.ts`)
 
 #### E2E-SKILL-MARKET-EXPANSION: Adjacent markdown resources inline before install
@@ -12509,3 +12681,86 @@ session or model request. Restore availability and send; exactly one child
 is created. A child returning read-only from an in-flight fork must not be
 prompted. `test:e2e:native-side-chat` covers the rendered parent gate and its
 recovery; `side-chat-draft.test.mjs` covers action-level guards and child drift.
+
+#### E2E-CHAT-disclosure-toggle-keeps-reading-position
+
+- **Scope**: Manual disclosure of a tool, thinking or activity title in a
+  transcript or a delegate run dock while the scroller is pinned to the bottom
+  (issue #324).
+- **Preconditions**: A session longer than one screen, sitting at the bottom with
+  follow mode on, holding a tool row, a thinking row and an activity group whose
+  expanded detail is taller than its header, plus one expanded delegate run that
+  owns a nested scroller. Repeat with a finished turn (`isRunning` false) and
+  while the turn streams.
+- **Steps**: Click the title of a tool row, a thinking row and an activity group
+  while pinned at the bottom, and again after the turn has finished. Repeat with
+  the viewport parked in the middle of the transcript, with a keyboard activation
+  (Enter, then Space, on a focused title), and from the collapse rail. Expand a
+  tool row inside an expanded delegate dock. Then scroll with the wheel, press
+  ArrowUp with a title focused, click the jump-to-latest control, and send a new
+  prompt.
+- **Expected**: The clicked title keeps its on-screen position while the detail
+  animates open and closed, and the transcript never re-bottoms underneath it;
+  follow mode is left and the newest-message control appears. The held position
+  survives every frame of an animated activity group and also covers a
+  simultaneous height change above the title. A nested dock holds its own
+  position and the transcript behind it does not re-bottom either. Real scroll
+  input, the jump control, a new turn and every navigation release the hold and
+  follow the live tail again, while a reader who scrolled up keeps their place.
+  Space still activates a focused title and arrow keys still scroll.
+- **Specs linked**: `04-ux/09-interaction-patterns.md` §9.1;
+  ADR transcript-reading-ownership; D287, D302, D430
+- **Acceptance**: C (conversation & stream), E (tools & permissions), Quality
+- **Milestone**: M6+
+- **Status**: Partially automated. `pnpm test:e2e:transcript-disclosure` mounts
+  the real transcript scroll hook and a real tool row in a real 600 CSS px
+  Electron viewport and clicks the title with a real DOM click, asserting the
+  title's offset from the scroller top and the scroll offset for the transcript
+  and for a nested follow scroller; without the fix the same fixture reports the
+  title moving by the full height of the opened detail. The app stylesheet is not
+  linked, so the heights come from inline filler and the components' own
+  intrinsic size. `disclosure-anchor.test.mjs` covers the pure anchor and input
+  math, and `transcript-disclosure-reading.test.mjs` covers the wiring. Keyboard,
+  wheel and animated-activity-group paths remain additional validation.
+#### E2E-PLUGIN-fs-root-follows-the-calling-session: A plugin tool's fs root follows its own session, not the visible workspace
+
+- **Preconditions**: Two projects, A and B, each holding a text file the other
+  does not, and one enabled plugin that registers an agent tool whose execute
+  calls `pi.fs.readText` and `pi.fs.glob` on a root-relative path and declares
+  `fs.read` with the `workspace` root. Both projects have a live session with the
+  plugin tool available, and the window shows project A.
+- **Steps**:
+  1. Invoke the tool from session A on the file only project A holds, then from
+     session B (project B) on the file only project B holds, without switching
+     the window's visible workspace.
+  2. Switch the visible workspace to project B and repeat both calls.
+  3. With the visible workspace on project B, ask session A's tool for a path
+     that exists only under project A, and session B's tool for the same path.
+  4. Open the plugin's panel and call the same read over the panel bridge with
+     project A visible, then with project B visible.
+  5. Move one session to a temporary chat so no workspace is visible, invoke the
+     tool from that session, then call the panel bridge in the same state.
+- **Expected**: Steps 1 and 2 answer from the invoking session's own project every
+  time: session A reads and globs project A's file, session B project B's file,
+  and neither answer changes when the visible workspace moves between the two
+  projects. Step 3 returns project A's file for session A and `NOT_FOUND` for
+  session B, so a session can never reach the other project's root. Step 4 is
+  unchanged from before: each panel call resolves the visible workspace, so its
+  answer follows the project on screen rather than either session. Step 5 keeps
+  working per session -- the session's plugin tool resolves its own project -- and
+  the panel call still fails with `NOT_FOUND` ("No workspace is open"). No gate
+  is relaxed anywhere: a denied name, a `..` or absolute path, a symlink out of
+  the root, and a path outside the declared scope behave as they do for a single
+  visible workspace.
+- **Specs linked**: `07-plugins/03-plugin-api.md` §3,
+  `07-plugins/13-plugin-permissions-matrix.md` §6, ADR 0016, ADR 0249, ADR 0266,
+  D093
+- **Acceptance**: G (plugins), Security, Quality
+- **Milestone**: M6+
+- **Status**: Partially automated
+  (`apps/desktop/test/plugin-fs-session-root.test.mjs`): a tool call writes and
+  reads under the project of the invoking session, a panel call and an untracked
+  session fall back to the visible workspace, a `userSelected` mode keeps the
+  picked directory, and a session root stands in when the window shows no
+  project. The two-live-sessions desktop journey and the panel step are Draft
+  (run only in a capable environment when this surface changes)

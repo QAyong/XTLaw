@@ -174,6 +174,9 @@ impl Database {
             }
             15 => {}
             16 => {}
+            17 => {
+                migrate_v17_to_v18(&conn, path)?;
+            }
             legacy @ 1..=6 => {
                 let _ = conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
                 drop(conn);

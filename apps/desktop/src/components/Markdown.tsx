@@ -47,6 +47,10 @@ import {
   sourcePositionProps,
   type SourcePositionProps,
 } from "../lib/markdown-source";
+import {
+  normalizeLatexMathDelimiters,
+  remarkLatexBracketDisplay,
+} from "../lib/latex-math";
 import { useAppStore } from "../stores/app-store";
 import { useReferencedImageDataUrl } from "../lib/use-referenced-image-data-url";
 import { useOpenChatFileRef } from "../hooks/use-preview-target";
@@ -1109,12 +1113,14 @@ const Block = memo(function MarkdownBlock({
     }),
     [raw, renderDiagrams],
   );
+  const normalized = useMemo(() => normalizeLatexMathDelimiters(raw), [raw]);
   const remarkPlugins = useMemo(
     () => [
       ...staticRemarkPlugins,
+      remarkLatexBracketDisplay(raw),
       remarkChatFileLinks(workspaceRoot, baseDir),
     ],
-    [workspaceRoot, baseDir],
+    [raw, workspaceRoot, baseDir],
   );
   const positionedRehypePlugins = useMemo(
     () => [...rehypePlugins!, [rehypeSourcePositions, { offset: sourceOffset }]] as Options["rehypePlugins"],
@@ -1127,7 +1133,7 @@ const Block = memo(function MarkdownBlock({
         rehypePlugins={positionedRehypePlugins}
         components={markdownComponents}
       >
-        {raw}
+        {normalized}
       </ReactMarkdown>
     </MarkdownBlockContext.Provider>
   );

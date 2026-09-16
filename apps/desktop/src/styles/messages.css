@@ -1065,13 +1065,19 @@
   outline-offset: 1px;
 }
 
-/* A collapsible index floats inside the transcript's unobstructed bottom edge. */
+/*
+ * A collapsible index floats inside the transcript's unobstructed bottom edge,
+ * anchored to the composer's left edge instead of the pane's right corner so the
+ * panel reads as part of the input row and stays clear of the newest answer's
+ * action row. The offset mirrors `.composer-stack`: the dock gutter, then the
+ * centered content cap that also shrinks with the collapsed sidebar.
+ */
 .response-annotation-float {
   position: absolute;
-  right: 16px;
-  bottom: 12px;
+  left: max(24px, calc((100% - var(--chat-composer-max-width, 768px)) / 2));
+  bottom: 4px;
   z-index: 35;
-  max-width: calc(100% - 32px);
+  max-width: calc(100% - 48px);
   border: 1px solid var(--ds-border-subtle);
   border-radius: var(--radius-lg);
   background: var(--ds-bg-elevated-opaque);

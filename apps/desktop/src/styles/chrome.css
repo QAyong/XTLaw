@@ -1009,6 +1009,13 @@
   position: fixed;
 }
 
+/* The controls remain viewport-fixed, but when the dock is open their opaque
+ * plate joins its full-width header instead of cutting a different titlebar
+ * surface across the right edge. */
+.app-shell:has(.work-panel) .window-controls {
+  background: var(--ds-bg-dock-raised);
+}
+
 .window-control-btn {
   -webkit-app-region: no-drag;
   app-region: no-drag;

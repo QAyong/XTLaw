@@ -275,6 +275,31 @@ const MEASURE = `(() => {
   };
 })()`;
 
+const MEASURE_HEADER_BANDS = `(() => {
+  const box = (selector) => {
+    const element = document.querySelector(selector);
+    if (!element) return null;
+    const rect = element.getBoundingClientRect();
+    return {
+      left: Math.round(rect.left),
+      top: Math.round(rect.top),
+      right: Math.round(rect.right),
+      bottom: Math.round(rect.bottom),
+      width: Math.round(rect.width),
+      height: Math.round(rect.height),
+    };
+  };
+  return {
+    platform: window.piDesktop?.platform ?? "unknown",
+    sidebarHeader: box(".sidebar-header"),
+    chatHeader: box(".conversation-topbar"),
+    panel: box('[data-testid="work-panel"]'),
+    panelHeader: box(".work-panel-header"),
+    panelDragRegion: box(".work-panel-header-drag-region"),
+    controls: box(".window-controls"),
+  };
+})()`;
+
 const results = [];
 let activeCdp = null;
 function check(ok, label, detail = "") {
@@ -493,6 +518,40 @@ async function main() {
 
     // 1. Opening the panel may not touch the native window.
     await rig(`window.__PI_DESKTOP__.openWorkPanel()`);
+    await rig(`window.__PI_DESKTOP__.setWorkPanelWidth(244)`);
+    const headerBands = await cdp.evaluate(MEASURE_HEADER_BANDS);
+    const sharedHeaderBaseline = [
+      headerBands.sidebarHeader,
+      headerBands.chatHeader,
+      headerBands.panelHeader,
+    ].every((box) => box?.top === 0 && box?.height === 46);
+    check(
+      sharedHeaderBaseline,
+      "sidebar, chat, and work-panel headers share the 46px top baseline",
+      JSON.stringify(headerBands),
+    );
+    const fullWidthPanelHeader =
+      headerBands.panel &&
+      headerBands.panelHeader &&
+      headerBands.panel.left === headerBands.panelHeader.left &&
+      headerBands.panel.right === headerBands.panelHeader.right;
+    check(
+      fullWidthPanelHeader,
+      "work-panel header spans the complete dock width",
+      JSON.stringify(headerBands),
+    );
+    const controlLaneKeepsDragSafe =
+      headerBands.platform === "darwin" ||
+      (headerBands.panelDragRegion &&
+        headerBands.controls &&
+        headerBands.panelDragRegion.right <= headerBands.controls.left &&
+        headerBands.panelDragRegion.top === 0 &&
+        headerBands.panelDragRegion.height === 46);
+    check(
+      controlLaneKeepsDragSafe,
+      "work-panel drag region stops before the native-control lane",
+      JSON.stringify(headerBands),
+    );
     await rig(`window.__PI_DESKTOP__.setWorkPanelWidth(720)`);
     const opened = await measure();
     check(

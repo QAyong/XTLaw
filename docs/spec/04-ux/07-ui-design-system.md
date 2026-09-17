@@ -517,14 +517,20 @@ keep the identity and sidebar actions in their first row and reserve the
 rightmost 120px for three frameless-window controls. The
 controls retain 112px of full-height hit targets, while the outer band adds an
 8px visual buffer before adjacent work-panel actions. The band paints an opaque
-`bg-primary` surface so page content never shows through the controls, and its
-leading and bottom edges use the same `border-subtle` rule as the adjacent
-titlebar so the 46px chrome reads as one continuous surface. Main, Settings,
-and work-panel drag regions must terminate before this reservation rather than
-overlap it and rely only on descendant `no-drag`, so every visible control
-pixel remains clickable. Termination is geometric: a region ends where the
-element's border box ends, so an element that only pads its content clear of
-the band still covers the controls with its rectangle. The open work-panel
+surface so page content never shows through the controls — `bg-primary` on the
+main pane, and the work-panel header's dock surface while the dock is open —
+and its leading and bottom edges use the same `border-subtle` rule as the
+adjacent titlebar so the 46px chrome reads as one continuous surface. Main,
+Settings, and work-panel drag regions must terminate before this reservation
+rather than overlap it and rely only on descendant `no-drag`, so every visible
+control pixel remains clickable. Termination is geometric: a region ends where
+the element's border box ends, so an element that only pads its content clear
+of the band still covers the controls with its rectangle. The open work-panel
+header keeps its full dock width and moves its native drag rectangle into a
+dedicated, absolutely positioned child that ends before the reservation, while
+its tab strip and actions reserve the same lane; the panel's top boundary stays
+aligned with the sidebar and chat headers without covering the controls. The
+open work-panel
 header uses a horizontally scrollable tab strip with a fixed `+` add trigger;
 each tab owns its close action and the header does not add a second `×` beside
 the native Windows close control. The band

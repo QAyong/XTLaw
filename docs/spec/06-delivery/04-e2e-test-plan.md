@@ -12122,8 +12122,13 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   budget is exhausted the expanded sidebar collapses immediately, and the panel
   may keep growing afterwards. A manual reopen spends panel width first;
   MainChat is preserved where possible and otherwise lands on the 460px reopen
-  target. Closing the panel restores only a sidebar the layout collapsed. The
-  separator's ARIA minimum/maximum follow the same dynamic budget. The panel
+  target. With all three columns visible, the sidebar, chat, and work-panel
+  headers share the 46px top baseline; the work-panel header spans its full dock
+  width even where the viewport-fixed window controls overlay it. Its dedicated
+  drag region ends before the native-control lane, and the tab/action content
+  stays clear of both that lane and the panel toggle. Closing the panel restores
+  only a sidebar the layout collapsed. The separator's ARIA minimum/maximum
+  follow the same dynamic budget. The panel
   header's `+`, maximize, and viewport-fixed collapse toggle resolve to a single
   control gap (`--ds-work-panel-control-gap`) with no divider, inset, or margin
   of the action group's own, and all three are the shared chrome icon control:

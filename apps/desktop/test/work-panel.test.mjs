@@ -129,13 +129,13 @@ test("a viewport-fixed toggle is the sole pointer collapse control", () => {
   assert.doesNotMatch(mainSource, /WORK_PANEL_MENU_PROBE|pi-panel-browser-menu|pi-panel-menu/);
   assert.match(
     globalStyles,
-    /:root\[data-platform="win32"\] \.work-panel-header,[\s\S]*:root\[data-platform="linux"\] \.work-panel-header\s*\{[^}]*margin-right:\s*var\(--ds-window-controls-width\);/,
+    /:root\[data-platform="win32"\] \.work-panel-header,[\s\S]*:root\[data-platform="linux"\] \.work-panel-header\s*\{[^}]*padding-right:\s*calc\([\s\S]*?var\(--ds-window-controls-width\)/,
   );
-  // The reservation ends the header's box so its native drag rectangle stops
-  // before the control band: padding alone still covers the window controls.
-  assert.doesNotMatch(
+  // The visual header is full-width; its dedicated drag rectangle ends before
+  // the control band so padding does not make the controls unclickable.
+  assert.match(
     globalStyles,
-    /padding-right:\s*calc\(var\(--ds-window-controls-width\)/,
+    /:root\[data-platform="win32"\] \.work-panel-header-drag-region,[\s\S]*:root\[data-platform="linux"\] \.work-panel-header-drag-region\s*\{[^}]*right:\s*var\(--ds-window-controls-width\);/,
   );
   assert.match(
     globalStyles,
@@ -634,6 +634,9 @@ test("preview mode keeps shell actions and restores routes before navigation", (
   assert.match(globalStyles, /\.app-shell\.work-panel-maximized\.sidebar-collapsed \{[^}]*--preview-chrome-action-lane:\s*var\(--ds-preview-action-lane-width\);/);
   assert.match(globalStyles, /:root\[data-platform="darwin"\] \.app-shell\.work-panel-maximized\.sidebar-collapsed \{[^}]*--preview-chrome-inset:\s*var\(--ds-window-lead-inset\);/);
   assert.match(globalStyles, /\.app-shell\.work-panel-maximized \.work-panel-header \{[^}]*margin-left:\s*calc\(var\(--preview-chrome-inset\) \+ var\(--preview-chrome-action-lane\)\);[^}]*padding-left:\s*0;/);
-  assert.match(globalStyles, /\.work-panel-header \{[^}]*app-region:\s*drag;/);
+  // The full-width header is no longer the native drag owner: a dedicated
+  // child region ends its rectangle before the window-control band instead.
+  assert.match(globalStyles, /\.work-panel-header \{[^}]*app-region:\s*no-drag;/);
+  assert.match(globalStyles, /\.work-panel-header-drag-region \{[^}]*app-region:\s*drag;/);
   assert.match(globalStyles, /\.app-shell\.work-panel-maximized \.work-panel-main \{[^}]*var\(--ds-bg-dock-raised\) 0 var\(--ds-toolbar-height\)/);
 });

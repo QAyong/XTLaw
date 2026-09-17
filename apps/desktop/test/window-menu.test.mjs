@@ -201,9 +201,8 @@ test("Windows and Linux use menu-free frameless chrome with window controls", ()
     stylesSource,
     /:root\[data-platform="win32"\] \.main-titlebar\.work-panel-open,[\s\S]*:root\[data-platform="linux"\] \.main-titlebar\.work-panel-open\s*\{[^}]*right:\s*0;/,
   );
-  // The base header rule stays platform-neutral; the win32/linux reservation
-  // ends the header's *box*, so its native drag rectangle stops before the
-  // control band instead of covering the window controls.
+  // The visual header spans the whole dock; a dedicated drag region ends before
+  // the control band, so the native controls remain clickable.
   assert.doesNotMatch(
     stylesSource,
     /^\.work-panel-header\s*\{[^}]*margin-right:/ms,
@@ -211,12 +210,12 @@ test("Windows and Linux use menu-free frameless chrome with window controls", ()
   );
   assert.match(
     stylesSource,
-    /:root\[data-platform="win32"\] \.work-panel-header,[\s\S]*:root\[data-platform="linux"\] \.work-panel-header\s*\{[^}]*margin-right:\s*var\(--ds-window-controls-width\);/,
+    /:root\[data-platform="win32"\] \.work-panel-header,[\s\S]*:root\[data-platform="linux"\] \.work-panel-header\s*\{[^}]*padding-right:\s*calc\([\s\S]*?var\(--ds-window-controls-width\)/,
   );
-  assert.doesNotMatch(
+  assert.match(
     stylesSource,
-    /padding-right:\s*calc\(var\(--ds-window-controls-width\)/,
-    "padding does not exclude an Electron draggable region",
+    /:root\[data-platform="win32"\] \.work-panel-header-drag-region,[\s\S]*:root\[data-platform="linux"\] \.work-panel-header-drag-region\s*\{[^}]*right:\s*var\(--ds-window-controls-width\);/,
+    "the dedicated drag region, not header width, excludes the control band",
   );
   assert.match(
     stylesSource,

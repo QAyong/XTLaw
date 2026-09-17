@@ -151,7 +151,18 @@
         var(--ds-work-panel-control-gap)
     )
     0 12px;
+  /* The header keeps its full dock width. A separate child owns only the safe
+     drag area so the visible top band does not stop before window controls. */
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+.work-panel-header-drag-region {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
   -webkit-app-region: drag;
+  app-region: drag;
 }
 
 .app-shell.work-panel-maximized .work-panel-header {
@@ -168,20 +179,28 @@
 
 :root[data-platform="win32"] .work-panel-header,
 :root[data-platform="linux"] .work-panel-header {
-  /* End this header's box — and therefore its native drag rectangle — before
-     the viewport-fixed control band. The drag rectangle is the border box, so
-     padding the content clear of the band still leaves that rectangle across
-     the controls, and Electron swallows their hover and click. The shared
-     right-side control lane keeps the same content inset once the box stops
-     early. */
-  margin-right: var(--ds-window-controls-width);
+  /* Keep the tab strip and add action in their existing safe span while the
+     header surface itself continues beneath the viewport-fixed controls. */
+  padding-right: calc(
+    var(--ds-window-controls-width) + var(--ds-work-panel-toggle-size) +
+      var(--ds-work-panel-toggle-inset) + var(--ds-work-panel-control-gap)
+  );
+}
+
+:root[data-platform="win32"] .work-panel-header-drag-region,
+:root[data-platform="linux"] .work-panel-header-drag-region {
+  /* The browser's draggable rectangle, unlike the visual header, ends before
+     the native controls so their complete hit targets remain clickable. */
+  right: var(--ds-window-controls-width);
 }
 
 /* The header is a clipped tab strip plus a fixed add trigger. On Windows/Linux
-   the shared control lane and 120px margin reserve the toggle and native
-   controls without allowing the strip to claim either hit target. */
+   its content reserve and drag-region endpoint keep the toggle and native
+   controls clear without shortening the visible header. */
 .work-panel-tab-strip-wrap {
   display: flex;
+  position: relative;
+  z-index: 1;
   min-width: 0;
   flex: 1 1 auto;
   align-items: center;
@@ -292,6 +311,8 @@
    control's own matching rule, so the group reads as quiet icon controls. */
 .work-panel-actions {
   display: flex;
+  position: relative;
+  z-index: 1;
   flex: 0 0 auto;
   align-items: center;
   gap: var(--ds-work-panel-control-gap);

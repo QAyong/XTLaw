@@ -7938,13 +7938,13 @@ identify the platform validation still needed.
 | G — Plugins (Independent session communication) | E2E-SESSION-independent-top-level-communication |
 | Quality (Independent session communication) | E2E-SESSION-independent-top-level-communication, E2E-SESSION-hover-card-model-and-links |
 | C — Conversation & stream (Hover card model and links) | E2E-SESSION-hover-card-model-and-links |
-| C — Conversation & stream (Chat file references) | E2E-CHAT-shorthand-file-ref-opens-the-matching-file, E2E-CHAT-file-ref-opens-the-surface-that-owns-it |
+| C — Conversation & stream (Chat file references) | E2E-CHAT-shorthand-file-ref-opens-the-matching-file, E2E-CHAT-file-ref-opens-the-surface-that-owns-it, E2E-CHAT-windows-path-file-refs-open-and-unresolved-report |
 | C — Conversation & stream (workspace file selection) | E2E-FILE-selected-content-reaches-composer |
 | D — Workspace (workspace file selection) | E2E-FILE-selected-content-reaches-composer |
 | Security (workspace file selection) | E2E-FILE-selected-content-reaches-composer |
 | Quality (workspace file selection) | E2E-FILE-selected-content-reaches-composer |
 | G — Plugins (Chat file references) | E2E-CHAT-file-ref-opens-the-surface-that-owns-it, E2E-PLUGIN-file-view-collapse-persists |
-| Quality (Chat file references) | E2E-CHAT-shorthand-file-ref-opens-the-matching-file, E2E-CHAT-file-ref-opens-the-surface-that-owns-it, E2E-PLUGIN-file-view-collapse-persists |
+| Quality (Chat file references) | E2E-CHAT-shorthand-file-ref-opens-the-matching-file, E2E-CHAT-file-ref-opens-the-surface-that-owns-it, E2E-CHAT-windows-path-file-refs-open-and-unresolved-report, E2E-PLUGIN-file-view-collapse-persists |
 | G — Plugins (project folder roots) | E2E-PLUGIN-file-view-switches-folder-per-project |
 | Security (project folder roots) | E2E-PLUGIN-file-view-switches-folder-per-project |
 | Quality (project folder roots) | E2E-PLUGIN-file-view-switches-folder-per-project |
@@ -7970,7 +7970,7 @@ identify the platform validation still needed.
 | M6+ (Session Orchestrator) | E2E-PLUGIN-session-orchestrator-real-workers |
 | M6+ (Session list responsiveness) | E2E-SESSION-list-refresh-keeps-desktop-responsive |
 | M6+ (Independent session communication) | E2E-SESSION-independent-top-level-communication, E2E-SESSION-hover-card-model-and-links |
-| M5 (Chat file references) | E2E-CHAT-shorthand-file-ref-opens-the-matching-file, E2E-CHAT-file-ref-opens-the-surface-that-owns-it |
+| M5 (Chat file references) | E2E-CHAT-shorthand-file-ref-opens-the-matching-file, E2E-CHAT-file-ref-opens-the-surface-that-owns-it, E2E-CHAT-windows-path-file-refs-open-and-unresolved-report |
 | M6+ (workspace file selection) | E2E-FILE-selected-content-reaches-composer |
 | M6+ (Chat file references) | E2E-PLUGIN-file-view-collapse-persists |
 | M6+ (project folder roots) | E2E-PLUGIN-file-view-switches-folder-per-project |
@@ -10751,6 +10751,43 @@ are withdrawn with ADR 0165.
 - **Milestone**: M5
 - **Status**: Unit-covered (`chat-links.test.mjs`,
   `markdown-prose-style.test.mjs`); full UI journey Draft (run only in a capable environment when this surface changes)
+
+#### E2E-CHAT-windows-path-file-refs-open-and-unresolved-report
+
+- **Preconditions**: A workspace whose root is a spaced drive path
+  (`D:\pi Agent\PI-Desktop`) or the POSIX counterpart
+  (`/Users/dev/pi Agent/PI-Desktop`), holding `apps/desktop/src/api.ts`, a
+  Unicode name with a space (`docs/报告 2026.md`), and a file outside the root
+  (`C:\Users\dev\notes.md`). The bundled file view is loaded, and an Agent
+  session renders assistant markdown.
+- **Steps**: 1) Reply with `D:\pi Agent\PI-Desktop\apps\desktop\src\api.ts` as a
+  bare token, as inline code, and as a markdown link, and click each. 2) Repeat
+  with `docs\报告 2026.md`. 3) Reply with the forward-slash spelling
+  `D:/pi Agent/PI-Desktop/docs/报告 2026.md` and click it. 4) Reply with
+  `C:\Users\dev\notes.md` and `D:\other place\src\lib\api.ts` and click both.
+  5) Click the `annotation:<n>` marker in the same reply.
+- **Expected**:
+  - A drive path is a destination, not a `D:` protocol: the anchor keeps its
+    href and the click opens `apps/desktop/src/api.ts` in the work-panel file
+    view (the host `file:` tab without that view) instead of doing nothing.
+  - `\` separators normalize to `/`, and a token that starts at the root is
+    captured whole even though the root itself contains a space, so no tail
+    chip (`Agent/…`, `api.ts`) is produced: a click never previews a different
+    file, and the surrounding prose is neither swallowed nor altered.
+  - A spaced leaf inside one token (`docs/报告 2026.md`) opens, and the
+    annotation marker still renders as its numbered reference.
+  - A reference that resolves to nothing — outside the root, or a bare suffix
+    mid-prose — opens nothing and raises the `chat.fileRefMissing` error toast
+    naming the clicked path; the transcript and the panel keep their content.
+  - Outside-root paths stay inert text (issue #235), drive letter or not.
+- **Specs linked**: `04-ux/08-component-spec.md` §8.3,
+  `04-ux/09-interaction-patterns.md` §8a.2, ADR 0163, ADR 0262, ADR 0263,
+  `08-meta/decisions-log.md` (D320, D322)
+- **Acceptance**: C (conversation & stream), Quality
+- **Milestone**: M5
+- **Status**: Unit-covered (`chat-links.test.mjs`, `markdown-url.test.mjs`);
+  full UI journey Draft (run only in a capable environment when this surface
+  changes)
 
 #### E2E-185: External URL opens stay on http(s) and mailto
 

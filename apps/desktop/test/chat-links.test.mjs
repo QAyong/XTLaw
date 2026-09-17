@@ -274,3 +274,93 @@ test("an ascii filename followed by cjk prose still linkifies", () => {
     ["App.tsx"],
   );
 });
+
+/* ---------- Windows-shaped and space-containing paths ---------- */
+
+// The two roots that used to break differently: a drive-letter root whose own
+// name contains a space (Windows), and the same shape on macOS.
+const WINDOWS_ROOT = "D:\\pi Agent\\PI-Desktop";
+const MAC_SPACED_ROOT = "/Users/dev/pi Agent/PI-Desktop";
+
+test("parseFileRef normalizes backslash separators", () => {
+  assert.equal(parseFileRef("src\\lib\\api.ts"), "src/lib/api.ts");
+  assert.equal(parseFileRef("apps\\desktop\\src\\App.tsx:12"), "apps/desktop/src/App.tsx");
+  assert.equal(parseFileRef("@src\\lib\\api.ts"), "src/lib/api.ts");
+  assert.equal(parseFileRef("D:\\pi Agent\\PI-Desktop\\a.ts"), null);
+});
+
+test("toWorkspaceRel maps a Windows drive path onto the workspace", () => {
+  assert.equal(
+    toWorkspaceRel("D:\\pi Agent\\PI-Desktop\\apps\\desktop\\src\\api.ts", WINDOWS_ROOT),
+    "apps/desktop/src/api.ts",
+  );
+  // Either separator, either letter case, and a root the host reported with
+  // backslashes: all one code path.
+  assert.equal(
+    toWorkspaceRel("d:/PI AGENT/pi-desktop/apps/desktop/src/api.ts", WINDOWS_ROOT),
+    "apps/desktop/src/api.ts",
+  );
+  assert.equal(toWorkspaceRel("D:\\other\\x.ts", WINDOWS_ROOT), null);
+  assert.equal(toWorkspaceRel("D:\\pi Agent\\PI-Desktop\\a.ts", null), null);
+  assert.equal(toWorkspaceRel(WINDOWS_ROOT, WINDOWS_ROOT), null);
+});
+
+test("resolvePreviewTarget accepts an absolute token with spaces under the root", () => {
+  assert.deepEqual(
+    resolvePreviewTarget(
+      "D:\\pi Agent\\PI-Desktop\\apps\\desktop\\src\\api.ts",
+      WINDOWS_ROOT,
+    ),
+    { kind: "file", path: "apps/desktop/src/api.ts" },
+  );
+  // A leaf with spaces is fine inside one token (inline code / quoted @ref).
+  assert.deepEqual(
+    resolvePreviewTarget("D:/pi Agent/PI-Desktop/docs/报告 2026.md", WINDOWS_ROOT),
+    { kind: "file", path: "docs/报告 2026.md" },
+  );
+  // Outside the root stays plain text (#235), drive letter or not.
+  assert.equal(resolvePreviewTarget("C:\\Users\\dev\\notes.md", WINDOWS_ROOT), null);
+  assert.equal(resolvePreviewTarget("D:\\other\\x.ts", WINDOWS_ROOT), null);
+});
+
+test("splitChatText captures a spaced root path whole, prose intact", () => {
+  const text = "已写入 D:\\pi Agent\\PI-Desktop\\apps\\desktop\\src\\api.ts 并保存";
+  const segments = splitChatText(text, WINDOWS_ROOT);
+  assert.deepEqual(
+    segments
+      .filter((s) => s.kind === "target")
+      .map((s) => s.target.path),
+    ["apps/desktop/src/api.ts"],
+  );
+  // Nothing is swallowed and nothing is dropped: the runs rebuild the text.
+  assert.equal(segments.map((s) => s.text).join(""), text);
+});
+
+test("splitChatText captures a spaced POSIX root path whole (macOS)", () => {
+  const text = `Saved ${MAC_SPACED_ROOT}/apps/desktop/src/api.ts now`;
+  const segments = splitChatText(text, MAC_SPACED_ROOT);
+  assert.deepEqual(
+    segments
+      .filter((s) => s.kind === "target")
+      .map((s) => s.target.path),
+    ["apps/desktop/src/api.ts"],
+  );
+  assert.equal(segments.map((s) => s.text).join(""), text);
+});
+
+test("splitChatText never chips the tail of a Windows path", () => {
+  // Before the guard, `…\src\lib\api.ts` left `api.ts` (or a deeper suffix) as
+  // a chip that previewed a different file.
+  const segments = splitChatText("Edit D:\\other place\\src\\lib\\api.ts now", WINDOWS_ROOT);
+  assert.equal(
+    segments.some((s) => s.kind === "target" && s.label === "api.ts"),
+    false,
+  );
+});
+
+test("getToolPreviewTarget understands a drive path in tool args", () => {
+  assert.deepEqual(
+    getToolPreviewTarget({ file_path: "D:\\pi Agent\\PI-Desktop\\src\\a.ts" }, WINDOWS_ROOT),
+    { kind: "file", path: "src/a.ts" },
+  );
+});

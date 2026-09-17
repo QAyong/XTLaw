@@ -13,6 +13,11 @@
  *    remains disabled pending a separate delivery-policy qualification.
  *  - Linux deb (no $APPIMAGE in env) → notify + link, like macOS.
  *  - Unpackaged dev runs → disabled (no app-update.yml in resources).
+ *
+ * Auto-update delivery is turned off for this build line (UPDATES_ENABLED).
+ * The modes described above document the qualified implementation that runs
+ * when it is switched back on; nothing below may reach the network while the
+ * switch is off.
  */
 import { app, shell } from "electron";
 import electronUpdaterPkg from "electron-updater";
@@ -33,6 +38,16 @@ import {
 const { autoUpdater } = electronUpdaterPkg;
 
 export const RELEASES_URL = "https://github.com/vastsa/PI-Desktop/releases/latest";
+
+/**
+ * Master switch for in-app update delivery.
+ *
+ * Off means the packaged app never discovers, downloads, or installs a
+ * release: a locally branded build cannot be replaced by an upstream one.
+ * Flipping this back to `true` is the whole re-enable step — the delivery
+ * modes, timeouts, and installers below stay as qualified.
+ */
+export const UPDATES_ENABLED = false;
 
 const AUTO_CHECK_INITIAL_DELAY_MS = 15_000;
 const AUTO_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
@@ -60,6 +75,7 @@ export function resolveUpdateMode(
   isPackaged: boolean,
   env: NodeJS.ProcessEnv = process.env,
 ): UpdateMode {
+  if (!UPDATES_ENABLED) return "disabled";
   if (!isPackaged) return "disabled";
   if (platform === "win32") {
     return env.PORTABLE_EXECUTABLE_FILE ? "manual" : "in-app";
@@ -211,7 +227,7 @@ export class AppUpdaterController {
   /** User- or schedule-triggered check. Resolves with the settled state. */
   async check(options: { manual?: boolean } = {}): Promise<UpdateState> {
     if (this.state.mode === "disabled") {
-      throw new Error("updates are disabled in development builds");
+      throw new Error("updates are turned off in this build");
     }
     if (
       this.state.status === "checking" ||

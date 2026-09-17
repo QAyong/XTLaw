@@ -286,3 +286,34 @@ test("shared shipped-locale changelog is the in-app notes source of truth", () =
   assert.match(stylesSource, /\.update-notice-notes/);
   assert.match(stylesSource, /\.update-settings-notes/);
 });
+
+test("in-app update delivery is switched off for this build line", () => {
+  // These builds are locally branded: no install may discover, download, or
+  // install an upstream release over itself.
+  assert.match(updaterSource, /export const UPDATES_ENABLED = false;/);
+  assert.match(
+    updaterSource,
+    /if \(!UPDATES_ENABLED\) return "disabled";/,
+    "delivery mode resolves before any platform or packaging rule",
+  );
+  assert.match(
+    updaterSource,
+    /if \(!isPackaged\) return "disabled";/,
+    "the platform gate stays intact for the re-enable path",
+  );
+  assert.match(
+    updaterSource,
+    /if \(this\.state\.mode === "disabled" \|\| this\.initialTimer/,
+    "no background schedule is armed while delivery is off",
+  );
+  assert.match(
+    menuSource,
+    /\.\.\.\(UPDATES_ENABLED[\s\S]*?checkForUpdates/,
+    "the macOS application menu hides its update command",
+  );
+  assert.match(
+    menuSource,
+    /\.\.\.\(!isMac && UPDATES_ENABLED/,
+    "the Help menu hides its update command",
+  );
+});

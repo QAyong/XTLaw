@@ -11,6 +11,7 @@ import {
   type ShortcutPlatform,
 } from "@pi-desktop/shared";
 import { catalogs, resolveLocale } from "@pi-desktop/i18n";
+import { UPDATES_ENABLED } from "./updater";
 
 export type ApplicationMenuOptions = {
   platform?: NodeJS.Platform;
@@ -77,7 +78,9 @@ export function buildApplicationMenuTemplate({
       label: APP_NAME,
       submenu: [
         { role: "about" },
-        appCommand(labels.menu.checkForUpdates, "checkForUpdates", dispatch),
+        ...(UPDATES_ENABLED
+          ? ([appCommand(labels.menu.checkForUpdates, "checkForUpdates", dispatch)] satisfies MenuItemConstructorOptions[])
+          : []),
         { type: "separator" },
         appCommand(
           labels.menu.settings,
@@ -226,7 +229,7 @@ export function buildApplicationMenuTemplate({
       submenu: [
         appCommand(labels.menu.appHelp, "openHelp", dispatch),
         appCommand(labels.menu.openLogs, "openLogs", dispatch),
-        ...(!isMac
+        ...(!isMac && UPDATES_ENABLED
           ? ([
               { type: "separator" },
               appCommand(

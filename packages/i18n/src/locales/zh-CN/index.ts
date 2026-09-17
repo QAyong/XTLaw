@@ -118,7 +118,7 @@ export const zhCN = {
     manualHint: "请前往发布页下载新版本。",
     error: "检查更新失败：{{message}}",
     dismiss: "忽略",
-    devDisabled: "开发版本不支持自动更新。",
+    devDisabled: "自动更新已关闭。",
   },
   nav: {
     pinnedSessions: "置顶",

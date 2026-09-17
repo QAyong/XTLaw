@@ -42,6 +42,12 @@ guest.
 6. **v1 is a singleton guest.** Session locations are remembered and rebound
    when the originating conversation's plugin tab is shown (D142). Background
    sessions do not steal the visible guest.
+7. **Element annotation stays host-owned.** The bundled Browser chrome can turn
+   on a CDP-backed picker in the guest. The guest only returns the selected
+   element's bounded text, sanitized HTML, selector hint, box, and key computed
+   styles; the host formats that data through the existing composer-prefill
+   channel. The picker reuses the `selection-quote` action semantics instead of
+   creating a second conversation dialog.
 
 This supersedes ADR 0105 clause 4 (Browser remains a host-built launcher) and
 the host-launcher clause of ADR 0019. Guest ownership and navigation policy
@@ -55,6 +61,9 @@ superseded: the panel's launchable surfaces are plugin views.
 - Third-party plugins with `browser.cdp` share the same guest; last chrome
   `setBounds` wins.
 - Plan still sees `BrowserPreview`. The Browser plugin tool is also visible in Plan/Goal for the four `planSafeActions` (`navigate`, `snapshot`, `screenshot`, `console`); click/fill/evaluate/cdp stay Agent-only (ADR 0211).
+- Element annotation does not expose a new renderer or filesystem capability to
+  the page. It is an explicit user action in the Browser chrome, and selected
+  page content remains clearly delimited as untrusted prompt context.
 
 ## Alternatives considered
 

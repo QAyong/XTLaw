@@ -945,6 +945,40 @@ identify the platform validation still needed.
 - **Status**: Unit-covered (`bundled-plugins`, `browser-cdp`,
   `browser-preview-tool`); full Electron journey pending
 
+#### E2E-BROWSER-element-context-reuses-selection-prompt
+
+- **Preconditions**: The bundled `pi.browser` plugin is enabled; a Browser view
+  has loaded a deterministic HTML page containing a text-bearing element and a
+  password/input control; an idle chat composer is visible beside the Browser.
+- **Steps**: 1) Click the Browser toolbar's selection button. 2) Hover a page
+  element and confirm its box is highlighted without activating the page. 3)
+  Click the element and use the floating `selection-quote` action **Add to
+  chat**; the pill becomes a small comment input above the pick — type a
+  comment and save. 4) Inspect the composer draft and the pending list above
+  it. 5)
+  Drag-select visible page text and confirm the same action pill appears;
+  choose **Add to chat** and inspect the second pending item. 6) Repeat on the
+  input control and choose **Copy**. 7)
+  Press Escape and confirm selection mode exits.
+- **Expected**: The same floating selection action pattern used for chat/file
+  selections appears in the Browser for both elements and text ranges. Element
+  Add to chat collects the comment in the pill itself instead of opening an
+  editor over the native view, then lists one clearly delimited browser context
+  block — the page URL/title, element identity, visible text, sanitized outer
+  HTML, selector hint, and key computed styles — above the Composer
+  as a pending annotation instead of typing it into the draft. Text Add to chat
+  does the same for a URL/title/text block, sourcing both items to the page.
+  Password/input values are not present in the HTML
+  context. Copy uses the host clipboard, clicking outside the action pill
+  dismisses the current selection, Escape removes the picker, and normal page
+  clicks remain blocked only while selection mode is active.
+- **Specs linked**: ADR 0170, `04-ux/09-interaction-patterns.md`,
+  `07-plugins/03-plugin-api.md`
+- **Acceptance**: E (bundled Browser view) + composer integration + security
+  boundary
+- **Milestone**: M5
+- **Status**: Code path implemented; Electron journey pending
+
 #### E2E-008c: Quiet intervals explain active work
 
 - **Preconditions**: A deterministic provider fixture can delay the first
@@ -1441,12 +1475,15 @@ identify the platform validation still needed.
 #### E2E-CHAT-side-chat-stream: The side-chat panel streams the child's turn live
 
 - **Preconditions**: A registered side chat whose child session has no turns
-  yet; permission mode Ask so one tool call is gated.
+  yet; permission mode Ask so one tool call is gated. The response fixture can
+  include ordinary prose, a fenced code block, and a Markdown table.
 - **Steps**: 1) Enter a prompt in the side-chat input and Send. 2) Watch the
-  panel while the child streams thinking, a tool call, and the answer. 3) Answer
-  the child's permission card from the panel, then answer its ask card when the
-  child asks a question. 4) Send a prompt that calls a gated tool and press Stop
-  while the child is answering.
+   panel while the child streams thinking, a tool call, and the answer. 3) Answer
+   the child's permission card from the panel, then answer its ask card when the
+   child asks a question. 4) Send a prompt that calls a gated tool and press Stop
+   while the child is answering. 5) Resize the side-chat panel through its
+   supported width range while the answer is visible, then swap Chat and
+   WorkPanel and inspect the same answer again.
   gated tool and press Stop while the child is answering.
 - **Expected**: The panel renders the child's transcript with the existing
   transcript components and updates on the same message/tool
@@ -1459,7 +1496,15 @@ identify the platform validation still needed.
   conversation (`sideChat.openAsSession`), and the shared close control; the
   input uses the shared Composer shell and responsive input/toolbar geometry,
   while retaining `sideChat.placeholder` and `sideChat.empty`, Send reuses
-  `chat.send`, and Stop reuses `chat.stopGenerating`.
+  `chat.send`, and Stop reuses `chat.stopGenerating`. When the panel narrows,
+  assistant prose and lists reflow without reducing the body text to an
+  unreadable scale; code blocks scroll inside themselves, tables preserve
+  their columns inside a bounded scroller, and wide media never widens the
+  transcript. The minimap keeps a leading safe zone while the transcript is
+  441px–560px wide and hides, along with its preview, at 440px or below; the
+  transcript reclaims that space. MainChat and SideChat make the same decision
+  from their own transcript widths. Swapping the panes does not change the
+  answer's content or introduce a second renderer.
 - **Specs linked**: `04-ux/08-component-spec.md` §5.8, §11.2;
   `03-runtime/10-session-state-machine.md`; ADR message-quotes-and-side-chats, ADR 0023
 - **Acceptance**: C (conversation), E (permissions), Quality
@@ -1577,16 +1622,20 @@ identify the platform validation still needed.
 - **Preconditions**: A session with a completed answer containing at least two
   distinct paragraphs; no turn running.
 - **Steps**: 1) Select a phrase in the first paragraph and activate Add to chat
-  in the floating overlay; the comment editor opens with that excerpt — type a
-  comment and Save. 2) Select a phrase in the second paragraph, add it with an
+  in the floating overlay; the pill becomes a small comment input anchored above
+  the excerpt — type a comment and Save. 2) Select a phrase in the second
+  paragraph, add it with an
   empty comment, then select the first phrase again, edit its comment, and Save.
   3) Inspect the answer, the composer, and the editor draft; expand the floating
   annotation index and inspect the list. 4) Send an instruction and inspect the request
   the agent received.
-- **Expected**: Activating Add to chat opens the editor and sends nothing: no
   turn starts, no draft text appears, and Save attaches the annotation with the
   comment in its `annotation` field while Escape and Cancel attach nothing. The
-  editor shows the selected Markdown as its excerpt snapshot. The answer body is
+- **Expected**: Activating Add to chat swaps the pill for the comment input and
+  sends nothing: no
+  turn starts, no draft text appears, and Save attaches the annotation with the
+  comment in its `annotation` field while Escape and Cancel attach nothing. The
+  input quotes the selected Markdown as its excerpt snapshot. The answer body is
   unchanged: nothing is inserted into its Markdown. Independent source badges
   show the same numbers as the floating index (ADR floating-annotation-index / E2E-CHAT-annotation-source-index).
   The index lists `1. <excerpt>` and `2. <excerpt>`; step 2 leaves two entries (reopening the
@@ -2317,10 +2366,11 @@ identify the platform validation still needed.
   opens automatically while it streams; older groups and rows remain collapsed.
   The header shows its localized processing label, elapsed time, and step count
   without an additional status capsule. When the turn settles, the automatic
-  thinking disclosure closes, while a group or row touched by the user keeps
-  its chosen state. A user-expanded tool call keeps its detail heading and
+  thinking, and tool-detail disclosures all reset collapsed, including rows
+  touched by the user. A user-expanded tool call keeps its detail heading and
   content aligned with the tool row rather than introducing another horizontal
-  indent; the collapse rail remains usable beside the body. Expanded calls use
+  indent; the process list and thinking details use the same left edge, and the
+  collapse rail remains usable beside the body. Expanded calls use
   transparent semantic activity rows with an action icon, natural-language verb,
   monospace primary argument, and quiet disclosure. The processing group uses
   the full assistant-column width, so a short label or payload does not shrink
@@ -3313,15 +3363,18 @@ identify the platform validation still needed.
 - **Preconditions**: Provider emits thinking deltas before and between answer
   deltas.
 - **Steps**: 1) Start a turn in both light and dark themes. 2) Observe a
-  thinking-only phase. 3) Let the answer complete. 4) Toggle the disclosure,
-  test keyboard focus, enable reduced motion, and use Copy answer.
+  thinking-only phase. 3) While the answer is streaming, expand the process
+  disclosure and at least one thinking/tool detail, then let the answer
+  complete. 4) Confirm all process, thinking, and tool-detail disclosures are
+  collapsed, test keyboard focus, enable reduced motion, and use Copy answer.
 - **Expected**: The transcript opens during thinking-only streaming; the live
   process disclosure contains narration, thinking, and tools without an empty
   answer bubble or duplicate Working indicator. When the answer phase begins,
-  the final assistant Markdown remains visible while the process disclosure
-  settles collapsed unless the user took ownership of it. If the user
-  collapses or expands the process or nested thinking disclosure, that choice
-  remains authoritative through later thinking deltas and completion. The
+  the final assistant Markdown remains visible and the process disclosure stays
+  open while that answer streams; after the whole turn completes, the process,
+  thinking, and tool-detail disclosures all reset collapsed, including ones
+  manually expanded during the stream. Later explicit user activation may
+  reopen a disclosure, but no stream update reopens it automatically. The
   disclosure uses the transcript surface, theme tokens, a Sparkles/chevron
   trigger, and a left rule instead of an inset card; collapsed content leaves
   focus traversal and reduced motion disables the running marker pulse and
@@ -3421,7 +3474,9 @@ identify the platform validation still needed.
   scrollable tablist with stable `92px–180px` tabs, visible spacing, and a
   fixed `+`; labels stay readable instead of shrinking into one cluster, the
   strip alone scrolls, active tabs scroll into view, and close selects the
-  right neighbor then left. New launcher tabs expose Review and in-scope plugin
+  right neighbor then left. Blank header space outside actual tabs remains
+  draggable, while tab and action surfaces remain clickable and do not start a
+  window drag. New launcher tabs expose Review and in-scope plugin
   views as body buttons, with no popup to overlap or shift the panel. Clicking a
   launcher row replaces that New tab with the destination or activates its
   existing singleton. Closing the last tab leaves the panel open on New. Collapse
@@ -3536,8 +3591,12 @@ identify the platform validation still needed.
   the default browser (never in-app) only when the URL parses as http(s) or
   mailto; `file:`, `javascript:`, and custom schemes are denied. Permission
   requests are denied; non-http(s) navigation is blocked except in-root
-  `file:` siblings. The preview hides under every blocking overlay and while
-  unmounted, reappearing with correct bounds afterwards. An inline permission
+  `file:` siblings. The preview yields to a blocking overlay only while that
+  overlay's own rectangle actually overlaps the panel, keeps running underneath
+  one that stays inside the chat column, and hides while unmounted, reappearing
+  with correct bounds afterwards. Add to chat in the picker collects its comment
+  in the pill itself, so no window-centred editor opens over the native view. An
+  inline permission
   card does not hide or remount the preview; resize/drag keeps the native view
   visible and aligned with the placeholder rect without a black flash. Opening
   the work-panel context dropdown moves beside the native view; the view keeps
@@ -3634,9 +3693,11 @@ identify the platform validation still needed.
   contrast on inline code, blockquote rule, and code card.
 - **Expected**: Answer prose uses the `.prose-chat` hierarchy (h1–h6 ramp,
   accent-tinted blockquote, hairline-bordered inline code, zebra/hover table
-  shell, inset code card with monospace language tag). A wide GFM table stays
-  inside the transcript column: headers and cells wrap rather than overflowing.
-  Thinking prose stays
+  shell, inset code card with monospace language tag). A GFM table stays
+  inside the transcript column: prose cells wrap at normal boundaries, while
+  atomic columns such as downloads, dates, status, and counts keep values
+  intact. If the table's minimum readable width exceeds the transcript, only
+  the table wrapper scrolls horizontally. Thinking prose stays
   secondary/smaller and does not merge into the answer. Both themes keep
   readable contrast; copy still copies raw fence text.
 - **Specs linked**: `04-ux/07-ui-design-system.md`,
@@ -6595,6 +6656,50 @@ identify the platform validation still needed.
   (`apps/desktop/test/composer-file-reference-display.test.mjs`); full UI
   journey Draft (run only in a capable environment when this surface changes)
 
+#### E2E-FILE-selected-content-reaches-composer
+
+- **Preconditions**: The app is running with an active Agent session in a
+  workspace containing a readable source file, a Markdown file, and at least
+  one image or binary/oversized file.
+- **Steps**: 1) Open the Files viewer and select only part of the source file,
+  including a selection that crosses lines. 2) Confirm the Chat-style floating
+  pill appears, inspect Copy, then select the text again and click Add to chat.
+  3) Inspect the Composer before sending: the draft stays untouched and nothing
+  is listed yet, because the pill itself became a small comment input anchored
+  above the selection. Write a comment, save, and confirm the excerpt is now
+  listed above the Composer. Type an instruction and submit. 4) Repeat with
+  rendered Markdown and with a browser-preview pick, whose in-page chip collects
+  the comment the same way, then inspect the action availability for image,
+  binary/oversized, attachment, and external paths.
+- **Expected**:
+  - The pill follows only a non-empty selection inside the file body, is
+    clamped to the viewer, and Copy copies the selected visible text.
+  - Add to chat turns the pill into a small comment input anchored above the
+    selection instead of typing the excerpt into the draft or opening a
+    window-centred editor: the excerpt carries only the selected content, the
+    workspace-relative file path, the `@path` location, and the available
+    one-based line range, and it lists above the Composer as a pending
+    annotation. Existing draft text is untouched, nothing is sent, and no
+    transcript row is created until the user submits the Composer.
+  - The submitted prompt carries the annotation block with the file (path and
+    line range) or page (URL and selector) as that item's source in place of a
+    turn id, so a file or page excerpt draws no source badge in the transcript
+    and Locate has no row to travel to.
+  - The excerpt is fenced safely when it contains backticks and is clipped at
+    the documented bound with an explicit marker when necessary. Markdown
+    selections remain selectable text with path context even when no source
+    line markers are available.
+  - Image, binary, oversized, missing, attachment, and external content never
+    offers a usable Add to chat action and does not trigger another file read.
+- **Specs linked**: `04-ux/08-component-spec.md` §5.6,
+  `04-ux/09-interaction-patterns.md` §8b, `03-runtime/01-ipc-protocol.md` §13c,
+  ADR 0024
+- **Acceptance**: C (conversation & stream), D (workspace), Security, Quality
+- **Milestone**: M6+ desktop file-viewer maintenance
+- **Status**: Unit/source-contract covered
+  (`apps/desktop/test/workspace-file-selection.test.mjs`); full desktop
+  selection journey Draft
+
 #### E2E-102b: Unanswered Stop restores compact file-reference drafts
 
 - **Preconditions**: An Agent session can delay its first assistant event. The
@@ -7230,8 +7335,10 @@ identify the platform validation still needed.
 - **Expected**: A plugin view is reachable, isolated, correctly positioned, and
   bounded by the plugin's lifecycle and activation scope. The panel remains an
   in-flow internal column; its renderer-owned divider resizes the panel and
-  native window edges never change that target. It never renders while a
-  blocking overlay is open, and it never obtains window controls.
+  native window edges never change that target. It yields to a blocking overlay
+  only while that overlay actually overlaps the panel's rectangle — a native
+  surface cannot be painted over, and a dialog that stays inside the chat column
+  leaves it rendered — and it never obtains window controls.
 - **Specs linked**: `07-plugins/02-plugin-manifest-schema.md` §4/§5,
   `07-plugins/13-plugin-permissions-matrix.md` §2,
   `04-ux/08-component-spec.md` §5, ADR 0104, ADR 0092
@@ -7542,9 +7649,10 @@ identify the platform validation still needed.
 - **Status**: Draft (not run)
 - **Preconditions**: A long session with repeated phrases, a formula, and a code block;
   another retained session; a writable main transcript and read-only side chat.
-- **Steps**: 1) Annotate two occurrences of identical words and add comments.
-  2) Inspect both saved ranges before clicking any item, then collapse and expand
-  the floating index. 3) Click each numbered item, then
+- **Steps**: 1) Annotate two occurrences of identical words and add comments;
+  inspect the index after each save, before touching it. 2) Inspect both saved
+  ranges before clicking any item, then expand the floating index, inspect the
+  list, and collapse it again. 3) Click each numbered item, then
   its source badge. 4) Scroll, resize the work panel and composer, and revisit the
   session after its source is outside the mounted history window. 5) Edit/remove
   an item; clear or send the remaining annotations. Copy the answer and inspect
@@ -7552,7 +7660,10 @@ identify the platform validation still needed.
   whose text changed or was removed. 7) Save an annotation, empty the composer,
   and send using the button; repeat with Enter and while running. Try whitespace
   only, no saved annotations, another session's annotations, and a blocked send.
-- **Expected**: One floating index stays above the composer. Collapse retains a
+- **Expected**: One floating index stays above the composer, collapsed to a
+  one-line count capsule by default: saving, editing, or adding another
+  annotation never opens it, only the user's own toggle does, and a batch that
+  is sent, cleared, or fully removed closes it again. Collapse retains a
   small count header and visible source badges. Both saved exact ranges stay
   highlighted before any click, while collapsed, and when another item is selected;
   deleting one removes only its highlight, clear/send removes all. Unresolved
@@ -7595,8 +7706,9 @@ identify the platform validation still needed.
   unexpected setup exception returns a rejected submission, retains annotations,
   and restores a draft only into an unchanged/empty slot. New comments, attachments,
   and another session's state survive. Steering neither carries nor consumes
-  annotations; no text means no steering turn. The comment editor never triggers
-  steering or send, and IME confirmation never saves. Visible projections hide only
+  annotations; no text means no steering turn. The comment input — in the pill or
+  in the window-centred editor — never triggers steering or send, and IME
+  confirmation never saves. Visible projections hide only
   the generated block and preserve request headings; wire/storage remain intact.
   Closing a side-chat tab releases its projection, keeps other resources/children,
   and leaves the launcher visible when it was the final tab.
@@ -7756,6 +7868,10 @@ identify the platform validation still needed.
 | Quality (Independent session communication) | E2E-SESSION-independent-top-level-communication, E2E-SESSION-hover-card-model-and-links |
 | C — Conversation & stream (Hover card model and links) | E2E-SESSION-hover-card-model-and-links |
 | C — Conversation & stream (Chat file references) | E2E-CHAT-shorthand-file-ref-opens-the-matching-file, E2E-CHAT-file-ref-opens-the-surface-that-owns-it |
+| C — Conversation & stream (workspace file selection) | E2E-FILE-selected-content-reaches-composer |
+| D — Workspace (workspace file selection) | E2E-FILE-selected-content-reaches-composer |
+| Security (workspace file selection) | E2E-FILE-selected-content-reaches-composer |
+| Quality (workspace file selection) | E2E-FILE-selected-content-reaches-composer |
 | G — Plugins (Chat file references) | E2E-CHAT-file-ref-opens-the-surface-that-owns-it, E2E-PLUGIN-file-view-collapse-persists |
 | Quality (Chat file references) | E2E-CHAT-shorthand-file-ref-opens-the-matching-file, E2E-CHAT-file-ref-opens-the-surface-that-owns-it, E2E-PLUGIN-file-view-collapse-persists |
 | G — Plugins (project folder roots) | E2E-PLUGIN-file-view-switches-folder-per-project |
@@ -7784,6 +7900,7 @@ identify the platform validation still needed.
 | M6+ (Session list responsiveness) | E2E-SESSION-list-refresh-keeps-desktop-responsive |
 | M6+ (Independent session communication) | E2E-SESSION-independent-top-level-communication, E2E-SESSION-hover-card-model-and-links |
 | M5 (Chat file references) | E2E-CHAT-shorthand-file-ref-opens-the-matching-file, E2E-CHAT-file-ref-opens-the-surface-that-owns-it |
+| M6+ (workspace file selection) | E2E-FILE-selected-content-reaches-composer |
 | M6+ (Chat file references) | E2E-PLUGIN-file-view-collapse-persists |
 | M6+ (project folder roots) | E2E-PLUGIN-file-view-switches-folder-per-project |
 | Post-MVP | E2E-022A, E2E-022B, E2E-022C, E2E-024I, E2E-024J, E2E-024K, E2E-024L, E2E-024M (plugin roadmap R2/R3/R6) |
@@ -9888,16 +10005,18 @@ This test plan spec is accepted when:
      resize toward the maximum; inspect the composer toolbar while the main
      pane reflows.
   4. Repeat with a target below the minimum and above the maximum; release and
-     confirm the sidebar width stops at 240px and 520px respectively while the
+     confirm the sidebar width stops at 200px and 520px respectively while the
      MainChat reservation remains intact.
   5. Focus the edge handle and press ArrowLeft/ArrowRight, Home, and End;
      inspect the separator's current ARIA value.
   6. Start a resize, press Escape or cancel the pointer, then restart the app.
      Collapse and re-expand the sidebar as a separate check.
-- **Expected**: The handle is discoverable on direct hover/focus without a
-  full-height white/accent rail when the sidebar body is hovered, has no native
-  window drag or text-selection side effect, and remains anchored to the press
-  point. MainChat follows the live width until its 450px floor. Pointer release saves one clamped
+- **Expected**: The handle shows a subtle full-height 1px
+  `--ds-border-default` divider at rest and promotes to a 2px `--ds-focus`
+  divider on direct handle hover/focus or active resize; hovering the sidebar
+  body alone does not create an accent rail. It has no native window drag or
+  text-selection side effect and remains anchored to the press point. MainChat
+  follows the live width until its 450px floor. Pointer release saves one clamped
   preferred width; Escape/cancellation restores the starting width without
   saving it. Keyboard changes commit immediately and expose localized width
   semantics. The saved width survives relaunch and is restored after sidebar
@@ -12267,29 +12386,42 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   1. Open the work panel and request the user's preferred width.
   2. Drag the inner divider toward MainChat's left edge, including during
      pointer preview, then release.
-  3. Manually reopen the sidebar after the layout collapsed it.
-  4. Close the work panel and confirm the sidebar returns; repeat after
-     manually collapsing the sidebar.
+  3. Open a plugin view (Browser) in the panel, then manually collapse and
+     reopen the sidebar while the work panel remains open, drag the sidebar
+     handle, comparing the plugin's rendered rectangle with the dock's own
+    rectangle, and open a chat selection's comment pill (then the annotate
+    action's window-centred editor)
+    with the panel still open.
+  4. Close the work panel and confirm the sidebar preserves its user-selected
+     state; repeat after manually collapsing the sidebar.
   5. Repeat divider changes with `ArrowLeft`, `ArrowRight`, `Home`, and `End`.
 - **Expected**: The native window width never changes. MainChat never measures
   below 450px — including mid-drag and while `sidebar-out` still occupies flex
   space. The effective panel maximum is the client width minus the 450px
   MainChat floor and the expanded sidebar width, with no fixed pixel cap. When that
-  budget is exhausted the expanded sidebar collapses immediately, and the panel
-  may keep growing afterwards. A manual reopen spends panel width first;
+  budget is exhausted the panel remains capped and the expanded sidebar keeps
+  its user-selected state. A manual reopen spends panel width first;
   MainChat is preserved where possible and otherwise lands on the 460px reopen
   target. With all three columns visible, the sidebar, chat, and work-panel
   headers share the 46px top baseline; the work-panel header spans its full dock
   width even where the viewport-fixed window controls overlay it. Its dedicated
   drag region ends before the native-control lane, and the tab/action content
   stays clear of both that lane and the panel toggle. Closing the panel restores
-  only a sidebar the layout collapsed. The sidebar resize separator keeps its
-  240px/520px ARIA bounds while the MainChat floor and work-panel budget remain
+  the user's sidebar state. The sidebar resize separator keeps its
+  200px/520px ARIA bounds while the MainChat floor and work-panel budget remain
   enforced by the surrounding shell. At the MainChat floor, the composer remains
   one row without horizontal clipping: the model × reasoning chip gives up its
   reasoning and model labels and keeps the model icon plus chevron as its
   trigger, while the full values remain available from the menu and accessible
   name.
+  A docked plugin page tracks its own column through those moves: its native
+  rectangle follows the dock while the sidebar collapses, is dragged, or
+  reopens — transition frames included — instead of staying at its previous
+  origin over MainChat, so the selection pill and the prose beneath it stay
+  visible.
+  Opening a blocking dialog releases the docked page: the shared modal dialog
+  family is centered on the window, so the page yields while one is on screen
+  and the dialog, its actions included, is fully visible.
 - **Specs linked**: `04-ux/01-ui-ia.md`, `04-ux/07-ui-design-system.md` §10,
   `04-ux/08-component-spec.md` §1 and §5, `04-ux/09-interaction-patterns.md` §8,
   ADR 0238
@@ -12297,9 +12429,44 @@ plugin-form fixtures in an isolated temporary directory at runtime.
 - **Milestone**: Post-M6 desktop shell maintenance
 - **Status**: Automated (`scripts/e2e-three-column-layout.mjs` via
   `pnpm test:e2e:layout` — fixed-window width invariance, the 450px floor across
-  a pointer drag, the unfolded composer row at that floor, sidebar
-  yield/restore, the 460px reopen target, and preview mode); unit coverage in
+  a pointer drag, the unfolded composer row at that floor, sidebar-state
+  preservation, the 460px reopen target, and preview mode); unit coverage in
   `work-panel-resize.test.mjs`
+
+#### E2E-LAYOUT-work-panel-swap-content-focus
+
+- **Preconditions**: A desktop session is open in Chat with the work panel
+  visible in split view, at least one work-panel tab/resource, and enough width
+  for both columns.
+- **Steps**:
+  1. Record the sidebar, Chat, WorkPanel, active-tab, and scroll rectangles.
+  2. Click the viewport-fixed swap button and inspect column order, its pressed
+     state, the divider, and any native plugin view.
+  3. Resize the swapped panel from its right-edge divider and use keyboard
+     arrows, then click the button again.
+  4. Close and reopen the work panel.
+- **Expected**: Sidebar remains leftmost; Chat and WorkPanel exchange positions;
+  current Chat and WorkPanel widths exchange, while panel tabs, active resource,
+  and scroll state stay with the panel; the secondary Chat column remains at
+  least 320px at the narrow supported layout; the composer remains on one row
+  there, collapses descriptive mode/permission/model text by priority, and
+  keeps the fixed icon targets and model icon-plus-chevron trigger; the full
+  values remain available from menus and accessible names. The work-panel body
+  keeps a positive visible content surface after the swap; native plugin bounds
+  follow the new rectangle while leaving the single host-owned 1px divider
+  uncovered; the divider is on the panel's right edge with
+  inverted pointer/keyboard direction. The button has a localized accessible
+  name and `aria-pressed`. The second click restores the default order, closing
+  clears the transient swap, and reopening uses the default right dock. With
+  the sidebar collapsed, its reopen affordance remains at the window's left
+  edge and the left panel header reserves that lane. Preview maximize remains
+  separate and does not show the swap button.
+- **Specs linked**: `04-ux/01-ui-ia.md`, `04-ux/07-ui-design-system.md` §4.3,
+  `04-ux/08-component-spec.md` §1 and §5
+- **Acceptance**: C (conversation & stream), Quality
+- **Milestone**: Post-M6 desktop shell maintenance
+- **Status**: Source-contract coverage in `work-panel.test.mjs`; full desktop
+  journey Draft
 
 #### E2E-LAYOUT-work-panel-maximize
 

@@ -1,4 +1,9 @@
 import type { WebContents } from "electron";
+import {
+  BROWSER_ELEMENT_PICKER_BINDING,
+  BROWSER_ELEMENT_PICKER_DISABLE_SCRIPT,
+  BROWSER_ELEMENT_PICKER_INSTALL_SCRIPT,
+} from "./browser-element-picker";
 
 /** Chrome DevTools Protocol revision attached to the work-panel guest. */
 export const BROWSER_CDP_PROTOCOL = "1.3";
@@ -132,6 +137,8 @@ export class BrowserCdp {
   private attachedId: number | null = null;
   private uids = new Map<string, number>();
   private messages: BrowserConsoleMessage[] = [];
+  private elementPickerEnabled = false;
+  private onElementPickerMessage?: (message: unknown) => void;
   private onDebuggerMessage?: (
     event: unknown,
     method: string,
@@ -153,10 +160,24 @@ export class BrowserCdp {
     }
     this.attachedId = wc.id;
     this.onDebuggerMessage = (_event, method, params) => {
+      const record = params && typeof params === "object" ? (params as Record<string, unknown>) : {};
+      if (method === "Runtime.bindingCalled" && record.name === BROWSER_ELEMENT_PICKER_BINDING) {
+        const payload = typeof record.payload === "string" ? record.payload : "";
+        if (payload) {
+          try {
+            this.onElementPickerMessage?.(JSON.parse(payload));
+          } catch {
+            // Ignore malformed data from the untrusted guest document.
+          }
+        }
+        return;
+      }
+      if (method === "Page.loadEventFired") {
+        void this.installElementPicker(wc);
+      }
       if (method !== "Runtime.consoleAPICalled" && method !== "Console.messageAdded") {
         return;
       }
-      const record = params && typeof params === "object" ? (params as Record<string, unknown>) : {};
       const type =
         typeof record.type === "string"
           ? record.type
@@ -176,6 +197,7 @@ export class BrowserCdp {
     await wc.debugger.sendCommand("Page.enable");
     await wc.debugger.sendCommand("DOM.enable");
     await wc.debugger.sendCommand("Accessibility.enable");
+    if (this.elementPickerEnabled) await this.installElementPicker(wc);
   }
 
   detach(wc?: WebContents): void {
@@ -193,6 +215,28 @@ export class BrowserCdp {
     this.onDebuggerMessage = undefined;
     this.attachedId = null;
     this.uids.clear();
+  }
+
+  async enableElementPicker(wc: WebContents, onMessage: (message: unknown) => void): Promise<void> {
+    this.elementPickerEnabled = true;
+    this.onElementPickerMessage = onMessage;
+    await this.attach(wc);
+    await this.installElementPicker(wc);
+  }
+
+  async disableElementPicker(wc?: WebContents): Promise<void> {
+    this.elementPickerEnabled = false;
+    this.onElementPickerMessage = undefined;
+    const target = wc && !wc.isDestroyed() ? wc : null;
+    if (!target || !this.isAttached(target)) return;
+    try {
+      await target.debugger.sendCommand("Runtime.evaluate", {
+        expression: BROWSER_ELEMENT_PICKER_DISABLE_SCRIPT,
+        returnByValue: true,
+      });
+    } catch {
+      // The page may already be navigating or the debugger may be detached.
+    }
   }
 
   async send(wc: WebContents, method: string, params?: unknown): Promise<unknown> {
@@ -348,5 +392,25 @@ export class BrowserCdp {
       );
     }
     return id;
+  }
+
+  private async installElementPicker(wc: WebContents): Promise<void> {
+    if (!this.elementPickerEnabled || !this.isAttached(wc)) return;
+    try {
+      // addBinding is target-scoped and harmless when it already exists.
+      await wc.debugger.sendCommand("Runtime.addBinding", {
+        name: BROWSER_ELEMENT_PICKER_BINDING,
+      });
+    } catch {
+      // Chromium reports an error when a binding already exists.
+    }
+    try {
+      await wc.debugger.sendCommand("Runtime.evaluate", {
+        expression: BROWSER_ELEMENT_PICKER_INSTALL_SCRIPT,
+        returnByValue: true,
+      });
+    } catch {
+      // A document can disappear between the load event and this evaluation.
+    }
   }
 }

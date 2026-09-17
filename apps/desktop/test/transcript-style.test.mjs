@@ -111,9 +111,30 @@ test("tool details do not add a second visual indent", () => {
   assert.ok(toolDetailStyles);
   assert.match(toolDetailStyles, /margin-left:\s*0;/);
   assert.match(toolDetailStyles, /padding-left:\s*0;/);
-  // Thinking and topology have separate visual hierarchies and keep their
-  // dedicated layout rules rather than inheriting the flat tool detail rule.
+  // Topology has a separate visual hierarchy; ordinary thinking and tool
+  // details use the flat process-row alignment.
   assert.match(stylesSource, /\.subagent-topology-node > \.tool-row-body,[\s\S]*?margin-left:\s*38px;/);
+});
+
+test("embedded process rows do not add a second activity indent", () => {
+  const activityStyles = stylesSource.match(
+    /\n\.tool-activity-body\s*\{([^}]*)\}/,
+  )?.[1];
+  assert.ok(activityStyles);
+  assert.match(activityStyles, /margin:\s*3px 0 6px;/);
+  assert.match(activityStyles, /padding:\s*2px 0;/);
+  const embeddedStyles = stylesSource.match(
+    /\.tool-activity-group\.embedded > \.tool-activity-body\s*\{([^}]*)\}/,
+  )?.[1];
+  assert.ok(embeddedStyles);
+  assert.match(embeddedStyles, /margin:\s*0;/);
+  assert.match(embeddedStyles, /padding:\s*0;/);
+  const thinkingStyles = stylesSource.match(
+    /\.tool-row\.thinking > \.tool-row-body\s*\{([^}]*)\}/,
+  )?.[1];
+  assert.ok(thinkingStyles);
+  assert.match(thinkingStyles, /margin-left:\s*0;/);
+  assert.match(thinkingStyles, /padding-left:\s*0;/);
 });
 
 test("assistant turns stay transparent full-width prose", () => {
@@ -447,6 +468,21 @@ test("conversation minimap hides until content overflows one viewport", () => {
   );
   assert.match(minimapSource, /new ResizeObserver\(scheduleResize\)/);
   assert.match(minimapSource, /updateOverflow/);
+});
+
+test("conversation minimap yields narrow transcript space to assistant output", () => {
+  assert.match(
+    stylesSource,
+    /\.thread-wrap\s*\{[\s\S]*?container-name:\s*transcript;[\s\S]*?container-type:\s*inline-size;/,
+  );
+  assert.match(
+    stylesSource,
+    /@container transcript \(min-width: 441px\) and \(max-width: 560px\)[\s\S]*?\.thread-content\s*\{[\s\S]*?padding-inline-start:\s*48px;[\s\S]*?padding-inline-end:\s*16px;/,
+  );
+  assert.match(
+    stylesSource,
+    /@container transcript \(max-width: 440px\)[\s\S]*?\.minimap-rail\s*\{[\s\S]*?display:\s*none;[\s\S]*?\.thread-content\s*\{[\s\S]*?padding-inline:\s*16px;/,
+  );
 });
 
 test("thread scroll reserves stable gutters before overflow appears", () => {

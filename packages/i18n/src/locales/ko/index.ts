@@ -154,6 +154,7 @@ export const ko = {
     conversation: "대화",
     toggleSidebar: "사이드바 전환",
     toggleWorkPanel: "사이드 패널 전환",
+    swapWorkPanel: "채팅과 작업 패널 바꾸기",
     sessions: "세션",
     commandPalette: "명령 팔레트",
     back: "뒤로",

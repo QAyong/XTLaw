@@ -5,6 +5,7 @@ import {
   Archive,
   ArchiveRestore,
   ArrowDown,
+  ArrowLeftRight,
   ArrowUp,
   ArrowUpDown,
   ArrowUpRight,
@@ -173,6 +174,7 @@ export const IconSettings = icon(Settings);
 export const IconHelp = icon(CircleHelp);
 export const IconPanel = icon(PanelRight);
 export const IconPanelOpen = icon(PanelRightOpen);
+export const IconPanelSwap = icon(ArrowLeftRight);
 export const IconPanelMaximize = icon(Maximize2);
 export const IconPanelRestore = icon(Minimize2);
 export const IconDiff = icon(FileDiff);

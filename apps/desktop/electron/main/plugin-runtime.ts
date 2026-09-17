@@ -69,6 +69,7 @@ import {
   normalizeKeybinding,
   type PluginServiceStatus,
   type PluginSettingDefinition,
+  type ComposerSelectionSource,
   type PluginWorkspaceInfo,
 } from "@pi-desktop/shared";
 import {
@@ -256,6 +257,20 @@ export type PluginDesktopConsentRequest = {
 
 export type PluginHostServices = {
   getWorkspacePath: () => string | null;
+  /** Append an explicit panel selection to the active renderer composer draft. */
+  appendComposerDraft?: (text: string) => void;
+  /**
+   * Hand the renderer a panel selection to comment on. It becomes a pending
+   * annotation above the composer instead of draft text (ADR
+   * response-annotations), which is what "Add to chat" does everywhere else in
+   * the app. A `comment` collected next to the selection rides along with it;
+   * without one the renderer opens its editor for the excerpt.
+   */
+  addComposerSelection?: (input: {
+    text: string;
+    source: ComposerSelectionSource;
+    comment?: string;
+  }) => void;
   /**
    * The workspace plus the project group behind it, when the caller can supply
    * it. Additive: `workspace.get` falls back to `getWorkspacePath` alone.
@@ -390,6 +405,7 @@ export type PluginHostServices = {
     setBounds: (pluginId: string, hole: unknown) => unknown;
     setVisible: (pluginId: string, visible: boolean) => void;
     getState: () => unknown;
+    getElementPicker: () => unknown;
     openExternal: () => void;
     snapshot: () => Promise<unknown>;
     screenshot: (
@@ -401,6 +417,7 @@ export type PluginHostServices = {
     evaluate: (expression: string) => Promise<unknown>;
     console: (limit?: number) => unknown;
     cdp: (method: string, params?: unknown) => Promise<unknown>;
+    setElementPicker: (enabled: boolean) => Promise<unknown>;
   };
   onPluginUnload?: (pluginId: string) => void;
   listModels?: () => Promise<PluginModelInfo[]>;
@@ -637,6 +654,52 @@ function apiError(code: string, message: string): PluginApiError {
   const err = new Error(message) as PluginApiError;
   err.code = code;
   return err;
+}
+
+/** A panel-supplied line number: optional, positive, and bounded. */
+function selectionLineNumber(value: unknown): number | undefined {
+  const line = Number(value);
+  return Number.isInteger(line) && line > 0 && line <= 10_000_000 ? line : undefined;
+}
+
+/**
+ * Validate the source a panel names for a selection it wants commented on.
+ * Only the two shapes the renderer understands reach it, and every string is
+ * bounded here, so a misbehaving plugin cannot push an oversized payload into
+ * the annotation block the next prompt carries.
+ */
+function parseComposerSelectionSource(
+  value: unknown,
+): ComposerSelectionSource | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as { file?: unknown; element?: unknown };
+  const file = record.file as
+    | { path?: unknown; startLine?: unknown; endLine?: unknown }
+    | undefined;
+  if (file && typeof file === "object") {
+    const path = typeof file.path === "string" ? file.path.trim().slice(0, 1_024) : "";
+    if (!path) return null;
+    const startLine = selectionLineNumber(file.startLine);
+    const endLine = selectionLineNumber(file.endLine);
+    return {
+      file: {
+        path,
+        ...(startLine ? { startLine } : {}),
+        ...(endLine ? { endLine } : {}),
+      },
+    };
+  }
+  const element = record.element as
+    | { url?: unknown; selector?: unknown }
+    | undefined;
+  if (element && typeof element === "object") {
+    const url = typeof element.url === "string" ? element.url.trim().slice(0, 2_048) : "";
+    if (!url) return null;
+    const selector =
+      typeof element.selector === "string" ? element.selector.trim().slice(0, 1_024) : "";
+    return { element: { url, ...(selector ? { selector } : {}) } };
+  }
+  return null;
 }
 
 function pluginActionEnum(schema: unknown): readonly string[] | null {
@@ -1695,6 +1758,46 @@ export class PluginRuntime {
     }
     const api = this.hostApi(loaded);
     switch (channel) {
+      case "composer.appendDraft": {
+        this.assertPermission(loaded, "ui.view");
+        const text = typeof payload?.text === "string" ? payload.text.trim() : "";
+        if (!text) throw apiError("INVALID_ARGUMENT", "composer draft text is empty");
+        if (text.length > 16_000) {
+          throw apiError("INVALID_ARGUMENT", "composer draft text is too large");
+        }
+        if (!this.services.appendComposerDraft) {
+          throw apiError("UNSUPPORTED", "composer bridge is unavailable");
+        }
+        this.services.appendComposerDraft(text);
+        return { ok: true };
+      }
+      case "composer.addSelection": {
+        this.assertPermission(loaded, "ui.view");
+        const text = typeof payload?.text === "string" ? payload.text.trim() : "";
+        if (!text) throw apiError("INVALID_ARGUMENT", "selection excerpt is empty");
+        if (text.length > 16_000) {
+          throw apiError("INVALID_ARGUMENT", "selection excerpt is too large");
+        }
+        const source = parseComposerSelectionSource(payload?.source);
+        if (!source) throw apiError("INVALID_ARGUMENT", "selection source is invalid");
+        // A comment the panel collected beside the selection. Bounded like the
+        // editor's own comment so a plugin cannot push an unbounded payload
+        // into the annotation block.
+        const comment =
+          typeof payload?.comment === "string" ? payload.comment.trim() : undefined;
+        if (comment !== undefined && comment.length > 2_000) {
+          throw apiError("INVALID_ARGUMENT", "selection comment is too large");
+        }
+        if (!this.services.addComposerSelection) {
+          throw apiError("UNSUPPORTED", "composer selection bridge is unavailable");
+        }
+        this.services.addComposerSelection({
+          text,
+          source,
+          ...(comment === undefined ? {} : { comment }),
+        });
+        return { ok: true };
+      }
       case "ui.showToast":
         await api.ui.showToast(String(payload?.message ?? ""), payload?.level as any);
         return { ok: true };
@@ -1814,6 +1917,8 @@ export class PluginRuntime {
         return this.invokeBrowser(loaded, "setVisible", payload);
       case "browser.getState":
         return this.invokeBrowser(loaded, "getState", payload);
+      case "browser.getElementPicker":
+        return this.invokeBrowser(loaded, "getElementPicker", payload);
       case "browser.openExternal":
         return this.invokeBrowser(loaded, "openExternal", payload);
       case "browser.snapshot":
@@ -1828,6 +1933,8 @@ export class PluginRuntime {
         return this.invokeBrowser(loaded, "evaluate", payload);
       case "browser.console":
         return this.invokeBrowser(loaded, "console", payload);
+      case "browser.setElementPicker":
+        return this.invokeBrowser(loaded, "setElementPicker", payload);
       case "browser.cdp":
         return this.invokeBrowser(loaded, "cdp", payload);
       default:
@@ -3704,6 +3811,8 @@ export class PluginRuntime {
         return { ok: true };
       case "getState":
         return api.getState();
+      case "getElementPicker":
+        return api.getElementPicker();
       case "openExternal":
         api.openExternal();
         return { ok: true };
@@ -3723,6 +3832,8 @@ export class PluginRuntime {
         return api.console(
           typeof payload?.limit === "number" ? payload.limit : undefined,
         );
+      case "setElementPicker":
+        return api.setElementPicker(payload?.enabled === true);
       case "cdp":
         return api.cdp(String(payload?.method ?? ""), payload?.params);
       default:
@@ -5184,6 +5295,13 @@ export class PluginRuntime {
           }
           return this.services.browser.getState();
         },
+        getElementPicker: () => {
+          this.assertPermission(loaded, "browser.cdp");
+          if (!this.services.browser) {
+            throw apiError("UNAVAILABLE", "browser host missing");
+          }
+          return this.services.browser.getElementPicker();
+        },
         openExternal: () => {
           this.assertPermission(loaded, "browser.cdp");
           if (!this.services.browser) {
@@ -5255,6 +5373,14 @@ export class PluginRuntime {
           }
           const limit = typeof input === "number" ? input : input?.limit;
           return this.services.browser.console(limit);
+        },
+        setElementPicker: (input: boolean | { enabled?: boolean }) => {
+          this.assertPermission(loaded, "browser.cdp");
+          if (!this.services.browser) {
+            throw apiError("UNAVAILABLE", "browser host missing");
+          }
+          const enabled = typeof input === "boolean" ? input : input?.enabled === true;
+          return this.services.browser.setElementPicker(enabled);
         },
         cdp: async (
           input: string | { method?: string; params?: unknown },

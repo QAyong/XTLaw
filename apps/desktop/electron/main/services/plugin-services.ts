@@ -1,4 +1,4 @@
-import { dialog, globalShortcut, shell, type BrowserWindow } from "electron";
+import { clipboard, dialog, globalShortcut, shell, type BrowserWindow } from "electron";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import {
@@ -45,6 +45,10 @@ import { PluginPanelHost } from "../plugin-panel-host";
 import { PluginViewHost } from "../plugin-view-host";
 import { BrowserPane } from "../browser-view";
 import { BrowserHost, BROWSER_PLUGIN_ID } from "../browser-host";
+import {
+  serializeBrowserElementSelection,
+  serializeBrowserTextSelection,
+} from "../browser-element-selection";
 import { OAUTH_AUTH_KIND, type VendorOAuth } from "../oauth";
 import type { AgentExtensionBridge } from "../agent-extensions";
 import type { ClipboardHistory } from "../clipboard-history";
@@ -546,11 +550,46 @@ export function createPluginServices({
       return join(root, "scratch", sessionId);
     },
     onState: emitBrowserState,
+    onElementSelection: (selection, comment) =>
+      sendToRenderer(IPC.event.composerSelection, {
+        text: serializeBrowserElementSelection(selection),
+        // Picked from the preview page: the item carries the page it came from,
+        // not a transcript row.
+        source: {
+          element: {
+            url: selection.url,
+            ...(selection.selector ? { selector: selection.selector } : {}),
+          },
+        },
+        ...(comment === undefined ? {} : { comment }),
+      }),
+    onElementCopy: (selection) => clipboard.writeText(selection.text || selection.html),
+    onTextSelection: (selection, comment) =>
+      sendToRenderer(IPC.event.composerSelection, {
+        text: serializeBrowserTextSelection(selection),
+        source: { element: { url: selection.url } },
+        ...(comment === undefined ? {} : { comment }),
+      }),
+    onTextCopy: (selection) => clipboard.writeText(selection.text),
+    onPickerState: (enabled) => {
+      const payload = { enabled };
+      pluginPanels.broadcast("browser:picker", payload);
+      pluginViews.broadcast("browser:picker", payload);
+    },
   });
   pluginViews.onSurface = (surface) => {
     browserHost.setChromeSurface(surface);
   };
   plugins.setServices({
+    appendComposerDraft: (text) =>
+      sendToRenderer(IPC.event.composerPrefill, { text }),
+    /**
+     * A panel selection that wants a comment, not draft text. A comment the
+     * panel collected beside the selection attaches directly and lists above
+     * the composer; an excerpt on its own opens the renderer's editor.
+     */
+    addComposerSelection: ({ text, source, comment }) =>
+      sendToRenderer(IPC.event.composerSelection, { text, source, comment }),
     /**
      * The richer workspace payload, so `pi.workspace.get` and the
      * `workspace:changed` event both expose the open project's folder roots
@@ -572,6 +611,7 @@ export function createPluginServices({
       setBounds: (pluginId, hole) => browserHost.setGuestHole(pluginId, hole),
       setVisible: (pluginId, visible) => browserHost.setGuestVisible(pluginId, visible),
       getState: () => browserHost.getState(),
+      getElementPicker: () => browserHost.getElementPicker(),
       openExternal: () => browserHost.openExternal(),
       snapshot: () => browserHost.snapshot(),
       screenshot: (input, sessionId) => browserHost.screenshot(input, sessionId),
@@ -580,6 +620,7 @@ export function createPluginServices({
       evaluate: (expression) => browserHost.evaluate(expression),
       console: (limit) => browserHost.console(limit),
       cdp: (method, params) => browserHost.cdpCommand(method, params),
+      setElementPicker: (enabled) => browserHost.setElementPicker(enabled),
     },
     onPluginUnload: (pluginId) => {
       if (pluginId === BROWSER_PLUGIN_ID) browserHost.disposeGuest();

@@ -12,6 +12,8 @@ import { useAppStore } from "../../stores/app-store";
 import { api } from "../../lib/api";
 import { Markdown } from "../Markdown";
 import { fileDirOf } from "../../lib/chat-links";
+import { serializeWorkspaceFileSelection } from "../../lib/workspace-file-selection";
+import type { WorkspaceFileSelection } from "../../lib/workspace-file-selection";
 import { cx } from "../ui";
 import { TooltipButton } from "../ui";
 import {
@@ -31,6 +33,7 @@ import {
   IconFolder,
 } from "../icons";
 import { WorkTabEmpty } from "./WorkTabEmpty";
+import { FileSelectionQuoteButton } from "./FileSelectionQuoteButton";
 
 const VIEWER_LINE_CAP = 5000;
 
@@ -72,6 +75,17 @@ function langForPath(path: string): string | null {
 
 function isMarkdownPath(path: string): boolean {
   return /\.(?:md|markdown)$/i.test(path);
+}
+
+function isWorkspaceRelativePath(path: string): boolean {
+  const normalized = path.replaceAll("\\", "/");
+  return (
+    !normalized.startsWith("attachments/") &&
+    !normalized.startsWith("/") &&
+    !/^[A-Za-z]:\//.test(normalized) &&
+    !normalized.startsWith("//") &&
+    !normalized.split("/").includes("..")
+  );
 }
 
 function formatSize(size: number): string {
@@ -119,7 +133,7 @@ function HighlightedText({ path, content }: { path: string; content: string }) {
     <pre className="file-viewer-code">
       {tokens
         ? tokens.tokens.map((row, i) => (
-            <div className="file-viewer-line" key={i}>
+            <div className="file-viewer-line" data-file-line-number={i + 1} key={i}>
               {row.length === 0
                 ? "\n"
                 : row.map((token, j) => (
@@ -130,7 +144,7 @@ function HighlightedText({ path, content }: { path: string; content: string }) {
             </div>
           ))
         : visible.split("\n").map((line, i) => (
-            <div className="file-viewer-line" key={i}>
+            <div className="file-viewer-line" data-file-line-number={i + 1} key={i}>
               {line || "\n"}
             </div>
           ))}
@@ -148,6 +162,8 @@ let handledFileRequestSeq = 0;
 export function FilesTab() {
   const { t } = useTranslation();
   const workspace = useAppStore((s) => s.workspace);
+  const activeSessionId = useAppStore((s) => s.activeSessionId);
+  const addResponseAnnotation = useAppStore((s) => s.addResponseAnnotation);
   const fileRequest = useAppStore((s) => s.workPanelFileRequest);
   const root = workspace?.path ?? null;
 
@@ -156,6 +172,7 @@ export function FilesTab() {
   const [selected, setSelected] = useState<string | null>(null);
   const [file, setFile] = useState<FsReadResult | null>(null);
   const [fileError, setFileError] = useState(false);
+  const viewerBodyRef = useRef<HTMLDivElement | null>(null);
 
   // Workspace switches reset all browsing state. Guarded so it only fires on
   // an actual root change: an unconditional [root] effect also runs on the
@@ -215,6 +232,47 @@ export function FilesTab() {
       setFileError(true);
     }
   }, []);
+
+  /**
+   * The viewer's pill collects the comment beside the passage it quotes, so the
+   * excerpt arrives with it and attaches outright (D-LOCAL-selection-overlay).
+   * `messageId` stays empty: the block names the file it came from instead of a
+   * transcript row.
+   */
+  const addFileSelectionComment = useCallback(
+    (
+      selection: Omit<WorkspaceFileSelection, "path" | "language"> & {
+        comment: string;
+      },
+    ) => {
+      if (
+        !activeSessionId ||
+        !selected ||
+        !isWorkspaceRelativePath(selected)
+      ) {
+        return;
+      }
+      const excerpt = serializeWorkspaceFileSelection({
+        ...selection,
+        path: selected,
+        language: langForPath(selected),
+      });
+      if (!excerpt) return;
+      addResponseAnnotation({
+        messageId: "",
+        text: excerpt,
+        comment: selection.comment,
+        source: {
+          file: {
+            path: selected,
+            startLine: selection.startLine,
+            endLine: selection.endLine,
+          },
+        },
+      });
+    },
+    [activeSessionId, addResponseAnnotation, selected],
+  );
 
   // Chat-initiated previews: open the file and expand its ancestor folders
   // so "back" lands on a tree that reveals it. Attachment blobs and absolute
@@ -345,7 +403,7 @@ export function FilesTab() {
             <IconExternal size={14} />
           </TooltipButton>
         </div>
-        <div className="file-viewer-body">
+        <div ref={viewerBodyRef} className="file-viewer-body">
           {fileError ? (
             <WorkTabEmpty icon={IconFileText} title={t("panel.files.error")} />
           ) : !file ? (
@@ -368,6 +426,18 @@ export function FilesTab() {
                   ? t("panel.files.tooLarge")
                   : t("panel.files.binary")
               }
+            />
+          )}
+          {file?.kind === "text" && (
+            <FileSelectionQuoteButton
+              containerRef={viewerBodyRef}
+              sessionId={activeSessionId ?? null}
+              canAddToChat={Boolean(
+                activeSessionId &&
+                  selected &&
+                  isWorkspaceRelativePath(selected),
+              )}
+              onAddComment={addFileSelectionComment}
             />
           )}
         </div>

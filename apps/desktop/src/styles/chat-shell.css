@@ -61,6 +61,19 @@
   --chat-width-transition: var(--motion-duration-fast) var(--motion-ease-in);
 }
 
+/* Content-focus mode trades the normal MainChat width for the work panel's
+ * primary surface, leaving the chat column at the panel's former width. */
+.app-shell.work-panel-swapped .main-pane {
+  flex: 0 0 var(--ds-work-panel-chat-width);
+  width: var(--ds-work-panel-chat-width);
+  min-width: var(--ds-work-panel-chat-width);
+}
+
+.app-shell.work-panel-swapped .main-pane > .chat-surface,
+.app-shell.work-panel-swapped .main-pane > .route-page {
+  min-width: 0;
+}
+
 .chat-surface,
 .route-page {
   position: relative;
@@ -187,6 +200,10 @@
   min-height: 0;
   flex: 1;
   flex-direction: column;
+  /* The transcript is a reusable surface in MainChat and SideChat. Its
+     responsive rules must follow this pane, not the application viewport. */
+  container-name: transcript;
+  container-type: inline-size;
 }
 
 .thread-scroll {

@@ -94,6 +94,7 @@ import type {
   UpdateState,
   WindowControlAction,
   CloseBehavior,
+  ComposerSelectionSource,
   TrustedExtensionStatusEvent,
   TrustedExtensionUiPrompt,
   TrustedExtensionUiPromptResponse,
@@ -1081,6 +1082,35 @@ export const api = {
     if (!window.piDesktop?.on) return () => undefined;
     return window.piDesktop.on(IPC.event.toast, (payload) =>
       listener((payload as { message: string }).message),
+    );
+  },
+  onComposerPrefill: (listener: (event: { text: string }) => void) => {
+    if (!window.piDesktop?.on) return () => undefined;
+    return window.piDesktop.on(IPC.event.composerPrefill, (payload) =>
+      listener((payload ?? {}) as { text: string }),
+    );
+  },
+  /**
+   * A file or browser selection waiting for a comment. It is not draft text:
+   * the renderer opens the comment editor and lists the excerpt above the
+   * composer, the same way a transcript selection does.
+   */
+  onComposerSelection: (
+    listener: (event: {
+      text: string;
+      source: ComposerSelectionSource;
+      /** Present when the panel collected it beside the selection. */
+      comment?: string;
+    }) => void,
+  ) => {
+    if (!window.piDesktop?.on) return () => undefined;
+    return window.piDesktop.on(IPC.event.composerSelection, (payload) =>
+      listener(
+        (payload ?? {}) as {
+          text: string;
+          source: ComposerSelectionSource;
+        },
+      ),
     );
   },
   onHostStatus: (listener: (status: HostStatusEvent) => void) => {

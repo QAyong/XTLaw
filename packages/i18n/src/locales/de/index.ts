@@ -145,6 +145,7 @@ export const de = {
     "conversation": "Konversation",
     "toggleSidebar": "Seitenleiste umschalten",
     "toggleWorkPanel": "Seitenpanel umschalten",
+    "swapWorkPanel": "Chat und Arbeitsbereich tauschen",
     "sessions": "Sitzungen",
     "commandPalette": "Befehlspalette",
     "back": "Zurück",

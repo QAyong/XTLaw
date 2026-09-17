@@ -1,20 +1,21 @@
-import { lazy, Suspense, type CSSProperties, type ReactNode } from "react";
-import { TooltipButton, cx } from "../../components/ui";
+import { type CSSProperties, lazy, type ReactNode, Suspense } from "react";
+import { ChatSurface } from "../../components/ChatSurface";
+import { ConversationTopbar } from "../../components/ConversationTopbar";
+import { ExtensionPromptHost } from "../../components/ExtensionPromptDialog";
 import {
   IconNewSession,
   IconPanel,
   IconPanelOpen,
+  IconPanelSwap,
 } from "../../components/icons";
-import { Sidebar } from "../../components/Sidebar";
-import { ConversationTopbar } from "../../components/ConversationTopbar";
-import { WorkPanel } from "../../components/workpanel/WorkPanel";
-import { ChatSurface } from "../../components/ChatSurface";
-import { SearchDialog } from "../../components/SearchDialog";
-import { ToastHost } from "../../components/Toast";
-import { ExtensionPromptHost } from "../../components/ExtensionPromptDialog";
 import { ProjectCreateDialog } from "../../components/ProjectCreateDialog";
+import { SearchDialog } from "../../components/SearchDialog";
+import { Sidebar } from "../../components/Sidebar";
+import { ToastHost } from "../../components/Toast";
 import { UpdateBanner } from "../../components/UpdateBanner";
+import { cx, TooltipButton } from "../../components/ui";
 import { WindowControls } from "../../components/WindowControls";
+import { WorkPanel } from "../../components/workpanel/WorkPanel";
 import { api } from "../../lib/api";
 import { CollapsedTitlebarActions, RoutePending } from "./chrome";
 import { useAppShellRuntime } from "./useAppShellRuntime";
@@ -59,7 +60,6 @@ export function AppShell() {
     handleSidebarWidthCommit,
     toggleSidebar,
     reopenSidebar,
-    autoCollapseSidebar,
     appShellRef,
     shellWidth,
     runMenuCommand,
@@ -71,6 +71,11 @@ export function AppShell() {
     togglePresentedWorkPanel,
     workPanelMaximized,
     toggleWorkPanelMaximize,
+    workPanelSwapped,
+    toggleWorkPanelSwap,
+    workPanelSwapWidth,
+    setWorkPanelSwapWidth,
+    workPanelChatWidth,
     backendDown,
     archMismatch,
     setArchMismatch,
@@ -263,11 +268,27 @@ export function AppShell() {
               sidebarWidth={sidebarWidth}
               sidebarCollapsed={sidebarCollapsed}
               sidebarExiting={sidebarExiting}
-              onAutoCollapseSidebar={autoCollapseSidebar}
               maximized={workPanelMaximized}
               onToggleMaximize={toggleWorkPanelMaximize}
+              swapped={page === "chat" && workPanelSwapped}
+              swappedWidth={workPanelSwapWidth}
+              onSwappedWidthChange={setWorkPanelSwapWidth}
             />
           )}
+
+          {page === "chat" && presentedWorkPanelOpen && !workPanelExiting && !workPanelMaximized ? (
+            <TooltipButton
+              type="button"
+              className="app-work-panel-swap no-drag"
+              tooltip={t("nav.swapWorkPanel")}
+              ariaLabel={t("nav.swapWorkPanel")}
+              aria-pressed={workPanelSwapped}
+              data-testid="work-panel-swap"
+              onClick={toggleWorkPanelSwap}
+            >
+              <IconPanelSwap size={15} />
+            </TooltipButton>
+          ) : null}
 
           <TooltipButton
             type="button"
@@ -301,9 +322,15 @@ export function AppShell() {
         page === "settings" && ready && "settings-mode",
         sidebarCollapsed && "sidebar-collapsed",
         workPanelMaximized && "work-panel-maximized",
+        page === "chat" && workPanelSwapped && "work-panel-swapped",
         showSplash && "is-booting",
       )}
-      style={{ "--ds-sidebar-width": `${sidebarWidth}px` } as CSSProperties}
+      style={
+        {
+          "--ds-sidebar-width": `${sidebarWidth}px`,
+          "--ds-work-panel-chat-width": `${workPanelChatWidth}px`,
+        } as CSSProperties
+      }
     >
       {shell}
       <ProjectCreateDialog />

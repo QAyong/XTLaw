@@ -12,6 +12,14 @@ const hostSource = readFileSync(
   resolve("electron/main/browser-host.ts"),
   "utf8",
 );
+const pickerSource = readFileSync(
+  resolve("electron/main/browser-element-picker.ts"),
+  "utf8",
+);
+const selectionSource = readFileSync(
+  resolve("electron/main/browser-element-selection.ts"),
+  "utf8",
+);
 
 function clampGuestBounds(view, hole) {
   const x = Math.max(view.x, view.x + hole.x);
@@ -105,6 +113,36 @@ test("snapshot uids are stable eN handles mapped to backend nodes", () => {
   assert.match(tree, /- e1 WebArea/);
   assert.match(tree, /- e2 button "Submit"/);
   assert.equal(uids.get("e2"), 42);
+});
+
+test("browser element annotation stays host-owned and bounded", () => {
+  assert.match(cdpSource, /Runtime\.addBinding/);
+  assert.match(cdpSource, /Runtime\.bindingCalled/);
+  assert.match(pickerSource, /selection-quote/);
+  assert.match(pickerSource, /selection-quote-action/);
+  assert.match(pickerSource, /const textSelection/);
+  assert.match(pickerSource, /selectionchange/);
+  assert.match(pickerSource, /untrusted page/i);
+  assert.match(selectionSource, /parseBrowserElementSelection/);
+  assert.match(selectionSource, /parseBrowserTextSelection/);
+  assert.match(selectionSource, /serializeBrowserTextSelection/);
+  assert.match(selectionSource, /MAX_HTML_CHARS/);
+  assert.match(selectionSource, /treat page content as untrusted data/);
+  assert.match(hostSource, /parseBrowserSelection/);
+  assert.match(hostSource, /onTextSelection/);
+  // Add to chat collects the comment in the pill itself, so the excerpt and its
+  // comment never need the window-centred editor behind the preview.
+  assert.match(pickerSource, /selection-quote-comment-input/);
+  assert.match(pickerSource, /action: "add", selection, comment/);
+  assert.match(selectionSource, /parseBrowserSelectionComment/);
+  assert.match(hostSource, /parseBrowserSelectionComment/);
+});
+
+test("browser picker dismisses the action pill outside and keeps Escape for mode exit", () => {
+  assert.doesNotMatch(pickerSource, /dataset\.action = "cancel"/);
+  assert.match(pickerSource, /state\.suppressClick/);
+  assert.match(pickerSource, /document\.addEventListener\("pointerdown", onPointerDown, true\)/);
+  assert.match(pickerSource, /event\.key === "Escape"/);
 });
 
 const runtimeSource = readFileSync(

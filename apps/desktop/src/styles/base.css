@@ -168,6 +168,16 @@ html {
   color: var(--ds-text-primary);
 }
 
+/* The content-focus layout keeps the navigation rail in place and swaps the
+   chat and work-panel columns inside the remaining shell. */
+.app-shell.work-panel-swapped .main-pane {
+  order: 2;
+}
+
+.app-shell.work-panel-swapped .work-panel {
+  order: 1;
+}
+
 .app-shell-boot {
   align-items: center;
   justify-content: center;

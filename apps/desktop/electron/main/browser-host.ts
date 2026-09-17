@@ -1,6 +1,13 @@
 import type { BrowserState } from "@pi-desktop/shared";
 import type { BrowserPane } from "./browser-view";
 import { BrowserCdp } from "./browser-cdp";
+import {
+  isBrowserTextSelection,
+  parseBrowserSelection,
+  parseBrowserSelectionComment,
+  type BrowserElementSelection,
+  type BrowserTextSelection,
+} from "./browser-element-selection";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 
@@ -59,6 +66,16 @@ export type BrowserHostDeps = {
   getFileRoot: (sessionId?: string) => Promise<string | null>;
   getScratchDir?: (sessionId?: string) => string | null;
   onState: (state: BrowserState) => void;
+  /**
+   * Selections carry the comment written in the picker's own card. It is
+   * undefined for a card that was never used, and an empty string for one
+   * saved without text — downstream the two are not the same thing.
+   */
+  onElementSelection?: (selection: BrowserElementSelection, comment?: string) => void;
+  onElementCopy?: (selection: BrowserElementSelection) => void;
+  onTextSelection?: (selection: BrowserTextSelection, comment?: string) => void;
+  onTextCopy?: (selection: BrowserTextSelection) => void;
+  onPickerState?: (enabled: boolean) => void;
 };
 
 type ChromeSurface = {
@@ -82,6 +99,7 @@ export class BrowserHost {
   private readonly locations = new Map<string, string>();
   private chromeSessionId: string | null = null;
   private started = false;
+  private elementPickerEnabled = false;
 
   constructor(deps: BrowserHostDeps) {
     this.deps = deps;
@@ -161,8 +179,24 @@ export class BrowserHost {
     return this.pane.getState();
   }
 
+  getElementPicker(): { enabled: boolean } {
+    return { enabled: this.elementPickerEnabled };
+  }
+
   openExternal(): void {
     this.pane.openExternal();
+  }
+
+  async setElementPicker(enabled: boolean): Promise<{ enabled: boolean }> {
+    const wc = this.requireWebContents();
+    this.elementPickerEnabled = enabled;
+    if (enabled) {
+      await this.cdp.enableElementPicker(wc, (message) => this.handleElementPickerMessage(message));
+    } else {
+      await this.cdp.disableElementPicker(wc);
+    }
+    this.deps.onPickerState?.(this.elementPickerEnabled);
+    return { enabled: this.elementPickerEnabled };
   }
 
   async snapshot(): Promise<{ tree: string; url: string; title: string }> {
@@ -237,6 +271,8 @@ export class BrowserHost {
   }
 
   disposeGuest(): void {
+    this.elementPickerEnabled = false;
+    void this.cdp.disableElementPicker(this.pane.getWebContents() ?? undefined);
     this.cdp.detach(this.pane.getWebContents() ?? undefined);
     this.pane.dispose();
     this.started = false;
@@ -283,5 +319,29 @@ export class BrowserHost {
   private ensureCdp(): void {
     const wc = this.pane.getWebContents();
     if (wc && !wc.isDestroyed()) void this.cdp.attach(wc);
+  }
+
+  private handleElementPickerMessage(message: unknown): void {
+    if (!message || typeof message !== "object") return;
+    const record = message as Record<string, unknown>;
+    if (record.type !== "action") return;
+    const action = record.action;
+    if (action === "cancel") {
+      void this.setElementPicker(false).catch(() => {
+        this.deps.onPickerState?.(false);
+      });
+      return;
+    }
+    if (action !== "add" && action !== "copy") return;
+    const selection = parseBrowserSelection(record.selection);
+    if (!selection) return;
+    const comment = parseBrowserSelectionComment(record.comment);
+    if (isBrowserTextSelection(selection)) {
+      if (action === "add") this.deps.onTextSelection?.(selection, comment);
+      else this.deps.onTextCopy?.(selection);
+      return;
+    }
+    if (action === "add") this.deps.onElementSelection?.(selection, comment);
+    else this.deps.onElementCopy?.(selection);
   }
 }

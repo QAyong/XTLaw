@@ -5,7 +5,7 @@
 > Interaction behavior: [09-interaction-patterns.md](09-interaction-patterns.md)
 
 
-> Shell layout is Codex-aligned: left thread sidebar (240px–520px, 275px
+> Shell layout is Codex-aligned: left thread sidebar (200px–520px, 275px
 > default), main transcript, a bottom composer region containing a floating-pill
 > shell with runtime mode/permission/model controls, and a compact action-only
 > top bar. Prefer neutral charcoal surfaces over blue-slate chrome.
@@ -13,7 +13,7 @@
 > **Precedence rule**: where a metric or copy string below disagrees with a
 > Codex parity decision in [decisions-log §D](../08-meta/decisions-log.md)
 > (D034+), the decision log wins — it tracks the live gold captures. Known
-> updated values: sidebar 240px–520px (275px default), toolbar 46px (not 44px),
+> updated values: sidebar 200px–520px (275px default), toolbar 46px (not 44px),
 > composer placeholder per D094/D066, home empty stack and bottom composer per
 > D111/D204/D206,
 > Projects index table per D066/D133, settings full-page shell per D063 with the
@@ -33,20 +33,24 @@ Outer frame that positions Topbar, Sidebar, MainChat, and WorkPanel. Owns resize
 ```text
 +------------------+------------------------------+------------------+
 | Sidebar          | MainChat                     | WorkPanel        |
-| (240–520px / 48px) | (flex-1)                 | (≥244px / dynamic|
+| (200–520px / 48px) | (flex-1)                 | (≥244px / dynamic|
 |                  |                              |  hidden)         |
 +------------------+------------------------------+------------------+
 | Titlebar row: 46px, traffic lights at {x:16,y:16} (D034/D070)      |
 +--------------------------------------------------------------------+
 ```
 
+The default split order is Sidebar → MainChat → WorkPanel; the content-focus
+swap keeps Sidebar fixed and exchanges the latter two columns.
+
 ### 1.3 States
 
 | State | Behavior |
 |---|---|
 | Default | Sidebar expanded, work panel hidden |
-| Narrow (<640px) | Sidebar auto-collapses to icon rail |
-| Work panel open in a fixed client area | Work panel keeps its committed width while MainChat keeps its 450px hard floor; the expanded sidebar yields first when the budget is exhausted |
+| Narrow/constrained client area | Sidebar keeps its user-selected expanded/collapsed state; the work panel yields before MainChat's 450px hard floor |
+| Work panel open in a fixed client area | Work panel keeps its committed width up to the live budget while MainChat keeps its 450px hard floor; the sidebar state does not change automatically |
+| Content focus (swap) | Sidebar stays leftmost while MainChat and WorkPanel exchange columns and current widths; panel tabs, active resource, and scroll state stay with the panel. The secondary Chat column remains at least 320px (normally 360px). If the sidebar is collapsed, its reopen affordance remains anchored at the window's left edge |
 | Preview (maximize) | MainChat is unmounted and the work panel fills the client area beside the sidebar; a window-level chrome row keeps shell actions and native window controls available |
 | Fullscreen | Topbar remains; sidebar toggle and artifact-driven panel stay available |
 
@@ -59,22 +63,37 @@ Outer frame that positions Topbar, Sidebar, MainChat, and WorkPanel. Owns resize
   the aside stays in the tree through the exit keyframe, then unmounts
   (`is-exiting` flag + `animationend` guard, with a timeout fallback)
 - Sidebar width: the expanded column defaults to 275px and is resizable from
-  240px to 520px through its right-edge handle. Collapse/open changes only
-  whether the column is present; the preferred expanded width is retained
-  independently from the 48px collapsed icon rail.
+  200px to 520px through its right-edge handle. The handle paints a full-height
+  1px `--ds-border-default` divider at rest and promotes to a 2px
+  `--ds-focus` divider on direct hover, focus, or active resize; hovering the
+  sidebar body alone does not promote it. Collapse/open changes only whether
+  the column is present; the preferred expanded width is retained independently
+  from the 48px collapsed icon rail.
 - Work panel collapse: the sole control is the viewport-fixed toggle in the
   window's top-right corner, available on every non-Settings route whether the
   panel is open or closed. It does not sit in the work-panel content header.
   Opening and collapsing change only the shell's internal flex allocation; the
   native window bounds stay unchanged.
+- Work panel swap: while Chat displays an open, non-maximized panel, the adjacent
+  viewport-fixed swap button exchanges MainChat and WorkPanel inside the existing
+  client area. Clicking it again restores the default order. The panel divider
+  moves to the panel's right edge in the swapped state and reverses pointer and
+  keyboard growth directions; closing the panel or leaving Chat clears the
+  transient state. The secondary Chat column is reserved at a minimum of 320px;
+  the left-docked action rail keeps only a small inset before the divider so the
+  swapped header does not expose a dead trailing strip. When the sidebar is
+  collapsed, its reopen affordance stays at the window's left edge and the panel
+  header reserves that control lane.
 - Work panel preview: the header maximize action temporarily unmounts MainChat
   and expands the panel across the client area beside the sidebar. A window-level
   46px chrome row owns the drag area, New Task/sidebar actions, and native
   window controls. On macOS, collapsed-sidebar preview reserves 76px on the
   left in windowed mode and 8px in fullscreen for the traffic lights.
 - Work panel resize: its inner left-edge handle changes the committed panel
-  width in the renderer, so dragging left gives the panel more internal space
-  and dragging right returns space to MainChat (§5.4). The same 10px handle
+  width in the default order, so dragging left gives the panel more internal
+  space and dragging right returns space to MainChat (§5.4). In the swapped
+  order the handle moves to the panel's right edge and the directions invert.
+  The same 10px handle
   paints a centered 1px `--ds-border-default` divider at rest, promoted to
   `--ds-focus` while hovered, focused, or resizing, so white nested views keep
   a visible boundary without changing layout width.
@@ -90,7 +109,7 @@ Outer frame that positions Topbar, Sidebar, MainChat, and WorkPanel. Owns resize
 ### 1.6 MVP constraints
 
 - Sidebar width defaults to 275px, is retained independently from the collapsed
-  icon-rail state, and can be adjusted from 240px to 520px; the work panel
+  icon-rail state, and can be adjusted from 200px to 520px; the work panel
   remains adjustable from its own divider
 - The main pane renders one active transcript and one selected workspace while
   the sidebar may retain several project tabs/groups
@@ -138,9 +157,9 @@ Outer frame that positions Topbar, Sidebar, MainChat, and WorkPanel. Owns resize
 
 | Platform | Top-level chrome | Application menu |
 |---|---|---|
-| macOS | Native inset traffic lights at `{x:16,y:16}`; expanded sidebar Collapse control at right, with no logo/title; work-panel toggle is viewport-fixed at the window's top-right | System menu: PI-Desktop, File, Edit, View, Window, Help |
-| Windows | Frameless 46px titlebar; sidebar actions at left; work-panel toggle then minimize/maximize/close stay viewport-fixed at the window's top-right | None inside the window |
-| Linux | Frameless 46px titlebar; sidebar actions at left; work-panel toggle then minimize/maximize/close stay viewport-fixed at the window's top-right | None inside the window |
+| macOS | Native inset traffic lights at `{x:16,y:16}`; expanded sidebar Collapse control at right, with no logo/title; work-panel swap and toggle controls are viewport-fixed at the window's top-right | System menu: PI-Desktop, File, Edit, View, Window, Help |
+| Windows | Frameless 46px titlebar; sidebar actions at left; work-panel swap and toggle, then minimize/maximize/close stay viewport-fixed at the window's top-right | None inside the window |
+| Linux | Frameless 46px titlebar; sidebar actions at left; work-panel swap and toggle, then minimize/maximize/close stay viewport-fixed at the window's top-right | None inside the window |
 
 - macOS enables the native Electron `vibrancy: "sidebar"` source-list material
   with `visualEffectState: "followWindow"` and a transparent window backing
@@ -241,10 +260,11 @@ combined model × reasoning selection (§11).
 - Position: absolute 46px frameless band; `-webkit-app-region: drag` with
   `no-drag` on interactive controls; macOS reserves the left ~76px for traffic
   lights (only when the sidebar is collapsed), Windows/Linux reserve the right
-  120px for native window controls. Each of the three controls is a 28px
+  120px for native window controls. Each of the three native controls is a 28px
   square whose visible surface and hit target are the same box; the remaining
-  lane space provides separation from adjacent work-panel actions. The
-  conversation titlebar also reserves the 28px work-panel toggle
+  lane space provides separation from the adjacent work-panel swap and toggle
+  actions. The conversation titlebar also reserves the 28px work-panel swap and
+  toggle controls
   while the panel is closed. While the panel is open, that 120px band plus the
   toggle overlay the panel header instead. The header itself spans the full
   dock width; only its tab-strip/action content and dedicated drag region end
@@ -385,7 +405,7 @@ visually distinct from list content.
 | State | Behavior |
 |---|---|
 | Expanded | Full session titles visible |
-| Sidebar width | `240px–520px` (default 275px); collapse/open changes only column presence |
+| Sidebar width | `200px–520px` (default 275px); collapse/open changes only column presence |
 | Collapsed | Icon rail — hover shows tooltip with session title |
 | Active session | Accent-blue outlined status ring plus full-width active row background |
 | Selecting session | Destination row receives the active treatment immediately while transcript/workspace resolution continues |
@@ -709,9 +729,22 @@ reading surface of the workstation.
 
 - Background: bg-primary
 - Max content width: 720px (messages), centered
-- The transcript keeps one stable scrollbar gutter on the trailing edge. It
-  never reserves a matching left gutter, so the minimap and first message do
-  not leave a decorative blank strip beside the session.
+- The active process disclosure remains open through the final answer's
+  streaming phase and settles only when the assistant turn completes. Its
+  embedded activity rows, thinking details, and tool details share the same left
+  edge as the process header. The process list has no horizontal indentation.
+- Assistant output is container-responsive: in a docked or swapped chat pane,
+  the assistant column fills the pane's available reading width while keeping
+  the body type scale readable. Paragraphs and lists reflow; code blocks,
+  tables, and wide media stay bounded by the message and use their own
+  overflow treatment. This adapts the existing transcript surface rather than
+  introducing a second side-chat message renderer.
+- The transcript keeps one stable scrollbar gutter on the trailing edge. The
+  minimap's hit area never shares pixels with message text: between 441px and
+  560px of transcript width, the content reserves a 48px leading safe zone;
+  at 440px and below, the auxiliary minimap and its preview are hidden and the
+  content reclaims that space. The rule is based on the transcript container,
+  so MainChat and SideChat stay synchronized.
 - A failed TurnOutcomeCard without a structured assistant error exposes one
   primary **Continue** action and no regenerate action. It appends the current
   locale's continuation prompt to the same session and starts a new turn,
@@ -844,8 +877,9 @@ tab. The `+` button sits outside the scroller and remains visible when tabs
 overflow. Clicking it creates and activates a unique New launcher tab. The
 launcher body contains host-owned Review followed by every in-scope
 `contributes.views` entry as buttons; Files and Browser are not hardcoded in
-the renderer (ADR 0104). The header reserves a tokenized 60px right-side safe
-lane for the viewport-fixed work-panel toggle. The `+` trigger also sits in a
+the renderer (ADR 0104). The header reserves a tokenized 92px right-side safe
+lane for the viewport-fixed work-panel swap and toggle controls. The `+` trigger
+also sits in a
 separated action rail, so it keeps a distinct hit target with at least 24px of
 visual gap on every supported platform.
 
@@ -936,15 +970,16 @@ entirely inside the plugin's isolated page:
 |---|---|
 | Closed (default) | Not rendered; startup has no retained tabs. The viewport-fixed toggle or `Cmd/Ctrl + J` reveals the active session's panel context without creating a tab. Inline review cards remain available in the transcript because they are message-scoped and do not require the work panel. |
 | Open | Docked flex row right of the main pane; opened by an artifact, the viewport-fixed toggle, or `Cmd/Ctrl + J` at a committed preferred width of at least 244px (new-profile default 360px), capped by the live three-column budget. The toggle or `Cmd/Ctrl + J` again collapses it, retaining the session context. |
+| Content focus (swap) | The open panel is placed before MainChat while Sidebar stays leftmost. The two panes exchange their current widths, while the panel keeps its resource state and the default width preference remains unchanged; the mode ends when the button is clicked again, the panel closes, or Chat is left. |
 | Preview (maximize) | MainChat is unmounted and the panel fills the client area beside the sidebar. The mode is transient and restores the prior panel width and sidebar state when left. |
 | Multiple artifacts | The header keeps a horizontally scrollable tab strip. The fixed `+` action creates a new launcher tab; its buttons open Review and all in-scope plugin views without duplicating open resource tabs. |
 | Session switch | The destination session's retained open state, tabs, active tab, and Browser resource replace the previous session's panel context atomically; neither context is deleted |
 | Resizing | The inner left divider follows anchored pointer delta or keyboard input for the panel target; pointer changes are frame-coalesced and committed in the renderer. Escape, pointer cancellation, or lost capture restores the prior panel width. Native window edges resize only the fixed application window. |
 | No workspace | Each tab renders its own "open a project" empty state |
 | Open with no resource | `Cmd/Ctrl + J` reveals the panel without creating a tab, so the body renders the New launcher. Clicking `+` creates an explicit, closable New tab with the same launcher rows. Activating a row from that tab replaces it with or selects the singleton view. Closing the final tab leaves the panel open in the no-resource state. |
-| Constrained work area | The panel is capped by the shared three-column budget inside the existing client area; MainChat never drops below its 450px floor and the expanded sidebar yields at the threshold |
+| Constrained work area | The panel is capped by the shared three-column budget inside the existing client area; MainChat never drops below its 450px floor and the sidebar remains in its user-selected state |
 | New launcher active | The body hosts concise Review and plugin-view buttons. Each row replaces the launcher tab with its destination or activates the existing singleton; the page is independently closeable. |
-| Plugin view active | The body hosts the plugin's own isolated page as a native `WebContentsView`, positioned from the measured surface rect. It remains visible at its full rect while the divider is being resized or a New launcher tab is created; creating a page never pushes the plugin body down or changes its bounds. It is hidden whenever the tab is inactive, the panel is animating, or a panel-wide blocking overlay is open — the same rule the Browser preview follows, since both composite above renderer content. A view whose plugin is disabled, uninstalled, reloaded, or crashed is destroyed; the tab stays and re-opens the page on the next lifecycle event (ADR 0104) |
+| Plugin view active | The body hosts the plugin's own isolated page as a native `WebContentsView`, positioned from the measured surface rect. The rect is re-measured after every render for a short settle window and re-sent only when it changed: collapsing, dragging, or swapping a column moves the dock without resizing it, and a surface that tracks size alone stays at its previous origin — painting over the chat column, covering the selection pill and the prose under it. It remains visible at its full rect while the divider is being resized or a New launcher tab is created; creating a page never pushes the plugin body down or changes its bounds. The native surface is painted with the app's window background for the active theme, so a frame before first paint, or a page that paints nothing, composites as the shell colour rather than black. It is hidden whenever the tab is inactive, the panel is animating, or a blocking overlay reaches into the dock — the search palette, the work-panel menu, and any modal-family dialog whose own box overlaps it, since a dialog composites below the native page. A dialog that stays inside the conversation pane, such as the comment input the floating selection pill opens, leaves the surface up. The same rule governs the Browser preview, which also composites above renderer content. A view whose plugin is disabled, uninstalled, reloaded, or crashed is destroyed; the tab stays and re-opens the page on the next lifecycle event (ADR 0104) |
 | Plugin out of scope | A view contributed by a plugin that is not active in the current project disappears from the New launcher when the project changes. Unlike contributed themes, which are one global setting and stay unfiltered, a view is scoped work |
 
 ### 5.4 Interactions
@@ -983,6 +1018,13 @@ entirely inside the plugin's isolated page:
   right neighbor and then the left. ArrowLeft/ArrowRight/Home/End move between
   tabs and Delete/Backspace closes the focused tab. The `+` trigger remains
   fixed beside the strip and creates a new launcher tab.
+- Content-focus swap: while the panel is open and not in Preview, the
+  viewport-fixed button exchanges the MainChat and WorkPanel columns and their
+  current widths without changing the panel's tabs, active resource, or scroll
+  state. The default width preference remains unchanged.
+  The button exposes a localized accessible name and `aria-pressed`; the panel's
+  divider moves to its right edge and reverses pointer/keyboard resize direction.
+  Clicking again restores the default right-docked order.
 - New launcher: each `+` click creates a unique, active New tab. Its body uses
   the Review-plus-plugin tool list as buttons. Selecting a row replaces the
   launcher tab with that destination or activates its existing singleton.
@@ -1007,10 +1049,12 @@ entirely inside the plugin's isolated page:
   Every context remains bound to its originating session/workspace, so relative
   file and Browser resources are never reinterpreted against another workspace.
 - Resize: the inner left-edge handle changes the panel's committed width in the
-  renderer. Moving it left grows the panel into MainChat's internal space until
-  the shared budget is exhausted; when the 450px floor is reached the expanded
-  sidebar collapses immediately, and moving it right gives that space back to
-  MainChat. `ArrowLeft` / `ArrowRight`
+  default order. Moving it left grows the panel into MainChat's internal space
+  until the shared budget is exhausted; when the 450px floor is reached the
+  panel caps at the shared budget while the user-controlled sidebar stays in
+  its current state, and moving it right gives that space back to MainChat. In
+  the swapped order the handle is on the panel's right edge
+  and pointer/keyboard directions invert. `ArrowLeft` / `ArrowRight`
   adjust the panel width in 16px steps (`Shift` uses 32px), and `Home` / `End`
   reach the current dynamic minimum and maximum. Pointer math is anchored to the press position
   and starting panel width, so grabbing the handle cannot jump the divider;
@@ -1023,8 +1067,8 @@ entirely inside the plugin's isolated page:
   localStorage `pi.desktop.workPanel`. Opening and collapsing never request a
   positive native reservation and never change native window bounds. The panel
   flexes inside the existing client area, so MainChat reflows beside it while
-  retaining its 450px hard minimum; the expanded sidebar is the column that
-  yields, and closing the panel restores a sidebar the layout collapsed.
+  retaining its 450px hard minimum; the work panel yields before changing the
+  user-controlled sidebar state, and closing the panel preserves that state.
   Background session artifacts never update the
   visible panel or window geometry.
 
@@ -1039,6 +1083,9 @@ entirely inside the plugin's isolated page:
   `role="tabpanel"` containing a labelled `role="group"` of ordinary buttons;
   the legacy no-tab reveal remains a plain labelled group. Each resource body
   remains a `role="tabpanel"`.
+- The viewport-fixed work-panel swap button is available only for an open,
+  non-maximized Chat panel, has a localized label, and exposes its state through
+  `aria-pressed`.
 - Resize handle: focusable `role="separator"` with
   `aria-orientation="vertical"`, a localized label, dynamic
   `aria-valuemin` / `aria-valuemax` / `aria-valuenow`, visible focus, and
@@ -1049,7 +1096,17 @@ entirely inside the plugin's isolated page:
 ### 5.6 MVP constraints
 
 - Tab content specs: Review has host-guarded rollback but no line comments;
-  Browser is user-driven (no agent control); Files is read-only
+  Browser is user-driven (no agent control); Files remains read-only, but
+  selecting text in a readable workspace file shows the same floating selection
+  actions as Chat. Add to chat appends only the selected text, relative path,
+  and available line range to the active Composer; it never sends automatically.
+  Images, binary/oversized files, attachment paths, and external paths do not
+  expose the Add to chat action.
+  actions as Chat. Add to chat opens the annotation comment editor with the
+  excerpt — selected text plus relative path and available line range — as a
+  selection sourced from that file; it never sends automatically and never
+  types into the draft. Images, binary/oversized files, attachment paths, and
+  external paths do not
 - Single panel instance; no per-tab detach or split
 
 ### 5.7 Subagent task conversation
@@ -1154,6 +1211,9 @@ of session.
   transcript map from the same event stream the active transcript consumes,
   reusing the existing background-transcript reducer. The panel streams live
   although the child is never the active session.
+- The side-chat transcript applies the same container-responsive assistant
+  output rules as MainChat: final prose remains readable at the panel width,
+  while code, tables, and wide media are bounded inside the assistant message.
 - Body: a compact header with the side-chat title (the tab label reuses
   `sideChat.title`), **Add to main chat** (`sideChat.addToMain`), **Open as a
   conversation** (`sideChat.openAsSession`), and the shared tab-close control;
@@ -1363,9 +1423,11 @@ assistant message block remains a separate expanded Markdown answer.
 - Toggle the process disclosure to expand/collapse narration, thinking, and
   tool rows together. Nested thinking and tool details retain their own
   disclosures. The latest thinking row opens while it streams and the process
-  disclosure closes when the answer phase begins or the turn settles, unless
-  the user has interacted with it. The expanded content's left rule is itself
-  a pointer and keyboard-focusable collapse control.
+  disclosure remains open while the final answer streams. When the whole turn
+  settles, the process, thinking, and tool-detail disclosures all reset to
+  collapsed, including disclosures the user opened during the active turn. The
+  expanded content's left rule is itself a pointer and keyboard-focusable
+  collapse control.
 - Hover code block: copy button appears
 - Hover or focus a minimap marker: show the localized sender and a bounded
   plaintext preview; multiple assistant fragments produced within one user
@@ -1380,6 +1442,10 @@ assistant message block remains a separate expanded Markdown answer.
   Exception (D269): while earlier history is withheld above the mounted window or
   an older page is still on the host, the rail stays visible with its
   earlier-history continuation regardless of marker count and overflow
+- When the transcript container is 440px wide or narrower, hide the minimap
+  and its hover preview even if the transcript overflows; this auxiliary
+  navigation must yield to readable assistant output. At 441px–560px, keep the
+  rail visible only in its reserved leading safe zone.
 - Click the earlier-history continuation: run the same grow-then-fetch
   escalation as reaching the top. It is labeled and disabled while a page loads,
   never shows a message preview, and disappears once the whole history is loaded
@@ -1582,7 +1648,7 @@ Single message render — either user (plaintext) or assistant (markdown streami
   markdown document in the files tab. Parent escapes stay inert.
 - Thinking: separate lightweight disclosure above the answer with no card
   background or outer border. Its Sparkles/chevron trigger uses secondary text,
-  and the expanded markdown is indented by a subtle theme-token left rule. It
+  and the expanded markdown stays on the same left edge as the process row. It
   is never concatenated into answer markdown.
 - Hover actions: quiet icon-only action chips under the bubble — Copy on idle
   assistant turns; Fork and Regenerate on completed assistant turns; Edit and
@@ -1790,10 +1856,12 @@ Renderer: `apps/desktop/src/components/Markdown.tsx` + `apps/desktop/src/lib/shi
   rows; inline code gets a soft gray tint and no border; tables drop cell
   borders for a `--ds-tile-deep` header and zebra `--ds-tile` rows and wrap
   in `.table-wrap` (rounded shell, header row, even-row wash, hover wash).
-  The wrap and table fill the transcript width; cell text wraps
-  (`overflow-wrap: anywhere`) so many columns or long tokens do not force a
-  horizontal scrollbar. `overflow-x: auto` remains only for unbreakable
-  content.
+  The table wrapper fills the transcript width and owns horizontal overflow.
+  Prose cells continue to wrap at normal word boundaries; table columns whose
+  header or values are atomic (for example downloads, dates, status, version,
+  and counts) keep their units intact. A genuinely wide table therefore gets a
+  local horizontal scrollbar instead of splitting values such as `6,542` or
+  widening the transcript.
   Display math sits in a subtle inset plate. Thinking prose reuses the same
   hierarchy at text-sm-plus / secondary color.
 - **Light theme**: paper-quiet surfaces — links use soft underlined ink
@@ -1890,13 +1958,22 @@ Renderer: `apps/desktop/src/components/Markdown.tsx` + `apps/desktop/src/lib/shi
   whole formula), a code block quotes as a fence whose delimiter outgrows any
   backtick run inside it, a table quotes as one `a | b` line per row, and both
   Quote paths — row action and floating affordance — share that one recovery.
-- **Add to chat** opens the annotation comment editor instead of quoting when
-  the row is an assistant turn (§11.10, D-LOCAL-response-annotations): the excerpt is snapshotted into
-  the editor before the selection collapses, and the attachment is created when
-  the editor saves — the editor itself sends nothing. The assistant turn's
-  action row does the same for its selection (or the whole answer when there is
-  no selection). Quoting into the draft remains the path for a user message and
-  for the side chat's **Add to main chat**.
+- **Add to chat** writes the comment where the selection is when the row is an
+  assistant turn (§11.10, D-LOCAL-response-annotations): the pill swaps its
+  action row for a compact comment input anchored above the passage it quotes,
+  the excerpt is snapshotted before the selection collapses, and the attachment
+  is created when that input saves — the input itself sends nothing. The
+  assistant turn's action row does the same for its selection (or the whole
+  answer when there is no selection) through the window-centred editor, which
+  is what an entry with no passage to sit beside still opens. Quoting into the
+  draft remains the path for a user message and for the side chat's **Add to
+  main chat**.
+  The Files viewer and the file-manager plugin follow the same rule: their pill
+  becomes that comment input — in the plugin's case inside its own page, which
+  is a native surface no renderer layer can paint over — and the browser
+  preview's pick chip does it inside the guest document. Saving attaches the
+  excerpt with its comment while naming the file or the page it came from
+  instead of a turn id — nothing lands in the draft there either.
 
 ---
 
@@ -1913,11 +1990,12 @@ turn-level process disclosure. Historical process disclosures are collapsed by
 default. While the turn is active, the live process disclosure opens
 automatically so the process list is visible. Tool-call details remain
 collapsed by default, including failed tool calls; only the latest thinking
-row opens automatically. When the answer phase begins or the turn settles,
-automatically managed process and thinking disclosures close so the answer
-remains the visual focus. A user click on a group, row, or collapse rail takes
-ownership of that disclosure; later stream updates and completion never
-reverse that choice.
+row opens automatically. When the answer phase begins, the process disclosure
+stays open while the answer streams. When the whole turn settles, the process,
+thinking, and tool-detail disclosures reset to collapsed, including ones the
+user opened manually during the turn. A user click on a group, row, or collapse
+rail keeps that disclosure's current state through later active-turn stream
+updates; completion still performs the single automatic reset.
 The group header shows `Processing · 12s` while active or `Processed for 12s`
 after completion. Expanding it reveals the ordered tool activity rows and their
 nested result disclosures. The group
@@ -1946,10 +2024,10 @@ seconds when non-zero) from one hour onward. Zero-value units are omitted, so
 - The group header owns the elapsed timer and step count. It stays in the
   transcript after completion. Historical groups remain
   collapsed; the latest active group opens automatically and returns to a
-  collapsed state when it settles unless the user has interacted with it.
+  collapsed state when the whole turn settles.
 - Tool-call details remain collapsed by default while the group is open. The
-  latest thinking row opens automatically while it streams and closes when the
-  turn settles unless the user has interacted with it.
+  latest thinking row opens automatically while it streams and resets closed
+  with the process and tool details when the whole turn settles.
 - The processing group spans the full available assistant column, so expanded
   result details keep a usable width even when the header or payload is short.
 - The visible label is a natural-language action (`Read`, `Ran`, `Searched`),
@@ -2044,12 +2122,12 @@ twice.
   opening a panel. A tool surface picks no destination of its own.
 - Click the processing header: expand/collapse the ordered activity list.
   Historical groups default collapsed; the latest active group opens while the
-  turn is running and closes when it settles if the user has not touched it.
+  turn is running and resets closed when the whole turn settles.
 - Click or keyboard-activate the left rule beside expanded thinking, tool
   details, delegated work, or processing steps: collapse that owning
-  disclosure without changing adjacent expansion state. Any click on a group,
-  row, or collapse rail makes that disclosure user-owned, so automatic stream
-  transitions never reopen or close it later.
+  disclosure without changing adjacent expansion state. During the active turn,
+  a click on a group, row, or collapse rail protects that disclosure from stream
+  transitions; completion then resets every process disclosure to collapsed.
 - A failed child row remains error-hued and reports its failure in the compact
   row header, but its details are not auto-expanded. The containing group
   settles as `Processed for {elapsed}` even when a later tool recovered.
@@ -2475,13 +2553,16 @@ reasoning-level control.
 - Padding: px-4 py-3 inner textarea
 - Font: text-sm for Agent, Plan, and Goal; mode changes semantics and tool
   controls, not the typography
-- The Agent/Plan/Goal mode chip reserves one fixed 88px width, sized from the
-  longest built-in label in English and zh-CN ("Agent" / "智能体"). Its label
-  stays single-line and ellipsizes if a future locale exceeds that budget, so
-  switching modes never reflows the adjacent Composer controls. Clicking the
-  chip opens an anchored menu listing Agent, Plan, and Goal, with a check mark
-  on the active mode; selecting an item updates the session and closes the menu.
-  The chip cross-fades the icon and label in place. While the live turn is
+- The Agent/Plan/Goal mode chip reserves one fixed 88px width at comfortable
+  composer widths, sized from the longest built-in label in English and zh-CN
+  ("Agent" / "智能体"). Its label stays single-line and ellipsizes if a future
+  locale exceeds that budget, so switching modes does not reflow the adjacent
+  Composer controls. At compact widths the chip gives up that descriptive
+  label and keeps only its mode icon; the full value remains in the anchored
+  menu, tooltip, and accessible name. Clicking the chip opens an anchored menu
+  listing Agent, Plan, and Goal, with a check mark on the active mode; selecting
+  an item updates the session and closes the menu. The chip cross-fades the
+  icon and label in place when the label is visible. While the live turn is
   `planning`, the chip pulses on its icon (purple) instead of leaving a
   second status row parked above the composer; a staged mode choice still
   updates the chip immediately and does not start that pulse until the
@@ -2490,13 +2571,15 @@ reasoning-level control.
   centered on their trigger when opened. The shared floating layer still clamps
   each surface to the viewport, so a narrow window may shift the surface away
   from the exact center to keep all options reachable.
-- The permission chip remains visible in Agent, Plan, and Goal for a stable
-  toolbar rhythm. Agent and Plan expose the effective selectable permission;
-  Goal displays the localized Auto label as a disabled, non-opening chip while
-  the approval card remains the separate place for choosing execution policy.
-  The permission menu stays 120px wide; its Chinese Composer short label for
-  Accept edits is `允许编辑` / `允許編輯` so the option remains single-line
-  beside its selection indicator.
+- The permission chip remains visible in Agent, Plan, and Goal. At comfortable
+  widths it exposes the effective selectable permission label; at the narrowest
+  compact tier it becomes a policy icon so it cannot collide with the model or
+  submit controls. The full current value remains in the tooltip, accessible
+  name, and existing menu. Goal displays the localized Auto label as a
+  disabled, non-opening chip while the approval card remains the separate
+  place for choosing execution policy. The permission menu stays 120px wide;
+  its Chinese Composer short label for Accept edits is `允许编辑` /
+  `允許編輯` so the option remains single-line beside its selection indicator.
 - The right toolbar owns the remaining-capacity context inspector (when the
   newest assistant turn has usage) immediately left of one combined model ×
   reasoning-level chip, then the standalone prompt-enhancement action and the
@@ -2509,15 +2592,16 @@ reasoning-level control.
   `.tool-spinner` and localized `Enhancing…` label while running, and remains
   a one-shot draft rewrite action. Inline file-reference chips, including
   pasted image chips, do not disable this action and remain in the draft.
-- MainPane and the chat surface keep a 450px hard minimum. The composer toolbar
-  remains a single row while its control groups are allowed to give up
-  descriptive text before they give up their action targets: the model ×
-  reasoning chip first hides the reasoning suffix, then ellipsizes the model
-  name, and at the narrow floor shows the model icon plus chevron only. The
-  full model and reasoning values remain available through the trigger's menu,
-  tooltip, and accessible name. Mode and permission labels retain their stable
-  chip geometry, so a sidebar or work-panel resize cannot vertically split,
-  squeeze, or overlap toolbar content.
+- MainPane and the regular chat surface keep a 450px hard minimum; the
+  content-focus secondary chat surface keeps its separate 320px floor. The
+  composer toolbar remains a single row at both floors and adapts from the
+  actual `.composer-stack` width: it first hides the reasoning suffix, then
+  ellipsizes or hides descriptive model/mode/permission labels, and at the
+  narrowest tier keeps fixed-size action targets plus the model icon and
+  chevron. Context percentages and enhancement loading text also give up
+  space before action targets. Full model, reasoning, mode, and permission
+  values remain available through their menus, tooltips, and accessible names;
+  no label is allowed to overlap another control.
 - The combined chip opens one anchored menu above itself. The menu starts with
   only Model and Reasoning level entries, each showing its current value and a
   chevron. Selecting an entry replaces the menu contents in place with a back
@@ -2957,21 +3041,43 @@ Anatomy:
 
 ## 11.10 Response annotations (D-LOCAL-response-annotations)
 
-- Selecting text inside an assistant turn and activating **Add to chat** — or the
-  turn's annotate action — opens a compact comment editor over the conversation
-  instead of attaching the excerpt immediately. The editor shows the excerpt
-  snapshot (the Markdown serialized when the selection was taken, before focus
-  moves into the editor and collapses the selection) above a multiline, optional
-  comment. **Save** attaches the annotation with the comment in its `annotation`
-  field. In the comment textarea, **Enter** saves the live value and **Shift+Enter**
-  inserts a newline, independent of the main composer's Enter-to-send preference.
-  IME confirmation Enter never saves; key-repeat is ignored by the editor. Saving
-  by keyboard only attaches/updates the annotation, never sends a prompt.
+- An excerpt never attaches the moment it is selected. The surface it came from
+  collects the comment next to the passage it quotes, in one of two shapes.
+  The pill itself — selecting text inside an assistant turn and activating
+  **Add to chat** — swaps its action row for a compact comment input anchored
+  above the quoted passage (§8.x, D-LOCAL-selection-overlay). The excerpt is the
+  snapshot taken when the selection was made (the Markdown serialized before
+  focus moves into the input and collapses the selection); the input is a
+  multiline, optional comment beside it. **Save** — or **Enter**, with
+  **Shift+Enter** inserting a newline, independent of the main composer's
+  Enter-to-send preference — attaches the annotation with the comment in its
+  `annotation` field. IME confirmation Enter never saves; key-repeat is ignored
+  by the pill. Saving by keyboard only attaches/updates the annotation, never
+  sends a prompt. An empty comment still attaches the excerpt. **Cancel**,
+  **Escape** outside IME composition, and a press starting outside the pill
+  discard it, and the surface it came from keeps running underneath: no dialog
+  opens, so no native panel has to step aside.
+  The same pill collects it in the other surfaces: the Files viewer's own
+  floating action row and the file-manager plugin page, whose in-page pill
+  becomes the input because that page is a native surface no renderer layer can
+  paint over, and the browser preview's pick chip, which does it inside the
+  guest document. Those items are listed, edited, numbered, and sent like any
+  other annotation, but the block item names the file (path plus line range) or
+  the page (URL plus selector) as its source instead of a turn id: they draw no
+  source badge in the transcript, and **Locate** has no row to travel to.
+- An entry with no passage to sit beside opens the compact, window-centred
+  comment editor over the conversation instead: the assistant turn's annotate
+  action (its selection, or the whole answer when there is none), and any
+  excerpt a surface sent without a comment. It shows the excerpt snapshot above
+  the same multiline, optional comment and follows the same **Save** contract.
   **Cancel**, **Escape** outside IME composition, and a press starting on
   the backdrop discard it. Dragging a selection out of the editor never dismisses
   it. The dialog owns Escape before application shortcuts and restores focus to
   its trigger, or the rich composer when the floating trigger is gone. Opening
-  or saving the editor never sends. The answer body is not decorated: an
+  or saving the editor never sends. While it is open the work panel yields only
+  when the dialog actually overlaps it — a native panel surface cannot be
+  painted over, and a dialog that stays inside the chat column leaves the panel
+  running. The answer body is not decorated: an
   annotation appears in the answer only where the model cites it, as a small
   accent-colored numbered reference (`:codex-annotation{index="N"}` in the
   answer's source) whose tooltip is the excerpt and any comment. A marker takes
@@ -2983,8 +3089,12 @@ Anatomy:
   switch closes it, a save for an annotation that was already sent or removed
   changes nothing, and a save for a duplicate excerpt is a no-op.
 - ADR floating-annotation-index replaces the composer popover with a floating index above the composer
-  in the visible writable transcript. Its count header expands/collapses the list
-  without deleting annotations. Each numbered excerpt/comment has locate, edit,
+  in the visible writable transcript. It rests collapsed — a one-line count
+  capsule above the composer — and opens only on the user's own toggle or a
+  locate click; saving or editing a comment never expands it on its own, and a
+  batch that is sent, cleared, or fully removed closes it again. Its count
+  header expands/collapses the list without deleting annotations. Each numbered
+  excerpt/comment has locate, edit,
   and remove controls; clear-all remains available. Controls include the ordinal
   in accessible names. No attachment text enters the editable draft.
 - All saved, resolvable selections remain highlighted whenever visible, including
@@ -3672,7 +3782,8 @@ Sidebar footer                                        Popover (360px max)
 9. Command palette opens at z-index 60, traps focus, supports keyboard navigation
 10. Empty states always provide an actionable next step, not just a message
 11. All components have correct ARIA roles and labels
-12. Responsive collapse works at 800px and 640px breakpoints
+12. Responsive layout keeps the sidebar state user-controlled while the
+    work-panel budget adapts at narrow supported widths
 13. Toasts stack top-center with variant icon + dismiss, auto-dismiss 4s/8s, pause on hover, and announce via `role="status"`/`role="alert"` per §17
 14. Session import defaults to source grouping, offers project-path grouping, collapses all groups after scan/group changes, and exposes accessible group disclosure state per §18
 15. Imported project paths materialize exactly once in the durable Projects index; path-less imports remain Temporary sessions and no filesystem directory is created

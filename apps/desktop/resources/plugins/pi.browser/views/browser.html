@@ -73,6 +73,10 @@
         color: var(--muted);
       }
       .icon-btn:hover:not(:disabled) { background: color-mix(in oklab, var(--fg) 6%, transparent); }
+      .picker-btn.active {
+        color: var(--fg);
+        background: color-mix(in oklab, var(--accent) 14%, transparent);
+      }
       form.url {
         display: flex;
         flex: 1;
@@ -131,6 +135,9 @@
         <button type="button" class="icon-btn" id="external" disabled title="Open externally" aria-label="Open externally">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5h5v5"/><path d="M19 5l-9 9"/><path d="M5 9v10h10"/></svg>
         </button>
+        <button type="button" class="icon-btn picker-btn" id="picker" disabled title="Select content to chat" aria-label="Select content to chat">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l14 8-6 2-3 7-5-17z"/><path d="M13 13l5 5"/></svg>
+        </button>
       </div>
       <div class="guest" id="guest">
         <div class="empty" id="empty">
@@ -145,6 +152,7 @@
       const forward = document.getElementById("forward");
       const reload = document.getElementById("reload");
       const external = document.getElementById("external");
+      const picker = document.getElementById("picker");
       const form = document.getElementById("form");
       const input = document.getElementById("url");
       const guest = document.getElementById("guest");
@@ -153,6 +161,7 @@
       const emptyBody = document.getElementById("empty-body");
       let inputFocused = false;
       let started = false;
+      let pickerEnabled = false;
       let locale = "en";
 
       const copy = {
@@ -162,6 +171,8 @@
           reload: "Reload",
           stop: "Stop",
           external: "Open externally",
+          picker: "Select content to chat",
+          pickerActive: "Exit selection mode",
           placeholder: "Search or enter a URL",
           emptyTitle: "No page open",
           emptyBody: "Enter an address, or preview an HTML file from the conversation.",
@@ -172,6 +183,8 @@
           reload: "重新加载",
           stop: "停止",
           external: "在外部打开",
+          picker: "选择内容到聊天",
+          pickerActive: "退出选择模式",
           placeholder: "搜索或输入网址",
           emptyTitle: "尚未打开页面",
           emptyBody: "输入地址，或从对话预览 HTML 文件。",
@@ -187,6 +200,8 @@
         forward.setAttribute("aria-label", t("forward"));
         external.title = t("external");
         external.setAttribute("aria-label", t("external"));
+        picker.title = pickerEnabled ? t("pickerActive") : t("picker");
+        picker.setAttribute("aria-label", picker.title);
         input.placeholder = t("placeholder");
         emptyTitle.textContent = t("emptyTitle");
         emptyBody.textContent = t("emptyBody");
@@ -211,6 +226,7 @@
         forward.disabled = !state?.canGoForward;
         reload.disabled = !started;
         external.disabled = !state?.url;
+        picker.disabled = !state?.url;
         reload.title = state?.isLoading ? t("stop") : t("reload");
         reload.setAttribute("aria-label", reload.title);
         if (!inputFocused && state?.url) input.value = state.url;
@@ -243,6 +259,17 @@
         void bridge.invoke("browser.action", { action: reload.title === t("stop") ? "stop" : "reload" });
       });
       external.addEventListener("click", () => void bridge.invoke("browser.openExternal"));
+      picker.addEventListener("click", () => {
+        void bridge.invoke("browser.setElementPicker", { enabled: !pickerEnabled }).then((state) => {
+          pickerEnabled = state?.enabled === true;
+          picker.classList.toggle("active", pickerEnabled);
+          applyCopy();
+        }).catch(() => {
+          pickerEnabled = false;
+          picker.classList.remove("active");
+          applyCopy();
+        });
+      });
       input.addEventListener("focus", () => {
         inputFocused = true;
         input.select();
@@ -256,12 +283,22 @@
       window.addEventListener("resize", reportHole);
 
       bridge.on("browser:state", paint);
+      bridge.on("browser:picker", (state) => {
+        pickerEnabled = state?.enabled === true;
+        picker.classList.toggle("active", pickerEnabled);
+        applyCopy();
+      });
       bridge.on("appearance:changed", setBaseTheme);
       bridge.invoke("app.getAppearance").then(setBaseTheme).catch(() => setBaseTheme(null));
       void bridge.invoke("browser.getState").then((state) => {
         paint(state);
         reportHole();
       });
+      void bridge.invoke("browser.getElementPicker").then((state) => {
+        pickerEnabled = state?.enabled === true;
+        picker.classList.toggle("active", pickerEnabled);
+        applyCopy();
+      }).catch(() => undefined);
       applyCopy();
     </script>
   </body>

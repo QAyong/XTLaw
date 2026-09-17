@@ -1,8 +1,8 @@
-import { shell, WebContentsView, type BrowserWindow } from "electron";
+import { nativeTheme, shell, WebContentsView, type BrowserWindow } from "electron";
 import { statSync, watch, type FSWatcher } from "node:fs";
 import { dirname, isAbsolute, resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import type { BrowserState } from "@pi-desktop/shared";
+import { builtinWindowBackground, type BrowserState } from "@pi-desktop/shared";
 import { isAllowedHttpUrl, parseAllowedExternalUrl } from "./safe-open-external";
 
 /**
@@ -79,12 +79,15 @@ export class BrowserPane {
   private view: WebContentsView | null = null;
   private window: BrowserWindow | null = null;
   private visible = false;
+  /** Keep the first blank native page off-screen until it has content. */
+  private ready = false;
   private bounds = { x: 0, y: 0, width: 0, height: 0 };
   private onState: (state: BrowserState) => void;
   private fileRoot: string | null = null;
   private watcher: FSWatcher | null = null;
   private watchedDir: string | null = null;
   private reloadTimer: NodeJS.Timeout | null = null;
+  private themeListener: (() => void) | null = null;
 
   constructor(onState: (state: BrowserState) => void) {
     this.onState = onState;
@@ -221,10 +224,22 @@ export class BrowserPane {
       this.view.webContents.close();
       this.view = null;
     }
+    if (this.themeListener) {
+      nativeTheme.off("updated", this.themeListener);
+      this.themeListener = null;
+    }
+    this.ready = false;
   }
 
   private attach(): void {
-    if (!this.window || this.window.isDestroyed() || !this.view) return;
+    if (
+      !this.window ||
+      this.window.isDestroyed() ||
+      !this.view ||
+      !this.ready
+    ) {
+      return;
+    }
     const children = this.window.contentView.children;
     // The guest hole sits on top of plugin chrome. Re-adding a plugin view
     // after this pane is attached would cover the guest unless we keep it last.
@@ -288,8 +303,29 @@ export class BrowserPane {
     }
   }
 
+  /**
+   * A guest page that paints no background of its own would otherwise
+   * composite against the window as a black rectangle. Give the native page
+   * the app's background colour and keep it there across theme switches,
+   * since the pane outlives them.
+   */
+  private watchGuestBackground(view: WebContentsView): void {
+    this.applyGuestBackground(view);
+    if (this.themeListener) return;
+    this.themeListener = () => this.applyGuestBackground(this.view);
+    nativeTheme.on("updated", this.themeListener);
+  }
+
+  private applyGuestBackground(view: WebContentsView | null): void {
+    if (!view || view.webContents.isDestroyed()) return;
+    view.setBackgroundColor(
+      builtinWindowBackground(nativeTheme.shouldUseDarkColors ? "dark" : "light"),
+    );
+  }
+
   private ensureView(): WebContentsView {
     if (this.view && !this.view.webContents.isDestroyed()) return this.view;
+    this.ready = false;
     const view = new WebContentsView({
       webPreferences: {
         sandbox: true,
@@ -298,6 +334,7 @@ export class BrowserPane {
         partition: PARTITION,
       },
     });
+    this.watchGuestBackground(view);
     const wc = view.webContents;
     wc.setWindowOpenHandler(({ url }) => {
       const allowed = parseAllowedExternalUrl(url);
@@ -326,6 +363,20 @@ export class BrowserPane {
       const state = this.getState();
       if (state) this.onState(state);
     };
+    wc.on("did-finish-load", () => {
+      this.ready = true;
+      if (this.visible) this.attach();
+      push();
+    });
+    wc.on(
+      "did-fail-load",
+      (_event, _errorCode, _errorDescription, _validatedURL, isMainFrame) => {
+        if (!isMainFrame) return;
+        this.ready = true;
+        if (this.visible) this.attach();
+        push();
+      },
+    );
     wc.on("did-start-loading", push);
     wc.on("did-stop-loading", push);
     wc.on("did-navigate", push);

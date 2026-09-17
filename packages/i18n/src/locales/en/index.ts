@@ -152,6 +152,7 @@ export const en = {
     conversation: "Conversation",
     toggleSidebar: "Toggle sidebar",
     toggleWorkPanel: "Toggle side panel",
+    swapWorkPanel: "Swap chat and work panel",
     sessions: "Sessions",
     commandPalette: "Command palette",
     back: "Back",

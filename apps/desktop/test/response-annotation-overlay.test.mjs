@@ -40,11 +40,19 @@ test("the floating index collapses, expands, navigates by id and edits/removes t
   const find = (predicate) => nodes(tree).find(predicate);
   render();
   assert.ok(find((node) => node.type === "aside"));
-  assert.equal(find((node) => node.props["aria-expanded"] !== undefined).props["aria-expanded"], true);
-  find((node) => node.props["aria-expanded"] !== undefined).props.onClick();
+  const toggle = () => find((node) => node.props["aria-expanded"] !== undefined);
+  // The index rests collapsed above the composer: one capsule line and no
+  // excerpt list until the user opens it.
+  assert.equal(toggle().props["aria-expanded"], false);
+  assert.ok(!find((node) => node.type === "ol"));
+  toggle().props.onClick();
+  render();
+  assert.equal(toggle().props["aria-expanded"], true);
+  assert.ok(find((node) => node.type === "ol"));
+  toggle().props.onClick();
   render();
   assert.ok(!find((node) => node.type === "ol"));
-  find((node) => node.props["aria-expanded"] !== undefined).props.onClick();
+  toggle().props.onClick();
   render();
   find((node) => node.props["aria-label"] === "chat.annotationLocate 2").props.onClick();
   assert.equal(navigated, annotations[1]);
@@ -97,13 +105,19 @@ test("all saved resolved ranges stay highlighted without selecting an item or ex
     [[], null, false, []],
   ]) {
     let geometry;
-    const root = { addEventListener() {}, removeEventListener() {} };
+    const wrap = { getBoundingClientRect: () => ({ left: 0, bottom: 100, width: 100 }) };
+    const root = { parentElement: wrap, addEventListener() {}, removeEventListener() {} };
     class Observer { observe() {} disconnect() {} }
     const cleanup = runInNewContext(executable, {
       annotations, activeId, expanded, scrollRef: { current: root },
-      setGeometry: (value) => { geometry = value; },
+      sourceLayerRef: { current: null },
+      scrollBaselineRef: { current: null },
+      scrollSettleTimerRef: { current: null },
+      setGeometry: (value) => { geometry = value; }, setFloatPosition() {},
+      setTimeout: () => 0, clearTimeout() {},
       document: { querySelector: () => null },
       window: { innerWidth: 100, innerHeight: 100, addEventListener() {}, removeEventListener() {} },
+      getComputedStyle: () => ({ getPropertyValue: () => "768px" }),
       COMPOSER_DOCK_SELECTOR: "dock",
       selectionQuoteBounds: () => ({ top: 0, bottom: 100, left: 0, right: 100 }),
       annotationRow: () => ({ getBoundingClientRect: () => rect(0) }),
@@ -123,6 +137,7 @@ test("only the visible writable pane owns badges and navigation releases follow 
   assert.match(transcript, /const navigateAnnotation[\s\S]*?pinnedRef\.current = false/);
   assert.match(transcript, /requestAnimationFrame\(\(\) => setWindowSize\(\(size\) =>\s*Math\.min\(Math\.max\(size, allHistoryEntries\.length - index\),\s*growTranscriptWindow\(size, allHistoryEntries\.length\)\)\)/);
   assert.match(transcript, /annotationPagesRef\.current\.has\(messages\.length\)/);
-  assert.match(source, /root\.addEventListener\("scroll", schedule/);
+  assert.match(source, /root\.addEventListener\("scroll", onScroll/);
+  assert.match(source, /translate3d\(0, \$\{shift\}px, 0\)/);
   assert.match(source, /mutation\.disconnect\(\)/);
 });

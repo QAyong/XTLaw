@@ -1,6 +1,8 @@
 import {
+  Children,
   createContext,
   Fragment,
+  cloneElement,
   isValidElement,
   memo,
   useCallback,
@@ -13,6 +15,7 @@ import {
   useSyncExternalStore,
   type CSSProperties,
   type ComponentProps,
+  type ReactElement,
   type RefObject,
   type ReactNode,
 } from "react";
@@ -774,14 +777,124 @@ function MarkdownImage({
   return <img {...rest} src={source} alt={alt ?? ""} />;
 }
 
+type TableElementProps = {
+  children?: ReactNode;
+  className?: string;
+};
+
+type TableElement = ReactElement<TableElementProps>;
+
+function asTableElement(node: ReactNode): TableElement | null {
+  return isValidElement(node) ? (node as TableElement) : null;
+}
+
+function elementText(node: ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(elementText).join("");
+  const element = asTableElement(node);
+  return element ? elementText(element.props.children) : "";
+}
+
+function tableRows(section: TableElement | null): TableElement[] {
+  if (!section) return [];
+  return Children.toArray(section.props.children)
+    .map(asTableElement)
+    .filter((row): row is TableElement => row?.type === "tr");
+}
+
+function tableCells(row: TableElement): TableElement[] {
+  return Children.toArray(row.props.children)
+    .map(asTableElement)
+    .filter(
+      (cell): cell is TableElement => cell?.type === "th" || cell?.type === "td",
+    );
+}
+
+function isAtomicTableHeader(header: string): boolean {
+  const normalized = header.trim().toLocaleLowerCase();
+  if (!normalized) return false;
+  return (
+    /(?:下载|数量|金额|价格|成本|时间|日期|状态|版本|大小|进度|排名|编号|操作)/.test(
+      normalized,
+    ) ||
+    /\b(?:download|downloads|count|amount|price|cost|time|date|status|version|size|progress|rank|action|id)\b/i.test(
+      normalized,
+    )
+  );
+}
+
+function isAtomicTableValue(value: string): boolean {
+  const normalized = value.trim();
+  if (!normalized || normalized.length > 40) return false;
+  return /^(?:[-+]?(?:\d+(?:,\d{3})+|\d+)(?:\.\d+)?%?|\d{4}[-/.]\d{1,2}[-/.]\d{1,2}|\d{1,2}:\d{2}(?::\d{2})?|true|false|yes|no|n\/a|—|-)$/i.test(
+    normalized,
+  );
+}
+
+function atomicTableColumns(
+  headerRow: TableElement | null,
+  bodyRows: TableElement[],
+): boolean[] {
+  const headers = headerRow ? tableCells(headerRow) : [];
+  const valuesByColumn = headers.map((_, columnIndex) =>
+    bodyRows.map((row) => elementText(tableCells(row)[columnIndex]?.props.children ?? "")),
+  );
+
+  return headers.map((header, columnIndex) => {
+    const values = valuesByColumn[columnIndex].filter((value) => value.trim());
+    return (
+      isAtomicTableHeader(elementText(header.props.children)) ||
+      (values.length > 0 && values.every(isAtomicTableValue))
+    );
+  });
+}
+
+function decorateTableSection(
+  section: TableElement | null,
+  atomicColumns: boolean[],
+): TableElement | null {
+  if (!section) return null;
+  const rows = tableRows(section);
+  return cloneElement(section, {
+    children: rows.map((row) => {
+      let columnIndex = 0;
+      const cells = Children.toArray(row.props.children).map((child) => {
+        const cell = asTableElement(child);
+        if (!cell || (cell.type !== "th" && cell.type !== "td")) return child;
+        const atomic = atomicColumns[columnIndex] === true;
+        columnIndex += 1;
+        if (!atomic) return cell;
+        const className = [cell.props.className, "table-cell-atomic"]
+          .filter(Boolean)
+          .join(" ");
+        return cloneElement(cell, { className });
+      });
+      return cloneElement(row, { children: cells });
+    }),
+  });
+}
+
 function Table({
   node: _node,
   children,
   ...rest
 }: ComponentProps<"table"> & { node?: unknown }) {
+  const sections = Children.toArray(children).map(asTableElement);
+  const header = sections.find((section) => section?.type === "thead") ?? null;
+  const body = sections.find((section) => section?.type === "tbody") ?? null;
+  const headerRow = tableRows(header)[0] ?? null;
+  const atomicColumns = atomicTableColumns(headerRow, tableRows(body));
+  const decoratedChildren = sections.map((section, index) => {
+    if (!section) return Children.toArray(children)[index];
+    if (section.type === "thead" || section.type === "tbody") {
+      return decorateTableSection(section, atomicColumns);
+    }
+    return section;
+  });
+
   return (
     <div className="table-wrap">
-      <table {...rest}>{children}</table>
+      <table {...rest}>{decoratedChildren}</table>
     </div>
   );
 }

@@ -379,15 +379,33 @@ export type AppState = {
   /** Append text to the visible conversation's draft without sending it. */
   appendComposerDraftText: (text: string) => void;
   /** Open the comment editor for one assistant turn's excerpt. */
+  /**
+   * Open the comment editor for one excerpt. A transcript excerpt names the
+   * assistant turn it came from; a workspace-file or browser-preview excerpt
+   * leaves `messageId` empty and names its `source` instead.
+   */
   openResponseAnnotationEditor: (input: {
     messageId: string;
     text: string;
     /** Existing annotation to edit; omitted while the excerpt is unattached. */
     annotationId?: string;
     anchor?: ResponseAnnotationEditor["anchor"];
+    source?: ResponseAnnotationEditor["source"];
   }) => void;
   /** Save the editor's comment and close it; a stale target is dropped. */
   saveResponseAnnotationEditor: (comment: string) => void;
+  /**
+   * Attach an excerpt with its comment in one call, without the editor: the
+   * selection pills collect the comment next to the passage it belongs to
+   * (D-LOCAL-selection-overlay).
+   */
+  addResponseAnnotation: (input: {
+    messageId: string;
+    text: string;
+    comment: string;
+    anchor?: ResponseAnnotationEditor["anchor"];
+    source?: ResponseAnnotationEditor["source"];
+  }) => void;
   /** Close the editor without saving its comment. */
   closeResponseAnnotationEditor: () => void;
   /** Drop one annotation from the visible session. */

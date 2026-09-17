@@ -308,22 +308,31 @@ export function ToolActionIcon({ action }: { action: ToolAction }) {
 /**
  * Automatic disclosure is deliberately separate from user disclosure state.
  * A running process may open its latest details and close them when it settles,
- * but one user click takes ownership for the rest of that component's lifetime.
+ * but user interaction does not prevent the owning turn from resetting all
+ * details when it completes.
  * Layout effects keep the automatic transition from moving the transcript for a
  * painted frame.
  *
  * A *manual* toggle also hands its own title to the scroller that owns it,
  * before the state changes (#324): the height under the click may keep changing
  * for several frames, and the reader's place in the transcript is the one thing
- * that must not move while it does. The automatic transition below goes through
- * `setOpen` directly and never claims a reading position.
+ * that must not move while it does. The automatic transitions below go through
+ * `setOpen` directly and never claim a reading position. `collapseWhen` is a
+ * turn-lifecycle boundary: it force-closes a disclosure only when that
+ * boundary changes from open to closed, so a final-answer delta cannot collapse
+ * the process midway through the turn.
  */
-export function useAutomaticDisclosure(automaticOpen: boolean, revealRequest?: number) {
+export function useAutomaticDisclosure(
+  automaticOpen: boolean,
+  revealRequest?: number,
+  collapseWhen = false,
+) {
   const [open, setOpen] = useState(automaticOpen || revealRequest !== undefined);
   const notifyAnchor = useDisclosureAnchorNotifier();
   const titleRef = useRef<HTMLButtonElement | null>(null);
   const userInteractedRef = useRef(false);
   const previousAutomaticOpenRef = useRef(automaticOpen);
+  const previousCollapseWhenRef = useRef(collapseWhen);
 
   useLayoutEffect(() => {
     if (userInteractedRef.current) return;
@@ -331,6 +340,14 @@ export function useAutomaticDisclosure(automaticOpen: boolean, revealRequest?: n
     previousAutomaticOpenRef.current = automaticOpen;
     setOpen(automaticOpen);
   }, [automaticOpen]);
+
+  useLayoutEffect(() => {
+    const becameCollapsed = !previousCollapseWhenRef.current && collapseWhen;
+    previousCollapseWhenRef.current = collapseWhen;
+    if (!becameCollapsed) return;
+    userInteractedRef.current = false;
+    setOpen(false);
+  }, [collapseWhen]);
 
   const claim = useCallback(() => {
     userInteractedRef.current = true;
@@ -531,6 +548,7 @@ export const ThinkingRow = memo(function ThinkingRow({
   message,
   streaming,
   autoOpen = false,
+  turnActive,
   onUserInteraction,
   providerId,
   modelId,
@@ -538,13 +556,15 @@ export const ThinkingRow = memo(function ThinkingRow({
   message: UiMessage;
   streaming: boolean;
   autoOpen?: boolean;
+  /** The owning assistant turn's lifecycle, when rendered in a transcript. */
+  turnActive?: boolean;
   onUserInteraction?: () => void;
   providerId?: string;
   modelId?: string;
 }) {
   const { t } = useTranslation();
   const detailsId = useId();
-  const disclosure = useAutomaticDisclosure(autoOpen);
+  const disclosure = useAutomaticDisclosure(autoOpen, undefined, turnActive === false);
   const { open, toggle: toggleDisclosure, collapse: collapseDisclosure } = disclosure;
   const titleRef = disclosure.titleRef;
   const toggleRow = useCallback(() => {

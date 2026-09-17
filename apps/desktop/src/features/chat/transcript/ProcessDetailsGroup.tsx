@@ -98,7 +98,12 @@ export function ProcessDetailsGroup({
   const searchTarget = useContext(TranscriptSearchContext);
   const messages = processMessages(parts);
   const lastPart = parts[parts.length - 1];
-  const live = isActive && !endedAt;
+  // The process phase ends when the answer starts, but the assistant turn is
+  // still streaming until `isActive` becomes false. Keep the outer disclosure
+  // open for that whole turn; otherwise the first final-answer delta makes
+  // every thinking/tool row disappear at once.
+  const processLive = isActive && !endedAt;
+  const turnLive = isActive;
   const revealRequest =
     searchTarget &&
     parts.some((part) =>
@@ -113,10 +118,10 @@ export function ProcessDetailsGroup({
     toggle: toggleDisclosure,
     collapse: collapseDisclosure,
     claim: claimDisclosure,
-  } = useAutomaticDisclosure(live, revealRequest);
+  } = useAutomaticDisclosure(turnLive, revealRequest, !turnLive);
   const [now, setNow] = useState(Date.now);
   const [finishedAt, setFinishedAt] = useState<number | null>(null);
-  const wasLiveRef = useRef(live);
+  const wasLiveRef = useRef(processLive);
   const startedAt = Date.parse(messages[0]?.createdAt || "") || now;
   const fallbackEnd = Math.max(
     startedAt,
@@ -131,24 +136,24 @@ export function ProcessDetailsGroup({
     Date.parse(endedAt || "") || finishedAt || fallbackEnd;
   const elapsedSeconds = Math.max(
     0,
-    Math.floor(((live ? now : completedAt) - startedAt) / 1000),
+    Math.floor(((processLive ? now : completedAt) - startedAt) / 1000),
   );
   const elapsed = formatToolDuration(elapsedSeconds);
   const stepCount = processStepCount(parts);
-  const tail = live && !open ? processPreview(lastPart) : "";
+  const tail = processLive && !open ? processPreview(lastPart) : "";
 
   useEffect(() => {
-    if (wasLiveRef.current && !live) setFinishedAt(Date.now());
-    wasLiveRef.current = live;
-    if (!live) return;
+    if (wasLiveRef.current && !processLive) setFinishedAt(Date.now());
+    wasLiveRef.current = processLive;
+    if (!processLive) return;
     setNow(Date.now());
     const id = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(id);
-  }, [live]);
+  }, [processLive]);
 
   return (
     <div
-      className={`tool-activity-group process-details-group${open ? " open" : ""}${live ? " active" : ""}`}
+      className={`tool-activity-group process-details-group${open ? " open" : ""}${processLive ? " active" : ""}`}
       data-testid="process-details-group"
     >
       <button
@@ -164,8 +169,8 @@ export function ProcessDetailsGroup({
             size={14}
           />
         </span>
-        <span className={`tool-activity-label ${live ? "running" : ""}`}>
-          {t(live ? "chat.processingFor" : "chat.processedFor", {
+        <span className={`tool-activity-label ${processLive ? "running" : ""}`}>
+          {t(processLive ? "chat.processingFor" : "chat.processedFor", {
             time: elapsed,
           })}
         </span>
@@ -178,6 +183,7 @@ export function ProcessDetailsGroup({
           <IconChevronRight size={12} />
         </span>
       </button>
+      <div className="process-details-divider" aria-hidden />
       {tail ? (
         <div className="tool-activity-preview" aria-hidden>
           {tail}
@@ -200,11 +206,12 @@ export function ProcessDetailsGroup({
                   key={partKey(part)}
                   items={part.items}
                   embedded
-                  isActive={live && index === parts.length - 1}
+                  isActive={processLive && index === parts.length - 1}
+                  turnActive={turnLive}
                   providerId={providerId}
                   modelId={modelId}
                   runtimeActivity={
-                    live && index === parts.length - 1
+                    processLive && index === parts.length - 1
                       ? runtimeActivity
                       : undefined
                   }

@@ -1,4 +1,5 @@
 import { session, shell, WebContentsView, type BrowserWindow } from "electron";
+import { builtinWindowBackground } from "@pi-desktop/shared";
 import { join } from "node:path";
 import { parseAllowedExternalUrl } from "./safe-open-external";
 import {
@@ -90,6 +91,8 @@ type LiveView = {
   location: string | null;
   /** False until the first document finished loading. */
   loaded: boolean;
+  /** True when the first document has either loaded or failed. */
+  ready: boolean;
 };
 
 export function pluginViewKey(pluginId: string, viewId: string): string {
@@ -101,6 +104,8 @@ export class PluginViewHost {
   private window: BrowserWindow | null = null;
   /** The one view currently attached to the window, if any. */
   private visibleKey: string | null = null;
+  /** The view the renderer wants to show, including while it is loading. */
+  private requestedVisibleKey: string | null = null;
   private bounds: PluginViewBounds = { x: 0, y: 0, width: 0, height: 0 };
   private clock = 0;
   private onBlockedRequest?: PluginPanelBlockedRequest;
@@ -144,6 +149,7 @@ export class PluginViewHost {
     if (this.window === window) return;
     this.detachVisible();
     this.window = window;
+    this.attachRequestedView();
   }
 
   /** Whether a live web contents exists for this view. */
@@ -191,11 +197,22 @@ export class PluginViewHost {
       usedAt: ++this.clock,
       location,
       loaded: false,
+      ready: false,
     };
     this.views.set(key, entry);
     view.webContents.once("did-finish-load", () => {
       entry.loaded = true;
+      entry.ready = true;
+      this.attachRequestedView();
     });
+    view.webContents.once(
+      "did-fail-load",
+      (_event, _errorCode, _errorDescription, _validatedURL, isMainFrame) => {
+        if (!isMainFrame) return;
+        entry.ready = true;
+        this.attachRequestedView();
+      },
+    );
     this.load(entry);
     this.evictBeyondLimit();
   }
@@ -256,20 +273,39 @@ export class PluginViewHost {
   setVisible(pluginId: string, viewId: string, visible: boolean): void {
     const key = pluginViewKey(pluginId, viewId);
     if (!visible) {
+      if (this.requestedVisibleKey === key) this.requestedVisibleKey = null;
       if (this.visibleKey === key) this.detachVisible();
       return;
     }
+    this.requestedVisibleKey = key;
+    if (this.visibleKey && this.visibleKey !== key) this.detachVisible();
     const entry = this.views.get(key);
     if (!entry) return;
-    if (this.visibleKey && this.visibleKey !== key) this.detachVisible();
     entry.usedAt = ++this.clock;
-    if (!this.window || this.window.isDestroyed()) return;
+    this.attachRequestedView();
+  }
+
+  private attachRequestedView(): void {
+    if (
+      !this.requestedVisibleKey ||
+      !this.window ||
+      this.window.isDestroyed()
+    ) {
+      return;
+    }
+    const entry = this.views.get(this.requestedVisibleKey);
+    if (!entry || !entry.ready) return;
+    if (this.visibleKey === entry.key) {
+      entry.view.setBounds(this.bounds);
+      return;
+    }
+    if (this.visibleKey) this.detachVisible();
     const children = this.window.contentView.children;
     if (!children.includes(entry.view)) {
       this.window.contentView.addChildView(entry.view);
     }
     entry.view.setBounds(this.bounds);
-    this.visibleKey = key;
+    this.visibleKey = entry.key;
     this.emitSurface();
   }
 
@@ -291,6 +327,7 @@ export class PluginViewHost {
   private destroy(key: string): void {
     const entry = this.views.get(key);
     if (!entry) return;
+    if (this.requestedVisibleKey === key) this.requestedVisibleKey = null;
     if (this.visibleKey === key) this.detachVisible();
     this.views.delete(key);
     if (!entry.view.webContents.isDestroyed()) entry.view.webContents.close();
@@ -365,6 +402,11 @@ export class PluginViewHost {
       },
     });
 
+    // A docked view is a native surface: with no background of its own, the
+    // window behind it composites as black on Windows until the page paints,
+    // and stays black wherever the page is transparent. The detached panel
+    // host already starts from the app palette; a docked view must too.
+    view.setBackgroundColor(builtinWindowBackground(request.theme));
     const wc = view.webContents;
     // A docked view gets exactly one web contents. `window.open` would mint a
     // chromeless window outside the egress policy applied above.

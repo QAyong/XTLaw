@@ -161,7 +161,7 @@ test("annotations attach to assistant turns, not to the draft", () => {
   // Attaching goes through the comment editor state the store owns (D-LOCAL-response-annotations).
   assert.match(
     store,
-    /openResponseAnnotationEditor: \(\{ messageId, text, annotationId, anchor \}\) => \{/,
+    /openResponseAnnotationEditor: \(\{ messageId, text, annotationId, anchor, source \}\) => \{/,
   );
   assert.match(store, /annotationEditorFor\(current, \{/);
 });
@@ -184,9 +184,20 @@ test("the floating annotation index exposes count, locate, edit and clear", () =
 
 test("the overlay annotates a response and quotes anything else", () => {
   assert.match(overlay, /if \(target\.annotatable\) \{/);
+  // The comment is written in the pill itself, anchored above the passage it
+  // quotes, so the excerpt and the comment attach in one step
+  // (D-LOCAL-selection-overlay).
+  assert.match(overlay, /setCommenting\(true\)/);
   assert.match(
     overlay,
-    /openResponseAnnotationEditor\(\{\s*messageId: target\.rowAnchorId,\s*text: target\.markdown,\s*anchor: selectionAnnotationAnchorWithinRow\(target\.rowAnchorId\),\s*\}\);/,
+    /addResponseAnnotation\(\{\s*messageId: target\.rowAnchorId,\s*text: target\.markdown,\s*comment,\s*anchor: annotationAnchorRef\.current,\s*\}\);/,
+  );
+  // The occurrence is read while the native selection is still live: the input
+  // takes focus on the frame it appears and collapses that selection, and a
+  // save-time read would silently degrade Locate to the whole row.
+  assert.match(
+    overlay,
+    /annotationAnchorRef\.current = next\?\.annotatable\s*\? selectionAnnotationAnchorWithinRow\(next\.rowAnchorId\)\s*: undefined;/,
   );
   assert.match(overlay, /quoteMessageIntoComposer\(\{ title, text: target\.markdown \}\)/);
 });

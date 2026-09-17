@@ -19,10 +19,11 @@
 }
 
 /*
-  Composer controls share one row, but the model chip is the first surface to
-  give up descriptive text as the chat column gets narrower. Keep the action
-  buttons at their normal hit target and let the combined model/reasoning
-  trigger carry the full selection in its menu and accessible name.
+  Composer controls use content-driven density tiers. The toolbar stays on one
+  row, icons keep their hit targets, and descriptive labels give up space in a
+  predictable order as the composer container narrows. Container queries are
+  intentional here: a docked chat can become narrow without the window itself
+  changing size.
 */
 .composer-left,
 .composer-right {
@@ -43,6 +44,16 @@
   min-width: 0;
 }
 
+.composer-toolbar .icon-btn,
+.composer-toolbar .context-inspector-trigger {
+  flex-shrink: 0;
+}
+
+.composer-permission-icon {
+  display: none;
+  flex: 0 0 auto;
+}
+
 @container composer-stack (max-width: 560px) {
   .composer-model-thinking-dot,
   .composer-model-thinking-level {
@@ -61,8 +72,19 @@
 }
 
 @container composer-stack (max-width: 450px) {
+  .composer-plus .icon-btn,
+  .composer-enhance-btn,
+  .composer-enhance-undo {
+    width: 28px;
+    min-width: 28px;
+    max-width: 28px;
+    flex: 0 0 28px;
+    padding: 0 !important;
+  }
+
   .composer-right .composer-model-thinking-chip {
     width: 32px;
+    min-width: 32px;
     max-width: 32px;
     flex: 0 0 32px;
     justify-content: center;
@@ -75,8 +97,11 @@
   }
 
   .composer-right .context-inspector-trigger {
+    width: 28px;
+    min-width: 28px;
     gap: 0;
-    padding-inline: 3px;
+    justify-content: center;
+    padding-inline: 0;
   }
 
   .composer-right .context-inspector-ring-value {
@@ -91,6 +116,149 @@
 
   .composer-enhance-btn.is-loading > span:not(.tool-spinner) {
     display: none;
+  }
+}
+
+/* Give up the fixed 88px mode label before the composer reaches its compact
+   supported floor. The menu and the accessible name retain the full value. */
+@container composer-stack (max-width: 420px) {
+  .composer-mode-chip {
+    width: 28px;
+    min-width: 28px;
+    max-width: 28px;
+    flex: 0 0 28px;
+    justify-content: center;
+    gap: 0 !important;
+    padding-inline: 0 !important;
+  }
+
+  .composer-mode-chip-face {
+    gap: 0;
+  }
+
+  .composer-mode-chip-label {
+    display: none;
+  }
+}
+
+/* At the narrowest supported side-chat width, the permission chip becomes a
+   policy icon as well. Keep the control discoverable through its tooltip,
+   accessible name, and existing permission menu. */
+@container composer-stack (max-width: 360px) {
+  .composer-permission .mode-chip {
+    width: 28px;
+    min-width: 28px;
+    max-width: 28px;
+    flex: 0 0 28px;
+    justify-content: center;
+    gap: 0 !important;
+    padding-inline: 0 !important;
+  }
+
+  .composer-permission-icon {
+    display: inline-flex;
+  }
+
+  .composer-permission .mode-chip > span.text-sm,
+  .composer-permission-chevron {
+    display: none;
+  }
+}
+
+/* Assistant output follows the transcript pane when Chat becomes a docked
+   side surface. These rules intentionally leave the user plate and Composer
+   untouched: prose reflows, while content that cannot reflow scrolls inside
+   its own block. */
+@container transcript (max-width: 560px) {
+  .thread-content {
+    padding-inline: 16px;
+  }
+
+  .message-row.assistant,
+  .message-row.assistant .message-col,
+  .message-row.assistant .message-bubble,
+  .message-row.assistant .prose-chat {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .message-row.assistant .message-bubble,
+  .message-row.assistant .prose-chat {
+    width: 100%;
+  }
+
+  .message-row.assistant .prose-chat ul,
+  .message-row.assistant .prose-chat ol {
+    padding-inline-start: 1.2em;
+  }
+
+  .message-row.assistant .prose-chat pre,
+  .message-row.assistant .prose-chat .code-block,
+  .message-row.assistant .prose-chat .table-wrap,
+  .message-row.assistant .prose-chat img,
+  .message-row.assistant .prose-chat .chat-image-remote {
+    max-width: 100%;
+  }
+
+  /* The viewport media query does not see a docked pane. Keep assistant error
+     actions readable when the same error is rendered in SideChat. */
+  .message-row.assistant .message-error-heading {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .message-row.assistant .message-error-actions {
+    width: calc(100% - 24px);
+    flex-basis: calc(100% - 24px);
+    margin-inline-start: 24px;
+    justify-content: flex-start;
+  }
+}
+
+/* The minimap is an auxiliary orientation aid, so it must never compete with
+   assistant prose for the same pixels. Keep a leading safe zone while the
+   rail is still useful, then give the transcript that space back at the
+   compact side-chat floor. The query is container-based so MainChat and
+   SideChat make the same decision from their own rendered width. */
+@container transcript (min-width: 441px) and (max-width: 560px) {
+  .thread-content {
+    padding-inline-start: 48px;
+    padding-inline-end: 16px;
+  }
+}
+
+@container transcript (max-width: 440px) {
+  .minimap-rail {
+    display: none;
+  }
+
+  .thread-content {
+    padding-inline: 16px;
+  }
+}
+
+@container transcript (max-width: 360px) {
+  .thread-content {
+    padding-inline: 12px;
+  }
+
+  /* Preserve body text size for readability; only the display-heading ramp
+     becomes one step quieter in the narrowest supported transcript. */
+  .message-row.assistant .prose-chat h1 {
+    font-size: var(--text-lg-plus);
+  }
+
+  .message-row.assistant .prose-chat h2 {
+    font-size: var(--text-lg);
+  }
+
+  .message-row.assistant .prose-chat h3 {
+    font-size: var(--text-base-plus);
+  }
+
+  .message-row.assistant .prose-chat ul,
+  .message-row.assistant .prose-chat ol {
+    padding-inline-start: 1.1em;
   }
 }
 

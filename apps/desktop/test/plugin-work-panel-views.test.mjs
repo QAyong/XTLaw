@@ -96,20 +96,64 @@ test("plugin views reach the panel body and the empty state", () => {
   assert.doesNotMatch(panelSource, /openPluginView\(view\)/);
 });
 
-test("the native surface keeps its full bounds while the launcher is active", () => {
+test("the native surface leaves the host-owned divider uncovered", () => {
   assert.match(panelSource, /blocked=\{\s*exiting \|\| panelBlocked\s*\}/s);
   assert.doesNotMatch(panelSource, /avoid: pluginSurface/);
   assert.doesNotMatch(panelSource, /menuOpen|work-panel-new-menu|placeWorkPanelMenu/);
   assert.doesNotMatch(viewTabSource, /occludedById/);
+  assert.match(viewTabSource, /const PLUGIN_VIEW_DIVIDER_PX = 1/);
+  assert.match(
+    viewTabSource,
+    /const nativeX =\s*panelSide === "right" \? rect\.x \+ dividerInset : rect\.x/,
+  );
   assert.match(viewTabSource, /y: rect\.y/);
+  assert.match(
+    viewTabSource,
+    /width: Math\.max\(0, rect\.width - dividerInset\)/,
+  );
   assert.match(viewTabSource, /height: rect\.height/);
   // Visibility and bounds are separate effects: only panel-wide blocking and
   // lifecycle transitions hide the native page, so creating a New tab cannot
   // alter the active surface's measured rectangle.
   assert.match(
     viewTabSource,
-    /pluginViewSetVisible\(pluginId, viewId, !blocked, sessionId\)[\s\S]*pluginViewSetBounds/s,
+    /pluginViewSetVisible\(\s*pluginId,\s*viewId,\s*!blocked && !overlayBlocking,\s*sessionId,\s*\)[\s\S]*pluginViewSetBounds/s,
   );
+  // A blocking modal is centered on the window and reaches under the dock,
+  // so the docked page yields while one is on screen instead of painting over
+  // the dialog's right half.
+  assert.match(
+    viewTabSource,
+    /const BLOCKING_OVERLAY_SELECTOR = "\[aria-modal\]";/,
+  );
+  assert.match(
+    viewTabSource,
+    /observer\.observe\(document\.body, \{ childList: true, subtree: true \}\);/,
+  );
+});
+
+test("the native surface follows the dock through a column move, not only a resize", () => {
+  // Collapsing, dragging, or swapping a column moves the surface without
+  // resizing it, so `ResizeObserver` cannot see the move. A native page left
+  // at its previous origin composites above renderer content and paints over
+  // the chat column: the selection pill and the prose under it disappear.
+  assert.match(viewTabSource, /const PLUGIN_VIEW_SETTLE_MS = \d+;/);
+  assert.match(
+    viewTabSource,
+    /useLayoutEffect\(\(\) => \{\s*settleBoundsRef\.current\(\);\s*\}\);/,
+  );
+  assert.match(
+    viewTabSource,
+    /settleUntil = performance\.now\(\) \+ PLUGIN_VIEW_SETTLE_MS;/,
+  );
+  assert.match(viewTabSource, /settleFrame = requestAnimationFrame\(step\)/);
+  // Re-measuring every frame has to be free when nothing moved: a repeated
+  // rectangle must not reach the host.
+  assert.match(viewTabSource, /if \(signature === reported\) return;/);
+  // The observer stays the resize path, and both paths share one measurement.
+  assert.match(viewTabSource, /new ResizeObserver\(report\)/);
+  assert.match(viewTabSource, /settleBoundsRef\.current = \(\) => \{\};/);
+  assert.match(viewTabSource, /cancelAnimationFrame\(settleFrame\)/);
 });
 
 test("an unknown icon token degrades instead of rendering plugin markup", () => {

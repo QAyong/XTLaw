@@ -568,6 +568,13 @@ storage, target, and network-interception methods fail with
 `PERMISSION_DENIED`. Session identity for agent calls comes from the in-flight
 `plugins.execute` `sessionId`, not from plugin arguments (D333 / ADR 0170).
 
+The bundled Browser chrome also uses the fixed panel channels
+`browser.setElementPicker({ enabled: boolean })` and
+`browser.getElementPicker()` (same `browser.cdp` permission) to enter, leave,
+or restore host-controlled DOM element annotation. This is a panel interaction,
+not an agent action; selected content is returned to the host and appended
+through the existing Composer prefill path.
+
 `getHistory` returns newest-first entries explicitly recorded by the host, with
 text and images interleaved in capture order. Content written through
 `writeText` and content supplied by the Composer's user-initiated `paste` event
@@ -925,6 +932,18 @@ The host-owned preload forwards only fixed channels to the plugin runtime:
 | `clipboard.writeText` | `clipboard.write` |
 | `shell.openExternal` | `shell.openExternal` |
 | `net.fetch` | `net.fetch` |
+| `browser.navigate`, `browser.action`, `browser.setBounds`, `browser.setVisible`, `browser.getState`, `browser.getElementPicker`, `browser.openExternal`, `browser.snapshot`, `browser.screenshot`, `browser.click`, `browser.fill`, `browser.evaluate`, `browser.console`, `browser.setElementPicker`, `browser.cdp` | `browser.cdp` |
+| `composer.appendDraft`, `composer.addSelection` | `ui.view` |
+
+`composer.appendDraft` types an explicit panel selection into the active
+Composer draft. `composer.addSelection` is the **Add to chat** contract the
+transcript, Files, and browser selections share: the host opens the comment
+editor for the excerpt and lists it above the Composer as a pending annotation
+(ADR response-annotations), so the draft is never written to. Its payload is
+`{ text, source }`, where `source` is
+`{ file: { path, startLine?, endLine? } }` or
+`{ element: { url, selector? } }`; an empty excerpt, an unknown source shape,
+or an unbounded one is refused with `INVALID_ARGUMENT`.
 
 `plugin.setSettings`, `fs.remove`, and arbitrary Electron IPC are not exposed. A
 channel the host does not implement itself is forwarded to the plugin's

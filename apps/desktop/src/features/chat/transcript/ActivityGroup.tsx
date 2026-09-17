@@ -147,6 +147,8 @@ export function runActivityLabel(
 type ActivityGroupProps = {
   items: ActivityItem[];
   isActive: boolean;
+  /** The owning assistant turn's lifecycle, distinct from this process part. */
+  turnActive?: boolean;
   endedAt?: string;
   /** Provider/model metadata for the assistant turn owning this activity. */
   providerId?: string;
@@ -183,6 +185,7 @@ function activityGroupPropsEqual(
     previous.providerId !== next.providerId ||
     previous.modelId !== next.modelId ||
     previous.isActive !== next.isActive ||
+    previous.turnActive !== next.turnActive ||
     previous.endedAt !== next.endedAt ||
     previous.embedded !== next.embedded ||
     previous.runtimeActivity !== next.runtimeActivity ||
@@ -209,6 +212,7 @@ function activityGroupPropsEqual(
 export const ActivityGroup = memo(function ActivityGroup({
   items,
   isActive,
+  turnActive = isActive,
   endedAt,
   providerId,
   modelId,
@@ -250,7 +254,7 @@ export const ActivityGroup = memo(function ActivityGroup({
     collapse: collapseDisclosure,
     claim: claimDisclosure,
     titleRef,
-  } = useAutomaticDisclosure(live, revealRequest);
+  } = useAutomaticDisclosure(live, revealRequest, turnActive === false);
   const [now, setNow] = useState(Date.now);
   const [finishedAt, setFinishedAt] = useState<number | null>(null);
   const wasActiveRef = useRef(live);
@@ -338,6 +342,7 @@ export const ActivityGroup = memo(function ActivityGroup({
             items={delegateItems}
             delegationStatuses={delegationStatuses}
             delegationTimings={delegationTimings}
+            turnActive={turnActive}
             onUserInteraction={claimDisclosure}
           />
         );
@@ -346,6 +351,7 @@ export const ActivityGroup = memo(function ActivityGroup({
         <Fragment key={item.message.id}>
           <ToolRow
             message={item.message}
+            turnActive={turnActive}
             onUserInteraction={claimDisclosure}
             {...(item.delegate ? { delegate: item.delegate } : {})}
           />
@@ -357,6 +363,7 @@ export const ActivityGroup = memo(function ActivityGroup({
           message={item.message}
           streaming={isActive && item.message.status === "streaming"}
           autoOpen={live && itemIndex === items.length - 1}
+          turnActive={turnActive}
           onUserInteraction={claimDisclosure}
           providerId={providerId}
           modelId={modelId}

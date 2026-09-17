@@ -21,6 +21,8 @@ const FILE_MANAGER = "resources/plugins/pi.file-manager";
 const manifest = JSON.parse(read(`${FILE_MANAGER}/manifest.json`));
 const view = read(`${FILE_MANAGER}/views/index.html`);
 const viewBundle = read(`${FILE_MANAGER}/views/assets/index.js`);
+const selectionActions = read(`${FILE_MANAGER}/views/selection-actions.js`);
+const browserPicker = read("electron/main/browser-element-picker.ts");
 const upstream = read(`${FILE_MANAGER}/UPSTREAM.md`);
 const panelSource = read("src/components/workpanel/WorkPanel.tsx");
 const hostProcessSource = read("electron/main/host-process.ts");
@@ -51,6 +53,11 @@ test("the file view is a sandboxed page over the public bridge", () => {
       `expected the view to call ${channel} over the bridge`,
     );
   }
+  // Add to chat opens the host's comment editor: the view sends the excerpt
+  // together with the file it came from instead of typing it into the draft.
+  assert.match(selectionActions, /composer\.addSelection/);
+  assert.match(selectionActions, /path: state\.path,/);
+  assert.match(selectionActions, /clipboard\.writeText/);
   assert.match(viewBundle, /pluginBridge/);
   // No Node, no Electron, no host internals: it is a sandboxed page.
   assert.doesNotMatch(view, /require\(|import\s+.*from\s+["']node:|ipcRenderer/);
@@ -76,6 +83,7 @@ test("the vendored copy stays traceable to its upstream release", () => {
     "README.md",
     "views/index.html",
     "views/assets/index.js",
+    "views/selection-actions.js",
   ]) {
     const hash = createHash("sha256")
       .update(readFileSync(resolve(`${FILE_MANAGER}/${file}`)))
@@ -125,6 +133,9 @@ test("Browser ships as an ordinary plugin over the public CDP API", () => {
   assert.match(browserMain, /pi\.browser\.(navigate|snapshot|cdp)/);
   assert.match(browserView, /pluginBridge/);
   assert.match(browserView, /browser\.setBounds/);
+  assert.match(browserView, /browser\.setElementPicker/);
+  assert.match(browserView, /browser\.getElementPicker/);
+  assert.match(browserPicker, /selection-quote/);
   assert.doesNotMatch(browserView, /require\(|ipcRenderer|webview/);
 });
 

@@ -379,6 +379,7 @@ test("persists retained project paths and per-project collapse state", () => {
 });
 
 test("clamps and persists the expanded sidebar width", () => {
+  assert.equal(SIDEBAR_WIDTH_MIN, 200);
   assert.equal(clampSidebarWidth(Number.NaN), SIDEBAR_WIDTH_DEFAULT);
   assert.equal(clampSidebarWidth(SIDEBAR_WIDTH_MIN - 1), SIDEBAR_WIDTH_MIN);
   assert.equal(clampSidebarWidth(312.4), 312);

@@ -1,32 +1,34 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type AnimationEvent as ReactAnimationEvent } from "react";
-import { useTranslation } from "react-i18next";
 import {
-  KEYBOARD_SHORTCUTS,
+  type AppMenuCommand,
   isActiveInProject,
   isThemeColorScheme,
+  KEYBOARD_SHORTCUTS,
+  type KeyboardShortcutId,
   keybindingDisplayParts,
   keybindingMatchesEvent,
   resolveFontScale,
   resolveKeybinding,
-  type AppMenuCommand,
-  type KeyboardShortcutId,
   type ShortcutPlatform,
 } from "@pi-desktop/shared";
-import { useAppStore } from "../../stores/app-store";
-import { api } from "../../lib/api";
+import { type AnimationEvent as ReactAnimationEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { installRendererApi } from "../../capture/renderer-api";
-import { commitWorkPanelPresentation } from "../../lib/work-panel-presentation";
-import { browserPluginTab } from "../../lib/work-panel-tabs";
-import {
-  MAIN_PANE_MIN_WIDTH,
-  workPanelWidthForSidebarReopen,
-} from "../../lib/work-panel-resize";
+import { StartupSplash } from "../../components/StartupSplash";
+import { api } from "../../lib/api";
 import {
   clampSidebarWidth,
   loadSidebarWidth,
   saveSidebarWidth,
 } from "../../lib/sidebar-preferences";
-import { StartupSplash } from "../../components/StartupSplash";
+import { commitWorkPanelPresentation } from "../../lib/work-panel-presentation";
+import {
+  MAIN_PANE_MIN_WIDTH,
+  workPanelFocusLayout,
+  workPanelLayout,
+  workPanelWidthForSidebarReopen,
+} from "../../lib/work-panel-resize";
+import { browserPluginTab } from "../../lib/work-panel-tabs";
+import { useAppStore } from "../../stores/app-store";
 
 const MODIFIER_ONLY_KEYS = new Set([
   "Alt",
@@ -77,7 +79,6 @@ export function useAppShellRuntime() {
   const workPanelWidthRef = useRef(workPanelWidth);
   const workPanelOpenRef = useRef(workPanelVisible);
   const workPanelMaximizedRef = useRef(false);
-  const autoCollapsedSidebarRef = useRef(false);
   sidebarCollapsedRef.current = sidebarCollapsed;
   sidebarWidthRef.current = sidebarWidth;
   shellWidthRef.current = shellWidth;
@@ -126,27 +127,16 @@ export function useAppShellRuntime() {
       });
       useAppStore.getState().setWorkPanelWidth(nextPanelWidth);
     }
-    autoCollapsedSidebarRef.current = false;
     setSidebarCollapsed(false);
   }, []);
 
   // Stable identity: the keydown and native-menu handlers register once and
-  // must never capture a stale `sidebarCollapsed`. Every invocation is a user
-  // action, so it clears an automatic-collapse record before toggling.
+  // must never capture a stale `sidebarCollapsed`.
   const toggleSidebar = useCallback(() => {
-    autoCollapsedSidebarRef.current = false;
     if (sidebarCollapsedRef.current) reopenSidebar();
     else setSidebarCollapsed(true);
   }, [reopenSidebar]);
 
-  // The layout, not the user, yields the sidebar when the panel would push
-  // MainChat under its floor. The record is remembered only until the panel
-  // closes.
-  const autoCollapseSidebar = useCallback(() => {
-    if (sidebarCollapsedRef.current) return;
-    autoCollapsedSidebarRef.current = true;
-    setSidebarCollapsed(true);
-  }, []);
   // Keep the exit flag in sync with the collapsed state so collapsing plays
   // the sidebar-out keyframe and expanding cancels it (mirrors the work-panel
   // mount-then-animate-then-unmount machine).
@@ -176,7 +166,11 @@ export function useAppShellRuntime() {
   }, [sidebarExiting]);
   const [presentedWorkPanelOpen, setPresentedWorkPanelOpen] = useState(false);
   const [workPanelMaximized, setWorkPanelMaximized] = useState(false);
+  const [workPanelSwapped, setWorkPanelSwapped] = useState(false);
+  const [workPanelSwapWidth, setWorkPanelSwapWidth] = useState<number | null>(null);
   const [workPanelExiting, setWorkPanelExiting] = useState(false);
+  const workPanelSwappedRef = useRef(false);
+  workPanelSwappedRef.current = workPanelSwapped;
   workPanelMaximizedRef.current = workPanelMaximized;
   const workPanelReservationRequest = useRef(0);
   const workPanelExitGeneration = useRef(0);
@@ -230,6 +224,14 @@ export function useAppShellRuntime() {
   }, [page, workPanelMaximized]);
 
   useEffect(() => {
+    if (page !== "chat") {
+      workPanelSwappedRef.current = false;
+      setWorkPanelSwapped(false);
+      setWorkPanelSwapWidth(null);
+    }
+  }, [page]);
+
+  useEffect(() => {
     workPanelExitingRef.current = workPanelExiting;
   }, [workPanelExiting]);
 
@@ -239,6 +241,34 @@ export function useAppShellRuntime() {
   const toggleWorkPanelMaximize = useCallback(() => {
     setWorkPanelMaximized((current) => !current);
   }, []);
+
+  const getWorkPanelDefaultLayout = useCallback(() => {
+    const sidebarIsVisible = !sidebarCollapsedRef.current;
+    const clientWidth =
+      appShellRef.current?.clientWidth ||
+      shellWidthRef.current ||
+      workPanelWidthRef.current +
+        (sidebarIsVisible ? sidebarWidthRef.current : 0) +
+        MAIN_PANE_MIN_WIDTH;
+    return workPanelLayout({
+      containerWidth: clientWidth,
+      sidebarWidth: sidebarWidthRef.current,
+      sidebarCollapsed: !sidebarIsVisible,
+      requestedPanelWidth: workPanelWidthRef.current,
+    });
+  }, []);
+
+  // The swap is a transient presentation choice: it lets users put the active
+  // work surface first and exchange the two panes' current widths without
+  // changing the retained panel context or default width preference.
+  const toggleWorkPanelSwap = useCallback(() => {
+    if (!presentedWorkPanelRef.current || workPanelExitingRef.current) return;
+    const nextSwapped = !workPanelSwappedRef.current;
+    if (nextSwapped) setWorkPanelSwapWidth(getWorkPanelDefaultLayout().mainWidth);
+    else setWorkPanelSwapWidth(null);
+    workPanelSwappedRef.current = nextSwapped;
+    setWorkPanelSwapped(nextSwapped);
+  }, [getWorkPanelDefaultLayout]);
 
   const togglePresentedWorkPanel = useCallback(() => {
     const store = useAppStore.getState();
@@ -280,13 +310,12 @@ export function useAppShellRuntime() {
       commit: () => {
         setPresentedWorkPanelOpen(false);
         setWorkPanelMaximized(false);
+        setWorkPanelSwapWidth(null);
+        workPanelSwappedRef.current = false;
+        setWorkPanelSwapped(false);
         setWorkPanelExiting(false);
         workPanelExitingRef.current = false;
         workPanelExitClosing.current = false;
-        if (autoCollapsedSidebarRef.current) {
-          autoCollapsedSidebarRef.current = false;
-          setSidebarCollapsed(false);
-        }
       },
     }).then((committed) => {
       // Reservation failed or was superseded — allow a later exit retry.
@@ -344,22 +373,8 @@ export function useAppShellRuntime() {
     return () => window.clearTimeout(timer);
   }, [workPanelExiting, finishWorkPanelExit]);
 
-  // If the panel disappears without an exit commit (the active session closed
-  // it, or the route changed), restore a sidebar this layout mechanism
-  // collapsed — but never one the user collapsed manually.
-  const previousWorkPanelOpen = useRef(workPanelVisible);
   useEffect(() => {
-    if (
-      previousWorkPanelOpen.current &&
-      !workPanelVisible &&
-      !presentedWorkPanelRef.current &&
-      autoCollapsedSidebarRef.current
-    ) {
-      autoCollapsedSidebarRef.current = false;
-      setSidebarCollapsed(false);
-    }
     if (!workPanelVisible) setWorkPanelMaximized(false);
-    previousWorkPanelOpen.current = workPanelVisible;
   }, [workPanelVisible]);
 
   const runMenuCommand = useCallback(
@@ -562,6 +577,27 @@ export function useAppShellRuntime() {
     const offPlansChanged = api.onPlansChanged(handlePlansChanged);
     // Host-pushed toasts (plugin runtime etc.) are informational.
     const offToast = api.onToast((message) => showToast(message));
+    const offComposerPrefill = api.onComposerPrefill(({ text }) => {
+      if (typeof text === "string" && text.trim()) {
+        useAppStore.getState().appendComposerDraftText(text);
+      }
+    });
+    // A file or browser selection is a pending comment, not draft text, and it
+    // lists above the composer the same way a transcript selection does. The
+    // panel's own pill collected the comment beside the selection, so the
+    // excerpt is attached outright; an excerpt sent without one still gets the
+    // renderer's editor.
+    const offComposerSelection = api.onComposerSelection(
+      ({ text, source, comment }) => {
+        if (typeof text !== "string" || !text.trim() || !source) return;
+        const store = useAppStore.getState();
+        if (typeof comment === "string") {
+          store.addResponseAnnotation({ messageId: "", text, comment, source });
+          return;
+        }
+        store.openResponseAnnotationEditor({ messageId: "", text, source });
+      },
+    );
     // Agent-driven HTML preview: surface the browser tab when the agent
     // opens a workspace file in the embedded browser (BrowserPreview tool).
     const offBrowserPreview = api.onBrowserPreview((event) => {
@@ -753,6 +789,8 @@ export function useAppShellRuntime() {
       offQueueChanged();
       offPlansChanged();
       offToast();
+      offComposerPrefill();
+      offComposerSelection();
       offBrowserPreview();
       offHostStatus();
       offNotificationChanged();
@@ -848,6 +886,27 @@ export function useAppShellRuntime() {
     ? `${workPanelToggleLabel} ${workPanelToggleShortcut}`
     : workPanelToggleLabel;
 
+  const sidebarIsVisible = !sidebarCollapsed || sidebarExiting;
+  const workPanelClientWidth =
+    shellWidth > 0
+      ? shellWidth
+      : workPanelWidth +
+        (sidebarIsVisible ? sidebarWidth : 0) +
+        MAIN_PANE_MIN_WIDTH;
+  const defaultWorkPanelLayout = workPanelLayout({
+    containerWidth: workPanelClientWidth,
+    sidebarWidth,
+    sidebarCollapsed: !sidebarIsVisible,
+    requestedPanelWidth: workPanelWidth,
+  });
+  const focusWorkPanelLayout = workPanelFocusLayout({
+    containerWidth: workPanelClientWidth,
+    sidebarWidth,
+    sidebarCollapsed: !sidebarIsVisible,
+    requestedPanelWidth: workPanelSwapWidth ?? defaultWorkPanelLayout.mainWidth,
+  });
+  const workPanelChatWidth =
+    workPanelSwapped && !workPanelMaximized ? focusWorkPanelLayout.chatWidth : 0;
 
   return {
     t,
@@ -868,7 +927,6 @@ export function useAppShellRuntime() {
     handleSidebarWidthCommit,
     toggleSidebar,
     reopenSidebar,
-    autoCollapseSidebar,
     appShellRef,
     shellWidth,
     workPanelWidth,
@@ -881,6 +939,11 @@ export function useAppShellRuntime() {
     togglePresentedWorkPanel,
     workPanelMaximized,
     toggleWorkPanelMaximize,
+    workPanelSwapped,
+    toggleWorkPanelSwap,
+    workPanelSwapWidth,
+    setWorkPanelSwapWidth,
+    workPanelChatWidth,
     backendDown,
     archMismatch,
     setArchMismatch,

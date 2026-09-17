@@ -36,20 +36,20 @@ MainChat to its floor while the expanded sidebar kept its full width.
    reaches its floor. The shared renderer budget function is used by pointer
    preview, keyboard resize, panel presentation, sidebar changes and shell
    resize observation.
-2. When the expanded sidebar would make MainChat reach the 450px floor, the
-   renderer immediately collapses the sidebar through the existing mounted
-   `sidebar-out` animation. While that animation still occupies flex space, the
-   shared budget continues to count the sidebar so MainChat stays at or above
-   450px. The preferred work-panel width remains the user's persisted target, so
-   the panel can continue growing after the sidebar has yielded.
+2. When the requested work-panel width would make MainChat reach the 450px
+   floor, the renderer caps the panel at the remaining shared budget. The
+   expanded sidebar remains in the user-selected state; opening, resizing, and
+   closing the panel never collapse or restore it automatically. While a
+   manually collapsed sidebar still occupies flex space during its mounted
+   `sidebar-out` animation, the shared budget continues to count it so MainChat
+   stays at or above 450px.
 3. A manual sidebar reopen spends work-panel width first. It preserves the
    current MainChat width where possible; if the 450px floor would be crossed,
    it targets `460px`. This reopen path may persist a positive compact panel
    width below the ordinary `244px` presentation minimum.
-4. Automatic sidebar collapse is remembered only until the work panel closes.
-   Closing the panel restores a sidebar collapsed by the layout mechanism.
-   Manual sidebar collapse, manual reopen and a subsequent manual collapse clear
-   that record.
+4. Sidebar presence is changed only by an explicit user action. Manual sidebar
+   collapse and reopen remain independent from work-panel presentation, and
+   closing the panel preserves the user's last sidebar state.
 5. The window itself stays fixed. No panel action requests a positive native
    reservation: the renderer keeps `window/setWorkPanelReservation` at zero and
    Main normalizes every valid request to `{ requested: 0, reserved: 0 }`
@@ -68,13 +68,23 @@ MainChat to its floor while the expanded sidebar kept its full width.
    46px chrome row with New Task, sidebar, and native window controls.
    Collapsed-sidebar preview reserves 76px on the left for macOS traffic lights
    in windowed mode and 8px in fullscreen.
+7. Content-focus swap uses a separate secondary-chat floor of `320px`. The
+   work panel is capped against that floor while the panel remains the primary
+   content surface; at the normal 1200px client profile, the exchanged Chat
+   column remains the default `360px`. This floor applies only while the panel
+   is swapped to the left and does not change the regular panel minimum or the
+   persisted preferred width.
 
 ## Consequences
 
 - MainChat cannot be compressed below 450px by any supported shell width
-  change; the sidebar is the column that yields.
+  change; the work panel is the column that yields before changing the
+  user-controlled sidebar state.
 - A constrained window shows a narrower work panel during the current layout,
   while the persisted preferred width remains available when space returns.
+- Content-focus keeps the secondary Chat column usable at narrow supported
+  widths by reserving 320px before growing the left-docked work panel; the
+  panel's header reclaims its unused trailing safe lane in that mode.
 - The composer toolbar now handles widths between 450px and its comfortable
   layout instead of relying on a 515px reservation, so its control groups
   ellipsize or reflow below that width.
@@ -86,16 +96,15 @@ MainChat to its floor while the expanded sidebar kept its full width.
 ### Keep the 515px chat reservation of ADR 0226
 
 Rejected because it leaves side-dock priority implicit and cannot satisfy the
-450px hard floor with automatic sidebar-yield behaviour, which is what keeps
-MainChat usable in the fixed window.
+450px hard floor while keeping the sidebar state user-controlled. Capping the
+panel at the live budget keeps MainChat usable in the fixed window.
 
 ### Let the sidebar resize continuously to preserve every column
 
-Rejected for automatic window-pressure behavior because the sidebar remains a
-discrete expanded/collapsed column and its user-selected preferred width is not
-silently mutated by layout pressure. Explicit user resizing is restored by
-ADR 0267; the MainChat floor and automatic yield rules in this ADR remain in
-force.
+Rejected because the sidebar remains a discrete expanded/collapsed column and
+its user-selected state should not change as a side effect of work-panel
+pressure. Explicit user resizing is restored by ADR 0267; the MainChat floor
+and panel budget remain in force.
 
 ### Mirror the committed panel width into native window bounds
 

@@ -553,6 +553,14 @@ is preserved. Manual renaming remains available from Edit project.
 - Transcript reconciliation keeps completed history in a memoized history boundary;
   token updates do not reconcile each historical row in React while preserving
   the full history for selection, copying, minimap anchors, and accessibility.
+- Assistant Markdown output responds to the transcript pane's own width, not
+  only to the application viewport. In a narrow side chat, prose and lists
+  reflow within the assistant column; code blocks, tables, and wide media stay
+  bounded by that column and use local overflow or scrolling. The body type
+  scale remains readable, and the same message renderer is used in MainChat and
+  SideChat. The auxiliary conversation minimap follows that same container
+  width: it keeps a leading safe zone at 441px–560px and hides at 440px or
+  below, so it never overlays or steals the AI output reading area.
 - Within the active assistant turn, unchanged activity groups without Task
   delegations also keep their memoized boundary across text updates. Changed
   tool messages still render, and Task groups still receive later lifecycle
@@ -778,10 +786,12 @@ is preserved. Manual renaming remains available from Edit project.
 - While the process phase is active, its disclosure opens automatically so the
   narration and activity list are visible, but tool-call details remain
   collapsed by default. The latest thinking row opens automatically while it
-  streams. When the answer phase begins or the activity settles, automatic
-  process and thinking disclosures close. A click or keyboard activation on a
-  group, row, or collapse rail makes that disclosure user-owned; stream updates
-  and completion never override it.
+  streams. When the answer phase begins, the process disclosure remains open
+  while the final answer streams; once the whole turn settles, automatic
+  process, thinking, and tool-detail disclosures reset to collapsed, even when
+  the user opened one during the turn. A click or keyboard activation on a
+  group, row, or collapse rail keeps that disclosure's state through active-turn
+  stream updates; completion still performs the single automatic reset.
 - A failed row is invocation-local truth and remains visible immediately. The
   containing group reports processing duration only and settles as processed,
   even when a later call recovers. Terminal turn failure is derived only from
@@ -1014,8 +1024,9 @@ Running turns and pending approvals continue to gate the controls.
   including a whole formula. Add to chat writes a composer draft and focuses the
   composer; Ask in side chat prefills a blockquote in the side chat anchored at that
   row; neither sends into the conversation being read. On an assistant turn, Add
-  to chat opens the annotation comment editor instead of writing draft text
-  (D-LOCAL-response-annotations): the editor snapshots the excerpt, Save attaches one annotation to the
+  to chat turns the pill itself into a comment input anchored above the passage
+  instead of writing draft text (D-LOCAL-response-annotations): the excerpt is
+  snapshotted before the selection collapses, Save attaches one annotation to the
   session's floating index, and the next send carries the excerpts as numbered prompt
   data (see §7.5a).
 - Selection rules must not disable `focus-visible` feedback or native window
@@ -1024,13 +1035,18 @@ Running turns and pending approvals continue to gate the controls.
 ### 7.5a Annotations
 
 - An annotation belongs to an **assistant turn**, never to the user's own
-  message: annotating is a response concept (D-LOCAL-response-annotations). Selecting text inside a
-  response, or activating the turn's annotate action, opens a compact comment
-  editor on a snapshot of the excerpt; **Save** attaches one numbered annotation
+  message: annotating is a response concept (D-LOCAL-response-annotations).
+  Selecting text inside a response fills the comment input in the selection pill
+  itself, anchored above the passage it quotes; a file or browser selection does
+  the same in the surface it came from — inside the plugin page or the preview
+  document where that pill already lives. The turn's annotate action, and an
+  excerpt a surface sent without a comment, opens the compact window-centred
+  editor instead. Either way the comment is written on a snapshot of the excerpt;
+  **Save** attaches one numbered annotation
   with the optional comment; **Enter** in the comment textarea does the same,
   while **Shift+Enter** keeps native multiline input and IME confirmation Enter
   never saves. **Cancel** and **Escape** discard it. Saving
-  the editor sends nothing, and an excerpt that is already attached reopens its
+  the comment sends nothing, and an excerpt that is already attached reopens its
   own annotation for editing instead of adding a second one (same row and selected
   offsets; repeated phrases elsewhere remain separate under ADR floating-annotation-index). The annotation does
   not edit the response: the answer gains a numbered reference only where the
@@ -1038,7 +1054,9 @@ Running turns and pending approvals continue to gate the controls.
   is a tooltip target, not selectable text.
 - Annotations are session state that lives exactly as long as the send that
   carries them. They are numbered in attachment order, listed in a collapsible
-  floating index above the composer with matching out-of-flow source badges
+  floating index above the composer — collapsed to a one-line count capsule
+  until the user opens it, never opened by a save — with matching out-of-flow
+  source badges
   (ADR floating-annotation-index). Locate releases follow mode and reveals/highlights the source;
   edit opens the existing comment editor. All saved exact ranges stay highlighted
   without selecting an item; collapsing or selecting another item retains every
@@ -1080,8 +1098,8 @@ Work-panel and application-window resizing are implemented in MVP:
 - The 10px inner left-edge separator anchors to the press position and
   starting panel width, then follows pointer delta without jumping. Moving it
   left grows the panel until the shared budget is exhausted; when MainChat
-  reaches its 450px minimum the expanded sidebar collapses immediately. Moving
-  it right gives space back to MainChat.
+  reaches its 450px minimum the panel caps and the expanded sidebar remains in
+  its user-selected state. Moving it right gives space back to MainChat.
 - The inner divider's target clamps to the shared three-column budget
   (`client width - 450px - expanded sidebar`, with no fixed pixel cap); pointer movement is
   frame-coalesced and release commits the preferred width. Escape, pointer
@@ -1091,10 +1109,10 @@ Work-panel and application-window resizing are implemented in MVP:
   inside the existing client area without crossing its 450px minimum instead of
   changing width before the first motion frame. While `sidebar-out` still
   occupies flex space, the shared budget continues to count the sidebar.
-- Reopening a sidebar the layout collapsed spends work-panel width first: the
+- Reopening a manually collapsed sidebar spends work-panel width first: the
   panel keeps its width while MainChat stays at or above 450px, and otherwise
-  the reopen targets 460px. Closing the panel restores only a sidebar the
-  layout collapsed; a manual collapse stays collapsed.
+  the reopen targets 460px. Closing the panel never changes the user's sidebar
+  state.
 - No panel action requests a positive native reservation: the preferred panel
   width is renderer-local, the native seam stays at zero, and native window
   edges resize only the fixed app window. Background-session artifacts never
@@ -1110,10 +1128,13 @@ Work-panel and application-window resizing are implemented in MVP:
   panel header reserves the 76px windowed (8px fullscreen) traffic-light inset,
   the preview action lane, and an 8px gap before its first tab.
 
-The expanded sidebar defaults to 275px and can be resized from 240px to 520px
+The expanded sidebar defaults to 275px and can be resized from 200px to 520px
 with its right-edge handle. Collapse/open changes only whether the column is
 present; the preferred expanded width is retained independently from the
-collapsed icon rail.
+collapsed icon rail. The handle paints a full-height 1px
+`--ds-border-default` divider at rest and promotes to a 2px `--ds-focus`
+divider on direct hover, focus, or active resize; hovering the sidebar body
+alone does not promote it.
 
 Project ordering is implemented for retained project groups. There is no
 reorder grip. Pressing the project title and moving 8px starts a project drag,
@@ -1297,6 +1318,63 @@ Project drag/drop follows these patterns:
   continuation, which keeps the menu open on the deeper query).
 - Focus stays in the textarea for the menu's whole lifecycle (input-retained
   overlay); the menu is never a focus trap and never steals the caret.
+
+## 8b. Workspace file selection
+
+The host Files viewer supports the same selection affordance as Chat for
+readable file content. This is a draft action, not a second send path.
+
+- **Selection scope**: only a non-empty selection whose start and end are both
+  inside the visible file body is eligible. Plain text, highlighted code, and
+  rendered Markdown use the same browser selection; code lines expose their
+  source line numbers so the action can report the selected range.
+- **Floating action**: while the selection is active, a body-portaled pill is
+  positioned above the visible selection and clamped to the file viewer's
+  scroll bounds. It uses the Chat selection pill styling and offers `Add to
+  chat` plus `Copy`. Clicking elsewhere dismisses it; either action consumes
+  the current selection. Copy copies exactly the selected visible text.
+- **Add to chat**: when an active session and a workspace-relative path are
+  available, the action appends ordinary editable text to the active Composer.
+  The draft contains the selected text in a length-bounded fenced block,
+  relative file path, an `@path` location, and the available one-based line
+  range. Existing draft text remains before the excerpt, and no prompt is
+  sent until the user explicitly submits the Composer.
+- **Guardrails**: the viewer never reads the whole file again for this action.
+  Attachment, absolute/external, image, binary, oversized, missing, or
+  failed-to-read content cannot be added to chat. A selection longer than the
+  bounded excerpt is clipped and marked in the draft; fences grow when the
+  selected content contains backticks.
+- **Focus and lifecycle**: adding a selection returns focus to the Composer;
+  changing files, changing workspace/session, leaving the Files tab, or
+  clearing the browser selection removes the pill. The existing file viewer
+  remains read-only and its filesystem ownership does not change.
+
+## 8c. Browser element annotation
+
+The bundled Browser view exposes an explicit element-annotation mode for adding
+page context to the current Composer draft.
+
+- **Mode and highlight**: clicking the Browser toolbar's selection button
+  enters a host-controlled picker. Hovering outlines the DOM element under the
+  pointer; clicking it prevents the page action and keeps the selected box
+  highlighted until the action is chosen. Dragging a text range is also
+  captured, without activating the page. Escape exits the mode.
+- **Floating action**: a selected element or text range shows the same
+  `selection-quote` action pattern as Chat and Files: `Add to chat` and `Copy`.
+  Clicking outside the pill dismisses the current selection; Escape exits
+  selection mode. The action surface is injected into the native Browser guest
+  because that surface composites above the renderer.
+- **Add to chat**: the host appends ordinary editable text through the existing
+  Composer prefill path. Element context includes the URL/title, element
+  identity and accessible name, visible text, a sanitized outer-HTML excerpt,
+  a selector hint, and key computed styles. Text-range context includes the
+  URL/title and the selected text. Page content is delimited as untrusted data
+  and no prompt is sent until the user submits the Composer.
+- **Guardrails**: input, textarea, and select values are removed from the HTML
+  excerpt; all returned fields are length-bounded by the host. The guest gets
+  no renderer, filesystem, or arbitrary IPC capability. Copy is performed by
+  the host clipboard service. Normal Browser navigation resumes when the mode
+  is exited.
 
 ## 9. Scroll behavior
 
@@ -1557,8 +1635,8 @@ This does not prevent state changes — it makes them instant.
     solely because the current assistant message appended content
 21. The work panel opens and collapses inside the fixed client area; the inner
     divider follows the shared budget while MainChat keeps its 450px minimum,
-    the expanded sidebar yields at the threshold and returns when the panel
-    closes, and divider cancellation restores the prior panel width
+    the panel caps at the threshold without changing the user's sidebar state,
+    and divider cancellation restores the prior panel width
     (ADR 0033 / ADR 0151 / ADR 0238)
 
 ### Side-chat draft lifecycle (Issue #421)

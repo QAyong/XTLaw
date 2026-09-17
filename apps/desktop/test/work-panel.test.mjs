@@ -7,12 +7,18 @@ import { readMainSource } from "./helpers/main-source.mjs";
 import { readStoreSource } from "./helpers/store-source.mjs";
 import { readTranscriptSource } from "./helpers/transcript-source.mjs";
 import {
+  CONTENT_FOCUS_CHAT_MIN_WIDTH,
   MAIN_PANE_MIN_WIDTH,
   WORK_PANEL_DEFAULT_WIDTH,
   WORK_PANEL_MIN_WIDTH,
+  workPanelFocusLayout,
 } from "../src/lib/work-panel-resize.ts";
 const appSource = await readAppSource();
 const mainSource = await readMainSource();
+const iconSource = await readFile(
+  new URL("../src/components/icons.tsx", import.meta.url),
+  "utf8",
+);
 const apiSource = await readFile(
   new URL("../src/lib/api.ts", import.meta.url),
   "utf8",
@@ -108,6 +114,11 @@ test("a viewport-fixed toggle is the sole pointer collapse control", () => {
   );
 });
 
+test("the content-focus control uses opposing horizontal arrows", () => {
+  assert.match(iconSource, /export const IconPanelSwap = icon\(ArrowLeftRight\)/);
+  assert.doesNotMatch(iconSource, /PanelLeftRightDashed/);
+});
+
 test("the work panel shortcut closes the panel it opened", () => {
   assert.match(storeSource, /toggleWorkPanel:\s*\(\) => \{/);
   const toggleBody = storeSource.slice(
@@ -155,8 +166,8 @@ test("work panel uses the fixed-window internal dock", () => {
   assert.match(panelSource, /exitAnimationReady && "is-exiting"/);
   assert.match(panelSource, /if \(!exitAnimationReady\) return/);
   assert.match(panelSource, /animationName\.startsWith\("work-panel-out"\)/);
-  assert.match(panelSource, /const renderPanelWidth = layout\.panelWidth/);
-  assert.match(panelSource, /setWidth\(drag\.currentWidth\)/);
+  assert.match(panelSource, /const renderPanelWidth = presentationLayout\.panelWidth/);
+  assert.match(panelSource, /commitPanelWidth\(drag\.currentWidth\)/);
   // The panel remains a fixed-width in-flow shell sibling; its flex allocation
   // is animated with the dock so the main pane does not jump before motion.
   assert.match(globalStyles, /\.work-panel \{[^}]*flex: 0 0 var\(--work-panel-width\)/s);
@@ -243,6 +254,22 @@ test("work panel header exposes a scrollable tab strip and direct new-page actio
   );
 });
 
+test("blank work panel header space falls through to the native drag region", () => {
+  assert.match(
+    panelSource,
+    /className="work-panel-header-drag-region" aria-hidden="true" \/>/,
+  );
+  assert.doesNotMatch(panelSource, /className="work-panel-tab-strip-wrap no-drag"/);
+  assert.match(
+    globalStyles,
+    /\.work-panel-tab-strip-wrap \{[^}]*pointer-events:\s*none;/s,
+  );
+  assert.match(
+    globalStyles,
+    /\.work-panel-tab \{[^}]*pointer-events:\s*auto;[^}]*-webkit-app-region:\s*no-drag;[^}]*app-region:\s*no-drag;/s,
+  );
+});
+
 test("plus creates a blank page and launcher rows open tools in that page", () => {
   assert.match(panelSource, /openNewWorkPanelTab/);
   assert.match(panelSource, /activeTab\?\.kind === "new"/);
@@ -282,10 +309,14 @@ test("closing the final tab keeps the panel open for the New launcher", () => {
 test("work panel width is renderer-owned inside the fixed window", () => {
   assert.equal(MAIN_PANE_MIN_WIDTH, 450);
   assert.equal(WORK_PANEL_DEFAULT_WIDTH, 360);
+  assert.equal(CONTENT_FOCUS_CHAT_MIN_WIDTH, 320);
   assert.equal(WORK_PANEL_MIN_WIDTH, 244);
-  assert.match(panelSource, /const renderPanelWidth = layout\.panelWidth/);
-  assert.match(panelSource, /setWidth\(drag\.currentWidth\)/);
-  assert.match(panelSource, /startWidth \+ drag\.startClientX - event\.clientX/);
+  assert.match(panelSource, /const renderPanelWidth = presentationLayout\.panelWidth/);
+  assert.match(panelSource, /commitPanelWidth\(drag\.currentWidth\)/);
+  assert.match(
+    panelSource,
+    /const delta = swapped[\s\S]*?event\.clientX - drag\.startClientX[\s\S]*?drag\.startClientX - event\.clientX[\s\S]*?drag\.startWidth \+ delta/s,
+  );
   assert.doesNotMatch(panelSource, /api\.setWorkPanelChatWidth/);
   assert.doesNotMatch(panelSource, /api\.onWorkPanelResize/);
   assert.doesNotMatch(panelSource, /\.sidebar, \.sidebar-rail/);
@@ -338,7 +369,7 @@ test("work panel keeps its compatibility IPC seams without native geometry", () 
 test("native window edges never own the internal panel width", () => {
   assert.doesNotMatch(panelSource, /onWorkPanelResize/);
   assert.doesNotMatch(panelSource, /setWorkPanelChatWidth/);
-  assert.match(panelSource, /setWidth\(drag\.currentWidth\)/);
+  assert.match(panelSource, /commitPanelWidth\(drag\.currentWidth\)/);
   assert.match(mainSource, /resizable:\s*true/);
   const reservationHandler = mainSource.slice(
     mainSource.indexOf("IPC.invoke.windowSetWorkPanelReservation"),
@@ -351,17 +382,20 @@ test("native window edges never own the internal panel width", () => {
 test("work panel separator exposes internal panel width resizing", () => {
   assert.match(panelSource, /role="separator"/);
   assert.match(panelSource, /aria-label=\{t\("panel\.resize"\)\}/);
-  assert.match(panelSource, /aria-valuemin=\{Math\.min\(/);
-  assert.match(panelSource, /aria-valuemax=\{Math\.max\(/);
+  assert.match(panelSource, /aria-valuemin=\{presentationPanelMinimum\}/);
+  assert.match(panelSource, /aria-valuemax=\{presentationPanelMaximum\}/);
   assert.match(panelSource, /aria-valuenow=\{Math\.round\(panelDragWidth \?\? renderPanelWidth\)\}/);
   assert.match(panelSource, /tabIndex=\{0\}/);
   assert.match(panelSource, /startClientX:\s*event\.clientX/);
   assert.match(panelSource, /startWidth/);
-  assert.match(panelSource, /startWidth \+ drag\.startClientX - event\.clientX/);
+  assert.match(
+    panelSource,
+    /const delta = swapped[\s\S]*?event\.clientX - drag\.startClientX[\s\S]*?drag\.startClientX - event\.clientX[\s\S]*?drag\.startWidth \+ delta/s,
+  );
   assert.match(panelSource, /onPointerDown=\{onPanelResizeStart\}/);
   assert.match(panelSource, /requestAnimationFrame/);
-  assert.match(panelSource, /event\.key === "ArrowLeft"/);
-  assert.match(panelSource, /event\.key === "ArrowRight"/);
+  assert.match(panelSource, /const growsToward = swapped \? "ArrowRight" : "ArrowLeft"/);
+  assert.match(panelSource, /const shrinksToward = swapped \? "ArrowLeft" : "ArrowRight"/);
   assert.match(panelSource, /event\.key === "Escape" && drag/);
   assert.match(panelSource, /onPointerUp=\{onPanelResizeCommit\}/);
   assert.match(panelSource, /onPointerCancel=\{onPanelResizeCancel\}/);
@@ -372,10 +406,22 @@ test("work panel separator exposes internal panel width resizing", () => {
   const resizeDivider =
     globalStyles.match(/\.work-panel-resize::after\s*\{[^}]*\}/s)?.[0] ?? "";
   assert.match(resizeDivider, /width:\s*1px/);
+  assert.match(resizeDivider, /left:\s*5px/);
   assert.match(resizeDivider, /background:\s*var\(--ds-border-default\)/);
+  assert.match(resizeDivider, /transform:\s*none/);
   assert.match(
     globalStyles,
-    /\.work-panel-resize:hover::after,[\s\S]*?background:\s*var\(--ds-focus\)/,
+    /\.app-shell\.work-panel-swapped \.work-panel-resize::after\s*\{[^}]*right:\s*5px;[^}]*left:\s*auto;/,
+  );
+  const interactiveDivider = globalStyles.match(
+    /\.work-panel-resize:hover::after,[\s\S]*?\.work-panel\[data-resizing="true"\] \.work-panel-resize::after\s*\{[^}]*\}/,
+  )?.[0];
+  assert.ok(interactiveDivider);
+  assert.match(interactiveDivider, /width:\s*2px/);
+  assert.match(interactiveDivider, /background:\s*var\(--ds-focus\)/);
+  assert.match(
+    globalStyles,
+    /\.app-shell\.work-panel-swapped \.work-panel-resize:hover::after,[\s\S]*?right:\s*4px;[^}]*left:\s*auto;/,
   );
   assert.match(globalStyles, /touch-action:\s*none/);
   assert.match(globalStyles, /\.work-panel-resize:focus-visible/);
@@ -541,7 +587,7 @@ test("work panel empty states match the app's other empty-state proportions", ()
 
 test("the shell budgets the three columns inside the fixed client area", () => {
   // MainChat is the first-priority column: the panel is capped by the shared
-  // budget and the expanded sidebar is the column that yields.
+  // budget before the user-controlled expanded sidebar changes state.
   assert.equal(MAIN_PANE_MIN_WIDTH, 450);
   assert.match(
     globalStyles,
@@ -551,11 +597,11 @@ test("the shell budgets the three columns inside the fixed client area", () => {
     globalStyles,
     /\.chat-surface,[\s\S]*?\.route-page \{[^}]*min-width:\s*var\(--ds-main-pane-min-width, 450px\);/s,
   );
-  assert.match(panelSource, /const renderPanelWidth = layout\.panelWidth/);
-  assert.match(panelSource, /maxWidth: layout\.maxPanelWidth/);
+  assert.match(panelSource, /const renderPanelWidth = presentationLayout\.panelWidth/);
+  assert.match(panelSource, /maxWidth: presentationPanelMaximum/);
   assert.match(panelSource, /sidebarOccupiesBudget = !sidebarCollapsed \|\| sidebarExiting/);
-  assert.match(panelSource, /layout\.shouldCollapseSidebar\) onAutoCollapseSidebar/);
-  assert.match(appSource, /onAutoCollapseSidebar=\{autoCollapseSidebar\}/);
+  assert.doesNotMatch(panelSource, /shouldCollapseSidebar|onAutoCollapseSidebar/);
+  assert.doesNotMatch(appSource, /autoCollapseSidebar|onAutoCollapseSidebar/);
   assert.match(appSource, /containerWidth=\{shellWidth\}/);
   assert.match(appSource, /sidebarExiting=\{sidebarExiting\}/);
   assert.match(appSource, /workPanelWidthForSidebarReopen/);
@@ -564,6 +610,69 @@ test("the shell budgets the three columns inside the fixed client area", () => {
   // zero and no committed panel width is mirrored through it.
   assert.match(appSource, /setWorkPanelReservation\(0\)/);
   assert.doesNotMatch(appSource, /setWorkPanelReservation\(Math\.round\(/);
+});
+
+test("work panel swap puts the work surface first and keeps the dock reversible", () => {
+  assert.match(appSource, /className="app-work-panel-swap no-drag"/);
+  assert.match(appSource, /tooltip=\{t\("nav\.swapWorkPanel"\)\}/);
+  assert.match(appSource, /aria-pressed=\{workPanelSwapped\}/);
+  assert.match(appSource, /data-testid="work-panel-swap"/);
+  assert.match(appSource, /onClick=\{toggleWorkPanelSwap\}/);
+  assert.match(appSource, /swapped=\{page === "chat" && workPanelSwapped\}/);
+  assert.match(appSource, /swappedWidth=\{workPanelSwapWidth\}/);
+  assert.match(appSource, /onSwappedWidthChange=\{setWorkPanelSwapWidth\}/);
+  assert.match(
+    appSource,
+    /page === "chat" && presentedWorkPanelOpen && !workPanelExiting && !workPanelMaximized/,
+  );
+  assert.match(
+    globalStyles,
+    /\.app-shell\.work-panel-swapped \.main-pane \{[^}]*order:\s*2;/s,
+  );
+  assert.match(
+    globalStyles,
+    /\.app-shell\.work-panel-swapped \.main-pane \{[^}]*flex:\s*0 0 var\(--ds-work-panel-chat-width\)/s,
+  );
+  assert.match(
+    globalStyles,
+    /\.app-shell\.work-panel-swapped \.work-panel \{[^}]*order:\s*1;/s,
+  );
+  assert.match(
+    globalStyles,
+    /\.app-shell\.work-panel-swapped \.work-panel-resize \{[^}]*right:\s*-5px;[^}]*left:\s*auto;/s,
+  );
+  assert.match(globalStyles, /@keyframes work-panel-out-left/);
+  assert.match(
+    panelSource,
+    /data-work-panel-side=\{swapped \? "left" : "right"\}/,
+  );
+  assert.match(panelSource, /panelSide=\{swapped \? "left" : "right"\}/);
+  assert.match(panelSource, /const delta = swapped/);
+  assert.match(globalStyles, /--ds-work-panel-switch-gap:\s*4px/);
+  assert.match(
+    globalStyles,
+    /\.app-shell\.work-panel-swapped\.sidebar-collapsed[\s\S]*?\.conversation-topbar\.ct-collapsed[\s\S]*?\.ct-lead\s*\{[^}]*position:\s*fixed;[^}]*left:\s*8px;/s,
+  );
+  assert.match(
+    globalStyles,
+    /\.app-shell\.work-panel-swapped\.sidebar-collapsed \.work-panel-header\s*\{[^}]*padding-left:\s*calc\(8px \+ var\(--ds-preview-action-lane-width\)\);/s,
+  );
+  const focusLayout = workPanelFocusLayout({
+    containerWidth: 1040,
+    sidebarWidth: 275,
+    sidebarCollapsed: false,
+    requestedPanelWidth: 450,
+  });
+  assert.equal(focusLayout.panelWidth, 445);
+  assert.equal(focusLayout.chatWidth, CONTENT_FOCUS_CHAT_MIN_WIDTH);
+  assert.match(
+    globalStyles,
+    /\.app-shell\.work-panel-swapped \.work-panel-header\s*\{[^}]*padding-right:\s*0;/s,
+  );
+  assert.match(
+    globalStyles,
+    /\.app-shell\.work-panel-swapped \.work-panel-actions\s*\{[^}]*margin-right:\s*0;[^}]*padding-right:\s*4px;/s,
+  );
 });
 
 test("preview mode keeps shell actions and restores routes before navigation", () => {

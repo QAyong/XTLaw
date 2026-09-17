@@ -38,6 +38,16 @@ export const NATIVE_MENU_ACTIONS = [
 
 export type NativeMenuAction = (typeof NATIVE_MENU_ACTIONS)[number];
 
+/**
+ * Where a quoted excerpt came from. An excerpt taken from an assistant response
+ * is anchored by that turn's message id; the file and browser surfaces name the
+ * source the excerpt was read from instead. Renderer-only: an annotation's wire
+ * block carries it so the model can tell a file excerpt from an answer excerpt.
+ */
+export type ComposerSelectionSource =
+  | { file: { path: string; startLine?: number; endLine?: number } }
+  | { element: { url: string; selector?: string } };
+
 export const WINDOW_CONTROL_ACTIONS = [
   "getState",
   "minimize",
@@ -272,6 +282,12 @@ export const IPC = {
     agentQueueChanged: "pi-desktop/agent/event/queueChanged",
     hostStatus: "pi-desktop/app/event/hostStatus",
     toast: "pi-desktop/app/event/toast",
+    composerPrefill: "pi-desktop/app/event/composerPrefill",
+    /**
+     * A selection made outside the transcript (a workspace file, or the browser
+     * preview) that becomes a pending comment item instead of draft text.
+     */
+    composerSelection: "pi-desktop/app/event/composerSelection",
     browserState: "pi-desktop/browser/event/state",
     browserPreview: "pi-desktop/browser/event/preview",
     windowMaximized: "pi-desktop/window/event/maximized",

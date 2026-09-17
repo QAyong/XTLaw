@@ -41,6 +41,10 @@
     both;
 }
 
+.app-shell.work-panel-swapped .work-panel.is-exiting {
+  animation-name: work-panel-out-left;
+}
+
 @keyframes work-panel-in {
   from {
     opacity: 0;
@@ -71,6 +75,21 @@
   }
 }
 
+@keyframes work-panel-out-left {
+  from {
+    opacity: 1;
+    flex-basis: var(--work-panel-width);
+    width: var(--work-panel-width);
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    flex-basis: 0;
+    width: 0;
+    transform: translateX(-8px);
+  }
+}
+
 .work-panel-main {
   display: flex;
   flex: 1;
@@ -89,27 +108,46 @@
   touch-action: none;
 }
 
+.app-shell.work-panel-swapped .work-panel-resize {
+  right: -5px;
+  left: auto;
+}
+
 .work-panel-resize::after {
   content: "";
   position: absolute;
   inset-block: 0;
-  left: 50%;
+  left: 5px;
   width: 1px;
   /* Keep the chat/work-panel boundary visible when a nested view is also
      white, without adding layout width or a second box around the dock. */
   background: var(--ds-border-default);
-  transform: translateX(-50%);
+  transform: none;
   transition:
     width var(--motion-duration-fast) var(--motion-ease-out),
     background var(--motion-duration-fast) var(--motion-ease-out);
+}
+
+.app-shell.work-panel-swapped .work-panel-resize::after {
+  right: 5px;
+  left: auto;
 }
 
 .work-panel-resize:hover::after,
 .work-panel-resize:active::after,
 .work-panel-resize:focus-visible::after,
 .work-panel[data-resizing="true"] .work-panel-resize::after {
+  left: 4px;
   width: 2px;
   background: var(--ds-focus);
+}
+
+.app-shell.work-panel-swapped .work-panel-resize:hover::after,
+.app-shell.work-panel-swapped .work-panel-resize:active::after,
+.app-shell.work-panel-swapped .work-panel-resize:focus-visible::after,
+.app-shell.work-panel-swapped .work-panel[data-resizing="true"] .work-panel-resize::after {
+  right: 4px;
+  left: auto;
 }
 
 .work-panel-resize:focus-visible {
@@ -130,11 +168,12 @@
   align-items: center;
   gap: 4px;
   background: var(--ds-bg-dock-raised);
-  /* Keep the fixed work-panel toggle in its own hit-target lane. The reserve
-     is shared with the toggle's size/inset tokens and leaves a real gap. */
+  /* Keep the fixed work-panel controls in their own hit-target lane. The reserve
+     is shared with the toggle/switch geometry tokens and leaves a real gap. */
   padding: 0
     calc(
-      var(--ds-work-panel-toggle-size) + var(--ds-work-panel-toggle-inset) +
+      var(--ds-work-panel-toggle-size) + var(--ds-work-panel-switch-gap) +
+        var(--ds-work-panel-toggle-size) + var(--ds-work-panel-toggle-inset) +
         var(--ds-work-panel-toggle-gap)
     )
     0 12px;
@@ -173,8 +212,41 @@
      header surface itself continues beneath the viewport-fixed controls. */
   padding-right: calc(
     var(--ds-window-controls-width) + var(--ds-work-panel-toggle-size) +
+      var(--ds-work-panel-switch-gap) + var(--ds-work-panel-toggle-size) +
       var(--ds-work-panel-toggle-inset) + var(--ds-work-panel-toggle-gap)
   );
+}
+
+/* When the panel is on the left, the viewport-fixed controls sit over MainChat,
+   so the panel header can reclaim its right-side safe lane. */
+.app-shell.work-panel-swapped .work-panel-header {
+  padding-right: 0;
+}
+
+/* The left-docked header no longer shares the viewport-fixed control lane.
+   Keep its action rail close to the divider so the swapped work surface does
+   not expose a dead strip between the controls and the panel edge. */
+.app-shell.work-panel-swapped .work-panel-actions {
+  margin-right: 0;
+  padding-right: 4px;
+}
+
+/* The detached collapsed-sidebar toggle occupies the first titlebar lane when
+   the work panel becomes the left column. Keep its tab strip clear. */
+.app-shell.work-panel-swapped.sidebar-collapsed .work-panel-header {
+  padding-left: calc(8px + var(--ds-preview-action-lane-width));
+}
+
+:root[data-platform="darwin"]:not([data-fullscreen="true"])
+  .app-shell.work-panel-swapped.sidebar-collapsed
+  .work-panel-header {
+  padding-left: calc(76px + var(--ds-preview-action-lane-width));
+}
+
+:root[data-platform="darwin"][data-fullscreen="true"]
+  .app-shell.work-panel-swapped.sidebar-collapsed
+  .work-panel-header {
+  padding-left: calc(8px + var(--ds-preview-action-lane-width));
 }
 
 :root[data-platform="win32"] .work-panel-header-drag-region,
@@ -184,9 +256,15 @@
   right: var(--ds-window-controls-width);
 }
 
+.app-shell.work-panel-swapped .work-panel-header-drag-region {
+  right: 0;
+}
+
 /* The header is a clipped tab strip plus a fixed add trigger. On Windows/Linux
    its content reserve and drag-region endpoint keep the toggle and native
-   controls clear without shortening the visible header. */
+   controls clear without shortening the visible header. Empty space in the
+   strip must fall through to the drag region below; only actual tabs are hit
+   targets in this layer. */
 .work-panel-tab-strip-wrap {
   display: flex;
   position: relative;
@@ -195,6 +273,7 @@
   flex: 1 1 auto;
   align-items: center;
   overflow: hidden;
+  pointer-events: none;
 }
 
 .work-panel-tab-strip {
@@ -222,6 +301,9 @@
   height: 28px;
   flex: 0 0 auto;
   align-items: center;
+  pointer-events: auto;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
   border-radius: var(--radius-sm);
   color: var(--ds-text-muted);
   transition:
@@ -394,6 +476,7 @@
 .work-panel-body {
   position: relative;
   display: flex;
+  min-width: 0;
   min-height: 0;
   flex: 1;
   flex-direction: column;
@@ -401,6 +484,7 @@
 
 .work-panel-tabpane {
   display: flex;
+  min-width: 0;
   min-height: 0;
   flex: 1;
   flex-direction: column;
@@ -1063,6 +1147,7 @@
    the chat tone (D297). */
 
 .work-plugin-view {
+  min-width: 0;
   min-height: 0;
   flex: 1;
   display: flex;
@@ -1071,6 +1156,7 @@
 
 .work-plugin-view-surface {
   position: relative;
+  min-width: 0;
   min-height: 0;
   flex: 1;
   display: flex;

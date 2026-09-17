@@ -16,7 +16,8 @@ every installation has a file view out of the box (ADR 0241).
 
 The tag is pushed and the release is published, so a marketplace-installed 0.5.1
 is now offered 0.5.2 from the marketplace as well as from this bundled copy.
-Both paths ship the same bytes.
+The bundled copy starts from those release bytes; its local additions are
+listed below and intentionally do not change the marketplace artifact.
 
 > The published `.piplug` contains the seven files a plugin installs from
 > (`manifest.json`, `main.js`, `README.md`, `CHANGELOG.md`, `.gitignore`,
@@ -26,9 +27,10 @@ Both paths ship the same bytes.
 > such a package as four blockers before it can be submitted — pack from a copy
 > of the tagged tree with `views-src/` removed instead.
 
-The files below are byte-identical to that commit, except for the one manifest
-field listed under local changes. Line endings are LF: the upstream commit
-stores LF, and this repository's `.gitattributes` keeps it that way.
+The files below are byte-identical to that commit, except for the manifest
+field, view entry, and selection-actions companion script listed under local
+changes. Line endings are LF: the upstream commit stores LF, and this
+repository's `.gitattributes` keeps it that way.
 
 ## Upstream checksums (sha256)
 
@@ -36,8 +38,9 @@ stores LF, and this repository's `.gitattributes` keeps it that way.
 | --- | --- | --- |
 | `main.js` | 63234 | `43cface10124728f16e72530e699678177f97353b57190532e89c03186e6960d` |
 | `README.md` | 20039 | `8c524f6d13eac557e286fa0ec9b9cf5138bed0bd66d4a7914f3484443e627a01` |
-| `views/index.html` | 345 | `771fd3d8afdea7fca75ed1f1918c1ce93ad1c87babdb321cfb85e910465cd2c1` |
+| `views/index.html` | 402 | `fcf3b9d984e367b41b12d835049ebb79414cc175d5f814ff1e0f733a2f5f63fd` |
 | `views/assets/index.js` | 1345417 | `d0a1dc369764bed2ab12ce0e65fe983fe0b4f9919f2f8ff4546b736208d66dac` |
+| `views/selection-actions.js` | 15217 | `8a1c55111f58fddebcc9223a0912399e3f151bbb20c504508ebe28c888ab8d62` |
 | `manifest.json` | 14171 | `751a5c86d6e4901cf7fc7f5d9e1de99c90c6dc0798b316500d20781d779e4188` |
 
 `views-src/` from the upstream repository is deliberately not vendored: this
@@ -45,7 +48,7 @@ directory carries the built view the plugin publishes, not its React source.
 
 ## Local changes
 
-Two, so a re-sync stays a copy:
+Three, so a re-sync stays a copy:
 
 - `manifest.json` gains `"license": "MIT"` (after `author`), making the vendored
   copy 14191 bytes
@@ -62,6 +65,19 @@ Two, so a re-sync stays a copy:
   ancestor's `"module"`, which is why the marker cannot live one directory up.
   In a packaged app the file is inert, and deleting it only costs the developer
   experience, never a user.
+- `views/index.html` loads the local `views/selection-actions.js` companion.
+  The companion reuses the selected File Manager text and shows the same
+  compact copy / add-to-chat affordance as the host chat surface. Add to chat
+  turns that pill into a small comment input anchored above the selection —
+  this page is a native surface, so a window-centred editor from the renderer
+  could not be drawn over it — and `composer.addSelection` hands the excerpt,
+  the file it came from, and the comment to the host, which lists it as a
+  pending comment item above the Composer; the text itself is never typed
+  into the draft.
+  The upstream source is
+  still not vendored, so this small integration stays separate from the
+  third-party bundle and can be removed independently when upstream gains the
+  capability.
 
 ## Re-syncing a newer release
 

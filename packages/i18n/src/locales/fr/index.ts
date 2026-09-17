@@ -145,6 +145,7 @@ export const fr = {
     "conversation": "Conversation",
     "toggleSidebar": "Basculer la barre latérale",
     "toggleWorkPanel": "Basculer le panneau latéral",
+    "swapWorkPanel": "Échanger le chat et le panneau de travail",
     "sessions": "Sessions",
     "commandPalette": "Palette de commandes",
     "back": "Retour",

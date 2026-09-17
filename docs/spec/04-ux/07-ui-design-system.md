@@ -226,7 +226,7 @@ opacity-only changes, so actions remain legible in dark and light themes.
 Light-surface polish (D148):
 
 - Docked work panel uses quiet inset paper (`#fafafa`) with a white header band and a combined create trigger in the header. The existing resize overlay paints a persistent 1px `--ds-border-default` divider against the chat column so white file/plugin content cannot erase the column boundary; internal work-panel surfaces remain divider-free (D297).
-- The work-panel header keeps its add-tab action in a separated rail: a tokenized 60px safe lane reserves the viewport-fixed panel toggle, with at least 24px of visual separation between the two hit targets on supported window sizes.
+- The work-panel header keeps its add-tab action in a separated rail: a tokenized 92px safe lane reserves the viewport-fixed swap and panel-toggle controls, with the control gap and action rail keeping all hit targets distinct on supported window sizes.
 - Shared form fields, browser URL, settings segment tracks, and shortcut keycaps use `--ds-tile` fills with no stroke (D297); focus lifts to white with an accent-tinted ring. An Unbound shortcut uses a localized text state instead of an empty keycap and keeps its recorder and restore controls keyboard-focusable.
 - Settings toggles keep a near-black on-track and force a white knob in light mode.
   Off/on track and knob colours come from the `--ds-switch-*` theme tokens; a
@@ -500,9 +500,12 @@ same 6px contract and scroll-reveal mark. This keeps first-party surfaces such
 as the Files view aligned with the host renderer; the external page loaded
 inside the Browser guest remains page-owned and keeps its own scrollbar style.
 
-The expanded sidebar is a 240px–520px column with a 275px default. Its
-right-edge resize handle is the only width affordance; the preferred width is
-persisted independently from collapse/open state and the 48px icon rail.
+The expanded sidebar is a 200px–520px column with a 275px default. Its
+right-edge resize handle is the only width affordance. The handle paints a
+full-height 1px `--ds-border-default` divider at rest and promotes to a 2px
+`--ds-focus` divider on direct hover, focus, or active resize; hovering the
+sidebar body alone does not promote it. The preferred width is persisted
+independently from collapse/open state and the 48px icon rail.
 
 The profile menu is `280px` wide, opens `8px` above the footer, and uses the
 standard opaque elevated-menu surface, subtle border, and dialog shadow. Its
@@ -515,9 +518,9 @@ in that same row. The macOS row omits the sidebar logo/title, reserves `76px`
 on the left for native chrome in windowed mode, and reclaims that padding in
 fullscreen. Windows/Linux keep the identity and sidebar actions in their first
 row and reserve the rightmost 120px for three frameless-window controls. Each
-control is a 28px square whose visible surface and hit target are the same box;
-the remaining lane space separates the controls from adjacent work-panel
-actions. The band paints the surface of the titlebar beneath it — `bg-primary`
+native control is a 28px square whose visible surface and hit target are the
+same box; the remaining lane space separates the controls from the adjacent
+work-panel swap and panel-toggle actions. The band paints the surface of the titlebar beneath it — `bg-primary`
 on the main pane and the work-panel header surface while the dock is open — so
 the 46px chrome reads as one continuous, borderless surface. Main and Settings
 drag regions must terminate before this reservation rather than overlap it and
@@ -525,8 +528,11 @@ rely only on descendant `no-drag`, so every visible control pixel remains
 clickable. The open work-panel header is intentionally full-width; its dedicated
 drag-region element ends before the reservation and its tab/action content
 reserves the lane. That keeps the header's visual boundary aligned with the
-sidebar and chat headers without covering window controls. The open work-panel
-header uses a horizontally scrollable tab strip with a fixed `+` add trigger;
+sidebar and chat headers without covering window controls. Empty space in the
+tab strip falls through to the dedicated drag region; only actual tab surfaces
+and action controls are no-drag, so the blank header remains draggable while
+tabs stay clickable. The open work-panel header uses a horizontally scrollable
+tab strip with a fixed `+` add trigger;
 each tab owns its close action and the header does not add a second `×` beside
 the native Windows close control. The band
 floats over the destination pages, so on Windows/Linux a page frame and any
@@ -565,11 +571,12 @@ shadow-lg:  0 8px 24px rgba(0,0,0,0.12)
 
 In-flow content surfaces draw no strokes (D297), except for semantic thematic
 breaks in chat prose, which use one subtle 1px divider with compact margins.
-The chat/work-panel shell boundary is another deliberate exception: the existing 10px resize hit area paints
-a centered 1px `--ds-border-default` divider at rest and promotes it to
-`--ds-focus` during hover, focus, or resize. Structure inside each surface still
+The sidebar and chat/work-panel shell boundaries are another deliberate
+exception: their resize hit areas paint a full-height 1px
+`--ds-border-default` divider at rest and promote it to 2px `--ds-focus`
+during direct hover, focus, or resize. Structure inside each surface still
 comes from three tonal layers plus spacing, and border tokens remain reserved
-for floating layers and this explicit shell partition.
+for floating layers and these explicit shell partitions.
 
 | Layer | Token | Use |
 |---|---|---|
@@ -674,6 +681,13 @@ and give plain tool blocks a fill in light only.
 | Inline with text | 16px (1rem) | 1.5px |
 | Buttons, toolbar | 20px (1.25rem) | 2px |
 | Empty states | 48px (3rem) | 1.5px |
+
+Viewport-fixed shell actions use a 28px square hit target with a compact 15px
+Lucide icon. The chat/work-panel swap uses `ArrowLeftRight`: two opposing
+horizontal arrows, so it reads as a reversible layout action and remains
+distinct from panel open/close and preview maximize icons. In the swapped state,
+the work-panel header reclaims the trailing safe lane and keeps only a 4px inset
+before the divider.
 
 ### 7.3 Color rules
 
@@ -1020,7 +1034,16 @@ Rules:
 - Browser-preview and plugin views are native surfaces composited above every
   renderer layer, so no `z-index` in the table above can raise a popover over
   them. A body-portaled popover clamps to the conversation pane, which ends
-  where the work panel begins, instead of to the viewport.
+  where the work panel begins, instead of to the viewport. A native surface
+  yields only while a renderer dialog's own rectangle actually overlaps its
+  placeholder: a dialog that stays inside the chat column leaves it rendered,
+  and host UI that must sit beside a passage is drawn inside the guest page.
+- Docked plugin views and the Browser preview are created with the app's window
+  background for the active theme. A page that paints no background of its own,
+  or the frame before a page's first paint, composites as the shell colour
+  instead of a black rectangle, and a theme switch repaints that background.
+  Host UI injected into a guest page, such as the Browser element-picker chip,
+  follows the same palette rather than a fixed dark colour.
 
 ## 10. Layout shell metrics
 
@@ -1031,8 +1054,8 @@ Codex parity decisions (D034/D070) supersede any older value here.
 |---|---|---|
 | Titlebar row height | 46px | Codex toolbar rhythm (D034); traffic lights {x:16,y:16} |
 | Sidebar width (collapsed) | 48px | Icon-only rail |
-| Sidebar width (expanded) | `240px–520px` (default 275px) | Right-edge resize handle; persisted preferred width |
-| Main pane minimum readable width | 450px | The MainChat hard floor; the sidebar yields before it is breached (ADR 0238) |
+| Sidebar width (expanded) | `200px–520px` (default 275px) | Right-edge resize handle with a full-height divider; persisted preferred width |
+| Main pane minimum readable width | 450px | The MainChat hard floor; the work panel is capped before the user-controlled sidebar changes state (ADR 0238) |
 | Work panel width (closed) | 0px | Hidden by default |
 | Work panel width (open) | `≥244px` (new-profile default 360px), capped by `client width - 450px - expanded sidebar` with no fixed pixel cap | the panel is an in-flow column whose width is taken from the existing client area; the renderer owns its divider (ADR 0033 / ADR 0151 / ADR 0238); saved widths remain unchanged |
 | Composer shell minimum | ~80px | One-line draft + toolbar padding |
@@ -1046,9 +1069,10 @@ An open work panel is a fixed-width in-flow column inside the existing client
 area (ADR 0033 / ADR 0151). Its flex allocation comes from MainChat, but MainPane
 retains a 450px hard minimum and the panel's effective maximum is the remaining
 client width after the expanded sidebar and that floor (ADR 0238). When the
-budget is exhausted the expanded sidebar collapses immediately, and the shared
-budget keeps counting it while `sidebar-out` occupies flex space. Side-dock
-allocation therefore cannot paint over or claim MainChat's floor. The renderer's
+budget is exhausted the panel remains capped and the sidebar stays in the
+user-selected state; the shared budget still counts the sidebar while
+`sidebar-out` occupies flex space after a manual collapse. Side-dock allocation
+therefore cannot paint over or claim MainChat's floor. The renderer's
 measured panel rect continues to position the native Browser view. Opening and
 collapsing do not request a positive native reservation or change persisted
 window bounds. Before
@@ -1068,11 +1092,12 @@ first tab.
 
 - The work panel never participates in responsive collapse. It keeps its
   committed preferred width of at least `244px` (new-profile default 360px)
-  while visible, capped by the shared budget; saved widths remain unchanged.
+  while visible, capped by the shared budget; saved widths and the user's
+  sidebar state remain unchanged.
 - The inner panel divider changes the panel width in the renderer. Moving it
   left takes internal space from MainChat until the 450px floor is reached, at
-  which point the expanded sidebar yields; moving it right returns that space.
-  Native window edges resize only the fixed app window.
+  which point the panel caps at the shared budget; moving it right returns that
+  space. Native window edges resize only the fixed app window.
 - Panel open and collapse change only the in-flow flex allocation. No positive
   native reservation is requested, and the panel's preferred width remains a
   renderer-local setting.

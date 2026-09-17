@@ -36,15 +36,23 @@ test("sidebar width is shell-owned and the resize affordance is edge-anchored", 
   assert.match(globalStyles, /\.sidebar-resize-handle\s*\{[\s\S]*?touch-action:\s*none/);
 });
 
-test("sidebar hover does not paint a full-height resize rail", () => {
+test("sidebar resize divider matches the work-panel edge feedback", () => {
   const marker = globalStyles.match(
     /\.sidebar-resize-handle::after\s*\{[^}]+\}/s,
   )?.[0] ?? "";
 
-  assert.match(marker, /top:\s*50%/);
-  assert.match(marker, /height:\s*32px/);
-  assert.match(marker, /border-radius:\s*var\(--radius-full\)/);
-  assert.match(globalStyles, /\.sidebar-resize-handle:hover::after,/);
+  assert.match(marker, /inset-block:\s*0;/);
+  assert.match(marker, /right:\s*0;/);
+  assert.match(marker, /width:\s*1px;/);
+  assert.match(marker, /background:\s*var\(--ds-border-default\)/);
+  assert.doesNotMatch(marker, /height:\s*32px/);
+  assert.doesNotMatch(marker, /opacity:\s*0/);
+  const interactiveDivider = globalStyles.match(
+    /\.sidebar-resize-handle:hover::after,[\s\S]*?\.sidebar-resize-handle\.is-resizing::after\s*\{[^}]*\}/,
+  )?.[0];
+  assert.ok(interactiveDivider);
+  assert.match(interactiveDivider, /width:\s*2px/);
+  assert.match(interactiveDivider, /background:\s*var\(--ds-focus\)/);
   assert.doesNotMatch(globalStyles, /\.sidebar:hover\s+\.sidebar-resize-handle::after/);
   assert.match(
     globalStyles,

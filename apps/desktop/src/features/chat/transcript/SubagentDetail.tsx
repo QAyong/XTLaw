@@ -334,11 +334,13 @@ export function SubagentTopology({
   items,
   delegationStatuses,
   delegationTimings,
+  turnActive,
   onUserInteraction,
 }: {
   items: DelegationActivityItem[];
   delegationStatuses?: ReadonlyMap<string, SubagentOutcome>;
   delegationTimings?: ReadonlyMap<string, SubagentTiming>;
+  turnActive?: boolean;
   onUserInteraction?: () => void;
 }) {
   const { t } = useTranslation();
@@ -370,6 +372,7 @@ export function SubagentTopology({
             message={item.message}
             {...(item.delegate ? { delegate: item.delegate } : {})}
             variant="topology"
+            turnActive={turnActive}
             onUserInteraction={onUserInteraction}
             {...(delegationStatuses ? { delegationStatuses } : {})}
             {...(delegationTimings ? { delegationTimings } : {})}

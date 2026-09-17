@@ -10,8 +10,8 @@
  *   - the native window width never changes (opening, dragging, closing);
  *   - MainChat never measures below its 450px floor, including mid-drag and
  *     while `sidebar-out` still occupies flex space;
- *   - the expanded sidebar yields at the threshold and returns when the panel
- *     closes;
+ *   - the expanded sidebar stays user-controlled while the panel yields at
+ *     the threshold;
  *   - a manual reopen spends work-panel width first, otherwise targeting 460px.
  *
  * Prereqs: `pnpm --filter @pi-desktop/desktop build` (or `pnpm build:js`) and a
@@ -34,6 +34,7 @@ const electronBin =
 const cdpPort = Number(process.env.PI_DESKTOP_LAYOUT_CDP_PORT || 9336);
 const MAIN_PANE_MIN_WIDTH = 450;
 const MAIN_PANE_REOPEN_TARGET_WIDTH = 460;
+const CONTENT_FOCUS_CHAT_MIN_WIDTH = 320;
 
 function resolveHostBinary() {
   const candidates = [
@@ -189,6 +190,71 @@ const MEASURE_HEADER_BANDS = `(() => {
   };
 })()`;
 
+const MEASURE_COLUMN_LAYOUT = `(() => {
+  const box = (selector) => {
+    const element = document.querySelector(selector);
+    if (!element) return null;
+    const rect = element.getBoundingClientRect();
+    return {
+      left: Math.round(rect.left),
+      right: Math.round(rect.right),
+      width: Math.round(rect.width),
+      order: getComputedStyle(element).order,
+    };
+  };
+  return {
+    sidebar: box(".sidebar, .sidebar-rail"),
+    main: box(".main-pane"),
+    panel: box('[data-testid="work-panel"]'),
+    shell: document.querySelector(".app-shell")?.className ?? "",
+  };
+})()`;
+
+const MEASURE_WORK_PANEL_CONTENT = `(() => {
+  const panel = document.querySelector('[data-testid="work-panel"]');
+  const body = panel?.querySelector(".work-panel-body");
+  if (!body) return null;
+  const bodyRect = body.getBoundingClientRect();
+  const visibleChild = Array.from(body.children).find((element) => {
+    const rect = element.getBoundingClientRect();
+    return getComputedStyle(element).display !== "none" && rect.width > 0 && rect.height > 0;
+  });
+  const contentRect = visibleChild?.getBoundingClientRect();
+  return {
+    body: {
+      width: Math.round(bodyRect.width),
+      height: Math.round(bodyRect.height),
+    },
+    content: visibleChild && contentRect
+      ? {
+          className: visibleChild.className,
+          width: Math.round(contentRect.width),
+          height: Math.round(contentRect.height),
+        }
+      : null,
+  };
+})()`;
+
+const MEASURE_SWAPPED_HEADER_GAP = `(() => {
+  const panel = document.querySelector('[data-testid="work-panel"]');
+  const header = panel?.querySelector(".work-panel-header");
+  const actions = panel?.querySelector(".work-panel-actions");
+  if (!panel || !header || !actions) return null;
+  const panelRect = panel.getBoundingClientRect();
+  const headerStyle = getComputedStyle(header);
+  const actionStyle = getComputedStyle(actions);
+  return {
+    panelRight: Math.round(panelRect.right),
+    actionsRight: Math.round(actions.getBoundingClientRect().right),
+    visualGap: Math.round(
+      Number.parseFloat(headerStyle.paddingRight) +
+        Number.parseFloat(actionStyle.marginRight) +
+        Number.parseFloat(actionStyle.paddingRight) +
+        Number.parseFloat(actionStyle.borderRightWidth),
+    ),
+  };
+})()`;
+
 const results = [];
 let activeCdp = null;
 function check(ok, label, detail = "") {
@@ -275,14 +341,39 @@ async function main() {
     const clickSidebarToggle = async () => {
       await cdp.evaluate(
         `(() => {
-          const toggle =
-            document.querySelector(".ct-lead .ct-icon-btn") ??
-            document.querySelector('.window-chrome-row [data-nav="toggle-sidebar"]') ??
-            document.querySelector('.sidebar [data-nav="toggle-sidebar"]');
-          toggle?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+          const candidates = [
+            document.querySelector('.sidebar [data-nav="toggle-sidebar"]'),
+            document.querySelector('.window-chrome-row [data-nav="toggle-sidebar"]'),
+            document.querySelector(".ct-lead .ct-icon-btn"),
+          ];
+          const visible = (element) => {
+            if (!element || element.closest('[aria-hidden="true"]')) return false;
+            const box = element.getBoundingClientRect();
+            const styles = getComputedStyle(element);
+            return (
+              box.width > 0 &&
+              box.height > 0 &&
+              styles.display !== "none" &&
+              styles.visibility !== "hidden" &&
+              styles.opacity !== "0" &&
+              styles.pointerEvents !== "none"
+            );
+          };
+          const toggle = candidates.find(visible) ?? candidates.find(Boolean);
+          toggle?.click?.();
         })()`,
       );
       await delay(500);
+    };
+    const waitForSidebar = async (visible, label) => {
+      await waitFor(
+        () =>
+          cdp.evaluate(
+            `Boolean(document.querySelector(".sidebar, .sidebar-rail")) === ${visible ? "true" : "false"}`,
+          ),
+        label,
+        5_000,
+      );
     };
     const dragDivider = async (steps) => {
       const start = await measure();
@@ -446,16 +537,126 @@ async function main() {
       JSON.stringify(opened),
     );
     check(
-      opened.sidebarKind !== "sidebar",
-      "the expanded sidebar yields when the panel would breach the floor",
-      `sidebar=${opened.sidebar} kind=${opened.sidebarKind}`,
+      opened.sidebarKind === "sidebar" &&
+        opened.panel <= opened.windowWidth - opened.sidebar - MAIN_PANE_MIN_WIDTH,
+      "the expanded sidebar stays visible while the panel yields at the floor",
+      JSON.stringify(opened),
     );
+
+    // 1b. Content-focus mode swaps only MainChat and WorkPanel; the navigation
+    // sidebar remains the fixed first column.
+    await rig(`window.__PI_DESKTOP__.collapseWorkPanel()`);
+    await delay(700);
+    if ((await measure()).sidebarKind !== "sidebar") {
+      await clickSidebarToggle();
+      await waitForSidebar(true, "sidebar expand before content-focus");
+    }
+    await rig(`window.__PI_DESKTOP__.setWorkPanelWidth(360)`);
+    await rig(`window.__PI_DESKTOP__.openWorkPanel()`);
+    const beforeSwap = await cdp.evaluate(MEASURE_COLUMN_LAYOUT);
+    await cdp.evaluate(
+      `document.querySelector('[data-testid="work-panel-swap"]')?.click?.()`,
+    );
+    await delay(600);
+    const swapped = await cdp.evaluate(MEASURE_COLUMN_LAYOUT);
+    const sidebarStaysFirst =
+      swapped.sidebar &&
+      swapped.panel &&
+      swapped.main &&
+      swapped.sidebar.left === 0 &&
+      swapped.sidebar.right <= swapped.panel.left &&
+      swapped.panel.right <= swapped.main.left &&
+      swapped.sidebar.order === "0" &&
+      swapped.panel.order === "1" &&
+      swapped.main.order === "2";
+    check(
+      sidebarStaysFirst,
+      "content-focus swaps only Chat and WorkPanel while Sidebar stays first",
+      `before=${JSON.stringify(beforeSwap)} swapped=${JSON.stringify(swapped)}`,
+    );
+    const swappedContent = await cdp.evaluate(MEASURE_WORK_PANEL_CONTENT);
+    check(
+      swapped.main?.width >= CONTENT_FOCUS_CHAT_MIN_WIDTH &&
+        swappedContent?.body.height > 0 &&
+        swappedContent.content?.height > 0,
+      "content-focus keeps the secondary chat column and work-panel content visible",
+      `layout=${JSON.stringify(swapped)} content=${JSON.stringify(swappedContent)}`,
+    );
+    const swappedHeaderGap = await cdp.evaluate(MEASURE_SWAPPED_HEADER_GAP);
+    check(
+      swappedHeaderGap?.actionsRight === swappedHeaderGap?.panelRight &&
+        swappedHeaderGap.visualGap <= 5,
+      "content-focus keeps the work-panel action rail close to the divider",
+      JSON.stringify(swappedHeaderGap),
+    );
+    await cdp.evaluate(
+      `document.querySelector('[data-testid="work-panel-swap"]')?.click?.()`,
+    );
+    await delay(600);
+    const restoredSwap = await cdp.evaluate(MEASURE_COLUMN_LAYOUT);
+    check(
+      restoredSwap.sidebar?.left === 0 &&
+        restoredSwap.main?.left === restoredSwap.sidebar?.right &&
+        restoredSwap.panel?.left === restoredSwap.main?.right &&
+        restoredSwap.shell.includes("work-panel-swapped") === false,
+      "content-focus second click restores the default column order",
+      JSON.stringify(restoredSwap),
+    );
+
+    // 1c. A collapsed sidebar has no in-flow dock; its titlebar affordance
+    // must stay at the window edge when the work panel becomes the left column.
+    await clickSidebarToggle();
+    await waitForSidebar(false, "sidebar collapse before content-focus");
+    const collapsedBeforeSwap = await cdp.evaluate(MEASURE_COLUMN_LAYOUT);
+    await cdp.evaluate(
+      `document.querySelector('[data-testid="work-panel-swap"]')?.click?.()`,
+    );
+    await delay(600);
+    const collapsedSwapped = await cdp.evaluate(MEASURE_COLUMN_LAYOUT);
+    const collapsedSidebarControl = await cdp.evaluate(`(() => {
+      const element = document.querySelector(".conversation-topbar .ct-lead");
+      if (!element) return null;
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return {
+        platform: window.piDesktop?.platform ?? "unknown",
+        fullscreen: document.documentElement.dataset.fullscreen === "true",
+        left: Math.round(rect.left),
+        top: Math.round(rect.top),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+        position: style.position,
+      };
+    })()`);
+    const expectedSidebarControlLeft =
+      collapsedSidebarControl &&
+      collapsedSidebarControl.position === "fixed" &&
+      collapsedSidebarControl.left ===
+        (collapsedSidebarControl.platform === "darwin" &&
+        !collapsedSidebarControl.fullscreen
+          ? 76
+          : 8);
+    check(
+      collapsedBeforeSwap.sidebar === null &&
+        collapsedSwapped.panel?.left === 0 &&
+        collapsedSwapped.main?.left === collapsedSwapped.panel?.right &&
+        expectedSidebarControlLeft,
+      "collapsed-sidebar controls stay at the window edge during content-focus",
+      `before=${JSON.stringify(collapsedBeforeSwap)} swapped=${JSON.stringify(collapsedSwapped)} control=${JSON.stringify(collapsedSidebarControl)}`,
+    );
+    await cdp.evaluate(
+      `document.querySelector('[data-testid="work-panel-swap"]')?.click?.()`,
+    );
+    await delay(600);
+    await clickSidebarToggle();
+    await waitForSidebar(true, "sidebar expand after content-focus");
 
     // 2. Divider drag with the sidebar expanded: floor holds mid-drag.
     await rig(`window.__PI_DESKTOP__.collapseWorkPanel()`);
     await delay(700);
     if ((await measure()).sidebarKind !== "sidebar") {
       await clickSidebarToggle();
+      await waitForSidebar(true, "sidebar expand before divider drag");
     }
     await rig(`window.__PI_DESKTOP__.setWorkPanelWidth(244)`);
     await rig(`window.__PI_DESKTOP__.openWorkPanel()`);
@@ -478,8 +679,8 @@ async function main() {
       `window ${dragStart.windowWidth} -> ${drag.after.windowWidth}`,
     );
     check(
-      drag.after.sidebarKind !== "sidebar",
-      "the expanded sidebar auto-collapses at the threshold",
+      drag.after.sidebarKind === "sidebar",
+      "divider drag keeps the expanded sidebar user-controlled",
       JSON.stringify(drag.after),
     );
     check(
@@ -488,13 +689,16 @@ async function main() {
       `panel=${drag.after.panel} budget=${Math.max(0, drag.after.windowWidth - MAIN_PANE_MIN_WIDTH)}`,
     );
 
-    // 3. Reopen spends panel width first, otherwise targeting 460px.
+    // 3. A manual collapse/reopen spends panel width first, otherwise targeting
+    // 460px; opening the panel never changes the user's sidebar choice.
     await rig(`window.__PI_DESKTOP__.setWorkPanelWidth(720)`);
     if ((await measure()).sidebarKind === "sidebar") {
       await clickSidebarToggle();
+      await waitForSidebar(false, "sidebar collapse before manual reopen");
     }
     const collapsed = await measure();
     await clickSidebarToggle();
+    await waitForSidebar(true, "sidebar reopen after manual collapse");
     const reopened = await measure();
     const expectedPanel = Math.max(
       1,
@@ -517,17 +721,17 @@ async function main() {
       `main=${reopened.main} panel=${reopened.panel}`,
     );
 
-    // 4. Closing the panel restores a layout-collapsed sidebar only.
+    // 4. Closing the panel preserves the user's expanded sidebar choice.
     await rig(`window.__PI_DESKTOP__.setWorkPanelWidth(720)`);
     const pressed = await measure();
     await rig(`window.__PI_DESKTOP__.collapseWorkPanel()`);
     await delay(700);
     const restored = await measure();
     check(
-      pressed.sidebarKind !== "sidebar" &&
+      pressed.sidebarKind === "sidebar" &&
         restored.sidebarKind === "sidebar" &&
         restored.main >= MAIN_PANE_MIN_WIDTH,
-      "closing the panel restores the sidebar the layout collapsed",
+      "closing the panel preserves the manually expanded sidebar",
       `pressed=${JSON.stringify(pressed)} restored=${JSON.stringify(restored)}`,
     );
     check(
@@ -807,7 +1011,15 @@ async function main() {
     );
     // The preview shell keeps the sidebar action available either in its
     // window-level row (collapsed) or in the expanded sidebar header. Exercise
-    // the visible control so persistence is checked across a real UI action.
+    // a manual collapse/reopen so persistence is checked across real UI
+    // actions, independent of work-panel presentation.
+    if ((await measure()).sidebarKind === "sidebar") await clickSidebarToggle();
+    const previewCollapsed = await measure();
+    check(
+      previewCollapsed.sidebarKind !== "sidebar",
+      "preview mode allows a manual sidebar collapse",
+      JSON.stringify(previewCollapsed),
+    );
     await clickSidebarToggle();
     const previewWithSidebar = await measure();
     check(
@@ -864,8 +1076,8 @@ async function main() {
     );
     const sidebarMinDrag = await dragSidebar(-400);
     check(
-      sidebarMinDrag.after.sidebar === 240 && sidebarMinDrag.minSidebar >= 240,
-      "the sidebar clamps pointer drag at its 240px minimum",
+      sidebarMinDrag.after.sidebar === 200 && sidebarMinDrag.minSidebar >= 200,
+      "the sidebar clamps pointer drag at its 200px minimum",
       JSON.stringify(sidebarMinDrag),
     );
     const sidebarMaxDrag = await dragSidebar(400);
@@ -940,7 +1152,7 @@ async function main() {
     const e2eChromeSidebar = await cdp.evaluate(e2eChromeProbe);
     check(
       e2eChromeSidebar.sidebarWidth === null ||
-        (e2eChromeSidebar.sidebarWidth >= 240 &&
+        (e2eChromeSidebar.sidebarWidth >= 200 &&
           e2eChromeSidebar.sidebarWidth <= 520),
       "sidebar width stays within its supported range",
       JSON.stringify(e2eChromeSidebar),

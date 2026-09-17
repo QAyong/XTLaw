@@ -26,7 +26,7 @@ composer to fall below its supported minimum.
 ## Decision
 
 1. The expanded sidebar defaults to `275px` and accepts a rounded, clamped
-   preferred width from `240px` through `520px`. The preference remains in
+   preferred width from `200px` through `520px`. The preference remains in
    renderer-owned local storage under `pi.desktop.sidebarWidth`.
 2. The existing right-edge ARIA separator is the only sidebar width control.
    Pointer preview stays anchored to the pointer-down position and is applied
@@ -35,11 +35,11 @@ composer to fall below its supported minimum.
    pointer capture, and unmount restore the pointer gesture's starting width.
 3. Collapsing the sidebar changes only its presence. Reopening restores the
    preferred expanded width rather than the `48px` icon rail width.
-4. ADR 0238's `450px` MainChat floor, live work-panel budget, automatic sidebar
-   yield under pressure, and fixed native-window bounds remain unchanged. If a
-   panel or shell constraint exhausts the budget, the existing layout priority
-   behavior may still collapse the expanded sidebar; that is separate from an
-   explicit user resize.
+4. ADR 0238's `450px` MainChat floor, live work-panel budget, user-controlled
+   sidebar state under panel pressure, and fixed native-window bounds remain
+   unchanged. If the panel reaches the budget, it is capped before the
+   expanded sidebar changes state; explicit sidebar collapse and reopen remain
+   separate user actions.
 
 ## Consequences
 

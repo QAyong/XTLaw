@@ -17,6 +17,7 @@ import {
   IconCheck,
   IconChevronDown,
   IconPlus,
+  IconSliders,
   IconSparkles,
   IconStop,
   IconUndo2,
@@ -106,6 +107,17 @@ export function ComposerToolbar({
   const [modeOpen, setModeOpen] = useState(false);
   const platform = (window.piDesktop?.platform ?? "darwin") as ShortcutPlatform;
   const steeringShortcut = keybindingDisplayParts("Alt+Enter", platform).join("+");
+  const modeLabel = t(MODE_LABEL_KEYS[mode]);
+  const permissionLabel = t(PERMISSION_MODE_I18N_KEYS[composerPermissionMode]);
+  const modeTooltip = planningLive
+    ? `${t(`${mode}.planning`)} · ${modeLabel}`
+    : `${t("settings.mode")}: ${modeLabel}`;
+  const permissionTooltip =
+    mode === "goal"
+      ? `${t("chat.permissionMode")}: ${permissionLabel} · ${t("goal.autoWarning")}`
+      : mode === "plan" && composerPermissionMode === "auto"
+        ? `${t("chat.permissionMode")}: ${permissionLabel} · ${t("plan.autoWarning")}`
+        : `${t("chat.permissionMode")}: ${permissionLabel}`;
   return (
     <div className="composer-toolbar">
       <div className="composer-left">
@@ -141,8 +153,8 @@ export function ComposerToolbar({
               className={`icon-btn mode-chip composer-mode-chip ${modeOpen ? "active" : ""}`}
               data-mode={mode}
               data-planning={planningLive ? "true" : undefined}
-              tooltip={planningLive ? t(`${mode}.planning`) : t("settings.mode")}
-              ariaLabel={planningLive ? t(`${mode}.planning`) : t("settings.mode")}
+              tooltip={modeTooltip}
+              ariaLabel={modeTooltip}
               aria-haspopup="menu"
               aria-expanded={modeOpen}
               disabled={controlsBlocked}
@@ -211,20 +223,8 @@ export function ComposerToolbar({
               ref={ref}
               type="button"
               className={`icon-btn mode-chip ${permissionOpen ? "active" : ""}`}
-              tooltip={
-                mode === "goal"
-                  ? `${t("chat.permissionMode")} · ${t("goal.autoWarning")}`
-                  : mode === "plan" && composerPermissionMode === "auto"
-                    ? `${t("chat.permissionMode")} · ${t("plan.autoWarning")}`
-                    : t("chat.permissionMode")
-              }
-              ariaLabel={
-                mode === "goal"
-                  ? `${t("chat.permissionMode")} · ${t("goal.autoWarning")}`
-                  : mode === "plan" && composerPermissionMode === "auto"
-                    ? `${t("chat.permissionMode")} · ${t("plan.autoWarning")}`
-                    : t("chat.permissionMode")
-              }
+              tooltip={permissionTooltip}
+              ariaLabel={permissionTooltip}
               aria-haspopup={mode === "goal" ? undefined : "menu"}
               aria-expanded={mode === "goal" ? false : permissionOpen}
               disabled={controlsBlocked || mode === "goal"}
@@ -234,10 +234,17 @@ export function ComposerToolbar({
                 setPermissionOpen((open) => !open);
               }}
             >
-              <span className="text-sm">
-                {t(PERMISSION_MODE_I18N_KEYS[composerPermissionMode])}
-              </span>
-              <IconChevronDown size={12} />
+              <IconSliders
+                className="composer-permission-icon"
+                size={14}
+                aria-hidden="true"
+              />
+              <span className="text-sm">{permissionLabel}</span>
+              <IconChevronDown
+                className="composer-permission-chevron"
+                size={12}
+                aria-hidden="true"
+              />
             </TooltipButton>
           )}
         >

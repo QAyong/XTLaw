@@ -17,6 +17,16 @@
 
 import type { ResponseAnnotationAnchor } from "./response-annotation-anchor";
 
+import type { ComposerSelectionSource } from "@pi-desktop/shared";
+
+/**
+ * Where a quoted excerpt came from. A transcript excerpt is anchored by the
+ * assistant turn it was taken from (`messageId`); an excerpt read out of a
+ * workspace file or the browser preview names that source here instead, and
+ * leaves `messageId` empty because no transcript row owns it.
+ */
+export type ResponseAnnotationSource = ComposerSelectionSource;
+
 /** Heading the annotation block opens with, exactly as the reference sends it. */
 export const ANNOTATION_BLOCK_HEADING = "# Response annotations:";
 export const ANNOTATION_BLOCK_OPEN = "<response-annotations>";
@@ -31,7 +41,7 @@ export const ANNOTATION_REQUEST_HEADING = "## My request:";
  * place the reference marks one.
  */
 export const ANNOTATION_INSTRUCTION =
-  "Each item contains text selected from an earlier assistant response and may include a user comment. Treat items as Annotation 1, Annotation 2, and so on in array order. Use every selection as context and address every comment. For every annotation you address, include its inline directive `:codex-annotation{index=\"N\"}`, where N is its one-based array position (for example, `:codex-annotation{index=\"1\"}`). Do not use unstructured annotation labels.";
+  "Each item contains an excerpt the user selected from an earlier assistant response, a workspace file, or the browser preview, and may include a user comment. Treat items as Annotation 1, Annotation 2, and so on in array order. Use every selection as context and address every comment. For every annotation you address, include its inline directive `:codex-annotation{index=\"N\"}`, where N is its one-based array position (for example, `:codex-annotation{index=\"1\"}`). Do not use unstructured annotation labels.";
 
 /** Longest excerpt one annotation carries, matching the quote cap (D-LOCAL-message-quotes). */
 export const MAX_ANNOTATION_CHARS = 2000;
@@ -43,6 +53,11 @@ export type ResponseAnnotation = {
   id: string;
   /** Assistant turn the annotation is anchored to; also its selection row id. */
   messageId: string;
+  /**
+   * Set for excerpts that did not come from a transcript row. Those carry an
+   * empty `messageId`, so they list above the composer without a source badge.
+   */
+  source?: ResponseAnnotationSource;
   /** The excerpt, as Markdown, at the moment it was annotated. */
   text: string;
   /** Free-form user comment; empty until the user writes one in the editor. */
@@ -62,6 +77,7 @@ export function responseAnnotation(input: {
   annotation?: string;
   createdAt?: number;
   anchor?: ResponseAnnotationAnchor;
+  source?: ResponseAnnotationSource;
 }): ResponseAnnotation {
   return {
     id: input.id,
@@ -70,6 +86,7 @@ export function responseAnnotation(input: {
     annotation: (input.annotation ?? "").trim(),
     createdAt: input.createdAt ?? Date.now(),
     ...(input.anchor ? { anchor: input.anchor } : {}),
+    ...(input.source ? { source: input.source } : {}),
   };
 }
 
@@ -86,14 +103,38 @@ export type ResponseAnnotationEditor = {
   annotationId: string | null;
   comment: string;
   anchor?: ResponseAnnotationAnchor;
+  source?: ResponseAnnotationSource;
 };
+
+/**
+ * Two excerpts name the same source only when they name the same place. A file
+ * or browser excerpt has no transcript row behind it, so its source — not an
+ * empty `messageId` — is what makes two of them the same selection.
+ */
+function sameAnnotationSource(
+  left?: ResponseAnnotationSource,
+  right?: ResponseAnnotationSource,
+): boolean {
+  if (!left || !right) return !left && !right;
+  if ("file" in left && "file" in right) {
+    return left.file.path === right.file.path &&
+      left.file.startLine === right.file.startLine &&
+      left.file.endLine === right.file.endLine;
+  }
+  if ("element" in left && "element" in right) {
+    return left.element.url === right.element.url &&
+      left.element.selector === right.element.selector;
+  }
+  return false;
+}
 
 /** Missing offsets mean an unknown location, not proof of another occurrence. */
 function sameAnnotationSelection(
   annotation: ResponseAnnotation,
-  input: Pick<ResponseAnnotationEditor, "messageId" | "text" | "anchor">,
+  input: Pick<ResponseAnnotationEditor, "messageId" | "text" | "anchor" | "source">,
 ): boolean {
   return annotation.messageId === input.messageId && annotation.text === input.text &&
+    sameAnnotationSource(annotation.source, input.source) &&
     (!annotation.anchor || !input.anchor ||
       (annotation.anchor.start === input.anchor.start && annotation.anchor.end === input.anchor.end));
 }
@@ -113,6 +154,7 @@ export function annotationEditorFor(
     text: string;
     annotationId?: string;
     anchor?: ResponseAnnotationAnchor;
+    source?: ResponseAnnotationSource;
   },
 ): ResponseAnnotationEditor | null {
   if (!input.sessionId) return null;
@@ -128,6 +170,7 @@ export function annotationEditorFor(
       annotationId: existing.id,
       comment: existing.annotation,
       ...(existing.anchor ? { anchor: existing.anchor } : {}),
+      ...(existing.source ? { source: existing.source } : {}),
     };
   }
   // A stale id, or an excerpt with nothing to quote, has no editor to open.
@@ -139,6 +182,7 @@ export function annotationEditorFor(
     annotationId: null,
     comment: "",
     ...(input.anchor ? { anchor: input.anchor } : {}),
+    ...(input.source ? { source: input.source } : {}),
   };
 }
 
@@ -179,6 +223,7 @@ export function applyAnnotationComment(
       annotation: nextComment,
       createdAt,
       anchor: editor.anchor,
+      source: editor.source,
     }),
   ];
 }
@@ -187,12 +232,12 @@ export function applyAnnotationComment(
 function annotationPayload(annotation: ResponseAnnotation): {
   text: string;
   annotation: string;
-  source: { messageId: string };
+  source: ResponseAnnotationSource | { messageId: string };
 } {
   return {
     text: annotation.text,
     annotation: annotation.annotation,
-    source: { messageId: annotation.messageId },
+    source: annotation.source ?? { messageId: annotation.messageId },
   };
 }
 

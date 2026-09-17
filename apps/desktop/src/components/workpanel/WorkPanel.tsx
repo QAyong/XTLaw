@@ -45,6 +45,7 @@ import {
   WORK_PANEL_COMPACT_MIN_WIDTH,
   WORK_PANEL_MIN_WIDTH,
   clampWorkPanelWidth,
+  workPanelFocusLayout,
   workPanelLayout,
 } from "../../lib/work-panel-resize";
 import { sideChatTabSessionId } from "../../lib/side-chat";
@@ -142,9 +143,11 @@ export function WorkPanel({
   sidebarCollapsed = false,
   sidebarExiting = false,
   sidebarWidth = 0,
-  onAutoCollapseSidebar,
   maximized = false,
   onToggleMaximize,
+  swapped = false,
+  swappedWidth = null,
+  onSwappedWidthChange,
 }: {
   /**
    * Hides every native surface in the panel. Both the preview browser and a
@@ -165,12 +168,16 @@ export function WorkPanel({
   /** Keep the dock in the budget while `sidebar-out` still occupies flex space. */
   sidebarExiting?: boolean;
   sidebarWidth?: number;
-  /** Called on the first frame where the main pane would hit its hard floor. */
-  onAutoCollapseSidebar?: () => void;
   /** Preview mode: the panel takes MainChat's width as well. */
   maximized?: boolean;
   /** Toggles the preview mode from the panel header. */
   onToggleMaximize?: () => void;
+  /** Places the work panel before MainChat so content can take the primary view. */
+  swapped?: boolean;
+  /** Transient work-panel width while content-focus mode is active. */
+  swappedWidth?: number | null;
+  /** Updates the transient content-focus width without changing the preference. */
+  onSwappedWidthChange?: (width: number) => void;
 }) {
   const { t } = useTranslation();
   const rawTabs = useAppStore((s) => s.workPanelTabs);
@@ -217,12 +224,30 @@ export function WorkPanel({
     requestedPanelWidth,
     maximized,
   });
-  const renderPanelWidth = layout.panelWidth;
+  const presentationLayout = maximized
+    ? {
+        chatWidth: 0,
+        panelWidth: layout.panelWidth,
+        minPanelWidth: layout.panelWidth,
+        maxPanelWidth: layout.panelWidth,
+      }
+    : swapped
+      ? workPanelFocusLayout({
+          containerWidth: budgetWidth,
+          sidebarWidth,
+          sidebarCollapsed: !sidebarOccupiesBudget,
+          requestedPanelWidth: swappedWidth ?? layout.mainWidth,
+        })
+      : {
+          chatWidth: layout.mainWidth,
+          panelWidth: layout.panelWidth,
+          minPanelWidth: panelMinimum,
+          maxPanelWidth: layout.maxPanelWidth,
+        };
+  const renderPanelWidth = presentationLayout.panelWidth;
+  const presentationPanelMinimum = presentationLayout.minPanelWidth;
+  const presentationPanelMaximum = presentationLayout.maxPanelWidth;
   const isResizing = panelDragWidth !== null;
-
-  useLayoutEffect(() => {
-    if (!exiting && layout.shouldCollapseSidebar) onAutoCollapseSidebar?.();
-  }, [exiting, layout.shouldCollapseSidebar, onAutoCollapseSidebar]);
 
   useEffect(() => {
     if (isResizing) {
@@ -314,6 +339,24 @@ export function WorkPanel({
     event.preventDefault();
   };
 
+  const commitPanelWidth = useCallback(
+    (nextWidth: number) => {
+      const width = Math.min(
+        presentationPanelMaximum,
+        clampWorkPanelWidth(nextWidth, presentationPanelMinimum),
+      );
+      if (swapped) onSwappedWidthChange?.(width);
+      else setWidth(width);
+    },
+    [
+      onSwappedWidthChange,
+      presentationPanelMaximum,
+      presentationPanelMinimum,
+      setWidth,
+      swapped,
+    ],
+  );
+
   const finishPanelResize = useCallback(
     (target: HTMLDivElement, pointerId: number, cancelled: boolean) => {
       const drag = panelResizeState.current;
@@ -322,11 +365,13 @@ export function WorkPanel({
       if (drag.frame) cancelAnimationFrame(drag.frame);
       if (target.hasPointerCapture(pointerId)) target.releasePointerCapture(pointerId);
       setPanelDragWidth(null);
-      if (!cancelled && drag.currentWidth !== drag.startWidth) {
-        setWidth(drag.currentWidth);
+      if (cancelled) {
+        if (swapped) onSwappedWidthChange?.(drag.startWidth);
+      } else if (drag.currentWidth !== drag.startWidth) {
+        commitPanelWidth(drag.currentWidth);
       }
     },
-    [setWidth],
+    [commitPanelWidth, onSwappedWidthChange, swapped],
   );
 
   const onPanelResizeStart = useCallback(
@@ -337,35 +382,49 @@ export function WorkPanel({
       event.preventDefault();
       event.stopPropagation();
       event.currentTarget.focus({ preventScroll: true });
-      const startWidth = clampWorkPanelWidth(renderPanelWidth, panelMinimum);
+      const startWidth = clampWorkPanelWidth(
+        renderPanelWidth,
+        presentationPanelMinimum,
+      );
       panelResizeState.current = {
         pointerId: event.pointerId,
         startClientX: event.clientX,
         startWidth,
-        minimumWidth: panelMinimum,
+        minimumWidth: presentationPanelMinimum,
         currentWidth: startWidth,
         frame: 0,
       };
       setPanelDragWidth(startWidth);
       event.currentTarget.setPointerCapture(event.pointerId);
     },
-    [maximized, panelMinimum, renderPanelWidth],
+    [maximized, presentationPanelMinimum, renderPanelWidth],
   );
 
-  const onPanelResizeMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    const drag = panelResizeState.current;
-    if (drag?.pointerId !== event.pointerId) return;
-    drag.currentWidth = clampWorkPanelWidth(
-      drag.startWidth + drag.startClientX - event.clientX,
-      drag.minimumWidth,
-    );
-    if (drag.frame) return;
-    drag.frame = requestAnimationFrame(() => {
-      if (panelResizeState.current !== drag) return;
-      drag.frame = 0;
-      setPanelDragWidth(drag.currentWidth);
-    });
-  }, []);
+  const onPanelResizeMove = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      const drag = panelResizeState.current;
+      if (drag?.pointerId !== event.pointerId) return;
+      const delta = swapped
+        ? event.clientX - drag.startClientX
+        : drag.startClientX - event.clientX;
+      drag.currentWidth = Math.min(
+        presentationPanelMaximum,
+        clampWorkPanelWidth(drag.startWidth + delta, drag.minimumWidth),
+      );
+      if (drag.frame) return;
+      drag.frame = requestAnimationFrame(() => {
+        if (panelResizeState.current !== drag) return;
+        drag.frame = 0;
+        setPanelDragWidth(drag.currentWidth);
+        if (swapped) onSwappedWidthChange?.(drag.currentWidth);
+      });
+    },
+    [
+      onSwappedWidthChange,
+      presentationPanelMaximum,
+      swapped,
+    ],
+  );
 
   const onPanelResizeCommit = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
@@ -402,18 +461,28 @@ export function WorkPanel({
       // While maximized there is no second column to trade width with.
       if (maximized) return;
       const step = event.shiftKey ? 32 : 16;
-      const minimum = Math.min(panelMinimum, layout.maxPanelWidth);
-      const maximum = Math.max(minimum, layout.maxPanelWidth);
+      const minimum = presentationPanelMinimum;
+      const maximum = presentationPanelMaximum;
       let nextWidth: number | null = null;
-      if (event.key === "ArrowLeft") nextWidth = renderPanelWidth + step;
-      else if (event.key === "ArrowRight") nextWidth = renderPanelWidth - step;
+      const growsToward = swapped ? "ArrowRight" : "ArrowLeft";
+      const shrinksToward = swapped ? "ArrowLeft" : "ArrowRight";
+      if (event.key === growsToward) nextWidth = renderPanelWidth + step;
+      else if (event.key === shrinksToward) nextWidth = renderPanelWidth - step;
       else if (event.key === "Home") nextWidth = minimum;
       else if (event.key === "End") nextWidth = maximum;
       if (nextWidth === null) return;
       event.preventDefault();
-      setWidth(clampWorkPanelWidth(nextWidth, minimum));
+      commitPanelWidth(nextWidth);
     },
-    [finishPanelResize, layout.maxPanelWidth, maximized, panelMinimum, renderPanelWidth, setWidth],
+    [
+      commitPanelWidth,
+      finishPanelResize,
+      maximized,
+      renderPanelWidth,
+      presentationPanelMaximum,
+      presentationPanelMinimum,
+      swapped,
+    ],
   );
 
   const activePluginView =
@@ -426,7 +495,7 @@ export function WorkPanel({
   const exitAnimationReady = exiting && nativeSurfaceReadyForExit;
   const panelStyle = {
     width: renderPanelWidth,
-    maxWidth: layout.maxPanelWidth,
+    maxWidth: presentationPanelMaximum,
     "--work-panel-width": `${renderPanelWidth}px`,
   } as CSSProperties;
 
@@ -440,6 +509,7 @@ export function WorkPanel({
       )}
       style={panelStyle}
       data-testid="work-panel"
+      data-work-panel-side={swapped ? "left" : "right"}
       data-resizing={isResizing ? "true" : undefined}
       data-exiting={exiting ? "true" : undefined}
       onAnimationEnd={(event) => {
@@ -454,14 +524,8 @@ export function WorkPanel({
         role="separator"
         aria-orientation="vertical"
         aria-label={t("panel.resize")}
-        aria-valuemin={Math.min(
-          panelMinimum,
-          Math.max(WORK_PANEL_COMPACT_MIN_WIDTH, layout.maxPanelWidth),
-        )}
-        aria-valuemax={Math.max(
-          Math.min(panelMinimum, layout.maxPanelWidth),
-          layout.maxPanelWidth,
-        )}
+        aria-valuemin={presentationPanelMinimum}
+        aria-valuemax={presentationPanelMaximum}
         aria-valuenow={Math.round(panelDragWidth ?? renderPanelWidth)}
         aria-disabled={maximized || undefined}
         data-maximized={maximized ? "true" : undefined}
@@ -476,7 +540,7 @@ export function WorkPanel({
       <div className="work-panel-main">
         <header className="work-panel-header">
           <div className="work-panel-header-drag-region" aria-hidden="true" />
-          <div className="work-panel-tab-strip-wrap no-drag">
+          <div className="work-panel-tab-strip-wrap">
             {subagentPanel ? (
               <div className="work-panel-subagent-heading" aria-label={t("panel.subagent")}>
                 <IconBot size={15} />
@@ -621,6 +685,7 @@ export function WorkPanel({
                     icon={activePluginView?.icon}
                     sessionId={activeSessionId ?? undefined}
                     location={activeTab.location}
+                    panelSide={swapped ? "left" : "right"}
                     // Native WebContentsViews composite above renderer content.
                     blocked={exiting || panelBlocked}
                   />

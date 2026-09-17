@@ -187,16 +187,28 @@ test("the editor belongs to the session it was opened in", () => {
   assert.match(dialog, /editor\.sessionId !== activeSessionId/);
 });
 
-test("the quote surfaces open the editor and never attach directly", () => {
+test("the quote surfaces attach the excerpt with the comment they collected", () => {
+  // The pill writes the comment beside the passage it quotes, so it attaches
+  // the excerpt and the comment together instead of opening the editor
+  // (D-LOCAL-selection-overlay).
   assert.match(
     overlay,
-    /openResponseAnnotationEditor\(\{\s*messageId: target\.rowAnchorId,\s*text: target\.markdown,\s*anchor: selectionAnnotationAnchorWithinRow\(target\.rowAnchorId\),\s*\}\)/,
+    /addResponseAnnotation\(\{\s*messageId: target\.rowAnchorId,\s*text: target\.markdown,\s*comment,\s*anchor: annotationAnchorRef\.current,\s*\}\)/,
+  );
+  // The excerpt and its exact occurrence are both snapshotted while the native
+  // selection is still live, so Locate keeps pointing at the passage the user
+  // picked rather than at the whole turn.
+  assert.match(
+    overlay,
+    /annotationAnchorRef\.current = next\?\.annotatable\s*\? selectionAnnotationAnchorWithinRow\(next\.rowAnchorId\)\s*: undefined;/,
   );
   assert.match(
     transcript,
     /openResponseAnnotationEditor\(\{\s*messageId: entry\.anchorId,\s*text: selection \|\| content,\s*anchor: selectionAnnotationAnchorWithinRow\(entry\.anchorId\),\s*\}\)/,
   );
-  assert.doesNotMatch(overlay, /addResponseAnnotation/);
+  // The per-turn action row has no passage to sit beside, so it keeps the
+  // editor.
+  assert.doesNotMatch(overlay, /openResponseAnnotationEditor/);
   assert.doesNotMatch(transcript, /addResponseAnnotation/);
 });
 
@@ -208,6 +220,12 @@ test("the store saves the editor through the annotation transition", () => {
   );
   // A no-op save closes the editor without resurrecting the annotation.
   assert.match(store, /if \(!next\) return \{ responseAnnotationEditor: null \};/);
+  // The pills write through the direct attach path: same transition, no
+  // editor state and therefore no window-centred dialog.
+  assert.match(
+    store,
+    /addResponseAnnotation: \(\{ messageId, text, comment, anchor, source \}\) => \{/,
+  );
   assert.match(store, /\[editor\.sessionId\]: next/);
 });
 
@@ -216,7 +234,7 @@ test("the floating index lists each annotation with edit and remove actions", ()
   assert.match(composer, /data-testid="composer-annotation-item"/);
   assert.match(
     composer,
-    /edit\(\{\s*messageId: annotation\.messageId,\s*text: annotation\.text,\s*annotationId: annotation\.id\s*\}\)/,
+    /edit\(\{\s*messageId: annotation\.messageId,\s*text: annotation\.text,\s*annotationId: annotation\.id,\s*source: annotation\.source\s*\}\)/,
   );
   assert.match(composer, /remove\(annotation\.id\)/);
   assert.match(composer, /aria-expanded=\{expanded\}/);

@@ -3,11 +3,13 @@
 // this only affects a new profile without a saved preference.
 export const WORK_PANEL_MIN_WIDTH = 244;
 export const WORK_PANEL_DEFAULT_WIDTH = 360;
+export const CONTENT_FOCUS_CHAT_MIN_WIDTH = 320;
 export const WORK_PANEL_CHAT_MIN_WIDTH = 1040;
 export const WORK_PANEL_CHAT_MAX_WIDTH = 10000;
 /**
  * Hard MainChat floor for the in-flow three-column shell. The work panel may
- * never take width below it, and the expanded sidebar yields first. The value
+ * never take width below it, and yields before changing the user-controlled
+ * sidebar state. The value
  * is derived from the composer toolbar's unfolded row (plus button, mode and
  * permission chips, model/thinking chip, enhance and send buttons) plus its
  * margins: below this width the composer would fold, so it replaces the 515px
@@ -50,14 +52,13 @@ export type WorkPanelLayout = {
   mainWidth: number;
   panelWidth: number;
   maxPanelWidth: number;
-  shouldCollapseSidebar: boolean;
 };
 
 /**
  * Shared three-column budget. The shell is a fixed-width client area, so the
- * only way to satisfy the MainChat floor is to cap the panel and, at the
- * threshold, collapse the sidebar. The cap is the client width itself: a wide
- * window lets the panel keep growing until MainChat reaches its floor.
+ * panel gives up width before the user-controlled sidebar does. The cap is the
+ * remaining client width after the sidebar and MainChat's hard floor, so a
+ * narrow window keeps all three columns usable without changing sidebar state.
  */
 export function workPanelLayout({
   containerWidth,
@@ -82,7 +83,6 @@ export function workPanelLayout({
       mainWidth: 0,
       panelWidth: fullWidth,
       maxPanelWidth: fullWidth,
-      shouldCollapseSidebar: false,
     };
   }
   const requested = clampWorkPanelWidth(
@@ -100,9 +100,50 @@ export function workPanelLayout({
     mainWidth: Math.max(0, width - leftWidth - panelWidth),
     panelWidth,
     maxPanelWidth,
-    shouldCollapseSidebar:
-      !sidebarCollapsed &&
-      width - leftWidth - requestedPanelWidth <= MAIN_PANE_MIN_WIDTH,
+  };
+}
+
+export type WorkPanelFocusLayout = {
+  chatWidth: number;
+  panelWidth: number;
+  minPanelWidth: number;
+  maxPanelWidth: number;
+};
+
+/**
+ * Content-focus layout: give the work panel the space MainChat normally owns,
+ * while keeping a usable compact chat column on the opposite side.
+ */
+export function workPanelFocusLayout({
+  containerWidth,
+  sidebarWidth,
+  sidebarCollapsed,
+  requestedPanelWidth,
+}: {
+  containerWidth: number;
+  sidebarWidth: number;
+  sidebarCollapsed: boolean;
+  requestedPanelWidth: number;
+}): WorkPanelFocusLayout {
+  const width = Math.max(0, Math.round(containerWidth));
+  const leftWidth = sidebarCollapsed ? 0 : Math.max(0, Math.round(sidebarWidth));
+  const availableWidth = Math.max(0, width - leftWidth);
+  // Keep a normal work surface first, then reserve a usable 320px secondary
+  // chat column whenever the client area allows it.
+  const maxPanelWidth = Math.max(
+    WORK_PANEL_COMPACT_MIN_WIDTH,
+    availableWidth - CONTENT_FOCUS_CHAT_MIN_WIDTH,
+  );
+  const minPanelWidth = Math.min(MAIN_PANE_MIN_WIDTH, maxPanelWidth);
+  const panelWidth = Math.min(
+    maxPanelWidth,
+    Math.max(minPanelWidth, Math.round(requestedPanelWidth)),
+  );
+  return {
+    chatWidth: Math.max(0, availableWidth - panelWidth),
+    panelWidth,
+    minPanelWidth,
+    maxPanelWidth,
   };
 }
 

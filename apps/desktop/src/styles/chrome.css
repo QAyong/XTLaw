@@ -225,31 +225,26 @@
 
 .sidebar-resize-handle::after {
   position: absolute;
-  top: 50%;
-  right: 2px;
-  width: 2px;
-  height: 32px;
+  inset-block: 0;
+  right: 0;
+  width: 1px;
   content: "";
-  border-radius: var(--radius-full);
-  background: color-mix(in oklab, var(--ds-text-primary) 20%, transparent);
-  opacity: 0;
-  transform: translateY(-50%);
-  transition: opacity var(--motion-duration-fast) var(--motion-ease-out);
+  background: var(--ds-border-default);
+  transition:
+    width var(--motion-duration-fast) var(--motion-ease-out),
+    background var(--motion-duration-fast) var(--motion-ease-out);
 }
 
 .sidebar-resize-handle:hover::after,
+.sidebar-resize-handle:active::after,
 .sidebar-resize-handle:focus-visible::after,
 .sidebar-resize-handle.is-resizing::after {
-  opacity: 1;
+  width: 2px;
+  background: var(--ds-focus);
 }
 
 .sidebar-resize-handle:focus-visible {
   outline: none;
-}
-
-.sidebar-resize-handle:focus-visible::after,
-.sidebar-resize-handle.is-resizing::after {
-  background: var(--ds-accent);
 }
 
 :root[data-sidebar-resizing="true"],
@@ -417,6 +412,27 @@
   opacity: 0.28;
 }
 
+/* When content-focus mode moves MainChat to the right, keep the collapsed
+ * sidebar affordance anchored to the window edge instead of moving it with the
+ * chat titlebar. */
+.app-shell.work-panel-swapped.sidebar-collapsed
+  .conversation-topbar.ct-collapsed
+  .ct-lead {
+  position: fixed;
+  top: 0;
+  bottom: auto;
+  left: 8px;
+  z-index: 31;
+  height: var(--ds-toolbar-height);
+}
+
+:root[data-platform="darwin"]:not([data-fullscreen="true"])
+  .app-shell.work-panel-swapped.sidebar-collapsed
+  .conversation-topbar.ct-collapsed
+  .ct-lead {
+  left: 76px;
+}
+
 .title-nav-btn.active {
   color: var(--ds-text-primary);
   background: var(--ds-bg-active);
@@ -534,7 +550,8 @@
 }
 
 .conversation-topbar .ct-icon-btn,
-.app-work-panel-toggle {
+.app-work-panel-toggle,
+.app-work-panel-swap {
   display: inline-flex;
   height: var(--ds-work-panel-toggle-size);
   width: var(--ds-work-panel-toggle-size);
@@ -550,13 +567,15 @@
 }
 
 .conversation-topbar .ct-icon-btn:hover:not(:disabled),
-.app-work-panel-toggle:hover:not(:disabled) {
+.app-work-panel-toggle:hover:not(:disabled),
+.app-work-panel-swap:hover:not(:disabled) {
   background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
 }
 
 .conversation-topbar .ct-icon-btn:disabled,
-.app-work-panel-toggle:disabled {
+.app-work-panel-toggle:disabled,
+.app-work-panel-swap:disabled {
   opacity: 0.4;
   cursor: default;
 }
@@ -578,9 +597,9 @@
   background: var(--ds-tile);
 }
 
-/* Keep the sole work-panel toggle anchored to the viewport while the in-flow
- * panel changes MainPane width. AppShell ownership keeps it available on every
- * non-Settings route and above the panel header throughout both animations. */
+/* Keep the work-panel controls anchored to the viewport while the in-flow panel
+ * changes MainPane width. AppShell ownership keeps them above the panel header
+ * throughout both animations. */
 .app-work-panel-toggle {
   position: fixed;
   top: 9px;
@@ -591,7 +610,26 @@
   app-region: no-drag;
 }
 
+.app-work-panel-swap {
+  position: fixed;
+  top: 9px;
+  right: calc(
+    var(--ds-work-panel-toggle-inset) + var(--ds-work-panel-toggle-size) +
+      var(--ds-work-panel-switch-gap)
+  );
+  z-index: 30;
+  pointer-events: auto;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
 .app-work-panel-toggle[aria-pressed="true"] {
+  background: var(--ds-tile-deep);
+  color: var(--ds-text-primary);
+  box-shadow: var(--ds-raised-shadow);
+}
+
+.app-work-panel-swap[aria-pressed="true"] {
   background: var(--ds-tile-deep);
   color: var(--ds-text-primary);
   box-shadow: var(--ds-raised-shadow);
@@ -619,6 +657,14 @@
 :root[data-platform="linux"] .app-work-panel-toggle {
   right: calc(
     var(--ds-window-controls-width) + var(--ds-work-panel-toggle-inset)
+  );
+}
+
+:root[data-platform="win32"] .app-work-panel-swap,
+:root[data-platform="linux"] .app-work-panel-swap {
+  right: calc(
+    var(--ds-window-controls-width) + var(--ds-work-panel-toggle-inset) +
+      var(--ds-work-panel-toggle-size) + var(--ds-work-panel-switch-gap)
   );
 }
 
@@ -702,6 +748,24 @@
 :root[data-platform="linux"] .conversation-topbar.ct-work-panel-open {
   /* Window controls stay viewport-fixed over the panel, not this pane. */
   right: 0;
+}
+
+:root[data-platform="win32"]
+  .app-shell.work-panel-swapped
+  .conversation-topbar.ct-work-panel-open,
+:root[data-platform="linux"]
+  .app-shell.work-panel-swapped
+  .conversation-topbar.ct-work-panel-open {
+  /* With the panel on the left, MainChat owns the right-side titlebar again. */
+  right: var(--ds-window-controls-width);
+}
+
+.app-shell.work-panel-swapped .conversation-topbar.ct-work-panel-open .ct-right {
+  /* Keep New Task/Search clear of the two viewport-fixed work-panel controls. */
+  padding-right: calc(
+    var(--ds-work-panel-toggle-inset) + var(--ds-work-panel-toggle-size) +
+      var(--ds-work-panel-switch-gap) + var(--ds-work-panel-toggle-size)
+  );
 }
 
 .notification-center {
@@ -1006,6 +1070,10 @@
  * surface across the right edge. */
 .app-shell:has(.work-panel) .window-controls {
   background: var(--ds-bg-dock-raised);
+}
+
+.app-shell.work-panel-swapped:has(.work-panel) .window-controls {
+  background: var(--ds-bg-primary);
 }
 
 .window-control-btn {

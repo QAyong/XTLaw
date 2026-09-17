@@ -16,7 +16,7 @@ destination, chat as the home surface, tools and permissions inline.
 +----------------------------------------------------------------------+
 | Platform titlebar: macOS traffic lights / Windows/Linux actions     |
 +------------------+--------------------------------+------------------+
-| Sidebar (240–520px) | Main pane (active destination) | Work panel       |
+| Sidebar (200–520px) | Main pane (active destination) | Work panel       |
 |                  |  chat home / transcript        |  (optional,      |
 |                  |  or Extensions page            |   resizable      |
 |                  |                                |   ≥244px, dynamic|
@@ -41,7 +41,7 @@ destination, chat as the home surface, tools and permissions inline.
   command, and sortable views. Projects not retained in the sidebar remain
   discoverable through Settings → Project archive.
   Collapsible to an icon rail (Cmd/Ctrl+B). Its expanded column defaults to
-  275px and can be resized from 240px to 520px; the preferred width persists
+  275px and can be resized from 200px to 520px; the preferred width persists
   independently from the collapsed icon rail.
 - **Product identity**: runtime shell copy uses `PI-Desktop`; the home hero and
   sidebar reuse the derived `src/assets/brand/logo-*.png` marks, while composer prompt
@@ -66,7 +66,7 @@ destination, chat as the home surface, tools and permissions inline.
   the right outside the traffic-light safety area; no logo/title is rendered
   there, including in fullscreen. When the work panel is open, native window
   controls stay viewport-fixed at the window's right edge and the panel header
-  reserves that band plus the work-panel toggle. The panel header is a
+  reserves that band plus the two work-panel controls. The panel header is a
   horizontally scrollable tab strip followed by a fixed `+` add trigger; tab
   close actions stay in the tabs, so the Windows native close control is not
   visually duplicated by a second header `×`.
@@ -85,12 +85,23 @@ destination, chat as the home surface, tools and permissions inline.
   reserves the 76px windowed (8px fullscreen) traffic-light inset plus the
   preview action lane and an 8px gap, so its first tab never overlaps either
   the traffic lights or the preview controls.
-- **Work panel**: docked right column (not an overlay) opened by an artifact,
+- **Work panel**: docked right column by default (not an overlay), opened by an artifact,
   the viewport-fixed toggle, or `Cmd/Ctrl + J`. File, URL, browser-preview, and
   successful workspace-edit artifacts create their resources atomically. The
   46px content header exposes a tablist and a fixed `+` trigger. Its tokenized
-  60px right-side safe lane plus separated action rail keep the trigger distinct
-  from the viewport-fixed work-panel toggle. Clicking `+` creates and activates
+  92px right-side safe lane plus separated action rail keep the trigger distinct
+  from the two viewport-fixed work-panel controls. When the panel is visible on
+  Chat, the adjacent swap control exchanges the MainChat and WorkPanel columns
+  for a content-focus layout while leaving the navigation sidebar fixed. The
+  collapsed sidebar's reopen affordance remains anchored at the window's left
+  edge during that swap, with the work-panel header reserving its hit-target
+  lane. The secondary Chat column keeps a 320px minimum in this transient mode;
+  at the normal profile width it receives the exchanged 360px column.
+  choice is transient: the two panes exchange their current widths while tabs,
+  active resource, and scroll positions stay with their owners; the default
+  panel-width preference is not overwritten. Closing the panel or leaving Chat
+  clears the choice.
+  Clicking `+` creates and activates
   a unique New launcher tab; its body presents the same data-driven Review and
   plugin-view rows as buttons, so the user chooses a destination in the page
   instead of opening a dropdown. Selecting a row replaces that launcher tab with
@@ -104,11 +115,12 @@ destination, chat as the home surface, tools and permissions inline.
   successful active-session workspace Write/Edit artifact opens Review;
   scratch, failed, and background-session writes never steal focus. The inner
   divider resizes the panel through the shared three-column budget; moving it
-  left takes space until MainChat reaches 450px, at which point the expanded
-  sidebar yields immediately, and moving it right gives space back. A manual
+  left takes space until MainChat reaches 450px, at which point the panel is
+  capped by the shared budget before the user-controlled sidebar changes state,
+  and moving it right gives space back. A manual
   sidebar reopen spends work-panel width first and otherwise targets a 460px
-  MainChat width. The sole
-  panel-level control is the viewport-fixed toggle; each session retains its own runtime
+  MainChat width. The viewport-fixed toggle collapses the panel and the adjacent
+  swap control exchanges its position with MainChat; each session retains its own runtime
   open state, tab set, active tab, and Browser resource in renderer memory.
   Selecting another session swaps the visible panel context without deleting
   either session's state; selecting a workspace without an active conversation
@@ -118,12 +130,15 @@ destination, chat as the home surface, tools and permissions inline.
   retained session contexts, and only the preferred panel width persists across
   launches.
   The work panel remains a fixed-width in-flow column beside MainChat inside
-  the existing client area (ADR 0033 / ADR 0151). MainChat keeps a hard 450px
+  the existing client area (ADR 0033 / ADR 0151), on the right by default and on
+  the left while the transient content-focus swap is active. MainChat keeps a hard 450px
   minimum; the work panel's effective maximum is the remaining client width
-  after the expanded sidebar and that floor (ADR 0238). When the budget is
-  exhausted the sidebar collapses immediately through its existing animation
-  (the budget still counts it while `sidebar-out` occupies flex space) and
-  returns when the panel closes. Opening and collapsing change only the
+  after the expanded sidebar and that floor (ADR 0238). In content-focus mode,
+  the secondary Chat column is reserved at a minimum of 320px. When the budget is
+  exhausted the panel remains capped at that maximum; opening, resizing, and
+  closing the panel never automatically change the user's sidebar state. If
+  the user manually collapses the sidebar, the budget still counts it while
+  `sidebar-out` occupies flex space. Opening and collapsing change only the
   shell's internal flex allocation and never expand or shrink native window
   bounds; no panel action requests a positive native reservation. The
   panel-header preview toggle temporarily unmounts MainChat and expands the

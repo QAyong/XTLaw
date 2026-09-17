@@ -21,7 +21,10 @@ import type { RefObject } from "react";
 import { IconCheck, IconCopy } from "./icons";
 import { useCopy } from "./Markdown";
 import { useAppStore } from "../stores/app-store";
-import { selectionAnnotationAnchorWithinRow } from "../lib/response-annotation-anchor";
+import {
+  selectionAnnotationAnchorWithinRow,
+  type ResponseAnnotationAnchor,
+} from "../lib/response-annotation-anchor";
 import {
   activeSelectionRange,
   COMPOSER_DOCK_SELECTOR,
@@ -42,9 +45,7 @@ export function SelectionQuoteButton({
 }) {
   const { t } = useTranslation();
   const quoteMessageIntoComposer = useAppStore((s) => s.quoteMessageIntoComposer);
-  const openResponseAnnotationEditor = useAppStore(
-    (s) => s.openResponseAnnotationEditor,
-  );
+  const addResponseAnnotation = useAppStore((s) => s.addResponseAnnotation);
   const openSideChat = useAppStore((s) => s.openSideChat);
   const { copied, copy } = useCopy();
   const [target, setTarget] = useState<SelectionQuoteTarget | null>(null);
@@ -54,6 +55,20 @@ export function SelectionQuoteButton({
     maxWidth: number;
   } | null>(null);
   const pillRef = useRef<HTMLDivElement | null>(null);
+  // Add to chat on an assistant turn turns the pill into the comment input in
+  // place (D-LOCAL-selection-overlay): the comment is written next to the
+  // passage it belongs to, so no window-centred editor has to open over the
+  // work panel.
+  const [comment, setComment] = useState("");
+  const [commenting, setCommenting] = useState(false);
+  // Read by the document listeners below, which are installed once.
+  const commentingRef = useRef(false);
+  const commentRef = useRef<HTMLTextAreaElement | null>(null);
+  // The selected occurrence, read while the native selection is still live: the
+  // comment input takes focus on the frame it appears, which collapses that
+  // selection, and an annotation saved afterwards could no longer tell which
+  // passage it quoted (D-LOCAL-response-annotations).
+  const annotationAnchorRef = useRef<ResponseAnnotationAnchor | undefined>(undefined);
   // A press on the pill must not be read as "the user clicked away", and the
   // host refuses a fork while the visible turn is still running.
   const pressedRef = useRef(false);
@@ -65,16 +80,24 @@ export function SelectionQuoteButton({
     let frame = 0;
     const sync = () => {
       frame = 0;
-      if (pressedRef.current) return;
+      // Focusing the comment input collapses the document selection, and a
+      // recomputed target would take the card away mid-sentence.
+      if (pressedRef.current || commentingRef.current) return;
       const dock = document.querySelector(COMPOSER_DOCK_SELECTOR);
-      setTarget(
-        selectionQuoteTarget({
-          scrollRoot: scrollRef.current,
-          // The composer is a sibling of the transcript, so its top edge is
-          // the visible reading boundary.
-          bottomBoundaryTop: dock ? dock.getBoundingClientRect().top : null,
-        }),
-      );
+      const next = selectionQuoteTarget({
+        scrollRoot: scrollRef.current,
+        // The composer is a sibling of the transcript, so its top edge is
+        // the visible reading boundary.
+        bottomBoundaryTop: dock ? dock.getBoundingClientRect().top : null,
+      });
+      // The exact occurrence is snapshotted here, while the native selection is
+      // still live: the comment input takes focus on the frame it appears and
+      // collapses that selection, so reading it at save time would silently
+      // fall back to locating the whole row (D-LOCAL-response-annotations).
+      annotationAnchorRef.current = next?.annotatable
+        ? selectionAnnotationAnchorWithinRow(next.rowAnchorId)
+        : undefined;
+      setTarget(next);
     };
     const schedule = () => {
       if (frame) return;
@@ -87,8 +110,12 @@ export function SelectionQuoteButton({
         cancelAnimationFrame(frame);
         frame = 0;
       }
+      commentingRef.current = false;
+      setCommenting(false);
+      setComment("");
       setTarget(null);
       setPlacement(null);
+      annotationAnchorRef.current = undefined;
     };
     const onPointerDown = (event: PointerEvent) => {
       const node = event.target;
@@ -150,30 +177,49 @@ export function SelectionQuoteButton({
     setPlacement(
       placeSelectionQuote({ anchor: target.anchor, size, bounds: target.bounds }),
     );
-  }, [target]);
+  }, [target, commenting]);
+
+  // The input takes the caret on the frame it appears, so Add to chat then
+  // typing needs no second click.
+  useLayoutEffect(() => {
+    if (commenting) commentRef.current?.focus();
+  }, [commenting]);
 
   const dismiss = useCallback(() => {
     // Mirrors the reference behavior: the action consumes the selection, so the
     // pill does not survive its own click.
     window.getSelection()?.removeAllRanges();
+    commentingRef.current = false;
+    setCommenting(false);
+    setComment("");
     setTarget(null);
     setPlacement(null);
+    annotationAnchorRef.current = undefined;
   }, []);
 
   if (!target) return null;
 
   const addToChat = () => {
     if (target.annotatable) {
-      // A response turn opens the comment editor on the excerpt snapshotted by
-      // the pill; the annotation is attached when that editor saves (D-LOCAL-response-annotations).
-      openResponseAnnotationEditor({
-        messageId: target.rowAnchorId,
-        text: target.markdown,
-        anchor: selectionAnnotationAnchorWithinRow(target.rowAnchorId),
-      });
-    } else {
-      quoteMessageIntoComposer({ title, text: target.markdown });
+      // A response turn turns the pill itself into the comment input, anchored
+      // above the passage it quotes (D-LOCAL-selection-overlay). Both the excerpt
+      // and the exact occurrence were snapshotted while the selection was still
+      // live, so focusing the input cannot lose either of them.
+      commentingRef.current = true;
+      setCommenting(true);
+      return;
     }
+    quoteMessageIntoComposer({ title, text: target.markdown });
+    dismiss();
+  };
+
+  const saveComment = () => {
+    addResponseAnnotation({
+      messageId: target.rowAnchorId,
+      text: target.markdown,
+      comment,
+      anchor: annotationAnchorRef.current,
+    });
     dismiss();
   };
 
@@ -181,6 +227,68 @@ export function SelectionQuoteButton({
     await openSideChat(target.rowAnchorId, target.markdown);
     dismiss();
   };
+
+  // The comment form of the same pill. It keeps the pill's anchor above the
+  // passage, so the excerpt it quotes stays on screen while the comment is
+  // written, and it never crosses into the work panel's native surface.
+  if (commenting) {
+    return createPortal(
+      <div
+        ref={pillRef}
+        className="selection-quote is-comment"
+        data-testid="selection-quote-comment"
+        style={
+          placement
+            ? {
+                top: placement.top,
+                left: placement.left,
+                maxWidth: placement.maxWidth,
+              }
+            : { top: 0, left: 0, visibility: "hidden" }
+        }
+      >
+        <textarea
+          ref={commentRef}
+          className="selection-quote-comment-input"
+          data-testid="selection-quote-comment-input"
+          rows={2}
+          value={comment}
+          aria-label={t("chat.annotationCommentTitle")}
+          placeholder={t("chat.annotationCommentPlaceholder")}
+          onChange={(event) => setComment(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
+            if (event.key === "Escape") {
+              event.preventDefault();
+              dismiss();
+              return;
+            }
+            if (event.key !== "Enter" || event.shiftKey) return;
+            event.preventDefault();
+            event.stopPropagation();
+            if (!event.repeat) saveComment();
+          }}
+        />
+        <div className="selection-quote-comment-actions">
+          <button
+            type="button"
+            className="btn btn-ghost selection-quote-comment-btn"
+            onClick={dismiss}
+          >
+            {t("common.cancel")}
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary selection-quote-comment-btn"
+            onClick={saveComment}
+          >
+            {t("common.save")}
+          </button>
+        </div>
+      </div>,
+      document.body,
+    );
+  }
 
   return createPortal(
     <div

@@ -37,15 +37,18 @@ test("chat prose keeps a refined hierarchy and quieter chrome", () => {
   assert.match(stylesSource, /\.prose-chat th\s*\{[^}]*background:\s*var\(--ds-tile-deep\)/);
   assert.match(stylesSource, /\.prose-chat tbody tr:nth-child\(even\) td\s*\{[^}]*background:\s*var\(--ds-tile\)/);
   assert.match(stylesSource, /\.prose-chat tbody tr:hover td\s*\{[^}]*background:\s*var\(--ds-tile-hover\)/);
-  // Wide GFM tables stay in the transcript: full-width wrap, wrapping cells,
-  // no nowrap headers (PR #195).
+  // GFM tables keep prose cells wrappable, but preserve atomic columns such
+  // as counts and dates so the table wrapper can own real overflow.
   assert.match(stylesSource, /\.prose-chat \.table-wrap\s*\{[^}]*width:\s*100%/);
   assert.match(stylesSource, /\.prose-chat \.table-wrap table\s*\{[^}]*width:\s*100%/);
   assert.match(
     stylesSource,
-    /\.prose-chat th,\s*\.prose-chat td\s*\{[^}]*overflow-wrap:\s*anywhere/,
+    /\.prose-chat th,\s*\.prose-chat td\s*\{[^}]*overflow-wrap:\s*break-word/,
   );
-  assert.doesNotMatch(stylesSource, /\.prose-chat th\s*\{[^}]*white-space:\s*nowrap/);
+  assert.match(
+    stylesSource,
+    /\.prose-chat th\.table-cell-atomic,\s*\.prose-chat td\.table-cell-atomic\s*\{[^}]*white-space:\s*nowrap/,
+  );
   assert.match(stylesSource, /\.code-block\s*\{[^}]*border-radius:\s*var\(--radius-md-plus\)/);
   assert.doesNotMatch(stylesSource, /\.code-block\s*\{[^}]*border:/);
   assert.doesNotMatch(stylesSource, /\.code-block-head\s*\{[^}]*border-bottom/);
@@ -58,6 +61,13 @@ test("markdown renderer still streams by memoized blocks", () => {
   assert.match(markdownSource, /const markdownComponents: Components =/);
   assert.match(markdownSource, /className="code-block"/);
   assert.match(markdownSource, /className="table-wrap"/);
+});
+
+test("markdown tables infer atomic columns without requiring table metadata", () => {
+  assert.match(markdownSource, /function isAtomicTableHeader\(header: string\)/);
+  assert.match(markdownSource, /function isAtomicTableValue\(value: string\)/);
+  assert.match(markdownSource, /className, "table-cell-atomic"/);
+  assert.match(stylesSource, /overflow-wrap:\s*break-word/);
 });
 
 test("markdown resolves relative file links against a base directory", () => {

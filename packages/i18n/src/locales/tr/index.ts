@@ -154,6 +154,7 @@ export const tr = {
     conversation: "Sohbet",
     toggleSidebar: "Kenar çubuğunu aç/kapat",
     toggleWorkPanel: "Yan paneli aç/kapat",
+    swapWorkPanel: "Sohbet ve çalışma panelini değiştir",
     sessions: "Oturumlar",
     commandPalette: "Komut paleti",
     back: "Geri",

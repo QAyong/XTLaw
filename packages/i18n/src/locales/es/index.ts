@@ -145,6 +145,7 @@ export const es = {
     "conversation": "Conversación",
     "toggleSidebar": "Alternar barra lateral",
     "toggleWorkPanel": "Alternar panel lateral",
+    "swapWorkPanel": "Intercambiar chat y panel de trabajo",
     "sessions": "Sesiones",
     "commandPalette": "Paleta de comandos",
     "back": "Atrás",

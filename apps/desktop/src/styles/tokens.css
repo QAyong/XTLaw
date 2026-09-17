@@ -150,7 +150,7 @@
   /* D297: the composer lifts by shadow alone; the hairline stroke is gone. */
   --ds-shadow-composer: 0 3px 7.5px #0000000a, 0 0 20px #0000000d;
   --ds-bg-elevated-primary: color-mix(in oklab, var(--gray-800) 96%, transparent);
-  --ds-sidebar-width: clamp(240px, 275px, min(520px, calc(100vw - 320px)));
+  --ds-sidebar-width: clamp(200px, 275px, min(520px, calc(100vw - 320px)));
   /* Settings rail border-box width, including its 1px right border. The
    * settings drag band starts after the rail so the rail keeps a single
    * surface tone from the window top edge down. */
@@ -160,6 +160,7 @@
      cannot drift away from the viewport-fixed toggle. */
   --ds-work-panel-toggle-size: 28px;
   --ds-work-panel-toggle-inset: 12px;
+  --ds-work-panel-switch-gap: 4px;
   --ds-work-panel-toggle-gap: 20px;
   /* Preview-mode shell actions are two 22px buttons with a 4px gap and an
      additional 8px buffer before the panel's first tab. */

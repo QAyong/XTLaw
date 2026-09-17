@@ -80,6 +80,8 @@ type ToolRowProps = {
   delegate?: SubagentRun;
   /** Card treatment used when several Task calls form a delegation topology. */
   variant?: "default" | "topology";
+  /** The owning assistant turn's lifecycle, when rendered in a transcript. */
+  turnActive?: boolean;
   /** Claims the containing activity group when this row is manually used. */
   onUserInteraction?: () => void;
   /** Live delegation statuses read from the turn's lifecycle-tool rows. */
@@ -109,6 +111,7 @@ function toolRowPropsEqual(
   if (
     previous.message !== next.message ||
     previous.variant !== next.variant ||
+    previous.turnActive !== next.turnActive ||
     previous.onUserInteraction !== next.onUserInteraction ||
     !subagentRunsEqual(previous.delegate, next.delegate)
   ) {
@@ -133,6 +136,7 @@ export const ToolRow = memo(function ToolRow({
   message,
   delegate,
   variant = "default",
+  turnActive,
   onUserInteraction,
   delegationStatuses,
   delegationTimings,
@@ -152,7 +156,7 @@ export const ToolRow = memo(function ToolRow({
   const failed = status === "error" || run === "failed";
   // Tool details are always user-opened. Failure stays visible in the row head
   // through its status icon/label without expanding the payload automatically.
-  const disclosure = useAutomaticDisclosure(false);
+  const disclosure = useAutomaticDisclosure(false, undefined, turnActive === false);
   const { open, toggle: toggleDisclosure, collapse: collapseDisclosure } = disclosure;
   const titleRef = disclosure.titleRef;
   const toggleRow = useCallback(() => {
@@ -504,6 +508,7 @@ export const ToolRow = memo(function ToolRow({
           run={delegate}
           agentName={agentName}
           onCollapse={collapseRow}
+          turnActive={turnActive}
         />
       ) : null}
     </div>
@@ -521,12 +526,15 @@ export const SubagentRunRows = memo(function SubagentRunRows({
   run,
   agentName,
   onCollapse,
+  turnActive,
   scrollable = true,
   variant = "inline",
 }: {
   run: SubagentRun;
   agentName: string;
   onCollapse?: () => void;
+  /** The owning assistant turn's lifecycle, when rendered in a transcript. */
+  turnActive?: boolean;
   /** Side-panel mode lets the parent panel own the only scrollbar. */
   scrollable?: boolean;
   /** Dock headings are section labels; inline headings name the delegate. */
@@ -563,6 +571,7 @@ export const SubagentRunRows = memo(function SubagentRunRows({
       <SubagentRunFollow
         headingId={headingId}
         items={run.items}
+        turnActive={turnActive}
         scrollable={scrollable}
       />
     </div>
@@ -577,10 +586,12 @@ export const SubagentRunRows = memo(function SubagentRunRows({
 function SubagentRunFollow({
   headingId,
   items,
+  turnActive,
   scrollable = true,
 }: {
   headingId: string;
   items: SubagentRunItem[];
+  turnActive?: boolean;
   scrollable?: boolean;
 }) {
   const { t } = useTranslation();
@@ -619,7 +630,7 @@ function SubagentRunFollow({
             {items.map((item) =>
               item.kind === "tool" ? (
                 <Fragment key={item.message.id}>
-                  <ToolRow message={item.message} />
+                  <ToolRow message={item.message} turnActive={turnActive} />
                   <ReviewChangeCard message={item.message} />
                 </Fragment>
               ) : item.kind === "thinking" ? (
@@ -627,6 +638,7 @@ function SubagentRunFollow({
                   key={`thinking-${item.message.id}`}
                   message={item.message}
                   streaming={item.message.status === "streaming"}
+                  turnActive={turnActive}
                 />
               ) : (
                 <div

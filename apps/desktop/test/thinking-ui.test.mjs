@@ -261,12 +261,16 @@ test("expanded assistant activity rails collapse their disclosures", () => {
 });
 
 test("live thinking follows the latest step without auto-expanding tool details", () => {
-  assert.match(transcriptSource, /function useAutomaticDisclosure\(automaticOpen: boolean, revealRequest\?: number\)/);
+  assert.match(
+    transcriptSource,
+    /function useAutomaticDisclosure\([\s\S]*?collapseWhen = false,[\s\S]*?\)/,
+  );
   assert.match(transcriptSource, /const userInteractedRef = useRef\(false\)/);
+  assert.match(transcriptSource, /const previousCollapseWhenRef = useRef\(collapseWhen\)/);
   assert.match(transcriptSource, /useLayoutEffect\(\(\) => \{/);
   assert.match(transcriptSource, /if \(userInteractedRef\.current\) return/);
   assert.match(transcriptSource, /const \{ open, toggle: toggleDisclosure, collapse: collapseDisclosure \}/);
-  assert.match(transcriptSource, /useAutomaticDisclosure\(live, revealRequest\)/);
+  assert.match(transcriptSource, /useAutomaticDisclosure\(live, revealRequest, turnActive === false\)/);
   assert.match(
     transcriptSource,
     /<ThinkingRow[\s\S]*?autoOpen=\{live && itemIndex === items\.length - 1\}/,
@@ -275,11 +279,43 @@ test("live thinking follows the latest step without auto-expanding tool details"
     transcriptSource,
     /<ToolRow[\s\S]{0,220}autoOpen=\{live && itemIndex === items\.length - 1\}/,
   );
-  assert.match(transcriptSource, /const disclosure = useAutomaticDisclosure\(false\)/);
+  assert.match(
+    transcriptSource,
+    /const disclosure = useAutomaticDisclosure\(false, undefined, turnActive === false\)/,
+  );
   assert.match(transcriptSource, /onClick=\{toggleDisclosure\}/);
   assert.match(transcriptSource, /onCollapse=\{collapseDisclosure\}/);
   assert.match(transcriptSource, /onUserInteraction=\{claimDisclosure\}/);
   assert.match(transcriptSource, /const tail = live && !open \? currentDetail : ""/);
+});
+
+test("the process disclosure stays open while the final answer streams", () => {
+  assert.match(
+    transcriptProcessDetailsSource,
+    /const processLive = isActive && !endedAt;[\s\S]*?const turnLive = isActive;/,
+  );
+  assert.match(
+    transcriptProcessDetailsSource,
+    /useAutomaticDisclosure\(turnLive, revealRequest, !turnLive\)/,
+  );
+  assert.match(
+    transcriptProcessDetailsSource,
+    /processLive && index === parts\.length - 1/,
+  );
+});
+
+test("turn completion force-collapses every transcript disclosure", () => {
+  assert.match(
+    transcriptSharedSource,
+    /const becameCollapsed = !previousCollapseWhenRef\.current && collapseWhen;/,
+  );
+  assert.match(
+    transcriptSharedSource,
+    /userInteractedRef\.current = false;\s*setOpen\(false\);/,
+  );
+  assert.match(transcriptActivityGroupSource, /turnActive=\{turnActive\}/);
+  assert.match(transcriptToolRowSource, /turnActive=\{turnActive\}/);
+  assert.match(transcriptSharedSource, /turnActive === false/);
 });
 
 test("activity headers omit the redundant status capsule", () => {

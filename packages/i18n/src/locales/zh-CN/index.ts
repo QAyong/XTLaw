@@ -147,6 +147,7 @@ export const zhCN = {
     conversation: "对话",
     toggleSidebar: "切换侧边栏",
     toggleWorkPanel: "切换侧边面板",
+    swapWorkPanel: "交换聊天区与工作面板",
     sessions: "会话",
     commandPalette: "命令面板",
     back: "后退",

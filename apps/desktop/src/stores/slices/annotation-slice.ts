@@ -6,7 +6,7 @@ import { appendQuoteToDraft, buildQuoteText, quoteExcerpt } from "../../lib/chat
 import { annotationEditorFor, applyAnnotationComment } from "../../lib/response-annotations";
 
 export function createAnnotationSlice({ get, set }: StoreAccess): Pick<AppState,
-  "appendComposerDraftText" | "openResponseAnnotationEditor" | "saveResponseAnnotationEditor" | "closeResponseAnnotationEditor" | "removeResponseAnnotation" | "clearResponseAnnotations" | "quoteMessageIntoComposer"> {
+  "appendComposerDraftText" | "openResponseAnnotationEditor" | "saveResponseAnnotationEditor" | "addResponseAnnotation" | "closeResponseAnnotationEditor" | "removeResponseAnnotation" | "clearResponseAnnotations" | "quoteMessageIntoComposer"> {
   return {
     appendComposerDraftText: (text) => {
       const sessionId = get().activeSessionId;
@@ -23,7 +23,7 @@ export function createAnnotationSlice({ get, set }: StoreAccess): Pick<AppState,
       });
     },
 
-    openResponseAnnotationEditor: ({ messageId, text, annotationId, anchor }) => {
+    openResponseAnnotationEditor: ({ messageId, text, annotationId, anchor, source }) => {
       const sessionId = get().activeSessionId;
       if (!sessionId) return;
       const current = get().responseAnnotations[sessionId] ?? [];
@@ -37,6 +37,7 @@ export function createAnnotationSlice({ get, set }: StoreAccess): Pick<AppState,
           text,
           annotationId,
           anchor,
+          source,
         }),
       });
     },
@@ -63,6 +64,34 @@ export function createAnnotationSlice({ get, set }: StoreAccess): Pick<AppState,
           responseAnnotationEditor: null,
         };
       });
+    },
+
+    /**
+     * The selection pills write here directly: the comment is typed in the pill
+     * itself, next to the passage it belongs to, so nothing has to open a
+     * window-centred editor (D-LOCAL-selection-overlay). A blank excerpt, a stale
+     * target, or an excerpt that is already attached changes nothing.
+     */
+    addResponseAnnotation: ({ messageId, text, comment, anchor, source }) => {
+      const sessionId = get().activeSessionId;
+      if (!sessionId) return;
+      const current = get().responseAnnotations[sessionId] ?? [];
+      const editor = annotationEditorFor(current, {
+        sessionId,
+        messageId,
+        text,
+        anchor,
+        source,
+      });
+      if (!editor) return;
+      const next = applyAnnotationComment(current, editor, comment, crypto.randomUUID());
+      if (!next) return;
+      set((state) => ({
+        responseAnnotations: {
+          ...state.responseAnnotations,
+          [sessionId]: next,
+        },
+      }));
     },
 
     closeResponseAnnotationEditor: () => {

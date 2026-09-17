@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PI-Desktop application mark.
+
+  This file is the brand source of truth; `icon_1024.png` is its committed
+  rasterization (run `python3 scripts/make-canonical-icon.py`).
+
+  Composition notes:
+  - 800x800 canvas. The mark keeps the coordinates it was authored with
+    (165.29..634.72), so its padding is the artwork's own, not a layout
+    constant that a later edit could silently move.
+  - The plate is the dark surface the product paints its own windows with
+    (gray-900 / #181818). A white mark on a transparent plate disappears in a
+    light Windows taskbar and on a light desktop, so the plate ships with it.
+  - The paths use absolute M/H/V/L/Z commands and straight edges only, which
+    keeps the rasterizer small instead of pulling an SVG engine into the
+    build.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800">
+  <rect x="0" y="0" width="800" height="800" rx="150" fill="#181818"/>
+  <!-- P shape: outer boundary clockwise, inner hole counter-clockwise -->
+  <path fill="#fff" fill-rule="evenodd" d="
+    M165.29 165.29
+    H517.36
+    V400
+    H400
+    V517.36
+    H282.65
+    V634.72
+    H165.29
+    Z
+    M282.65 282.65
+    V400
+    H400
+    V282.65
+    Z
+  "/>
+  <!-- i dot -->
+  <path fill="#fff" d="M517.36 400 H634.72 V634.72 H517.36 Z"/>
+</svg>

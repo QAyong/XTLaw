@@ -41,14 +41,29 @@ const windowsIcon = await readFile(
 );
 
 test("Windows runtime registers the canonical native application identity", () => {
-  const appId = protocolSource.match(/APP_ID = "([^"]+)"/)?.[1];
+  const appId = protocolSource.match(/export const APP_ID = "([^"]+)"/)?.[1];
   assert.equal(appId, packageJson.build.appId);
   assert.ok(startupSource.includes("app.whenReady()"), "main process readiness hook");
   assert.match(mainIndexSource, /app\.setName\(APP_NAME\)/);
+  // Only a packaged run owns the shipped identity; a development host registers
+  // the development-only ID so the stock Electron host can never claim the
+  // installed app's notifications, taskbar group, or Start Menu shortcut.
   assert.match(
     mainIndexSource,
-    /process\.platform === "win32"[\s\S]*app\.setAppUserModelId\(APP_ID\)/,
+    /process\.platform === "win32"[\s\S]*app\.setAppUserModelId\(app\.isPackaged \? APP_ID : DEV_APP_ID\)/,
   );
+});
+
+test("Windows development registers a development-only application identity", () => {
+  const appId = protocolSource.match(/export const APP_ID = "([^"]+)"/)?.[1];
+  const devAppId = protocolSource.match(/DEV_APP_ID = "([^"]+)"/)?.[1];
+  assert.equal(devAppId, `${appId}.dev`);
+  assert.notEqual(devAppId, appId);
+  // The macOS development host bundle identifier and the Windows development
+  // AppUserModelID describe one development identity, so their two literals stay
+  // aligned.
+  const devBundleId = devScriptSource.match(/DEV_BUNDLE_ID = "([^"]+)"/)?.[1];
+  assert.equal(devBundleId, devAppId);
 });
 
 test("Windows packages pin PI-Desktop executable and shortcut names", () => {

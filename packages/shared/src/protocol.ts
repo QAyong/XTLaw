@@ -1,6 +1,14 @@
 export const PROTOCOL_VERSION = 11 as const;
 export const SCHEMA_VERSION = 16 as const;
 export const APP_ID = "com.pi-desktop.app";
+// Windows shell identity for a development host. Only the packaged app may
+// register APP_ID: the Windows notification platform creates a Start Menu
+// shortcut for the AppUserModelID of whichever process shows a toast, named and
+// iconed after that process's own executable — which for `pnpm dev` is the
+// stock Electron host. That shortcut then owns the installed app's shell
+// identity, so a development run must never register the shipped ID. Mirrors
+// the macOS development bundle identifier (scripts/dev-electron.mjs).
+export const DEV_APP_ID = "com.pi-desktop.app.dev";
 export const APP_NAME = "PI-Desktop";
 export const APP_VERSION = "0.14.8-native.1";
 

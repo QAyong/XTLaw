@@ -842,10 +842,12 @@ and a shown notification restores/shows and focuses the window before emitting
 task notification contract. Native delivery is best-effort; the durable
 inbox remains authoritative when the OS suppresses a banner. On Windows,
 Electron Main registers `com.pi-desktop.app` as the process AppUserModelID
-before readiness and before any window is created. The ID matches the NSIS
-package identity so notification attribution, notification settings, taskbar
-grouping, and installed shortcuts resolve to `PI-Desktop`, never the stock
-Electron host.
+before readiness and before any window is created when it runs packaged, and
+the development-only `com.pi-desktop.app.dev` otherwise (D435 / ADR 0268). The
+packaged ID matches the NSIS package identity so notification attribution,
+notification settings, taskbar grouping, and installed shortcuts resolve to
+`PI-Desktop`, never the stock Electron host, while a development run registers
+its own identity and can never own the installed app's shell surfaces.
 
 The viewing-session hint is advisory and fail-safe: missing, stale, hidden, or
 unfocused renderer state creates the durable notification. Suppression occurs

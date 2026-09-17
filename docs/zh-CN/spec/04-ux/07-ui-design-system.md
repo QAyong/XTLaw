@@ -99,11 +99,13 @@ PI-Desktop 的行为类似于桌面应用程序 shell，因此意外拖动
   名称、版本和规范图标；没有可见库存 Electron 名称或图标。
   开发启动使用生成的品牌主机包，因为 AppKit
   从主机包而不是 Electron 运行时 API 中读取此标识。
-- 在 Windows、Electron 主寄存器上，规范的 `com.pi-desktop.app`
-  准备就绪之前的 AppUserModelID。运行时 ID、打包的可执行文件名称、
-  和 NSIS 快捷方式标识保持一致，以便本机通知，
-  通知设置和任务栏组将应用程序标识为 `PI-Desktop`
-  而不是 Electron。
+- 在 Windows 上，Electron Main 在打包运行时才会在就绪之前注册规范的
+  `com.pi-desktop.app` AppUserModelID；未打包运行则改为注册仅限开发期的
+  `com.pi-desktop.app.dev`，因此库存 Electron 主机永远无法占用已安装应用的通知、任务栏
+  分组或“开始”菜单快捷方式（D435 / ADR 0268）。打包运行时的 ID、打包可执行文件名称和
+  NSIS 快捷方式标识保持一致，因此本机通知、通知设置和任务栏分组会把应用标识为
+  `PI-Desktop` 而不是 Electron。任务栏和开始菜单图标使用为可读性优化的 Windows ICO
+  构图，而不是留白更宽裕的 macOS 图稿。
 - 空首页英雄使用 100px 的 `HomeMascotLogo` GIF：由浅色和深色八帧挥手
   动作合成，首帧短暂停留后循环播放。CSS 根据
   `document.documentElement[data-theme]` 选择对应资源，非 `light` 时使用

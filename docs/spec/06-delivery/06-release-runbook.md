@@ -29,13 +29,23 @@ files under `node_modules` are never modified. Windows/Linux development keeps
 the normal electron-vite executable. On Windows, Main also resolves the
 canonical `build/icon.ico` from both the development app root and the compiled
 main bundle, then applies it to the native window so the window/taskbar does
-not fall back to Electron when the asset is present. Windows Main nevertheless
-registers the same `com.pi-desktop.app` AppUserModelID used by the NSIS package
-before Electron readiness, preventing the stock host identity from owning
-native notifications or taskbar groups. The Windows package additionally pins
-the `PI-Desktop` executable and Start menu shortcut names. The launcher sets
-`PI_DESKTOP_DEV=1` so runtime packaging checks keep update delivery disabled
-and preserve developer workspace defaults despite the branded executable name.
+not fall back to Electron when the asset is present. Windows Main registers the
+canonical `com.pi-desktop.app` AppUserModelID before readiness only in a
+packaged run; a development run registers the development-only
+`com.pi-desktop.app.dev` (D435 / ADR 0268). The distinction matters because the
+notification platform creates a Start Menu shortcut for the AppUserModelID of
+whichever process shows a toast, named and iconed after that process's own
+executable, and the shell resolves a window's AppUserModelID through that
+shortcut: a development host claiming the shipped ID leaves an
+`Electron`-branded shortcut that owns the installed app's notifications,
+taskbar group, taskbar name, and taskbar icon. Before qualifying the Windows
+taskbar and Start menu identity, confirm that no shortcut other than the
+installed app's carries `com.pi-desktop.app`; such a shortcut is machine state
+left by an earlier development run, not a packaging defect. The Windows package
+additionally pins the `PI-Desktop` executable and Start menu shortcut names.
+The launcher sets `PI_DESKTOP_DEV=1` so runtime packaging checks keep update
+delivery disabled and preserve developer workspace defaults despite the branded
+executable name.
 The first `pnpm dev` on Electron 43+ downloads the Electron binary on demand
 (the package no longer installs it during `pnpm install`).
 Packaged lanes use `build/icon.icns` through electron-builder on macOS and

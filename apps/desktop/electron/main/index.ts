@@ -17,6 +17,7 @@ import {
   APP_ID,
   APP_NAME,
   APP_VERSION,
+  DEV_APP_ID,
   ErrorCodes as SharedErrorCodes,
   IPC,
   IPC_WHITELIST,
@@ -179,8 +180,15 @@ ignoreBrokenStdio();
 installMainProcessErrorHandlers();
 
 app.setName(APP_NAME);
+// Only the packaged app owns the shipped Windows shell identity. A development
+// host registers a development-only AppUserModelID instead: the notification
+// platform materializes a Start Menu shortcut for the AUMID of whichever
+// process shows a toast, named and iconed after that process's executable, and
+// a stock Electron host doing that on the shipped ID leaves an "Electron"
+// shortcut that owns the installed app's notifications, taskbar group, and
+// taskbar icon (D435 / ADR 0268).
 if (process.platform === "win32") {
-  app.setAppUserModelId(APP_ID);
+  app.setAppUserModelId(app.isPackaged ? APP_ID : DEV_APP_ID);
 }
 
 // One data directory admits exactly one desktop process. host-core owns

@@ -122,8 +122,11 @@ Codex as a visual reference. The identity contract is deliberately small:
   Development launches use a generated branded host bundle because AppKit
   reads this identity from the host bundle rather than Electron runtime APIs.
 - On Windows, Electron Main registers the canonical `com.pi-desktop.app`
-  AppUserModelID before readiness. The runtime ID, packaged executable name,
-  and NSIS shortcut identity stay aligned so native notifications,
+  AppUserModelID before readiness in a packaged run; an unpackaged run registers
+  the development-only `com.pi-desktop.app.dev` instead, so the stock Electron
+  host can never own the installed app's notifications, taskbar group, or Start
+  menu shortcut (D435 / ADR 0268). The packaged runtime ID, packaged executable
+  name, and NSIS shortcut identity stay aligned so native notifications,
   notification settings, and taskbar groups identify the app as `PI-Desktop`
   rather than Electron. Taskbar and Start menu icons use the legibility-optimized
   Windows ICO composition instead of the more generously padded macOS artwork.

@@ -3930,7 +3930,8 @@ identify the platform validation still needed.
 
 - **Preconditions**: Native notifications are supported; sessions A and B
   exist; the main window can be focused, unfocused, hidden, and minimized. A
-  Windows run uses the NSIS-installed app or the standard development command.
+  Windows packaged run uses the NSIS-installed app, and the Windows development
+  check uses the standard development command.
 - **Steps**: 1) Keep the app focused on A and complete a turn in A. 2) While
   still focused on A, complete a turn in B. 3) Unfocus the app while A remains
   current and complete another turn in A. 4) Let A's notification move into
@@ -3939,7 +3940,9 @@ identify the platform validation still needed.
   Unfocus the app and abort a turn. 7) Repeat with native delivery suppressed
   by the OS. 8) On Windows, inspect the native notification attribution,
   notification-settings entry, taskbar group, installed executable, and Start
-  menu shortcut.
+  menu shortcut, and list every Start menu shortcut whose AppUserModelID is
+  `com.pi-desktop.app`. 9) On Windows, repeat one unfocused notification from
+  the standard development command and inspect which identity it registers.
 - **Expected**: Focused-current A creates neither inbox row, terminal sidebar mark, nor native banner.
   Focused-background B creates an inbox row without a native banner. Unfocused
   current A and the minimized failure each create one durable row and one
@@ -3947,12 +3950,15 @@ identify the platform validation still needed.
   main window before activating the matching session, including after the
   notification has moved to Windows Action Center; no event opens the wrong
   currently selected session. Abort shows neither surface. OS suppression does
-  not lose the durable row or surface a misleading app error. Every inspected
-  Windows system surface identifies `PI-Desktop`; no stock Electron application
-  name or identity is exposed.
+  not lose the durable row or surface a misleading app error. For the installed
+  app, every inspected Windows system surface identifies `PI-Desktop` and no
+  stock Electron application name or identity is exposed, and only the installed
+  app's own shortcut carries `com.pi-desktop.app`. A development run identifies
+  itself with the development-only AppUserModelID instead and never appears as,
+  replaces, or shadows the installed app's shell identity.
 - **Specs linked**: `03-runtime/01-ipc-protocol.md`,
   `04-ux/07-ui-design-system.md`, `04-ux/09-interaction-patterns.md`,
-  `08-meta/decisions-log.md` (D117/D141)
+  `08-meta/decisions-log.md` (D117/D141/D435), ADR 0268
 - **Acceptance**: C (turn completion), Quality
 - **Milestone**: M5
 - **Status**: Source-contract covered (`notification-contract.test.mjs`); packaged
@@ -4063,7 +4069,9 @@ identify the platform validation still needed.
   initial queried glyph/state. 6) Attempt unknown menu/window IPC actions
   while a window exists and after it closes. 7) Build each target on its
   native runner from a clean release-host directory. On Windows, inspect the
-  installed app's taskbar button and Start menu shortcut icon.
+  installed app's taskbar button and Start menu shortcut icon, and confirm that
+  no Start menu shortcut other than the installed app's carries
+  `com.pi-desktop.app`.
 - **Expected**: macOS development and packaged launches show PI-Desktop as the
   native application identity, and the About panel uses the canonical
   PI-Desktop icon; neither surface exposes the stock Electron name or icon.
@@ -4093,7 +4101,9 @@ identify the platform validation still needed.
   under the window buttons. Unknown actions fail closed. The installed Windows
   taskbar button and Start menu shortcut use the legibility-optimized
   PI-Desktop ICO at both the small taskbar size and the larger shortcut size,
-  never Electron's default icon. Each package contains the target-native host binary
+  never Electron's default icon; a shortcut left by an earlier development run
+  that also carries `com.pi-desktop.app` is removed before this check, because
+  the shell resolves a window's AppUserModelID through a Start menu shortcut. Each package contains the target-native host binary
   (`.exe` only on Windows). Passing this scenario on Windows/Linux proves
   shell readiness, not first-release qualification.
 - **Specs linked**: `03-runtime/01-ipc-protocol.md`,
@@ -4107,6 +4117,36 @@ identify the platform validation still needed.
   `development-branding.test.mjs`); Electron boot probe covers
   platform bridge, native menu installation, and the pre-render maximize
   fixture on Windows/Linux; native visual scenario Draft
+
+#### E2E-BRANDING-development-run-does-not-own-the-shipped-windows-identity
+
+- **Preconditions**: Windows runner with the NSIS-installed app present and a
+  workspace checkout; `pnpm dev` is the standard development command.
+- **Steps**: 1) Launch the installed app, complete a turn that raises a native
+  notification, and read the taskbar button's accessible name and the target of
+  the Start menu shortcut that carries `com.pi-desktop.app`. 2) Quit the
+  installed app. 3) Run `pnpm dev`, complete a turn that raises a native
+  notification, and list every Start menu shortcut whose AppUserModelID is
+  `com.pi-desktop.app` or `com.pi-desktop.app.dev`. 4) Inspect the development
+  window's taskbar name and icon, then relaunch the installed app and re-read
+  step 1.
+- **Expected**: The installed app's taskbar button names `PI-Desktop` and its
+  Start menu shortcut targets the installed `PI-Desktop.exe`. The development run
+  registers `com.pi-desktop.app.dev`, and any shortcut the notification platform
+  creates for it carries that development ID, so the run never appears as,
+  replaces, or shadows the installed app's shell identity, name, or icon. After
+  step 4 the installed app still shows the PI-Desktop name and icon without a
+  reinstall, which proves the development run left the shipped identity alone.
+  Removing a shortcut that claims `com.pi-desktop.app` while targeting anything
+  other than the installed executable restores the installed app's shell surfaces
+  from an earlier development run.
+- **Specs linked**: `03-runtime/01-ipc-protocol.md`,
+  `04-ux/07-ui-design-system.md`, `06-delivery/06-release-runbook.md`,
+  `08-meta/decisions-log.md` (D141/D435), ADR 0268
+- **Acceptance**: A (app startup), Quality
+- **Milestone**: M5
+- **Status**: Source-contract covered (`development-branding.test.mjs`);
+  packaged shell resolution and shortcut ownership remain runner validation; Draft
 
 #### E2E-143: Close behavior is asked once and stays configurable (D230)
 

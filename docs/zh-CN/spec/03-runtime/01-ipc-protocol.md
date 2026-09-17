@@ -714,11 +714,11 @@ Electron 拥有本机表面，而渲染器则派生本地化表面
 `activated` 之前恢复/显示并聚焦窗口。交互询问不会创建持久任务收件箱行；
 计划提醒和插件本机通知仍是独立合约。本机交付是尽力而为；耐用的
 收件箱仍是操作系统抑制横幅时的权威来源。在 Windows 上，
-Electron 主将 `com.pi-desktop.app` 注册为进程 AppUserModelID
-在准备就绪之前和创建任何窗口之前。 ID 与 NSIS 匹配
-包标识所以通知属性、通知设置、任务栏
-分组，安装的快捷方式解析为 `PI-Desktop`，而不是库存
-Electron 主机。
+打包运行时 Electron Main 会在就绪之前、创建任何窗口之前把 `com.pi-desktop.app`
+注册为进程 AppUserModelID，否则注册仅限开发期的 `com.pi-desktop.app.dev`
+（D435 / ADR 0268）。打包 ID 与 NSIS 包身份匹配，因此通知归属、通知设置、任务栏分组
+和已安装的快捷方式都解析为 `PI-Desktop`，而绝不是库存 Electron 主机；
+而开发运行注册自己的身份，永远无法占用已安装应用的 shell 表面。
 
 查看会话提示是建议性的和自动防故障的：丢失、陈旧、隐藏或
 未聚焦的渲染器状态会创建持久通知。发生抑制

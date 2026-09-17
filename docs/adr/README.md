@@ -296,3 +296,4 @@ Each ADR includes:
 | composer-in-flow-boundary | [Keep the thread composer in flow](composer-in-flow-boundary.md) | Accepted (amends 0065) |
 | 0266 | [Plugin fs roots follow the calling session](0266-plugin-fs-root-follows-the-calling-session.md) | Accepted (D093) |
 | 0267 | [Restore user-resizable expanded sidebar width](0267-restore-sidebar-width-resize.md) | Accepted (amends ADR 0238 / D408) |
+| 0268 | [Development-only Windows application identity](0268-development-only-windows-application-identity.md) | Accepted (amends D141; D435) |

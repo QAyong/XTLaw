@@ -94,7 +94,13 @@ test("sidebar terminal outcomes are notification-backed, not lifecycle-backed", 
 });
 
 test("task and interactive native notifications keep separate visibility rules", () => {
-  assert.match(mainSource, /app\.setAppUserModelId\(APP_ID\)/);
+  // The process must own an explicit Windows shell identity, or notifications
+  // are attributed to the stock Electron host; only a packaged run may claim
+  // the shipped one (D435 / ADR 0268).
+  assert.match(
+    mainSource,
+    /app\.setAppUserModelId\(app\.isPackaged \? APP_ID : DEV_APP_ID\)/,
+  );
   assert.match(mainSource, /mainWindow\.isFocused\(\)/);
   assert.match(mainSource, /SystemNotification\.isSupported\(\)/);
   assert.match(mainSource, /new SystemNotification/);

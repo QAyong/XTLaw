@@ -357,6 +357,7 @@
 | D129 | 无菜单 Windows/Linux 窗口镀铬 | **应用程序菜单仅为 macOS 系统菜单表面。 Windows/Linux 保留共享的无框架 46px 标题栏和渲染器绘制的 minimize/maximize-or-restore/close 控件，但在窗口内不渲染 File/Edit/View/Window/Help 菜单，并且不保留左侧标题栏空间。通过 renderer/native Web 内容处理，现有应用程序、编辑、缩放、全屏和关闭快捷方式仍然可用；仍然可以通过“设置”->“信息”访问更新检查。这仅取代 D118 和 ADR 0021 的 Windows/Linux 渲染器菜单部分。** | 窗口内桌面菜单会重复 macOS 特定的系统菜单镶边、占用导航空间，并且不属于 PI-Desktop 的无框 Windows/Linux 标题栏。 |
 | D130 | 侧边栏页脚通知条目 | **持久通知铃声从主标题栏移动到扩展侧边栏页脚右侧单独的 `32px` 操作，取代了 D113 的“帮助”快捷方式。其未读徽章和完整的 D117 收件箱行为保持不变；弹出窗口在页脚的上方和右侧打开，并且主标题栏中没有重复的贝尔。这仅取代 D113 和 D117 的条目位置条款。** | 通知历史记录属于持久的本地配置文件控件，页脚位置使主标题栏保持安静，同时保留紧凑、熟悉的状态条目。 |
 | D141 | 规范 Windows 本机应用程序身份 | **Electron Main 在准备就绪之前设置产品名称，并在创建任何窗口之前将 `com.pi-desktop.app` 注册为 Windows 进程 AppUserModelID。该 ID 是现有的 electron-builder/NSIS 应用程序 ID； Windows 打包显式保留 `PI-Desktop` 作为可执行文件和“开始”菜单快捷方式。本机通知属性、通知设置、任务栏分组、安装的快捷方式和打包的可执行标识必须公开 `PI-Desktop`，而不是库存 Electron 主机。 D121 保持不变：Windows 开发可以使用库存 Electron 可执行文件，而其面向操作系统的运行时标识使用规范的 AUMID。** | `app.setName` 更改 Electron 的内部名称，但不更改通知和 shell 集成使用的 Windows 标识。跨运行时和打包的一个稳定 ID 可防止观察到的通知源泄漏和相邻 shell 品牌漂移，而无需更改已发布的 NSIS 升级身份。 |
+| D435 | 仅开发期使用的 Windows shell 身份 | **修订 D141 / D121：只有打包运行才会在就绪之前注册规范的 `com.pi-desktop.app` AppUserModelID；未打包运行则注册仅限开发期的 `com.pi-desktop.app.dev`，也就是 macOS 开发包标识符早已使用的那个字面量。Windows 通知平台会为显示 toast 的那个进程的 AppUserModelID 创建开始菜单快捷方式，其名称与图标取自该进程自己的可执行文件，而 shell 通过该快捷方式解析窗口的 AppUserModelID，因此注册了已发布 ID 的开发主机会留下一个带 Electron 品牌的快捷方式，由它占用已安装应用的通知、任务栏分组、任务栏名称和任务栏图标。Windows 在开发期的 shell 表面有意保持仅限开发；打包表面维持 D141 不变。appId、可执行文件名、NSIS 快捷方式身份、协议、存储、权限和插件合约均无变化。** | shell 身份解析就是 Windows 快捷方式查找，因此开发主机绝不能注册已安装应用所响应的身份 |
 | D204 | 空的家庭任务输入表面 | *（取代 D111 的非停靠家庭输入框条款及其上下文快速行动条款；D205 中的起始网格修正被 D206 取代）* **空的聊天主页将受限制的英雄和可选的首次运行清单保留在可滚动内容区域中。主输入框是滚动条的底部保留兄弟，在聊天表面的底部保持可见，并且从不覆盖内容。 ** | 直接编辑器仍然是稳定的主要操作，并且流程布局保留了短窗口内清单的可达性（ADR 0066）。 |
 | D205 | ChatGPT 启发的空屋指导 | *（被 D206 取代）* **空的聊天主页在英雄和可选清单之间添加了一个紧凑的四卡开发人员入门网格：探索代码库、构建功能、修复错误和审查更改。每张本地化卡仅预填充并聚焦底部输入框；它从不发送提示或创建回合。 D204 中保留的底部合成器和单个可滚动主页流程保持不变。** | 之前的英雄专属中路留下了太多未使用的空间，并且没有提供起始线索。 ChatGPT 清晰的空状态层次结构提高了第一个任务的可发现性，而开发人员特定的提示则保持表面有目的性而不是促销性。 |
 | D206 | 删除空置的开发者入门卡 | **空的聊天主页不会呈现开发人员入门卡、入门字形或上下文快速操作行。保留了内敛的英雄、较短的辅助线、可选的新手引导清单以及D204的底部保留输入框；任务输入直接在编辑器中启动。这取代了 D205，而不改变 D204 的滚动和底部保留布局。** | 审查证实，直接输入框是首选的任务输入界面，并且这些卡片为空荡荡的家添加了不必要的决策层。 |
@@ -4222,3 +4223,10 @@ the retained upstream work-panel lifecycle. See
 - 现在没有可见工作区时会话根也能解析，所以临时对话按会话各自继续工作，而不是所有会话一起失败；这种状态下的面板调用仍然失败关闭。于是 `workspace` 根的 `NOT_FOUND` 更窄：既没有解析出调用会话的项目，也没有可见工作区。
 - 权限、realpath 包含、拒绝名单、声明范围与运行时同意这四类闸门都没有改动，插件 API 表面也未变化：`pi.workspace.get` 仍然以可见工作区及其项目组作答。
 - 见 ADR 0266、`07-plugins/03-plugin-api.md` §3、`07-plugins/13-plugin-permissions-matrix.md` §6 与 E2E-PLUGIN-fs-root-follows-the-calling-session。
+
+## 2026-09-17 —— Windows 开发运行不再冒领已发布的 shell 身份（D435）
+
+- Windows 开发运行注册仅限开发期的 `com.pi-desktop.app.dev` AppUserModelID；只有打包运行才注册规范的 `com.pi-desktop.app`。这修订了 D141，并让 D121 的开发主机合约保持完整：Windows/Linux 开发仍然启动库存的 electron-vite 可执行文件。
+- 原因：Windows 通知平台会为显示 toast 的那个进程的 AppUserModelID 创建开始菜单快捷方式，其名称与图标取自该进程自己的可执行文件，而 shell 通过该快捷方式解析窗口的 AppUserModelID。因此，一次使用已发布 ID 的开发运行会留下一个带 `Electron` 品牌的快捷方式，并携带 `com.pi-desktop.app`；随后已安装应用在任务栏中显示为 `Electron`，并使用 Electron 的默认图标，尽管它的可执行文件、内嵌图标、窗口图标和 NSIS 快捷方式都完全正确。
+- Windows 在开发期的 shell 表面现在有意仅限开发，与 macOS 开发主机包一致；`PI-Desktop` 品牌来自已安装的软件包。
+- appId、可执行文件名、NSIS 快捷方式身份、协议、存储、权限和插件合约均无变化。见 ADR 0268、`03-runtime/01-ipc-protocol.md`、`04-ux/07-ui-design-system.md`、`04-ux/09-interaction-patterns.md`、`06-delivery/06-release-runbook.md`、E2E-065、E2E-067 与 E2E-BRANDING-development-run-does-not-own-the-shipped-windows-identity。

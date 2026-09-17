@@ -2402,28 +2402,31 @@ MainChat 弥补了缺口。 Maximized/fullscreen 调用保留最新的
 
 - **前提**：支持原生通知；会议 A 和 B
   存在；主窗口可以聚焦、不聚焦、隐藏和最小化。一个
-  Windows 运行使用 NSIS 安装的应用程序或标准开发命令。
+  Windows 打包运行使用 NSIS 安装的应用程序，Windows 开发检查则使用标准开发命令。
 - **步骤**：1) 让应用程序专注于 A 并在 A 中完成一个回合。2) 当
   仍然专注于 A，在 B 中完成一个回合。3) 在 A 仍然存在时取消应用程序的焦点
 当前并完成 A 中的另一回合。4) 等待 A 的通知进入操作系统通知中心，然后
   单击它。5）
   最小化应用程序，再次失败，然后单击其本机通知。 6）
   取消应用程序的焦点并中止回合。 7) 重复并抑制本机传递
-  由操作系统。 8) 在 Windows 上，检查本机通知属性，
-  通知设置条目、任务栏组、已安装的可执行文件和开始
-  菜单快捷方式。
+  由操作系统。 8) 在 Windows 上，检查本机通知属性、
+  通知设置条目、任务栏组、已安装的可执行文件和“开始”菜单快捷方式，
+  并列出所有 AppUserModelID 为 `com.pi-desktop.app` 的“开始”菜单快捷方式。
+  9) 在 Windows 上，从标准开发命令再重复一次未聚焦通知，
+  并检查它注册的是哪个身份。
 - **预期**：当前焦点 A 既不创建收件箱行，也不创建本机横幅。
   聚焦背景 B 创建一个没有本机横幅的收件箱行。不专心
   当前 A 和最小化故障分别创建一个持久行和一个
   本地化的本机通知。单击可恢复、显示并聚焦
   激活匹配会话之前的主窗口，即使通知已经进入 Windows 操作中心；
   没有事件打开错误当前选定的会话。中止不显示两个表面。操作系统抑制确实
-  不会丢失持久行或出现误导性应用程序错误。每检查一次
-  Windows系统表面识别`PI-Desktop`；无库存 Electron 应用程序
-  姓名或身份被暴露。
+  不会丢失持久行或出现误导性应用程序错误。对已安装的应用程序而言，每一项
+  受检查的 Windows 系统表面都标识为 `PI-Desktop`，且不暴露任何库存 Electron 应用程序
+  名称或身份，并且只有已安装应用自己的快捷方式携带 `com.pi-desktop.app`。开发运行则
+  改用仅限开发期的 AppUserModelID 标识自身，绝不以已安装应用的 shell 身份现身、替换或遮蔽它。
 - **链接规格**：`03-runtime/01-ipc-protocol.md`，
   `04-ux/07-ui-design-system.md`、`04-ux/09-interaction-patterns.md`、
-  `08-meta/decisions-log.md` (D117/D141)
+  `08-meta/decisions-log.md` (D117/D141/D435)、ADR 0268
 - **验收**：C（回合完成），质量
 - **里程碑**：M5
 - **状态**：已覆盖源代码契约（`notification-contract.test.mjs`）；打包版
@@ -2532,7 +2535,8 @@ MainChat 弥补了缺口。 Maximized/fullscreen 调用保留最新的
   初始查询glyph/state。 6) 尝试未知的 menu/window IPC 操作
   当窗口存在时以及窗口关闭后。 7) 在其基础上构建每个目标
   来自干净的发布主机目录的本机运行器。在 Windows 上检查已安装应用的
-  任务栏按钮和“开始”菜单快捷方式图标。
+  任务栏按钮和“开始”菜单快捷方式图标，并确认除已安装应用自己的快捷方式之外
+  没有其他“开始”菜单快捷方式携带 `com.pi-desktop.app`。
 - **预期**：macOS 开发和打包发布显示 PI-Desktop 作为
   本机应用程序标识，并且“关于”面板使用规范
 PI-Desktop 图标；两个表面都不会暴露库存 Electron 名称或图标。
@@ -2552,7 +2556,9 @@ PI-Desktop 图标；两个表面都不会暴露库存 Electron 名称或图标�
   有易于理解的名称；第一个用户或助理成绩单行从不
   在它们下面绘制，扩展页面标题操作或
   插件详细信息表关闭按钮。未知操作失败关闭。已安装 Windows 应用的任务栏按钮
-  和“开始”菜单快捷方式使用 PI-Desktop 图标，而不是 Electron 默认图标。每个包装
+  和“开始”菜单快捷方式使用 PI-Desktop 图标，而不是 Electron 默认图标；由更早的开发运行留下、
+  同样携带 `com.pi-desktop.app` 的快捷方式必须在此检查之前删除，因为 shell 会通过开始菜单
+  快捷方式解析窗口的 AppUserModelID。每个包装
   包含目标本机主机二进制文件（`.exe` 仅在 Windows 上）。通过这个场景 Windows/Linux
   证明 shell 已准备就绪，而不是首次发布资格。
 - **链接规格**：`03-runtime/01-ipc-protocol.md`，
@@ -2566,6 +2572,16 @@ PI-Desktop 图标；两个表面都不会暴露库存 Electron 名称或图标�
   `development-branding.test.mjs`); Electron 引导探针盖
   平台桥、本机菜单安装和预渲染最大化
   Windows/Linux 上的固定装置；原生视觉场景草稿
+
+#### E2E-BRANDING-development-run-does-not-own-the-shipped-windows-identity
+
+- **先决条件**：Windows 运行环境，已存在 NSIS 安装的应用，并有工作区检出；`pnpm dev` 是标准开发命令。
+- **步骤**：1) 启动已安装的应用，完成一个会触发本机通知的回合，并读取任务栏按钮的可访问名称以及携带 `com.pi-desktop.app` 的开始菜单快捷方式的目标。2) 退出已安装的应用。3) 运行 `pnpm dev`，完成一个会触发本机通知的回合，并列出所有 AppUserModelID 为 `com.pi-desktop.app` 或 `com.pi-desktop.app.dev` 的开始菜单快捷方式。4) 检查开发窗口的任务栏名称和图标，然后重新启动已安装的应用并重新执行第 1 步。
+- **预期**：已安装应用的任务栏按钮命名为 `PI-Desktop`，其开始菜单快捷方式指向已安装的 `PI-Desktop.exe`。开发运行注册 `com.pi-desktop.app.dev`，通知平台为它创建的任何快捷方式都携带该开发 ID，因此这次运行绝不以已安装应用的 shell 身份、名称或图标现身、替换或遮蔽它们。第 4 步之后，已安装的应用无需重新安装就仍然显示 PI-Desktop 的名称和图标，这证明开发运行没有动过已发布的身份。删除一个声称 `com.pi-desktop.app` 却指向已安装可执行文件以外目标的快捷方式，即可还原更早的开发运行留下的已安装应用 shell 表面。
+- **链接规格**：`03-runtime/01-ipc-protocol.md`、`04-ux/07-ui-design-system.md`、`06-delivery/06-release-runbook.md`、`08-meta/decisions-log.md`（D141/D435）、ADR 0268
+- **验收**：A（应用程序启动）、质量
+- **里程碑**：M5
+- **状态**：已覆盖源代码契约（`development-branding.test.mjs`）；打包版 shell 解析和快捷方式归属仍需运行环境验证；草稿
 
 #### E2E-143：关闭行为只问一次并且始终可配置（D230）
 

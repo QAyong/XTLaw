@@ -311,8 +311,9 @@
 4. 对于终端任务结果，本机通知仅在主窗口未聚焦时出现。聚焦背景会话的完成
    仍会创建持久行，但不会出现本机横幅。asktool、工具权限和 Plan 审批询问
    使用带有 `kind: "interactive"` 的同一个 Electron 表面：确切的聚焦当前
-   会话保持静默，而聚焦于其他会话时可以收到横幅。在 Windows 上，每个横幅
-   都归因于与 NSIS 包和任务栏标识共享的规范 PI-Desktop AppUserModelID。
+   会话保持静默，而聚焦于其他会话时可以收到横幅。在 Windows 上，打包运行时每个横幅
+   都归因于与 NSIS 包和任务栏标识共享的规范 PI-Desktop AppUserModelID；开发运行则使用
+   它仅限开发期的身份（D435 / ADR 0268）。
 5. 单击本机通知 shows/restores 并聚焦于主通知
    窗口，然后发出 `notification.activated { sessionId }`。
 6. Renderer 激活选择绑定项目（如果存在），加载

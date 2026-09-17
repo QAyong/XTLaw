@@ -25,14 +25,17 @@
 和 ICNS 资源是仅用于开发的 PI-Desktop 值，因此 AppKit 显示
 应用程序菜单中的 PI-Desktop 并使用本机中的规范图标
 关于面板。运行时还将 `build/icon_1024.png` 应用于 Dock。库存
-`node_modules` 下的文件永远不会被修改。 Windows/Linux 不断发展
-正常的 electro-vite 可执行文件。尽管如此，Windows Main 还是注册了
-之前 NSIS 包使用的相同 `com.pi-desktop.app` AppUserModelID
-Electron 准备就绪，防止库存主机身份拥有本机
-通知或任务栏组。 Windows 封装另外引脚
-`PI-Desktop` 可执行文件和“开始”菜单快捷方式名称。启动器设置
-`PI_DESKTOP_DEV=1` 因此运行时打包检查会禁用更新传送
-并保留开发人员工作区默认值，尽管有品牌可执行文件名称。
+`node_modules` 下的文件永远不会被修改。Windows/Linux 开发仍然启动库存的 electron-vite
+可执行文件。Windows Main 只在打包运行时才会在就绪之前注册规范的 `com.pi-desktop.app`
+AppUserModelID；开发运行则注册仅限开发期的 `com.pi-desktop.app.dev`（D435 / ADR 0268）。
+这一区别之所以重要，是因为通知平台会为显示 toast 的那个进程的 AppUserModelID 创建开始
+菜单快捷方式，其名称与图标取自该进程自己的可执行文件，而 shell 通过该快捷方式解析窗口的
+AppUserModelID：声称使用已发布 ID 的开发主机会留下一个带 `Electron` 品牌的快捷方式，由它
+占用已安装应用的通知、任务栏分组、任务栏名称和任务栏图标。在确认 Windows 任务栏与开始菜单
+身份之前，请先确认除已安装应用自己的快捷方式之外没有其他快捷方式携带 `com.pi-desktop.app`；
+这样的快捷方式只是更早的开发运行留下的机器状态，而不是打包缺陷。Windows 包另外固定
+`PI-Desktop` 可执行文件和开始菜单快捷方式名称。启动器会设置 `PI_DESKTOP_DEV=1`，因此尽管
+可执行文件名称已品牌化，运行时打包检查仍会保持更新传送为禁用，并保留开发人员工作区默认值。
 Electron 43+ 上的首次 `pnpm dev` 会按需下载 Electron 二进制文件
 （该包不再在 `pnpm install` 期间安装它）。
 打包通道在 macOS 上通过 electron-builder 使用 `build/icon.icns`，并在

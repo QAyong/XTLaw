@@ -1192,6 +1192,13 @@
   z-index: 34;
   pointer-events: none;
   user-select: none;
+}
+/* Only this inner layer follows the scroll; the outer layer keeps its clip so
+   the marks stay inside the transcript band while they move. */
+.response-annotation-scroll-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
   will-change: transform;
 }
 .response-annotation-source-badge {

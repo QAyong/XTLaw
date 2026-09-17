@@ -37,6 +37,7 @@ export function ResponseAnnotationOverlay({ sessionId, scrollRef, onNavigate }: 
     maxWidth: number;
   } | null>(null);
   const sourceLayerRef = useRef<HTMLDivElement | null>(null);
+  const scrollLayerRef = useRef<HTMLDivElement | null>(null);
   const scrollBaselineRef = useRef<number | null>(null);
   const scrollSettleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -60,10 +61,6 @@ export function ResponseAnnotationOverlay({ sessionId, scrollRef, onNavigate }: 
     let frame = 0;
     const measure = () => {
       frame = 0;
-      // The source layer follows the scroll compositor with a transform while
-      // scrolling. Reset it before the exact layout pass so the new rects are
-      // measured from a clean viewport position.
-      if (sourceLayerRef.current) sourceLayerRef.current.style.transform = "";
       scrollBaselineRef.current = root.scrollTop;
       const wrapRect = wrap.getBoundingClientRect();
       const composerMaxWidth = Number.parseFloat(
@@ -80,6 +77,15 @@ export function ResponseAnnotationOverlay({ sessionId, scrollRef, onNavigate }: 
         bottomBoundaryTop: dock?.getBoundingClientRect().top,
       });
       if (!bounds) { setGeometry({ badges: [], highlights: [] }); return; }
+      // The band is clipped by the outer layer, which never moves, while the
+      // inner layer is translated with the scroll. Highlights therefore stay
+      // cut exactly at the transcript edges and the docked composer at every
+      // scroll offset, and the rects below are stored unclipped for that.
+      if (sourceLayerRef.current) {
+        sourceLayerRef.current.style.clipPath = `inset(${Math.max(0, bounds.top)}px `
+          + `${Math.max(0, window.innerWidth - bounds.right)}px `
+          + `${Math.max(0, window.innerHeight - bounds.bottom)}px ${Math.max(0, bounds.left)}px)`;
+      }
       const badges: typeof geometry.badges = [];
       const highlights: SelectionQuoteRect[] = [];
       annotations.forEach((annotation, index) => {
@@ -95,7 +101,7 @@ export function ResponseAnnotationOverlay({ sessionId, scrollRef, onNavigate }: 
           left: Math.max(bounds.left, Math.min(rowRect.right + 4, bounds.right - 24)),
           top: visible[0].top, exact: range !== null,
         });
-        if (range) highlights.push(...visible);
+        if (range) highlights.push(...rects);
       });
       setGeometry({ badges: placeAnnotationBadges(badges, bounds.top, bounds.bottom), highlights });
     };
@@ -107,8 +113,8 @@ export function ResponseAnnotationOverlay({ sessionId, scrollRef, onNavigate }: 
         return;
       }
       const shift = baseline - root.scrollTop;
-      if (sourceLayerRef.current) {
-        sourceLayerRef.current.style.transform = shift
+      if (scrollLayerRef.current) {
+        scrollLayerRef.current.style.transform = shift
           ? `translate3d(0, ${shift}px, 0)`
           : "";
       }
@@ -118,9 +124,18 @@ export function ResponseAnnotationOverlay({ sessionId, scrollRef, onNavigate }: 
         schedule();
       }, 100);
     };
+    // Engines that report `scrollend` drop the pending settle timer, so one stop
+    // triggers a single exact measurement instead of two competing ones.
+    const onScrollEnd = () => {
+      if (scrollSettleTimerRef.current) {
+        clearTimeout(scrollSettleTimerRef.current);
+        scrollSettleTimerRef.current = null;
+      }
+      schedule();
+    };
     measure();
     root.addEventListener("scroll", onScroll, { capture: true, passive: true });
-    root.addEventListener("scrollend", schedule, { passive: true });
+    root.addEventListener("scrollend", onScrollEnd, { passive: true });
     window.addEventListener("resize", schedule);
     const resize = new ResizeObserver(schedule);
     resize.observe(wrap);
@@ -135,12 +150,21 @@ export function ResponseAnnotationOverlay({ sessionId, scrollRef, onNavigate }: 
       if (scrollSettleTimerRef.current) clearTimeout(scrollSettleTimerRef.current);
       scrollSettleTimerRef.current = null;
       root.removeEventListener("scroll", onScroll, true);
-      root.removeEventListener("scrollend", schedule);
+      root.removeEventListener("scrollend", onScrollEnd);
       window.removeEventListener("resize", schedule);
       resize.disconnect();
       mutation.disconnect();
     };
   }, [annotations, scrollRef]);
+
+  // While scrolling, the layer is offset with a compositor transform (see
+  // `onScroll`). The freshly measured rects are published in a commit, and the
+  // offset is dropped in that same commit's layout phase, so the swap paints
+  // once. Clearing it before the new rects were committed painted the previous
+  // measurement without the offset, which read as a flicker on every stop.
+  useLayoutEffect(() => {
+    if (scrollLayerRef.current) scrollLayerRef.current.style.transform = "";
+  }, [geometry]);
 
   if (!annotations.length) return null;
   const choose = (annotation: ResponseAnnotation) => {
@@ -197,20 +221,22 @@ export function ResponseAnnotationOverlay({ sessionId, scrollRef, onNavigate }: 
   return <>
     {createPortal(annotationFloat, document.body)}
     {createPortal(<div ref={sourceLayerRef} className="response-annotation-source-layer" data-annotation-layer>
-      {geometry.highlights.map((rect, index) => <span key={index} aria-hidden="true"
-        className="response-annotation-highlight" style={{ top: rect.top, left: rect.left, width: rect.width, height: rect.height }} />)}
-      {geometry.badges.map((badge) => {
-        // A removal changes the list before its layout measurement runs.
-        const index = annotations.findIndex((annotation) => annotation.id === badge.id);
-        if (index < 0) return null;
-        const annotation = annotations[index];
-        return <button key={badge.id} type="button"
-          className={`response-annotation-source-badge${activeId === badge.id ? " active" : ""}`}
-          style={{ top: badge.top, left: badge.left }}
-          aria-label={`${t("chat.annotationLocate")} ${index + 1}`}
-          title={badge.exact ? annotation.text : t("chat.annotationRowLocation")}
-          onClick={() => choose(annotation)}>{index + 1}</button>;
-      })}
+      <div ref={scrollLayerRef} className="response-annotation-scroll-layer">
+        {geometry.highlights.map((rect, index) => <span key={index} aria-hidden="true"
+          className="response-annotation-highlight" style={{ top: rect.top, left: rect.left, width: rect.width, height: rect.height }} />)}
+        {geometry.badges.map((badge) => {
+          // A removal changes the list before its layout measurement runs.
+          const index = annotations.findIndex((annotation) => annotation.id === badge.id);
+          if (index < 0) return null;
+          const annotation = annotations[index];
+          return <button key={badge.id} type="button"
+            className={`response-annotation-source-badge${activeId === badge.id ? " active" : ""}`}
+            style={{ top: badge.top, left: badge.left }}
+            aria-label={`${t("chat.annotationLocate")} ${index + 1}`}
+            title={badge.exact ? annotation.text : t("chat.annotationRowLocation")}
+            onClick={() => choose(annotation)}>{index + 1}</button>;
+        })}
+      </div>
     </div>, document.body)}
   </>;
 }

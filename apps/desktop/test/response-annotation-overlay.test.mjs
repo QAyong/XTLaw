@@ -84,7 +84,10 @@ test("all saved resolved ranges stay highlighted without selecting an item or ex
   let effect;
   function visit(node) {
     if (ts.isCallExpression(node) && node.expression.getText(ast) === "useLayoutEffect") {
-      effect = node.arguments[0].getText(ast);
+      // The component also has a layout effect that drops the scroll offset;
+      // this exercises the one that measures and publishes the rects.
+      const body = node.arguments[0].getText(ast);
+      if (body.includes("annotationRow")) effect = body;
     }
     ts.forEachChild(node, visit);
   }

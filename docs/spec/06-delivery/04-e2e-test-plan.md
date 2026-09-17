@@ -995,13 +995,20 @@ identify the platform validation still needed.
   time matching the active phase. A multi-subagent wait lists each running
   target. It uses the same compact inline treatment as `Working…`, never adds
   a duplicate progress card, and clears when assistant output or a terminal
-  event arrives. The Stop action remains available throughout.
+  event arrives. It also shares the assistant column's leading edge: its marker
+  starts on the same alignment line as the thinking/tool row's icon above it and
+  its label lands on that row's text rail, so a quiet interval never reads as a
+  deeper indent than the work it explains. The Stop action remains available
+  throughout.
 - **Specs linked**: `03-runtime/01-ipc-protocol.md`,
   `03-runtime/02-agent-runtime.md`, `04-ux/09-interaction-patterns.md`,
   ADR 0175, ADR 0198
 - **Acceptance**: C (chat stream), Quality (feedback and accessibility)
 - **Milestone**: M5
-- **Status**: Draft (deterministic fixture pending)
+- **Status**: Partially automated (the real-DOM Chromium probe in
+  `scripts/e2e-transcript-render.mjs` covers the reserved lane and the
+  `Waiting for model` row's rails; the remaining phases still need the
+  deterministic provider fixture)
 
 #### E2E-009: Streamed tokens visible in UI
 
@@ -5188,6 +5195,9 @@ identify the platform validation still needed.
     shadow — in both the dark and light themes.
   - The status row keeps its live-region semantics (`role="status"`,
     `aria-live="polite"`), while the empty lane carries no text to announce.
+  - The row shares the assistant column's leading edge: its marker and its label
+    land on the same rails as the thinking/tool row above it (within 0.5px), so a
+    quiet interval never reads as a deeper indent than the work it explains.
   - An idle finished transcript renders no status lane at all, so its layout is
     unchanged.
 - **Specs linked**: `04-ux/08-component-spec.md`
@@ -5198,7 +5208,8 @@ identify the platform validation still needed.
   (`scripts/e2e/transcript-render.tsx`, no provider credentials; requires an
   installed Electron and a graphical session, or Xvfb on Linux). The scenario
   fails by 40.125px of content height and 40px of row movement when the reserved
-  lane is removed (issue #323).
+  lane is removed (issue #323), and by 16px on the marker rail plus 20px on the
+  text rail when the status row re-indents itself away from the rows it explains.
 
 #### E2E-STREAM-long-turn-keeps-realtime
 

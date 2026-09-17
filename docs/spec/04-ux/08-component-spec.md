@@ -772,7 +772,11 @@ reading surface of the workstation.
   is already reading. The lane stays reserved, empty, and invisible while a
   concrete row, a permission card, or the answer owns the tail; after the
   status clears the slot is still reserved, and an idle transcript renders no
-  lane at all so its layout is unchanged
+  lane at all so its layout is unchanged. The row itself hangs on the assistant
+  column's leading edge exactly like the process disclosure above it: its
+  marker starts on the same alignment line as a thinking/tool row's icon and the
+  copy after it lands on that row's text rail, so a quiet interval never reads
+  as a deeper indent than the work it explains
 - Destination entry uses one short opacity/translate transition. Streaming
   updates occur inside the mounted surface and never replay this transition.
 - A pane bounds its own first commit to the newest entries and mounts the

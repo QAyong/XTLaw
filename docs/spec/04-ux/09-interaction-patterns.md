@@ -578,9 +578,10 @@ is preserved. Manual renaming remains available from Edit project.
   quiet interval, that same row names the wait: starting, waiting for the
   model, preparing the next request, compacting context, recovering an empty
   response, retrying a provider request, or waiting for delegated work (with
-  each running subagent's latest coarse action). It is replaced by concrete
-  thinking/tool/answer feedback or the inline permission card as soon as one of
-  those states exists.
+  each running subagent's latest coarse action). The row shares the assistant
+  column's leading edge and text rail with the thinking/tool rows it explains.
+  It is replaced by concrete thinking/tool/answer feedback or the inline
+  permission card as soon as one of those states exists.
 - When stream completes: cursor indicator replaced by success state (2s fade)
 
 ### 2.2 Auto-scroll

@@ -469,6 +469,39 @@ globalThis.transcriptRuntimeSlotProbe = async () => {
       (waiting.laneText ?? "").trim().length > 0,
       "the waiting status row rendered no label",
     );
+
+    // The status row belongs to the transcript, not to the assistant column, so
+    // it has to sit on the rails the rows above it already use: a tool/thinking
+    // row hangs its icon on the column's leading edge and its copy one icon plus
+    // one gap later. A quiet-interval row that indents itself further reads as
+    // unrelated to the work it explains.
+    const tailRow = [
+      ...host.querySelectorAll<HTMLElement>(".process-details-group .tool-row"),
+    ].at(-1);
+    const marker = activityIndicator?.querySelector<HTMLElement>(
+      ".working-indicator-mark",
+    );
+    const markerLabel = activityIndicator?.querySelector<HTMLElement>(
+      ".working-indicator-label",
+    );
+    const railIcon = tailRow?.querySelector<HTMLElement>(".tool-row-icon");
+    const railText = tailRow?.querySelector<HTMLElement>(".tool-row-name");
+    check(
+      Boolean(marker && markerLabel && railIcon && railText),
+      "the fixture rendered no status marker or no tool row to align it with",
+    );
+    const leftOf = (element: HTMLElement | null | undefined) =>
+      element?.getBoundingClientRect().left ?? Number.NaN;
+    const markerDelta = leftOf(marker) - leftOf(railIcon);
+    const labelDelta = leftOf(markerLabel) - leftOf(railText);
+    check(
+      Math.abs(markerDelta) <= 0.5,
+      `the status marker is ${markerDelta}px off the icon rail the row above it uses`,
+    );
+    check(
+      Math.abs(labelDelta) <= 0.5,
+      `the status label is ${labelDelta}px off the text rail the row above it uses`,
+    );
     compare("waiting for the model", waiting, atRest);
 
     update(undefined);

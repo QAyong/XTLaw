@@ -131,10 +131,25 @@ test("active turns show immediate and phase-specific feedback without a progress
   // changed together or the row starts moving again.
   assert.match(
     messagesStyles,
-    /\.working-indicator \{[\s\S]*?margin: 2px 0 8px;[\s\S]*?padding: 8px 0 4px 16px;/,
+    /\.working-indicator \{[\s\S]*?margin: 2px 0 8px;[\s\S]*?padding: 8px 0 4px;/,
   );
   assert.match(
     messagesStyles,
-    /\.planning-state-indicator \{[\s\S]*?margin: 2px 0 8px;[\s\S]*?padding: 8px 0 4px 16px;/,
+    /\.planning-state-indicator \{[\s\S]*?margin: 2px 0 8px;[\s\S]*?padding: 8px 0 4px;/,
+  );
+  // The row is a child of the transcript, not of the assistant column, so it
+  // carries no leading inset of its own: its marker and label have to land on
+  // the same rails as the thinking/tool rows above it (16px marker + a 3px gap
+  // equals a 15px icon + its 4px gap), or a quiet interval reads as a deeper
+  // indent than the work it explains.
+  assert.doesNotMatch(messagesStyles, /\.working-indicator \{[\s\S]*?4px 16px;/);
+  assert.doesNotMatch(
+    messagesStyles,
+    /\.planning-state-indicator \{[\s\S]*?4px 16px;/,
+  );
+  assert.match(messagesStyles, /\.working-indicator \{[\s\S]*?gap: 3px;/);
+  assert.match(
+    messagesStyles,
+    /\.working-indicator-mark \{[\s\S]*?width: 16px;[\s\S]*?gap: 2px;/,
   );
 });

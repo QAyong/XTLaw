@@ -10,6 +10,9 @@ import { fileURLToPath } from "node:url";
 import { resolveElectronBinary } from "./e2e/boot.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+
+/** A CSS selector is matched literally, so its dots must not read as wildcards. */
+const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const require = createRequire(
   join(root, "packages/agent-runtime/package.json"),
 );
@@ -74,48 +77,56 @@ try {
     "Build the app with pnpm build:js before running this check",
   );
   await cp(join(renderer, "assets"), join(temp, "assets"), { recursive: true });
-  // The scenario measures a rule that only exists in the built stylesheet, so a
-  // stale build must fail loudly instead of passing against an older CSS file.
-  const laneSource = await readFile(
-    join(root, "apps/desktop/src/styles/chat-shell.css"),
-    "utf8",
-  );
-  // Comments inside the rule describe intent; only its declarations are compared.
-  const laneRule = laneSource
-    .match(/\.transcript-runtime-status \{([\s\S]*?)\}/)?.[1]
-    .replace(/\/\*[\s\S]*?\*\//g, "");
-  assert(
-    laneRule,
-    "chat-shell.css declares no .transcript-runtime-status rule",
-  );
+  // The scenario measures rules that only exist in the built stylesheet, so a
+  // stale build must fail loudly instead of passing a geometry check against CSS
+  // that no longer describes the source. Every rule the scenario measures is
+  // listed with the file that declares it.
+  const measuredRules = [
+    [".transcript-runtime-status", "chat-shell.css", "the runtime status lane"],
+    [".working-indicator", "messages.css", "the status row's own box"],
+    [".working-indicator-mark", "messages.css", "the status marker's column"],
+  ];
   const builtCss = (
     await Promise.all(css.map((path) => readFile(join(renderer, path), "utf8")))
   )
     .join("\n")
     .replace(/\s+/g, "");
-  const builtRule = builtCss.match(
-    /\.transcript-runtime-status\{([^}]*)\}/,
-  )?.[1];
-  assert(
-    builtRule,
-    "the built stylesheet predates the runtime status lane; build with pnpm build:js",
-  );
-  // The scenario measures a rule that lives in the built stylesheet, so the two
-  // copies have to agree: a build still carrying a declaration the source has
-  // dropped (or missing one the source added) must fail here rather than pass a
-  // geometry check against CSS that no longer describes the source.
+  // Comments inside a rule describe intent; only its declarations are compared.
   const declarations = (rule) =>
     new Set(rule.replace(/\s+/g, "").split(";").filter(Boolean));
-  const sourceDeclarations = declarations(laneRule);
-  const builtDeclarations = declarations(builtRule);
-  const drift = [
-    ...[...builtDeclarations].filter((value) => !sourceDeclarations.has(value)),
-    ...[...sourceDeclarations].filter((value) => !builtDeclarations.has(value)),
-  ];
-  assert(
-    drift.length === 0,
-    `the built stylesheet is stale (${drift.join(", ")}); build with pnpm build:js`,
-  );
+  for (const [selector, file, what] of measuredRules) {
+    const source = await readFile(
+      join(root, "apps/desktop/src/styles", file),
+      "utf8",
+    );
+    const sourceRule = source
+      .match(new RegExp(`${escapeRegExp(selector)} \\{([\\s\\S]*?)\\}`))?.[1]
+      .replace(/\/\*[\s\S]*?\*\//g, "");
+    assert(sourceRule, `${file} declares no ${selector} rule`);
+    const builtRule = builtCss.match(
+      new RegExp(`${escapeRegExp(selector)}\\{([^}]*)\\}`),
+    )?.[1];
+    assert(
+      builtRule,
+      `the built stylesheet predates ${what} (${selector}); build with pnpm build:js`,
+    );
+    const sourceDeclarations = declarations(sourceRule);
+    const builtDeclarations = declarations(builtRule);
+    // A build still carrying a declaration the source has dropped (or missing
+    // one the source added) fails here rather than measuring stale CSS.
+    const drift = [
+      ...[...builtDeclarations].filter(
+        (value) => !sourceDeclarations.has(value),
+      ),
+      ...[...sourceDeclarations].filter(
+        (value) => !builtDeclarations.has(value),
+      ),
+    ];
+    assert(
+      drift.length === 0,
+      `the built stylesheet is stale for ${selector} (${drift.join(", ")}); build with pnpm build:js`,
+    );
+  }
   await writeFile(
     join(temp, "index.html"),
     `<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:"><title>Transcript render regression</title>${css

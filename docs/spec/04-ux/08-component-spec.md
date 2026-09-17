@@ -1615,10 +1615,11 @@ Single message render — either user (plaintext) or assistant (markdown streami
   inlined as `@path` chips render as bounded thumbnails (data URL from
   `fs/readImageDataUrl`); unresolved loads keep the chip. Bare path tokens in
   message text recognize Unicode letters and digits, so non-ASCII filenames
-  chip exactly like ASCII ones; absolute and `~/` tokens are matched whole,
-  and one outside the workspace (or any home path) stays plain text rather
-  than rendering a chip that could never open — containment is unchanged
-  (D322). Clicking a chip
+  chip exactly like ASCII ones; `\` separators normalize to `/`. Absolute and
+  `~/` tokens are matched whole, drive paths (`C:\…`, `D:/…`) and a root that
+  itself contains a space (`D:\pi Agent\…`) included, while one outside the
+  workspace (or any home path) stays plain text rather than rendering a chip
+  that could never open — containment is unchanged (D322). Clicking a chip
    completes the reference through `pi-desktop/fs/resolveRef` — the whole open
    project is searched, its group's folders primary first (ADR 0263) — and opens
    where it resolved: a project file in the bundled `pi.file-manager` work-panel

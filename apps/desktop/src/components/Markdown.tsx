@@ -47,6 +47,7 @@ import {
   sourcePositionProps,
   type SourcePositionProps,
 } from "../lib/markdown-source";
+import { ANNOTATION_MARKER_SCHEME, chatUrlTransform } from "../lib/markdown-url";
 import {
   normalizeLatexMathDelimiters,
   remarkLatexBracketDisplay,
@@ -642,10 +643,14 @@ function Anchor({
       return;
     }
     const rel = toWorkspaceRel(safeDecodeUri(href), root, baseDir);
+    e.preventDefault();
     if (rel) {
-      e.preventDefault();
       openFileRef(rel, baseDir);
+      return;
     }
+    // Electron main denies every non-http(s)/mailto popup, so letting this fall
+    // through to target="_blank" would read as a dead control: report instead.
+    showToast(t("chat.fileRefMissing", { name: safeDecodeUri(href) }), { variant: "error" });
   };
   return (
     <>
@@ -941,9 +946,6 @@ const markdownComponents: Components = {
   table: Table,
 };
 
-/** Href scheme the annotation markers travel on through the markdown pipeline. */
-const ANNOTATION_MARKER_SCHEME = "annotation:";
-
 /** Url resolved for one annotation number. */
 export function annotationMarkerHref(index: number): string {
   return `${ANNOTATION_MARKER_SCHEME}${index}`;
@@ -1135,6 +1137,7 @@ const Block = memo(function MarkdownBlock({
       <ReactMarkdown
         remarkPlugins={remarkPlugins}
         rehypePlugins={positionedRehypePlugins}
+        urlTransform={chatUrlTransform}
         components={markdownComponents}
       >
         {normalized}

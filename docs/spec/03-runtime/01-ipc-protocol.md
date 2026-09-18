@@ -671,7 +671,8 @@ type AgentEvent =
      willRetry: boolean; fallback?: "retained_tail";
      mark?: { id: string; throughMessageId: string;
               generation: number; summaryTokens: number;
-              summarized: boolean };
+              summarized: boolean;
+              fallback?: "retained_tail" };
      error?: { code: string; message: string } }
  | { type: "error"; error: AppError }
  | { type: "status"; status: AgentStatus };
@@ -725,7 +726,9 @@ renderer's whole view of that compaction: `id`, the `throughMessageId` anchor th
 transcript row sits after, `generation` (how many checkpoints this session has
 installed), `summaryTokens` (the summary's estimated context cost), and
 `summarized` (`false` when the window rolled over without asking the model for a
-summary). The record itself is not carried — its summary and retained tail are
+summary), and `fallback` (`"retained_tail"` when summary generation failed and
+the checkpoint carries only a recovery notice plus a retained tail; the row
+labels it as a failed summary, never as a summary of N tokens). The record itself is not carried — its summary and retained tail are
 far larger than an event should be — and is instead read from
 `SessionDetail.compactions` on session open or fork.
 
@@ -1131,8 +1134,9 @@ Non-sensitive config that can be returned to the UI:
   tools disabled
 - optional `AppSettings.networkProxy` (`system` / `direct` / `custom` plus a
   proxy URL and bypass list). Absent means System. Custom accepts `http`,
-  `https`, `socks5`, and `socks5h` URLs. Main applies Chromium
-  `session.setProxy` and Node env immediately; the agent sidecar is
+  `https`, `socks5`, and `socks5h` URLs, including userinfo. Main applies
+  Chromium `session.setProxy` (credentialed URLs through a loopback SOCKS5
+  relay; issue #490) and Node env immediately; the agent sidecar is
   reconfigured without a process restart. `pi-desktop/network/testProxy`
   runs one bounded Chromium fetch through the supplied config and does not
   persist it.
@@ -1474,9 +1478,11 @@ Desktop-only skill market channels (not host RPC) live on Electron IPC:
   never left the process), `unresolved` (the local DNS lookup returned no answer,
   so no address was judged — a resolver or proxy condition, not a verdict on the
   source), or `network`. `failureDetails` carries the same keys with the host
-  that actually failed, the guard's own `reason`, and the class of the refused
-  address, which is what lets the panel name *what* was refused instead of only
-  which source went quiet. A judged refusal also surfaces as
+  that actually failed, the guard's own `reason`, the class of the refused
+  address, and the route that address was judged on (`proxied`, `direct`, or
+  `unknown` when the transport reported no readable route, ADR 0272), which is
+  what lets the panel name *what* was refused instead of only which source went
+  quiet.
   `NETWORK_POLICY_BLOCKED` and an unanswered resolver as `NETWORK_RESOLVE_FAILED`
   (spec 08 §3.1); the install sheet classifies a failed preview on those two
   codes.

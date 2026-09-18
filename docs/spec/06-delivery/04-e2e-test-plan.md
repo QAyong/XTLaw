@@ -173,6 +173,7 @@ The minimum selection is:
 - Imported-extension dependency installation or registry-boundary changes: `pnpm test:e2e:plugin-import-deps`.
 - Trusted extension or plugin-extension changes: `pnpm test:e2e:trusted-extensions`.
 - Session collaboration / Session Orchestrator: `pnpm test:e2e:collaboration`.
+- Completion-notice silence or the silent-turn contract (D193 / D446): `pnpm test:e2e:session-completion`.
 - Changes spanning multiple surfaces use the union of the applicable suites.
 
 `pnpm test:e2e` is the default cross-system smoke suite for host RPC, IPC,
@@ -1076,6 +1077,28 @@ identify the platform validation still needed.
 - **Acceptance**: C (abort), F (persistence)
 - **Milestone**: M2
 - **Status**: Draft
+
+#### E2E-SESSION-outbox-duplicate-id-does-not-drop-history
+
+- **Preconditions**: Two sessions whose provider tool rows reuse the same
+  `toolCallId` as `messages.id` (for example `call_421522`). The first session
+  already persisted that id. The second session then runs several turns so
+  assistant/tool rows queue behind the colliding append.
+- **Steps**: 1) Complete a tool call in session A with id `call_421522`.
+  2) In session B, run the same provider tool id, then continue chatting for
+  several turns. 3) Quit and reopen. 4) Open both sessions.
+- **Expected**: Session A still has its original tool row. Session B kept its
+  later turns after reopen; the colliding tool row is stored under
+  `{sessionB}:{call_421522}` (or an equivalent remapped id). The persistence
+  outbox is empty and did not stay paused on `UNIQUE constraint failed:
+  messages.id`. No later assistant/tool row from either session is missing.
+- **Specs linked**: `03-runtime/04-data-storage.md`,
+  `03-runtime/06-host-rpc-protocol.md`, ADR 0041, D444
+- **Acceptance**: F (persistence)
+- **Milestone**: M2
+- **Status**: Unit-covered (`append_message_remaps_ids_owned_by_another_session`,
+  `persistence-outbox.test.mjs`); desktop journey outstanding
+
 
 #### E2E-011: Switch between project and temporary sessions
 
@@ -4687,27 +4710,45 @@ identify the platform validation still needed.
 - **Status**: Unit-covered (`sidebar-collapse-animation.test.mjs`); rendered
   interaction scenario Draft
 
-#### E2E-208: Collapsed sidebar tightens the centered chat content band
+#### E2E-208: Collapsed sidebar does not force a 640px chat band
 
 - **Preconditions**: PI-Desktop is open with an active chat session at a
-  viewport wide enough for the expanded 760–768px chat content band; reduced
-  motion is off.
+  viewport wide enough for the default 760px chat content band; reduced
+  motion is off; the user has not resized the band.
 - **Steps**: 1) Record the width of the centered transcript or empty-home
   composer band with the sidebar expanded. 2) Collapse the sidebar. 3) Inspect
   the same content band while the dock transition runs and after it settles.
   4) Expand the sidebar and inspect the return transition.
-- **Expected**: The outer main pane fills the space released by the sidebar,
-  while the centered chat content band transitions from its expanded
-  760–768px ceiling to a 640px ceiling in the collapsed state. The transcript,
-  empty-home stack, and Composer use the same collapsed width envelope; no
-  content jumps, horizontal overflow, or clipped controls appear. Expanding
-  restores the expanded ceiling.
+- **Expected**: The outer main pane fills the space released by the sidebar.
+  The centered chat content band stays at its preferred 760px ceiling (or
+  `min(available, preferred)` if the pane is narrower). It does not jump to
+  640px. The transcript, empty-home stack, and Composer share that envelope.
 - **Specs linked**: `04-ux/01-ui-ia.md`, `04-ux/07-ui-design-system.md`,
   `04-ux/08-component-spec.md`
 - **Acceptance**: Quality
 - **Milestone**: M5
-- **Status**: Unit-covered (`sidebar-collapse-animation.test.mjs`); rendered
-  interaction scenario Draft
+- **Status**: Unit-covered (`sidebar-collapse-animation.test.mjs`,
+  `chat-content-width.test.mjs`); rendered interaction scenario Draft
+
+#### E2E-CHAT-content-width-handles: Dual edge handles resize the centered chat band
+
+- **Preconditions**: PI-Desktop is open on chat at a viewport wider than 760px;
+  reduced motion is off.
+- **Steps**: 1) Confirm both handles are quiet at rest. 2) Hover the left and
+  right content edges. 3) Drag one handle outward and confirm both edges,
+  assistant prose, and Composer follow it. 4) Narrow the pane with the work
+  panel or sidebar and confirm the band compresses without horizontal scroll.
+  5) Restore space and confirm the saved width returns. 6) Double-click a
+  handle to reset, then repeat with Arrow keys on a focused handle.
+- **Expected**: Default 760px; drag floor 560px when available; user bubbles
+  stay compact; the handles expose `role="separator"` and persist
+  `chatContentMaxWidth`.
+- **Specs linked**: `04-ux/07-ui-design-system.md`,
+  `04-ux/08-component-spec.md`, `04-ux/09-interaction-patterns.md`, ADR 0277
+- **Acceptance**: Conversation & stream; Quality
+- **Milestone**: M5
+- **Status**: Unit-covered (`chat-content-width.test.mjs`,
+  `packages/shared/src/chat-content-width.test.ts`); rendered scenario Draft
 
 #### E2E-UI-tooltip-never-outlives-its-trigger: A themed tooltip always retreats
 
@@ -5318,8 +5359,15 @@ identify the platform validation still needed.
     overflow.
   - If automatic summary generation fails, a durable retained-tail fallback
     checkpoint is appended, the run stays active, and one warning explains
-    that older model context was reduced; if fallback persistence or the safe
-    budget guard fails, `CONTEXT_COMPACTION_FAILED` is emitted once.
+    that older model context was reduced; the transcript row for that
+    checkpoint reads "summary generation failed · recent context retained",
+    never `summary ≈N tokens` (ADR 0282). Before that fallback, the summary
+    request retries transient provider failures up to three times with
+    2s/4s/8s backoff, Stop cancels the backoff, deterministic failures do not
+    retry, and an input whose serialized prompt exceeds the window is sent
+    once more with tool results cut to a short prefix rather than skipping the
+    model. If fallback persistence or the safe budget guard fails,
+    `CONTEXT_COMPACTION_FAILED` is emitted once.
   - If the newest checkpoint is already the transcript leaf when a follow-up
     prompt crosses the hard budget, the runtime rebuilds a smaller tail from
     the full transcript and carries the existing summary forward instead of
@@ -7923,6 +7971,7 @@ identify the platform validation still needed.
 
 | Acceptance | Scenarios |
 |---|---|
+| A / C — Unicode stdio framing | E2E-RPC-unicode-separators |
 | C / G / Quality — Plugins navigation | E2E-NAV-plugins-button-goes-back |
 | B / F / Security — Provider copy | E2E-PROVIDER-copy-config-without-credentials |
 | A — App startup | E2E-001, E2E-002, E2E-003, E2E-004, E2E-067, E2E-076, E2E-079, E2E-092, E2E-097, E2E-143, E2E-150, E2E-168, E2E-204 |
@@ -7970,6 +8019,7 @@ identify the platform validation still needed.
 | D — Workspace (project delete) | E2E-PROJECT-delete-removes-project-and-owned-sessions |
 | F — Persistence (project delete) | E2E-PROJECT-delete-removes-project-and-owned-sessions |
 | Quality (project delete) | E2E-PROJECT-delete-removes-project-and-owned-sessions |
+| Quality (two-click delete) | E2E-SESSION-two-click-delete-arms-first |
 | Security (plugin real-time capabilities) | E2E-PLUGIN-global-shortcut-owns-only-its-own-command, E2E-PLUGIN-permission-gate-for-real-time-capabilities, E2E-PLUGIN-background-audio-and-realtime-connection |
 | C — Conversation & stream (disclosure reading position) | E2E-CHAT-disclosure-toggle-keeps-reading-position |
 | E — Tools & permissions (disclosure reading position) | E2E-CHAT-disclosure-toggle-keeps-reading-position |
@@ -8002,6 +8052,7 @@ identify the platform validation still needed.
 | Post-MVP remote control | E2E-221, E2E-222, E2E-223, E2E-224, E2E-225, E2E-226, E2E-227, E2E-228, E2E-229, E2E-230, E2E-231, E2E-232 |
 | Trusted extensions (R7 v1) | E2E-241, E2E-242, E2E-TRUSTED-EXTENSION-custom-agent-stream-and-binding, E2E-243, E2E-244, E2E-245, E2E-PLUGIN-imported-pi-package-skills, E2E-PLUGIN-import-extension-installs-dependencies, E2E-PLUGIN-import-extension-reports-missing-dependency, E2E-PLUGIN-declared-provider-appears-in-the-native-provider-list |
 | M6+ (Project delete) | E2E-PROJECT-delete-removes-project-and-owned-sessions |
+| M6+ (Two-click delete) | E2E-SESSION-two-click-delete-arms-first |
 | C — Conversation & stream (model fallback) | E2E-SUBAGENT-ordered-model-fallback-preserves-work |
 | Quality (model fallback isolation) | E2E-SUBAGENT-ordered-model-fallback-preserves-work |
 | C — Conversation & stream (legacy subagent turn limit) | E2E-SUBAGENT-legacy-turn-limit-frontmatter-is-ignored |
@@ -8010,6 +8061,10 @@ identify the platform validation still needed.
 | C — Conversation & stream (opaque floating surfaces) | E2E-CHAT-opaque-floating-decision-and-retry-surfaces |
 | Quality (opaque floating surfaces) | E2E-CHAT-opaque-floating-decision-and-retry-surfaces |
 | M6 (opaque floating surfaces) | E2E-CHAT-opaque-floating-decision-and-retry-surfaces |
+| B — Model config (catalog window provenance) | E2E-MODEL-catalog-window-correction-reaches-saved-bindings |
+| F — Persistence (catalog window provenance) | E2E-MODEL-catalog-window-correction-reaches-saved-bindings |
+| Quality (catalog window provenance) | E2E-MODEL-catalog-window-correction-reaches-saved-bindings |
+| M6+ (catalog window provenance) | E2E-MODEL-catalog-window-correction-reaches-saved-bindings |
 | M6+ (session scratch browsing) | E2E-PANEL-session-scratch-browse |
 
 The `US-UI-*` visual scenarios (§UI shell visual scenarios) trace to the
@@ -8613,12 +8668,14 @@ This test plan spec is accepted when:
   active workspace; C a root of a stored two-folder project group.
 - **Steps**: open Settings → Project archive, open A's row menu, choose Delete
   project, and confirm in the dialog. Then repeat the same action from the
-  sidebar project menu for B while B is the active workspace. Then attempt the
-  same action for C, then for a path the host no longer knows, and finally for a
+  sidebar project menu for B while B is the active workspace: the item arms on
+  the first click and only the second click removes B. Then attempt the same
+  action for C, then for a path the host no longer knows, and finally for a
   fourth project D while one of D's tasks is still running.
 - **Expected**: the dialog names the project, states that the project and its
   sessions with their transcripts are removed permanently, and states that the
-  folder on disk is not deleted; nothing is removed before the confirmation.
+  folder on disk is not deleted; nothing is removed before the confirmation, and
+  an armed item that is left alone disarms itself and removes nothing.
   After confirming, the durable project row, that project's sessions, their
   transcripts, scratch and review files, and its durable project memory are
   gone, while the folder on disk is untouched. The deleted project disappears
@@ -8678,6 +8735,31 @@ This test plan spec is accepted when:
   ids, the dialog's running-session line and stop-and-delete label, the abort
   loop running before `deleteProject`, the `CONFLICT` fallback, and the new
   copy in every shipped catalog; the end-to-end journey remains Draft
+
+### E2E-SESSION-two-click-delete-arms-first
+
+- **Preconditions**: a project with one idle session and one running session,
+  both reachable from the sidebar session menu, the sidebar project menu, and
+  the Projects index.
+- **Steps**: open the session menu of the idle session, press Delete once, and
+  leave the item armed until the arm expires before pressing it again to confirm
+  the removal. Repeat for a project row from the sidebar menu and from the
+  Projects index.
+- **Expected**: the first press removes nothing and relabels the item to
+  `nav.deleteTaskConfirm` / `project.deleteMenuConfirm` ("Delete?" / "确认删除？")
+  with `data-armed="true"`; the menu stays open, and an outside press, Escape, or
+  the expiry clears the arm without removing anything. Only the second press
+  removes the session with its transcript and its row, and only the second press
+  on a project row removes an idle project. A session and a project never share
+  an arm. Deleting a project whose turn is live still opens the dialog that names
+  those sessions and stops them (see
+  E2E-PROJECT-delete-running-sessions-are-named-and-stopped).
+- **Specs linked**: `04-ux/09-interaction-patterns.md` §1.6, D421, D431, D437
+- **Acceptance criterion**: Quality
+- **Milestone**: M6+
+- **Status**: Partially automated — `apps/desktop/test/two-step-delete.test.mjs`
+  pins the shared arm and its expiry, both labels in every shipped catalog, and
+  that the first press only arms; the end-to-end journey remains Draft
 ### US-UI-59 Session-rooted background tools
 - Start a visible turn in project A, switch to project B while it runs, and
   inspect both sidebar status indicators.
@@ -10986,7 +11068,10 @@ are withdrawn with ADR 0165.
      `settings.get`.
   4. Click Test against a listening proxy. Confirm a Connected status. Click
      Test against a closed port. Confirm a failure status without changing
-     the saved URL.
+     the saved URL. Enter `http://user:pass@127.0.0.1:<auth-port>` and
+     `socks5://user:pass@127.0.0.1:<auth-port>` against proxies that require
+     those credentials. Confirm Test reports Connected rather than
+     `net::ERR_NO_SUPPORTED_PROXIES` (issue #490).
   5. With Custom saved, send a short prompt through the configured provider.
      Confirm the provider request and response pass through the proxy,
      including when a SOCKS5 proxy returns the complete bind response in one
@@ -11000,15 +11085,18 @@ are withdrawn with ADR 0165.
   `net.fetch`, and the in-app browser. Workspace Bash `env` does not show
   `HTTP_PROXY` / `ALL_PROXY` from the setting. OAuth still opens the system
   browser. Invalid schemes (`file:`, `ftp:`, and SOCKS4) and malformed
-  percent-encoded credentials are rejected. No protocol or schema version bump.
+  percent-encoded credentials are rejected. Authenticated HTTP and SOCKS5
+  URLs Test and apply without `net::ERR_NO_SUPPORTED_PROXIES` (issue #490).
+  No protocol or schema version bump.
 - **Specs linked**: `04-ux/06-settings-ia.md`,
   `03-runtime/07-process-model.md`, ADR 0177, D340
 - **Acceptance**: B (settings), F (providers), Security
 - **Milestone**: M5
 - **Status**: Unit-covered (`network-proxy.test.ts`, `node-proxy.test.ts`,
-  `settings-general.test.mjs`, host-core `network_proxy` tests); malformed
-  credentials and unsupported SOCKS4 schemes are covered by the shared parser
-  tests; full UI journey Draft (run only in a capable environment when this surface changes)
+  `authenticated-proxy-relay.test.ts`, `settings-general.test.mjs`,
+  host-core `network_proxy` tests); malformed credentials and unsupported
+  SOCKS4 schemes are covered by the shared parser tests; full UI journey
+  Draft (run only in a capable environment when this surface changes)
 
 #### E2E-191: Newly emitted AppError codes stay registered
 
@@ -11585,6 +11673,38 @@ are withdrawn with ADR 0165.
   `pnpm test:e2e:collaboration`; plugin and host-core regression coverage is
   automated. The live multi-session provider/Electron journey remains runner
   validation under the no-local-E2E policy
+
+#### E2E-SESSION-completion-notice-allows-silence: A trusted completion notice may finish without an acknowledgement
+
+- **Preconditions**: A candidate commit has its own built host-core and runtime
+  sidecar. The local SSE provider deterministically returns visible text or a
+  successful empty response; no live credentials are required.
+- **Steps**: 1) Deliver a task through the real Host collaboration ledger and
+  sidecar, read its successful result, and complete the coordinator summary.
+  2) Resolve the queued completion callback through the production Main input
+  resolver and run the recipient against an empty SSE response. 3) Run another
+  human request, copied completion framing, a ledger task, and a ledger message
+  against empty responses on the same recipient runtime.
+- **Expected**: The original result remains unchanged. The completion has one
+  provider request, no error, one terminal lifecycle, completed ledger status,
+  and no acknowledgement callback. Each ordinary input still retries once and
+  ends with `EMPTY_MODEL_RESPONSE`, and no request the recipient sends after
+  the silent notice carries an empty assistant message. Unit coverage
+  additionally rejects missing reply-to IDs/wrong targets, spends the exception
+  on a tool batch, keeps it across a provider retry, revokes it once accepted
+  user steering enters the context, and keeps the accepted silence out of the
+  runtime entries and pi transcript state.
+- **Specs linked**: `03-runtime/02-agent-runtime.md` §5e,
+  `03-runtime/08-error-codes.md`, ADR 0239 (D446 amendment)
+- **Acceptance**: C (conversation & stream), D (provenance), Quality
+- **Milestone**: M6+
+- **Status**: Automated by `pnpm test:e2e:session-completion` on the committed,
+  rebased candidate in its dedicated worktree. The harness drives real Host
+  RPCs, the production provenance resolver, sidecar, and local SSE, and persists
+  runtime messages before Host settlement. It does not exercise Electron's
+  queue/outbox UI or a live provider. Candidate/base SHAs and results belong in
+  the validation report; existing ledger coverage runs separately through
+  `pnpm test:e2e:collaboration`.
 
 #### E2E-SESSION-hover-card-model-and-links: Session hover cards expose readable model and creation navigation
 
@@ -12791,11 +12911,14 @@ plugin-form fixtures in an isolated temporary directory at runtime.
 #### E2E-SKILL-MARKET-NET-BOUNDARY: Public-HTTPS skill sources reject private and loopback URLs
 
 - **Preconditions**: Shared public-network helpers and the main-process
-  public-HTTPS client with injectable fetch/DNS.
+  public-HTTPS client with injectable fetch/DNS/route.
 - **Steps**: 1) Classify trailing-dot localhost, IPv4 loopback, IPv4-mapped
   IPv6, ULA, link-local, RFC1918, and `http://` URLs. 2) Resolve a public
   hostname to a private A record. 3) Follow a 302 whose Location is
-  `https://127.0.0.1/`.
+  `https://127.0.0.1/`. 4) Report a proxied route and a TUN fake-IP answer
+  (`198.18.0.1`), the same answer on a `DIRECT` route, on an unreadable route,
+  and on a route list that offers `DIRECT`. 5) Let a first hop be proxied and
+  its redirect target direct.
 - **Expected**: Every bypass form is rejected. A public CDN URL is accepted.
   DNS that yields a private address and a redirect onto loopback both throw a
   policy error without fetching the private target. A judged refusal is not
@@ -12803,16 +12926,21 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   `NETWORK_RESOLVE_FAILED` (`kind` `unresolved`) rather than as an address-check
   refusal — the guard reached no verdict, so nothing may claim it did. Every
   other refusal carries `NETWORK_POLICY_BLOCKED` (spec 08 §3.1) with its
-  `reason` and the class of the refused address, so the install sheet can name
-  the reason and offer a retry instead of leaving the install button disabled
-  with no explanation, and the market list can tell a refused source apart from
-  a merely unreachable one.
-- **Specs linked**: `05-security/01-security.md`, ADR 0243,
+  `reason`, the class of the refused address, and the route that address was
+  judged on, so the install sheet can name the reason and offer a retry instead
+  of leaving the install button disabled with no explanation, and the market
+  list can tell a refused source apart from a merely unreachable one. A proxied
+  hop whose answer is the RFC 2544 fake-IP class is refused on a direct or
+  unreadable route and accepted on the proxied one, every other non-public class
+  still refuses on all routes, and each redirect hop is judged on its own route
+  (ADR 0272).
+- **Specs linked**: `05-security/01-security.md`, ADR 0243, ADR 0272,
   `03-runtime/01-ipc-protocol.md` §12b
 - **Acceptance**: Security, Quality
 - **Milestone**: M6+
 - **Status**: Automated (`pnpm test:e2e:skill-market`,
   `apps/desktop/test/public-https-fetch.test.mjs`,
+  `apps/desktop/test/public-https-fetch-route.test.mjs`,
   `apps/desktop/test/skill-market-scan.test.mjs`,
   `apps/desktop/test/skill-market-failure.test.mjs`,
   `apps/desktop/test/skill-market-policy-refusal.test.mjs`,
@@ -13145,3 +13273,81 @@ recovery; `side-chat-draft.test.mjs` covers action-level guards and child drift.
   picked directory, and a session root stands in when the window shows no
   project. The two-live-sessions desktop journey and the panel step are Draft
   (run only in a capable environment when this surface changes)
+
+#### E2E-MODEL-catalog-window-correction-reaches-saved-bindings
+
+- **Goal**: a models.dev limit correction reaches an already saved binding without
+  deleting and re-adding the model, while a number the user entered in Settings is
+  never overwritten.
+- **Steps**:
+  1. Configure a provider, select a model models.dev publishes a `limit.context`
+     for, and save. Open the row's Advanced body and read the context-window field
+     and its hint.
+  2. Serve a corrected catalog record for that model (a different published
+     window), reopen Settings, and read the row, the context inspector, and the
+     window a new session launches with.
+  3. Type a window in the Advanced field — the preset ladder once and a
+     hand-typed `128000` once — save, then serve another catalog correction and
+     reopen Settings and the inspector.
+  4. Save and reopen a provider row whose binding carries no
+     `contextWindowSource`: once with the generic `128000` seed, once with any
+     other stored value.
+- **Expected**: Step 1 shows the published number with the "follows models.dev"
+  hint. Step 2 shows the corrected number everywhere the effective window is used
+  (settings row, context inspector, session launch) with no delete and re-add.
+  Step 3 keeps the entered number in the settings row, in the inspector, and in
+  the launched request, including a hand-typed `128000` for a model whose
+  published window is larger, and the hint is gone. Step 4 resolves
+  deterministically: the `128000` seed follows the catalog, every other value
+  stays as stored. Every step keeps the marker across the save/read round trip of
+  the provider row, and a config written before the marker stays readable.
+- **Specs linked**: `03-runtime/13-model-catalog-and-selection.md` §9.1,
+  `03-runtime/12-provider-config-schema.md` §2,
+  `03-runtime/11-provider-model-system.md` §2, `04-ux/06-settings-ia.md` §2
+- **Acceptance**: B (model config), F (persistence), Quality
+- **Milestone**: M6+
+- **Status**: Partially automated:
+  `apps/desktop/test/model-binding-catalog-source.test.mjs` drives the main-process
+  resolver (catalog-sourced correction reaches the exposed row, a user value
+  survives it, the generic seed still follows the catalog, an inherited value stays
+  marked); `packages/shared/src/model-catalog.test.ts` covers the four source rules;
+  `crates/host-core/src/providers/catalog.rs` covers the config round trip, the
+  unmarked record, and the dropped unknown marker. The end-to-end settings journey
+  and actual launch-window assertion remain Draft.
+
+### E2E-RPC-unicode-separators
+
+- **Preconditions:** Built host-core, shared package and agent runtime; isolated
+  temporary data directory; loopback-only fixture provider. No live credentials.
+- **Steps:** Append a user message containing U+2028/U+2029, CJK text, emoji and
+  escaped CR/LF; read it, restart the host, and read it again. Send a Unicode
+  prompt through AgentSidecar; restore history through the parent host proxy;
+  stream and persist a Unicode answer. Send an unknown method containing the
+  same characters, then a health request.
+- **Expected:** Text survives unchanged across persistence and all stdio
+  directions. Requests settle without RPC timeouts; error replies and subsequent
+  requests remain usable. No migration of existing sessions is needed.
+- **Automation:** `pnpm test:e2e:rpc-unicode`; `packages/shared/src/ndjson.test.ts`
+  additionally checks every UTF-8 split boundary, consecutive frames, CRLF, EOF and disposal.
+- **Specs:** 03-runtime/06-host-rpc-protocol §2.
+- **Acceptance:** A (runtime), C (sessions).
+- **Milestone:** M6+.
+- **Status:** Automated; run against the task/PR integration candidate.
+
+### E2E-CHAT-turn-process-and-thinking-display
+
+- **Preconditions:** A turn with thinking, multiple tools, intermediate progress,
+  and a final answer; detailed and compact display modes.
+- **Steps:** Stream the turn; finish it; expand/collapse its process; search an
+  intermediate message; switch display modes through Settings → AI → Defaults.
+  Repeat with a stopped partial answer, an assistant error, and a failed tool.
+- **Expected:** Completed work has one collapsed process plus its final answer.
+  Manual choices survive updates; search reveals its target; live answer text
+  stays readable. Errors and stopped trailing text stay visible. Compact mode
+  exposes no reasoning text or excerpt, shows a live indicator, and leaves no
+  completed thinking-only header. Tools and progress remain accessible.
+- **Automation:** `test:e2e:transcript` and
+  `test:e2e:transcript-disclosure`; focused pure projection coverage lives in
+  `apps/desktop/test/turn-process.test.mjs`.
+- **Specs:** `04-ux/06-settings-ia.md`, `04-ux/08-component-spec.md`,
+  `04-ux/09-interaction-patterns.md`, and ADR turn-process-and-thinking-display.

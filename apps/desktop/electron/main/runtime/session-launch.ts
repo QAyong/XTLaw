@@ -5,6 +5,7 @@ import {
   isActiveInProject,
   isCommandShellCatalog,
   normalizeMode,
+  resolveBindingContextWindow,
   trustedExtensionAgentKeyFromProviderId,
   type CommandShellCatalog,
   type McpServerRecord,
@@ -322,7 +323,11 @@ export function createSessionLaunchRuntime({
       (modelsDevModel
         ? modelConfigFromModelsDev(modelsDevModel, baseUrl)
         : genericModelConfig(modelId, baseUrl ?? ""));
-    const modelConfig = modelConfigWithBinding(catalogModelConfig, storedModel);
+    const resolvedLimits = resolveBindingContextWindow(catalogModelConfig, storedModel);
+    const modelConfig = modelConfigWithBinding(
+      resolvedLimits.catalogConfig,
+      resolvedLimits.binding,
+    );
     const thinkingCapabilities = capabilitiesFromModelConfig(modelConfig);
     const thinkingLevel = clampThinkingLevel(
       thinkingCapabilities,

@@ -18,15 +18,16 @@ import {
   assistantTurnResponseOutputTokens,
   assistantTurnUsage,
   reuseReadonlyMap,
-  splitAssistantTurnParts,
   subagentRunsEqual,
   type AssistantTurnEntry,
+  type AssistantTurnPart,
   type TranscriptEntry,
 } from "../../../lib/assistant-turns";
 import {
   collectDelegationStatuses,
   collectDelegationTimings,
 } from "../../../lib/subagent-topology";
+import { projectTurnProcess } from "../../../lib/turn-process";
 import { useAppStore } from "../../../stores/app-store";
 import { TranscriptReadOnlyContext } from "./context";
 import { selectionMarkdownWithinRow } from "../../../lib/selection-quote";
@@ -41,9 +42,9 @@ import {
   MessageMeta,
   formatTokenCount,
 } from "./shared";
-import { activityItemsEqual } from "./ActivityGroup";
+import { ActivityGroup, activityItemsEqual } from "./ActivityGroup";
 import { MessageRow } from "./MessageRow";
-import { ProcessDetailsGroup } from "./ProcessDetailsGroup";
+import { TurnProcess } from "./TurnProcess";
 
 type AssistantTurnProps = {
   entry: AssistantTurnEntry;
@@ -258,8 +259,6 @@ export const AssistantTurn = memo(function AssistantTurn({
     s.activeSessionId ? s.runningSessions[s.activeSessionId] === true : false,
   );
   const messages = assistantTurnMessages(entry);
-  const { process: processParts, answer: answerParts } =
-    splitAssistantTurnParts(entry);
   const answerMessages = assistantTurnAnswerMessages(entry);
   const content = assistantTurnContent(entry);
   const actionMessage = [...answerMessages]
@@ -319,9 +318,33 @@ export const AssistantTurn = memo(function AssistantTurn({
   );
   statusesRef.current = turnDelegationStatuses;
   timingsRef.current = turnDelegationTimings;
-  const processIsTurnTail = processParts.length === entry.parts.length;
-  const processEndedAt =
-    answerParts[0]?.kind === "message" ? answerParts[0].message.createdAt : undefined;
+  const { process: processParts, responses } = projectTurnProcess(entry);
+  const activePart = isActive ? entry.parts.at(-1) : undefined;
+
+  const renderPart = (part: AssistantTurnPart, process = false) =>
+    part.kind === "activity" ? (
+      <ActivityGroup
+        embedded
+        key={`activity-${part.items[0].message.id}`}
+        items={part.items}
+        endedAt={part.endedAt}
+        isActive={part === activePart}
+        turnActive={isActive}
+        providerId={metaMessage?.providerId}
+        modelId={modelId}
+        runtimeActivity={
+          part === activePart ? runtimeActivity : undefined
+        }
+        turnDelegationStatuses={turnDelegationStatuses}
+        turnDelegationTimings={turnDelegationTimings}
+      />
+    ) : (
+      <AssistantMessageFragment
+        message={part.message}
+        process={process}
+        streaming={isActive && part.message.status === "streaming"}
+      />
+    );
 
   return (
     <div
@@ -333,46 +356,15 @@ export const AssistantTurn = memo(function AssistantTurn({
     >
       <div className="message-col">
         {processParts.length > 0 ? (
-          <ProcessDetailsGroup
-            parts={processParts}
+          <TurnProcess
+            processParts={processParts}
+            turnParts={entry.parts}
             isActive={isActive}
-            endedAt={processEndedAt}
-            providerId={metaMessage?.providerId}
-            modelId={modelId}
-            runtimeActivity={processIsTurnTail ? runtimeActivity : undefined}
-            turnDelegationStatuses={turnDelegationStatuses}
-            turnDelegationTimings={turnDelegationTimings}
-            renderMessage={(message) => (
-              <AssistantMessageFragment
-                message={message}
-                process
-                streaming={isActive && message.status === "streaming"}
-              />
-            )}
-          />
+          >
+            {processParts.map((part) => renderPart(part, true))}
+          </TurnProcess>
         ) : null}
-        {answerParts.map((part) =>
-          part.kind === "message" ? (
-            <div
-              className={`message-bubble assistant-turn-fragment${
-                isActive && part.message.status === "streaming"
-                  ? " streaming"
-                  : ""
-              }`}
-              data-message-id={part.message.id}
-              key={part.message.id}
-            >
-              {part.message.content ? (
-                <div className="prose-chat">
-                  <Markdown source={part.message.content} />
-                </div>
-              ) : null}
-              {part.message.error ? (
-                <AssistantErrorMessage message={part.message} />
-              ) : null}
-            </div>
-          ) : null,
-        )}
+        {responses.map((part) => renderPart(part))}
         {!isActive && metaMessage ? (
           <MessageMeta
             usage={usage}
@@ -459,11 +451,13 @@ export function CompactionRow({ mark }: { mark: ContextCompactionMark }) {
         {t("chat.compactionRow", { times: mark.generation })}
       </span>
       <span className="transcript-compaction-detail">
-        {mark.summarized
-          ? t("chat.compactionRowSummary", {
-              tokens: formatTokenCount(mark.summaryTokens),
-            })
-          : t("chat.compactionRowNoSummary")}
+        {mark.fallback
+          ? t("chat.compactionRowSummaryFailed")
+          : mark.summarized
+            ? t("chat.compactionRowSummary", {
+                tokens: formatTokenCount(mark.summaryTokens),
+              })
+            : t("chat.compactionRowNoSummary")}
       </span>
     </div>
   );

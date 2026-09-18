@@ -728,7 +728,13 @@ reading surface of the workstation.
 ### 4.3 Layout
 
 - Background: bg-primary
-- Max content width: 720px (messages), centered
+- The transcript, empty-home stack, and Composer share a centered preferred
+  content band, defaulting to 760px and shrinking to the available pane. The
+  left and right edges expose quiet keyboard-accessible resize handles on
+  hover/focus; both handles change the same persisted width, and double-click
+  restores 760px. Assistant, tool, permission, review, and outcome rows use
+  the same band through `--chat-prose-max-width`, while user bubbles retain
+  their compact 82%/600px plate.
 - The active process disclosure remains open through the final answer's
   streaming phase and settles only when the assistant turn completes. Its
   embedded activity rows, thinking details, and tool details share the same left
@@ -800,6 +806,31 @@ reading surface of the workstation.
   drafts grow the bottom region and reduce the transcript viewport naturally.
   `.jump-latest-btn` and `.minimap-rail` stay inside the unobstructed transcript
   region.
+
+### Turn process and thinking display
+
+Each assistant-turn entry has one process disclosure containing reasoning,
+tools and intermediate assistant text in transcript order. Its trailing answer
+streams outside the disclosure. Later activity moves a provisional answer into
+the process without altering the stored message. Assistant errors and trailing
+aborted partial replies stay visible. Compaction and user/system boundaries are
+unchanged.
+
+Completed process areas start collapsed; detailed mode opens the active process.
+Manual choices and search reveals own the disclosure until unmount. Failed tools
+open an unclaimed active process and keep their invocation-level error presentation.
+The header shows elapsed time and the visible process step count. Its thinking
+label applies only while the latest activity is streaming reasoning without answer
+text; streamed answers use the processing label. Delegation
+cards and individual tool details remain available inside the process.
+
+`thinkingDisplayMode` defaults to `detailed`. In `compact`, reasoning text and
+excerpts are absent, active reasoning has a status indicator, and completed
+thinking rows disappear. Tools and intermediate text remain accessible; a
+thinking-only completed process has no empty header. The setting also applies
+to nested thinking rows and updates mounted history. It never removes stored
+reasoning or changes model thinking configuration. See
+[ADR turn-process-and-thinking-display](../../adr/turn-process-and-thinking-display.md).
 
 ### 4.4 States
 

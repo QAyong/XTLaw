@@ -221,6 +221,14 @@ is preserved. Manual renaming remains available from Edit project.
 - **Archive** is non-destructive. Archived rows are hidden by default,
   available through Show archived, and restorable. Archiving does not cancel
   a turn or delete a transcript.
+- **Delete** removes a session or a project permanently and takes two clicks:
+  the first arms the overflow item and relabels it (`nav.deleteTaskConfirm` /
+  `project.deleteMenuConfirm`), and only the second click removes the row. The
+  arm expires on its own, so a row never stays one stray click away from a
+  permanent delete, and the folder on disk is never touched. A project whose
+  turn is still live still opens the confirmation dialog that names those
+  sessions and stops them first; an idle project is removed on that second
+  click.
 - **Create branch** snapshots an idle conversation's complete active
   transcript into an independent session in the same project/Temporary scope.
   The command is disabled while the source runs. Success selects the child and
@@ -565,6 +573,14 @@ is preserved. Manual renaming remains available from Edit project.
   width: it stays inside a safe zone that is equal on both edges at
   441px–560px and hides at 440px or below, so it never overlays or steals the
   AI output reading area, and the reading column keeps the input's centre line.
+- MainChat's centered content band defaults to 760px and can be resized from
+  either edge. A 1px pointer movement changes the centered band by 2px; the
+  live band never exceeds the available pane after its 24px edge gutters. The
+  minimum is 560px when the pane permits it, or the pane width when narrower.
+  Arrow keys step 16px (Shift 32px), Home restores 760px, End expands to the
+  pane, Escape cancels an active pointer drag, and double-click restores 760px.
+  The preference is persisted as `chatContentMaxWidth`; transcript prose and
+  Composer width update together while dragging.
 - Within the active assistant turn, unchanged activity groups without Task
   delegations also keep their memoized boundary across text updates. Changed
   tool messages still render, and Task groups still receive later lifecycle
@@ -783,20 +799,19 @@ is preserved. Manual renaming remains available from Edit project.
   answer.
 - Tool activity starts as a lightweight collapsed row; failed calls open
   automatically so the error remains local to its invocation.
-- Consecutive tool activity is wrapped in one processing group. Its header
-  updates elapsed time once per second while active, freezes after the next
-  transcript message, and exposes the number of contained steps. The latest
-  action remains in the activity rows or dedicated runtime indicator; no
-  additional status capsule is rendered.
-- While the process phase is active, its disclosure opens automatically so the
-  narration and activity list are visible, but tool-call details remain
-  collapsed by default. The latest thinking row opens automatically while it
-  streams. When the answer phase begins, the process disclosure remains open
-  while the final answer streams; once the whole turn settles, automatic
-  process, thinking, and tool-detail disclosures reset to collapsed, even when
-  the user opened one during the turn. A click or keyboard activation on a
-  group, row, or collapse rail keeps that disclosure's state through active-turn
-  stream updates; completion still performs the single automatic reset.
+- One assistant turn has one process disclosure containing thinking, tool calls,
+  and intermediate progress text. The trailing answer remains outside it. Its
+  header updates elapsed time once per second while the turn is active and
+  exposes the visible process step count.
+- Detailed mode opens the active process and retains the latest thinking row's
+  automatic disclosure. Completed process areas collapse unless a click,
+  keyboard activation, or search reveal has taken ownership. Tool details keep
+  their individual controls. Failed tools open an unclaimed active process so
+  their errors stay visible.
+- Compact thinking mode shows only a status indicator while reasoning streams;
+  when answer text starts or reasoning ends, the thought row disappears. Tools
+  and progress text remain accessible, and a completed thinking-only process
+  leaves no empty header. Neither mode changes stored reasoning.
 - A failed row is invocation-local truth and remains visible immediately. The
   containing group reports processing duration only and settles as processed,
   even when a later call recovers. Terminal turn failure is derived only from

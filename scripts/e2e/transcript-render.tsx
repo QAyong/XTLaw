@@ -1,3 +1,4 @@
+import { turnProcessProbe } from "./turn-process";
 import { createRoot } from "react-dom/client";
 import { flushSync } from "react-dom";
 import { createInstance } from "i18next";
@@ -153,7 +154,7 @@ globalThis.transcriptRenderProbe = async () => {
     ];
     render(taskMessages());
     const processGroup = container.querySelector(
-      '[data-testid="process-details-group"]',
+      '.turn-process',
     );
     assert(
       processGroup?.classList.contains("active"),
@@ -229,6 +230,7 @@ globalThis.transcriptRenderProbe = async () => {
       changedToolRenders: 1,
       taskLifecycleUpdated: true,
       taskTimingUpdated: true,
+      turnProcess: await turnProcessProbe(),
       textUpdateDurationMs,
     };
   } finally {
@@ -470,25 +472,27 @@ globalThis.transcriptRuntimeSlotProbe = async () => {
       "the waiting status row rendered no label",
     );
 
-    // The status row belongs to the transcript, not to the assistant column, so
-    // it has to sit on the rails the rows above it already use: a tool/thinking
-    // row hangs its icon on the column's leading edge and its copy one icon plus
-    // one gap later. A quiet-interval row that indents itself further reads as
-    // unrelated to the work it explains.
-    const tailRow = [
-      ...host.querySelectorAll<HTMLElement>(".process-details-group .tool-row"),
-    ].at(-1);
+    // The status row belongs to the transcript, not to the process detail body,
+    // so it follows the process summary header's leading icon and text rails.
+    // The detail rows intentionally sit one level deeper under that header.
+    const processHeader = host.querySelector<HTMLElement>(
+      ".turn-process > .tool-activity-header",
+    );
     const marker = activityIndicator?.querySelector<HTMLElement>(
       ".working-indicator-mark",
     );
     const markerLabel = activityIndicator?.querySelector<HTMLElement>(
       ".working-indicator-label",
     );
-    const railIcon = tailRow?.querySelector<HTMLElement>(".tool-row-icon");
-    const railText = tailRow?.querySelector<HTMLElement>(".tool-row-name");
+    const railIcon = processHeader?.querySelector<HTMLElement>(
+      ".tool-activity-icon",
+    );
+    const railText = processHeader?.querySelector<HTMLElement>(
+      ".tool-activity-label",
+    );
     check(
       Boolean(marker && markerLabel && railIcon && railText),
-      "the fixture rendered no status marker or no tool row to align it with",
+      "the fixture rendered no status marker or process summary rail to align it with",
     );
     const leftOf = (element: HTMLElement | null | undefined) =>
       element?.getBoundingClientRect().left ?? Number.NaN;

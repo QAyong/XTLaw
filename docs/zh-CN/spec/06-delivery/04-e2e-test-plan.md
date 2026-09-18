@@ -118,6 +118,7 @@ unit/integration 测试；代码 pull request 使用有选择且高价值的 E2E
 - 导入扩展依赖安装或 registry 边界改动：`pnpm test:e2e:plugin-import-deps`。
 - 受信任扩展或插件扩展改动：`pnpm test:e2e:trusted-extensions`。
 - 会话通信 / Session Orchestrator：`pnpm test:e2e:collaboration`。
+- 完成通知静默或静默回合契约（D193 / D446）：`pnpm test:e2e:session-completion`。
 - 同时涉及多个面的改动使用适用套件的并集。
 
 `pnpm test:e2e` 是 host RPC、IPC、Agent 执行、插件、持久化集成和共享运行时合约的默认跨系统烟雾测试。由于显示、平台、凭据、硬件或其他环境能力缺失而无法运行的必需套件，必须记录为 `NOT RUN`，并说明原因、替代验证和剩余风险。在具备条件且可信的环境中通过前，该 pull request 不具备合入条件。
@@ -482,6 +483,17 @@ unit/integration 测试；代码 pull request 使用有选择且高价值的 E2E
 - **接受**：C（中止）、F（持久化）
 - **里程碑**：M2
 - **状态**：草案
+
+#### E2E-SESSION-outbox-duplicate-id-does-not-drop-history
+
+- **先决条件**：两个会话的工具行把同一个 `toolCallId` 当作 `messages.id`（例如 `call_421522`）。第一个会话已经持久化该 id。第二个会话随后又跑了若干回合，助手/工具行排在这条碰撞追加之后。
+- **步骤**：1) 在会话 A 完成一条 id 为 `call_421522` 的工具调用。2) 在会话 B 使用同一供应商工具 id，再继续聊几轮。3) 退出并重新打开。4) 打开两个会话。
+- **预期**：会话 A 仍有原来的工具行。会话 B 重新打开后仍有后续回合；碰撞的工具行存成 `{sessionB}:{call_421522}`（或等价改写 id）。持久化 outbox 为空，没有停在 `UNIQUE constraint failed: messages.id`。任一会话都没有丢掉更晚的助手/工具行。
+- **链接规格**：`03-runtime/04-data-storage.md`、`03-runtime/06-host-rpc-protocol.md`、ADR 0041、D444
+- **接受**：F（持久化）
+- **里程碑**：M2
+- **状态**：单位已覆盖（`append_message_remaps_ids_owned_by_another_session`、`persistence-outbox.test.mjs`）；桌面旅程待补
+
 
 #### E2E-173：展开中的实时委托运行过程跟随最新输出
 
@@ -3297,7 +3309,11 @@ IPC 请求无法关闭。
     溢出。
   - 如果自动摘要生成失败，则持久保留尾部回退
     附加检查点，运行保持活动状态，并有一个警告解释
-    旧模型上下文被减少；如果后备持久性或安全
+    旧模型上下文被减少；该检查点的转录行显示
+    「摘要生成失败 · 已保留近期上下文」，绝不显示 `摘要 ≈N tokens`（ADR 0282）。
+    在回退之前，摘要请求会对瞬时的提供商失败最多重试三次（2s/4s/8s 退避），
+    Stop 会取消退避，确定性失败不重试；序列化提示超出窗口的输入会把工具结果
+    截为短前缀后再发送一次，而不是跳过模型。如果后备持久性或安全
     预算保护失败，`CONTEXT_COMPACTION_FAILED` 被发出一次。
   - 如果后续检查时最新的检查点已经是转录本叶子
     提示超出硬预算，运行时会重建较小的尾部
@@ -4923,6 +4939,7 @@ IPC 请求无法关闭。
 
 | 验收 | 应用场景 |
 |---|---|
+| A / C — Unicode stdio 成帧 | E2E-RPC-unicode-separators |
 | C / G / Quality — Plugins navigation | E2E-NAV-plugins-button-goes-back |
 | B / F / Security — 提供商复制 | E2E-PROVIDER-copy-config-without-credentials |
 | A — 应用程序启动 | E2E-001、E2E-002、E2E-003、E2E-004、E2E-067、E2E-076、E2E-079、E2E-092、E2E-097、E2E-143、E2E-150、E2E-168、E2E-204、E2E-217 |
@@ -4966,6 +4983,7 @@ IPC 请求无法关闭。
 | D — 工作区（删除项目） | E2E-PROJECT-delete-removes-project-and-owned-sessions |
 | F — 持久化（删除项目） | E2E-PROJECT-delete-removes-project-and-owned-sessions |
 | 品质（删除项目） | E2E-PROJECT-delete-removes-project-and-owned-sessions |
+| 品质（两步删除） | E2E-SESSION-two-click-delete-arms-first |
 | Security (plugin real-time capabilities) | E2E-PLUGIN-global-shortcut-owns-only-its-own-command、E2E-PLUGIN-permission-gate-for-real-time-capabilities、E2E-PLUGIN-background-audio-and-realtime-connection |
 | C — 对话与流式（展开详情保持阅读位置） | E2E-CHAT-disclosure-toggle-keeps-reading-position |
 | E — 工具与权限（展开详情保持阅读位置） | E2E-CHAT-disclosure-toggle-keeps-reading-position |
@@ -4993,6 +5011,7 @@ IPC 请求无法关闭。
 | MVP 后远程控制 | E2E-221、E2E-222、E2E-223、E2E-224、E2E-225、E2E-226、E2E-227、E2E-228、E2E-229、E2E-230、E2E-231、E2E-232 |
 | 受信任扩展（R7 v1） | E2E-241、E2E-242、E2E-243、E2E-244、E2E-245、E2E-PLUGIN-imported-pi-package-skills、E2E-PLUGIN-import-extension-installs-dependencies、E2E-PLUGIN-import-extension-reports-missing-dependency、E2E-PLUGIN-declared-provider-appears-in-the-native-provider-list |
 | M6+（删除项目） | E2E-PROJECT-delete-removes-project-and-owned-sessions |
+| M6+（两步删除） | E2E-SESSION-two-click-delete-arms-first |
 | C — 对话和直播（模型回退） | E2E-SUBAGENT-ordered-model-fallback-preserves-work |
 | 品质（模型回退隔离） | E2E-SUBAGENT-ordered-model-fallback-preserves-work |
 | C — 对话和直播（旧版子代理回合上限） | E2E-SUBAGENT-legacy-turn-limit-frontmatter-is-ignored |
@@ -5001,6 +5020,10 @@ IPC 请求无法关闭。
 | C — 对话与流式（不透明浮动表面） | E2E-CHAT-opaque-floating-decision-and-retry-surfaces |
 | 品质（不透明浮动表面） | E2E-CHAT-opaque-floating-decision-and-retry-surfaces |
 | M6（不透明浮动表面） | E2E-CHAT-opaque-floating-decision-and-retry-surfaces |
+| B — 模型配置（目录窗口来源） | E2E-MODEL-catalog-window-correction-reaches-saved-bindings |
+| F — 持久化（目录窗口来源） | E2E-MODEL-catalog-window-correction-reaches-saved-bindings |
+| 品质（目录窗口来源） | E2E-MODEL-catalog-window-correction-reaches-saved-bindings |
+| M6+（目录窗口来源） | E2E-MODEL-catalog-window-correction-reaches-saved-bindings |
 
 `US-UI-*` 视觉场景（§UI shell 视觉场景）追踪到
 [决策日志 §D](/zh-CN/spec/08-meta/decisions-log) 中的法典平价决策
@@ -5512,14 +5535,16 @@ IPC 请求无法关闭。
 - **前提条件**：三个持久项目 A、B 和 C，每个都至少有一个带转录本的会话；A 已归档并作为
   侧边栏选项卡保留；B 是活动工作区；C 是一个已存储双文件夹项目组的根目录。
 - **步骤**：打开设置 → 项目存档，打开 A 的行菜单，选择删除项目，并在对话框中确认。然后
-  从侧边栏项目菜单对正处于活动工作区的 B 重复同一操作。接着对 C 尝试同一操作，然后对一个
-  宿主已不再知晓的路径尝试，最后在 D 的某个任务仍在运行时尝试删除 D。
+  从侧边栏项目菜单对正处于活动工作区的 B 重复同一操作：第一次点击只是武装该项，只有第二次
+  点击才会移除 B。接着对 C 尝试同一操作，然后对一个宿主已不再知晓的路径尝试，最后在 D 的
+  某个任务仍在运行时尝试删除 D。
 - **预期**：对话框会指明项目名称，说明该项目及其会话与转录本会被永久移除，并说明磁盘上的
-  文件夹不会被删除；确认之前不会移除任何内容。确认后，持久项目行、该项目的会话、其转录本、
-  scratch 和 review 文件以及该项目的持久记忆均已消失，而磁盘上的文件夹保持原样。被删除的
-  项目会立即从设置 → 项目存档和侧边栏中消失，重新加载后依然如此：没有保留的选项卡、没有
-  最近项目条目、没有由会话推导的行，也没有残留的 pin、archive 或 order 偏好。其他所有项目
-  的会话与转录本不受影响。当被删除的项目曾是活动工作区时，工作区回退到另一个已打开的项目
+  文件夹不会被删除；确认之前不会移除任何内容，被武装后放置不管的项会自行解除武装、不会移除
+  任何东西。确认后，持久项目行、该项目的会话、其转录本、scratch 和 review 文件以及该项目的
+  持久记忆均已消失，而磁盘上的文件夹保持原样。被删除的项目会立即从设置 → 项目存档和侧边栏
+  中消失，重新加载后依然如此：没有保留的选项卡、没有最近项目条目、没有由会话推导的行，也没有
+  残留的 pin、archive 或 order 偏好。其他所有项目的会话与转录本不受影响。当被删除的项目曾是
+  活动工作区时，工作区回退到另一个已打开的项目
   或 Temporary，且下次启动不会重新打开已删除的路径。磁盘上文件夹已被移动或删除的项目仍可
   移除。删除 C 会被拒绝并给出提示消息，该组保持不变；宿主已无持久行的路径仍会从项目存档与
   侧边栏中移除，不会报出缺少项目的错误。当 D 的任务仍在运行时删除 D 会打开确认对话框，而不是给出
@@ -5556,6 +5581,24 @@ IPC 请求无法关闭。
   当前运行会话 id 的情况下都能到达对话框、对话框的运行中会话行与“停止任务并删除”标签、abort 循环
   先于 `deleteProject` 执行、`CONFLICT` 兜底路径，以及所有已发布语言包中的新文案；端到端旅程仍为
   草稿
+
+### E2E-SESSION-two-click-delete-arms-first
+
+- **前提条件**：一个包含一个空闲会话和一个运行中会话的项目，二者都可从侧边栏会话菜单、侧边栏
+  项目菜单以及项目索引到达。
+- **步骤**：打开空闲会话的会话菜单，按一次删除，并让该项保持武装直到武装超时，然后再按一次以
+  确认移除。对来自侧边栏菜单与项目索引的项目行重复该操作。
+- **预期**：第一次按下不会移除任何东西，并把该项标签改为 `nav.deleteTaskConfirm` /
+  `project.deleteMenuConfirm`（"Delete?" / "确认删除？"）且带 `data-armed="true"`；菜单保持
+  打开，点击外部、按 Escape 或武装超时都会解除武装且不移除任何内容。只有第二次按下才会移除
+  该会话及其转录本和该行，也只有对项目行的第二次按下才会移除空闲项目。会话与项目永远不会共用
+  一次武装。删除仍有运行中轮次的项目时，仍会打开指明这些会话并停止它们的对话框（见
+  E2E-PROJECT-delete-running-sessions-are-named-and-stopped）。
+- **链接规格**：`04-ux/09-interaction-patterns.md` §1.6、D421、D431、D437
+- **验收**：品质
+- **里程碑**：M6+
+- **状态**：部分自动化 —— `apps/desktop/test/two-step-delete.test.mjs` 固定了共享的武装与它的
+  超时、所有已发布语言包中的两个标签，以及第一次按下只做武装；端到端旅程仍为草稿
 
 ### US-UI-59 基于会话的后台工具
 - 在项目 A 中启动可见轮次，在项目 B 运行时切换到项目 B，并且
@@ -6606,14 +6649,14 @@ IPC 请求无法关闭。
   1. 打开设置 → 常规。确认网络卡提供系统 / 直连 / 自定义。从未配置过代理的配置文件默认是系统。
   2. 选择自定义。确认代理 URL、默认绕过列表和测试。输入 `not-a-proxy` 并失焦。确认内联错误且未保存。
   3. 输入 `socks5://127.0.0.1:1080` 或 `http://127.0.0.1:7890` 并失焦。确认 `settings.get` 中 `networkProxy.mode` 为 `custom`。
-  4. 对正在监听的代理点测试，确认已连接；对关闭的端口点测试，确认失败且不改已保存 URL。
+  4. 对正在监听的代理点测试，确认已连接；对关闭的端口点测试，确认失败且不改已保存 URL。对需要认证的 HTTP / SOCKS5 代理填入 `user:pass@` 后再测，确认是已连接而不是 `net::ERR_NO_SUPPORTED_PROXIES`（issue #490）。
   5. 保存自定义代理后，通过已配置供应商发送一条简短提示。确认供应商请求和响应经过代理；即使 SOCKS5 代理将完整 bind 响应合并在一个 TCP 数据块中，请求仍能完成。再确认扩展市场刷新和 models.dev 刷新走代理；绕过列表中的回环地址不走代理。
   6. 切到直连再切回系统。确认无需重启应用即可生效。
-- **预期**：自定义覆盖模型请求、市场、更新、插件 `net.fetch` 和内置浏览器。工作区 Bash 的 `env` 看不到该设置写入的 `HTTP_PROXY` / `ALL_PROXY`。OAuth 仍走系统浏览器。`file:` / `ftp:`、SOCKS4 以及百分号编码错误的认证信息均被拒绝。无协议/存储版本升级。
+- **预期**：自定义覆盖模型请求、市场、更新、插件 `net.fetch` 和内置浏览器。工作区 Bash 的 `env` 看不到该设置写入的 `HTTP_PROXY` / `ALL_PROXY`。OAuth 仍走系统浏览器。`file:` / `ftp:`、SOCKS4 以及百分号编码错误的认证信息均被拒绝。带账号密码的 HTTP / SOCKS5 测试与应用不再报 `net::ERR_NO_SUPPORTED_PROXIES`（issue #490）。无协议/存储版本升级。
 - **链接规格**：`04-ux/06-settings-ia.md`、`03-runtime/07-process-model.md`、ADR 0177、D340
 - **验收**：B（设置）、F（供应商）、安全
 - **里程碑**：M5
-- **状态**：单元已覆盖（`network-proxy.test.ts`、`node-proxy.test.ts`、`settings-general.test.mjs`、host-core `network_proxy`）；畸形认证信息和不支持的 SOCKS4 协议由共享解析器测试覆盖；完整 UI 旅程仍为草稿
+- **状态**：单元已覆盖（`network-proxy.test.ts`、`node-proxy.test.ts`、`authenticated-proxy-relay.test.ts`、`settings-general.test.mjs`、host-core `network_proxy`）；畸形认证信息和不支持的 SOCKS4 协议由共享解析器测试覆盖；完整 UI 旅程仍为草稿
 
 #### E2E-210：文档截图在 GitHub 与 VitePress 中都能解析
 
@@ -7059,6 +7102,30 @@ runner 会在运行时的隔离临时目录中生成六个插件形态 fixture�
 - **里程碑**：M6+
 - **状态**：host 发现和双向投递由 `pnpm test:e2e:collaboration` 自动化；插件和 host-core 回归覆盖已自动化。真实 provider/Electron 多会话旅程仍需在具备条件的 runner 中验证，遵循无本地 E2E 策略
 
+#### E2E-SESSION-completion-notice-allows-silence：可信完成通知允许无需确认即结束
+
+- **前提**：候选提交拥有独立构建的 host-core 和 runtime sidecar；本地 SSE
+  提供商确定性返回可见文本或成功的空响应，无需真实凭证。
+- **步骤**：1）通过真实 Host 协作账本及 sidecar 投递任务，读取成功结果并完成
+  协调者总结。2）使用生产 Main 输入解析器解析排队的完成回调，再让接收会话
+  收到空 SSE 响应。3）在同一接收运行时依次发送普通用户请求、复制的完成
+  来源文本、账本 task 和 message，并都返回空响应。
+- **预期**：原结果保持不变。完成通知只有一次提供商请求、无错误、一次终止
+  生命周期，账本状态为 completed，且不产生确认回调。每个普通输入仍只重试
+  一次并以 `EMPTY_MODEL_RESPONSE` 结束，且静默通知之后接收方发出的任何请求
+  都不携带空的 assistant 消息。单测另覆盖缺少回复目标 ID、目标不符、工具
+  批次消耗例外、provider 重试保留例外、被接受的用户 steering 进入上下文后
+  撤销例外，以及被接受的静默不进入运行时条目和 pi 转录状态。
+- **关联规格**：`03-runtime/02-agent-runtime.md` §5e、
+  `03-runtime/08-error-codes.md`、ADR 0239（D446 修订段）
+- **验收**：C（会话与流）、D（来源）、质量
+- **里程碑**：M6+
+- **状态**：由 `pnpm test:e2e:session-completion` 在独立 worktree 中对已提交并
+  rebase 的候选版本自动验证。测试驱动真实 Host RPC、生产来源解析器、sidecar
+  和本地 SSE，并在 Host 结算前持久化运行时消息；不覆盖 Electron 队列/outbox
+  界面或真实提供商。候选与基线 SHA 及结果记录于验证报告；既有账本测试另用
+  `pnpm test:e2e:collaboration` 运行。
+
 #### E2E-SESSION-hover-card-model-and-links：会话 hover 卡片展示可读模型并支持创建关系导航
 
 - **前提条件**：应用中存在一个协作创建的会话、一个独立会话，以及带可读目录名称的 provider/model。侧边栏包含这两个会话。
@@ -7350,13 +7417,13 @@ runner 会在运行时的隔离临时目录中生成六个插件形态 fixture�
 
 #### E2E-SKILL-MARKET-NET-BOUNDARY：技能源公网 HTTPS 策略拒绝私网与回环
 
-- **前提条件**：共享 public-network helper，以及可注入 fetch/DNS 的主进程公网 HTTPS 客户端。
-- **步骤**：1）分类 trailing-dot localhost、IPv4 回环、IPv4-mapped IPv6、ULA、link-local、RFC1918 与 `http://`。2）将公网主机名解析到私网 A 记录。3）跟随 Location 为 `https://127.0.0.1/` 的 302。
-- **预期**：上述绕过形态全部拒绝；公共 CDN 放行。解析到私网地址或 redirect 到回环会抛出策略错误，且不会请求私网目标。判定型拒绝不重试；本地解析没有返回答案时会重试,并且报为 `NETWORK_RESOLVE_FAILED`（`kind` 为 `unresolved`）,而不是报成地址校验拒绝——守卫并未得出判定,任何文案都不得声称它得出了。其余每次拒绝都带上 `NETWORK_POLICY_BLOCKED`（spec 08 §3.1）及其 `reason` 与被拒地址的类别,使安装面板能给出原因并提供重试,而不是让安装按钮无解释地保持禁用；市场列表也能把被拒绝的源与单纯不可达的源区分开。
-- **链接规格**：`05-security/01-security.md`、ADR 0243、`03-runtime/01-ipc-protocol.md` §12b
+- **前提条件**：共享 public-network helper，以及可注入 fetch/DNS/线路 的主进程公网 HTTPS 客户端。
+- **步骤**：1）分类 trailing-dot localhost、IPv4 回环、IPv4-mapped IPv6、ULA、link-local、RFC1918 与 `http://`。2）将公网主机名解析到私网 A 记录。3）跟随 Location 为 `https://127.0.0.1/` 的 302。4）报告 `proxied` 线路与 TUN fake-IP 答案（`198.18.0.1`），同一答案在 `DIRECT` 线路、读不出线路、以及列表中含 `DIRECT` 的线路上的表现。5）让第一跳为 `proxied`，其重定向目标为 `direct`。
+- **预期**：上述绕过形态全部拒绝；公共 CDN 放行。解析到私网地址或 redirect 到回环会抛出策略错误，且不会请求私网目标。判定型拒绝不重试；本地解析没有返回答案时会重试,并且报为 `NETWORK_RESOLVE_FAILED`（`kind` 为 `unresolved`）,而不是报成地址校验拒绝——守卫并未得出判定,任何文案都不得声称它得出了。其余每次拒绝都带上 `NETWORK_POLICY_BLOCKED`（spec 08 §3.1）及其 `reason`、被拒地址的类别与判定该地址的线路,使安装面板能给出原因并提供重试,而不是让安装按钮无解释地保持禁用；市场列表也能把被拒绝的源与单纯不可达的源区分开。若 `proxied` 线路上的答案是 RFC 2544 的 fake-IP 类别，则在 `direct` 或读不出线路时拒绝、在 `proxied` 线路上放行；其他所有非公网类别在任何线路上都拒绝；每一个重定向跳都按自己的线路判定（ADR 0272）。
+- **链接规格**：`05-security/01-security.md`、ADR 0243、ADR 0272、`03-runtime/01-ipc-protocol.md` §12b
 - **验收**：Security、Quality
 - **里程碑**：M6+
-- **状态**：已自动化（`pnpm test:e2e:skill-market`、`apps/desktop/test/public-https-fetch.test.mjs`、`apps/desktop/test/skill-market-scan.test.mjs`、`apps/desktop/test/skill-market-failure.test.mjs`、`apps/desktop/test/skill-market-policy-refusal.test.mjs`、`packages/shared/src/public-network.test.ts`）
+- **状态**：已自动化（`pnpm test:e2e:skill-market`、`apps/desktop/test/public-https-fetch.test.mjs`、`apps/desktop/test/public-https-fetch-route.test.mjs`、`apps/desktop/test/skill-market-scan.test.mjs`、`apps/desktop/test/skill-market-failure.test.mjs`、`apps/desktop/test/skill-market-policy-refusal.test.mjs`、`packages/shared/src/public-network.test.ts`）
 
 #### E2E-SKILL-MARKET-EXPANSION：相邻 markdown 资源在安装前内联
 
@@ -7445,3 +7512,28 @@ runner 会在运行时的隔离临时目录中生成六个插件形态 fixture�
 - **验收**：G（插件）、安全性、品质
 - **里程碑**：M6+
 - **状态**：部分自动化（`apps/desktop/test/plugin-fs-session-root.test.mjs`）：工具调用在发起会话的项目下写入与读取，面板调用与宿主未跟踪的会话回退到可见工作区，`userSelected` 模式保留选定的目录，窗口不显示任何项目时会话根依然生效。双活会话的桌面旅程与面板步骤为草稿（仅在此表面变化时于具备条件的环境中运行）
+
+#### E2E-MODEL-catalog-window-correction-reaches-saved-bindings：目录修正回流已保存绑定，且不覆盖用户手改值
+
+- **目标**：models.dev 修正某模型上限后回流到已保存的绑定（不必删除重建），而用户在设置里手改的数值永不被覆盖。
+- **步骤**：
+  1. 配置一个提供商，勾选 models.dev 已发布 `limit.context` 的模型并保存。展开该行的高级区，读取上下文窗口字段与其提示。
+  2. 用修正后的目录记录（不同的发布上限）替换该模型记录，重新打开设置，读取该行、上下文检查器，以及新会话启动时使用的窗口。
+  3. 在高级区输入窗口——先用预设档位，再手输 `128000`——保存，然后再喂一次目录修正，重新打开设置与检查器。
+  4. 保存并重新打开一个绑定不带 `contextWindowSource` 的提供商行：一次使用通用 `128000` 种子，一次使用任意其它已存值。
+- **预期**：步骤 1 显示发布值并带「跟随 models.dev」提示。步骤 2 在所有使用 effective window 的地方（设置行、上下文检查器、会话启动）都显示修正后的值，无需删除重建。步骤 3 在设置行、检查器和实际请求中都保留用户输入的值，包括在目录窗口更大时手输的 `128000`，且提示消失。步骤 4 表现确定：`128000` 种子跟随目录，其它值保持原样。每一步中标记都能在提供商行的保存/读取往返后保留，早于该标记写出的配置仍可读。
+- **关联规范**：`03-runtime/13-model-catalog-and-selection.md` §9.1、`03-runtime/12-provider-config-schema.md` §2、`03-runtime/11-provider-model-system.md` §2、`04-ux/06-settings-ia.md` §2
+- **验收**：B（模型配置）、F（持久化）、Quality
+- **里程碑**：M6+
+- **状态**：部分自动化：`apps/desktop/test/model-binding-catalog-source.test.mjs` 驱动主进程解析；`packages/shared/src/model-catalog.test.ts` 覆盖四条来源规则；`crates/host-core/src/providers/catalog.rs` 覆盖配置往返、无标记记录与被丢弃的未知标记。端到端设置旅程与实际启动窗口断言仍为草稿。
+
+### E2E-RPC-unicode-separators
+
+- **先决条件**：已构建 host-core、shared 和 agent runtime；隔离的临时数据目录；仅回环的 fixture provider；不使用真实凭据。
+- **步骤**：追加包含 U+2028/U+2029、中文、emoji 和转义 CR/LF 的用户消息；读取、重启 host 后再次读取。通过 AgentSidecar 发送 Unicode 提示，经父 host proxy 恢复历史，流式传输并持久化 Unicode 回复。发送包含相同字符的未知方法，然后发送健康检查请求。
+- **预期**：文本在持久化和所有 stdio 方向上保持不变。请求不会 RPC 超时；错误回复之后的请求仍可用。不需要迁移现有会话。
+- **自动化**：`pnpm test:e2e:rpc-unicode`；`packages/shared/src/ndjson.test.ts` 额外覆盖每个 UTF-8 切分位置、连续帧、CRLF、EOF 与销毁。
+- **规格**：03-runtime/06-host-rpc-protocol §2。
+- **验收**：A（运行时）、C（会话）。
+- **里程碑**：M6+。
+- **状态**：已自动化；需针对任务/PR 集成候选运行。

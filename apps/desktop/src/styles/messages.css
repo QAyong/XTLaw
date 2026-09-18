@@ -53,14 +53,14 @@
 .message-row.assistant .message-col,
 .message-row.system .message-col,
 .message-row.tool .message-col {
-  width: min(100%, 720px);
+  width: min(100%, var(--chat-prose-max-width, 720px));
   align-items: flex-start;
 }
 
 /* Decision cards are soft tiles (D297): risk rides in the tint and the risk
    pill rather than a coloured rail. */
 .permission-card {
-  width: min(100%, 720px);
+  width: min(100%, var(--chat-prose-max-width, 720px));
   margin: 10px 0;
   padding: 14px 16px;
   border-radius: var(--radius-md);
@@ -68,7 +68,7 @@
 }
 
 .asktool-card {
-  width: min(100%, 720px);
+  width: min(100%, var(--chat-prose-max-width, 720px));
   margin: 10px 0;
   padding: 14px 16px;
   border-radius: var(--radius-md);
@@ -295,7 +295,7 @@
 /* Compact pre-stream feedback: visible immediately after send without
    competing with the assistant rail, tool rows, or permission card. The row
    belongs to the transcript rather than to the assistant column, so it carries
-   no leading inset of its own: its marker starts on the same alignment line as
+   no large leading inset of its own: its marker starts on the same alignment line as
    the thinking/tool row icons above it, and its label lands on those rows'
    text rail (16px marker + 3px gap = the 19px a 15px icon and its 4px gap
    produce). Otherwise a quiet-interval row reads as a deeper indent than the
@@ -303,11 +303,13 @@
 .working-indicator {
   box-sizing: border-box;
   display: flex;
-  width: min(100%, 720px);
+  width: min(100%, var(--chat-prose-max-width, 720px));
   align-items: center;
   gap: 3px;
   margin: 2px 0 8px;
-  padding: 8px 0 4px;
+  /* Inline disclosure headers place their icon content 2px inside the row
+     box; keep the quiet-turn status on the same visual rail. */
+  padding: 8px 0 4px 2px;
   color: var(--ds-text-secondary);
   font-size: var(--text-sm-plus);
 }
@@ -477,11 +479,11 @@
 .planning-state-indicator {
   box-sizing: border-box;
   display: flex;
-  width: min(100%, 720px);
+  width: min(100%, var(--chat-prose-max-width, 720px));
   align-items: center;
   gap: 3px;
   margin: 2px 0 8px;
-  padding: 8px 0 4px;
+  padding: 8px 0 4px 2px;
   color: var(--ds-info);
   font-size: var(--text-sm-plus);
   animation: planning-state-in var(--motion-duration-fast) var(--motion-ease-out)
@@ -561,7 +563,7 @@
   --review-change-rail: var(--ds-text-muted);
   position: relative;
   box-sizing: border-box;
-  width: min(calc(100% - 24px), 720px);
+  width: min(calc(100% - 24px), var(--chat-prose-max-width, 720px));
   margin: 0 0 2px 24px;
 }
 
@@ -797,7 +799,7 @@
 }
 
 .turn-outcome-card {
-  width: min(100%, 720px);
+  width: min(100%, var(--chat-prose-max-width, 720px));
   margin: 12px 0 8px;
   border-radius: var(--radius-md);
   background: var(--ds-tile);
@@ -1765,7 +1767,7 @@
 
 .message-edit {
   display: flex;
-  width: min(100%, 720px);
+  width: min(100%, var(--chat-prose-max-width, 720px));
   flex-direction: column;
   gap: 8px;
 }
@@ -1774,7 +1776,7 @@
    narrow chat-plate clamp for as long as the editor is open. */
 .message-row.user .message-col:has(.message-edit) {
   width: 100%;
-  max-width: min(100%, 720px);
+  max-width: min(100%, var(--chat-prose-max-width, 720px));
 }
 
 .message-row.user .message-bubble:has(.message-edit) {
@@ -1821,7 +1823,7 @@
 }
 
 .message-bubble {
-  max-width: min(100%, 720px);
+  max-width: min(100%, var(--chat-prose-max-width, 720px));
   border-radius: var(--radius-lg-plus);
   padding: 10px 14px;
   line-height: var(--leading-chat);
@@ -1837,7 +1839,7 @@
 }
 
 .message-row.session-message .message-col {
-  width: min(100%, 720px);
+  width: min(100%, var(--chat-prose-max-width, 720px));
   max-width: 100%;
   align-items: stretch;
 }
@@ -2204,7 +2206,7 @@
 
 /* Live tail while running: last thought line / current tool, single line. */
 .tool-activity-preview {
-  max-width: min(100%, 720px);
+  max-width: min(100%, var(--chat-prose-max-width, 720px));
   margin: 1px 0 0 26px;
   overflow: hidden;
   color: var(--ds-text-muted);
@@ -3354,4 +3356,41 @@
   background: var(--ds-bg-elevated-opaque);
   color: var(--ds-text-muted);
   font-size: var(--text-xs);
+}
+
+/* One disclosure owns the process; tools retain their own detail controls. */
+.turn-process {
+  width: 100%;
+  margin: 0 0 8px;
+  min-width: 0;
+}
+
+.turn-process.open > .tool-activity-header > .tool-activity-caret {
+  transform: rotate(90deg);
+}
+
+.turn-process-body {
+  position: relative;
+  padding-left: 18px;
+}
+
+.turn-process-body[hidden] {
+  display: none;
+}
+
+.turn-process-body > .assistant-turn-fragment {
+  color: var(--ds-text-secondary);
+  margin-block: 8px;
+}
+
+.thinking-compact {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-block: 6px;
+}
+
+.turn-process-error {
+  display: inline-flex;
+  color: var(--ds-error);
 }

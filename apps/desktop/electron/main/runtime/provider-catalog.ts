@@ -4,6 +4,7 @@ import {
   defaultCommandShellForPlatform,
   isCommandShellId,
   modelIdsMatch,
+  resolveBindingContextWindow,
   validateNetworkProxy,
   type CommandShellId,
   type ModelBinding,
@@ -94,9 +95,13 @@ export function createProviderCatalogRuntime({
     modelId: string,
     catalogModelConfig: Parameters<typeof modelConfigWithBinding>[0],
   ) => {
-    const modelConfig = modelConfigWithBinding(
+    const resolved = resolveBindingContextWindow(
       catalogModelConfig,
       bindingForModel(provider, modelId),
+    );
+    const modelConfig = modelConfigWithBinding(
+      resolved.catalogConfig,
+      resolved.binding,
     );
     return {
       modelConfig,
@@ -116,23 +121,37 @@ export function createProviderCatalogRuntime({
       "";
     const storedModel = bindingForModel(provider, modelId);
     const modelsDevModel = modelsDevModelFor(provider, modelId);
-    const modelConfig = modelConfigWithBinding(
+    const resolved = resolveBindingContextWindow(
       modelsDevModel
         ? modelConfigFromModelsDev(modelsDevModel, provider.baseUrl)
         : genericModelConfig(modelId, provider.baseUrl ?? ""),
       storedModel,
     );
+    const modelConfig = modelConfigWithBinding(
+      resolved.catalogConfig,
+      resolved.binding,
+    );
     const models = provider.models?.map((binding) => {
       const catalogModel = modelsDevModelFor(provider, binding.id);
       if (!catalogModel) return binding;
-      const effective = modelConfigWithBinding(
+      const bindingResolved = resolveBindingContextWindow(
         modelConfigFromModelsDev(catalogModel, provider.baseUrl),
         binding,
+      );
+      const effective = modelConfigWithBinding(
+        bindingResolved.catalogConfig,
+        bindingResolved.binding,
       );
       return {
         ...binding,
         contextWindow: effective.contextWindow,
         maxTokens: effective.maxTokens,
+        // An inherited window keeps its catalog provenance on the exposed row,
+        // so saving this form cannot freeze a models.dev value into a snapshot
+        // of its own.
+        ...(bindingResolved.binding.contextWindowSource
+          ? { contextWindowSource: bindingResolved.binding.contextWindowSource }
+          : {}),
       };
     });
     return {
@@ -312,11 +331,15 @@ export function createProviderCatalogRuntime({
     }
     const { provider, modelId } = target;
     const catalogModel = modelsDevModelFor(provider, modelId);
-    const modelConfig = modelConfigWithBinding(
+    const resolved = resolveBindingContextWindow(
       catalogModel
         ? modelConfigFromModelsDev(catalogModel, provider.baseUrl)
         : genericModelConfig(modelId, provider.baseUrl ?? ""),
       bindingForModel(provider, modelId),
+    );
+    const modelConfig = modelConfigWithBinding(
+      resolved.catalogConfig,
+      resolved.binding,
     );
     return {
       ...session,

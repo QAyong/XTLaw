@@ -239,6 +239,8 @@ Gold source: local Codex electron captures; latest row wins where rows conflict.
 | D259 | Bounded shared budget for transient provider failures | **Amend D186 / D245 and ADR 0050 / ADR 0091: non-429 transient provider failures share one bounded logical-turn budget of four retries after the initial attempt, for five provider attempts total, shared across request setup and stream delivery. The budget admits exactly `NETWORK_ERROR`, `TIMEOUT`, `STREAM_FAILED`, and retryable `PROVIDER_ERROR`; `PROVIDER_ERROR` is now retried in the stream phase as well as during setup, so an upstream gateway 502/503/504 recovers wherever it lands. Non-429 delay honors `retry-after-ms`, `retry-after` seconds, then HTTP-date before a deterministic 1s/2s/4s/8s schedule, capped at 8 seconds, and captured headers are retained for every status that can state a delay (429, 408, 409, 5xx). Only the failed request is replayed; the session, transcript, and completed tool calls are untouched. The main session, builtin subagents, and one-shot composer enhancement share the same codes, budget size, and precedence. The 429 five-retry budget stays separate and the two do not draw from each other. Exhaustion records `retryAttempt: 4`. No IPC, storage, host protocol, or provider-config change.** | A relay answering `OpenAI API error (502): {"type":"api_error","message":"Upstream API request failed."}` reports a momentary upstream outage, but the split one-retry-per-phase policy turned a second 502 into a terminal error card and never replayed a mid-stream 502 at all, while subagents refused any non-request-phase transient retry. One shared bounded budget recovers ordinary gateway flapping without hiding a persistent outage. |
 | D164 | Dual-locale in-app product changelog | **Product "what's new" text for app updates is maintained as a dual EN/zh-CN catalog in `packages/shared` (`CHANGELOG`). Electron Main formats notes for the discovered `availableVersion` using the product UI locale and attaches them as optional `UpdateState.releaseNotes` plain text on the existing updates IPC/event path. The ambient banner and Settings → Info Updates row show a compact What's new section when notes exist. English is the source of truth; zh-CN mirrors versions and highlight counts. GitHub auto-generated release bodies remain web-only and are not the in-app source. No new feed URL, notes channel, or renderer-owned remote fetch is introduced (extends D120 / ADR 0022).** | Users need bilingual release highlights at update time without a second network surface or weakening Main's sole ownership of update delivery. |
 | D357 | Viewport-fixed work panel toggle | **Amend D128 / D207 / D221 and ADR 0068 / ADR 0085: AppShell owns one viewport-fixed toggle at the top-right of every non-Settings route. It is the pointer equivalent of `Cmd/Ctrl + J` — reveal the active session's retained context without creating a tab, collapse a visible panel without deleting tabs, disabled with no session. It is the sole panel-level collapse control. Windows/Linux window controls stay viewport-fixed; while the panel is open the header reserves that band plus the toggle. No host protocol, IPC channel, or native application-menu command. Artifact-driven tabs and session-scoped contexts are unchanged.** | The shortcut-only entry left the panel undiscoverable for pointer users. A Cmd/Ctrl+J equivalent is not D097's empty fixed-tab launcher. See ADR 0195 and E2E-056. |
+| D436 | Work panel keeps a context while no conversation is active | **Amend D128 / D142 / D357 and ADR 0068 / ADR 0195: "no active session" becomes an ordinary work-panel context slot keyed by an empty context id. The viewport-fixed toggle, `Cmd/Ctrl + J`, `+`, tab activate/close/replace, `openWorkPanel`, `collapseWorkPanel`, `openFileInWorkPanel`, and `openUrlInWorkPanel` operate on the visible owner — session-less included — and the toggle loses its `disabled` state; Settings still has no panel and no toggle. Artifact triggers stay keyed to their originating conversation, background artifacts still never reveal the visible panel, and a new conversation still begins with an empty context. An explicit transition (opening or clearing a project, deleting the active conversation, or the pre-clear before a new conversation is created) still clears the visible projection and drops the session-less slot, so ADR 0028's "a workspace selection with no active conversation hides the panel" holds. Startup stays closed, and the session-less context is renderer runtime state. No host, IPC, plugin-SDK, or persistence change.** | Session-less is the launch state and the state after a project switch, so the disabled toggle read as a defect and blocked the already-supported file view and browser over a project that is plainly open. An owned session-less slot keeps background-artifact isolation and workspace-relative safety without requiring a conversation. |
+| D437 | The file view lists a path-less conversation's scratch directory | **Follow-through on D114 / ADR 0124: `fs.list`, `fs.read`, and `fs.reveal` accept an optional `sessionId`; with no project open a relative path resolves inside that conversation's own scratch directory, while absolute paths keep exactly today's containment. The work panel's file tab roots its tree at the open project when one exists and otherwise at the calling conversation's scratch directory; a not-yet-created scratch directory is an empty listing rather than an error while every other listing failure stays visible, and an explicitly referenced file is displayed even when there is no tree root. Containment is unchanged — a relative path cannot leave the session scratch, listing keeps its real-path check and symlink filtering, and the channel never becomes a general filesystem browse. The fallback is gated on "no project is open", so an RPC failure with a project open is not read as an absent workspace. No new strings, no plugin change, and no host RPC, storage, plugin-SDK, or project-session behavior change.** | A temporary conversation's produced file existed on disk and the host would already serve it, but no renderer surface could list or open it, so the file surface read as a defect instead of a boundary. The fallback is scoped by the session id the caller names, which is the same trust the existing "open session path" action already has and is not reachable from a plugin renderer. See ADR 0270 and E2E-PANEL-session-scratch-browse. |
 
 ## L. Transcript presentation decisions
 
@@ -5495,3 +5497,68 @@ that was sitting at the bottom — including after the turn had finished.
   `04-ux/09-interaction-patterns.md`, `06-delivery/06-release-runbook.md`,
   E2E-065, E2E-067, and
   E2E-BRANDING-development-run-does-not-own-the-shipped-windows-identity.
+
+## 2026-09-17 — The work panel keeps a context while no conversation is active (D436)
+
+- "No active session" is now an ordinary work-panel context slot in
+  `apps/desktop/src/lib/work-panel-tabs.ts`
+  (`NO_SESSION_WORK_PANEL_CONTEXT = ""`; host session ids are UUIDs, so the key
+  cannot collide). `switchWorkPanelContextState` projects that slot whenever
+  there is no active session and writes the current projection back into the
+  slot it came from, exactly as it already does for conversations.
+- The viewport-fixed toggle, `Cmd/Ctrl + J`, `+`, tab activate/close/replace,
+  `openWorkPanel`, `collapseWorkPanel`, `openFileInWorkPanel`, and
+  `openUrlInWorkPanel` now operate on the visible owner instead of returning
+  early without a session, and `AppShell`'s toggle loses its `disabled` state.
+  Settings still has neither panel nor toggle.
+- Artifact triggers are unchanged: successful workspace Write/Edit → Review,
+  plan/goal artifacts, side chats, and BrowserPreview events still write into
+  their originating conversation's context, background artifacts never reveal,
+  activate, resize, navigate, or focus the visible panel, and a new conversation
+  still begins with an empty context (D142).
+- An explicit transition still hides the panel: the new
+  `resetWorkPanelContextState` helper — used by `activateProject`,
+  `clearProject`, deletion of the active conversation, and the pre-clear before
+  a new conversation is created — clears the visible projection and drops the
+  session-less slot while every conversation keeps its retained context.
+  ADR 0028's rule and the "no relative resource crosses workspace" guarantee
+  both hold.
+  preferred panel width persists. The session-less context is renderer runtime
+  state; host-core, the host RPC contract, preload IPC, the plugin SDK, storage,
+  and persisted data are unchanged.
+- See ADR 0269, `04-ux/01-ui-ia.md`, `04-ux/08-component-spec.md` §5.3/§5.4,
+  `04-ux/09-interaction-patterns.md` §1.8, and E2E-056.
+
+## 2026-09-17 — The file view lists a path-less conversation's scratch directory (D437)
+
+- `fs.list`, `fs.read`, and `fs.reveal` accept an optional `sessionId`. With no
+  open project, a relative path resolves inside that conversation's own scratch
+  directory (`<data_dir>/scratch/<sessionId>/`, asked of host-core through
+  `session.getScratchPath`); absolute paths keep exactly the containment they
+  have today.
+- The work panel's file tab roots its tree at the open project when one exists,
+  and otherwise at the calling conversation's scratch directory. Project
+  conversations, and temporary conversations that run beside a visible project,
+  are unchanged.
+- host-core creates the scratch directory lazily on the first mutating tool
+  call, so listing a not-yet-created scratch directory is an empty listing
+  rather than an error, and the file tab shows its empty state until the
+  conversation has produced something. Every other listing failure — an
+  unreadable directory, a link loop, a missing subfolder, an escape attempt —
+  stays visible.
+- A file that was referenced explicitly is displayed even when there is no tree
+  root: the viewer precedes the no-root empty state, and an absolute request
+  already carries its own containment.
+- Containment is not widened: a relative path cannot leave the conversation's
+  scratch directory, listing keeps the existing real-path check and its symlink
+  filtering, and the channel does not become a general filesystem browse. The
+  `<data_dir>/scratch` base containment that absolute reads already used is
+  unchanged, and the fallback is gated on "no project is open" so an RPC failure
+  with a project open is never read as an absent workspace. The session id that
+  scopes the fallback is named by the caller, which is the same trust the
+  existing "open session path" action already has and is not reachable from a
+  plugin renderer.
+- No new user-facing strings, no plugin change, and no host RPC, storage, or
+  plugin-SDK change. See ADR 0270, `03-runtime/03-tools-and-permissions.md` §4b,
+  `04-ux/08-component-spec.md` §5.3/§5.4, E2E-019a, and
+  E2E-PANEL-session-scratch-browse.

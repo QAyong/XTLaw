@@ -219,11 +219,14 @@
    assistant prose for the same pixels. Keep a leading safe zone while the
    rail is still useful, then give the transcript that space back at the
    compact side-chat floor. The query is container-based so MainChat and
-   SideChat make the same decision from their own rendered width. */
+   SideChat make the same decision from their own rendered width. The safe
+   zone is symmetric on purpose: an uneven pair shifts the whole reading
+   column off the composer's centre line by half the difference, and this
+   band is exactly where a zoomed-in pane lands. 40px clears the 8px rail and
+   its 26px markers with 6px to spare. */
 @container transcript (min-width: 441px) and (max-width: 560px) {
   .thread-content {
-    padding-inline-start: 48px;
-    padding-inline-end: 16px;
+    padding-inline: 40px;
   }
 }
 

@@ -503,8 +503,8 @@ test("background panel updates do not replace or resize the visible session", ()
   assert.ok(openForSessionBlock, "session-scoped tab action exists");
   assert.match(
     openForSessionBlock,
-    /const affectsVisibleSession\s*=\s*state\.activeSessionId\s*===\s*sessionId\s*&&\s*\(\s*!isSessionSelectionPending\(sessionId\)\s*\)/,
-    "visible-session updates require the active session and matching pending selection",
+    /const affectsVisibleSession\s*=\s*ownerKey === sessionId\s*&&\s*\(\s*sessionId === NO_SESSION_WORK_PANEL_CONTEXT\s*\|\|\s*!isSessionSelectionPending\(sessionId\)\s*\)/,
+    "visible-session updates require the panel owner key and a settled selection",
   );
   assert.match(openForSessionBlock, /workPanelContexts/);
   assert.match(openForSessionBlock, /openWorkPanelTabState/);
@@ -717,4 +717,20 @@ test("preview mode keeps shell actions and restores routes before navigation", (
     globalStyles,
     /:root\[data-platform="darwin"\]\[data-fullscreen="true"\][\s\S]*?\.app-shell\.work-panel-maximized\.sidebar-collapsed\s+\.work-panel-header\s*\{[^}]*padding-left:\s*calc\(8px \+ var\(--ds-preview-action-lane-width\)\);/,
   );
+});
+
+test("the new-conversation pre-clear resets the visible panel", async () => {
+  const coordination = await readFile(
+    new URL("../src/stores/runtime/session-coordination.ts", import.meta.url),
+    "utf8",
+  );
+  const reveal = coordination.slice(
+    coordination.indexOf("function revealEmptyCreatingSession"),
+    coordination.indexOf("function commitCreatedEmptySession"),
+  );
+  assert.ok(reveal.length > 0, "revealEmptyCreatingSession not found");
+  // The pre-clear owns no conversation yet, so it must clear the projection
+  // instead of re-projecting a retained session-less panel mid-transition.
+  assert.match(reveal, /\.\.\.resetWorkPanelSession\(state\),/);
+  assert.doesNotMatch(reveal, /switchWorkPanelSession/);
 });

@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 import type { AskToolQuestion } from "@pi-desktop/shared";
 import type { PendingAsk } from "../lib/pending-asks";
 import { useAppStore } from "../stores/app-store";
-import { Button } from "./ui";
+import { IconChevronDown, IconChevronUp } from "./icons";
+import { Button, TooltipButton } from "./ui";
 
 type DraftAnswer = {
   values: string[];
@@ -29,9 +30,13 @@ export function AskToolCard({ request, queued = 0 }: { request: PendingAsk; queu
   const showToast = useAppStore((state) => state.showToast);
   const [index, setIndex] = useState(0);
   const [drafts, setDrafts] = useState(() => emptyDrafts(request.questions));
+  const [collapsed, setCollapsed] = useState(false);
   const [resolving, setResolving] = useState(false);
   const current = request.questions[index];
   const currentDraft = drafts[index];
+  /* The collapse toggle owns the question body: the id keeps the header button
+     associated with the region it shows or hides. */
+  const bodyId = `asktool-body-${request.requestId}`;
 
   const currentValues = (draft: DraftAnswer): string[] => [
     ...draft.values,
@@ -123,7 +128,11 @@ export function AskToolCard({ request, queued = 0 }: { request: PendingAsk; queu
   };
 
   return (
-    <section className="asktool-card" role="region" aria-label={t("askTool.title")}>
+    <section
+      className={`asktool-card ${collapsed ? "is-collapsed" : ""}`}
+      role="region"
+      aria-label={t("askTool.title")}
+    >
       <div className="asktool-card-header">
         <div>
           <div className="asktool-card-title" role="status" aria-live="polite">
@@ -134,84 +143,101 @@ export function AskToolCard({ request, queued = 0 }: { request: PendingAsk; queu
             {queued > 0 ? <span> · {t("askTool.queued", { count: queued })}</span> : null}
           </div>
         </div>
-        <button
-          type="button"
-          className="asktool-decline"
-          disabled={resolving}
-          onClick={() => void submit(drafts, request.questions.map(() => null))}
-        >
-          {t("askTool.decline")}
-        </button>
-      </div>
-
-      <div className="asktool-indicators" aria-label={t("askTool.indicatorLabel")}>
-        {statuses.map((status, statusIndex) => (
+        <div className="asktool-header-actions">
           <button
-            key={`${request.requestId}-${statusIndex}`}
             type="button"
-            className={`asktool-indicator ${status} ${statusIndex === index ? "current" : ""}`}
-            aria-label={t(`askTool.status.${status}`, { number: statusIndex + 1 })}
-            aria-current={statusIndex === index ? "step" : undefined}
-            onClick={() => setIndex(statusIndex)}
-          />
-        ))}
+            className="asktool-decline"
+            disabled={resolving}
+            onClick={() => void submit(drafts, request.questions.map(() => null))}
+          >
+            {t("askTool.decline")}
+          </button>
+          <TooltipButton
+            type="button"
+            className="asktool-toggle"
+            tooltip={collapsed ? t("askTool.expand") : t("askTool.collapse")}
+            ariaLabel={collapsed ? t("askTool.expand") : t("askTool.collapse")}
+            aria-expanded={!collapsed}
+            aria-controls={bodyId}
+            onClick={() => setCollapsed((value) => !value)}
+          >
+            {collapsed ? <IconChevronDown size={14} /> : <IconChevronUp size={14} />}
+          </TooltipButton>
+        </div>
       </div>
 
-      <div className="asktool-question-number">
-        {t("askTool.questionNumber", { number: index + 1 })}
-      </div>
-      <h3 className="asktool-question">{current.question}</h3>
-      <div className="asktool-options" role={current.multiSelect ? "group" : "radiogroup"}>
-        {current.options.map((option) => {
-          const selected = currentDraft.values.includes(option);
-          return (
+      {collapsed ? null : (
+        <div className="asktool-body" id={bodyId}>
+          <div className="asktool-indicators" aria-label={t("askTool.indicatorLabel")}>
+            {statuses.map((status, statusIndex) => (
+              <button
+                key={`${request.requestId}-${statusIndex}`}
+                type="button"
+                className={`asktool-indicator ${status} ${statusIndex === index ? "current" : ""}`}
+                aria-label={t(`askTool.status.${status}`, { number: statusIndex + 1 })}
+                aria-current={statusIndex === index ? "step" : undefined}
+                onClick={() => setIndex(statusIndex)}
+              />
+            ))}
+          </div>
+
+          <div className="asktool-question-number">
+            {t("askTool.questionNumber", { number: index + 1 })}
+          </div>
+          <h3 className="asktool-question">{current.question}</h3>
+          <div className="asktool-options" role={current.multiSelect ? "group" : "radiogroup"}>
+            {current.options.map((option) => {
+              const selected = currentDraft.values.includes(option);
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  className={`asktool-option ${selected ? "selected" : ""}`}
+                  aria-pressed={current.multiSelect ? selected : undefined}
+                  aria-checked={!current.multiSelect ? selected : undefined}
+                  role={current.multiSelect ? "checkbox" : "radio"}
+                  onClick={() => selectOption(option)}
+                >
+                  <span className="asktool-option-mark" aria-hidden>{selected ? "✓" : ""}</span>
+                  <span>{option}</span>
+                </button>
+              );
+            })}
             <button
-              key={option}
               type="button"
-              className={`asktool-option ${selected ? "selected" : ""}`}
-              aria-pressed={current.multiSelect ? selected : undefined}
-              aria-checked={!current.multiSelect ? selected : undefined}
+              className={`asktool-option asktool-custom-option ${currentDraft.customSelected ? "selected" : ""}`}
+              aria-pressed={current.multiSelect ? currentDraft.customSelected : undefined}
+              aria-checked={!current.multiSelect ? currentDraft.customSelected : undefined}
               role={current.multiSelect ? "checkbox" : "radio"}
-              onClick={() => selectOption(option)}
+              onClick={() => selectOption(CUSTOM_OPTION)}
             >
-              <span className="asktool-option-mark" aria-hidden>{selected ? "✓" : ""}</span>
-              <span>{option}</span>
+              <span className="asktool-option-mark" aria-hidden>{currentDraft.customSelected ? "✓" : ""}</span>
+              <span>{t("askTool.customOption")}</span>
             </button>
-          );
-        })}
-        <button
-          type="button"
-          className={`asktool-option asktool-custom-option ${currentDraft.customSelected ? "selected" : ""}`}
-          aria-pressed={current.multiSelect ? currentDraft.customSelected : undefined}
-          aria-checked={!current.multiSelect ? currentDraft.customSelected : undefined}
-          role={current.multiSelect ? "checkbox" : "radio"}
-          onClick={() => selectOption(CUSTOM_OPTION)}
-        >
-          <span className="asktool-option-mark" aria-hidden>{currentDraft.customSelected ? "✓" : ""}</span>
-          <span>{t("askTool.customOption")}</span>
-        </button>
-      </div>
-      {currentDraft.customSelected ? (
-        <input
-          className="asktool-custom-input"
-          value={currentDraft.customText}
-          placeholder={t("askTool.customPlaceholder")}
-          aria-label={t("askTool.customOption")}
-          onChange={(event) =>
-            updateDraft((draft) => ({ ...draft, customText: event.target.value, skipped: false }))
-          }
-          autoFocus
-        />
-      ) : null}
+          </div>
+          {currentDraft.customSelected ? (
+            <input
+              className="asktool-custom-input"
+              value={currentDraft.customText}
+              placeholder={t("askTool.customPlaceholder")}
+              aria-label={t("askTool.customOption")}
+              onChange={(event) =>
+                updateDraft((draft) => ({ ...draft, customText: event.target.value, skipped: false }))
+              }
+              autoFocus
+            />
+          ) : null}
 
-      <div className="asktool-card-actions">
-        <Button variant="ghost" disabled={resolving} onClick={skip}>
-          {t("askTool.skip")}
-        </Button>
-        <Button variant="primary" disabled={resolving} onClick={next}>
-          {index === request.questions.length - 1 ? t("askTool.submit") : t("askTool.next")}
-        </Button>
-      </div>
+          <div className="asktool-card-actions">
+            <Button variant="ghost" disabled={resolving} onClick={skip}>
+              {t("askTool.skip")}
+            </Button>
+            <Button variant="primary" disabled={resolving} onClick={next}>
+              {index === request.questions.length - 1 ? t("askTool.submit") : t("askTool.next")}
+            </Button>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

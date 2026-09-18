@@ -588,6 +588,12 @@ describe("native side-chat forks", () => {
       await expect.poll(() => service.status(summary.id).status.isRunning).toBe(false);
       const started = events.find((envelope) => envelope.event.type === "message_start");
       expect(started?.event).toMatchObject({ message: { role: "assistant", status: "streaming" } });
+
+      // The transcript resolves its model icon from these two fields alone; a
+      // provisional row without them shows the default bot glyph all turn.
+      expect(started?.event).toMatchObject({
+        message: { modelId: "test-model", providerId: "test-provider" },
+      });
       expect(events.some((envelope) => envelope.event.type === "message_update")).toBe(true);
       const startedId = (started!.event as any).message.id as string;
       const ended = events.find((envelope) => envelope.event.type === "message_end" && (envelope.event as any).message.role === "assistant");
@@ -597,6 +603,35 @@ describe("native side-chat forks", () => {
       // renderer-side role/status heuristic is involved.
       expect((ended!.event as any).replacesMessageId).toBe(startedId);
       expect(events.filter((envelope) => envelope.event.type === "message_end" && (envelope.event as any).message.id === durableId)).toHaveLength(1);
+    } finally { service.disposeAll(); }
+  });
+
+  it("keeps the session's bound model when the SDK frame omits it", async () => {
+    const f = await configureModelFiles(forkFixture());
+    vi.spyOn(ModelRuntime.prototype, "streamSimple").mockImplementation(() => {
+      const stream = createAssistantMessageEventStream();
+      queueMicrotask(() => {
+        const live = response() as { model?: unknown; provider?: unknown };
+        // A first frame that carries text before the model is reported on it.
+        delete live.model;
+        delete live.provider;
+        stream.push({ type: "start", partial: live as AssistantMessage });
+        stream.push({ type: "done", reason: "stop", message: response() });
+        stream.end(response());
+      });
+      return stream;
+    });
+    const service = new NativePiSessionService(f);
+    const events: import("@pi-desktop/shared").AgentEventEnvelope[] = [];
+    try {
+      const [summary] = await service.list();
+      await service.prompt(summary.id, "stream me", (envelope) => events.push(envelope));
+      await expect.poll(() => service.status(summary.id).status.isRunning).toBe(false);
+      const started = events.find((envelope) => envelope.event.type === "message_start");
+      expect((started?.event as { message: Record<string, unknown> })?.message).toMatchObject({
+        modelId: "test-model",
+        providerId: "test-provider",
+      });
     } finally { service.disposeAll(); }
   });
 

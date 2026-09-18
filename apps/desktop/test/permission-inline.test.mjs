@@ -174,6 +174,16 @@ test("asktool card is a stepwise, non-expiring composer question surface", () =>
   assert.match(messageStyleSource, /\.asktool-options[\s\S]*?overflow-y:\s*auto/);
   assert.match(messageStyleSource, /\.asktool-options[\s\S]*?max-height:\s*min\(320px,\s*36dvh\)/);
   assert.match(messageStyleSource, /\.asktool-options[\s\S]*?overscroll-behavior-y:\s*contain/);
+  // The card starts collapsed-capable: a header toggle hides the question body
+  // so a pending ask never covers the transcript the model is still writing.
+  assert.match(askCardSource, /const \[collapsed, setCollapsed\] = useState\(false\)/);
+  assert.match(askCardSource, /className="asktool-toggle"/);
+  assert.match(askCardSource, /askTool\.collapse/);
+  assert.match(askCardSource, /askTool\.expand/);
+  assert.match(askCardSource, /aria-expanded=\{!collapsed\}/);
+  assert.match(messageStyleSource, /\.asktool-card\.is-collapsed\s*\{/);
+  assert.match(messageStyleSource, /\.asktool-toggle\s*\{/);
+  assert.match(messageStyleSource, /\.asktool-header-actions\s*\{/);
 });
 
 test("permission countdown uses its absolute receipt time", () => {

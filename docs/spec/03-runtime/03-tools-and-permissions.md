@@ -206,9 +206,18 @@ as binary content.
   scratch data when its permission mode allows it.
 - **Artifacts.** Successful scratch writes are not recorded in the
   `artifacts` table; artifact-driven file tabs represent workspace
-  deliverables only, while the Files surface may still browse the active
-  workspace. Tool results carry `root: "workspace" | "scratch"` to make this
-  decision and the UI rendering explicit.
+  deliverables only. Tool results carry `root: "workspace" | "scratch"` to make
+  this decision and the UI rendering explicit.
+- **Renderer access.** `fs.list`, `fs.read`, and `fs.reveal` take an optional
+  `sessionId`. With no open project, a relative path resolves inside the calling
+  conversation's own scratch directory, so the work-panel file tab can list,
+  open, and reveal what a temporary conversation produced (ADR 0270); a
+  not-yet-created scratch directory lists as empty rather than failing.
+  Absolute paths keep the `<data_dir>/scratch` and `<data_dir>/attachments`
+  containment they already had, a relative path can never leave the
+  conversation's own directory, and listing keeps the real-path check and
+  symlink filtering it already applies. With an open project the file tab still
+  browses that workspace.
 - **Tool coverage.** `Read`/`Write`/`Edit` use the workspace and scratch roots;
   `Glob`/`Grep` use the workspace root by default and may search an explicitly
   scoped scratch directory or an explicitly approved external directory. The

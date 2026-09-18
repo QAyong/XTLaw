@@ -72,3 +72,25 @@ test("send and paste wait for an in-flight New Task instead of creating a second
   assert.match(materialize, /pendingNewSessionRequests/);
   assert.match(materialize, /await pending/);
 });
+
+test("a created session row carries the resolved default model", () => {
+  // A row created without a model makes the Composer chip fall back to the
+  // global default, so the chip disagrees with the transcript's per-turn model
+  // until the session row is refreshed.
+  assert.match(
+    sessionCoordination,
+    /const createdProviderId = draftConfig\?\.providerId \?\? defaultProvider\?\.id;/,
+  );
+  assert.match(
+    sessionCoordination,
+    /const createdModelId =[\s\S]*?settings\?\.defaultModelId \?\? defaultProvider\?\.defaultModelId\);/,
+  );
+  const create = sessionCoordination.slice(
+    sessionCoordination.indexOf("await api.createSession"),
+  );
+  assert.ok(create.length > 0, "session.create payload not found");
+  assert.match(create, /providerId: createdProviderId,/);
+  assert.match(create, /modelId: createdModelId,/);
+  assert.doesNotMatch(create, /providerId: draftConfig\?\.providerId/);
+  assert.doesNotMatch(create, /modelId: draftConfig\?\.modelId/);
+});

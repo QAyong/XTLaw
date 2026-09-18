@@ -290,17 +290,28 @@
   display: flex;
   width: 100%;
   align-items: center;
+  gap: 6px;
   padding: 4px 6px 4px 30px;
   border-radius: var(--radius-sm);
   color: var(--ds-text-muted);
   font-size: var(--text-xs-plus);
   text-align: left;
+  cursor: pointer;
   transition: background var(--motion-duration-fast) var(--motion-ease-out), color var(--motion-duration-fast) var(--motion-ease-out);
+}
+
+.sidebar-load-more svg {
+  flex-shrink: 0;
+  opacity: 0.75;
 }
 
 .sidebar-load-more:hover {
   background: var(--ds-bg-hover);
   color: var(--ds-text-secondary);
+}
+
+.sidebar-load-more:hover svg {
+  opacity: 1;
 }
 
 .sidebar-session-group-body.standalone {

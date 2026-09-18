@@ -79,6 +79,10 @@ Required (all **implemented**):
   decision described in `03-runtime/03-tools-and-permissions.md`
 - Path normalization + root boundary check in host-core
   (`workspace::tests::blocks_escape` covers escape attempts)
+- The work panel's file surface may list, read, and reveal the calling
+  conversation's own scratch directory when no project is open; a relative path
+  can never leave that directory, and listing keeps the real-path and symlink
+  checks the workspace listing already applies (ADR 0270)
 - Symlink targets outside the root are rejected when detectable unless the
   explicit path was approved by the host permission layer
 

@@ -191,6 +191,8 @@ export const zhTW = {
     timeGroupArchived: "更早",
     loadMore: "載入更多…",
     loadMoreCount: "載入更多（{{count}} 條）…",
+    expandSessions: "展開顯示",
+    collapseSessions: "收起",
     hoverCardSpace: "所屬空間",
     hoverCardUpdatedAt: "更新於 {{when}}",
     hoverCardLocalTask: "本地任務",
@@ -1483,6 +1485,8 @@ sklm: {
     skip: "跳過",
     decline: "全部拒絕",
     queued: "還有 {{count}} 個提問在等待",
+    collapse: "收起提問面板",
+    expand: "展開提問面板",
     status: {
       answered: "第 {{number}} 題已回答",
       unanswered: "第 {{number}} 題未回答",

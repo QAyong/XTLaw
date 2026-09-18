@@ -8,6 +8,7 @@ import {
   isAttachmentBlobRef,
   isIgnoredName,
   listDir,
+  listSessionScratchDir,
   previewFile,
   readOpenableFile,
   readOpenableImage,
@@ -216,4 +217,105 @@ test("readOpenableImage serves attachment blobs and rejects escapes", async (t) 
     extra,
   );
   assert.equal(escaped, null);
+});
+
+test("session scratch listings tolerate a missing directory and no root", async (t) => {
+  const fixture = await mkdtemp(join(tmpdir(), "pi-fs-session-"));
+  t.after(() => rm(fixture, { recursive: true, force: true }));
+  const scratchParent = join(fixture, "scratch");
+  const sessionDir = join(scratchParent, "session-1");
+  await mkdir(sessionDir, { recursive: true });
+  await writeFile(join(sessionDir, "notes.txt"), "produced\n");
+
+  const entries = await listSessionScratchDir(sessionDir, "");
+  assert.deepEqual(
+    entries.map((entry) => entry.name),
+    ["notes.txt"],
+  );
+  assert.equal(entries[0].kind, "file");
+
+  // No session id resolved: the caller keeps its own failure.
+  assert.equal(await listSessionScratchDir(null, ""), null);
+
+  // host-core creates the directory lazily, so a conversation that has not
+  // written anything yet has nothing to list instead of an error.
+  assert.deepEqual(
+    await listSessionScratchDir(join(scratchParent, "session-2"), ""),
+    [],
+  );
+
+  // Only a missing directory reads as "nothing produced yet": a real failure
+  // stays visible instead of being reported as an empty conversation.
+  const notADirectory = join(fixture, "scratch-file");
+  await writeFile(notADirectory, "not a directory\n");
+  await assert.rejects(() => listSessionScratchDir(notADirectory, ""));
+  await assert.rejects(() => listSessionScratchDir(sessionDir, "../session-2"));
+
+});
+
+test("session scratch keeps relative reads inside the conversation directory", async (t) => {
+  const fixture = await mkdtemp(join(tmpdir(), "pi-fs-session-root-"));
+  t.after(() => rm(fixture, { recursive: true, force: true }));
+  const scratchParent = join(fixture, "scratch");
+  const sessionDir = join(scratchParent, "session-1");
+  const outside = join(fixture, "outside");
+  await Promise.all([mkdir(sessionDir, { recursive: true }), mkdir(outside)]);
+  await writeFile(join(sessionDir, "notes.txt"), "mine\n");
+  await writeFile(join(outside, "leak.txt"), "leak\n");
+
+  // The same shape the IPC handler uses: the session directory is the root a
+  // relative reference resolves in, the scratch store and the attachments
+  // store are the extra containment roots.
+  const extraRoots = [scratchParent, join(fixture, "attachments")];
+  assert.equal(
+    resolveOpenablePath("notes.txt", sessionDir, extraRoots),
+    join(sessionDir, "notes.txt"),
+  );
+  assert.equal(
+    resolveOpenablePath("../outside/leak.txt", sessionDir, extraRoots),
+    null,
+  );
+  assert.equal(
+    resolveOpenablePath(join(outside, "leak.txt"), sessionDir, extraRoots),
+    null,
+  );
+
+  const read = await readOpenableFile("notes.txt", sessionDir, extraRoots);
+  assert.equal(read.kind, "text");
+  assert.equal(read.content, "mine\n");
+  await assert.rejects(
+    readOpenableFile("../outside/leak.txt", sessionDir, extraRoots),
+    /path outside allowed roots/,
+  );
+});
+
+test("session scratch never follows a link out of its own directory", async (t) => {
+  const fixture = await mkdtemp(join(tmpdir(), "pi-fs-session-link-"));
+  t.after(() => rm(fixture, { recursive: true, force: true }));
+  const scratchParent = join(fixture, "scratch");
+  const sessionDir = join(scratchParent, "session-1");
+  const outside = join(fixture, "outside");
+  await Promise.all([mkdir(sessionDir, { recursive: true }), mkdir(outside)]);
+  await writeFile(join(outside, "secret.md"), "outside\n");
+  try {
+    await symlink(
+      outside,
+      join(sessionDir, "linked"),
+      process.platform === "win32" ? "junction" : "dir",
+    );
+  } catch (error) {
+    if (error?.code === "EPERM" || error?.code === "EACCES") {
+      t.skip("creating a link is not permitted on this host");
+      return;
+    }
+    throw error;
+  }
+
+  const extraRoots = [scratchParent, join(fixture, "attachments")];
+  const entries = await listSessionScratchDir(sessionDir, "");
+  assert.equal(entries.some((entry) => entry.name === "linked"), false);
+  await assert.rejects(
+    readOpenableFile("linked/secret.md", sessionDir, extraRoots),
+    /path outside allowed roots/,
+  );
 });

@@ -4,6 +4,9 @@
 - Date: 2026-09-09
 - Deciders: PI-Desktop core
 - Amends: ADR 0068, ADR 0085, D128, D207, D221
+- Amended by: [ADR 0269](0269-session-less-work-panel-context.md) (the
+  no-active-session clause above: the toggle is enabled and owns the session-less
+  context)
 - Related: [01-ui-ia](../spec/04-ux/01-ui-ia.md) ·
   [08-component-spec](../spec/04-ux/08-component-spec.md) ·
   [09-interaction-patterns](../spec/04-ux/09-interaction-patterns.md) ·
@@ -26,7 +29,9 @@ fixed-tab launcher, not at a Cmd/Ctrl+J equivalent that creates no resource.
    non-Settings route. It is the pointer equivalent of `openWorkPanel`: it
    reveals the active session's retained context without creating a tab, and
    collapses a visible panel without deleting tabs. With no active session it
-   is disabled. Settings still has no panel and no toggle.
+   owns that state's own session-less context
+   ([ADR 0269](0269-session-less-work-panel-context.md)). Settings still has no
+   panel and no toggle.
 2. The button prefers the visible presentation, including a subagent dock,
    over a briefly stale store projection. A click during the exit animation
    reopens. `aria-pressed` follows both store state and the presented panel.

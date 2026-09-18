@@ -107,10 +107,12 @@ destination, chat as the home surface, tools and permissions inline.
   instead of opening a dropdown. Selecting a row replaces that launcher tab with
   the destination or activates an existing singleton. File paths stay distinct
   while plugin views deduplicate by view reference. The viewport-fixed toggle
-  and `Cmd/Ctrl + J` both toggle the active session's retained panel context —
-  revealing it without creating a resource tab and collapsing it without
-  discarding one; the create trigger remains unavailable while the panel is
-  closed. Closing the final tab keeps the panel open and shows the New launcher.
+  and `Cmd/Ctrl + J` both toggle the visible panel context — the active
+  conversation's retained one, or the session-less one while no conversation is
+  active (ADR 0269) — revealing it without creating a resource tab and collapsing
+  it without discarding one; the create trigger remains unavailable while the
+  panel is closed. Closing the final tab keeps the panel open and shows the New
+  launcher.
   A
   successful active-session workspace Write/Edit artifact opens Review;
   scratch, failed, and background-session writes never steal focus. The inner
@@ -121,10 +123,14 @@ destination, chat as the home surface, tools and permissions inline.
   sidebar reopen spends work-panel width first and otherwise targets a 460px
   MainChat width. The viewport-fixed toggle collapses the panel and the adjacent
   swap control exchanges its position with MainChat; each session retains its own runtime
-  open state, tab set, active tab, and Browser resource in renderer memory.
-  Selecting another session swaps the visible panel context without deleting
+  open state, tab set, active tab, and Browser resource in renderer memory, and
+  "no active conversation" holds its own context slot, so the toggle and
+  `Cmd/Ctrl + J` reveal, populate, and collapse the panel from the empty home or
+  from a project without an active conversation (ADR 0269). Selecting another
+  session swaps the visible panel context without deleting
   either session's state; selecting a workspace without an active conversation
-  hides the panel rather than reinterpreting relative resources. Background
+  hides the visible panel and clears that session-less slot rather than
+  reinterpreting relative resources. Background
   artifacts update only their originating session's retained panel context and
   never open, activate, or resize the visible panel. Startup is closed with no
   retained session contexts, and only the preferred panel width persists across

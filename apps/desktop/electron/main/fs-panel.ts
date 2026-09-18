@@ -253,6 +253,36 @@ export async function listDir(root: string, rel: string): Promise<FsEntry[]> {
   return entries;
 }
 
+/**
+ * List a path-less conversation's own scratch directory (ADR 0124 / ADR 0270).
+ *
+ * host-core creates that directory lazily on the first mutating tool call and
+ * its startup sweep may remove it again, so a missing root means "this
+ * conversation produced nothing" rather than a failure. Every other error —
+ * permissions, a link loop, a missing subfolder, an escape attempt — stays
+ * visible. Returns null when there is no root, so the caller keeps its own
+ * failure. Containment is `listDir`'s.
+ */
+export async function listSessionScratchDir(
+  scratchRoot: string | null,
+  rel: string,
+): Promise<FsEntry[] | null> {
+  if (!scratchRoot) return null;
+  try {
+    return await listDir(scratchRoot, rel);
+  } catch (error) {
+    // `listDir` reports a vanished directory and a refused path as the same
+    // generic error, and the directory can also disappear between its resolve
+    // and its read, so the root is re-checked before the error is kept.
+    try {
+      await stat(scratchRoot);
+    } catch (statError) {
+      if ((statError as { code?: string } | null)?.code === "ENOENT") return [];
+    }
+    throw error;
+  }
+}
+
 function looksBinary(buffer: Buffer): boolean {
   const probe = buffer.subarray(0, Math.min(buffer.length, 8000));
   for (const byte of probe) {

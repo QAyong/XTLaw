@@ -198,6 +198,8 @@ export const tr = {
     timeGroupArchived: "Daha eski",
     loadMore: "Daha fazla yükle…",
     loadMoreCount: "{{count}} tane daha yükle…",
+    expandSessions: "Daha fazla göster",
+    collapseSessions: "Daha az göster",
     hoverCardSpace: "Çalışma alanı",
     hoverCardUpdatedAt: "Güncellendi {{when}}",
     hoverCardLocalTask: "Yerel görev",
@@ -1497,6 +1499,8 @@ sklm: {
     skip: "Atla",
     decline: "Tümünü reddet",
     queued: "{{count}} istem daha bekliyor",
+    collapse: "Soruları daralt",
+    expand: "Soruları genişlet",
     status: {
       answered: "Soru {{number}} yanıtlandı",
       unanswered: "Soru {{number}} yanıtlanmadı",

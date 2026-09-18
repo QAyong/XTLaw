@@ -46,7 +46,6 @@ export function AppShell() {
     t,
     ready,
     page,
-    activeSessionId,
     subagentPanel,
     subagentPanelOpen,
     closeSubagentPanel,
@@ -290,13 +289,14 @@ export function AppShell() {
             </TooltipButton>
           ) : null}
 
+          {/* Available on every non-Settings route; with no active conversation
+              it reveals the session-less panel context (ADR 0269). */}
           <TooltipButton
             type="button"
             className="app-work-panel-toggle no-drag"
             tooltip={workPanelToggleTooltip}
             ariaLabel={workPanelToggleTooltip}
             aria-pressed={workPanelOpen || presentedWorkPanelOpen}
-            disabled={!activeSessionId && !presentedWorkPanelOpen && !workPanelExiting}
             onClick={togglePresentedWorkPanel}
           >
             <span className="app-work-panel-toggle-icon" aria-hidden>

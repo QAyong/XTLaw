@@ -142,6 +142,31 @@ function uiMessage(entry: SessionMessageEntry): UiMessage | undefined {
   return undefined;
 }
 
+/**
+ * Model identity for the live provisional assistant row.
+ *
+ * The transcript resolves its model icon from exactly these two fields, so a
+ * row that omits them shows the default bot glyph for the whole turn and only
+ * corrects itself once the durable pi entry lands. The SDK's streaming message
+ * carries the model as soon as it is known; the session's bound model is the
+ * fallback for the frames that still arrive without it.
+ */
+function assistantModelFields(
+  message: { model?: unknown; provider?: unknown },
+  fallback?: { modelId?: string; providerId?: string },
+): Pick<UiMessage, "modelId" | "providerId"> {
+  const modelId =
+    typeof message.model === "string" && message.model ? message.model : fallback?.modelId;
+  const providerId =
+    typeof message.provider === "string" && message.provider
+      ? message.provider
+      : fallback?.providerId;
+  return {
+    ...(modelId ? { modelId } : {}),
+    ...(providerId ? { providerId } : {}),
+  };
+}
+
 function visibleMessages(manager: SessionManager): UiMessage[] {
   const messages: UiMessage[] = [];
   for (const entry of manager.getBranch()) {
@@ -385,6 +410,16 @@ class NativePiRuntime {
     this.lease.release();
   }
 
+  /**
+   * The session's bound model, in the row's own identity shape. The SDK's first
+   * streaming frame can arrive before it reports the model on the message, and
+   * the transcript resolves its model icon from that field alone.
+   */
+  private boundModel(): { modelId?: string; providerId?: string } | undefined {
+    const model = this.session.sessionManager.buildSessionContext().model;
+    return model ? { modelId: model.modelId, providerId: model.provider } : undefined;
+  }
+
   private emit(event: AgentEvent): void {
     this.notify({ sessionId: this.id, turnId: this.turnId, ts: Date.now(), event });
   }
@@ -405,6 +440,7 @@ class NativePiRuntime {
           ...(content.thinking ? { thinking: content.thinking } : {}),
           createdAt: new Date().toISOString(),
           status: "streaming",
+          ...assistantModelFields(event.message, this.boundModel()),
         };
         this.emit({ type: "message_start", message: this.currentAssistant });
       }
@@ -416,6 +452,7 @@ class NativePiRuntime {
           content: content.text,
           thinking: content.thinking,
           status: "streaming",
+          ...assistantModelFields(event.message, this.currentAssistant),
         };
         this.emit({ type: "message_update", message: this.currentAssistant });
       }

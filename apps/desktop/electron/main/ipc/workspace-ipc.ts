@@ -30,6 +30,7 @@ import { parseAllowedExternalUrl } from "../safe-open-external";
 import {
   isAttachmentBlobRef,
   listDir,
+  listSessionScratchDir,
   readOpenableFile,
   readOpenableImage,
   resolveOpenablePath,
@@ -676,10 +677,36 @@ export function registerWorkspaceIpc({
     return root;
   };
 
-  handle(IPC.invoke.fsList, async (input: { path?: string } = {}) => {
-    const root = await requireWorkspaceRoot();
-    return { entries: await listDir(root, String(input.path ?? "")) };
-  });
+  /**
+   * Whether `requireWorkspaceRoot` failed because no project is open. An RPC
+   * failure while a project *is* open must not be read as an absent workspace,
+   * so the ADR 0270 fallback is gated on the error raised for that case.
+   */
+  const isNoWorkspaceError = (error: unknown): boolean =>
+    (error as { errorCode?: string } | null)?.errorCode ===
+    ErrorCodes.INVALID_ARGUMENT;
+
+  handle(
+    IPC.invoke.fsList,
+    async (input: { path?: string; sessionId?: string } = {}) => {
+      const rel = String(input.path ?? "");
+      try {
+        return { entries: await listDir(await requireWorkspaceRoot(), rel) };
+      } catch (error) {
+        if (!isNoWorkspaceError(error)) throw error;
+        // ADR 0270: without a project, a path-less conversation browses the
+        // scratch directory its files were produced in. The open project is
+        // tried first, so a project conversation and its errors never reach
+        // this branch.
+        const entries = await listSessionScratchDir(
+          await sessionScratchRoot(input.sessionId),
+          rel,
+        );
+        if (!entries) throw error;
+        return { entries };
+      }
+    },
+  );
 
   /**
    * Roots the host file tab may read besides the workspace: the session stores,
@@ -741,20 +768,36 @@ export function registerWorkspaceIpc({
 
   handle(
     IPC.invoke.fsRead,
-    async (input: { path?: string; mimeType?: string } = {}) => {
+    async (input: { path?: string; mimeType?: string; sessionId?: string } = {}) => {
       const requested = String(input.path ?? "").trim();
       let workspaceRoot: string | null = null;
+      // Extra roots stay project-shaped only while a project is open: the
+      // session fallback below must not inherit the group's sibling folders.
+      let extraRootsBase: string | null = null;
       try {
-        workspaceRoot = await requireWorkspaceRoot();
+        extraRootsBase = await requireWorkspaceRoot();
+        workspaceRoot = extraRootsBase;
       } catch (error) {
-        if (!isAbsolute(requested) && !isAttachmentBlobRef(requested)) {
+        // A relative request without a project resolves inside the
+        // conversation's own scratch directory (ADR 0270). An absolute path or
+        // an attachment blob already carries its own containment, and an RPC
+        // failure while a project *is* open is not an absent workspace.
+        if (
+          isNoWorkspaceError(error) &&
+          !isAbsolute(requested) &&
+          !isAttachmentBlobRef(requested)
+        ) {
+          const scratchRoot = await sessionScratchRoot(input.sessionId);
+          if (!scratchRoot) throw error;
+          workspaceRoot = scratchRoot;
+        } else if (!isAbsolute(requested) && !isAttachmentBlobRef(requested)) {
           throw error;
         }
       }
       return readOpenableFile(
         requested,
         workspaceRoot,
-        await fsExtraRoots(workspaceRoot),
+        await fsExtraRoots(extraRootsBase),
         input.mimeType,
       );
     },
@@ -774,29 +817,48 @@ export function registerWorkspaceIpc({
     },
   );
 
-  handle(IPC.invoke.fsReveal, async (input: { path?: string } = {}) => {
-    const requested = String(input.path ?? "").trim();
-    let workspaceRoot: string | null = null;
-    try {
-      workspaceRoot = await requireWorkspaceRoot();
-    } catch (error) {
-      if (!isAbsolute(requested) && !isAttachmentBlobRef(requested)) {
-        throw error;
+  handle(
+    IPC.invoke.fsReveal,
+    async (input: { path?: string; sessionId?: string } = {}) => {
+      const requested = String(input.path ?? "").trim();
+      let workspaceRoot: string | null = null;
+      // Same shape as `fsRead`: project extra roots only while a project is
+      // open. `resolveRealOpenablePath` still rejects escapes.
+      let extraRootsBase: string | null = null;
+      try {
+        extraRootsBase = await requireWorkspaceRoot();
+        workspaceRoot = extraRootsBase;
+      } catch (error) {
+        // Same shape as `fsRead` (ADR 0270): a relative path without a project
+        // reveals inside the conversation's own scratch directory, while an
+        // absolute path keeps its previous handling and an RPC failure with a
+        // project open is not an absent workspace.
+        if (
+          isNoWorkspaceError(error) &&
+          !isAbsolute(requested) &&
+          !isAttachmentBlobRef(requested)
+        ) {
+          const scratchRoot = await sessionScratchRoot(input.sessionId);
+          if (!scratchRoot) throw error;
+          workspaceRoot = scratchRoot;
+        } else if (!isAbsolute(requested) && !isAttachmentBlobRef(requested)) {
+          throw error;
+        }
       }
-    }
-    const target = await resolveRealOpenablePath(
-      requested,
-      workspaceRoot,
-      await fsExtraRoots(workspaceRoot),
-    );
-    if (!target) {
-      throw Object.assign(new Error("path outside allowed roots"), {
-        errorCode: ErrorCodes.INVALID_ARGUMENT,
-      });
-    }
-    shell.showItemInFolder(stripWinLongPrefix(target));
-    return { ok: true };
-  });
+      const target = await resolveRealOpenablePath(
+        requested,
+        workspaceRoot,
+        await fsExtraRoots(extraRootsBase),
+      );
+      if (!target) {
+        throw Object.assign(new Error("path outside allowed roots"), {
+          errorCode: ErrorCodes.INVALID_ARGUMENT,
+        });
+      }
+      shell.showItemInFolder(stripWinLongPrefix(target));
+      return { ok: true };
+    },
+  );
 
   handle(IPC.invoke.fsOpen, async (input: { path?: string } = {}) => {
     const workspaceRoot = await optionalWorkspaceRoot();

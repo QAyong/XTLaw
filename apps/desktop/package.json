@@ -74,7 +74,7 @@
   },
   "build": {
     "appId": "com.pi-desktop.app",
-    "productName": "PI-Desktop",
+    "productName": "PiLaw",
     "directories": {
       "output": "release"
     },
@@ -190,7 +190,7 @@
       ]
     },
     "win": {
-      "executableName": "PI-Desktop",
+      "executableName": "PiLaw",
       "target": [
         {
           "target": "nsis",
@@ -220,11 +220,11 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "shortcutName": "PI-Desktop",
-      "artifactName": "PI-Desktop-Setup-${version}.${ext}"
+      "shortcutName": "PiLaw",
+      "artifactName": "PiLaw-Setup-${version}.${ext}"
     },
     "portable": {
-      "artifactName": "PI-Desktop-Portable-${version}.${ext}",
+      "artifactName": "PiLaw-Portable-${version}.${ext}",
       "requestExecutionLevel": "user"
     },
     "deb": {

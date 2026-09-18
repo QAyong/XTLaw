@@ -31,7 +31,10 @@ import {
 import type { AppState, DraftSessionConfiguration } from "../app-state";
 import type { SessionRuntime } from "./session-runtime";
 import type { StoreAccess } from "../slices/types";
-import { switchWorkPanelSession } from "../slices/work-panel-slice";
+import {
+  resetWorkPanelSession,
+  switchWorkPanelSession,
+} from "../slices/work-panel-slice";
 
 export type PersistSessionOptions = {
   intent?: number;
@@ -217,7 +220,7 @@ export function createSessionCoordination({
         return {};
       }
       return {
-        ...switchWorkPanelSession(state, undefined),
+        ...resetWorkPanelSession(state),
         ...clearSessionPanes(),
         activeSessionId: undefined,
         selectingSessionId: undefined,
@@ -292,6 +295,15 @@ export function createSessionCoordination({
     const inheritedBinding = defaultProvider?.models.find((candidate) =>
       modelIdsMatch(candidate.id, inheritedModelId ?? ""),
     );
+    // The created row must carry the model the Composer already presents:
+    // while the row has none, the model chip falls back to the global default
+    // and disagrees with the transcript until the next session refresh.
+    const createdProviderId = draftConfig?.providerId ?? defaultProvider?.id;
+    const createdModelId =
+      draftConfig?.modelId ??
+      (draftConfig?.providerId
+        ? defaultProvider?.defaultModelId
+        : settings?.defaultModelId ?? defaultProvider?.defaultModelId);
     // ADR 0257: new sessions start in `auto` thinking-level mode with the
     // `medium` baseline unless the setting (or the draft) opts out. The
     // highest-level binding fallback only applies to manual sessions.
@@ -315,8 +327,8 @@ export function createSessionCoordination({
         thinkingLevel: draftConfig?.thinkingLevel ?? defaultThinkingLevel,
         thinkingLevelMode,
         permissionMode: draftConfig?.permissionMode,
-        providerId: draftConfig?.providerId,
-        modelId: draftConfig?.modelId,
+        providerId: createdProviderId,
+        modelId: createdModelId,
         projectPath: projectPath ?? undefined,
       });
     } catch (error) {

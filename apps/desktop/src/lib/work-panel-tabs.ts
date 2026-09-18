@@ -42,6 +42,14 @@ export function emptyWorkPanelContext(): WorkPanelContext {
   return { open: false, tabs: [], activeTabId: null, fileRequest: null };
 }
 
+/**
+ * Context key for the panel while no conversation is active (ADR 0269).
+ * Session ids are host-issued UUIDs, so an empty key cannot collide. It
+ * exists so the panel keeps an owner — and therefore its retained tabs —
+ * in the session-less state instead of dropping them on every projection.
+ */
+export const NO_SESSION_WORK_PANEL_CONTEXT = "";
+
 export function switchWorkPanelContextState(
   contexts: Record<string, WorkPanelContext>,
   currentSessionId: string | undefined,
@@ -58,17 +66,44 @@ export function switchWorkPanelContextState(
   };
   // A background artifact can update the retained context while an async
   // session selection still renders the older projection. Retained state wins.
-  const retainedCurrent = currentSessionId
-    ? sanitizeContext(contexts[currentSessionId] ?? currentVisible)
-    : sanitizeContext(currentVisible);
-  const nextContexts = currentSessionId
-    ? { ...contexts, [currentSessionId]: retainedCurrent }
-    : contexts;
+  const currentKey = currentSessionId ?? NO_SESSION_WORK_PANEL_CONTEXT;
+  const retainedCurrent = sanitizeContext(
+    contexts[currentKey] ?? currentVisible,
+  );
+  const nextContexts = { ...contexts, [currentKey]: retainedCurrent };
+  const nextKey = nextSessionId ?? NO_SESSION_WORK_PANEL_CONTEXT;
   return {
     contexts: nextContexts,
-    visible: nextSessionId
-      ? sanitizeContext(nextContexts[nextSessionId] ?? emptyWorkPanelContext())
-      : emptyWorkPanelContext(),
+    visible: sanitizeContext(
+      nextContexts[nextKey] ?? emptyWorkPanelContext(),
+    ),
+  };
+}
+
+/**
+ * An explicit workspace change (opening/clearing a project, deleting the
+ * conversation that owned the panel) hides the visible panel and clears
+ * the session-less slot, while every conversation keeps its retained
+ * context. This preserves ADR 0028's rule that a workspace selection with
+ * no active conversation hides the panel.
+ */
+export function resetWorkPanelContextState(
+  contexts: Record<string, WorkPanelContext>,
+  currentSessionId: string | undefined,
+  currentVisible: WorkPanelContext,
+): { contexts: Record<string, WorkPanelContext>; visible: WorkPanelContext } {
+  const switched = switchWorkPanelContextState(
+    contexts,
+    currentSessionId,
+    currentVisible,
+    undefined,
+  );
+  return {
+    contexts: {
+      ...switched.contexts,
+      [NO_SESSION_WORK_PANEL_CONTEXT]: emptyWorkPanelContext(),
+    },
+    visible: emptyWorkPanelContext(),
   };
 }
 

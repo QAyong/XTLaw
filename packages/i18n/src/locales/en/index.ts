@@ -196,6 +196,8 @@ export const en = {
     timeGroupArchived: "Older",
     loadMore: "Load more…",
     loadMoreCount: "Load {{count}} more…",
+    expandSessions: "Show more",
+    collapseSessions: "Show less",
     hoverCardSpace: "Workspace",
     hoverCardUpdatedAt: "Updated {{when}}",
     hoverCardLocalTask: "Local task",
@@ -1497,6 +1499,8 @@ sklm: {
     skip: "Skip",
     decline: "Decline all",
     queued: "{{count}} more prompt is waiting",
+    collapse: "Collapse questions",
+    expand: "Expand questions",
     status: {
       answered: "Question {{number}} answered",
       unanswered: "Question {{number}} not answered",

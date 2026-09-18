@@ -189,6 +189,8 @@ export const es = {
     "timeGroupArchived": "Anterior",
     "loadMore": "Cargar más…",
     "loadMoreCount": "Cargar {{count}} más…",
+    "expandSessions": "Mostrar más",
+    "collapseSessions": "Mostrar menos",
     "hoverCardSpace": "Espacio de trabajo",
     "hoverCardUpdatedAt": "Actualizado {{when}}",
     "hoverCardLocalTask": "Tarea local",
@@ -1479,6 +1481,8 @@ sklm: {
     "skip": "Omitir",
     "decline": "Rechazar todo",
     "queued": "{{count}} más mensaje está esperando",
+    "collapse": "Plegar preguntas",
+    "expand": "Desplegar preguntas",
     "status": {
       "answered": "Pregunta {{number}} respondida",
       "unanswered": "Pregunta {{number}} no respondida",

@@ -165,7 +165,20 @@ export function FilesTab() {
   const activeSessionId = useAppStore((s) => s.activeSessionId);
   const addResponseAnnotation = useAppStore((s) => s.addResponseAnnotation);
   const fileRequest = useAppStore((s) => s.workPanelFileRequest);
-  const root = workspace?.path ?? null;
+  // A path-less conversation (ADR 0270) browses the scratch directory it
+  // produced its files in (ADR 0124) instead of a project tree. The resolved
+  // path is stored with the session that owns it, so a session switch never
+  // serves the previous conversation's directory while the next one loads.
+  const [sessionRoot, setSessionRoot] = useState<{
+    sessionId: string;
+    path: string;
+  } | null>(null);
+  const sessionRootPath =
+    sessionRoot && sessionRoot.sessionId === activeSessionId
+      ? sessionRoot.path
+      : null;
+  const usingSessionRoot = !workspace?.path && Boolean(sessionRootPath);
+  const root = workspace?.path ?? sessionRootPath;
 
   const [dirs, setDirs] = useState<Record<string, DirState>>({});
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -189,17 +202,45 @@ export function FilesTab() {
     setFileError(false);
   }, [root]);
 
+  // The session scratch directory is resolved only while no project is open.
+  // The `live` flag drops a response that lands after the session or the
+  // workspace changed.
+  useEffect(() => {
+    if (workspace?.path || !activeSessionId) {
+      setSessionRoot(null);
+      return;
+    }
+    let live = true;
+    void (async () => {
+      try {
+        const res = await api.getSessionScratchPath(activeSessionId);
+        if (live) {
+          const path = String(res?.path ?? "").trim();
+          setSessionRoot(path ? { sessionId: activeSessionId, path } : null);
+        }
+      } catch {
+        if (live) setSessionRoot(null);
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, [workspace?.path, activeSessionId]);
+
   const loadDir = useCallback(
     async (rel: string) => {
       if (!root) return;
+      // The session id is only sent for the session-scratch fallback: a
+      // project conversation resolves inside its own workspace (ADR 0270).
+      const sessionId = usingSessionRoot ? (activeSessionId ?? undefined) : undefined;
       try {
-        const res = await api.fsList(rel);
+        const res = await api.fsList(rel, sessionId);
         setDirs((prev) => ({ ...prev, [rel]: { entries: res.entries } }));
       } catch {
         setDirs((prev) => ({ ...prev, [rel]: { entries: [], error: true } }));
       }
     },
-    [root],
+    [root, usingSessionRoot, activeSessionId],
   );
 
   useEffect(() => {
@@ -222,16 +263,20 @@ export function FilesTab() {
     [dirs, loadDir],
   );
 
-  const openFile = useCallback(async (rel: string, mimeType?: string) => {
-    setSelected(rel);
-    setFile(null);
-    setFileError(false);
-    try {
-      setFile(await api.fsRead(rel, mimeType));
-    } catch {
-      setFileError(true);
-    }
-  }, []);
+  const openFile = useCallback(
+    async (rel: string, mimeType?: string) => {
+      setSelected(rel);
+      setFile(null);
+      setFileError(false);
+      const sessionId = usingSessionRoot ? (activeSessionId ?? undefined) : undefined;
+      try {
+        setFile(await api.fsRead(rel, mimeType, sessionId));
+      } catch {
+        setFileError(true);
+      }
+    },
+    [usingSessionRoot, activeSessionId],
+  );
 
   /**
    * The viewer's pill collects the comment beside the passage it quotes, so the
@@ -276,17 +321,20 @@ export function FilesTab() {
 
   // Chat-initiated previews: open the file and expand its ancestor folders
   // so "back" lands on a tree that reveals it. Attachment blobs and absolute
-  // scratch paths live outside the workspace tree.
+  // scratch paths live outside the workspace tree, so they open without one.
   useEffect(() => {
-    if (!fileRequest || !root) return;
-    if (fileRequest.seq === handledFileRequestSeq) return;
-    handledFileRequestSeq = fileRequest.seq;
+    if (!fileRequest) return;
     const path = fileRequest.path;
     const isExternal =
       path.startsWith("attachments/") ||
       path.startsWith("/") ||
       /^[A-Za-z]:[\\/]/.test(path) ||
       path.startsWith("\\\\");
+    // A request that needs the tree can only be served once a root exists; it
+    // stays unconsumed until then so a later project or session still opens it.
+    if (!root && !isExternal) return;
+    if (fileRequest.seq === handledFileRequestSeq) return;
+    handledFileRequestSeq = fileRequest.seq;
     if (!isExternal) {
       const parts = path.split("/").slice(0, -1);
       const ancestors: string[] = [];
@@ -363,16 +411,6 @@ export function FilesTab() {
     });
   };
 
-  if (!root) {
-    return (
-      <WorkTabEmpty
-        icon={IconFolder}
-        title={t("panel.files.noWorkspace")}
-        body={t("panel.files.noWorkspaceHint")}
-      />
-    );
-  }
-
   if (selected !== null) {
     return (
       <div className="file-viewer">
@@ -398,7 +436,12 @@ export function FilesTab() {
             className="icon-btn"
             tooltip={t("panel.files.reveal")}
             ariaLabel={t("panel.files.reveal")}
-            onClick={() => void api.fsReveal(selected)}
+            onClick={() =>
+              void api.fsReveal(
+                selected,
+                usingSessionRoot ? (activeSessionId ?? undefined) : undefined,
+              )
+            }
           >
             <IconExternal size={14} />
           </TooltipButton>
@@ -442,6 +485,18 @@ export function FilesTab() {
           )}
         </div>
       </div>
+    );
+  }
+
+  // Genuinely rootless: no project and no session scratch directory. A file
+  // opened by absolute path above still renders in the viewer.
+  if (!root) {
+    return (
+      <WorkTabEmpty
+        icon={IconFolder}
+        title={t("panel.files.noWorkspace")}
+        body={t("panel.files.noWorkspaceHint")}
+      />
     );
   }
 

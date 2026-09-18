@@ -741,10 +741,12 @@ reading surface of the workstation.
   introducing a second side-chat message renderer.
 - The transcript keeps one stable scrollbar gutter on the trailing edge. The
   minimap's hit area never shares pixels with message text: between 441px and
-  560px of transcript width, the content reserves a 48px leading safe zone;
-  at 440px and below, the auxiliary minimap and its preview are hidden and the
-  content reclaims that space. The rule is based on the transcript container,
-  so MainChat and SideChat stay synchronized.
+  560px of transcript width, the content reserves an equal 40px safe zone on
+  both edges, so the rail stays clear while the reading column keeps the
+  composer's horizontal centre. At 440px and below, the auxiliary minimap and
+  its preview are hidden and the content reclaims that space. The rule is
+  based on the transcript container, so MainChat and SideChat stay
+  synchronized.
 - A failed TurnOutcomeCard without a structured assistant error exposes one
   primary **Continue** action and no regenerate action. It appends the current
   locale's continuation prompt to the same session and starts a new turn,
@@ -972,14 +974,15 @@ entirely inside the plugin's isolated page:
 
 | State | Behavior |
 |---|---|
-| Closed (default) | Not rendered; startup has no retained tabs. The viewport-fixed toggle or `Cmd/Ctrl + J` reveals the active session's panel context without creating a tab. Inline review cards remain available in the transcript because they are message-scoped and do not require the work panel. |
+| Closed (default) | Not rendered; startup has no retained tabs. The viewport-fixed toggle or `Cmd/Ctrl + J` reveals the visible panel context — the active conversation's, or the session-less one while no conversation is active (ADR 0269) — without creating a tab. Inline review cards remain available in the transcript because they are message-scoped and do not require the work panel. |
 | Open | Docked flex row right of the main pane; opened by an artifact, the viewport-fixed toggle, or `Cmd/Ctrl + J` at a committed preferred width of at least 244px (new-profile default 360px), capped by the live three-column budget. The toggle or `Cmd/Ctrl + J` again collapses it, retaining the session context. |
 | Content focus (swap) | The open panel is placed before MainChat while Sidebar stays leftmost. The two panes exchange their current widths, while the panel keeps its resource state and the default width preference remains unchanged; the mode ends when the button is clicked again, the panel closes, or Chat is left. |
 | Preview (maximize) | MainChat is unmounted and the panel fills the client area beside the sidebar. The mode is transient and restores the prior panel width and sidebar state when left. |
 | Multiple artifacts | The header keeps a horizontally scrollable tab strip. The fixed `+` action creates a new launcher tab; its buttons open Review and all in-scope plugin views without duplicating open resource tabs. |
 | Session switch | The destination session's retained open state, tabs, active tab, and Browser resource replace the previous session's panel context atomically; neither context is deleted |
+| No active conversation | The panel is owned by its own session-less context (ADR 0269): the viewport-fixed toggle and `Cmd/Ctrl + J` reveal it, `+` and the launcher rows populate it, and its open state and tabs survive collapse until an explicit workspace change, the start of a new conversation, or relaunch. A new conversation still begins with an empty context, so starting one closes the visible panel and clears that slot. |
 | Resizing | The inner left divider follows anchored pointer delta or keyboard input for the panel target; pointer changes are frame-coalesced and committed in the renderer. Escape, pointer cancellation, or lost capture restores the prior panel width. Native window edges resize only the fixed application window. |
-| No workspace | Each tab renders its own "open a project" empty state |
+| No workspace | Each tab renders its own "open a project" empty state — except the file tab, which roots its tree at the calling conversation's own scratch directory when that conversation has no project (ADR 0270), listing it as an empty folder until the conversation produces something |
 | Open with no resource | `Cmd/Ctrl + J` reveals the panel without creating a tab, so the body renders the New launcher. Clicking `+` creates an explicit, closable New tab with the same launcher rows. Activating a row from that tab replaces it with or selects the singleton view. Closing the final tab leaves the panel open in the no-resource state. |
 | Constrained work area | The panel is capped by the shared three-column budget inside the existing client area; MainChat never drops below its 450px floor and the sidebar remains in its user-selected state |
 | New launcher active | The body hosts concise Review and plugin-view buttons. Each row replaces the launcher tab with its destination or activates the existing singleton; the page is independently closeable. |
@@ -993,11 +996,11 @@ entirely inside the plugin's isolated page:
   events carry `sessionId`, and the renderer retains that session's preview
   path/URL as its Browser resource. Successful workspace Write/Edit artifacts
   create/activate Review in the originating session.
-  The viewport-fixed toggle and `Cmd/Ctrl + J` both toggle the active session's
-  retained panel context: they reveal the panel without creating a resource and
-  collapse the visible panel without deleting one. With no active session the
-  toggle is disabled and the shortcut does nothing. Both are ignored while
-  Settings is the active page.
+  The viewport-fixed toggle and `Cmd/Ctrl + J` both toggle the visible panel
+  context — the active conversation's retained one, or the session-less context
+  while no conversation is active (ADR 0269): they reveal the panel without
+  creating a resource and collapse the visible panel without deleting one. Both
+  are ignored while Settings is the active page.
   Background artifacts may update that retained context but never reveal it,
   resize the window, or change visible selection/focus. The transcript does
   not create a global Review changes launcher: each successful workspace
@@ -1037,6 +1040,14 @@ entirely inside the plugin's isolated page:
   The "open a project" empty states carry no action button: opening a project
   resets the panel context and hides the panel, so the button would undo the
   surface that offered it (D224).
+- File browsing root: the file tab's tree follows the open project when one
+  exists, so a project conversation browses the project exactly as before. A
+  conversation with no project roots that tree at its own scratch directory
+  (ADR 0124) and can list, open, and reveal what it produced; with no project and
+  no conversation the tree keeps its "open a project" empty state. A file
+  reference travels by absolute path, so an explicitly referenced file still
+  opens when there is no tree root, and a conversation that has not produced
+  anything yet sees an empty folder instead of a failure (ADR 0270).
 - Resource header: the 46px header shows the scrollable active tab and fixed
   `+` button. A subagent detail uses a back arrow in the header. Arrow keys,
   Home, End, and Escape operate the tablist; creating a launcher page never
@@ -1449,7 +1460,7 @@ assistant message block remains a separate expanded Markdown answer.
 - When the transcript container is 440px wide or narrower, hide the minimap
   and its hover preview even if the transcript overflows; this auxiliary
   navigation must yield to readable assistant output. At 441px–560px, keep the
-  rail visible only in its reserved leading safe zone.
+  rail visible only inside the content's symmetric safe zone.
 - Click the earlier-history continuation: run the same grow-then-fetch
   escalation as reaching the top. It is labeled and disabled while a page loads,
   never shows a message preview, and disappears once the whole history is loaded

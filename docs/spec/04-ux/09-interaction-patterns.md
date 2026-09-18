@@ -421,14 +421,15 @@ is preserved. Manual renaming remains available from Edit project.
   presentation boundary from structured fields; persisted rows never contain
   localized prose.
 
-### 1.8 Work panel entry and resources (D128, D142, D154, D173, D179, D207, D221)
+### 1.8 Work panel entry and resources (D128, D142, D154, D173, D179, D207, D221, D436)
 
 - The shell starts without a visible work panel. The viewport-fixed toggle and
-  `Cmd/Ctrl + J` both toggle the active session's panel: they reveal the
-  retained context without creating a resource tab, and collapse the visible
-  panel without deleting tabs, retaining tabs, active resource, and committed
-  width. They are a no-op without an active session or while Settings is the
-  active page. The panel's `+` trigger can then create a New launcher tab whose
+  `Cmd/Ctrl + J` both toggle the visible panel — the active conversation's
+  retained context, or the session-less context while no conversation is active
+  (ADR 0269): they reveal that context without creating a resource tab, and
+  collapse the visible panel without deleting tabs, retaining tabs, active
+  resource, and committed width. Both are ignored while Settings is the active
+  page. The panel's `+` trigger can then create a New launcher tab whose
   body offers Browser or an in-scope plugin view.
 - An artifact trigger atomically creates or reuses its resource, activates it,
   and opens the panel. Background artifacts never open the visible panel.
@@ -561,8 +562,9 @@ is preserved. Manual renaming remains available from Edit project.
   bounded by that column and use local overflow or scrolling. The body type
   scale remains readable, and the same message renderer is used in MainChat and
   SideChat. The auxiliary conversation minimap follows that same container
-  width: it keeps a leading safe zone at 441px–560px and hides at 440px or
-  below, so it never overlays or steals the AI output reading area.
+  width: it stays inside a safe zone that is equal on both edges at
+  441px–560px and hides at 440px or below, so it never overlays or steals the
+  AI output reading area, and the reading column keeps the input's centre line.
 - Within the active assistant turn, unchanged activity groups without Task
   delegations also keep their memoized boundary across text updates. Changed
   tool messages still render, and Task groups still receive later lifecycle

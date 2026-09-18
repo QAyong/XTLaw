@@ -7,7 +7,9 @@
 - Amended by: [ADR 0085](0085-work-panel-shortcut-toggle.md) (the shortcut is a
   toggle; the rejected toggle alternative below no longer holds);
   [ADR 0195](0195-viewport-fixed-work-panel-toggle.md) (pointer equivalent of
-  the shortcut)
+  the shortcut);
+  [ADR 0269](0269-session-less-work-panel-context.md) (the shortcut is no longer
+  a no-op without an active session)
 - Amended in part by: [ADR 0108](0108-remove-built-in-interactive-terminal.md)
 - Related: [01-ui-ia](../spec/04-ux/01-ui-ia.md) ·
   [08-component-spec §5](../spec/04-ux/08-component-spec.md) ·
@@ -35,9 +37,10 @@ the missing capability is panel entry rather than a new resource protocol.
    and in-scope plugin views. Artifact triggers continue to create and activate
    resources atomically, and background-session artifacts cannot open the
    visible panel.
-4. The shortcut is ignored while Settings is active and is a no-op without an
-   active session. No host protocol, IPC channel, or native application-menu
-   command is added.
+4. The shortcut is ignored while Settings is active. With no active session it
+   toggles that state's own session-less context
+   ([ADR 0269](0269-session-less-work-panel-context.md)). No host protocol, IPC
+   channel, or native application-menu command is added.
 
 ## Consequences
 

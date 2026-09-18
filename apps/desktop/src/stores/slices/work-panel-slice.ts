@@ -7,8 +7,10 @@ import {
   emptyWorkPanelContext,
   fileWorkPanelTab,
   newWorkPanelTab,
+  NO_SESSION_WORK_PANEL_CONTEXT,
   openWorkPanelTabState,
   replaceWorkPanelTabState,
+  resetWorkPanelContextState,
   sanitizeWorkPanelTabsState,
   switchWorkPanelContextState,
   type WorkPanelContext,
@@ -87,6 +89,42 @@ export function switchWorkPanelSession(
   };
 }
 
+/**
+ * Drop the visible panel and clear the session-less slot, while every
+ * conversation keeps its retained context (ADR 0269). Used by the explicit
+ * workspace changes and by the pre-clear before a new conversation is created,
+ * so a retained session-less panel can never flash between the two halves of
+ * that transition.
+ */
+export function resetWorkPanelSession(
+  state: AppState,
+): Pick<
+  AppState,
+  | "workPanelContexts"
+  | "workPanelOpen"
+  | "workPanelTabs"
+  | "activeWorkPanelTabId"
+  | "workPanelFileRequest"
+> {
+  const reset = resetWorkPanelContextState(
+    state.workPanelContexts,
+    state.activeSessionId,
+    currentWorkPanelContext(state),
+  );
+  return {
+    workPanelContexts: reset.contexts,
+    workPanelOpen: reset.visible.open,
+    workPanelTabs: reset.visible.tabs,
+    activeWorkPanelTabId: reset.visible.activeTabId,
+    workPanelFileRequest: reset.visible.fileRequest,
+  };
+}
+
+/** The context slot the visible projection belongs to (ADR 0269). */
+function panelOwnerKey(state: AppState): string {
+  return state.activeSessionId ?? NO_SESSION_WORK_PANEL_CONTEXT;
+}
+
 export type WorkPanelSliceDependencies = StoreAccess & {
   isSessionSelectionPending: (sessionId: string) => boolean;
 };
@@ -134,14 +172,13 @@ export function createWorkPanelSlice({
 
   openWorkPanel: () => {
     const state = get();
-    const sessionId = state.activeSessionId;
-    if (!sessionId) return;
+    const key = panelOwnerKey(state);
     const context = currentWorkPanelContext(state);
     set({
       workPanelOpen: true,
       workPanelContexts: {
         ...state.workPanelContexts,
-        [sessionId]: { ...context, open: true },
+        [key]: { ...context, open: true },
       },
     });
   },
@@ -161,11 +198,12 @@ export function createWorkPanelSlice({
   },
 
   openWorkPanelTabForSession: (sessionId, tab) => {
-    if (!sessionId) return;
     set((state) => {
+      const ownerKey = panelOwnerKey(state);
       const affectsVisibleSession =
-        state.activeSessionId === sessionId &&
-        (!isSessionSelectionPending(sessionId));
+        ownerKey === sessionId &&
+        (sessionId === NO_SESSION_WORK_PANEL_CONTEXT ||
+          !isSessionSelectionPending(sessionId));
       const context = affectsVisibleSession
         ? currentWorkPanelContext(state)
         : state.workPanelContexts[sessionId] ?? emptyWorkPanelContext();
@@ -207,19 +245,14 @@ export function createWorkPanelSlice({
     });
   },
   openWorkPanelTab: (tab) => {
-    const sessionId = get().activeSessionId;
-    if (!sessionId) return;
-    get().openWorkPanelTabForSession(sessionId, tab);
+    get().openWorkPanelTabForSession(panelOwnerKey(get()), tab);
   },
   openNewWorkPanelTab: () => {
-    const sessionId = get().activeSessionId;
-    if (!sessionId) return;
-    get().openWorkPanelTabForSession(sessionId, newWorkPanelTab());
+    get().openWorkPanelTabForSession(panelOwnerKey(get()), newWorkPanelTab());
   },
   replaceWorkPanelTab: (sourceTabId, tab) => {
     set((state) => {
-      const sessionId = state.activeSessionId;
-      if (!sessionId) return {};
+      const key = panelOwnerKey(state);
       const next = replaceWorkPanelTabState(
         {
           tabs: state.workPanelTabs,
@@ -250,15 +283,14 @@ export function createWorkPanelSlice({
         workPanelFileRequest: fileRequest,
         workPanelContexts: {
           ...state.workPanelContexts,
-          [sessionId]: nextContext,
+          [key]: nextContext,
         },
       };
     });
   },
   activateWorkPanelTab: (tabId) => {
     set((state) => {
-      const sessionId = state.activeSessionId;
-      if (!sessionId) return {};
+      const key = panelOwnerKey(state);
       const next = activateWorkPanelTabState(
         {
           tabs: state.workPanelTabs,
@@ -286,15 +318,14 @@ export function createWorkPanelSlice({
         workPanelFileRequest: fileRequest,
         workPanelContexts: {
           ...state.workPanelContexts,
-          [sessionId]: nextContext,
+          [key]: nextContext,
         },
       };
     });
   },
   closeWorkPanelTab: (tabId) => {
     set((state) => {
-      const sessionId = state.activeSessionId;
-      if (!sessionId) return {};
+      const key = panelOwnerKey(state);
       const closedTab = state.workPanelTabs.find((tab) => tab.id === tabId);
       const next = closeWorkPanelTabState(
         {
@@ -340,25 +371,24 @@ export function createWorkPanelSlice({
         workPanelFileRequest: fileRequest,
         workPanelContexts: {
           ...state.workPanelContexts,
-          [sessionId]: nextContext,
+          [key]: nextContext,
         },
       };
     });
   },
   collapseWorkPanel: () => {
     const state = get();
-    const sessionId = state.activeSessionId;
-    if (!sessionId || !state.workPanelOpen) return;
+    if (!state.workPanelOpen) return;
     set({
       workPanelOpen: false,
       workPanelContexts: {
         ...state.workPanelContexts,
-        [sessionId]: { ...currentWorkPanelContext(state), open: false },
+        [panelOwnerKey(state)]: { ...currentWorkPanelContext(state), open: false },
       },
     });
   },
   resetWorkPanelContext: () => {
-    set((state) => switchWorkPanelSession(state));
+    set((state) => resetWorkPanelSession(state));
   },
   setWorkPanelWidth: (width) => {
     const committedWidth = Math.round(width);

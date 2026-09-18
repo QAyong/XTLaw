@@ -11,9 +11,11 @@ const {
   isToolWorkPanelTab,
   normalizeWorkPanelFilePath,
   newWorkPanelTab,
+  NO_SESSION_WORK_PANEL_CONTEXT,
   openWorkPanelTabState,
   pluginWorkPanelTab,
   replaceWorkPanelTabState,
+  resetWorkPanelContextState,
   sanitizeWorkPanelTabsState,
   shouldOpenReviewArtifact,
   switchWorkPanelContextState,
@@ -240,4 +242,77 @@ test("a newer retained artifact is not overwritten by a stale visible projection
 
   assert.deepEqual(switched.contexts["session-a"], retained);
   assert.deepEqual(switched.visible, emptyWorkPanelContext());
+});
+
+test("switching to no active session projects the retained session-less context", () => {
+  const retained = {
+    open: true,
+    tabs: [browserPluginTab(), fileWorkPanelTab("src/App.tsx")],
+    activeTabId: "file:src/App.tsx",
+    fileRequest: { path: "src/App.tsx", seq: 2 },
+  };
+  const sessionA = {
+    open: true,
+    tabs: [toolWorkPanelTab("review")],
+    activeTabId: "review",
+    fileRequest: null,
+  };
+  const fromSession = switchWorkPanelContextState(
+    { [NO_SESSION_WORK_PANEL_CONTEXT]: retained },
+    "session-a",
+    sessionA,
+    undefined,
+  );
+
+  assert.deepEqual(fromSession.visible, retained);
+  assert.deepEqual(fromSession.contexts[NO_SESSION_WORK_PANEL_CONTEXT], retained);
+  assert.deepEqual(fromSession.contexts["session-a"], sessionA);
+
+  // Without a current session the projection is retained in the session-less
+  // slot instead of being dropped.
+  const sessionless = switchWorkPanelContextState({}, undefined, retained, undefined);
+  assert.deepEqual(sessionless.visible, retained);
+  assert.deepEqual(sessionless.contexts[NO_SESSION_WORK_PANEL_CONTEXT], retained);
+});
+
+test("a newer retained session-less context is not overwritten by a stale projection", () => {
+  const retained = {
+    open: true,
+    tabs: [toolWorkPanelTab("review")],
+    activeTabId: "review",
+    fileRequest: null,
+  };
+  const switched = switchWorkPanelContextState(
+    { [NO_SESSION_WORK_PANEL_CONTEXT]: retained },
+    undefined,
+    emptyWorkPanelContext(),
+    undefined,
+  );
+
+  assert.deepEqual(switched.contexts[NO_SESSION_WORK_PANEL_CONTEXT], retained);
+  assert.deepEqual(switched.visible, retained);
+});
+
+test("an explicit workspace reset hides the panel and clears the session-less slot", () => {
+  const sessionless = {
+    open: true,
+    tabs: [browserPluginTab()],
+    activeTabId: browserPluginTab().id,
+    fileRequest: null,
+  };
+  const sessionA = {
+    open: true,
+    tabs: [toolWorkPanelTab("review")],
+    activeTabId: "review",
+    fileRequest: null,
+  };
+  const reset = resetWorkPanelContextState(
+    { [NO_SESSION_WORK_PANEL_CONTEXT]: sessionless, "session-a": sessionA },
+    "session-a",
+    sessionA,
+  );
+
+  assert.deepEqual(reset.visible, emptyWorkPanelContext());
+  assert.deepEqual(reset.contexts[NO_SESSION_WORK_PANEL_CONTEXT], emptyWorkPanelContext());
+  assert.deepEqual(reset.contexts["session-a"], sessionA);
 });

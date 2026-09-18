@@ -103,7 +103,7 @@ test("sidebar renders global pins once, outside project folding and history limi
         html.indexOf('data-sidebar-session-section="temporary"'),
     );
     assert.equal(rows(html).length, new Set(rows(html)).size, "pins have no duplicate rows");
-    assert.equal(rows(html).filter((id) => id.startsWith("normal-")).length, 10);
+    assert.equal(rows(html).filter((id) => id.startsWith("normal-")).length, 5);
     assert.ok(rows(html).includes("temporary-normal"));
     assert.ok(!rows(html).includes("archived-pin"));
     assert.ok(!rows(html).includes("archived-project-pin"));

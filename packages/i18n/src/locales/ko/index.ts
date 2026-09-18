@@ -198,6 +198,8 @@ export const ko = {
     timeGroupArchived: "이전",
     loadMore: "더 불러오기…",
     loadMoreCount: "{{count}}개 더 불러오기…",
+    expandSessions: "더 보기",
+    collapseSessions: "접기",
     hoverCardSpace: "작업 공간",
     hoverCardUpdatedAt: "{{when}} 업데이트됨",
     hoverCardLocalTask: "로컬 작업",
@@ -1498,6 +1500,8 @@ sklm: {
     skip: "건너뛰기",
     decline: "모두 거부",
     queued: "프롬프트 {{count}}개가 더 대기 중",
+    collapse: "질문 접기",
+    expand: "질문 펼치기",
     status: {
       answered: "질문 {{number}}에 답변함",
       unanswered: "질문 {{number}}에 답변하지 않음",

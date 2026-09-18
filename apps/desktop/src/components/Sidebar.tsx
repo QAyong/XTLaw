@@ -12,8 +12,8 @@ import {
 } from "react";
 import { TooltipButton, cx } from "./ui";
 
-/** Default number of most-recent sessions shown per project group before the rest fold. */
-const MAX_VISIBLE_SESSIONS = 10;
+/** Default number of most-recent sessions shown per project group before the rest fold (Codex-aligned compact view). */
+const MAX_VISIBLE_SESSIONS = 5;
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { api } from "../lib/api";
@@ -72,6 +72,8 @@ import {
   IconFolderOpen,
   IconMore,
   IconNewProject,
+  IconChevronDown,
+  IconChevronUp,
   IconPin,
   IconPencil,
   IconSidebar,
@@ -80,7 +82,6 @@ import {
   IconTrash,
   IconX,
 } from "./icons";
-
 type ProjectEntry = {
   path: string;
   key: string;
@@ -651,7 +652,7 @@ export function Sidebar({
         name: projectName(rawPath, meta.name ?? name),
         sessions: [],
         open,
-        active: normalized === activeProjectPath,
+        active: normalized === activeProjectPath && !selectedSessionId,
         meta,
         branch,
       });
@@ -717,6 +718,7 @@ export function Sidebar({
     openProjects,
     workspace,
     activeProjectPath,
+    selectedSessionId,
     projectMeta,
     showArchived,
     displayProjectSort,
@@ -1056,8 +1058,11 @@ export function Sidebar({
     closeMenus();
   };
 
-  const expandProjectSessions = (projectKey: string) => {
-    setExpandedProjectSessions((prev) => ({ ...prev, [projectKey]: true }));
+  const toggleProjectSessionsExpanded = (projectKey: string) => {
+    setExpandedProjectSessions((prev) => ({
+      ...prev,
+      [projectKey]: !prev[projectKey],
+    }));
   };
 
   const toggleSessionPin = (session: SessionSummary) => {
@@ -1583,18 +1588,35 @@ export function Sidebar({
         }
         result.push(...renderSessionRows(groupSessions, { projectPath: entry.path }));
       }
-      // Add "load more" button if there are hidden sessions
-      if (hiddenCount > 0) {
-        result.push(
-          <button
-            key="load-more"
-            type="button"
-            className="sidebar-load-more"
-            onClick={() => expandProjectSessions(entry.key)}
-          >
-            {t("nav.loadMoreCount", { count: hiddenCount })}
-          </button>
-        );
+      // Add expand/collapse toggle button if there are more sessions than MAX_VISIBLE_SESSIONS
+      if (history.length > MAX_VISIBLE_SESSIONS) {
+        if (!sessionsExpanded) {
+          result.push(
+            <button
+              key="load-more"
+              type="button"
+              className="sidebar-load-more"
+              aria-expanded={false}
+              onClick={() => toggleProjectSessionsExpanded(entry.key)}
+            >
+              <IconChevronDown size={14} aria-hidden />
+              <span>{t("nav.expandSessions", { defaultValue: "展开显示" })}</span>
+            </button>
+          );
+        } else {
+          result.push(
+            <button
+              key="collapse-more"
+              type="button"
+              className="sidebar-load-more is-expanded"
+              aria-expanded={true}
+              onClick={() => toggleProjectSessionsExpanded(entry.key)}
+            >
+              <IconChevronUp size={14} aria-hidden />
+              <span>{t("nav.collapseSessions", { defaultValue: "收起" })}</span>
+            </button>
+          );
+        }
       }
       return result;
     };

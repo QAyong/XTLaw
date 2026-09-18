@@ -9,7 +9,7 @@ export const APP_ID = "com.pi-desktop.app";
 // identity, so a development run must never register the shipped ID. Mirrors
 // the macOS development bundle identifier (scripts/dev-electron.mjs).
 export const DEV_APP_ID = "com.pi-desktop.app.dev";
-export const APP_NAME = "PI-Desktop";
+export const APP_NAME = "PiLaw";
 export const APP_VERSION = "0.14.8-native.1";
 
 export const APP_MENU_COMMANDS = [

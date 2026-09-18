@@ -73,6 +73,11 @@
   padding: 14px 16px;
   border-radius: var(--radius-md);
   background: var(--ds-tile);
+  transition: padding var(--motion-duration-fast) var(--motion-ease-out);
+}
+
+.asktool-card.is-collapsed {
+  padding: 10px 16px;
 }
 
 .asktool-card-header,
@@ -106,6 +111,12 @@
   letter-spacing: var(--tracking-wide);
 }
 
+.asktool-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .asktool-decline {
   flex: none;
   border: 0;
@@ -117,6 +128,28 @@
 }
 
 .asktool-decline:hover {
+  color: var(--ds-text-primary);
+}
+
+.asktool-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ds-text-muted);
+  cursor: pointer;
+  transition:
+    background var(--motion-duration-fast) var(--motion-ease-out),
+    color var(--motion-duration-fast) var(--motion-ease-out);
+}
+
+.asktool-toggle:hover {
+  background: var(--ds-bg-hover);
   color: var(--ds-text-primary);
 }
 

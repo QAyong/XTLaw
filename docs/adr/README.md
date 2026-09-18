@@ -297,3 +297,5 @@ Each ADR includes:
 | 0266 | [Plugin fs roots follow the calling session](0266-plugin-fs-root-follows-the-calling-session.md) | Accepted (D093) |
 | 0267 | [Restore user-resizable expanded sidebar width](0267-restore-sidebar-width-resize.md) | Accepted (amends ADR 0238 / D408) |
 | 0268 | [Development-only Windows application identity](0268-development-only-windows-application-identity.md) | Accepted (amends D141; D435) |
+| 0269 | [Keep a work-panel context while no conversation is active](0269-session-less-work-panel-context.md) | Accepted (amends ADR 0068 / ADR 0195, D128, D357; D436) |
+| 0270 | [The file view lists a path-less conversation's own scratch directory](0270-session-scratch-in-the-file-view.md) | Accepted (D114, D437) |

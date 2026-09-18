@@ -189,6 +189,8 @@ export const fr = {
     "timeGroupArchived": "Plus ancien",
     "loadMore": "Charger plus…",
     "loadMoreCount": "Charger {{count}} plus…",
+    "expandSessions": "Afficher plus",
+    "collapseSessions": "Afficher moins",
     "hoverCardSpace": "Espace de travail",
     "hoverCardUpdatedAt": "{{when}} mis à jour",
     "hoverCardLocalTask": "Tâche locale",
@@ -1479,6 +1481,8 @@ sklm: {
     "skip": "Ignorer",
     "decline": "Tout refuser",
     "queued": "{{count}} une autre invite est en attente",
+    "collapse": "Réduire les questions",
+    "expand": "Développer les questions",
     "status": {
       "answered": "Question {{number}} répondue",
       "unanswered": "Question {{number}} sans réponse",

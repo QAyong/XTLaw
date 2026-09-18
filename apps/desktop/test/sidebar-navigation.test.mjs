@@ -364,3 +364,16 @@ test("a blurred window releases latched row hover and actions", () => {
     /\.sidebar\[data-window-blur="true"\] \.sidebar-session-group-title:not\(\.static\):hover\s*\{[^}]*background:\s*transparent;/s,
   );
 });
+
+test("sidebar project sessions support bidirectional expand and collapse with chevron indicators", () => {
+  assert.match(sidebarSource, /const MAX_VISIBLE_SESSIONS = 5;/);
+  assert.match(sidebarSource, /toggleProjectSessionsExpanded/);
+  assert.match(sidebarSource, /aria-expanded=\{false\}/);
+  assert.match(sidebarSource, /aria-expanded=\{true\}/);
+  assert.match(sidebarSource, /t\("nav\.expandSessions"/);
+  assert.match(sidebarSource, /t\("nav\.collapseSessions"/);
+  assert.match(sidebarSource, /<IconChevronDown/);
+  assert.match(sidebarSource, /<IconChevronUp/);
+  assert.match(globalStyles, /\.sidebar-load-more\s*\{[^}]*gap:\s*6px;/s);
+  assert.match(globalStyles, /\.sidebar-load-more\s*\{[^}]*cursor:\s*pointer;/s);
+});

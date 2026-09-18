@@ -189,6 +189,8 @@ export const de = {
     "timeGroupArchived": "Älter",
     "loadMore": "Mehr laden…",
     "loadMoreCount": "{{count}} mehr laden…",
+    "expandSessions": "Mehr anzeigen",
+    "collapseSessions": "Weniger anzeigen",
     "hoverCardSpace": "Arbeitsbereich",
     "hoverCardUpdatedAt": "Aktualisiert {{when}}",
     "hoverCardLocalTask": "Lokale Aufgabe",
@@ -1479,6 +1481,8 @@ sklm: {
     "skip": "Überspringen",
     "decline": "Alle ablehnen",
     "queued": "{{count}} weitere Eingabeaufforderung wartet",
+    "collapse": "Fragen einklappen",
+    "expand": "Fragen ausklappen",
     "status": {
       "answered": "Frage {{number}} beantwortet",
       "unanswered": "Frage {{number}} nicht beantwortet",

@@ -191,6 +191,8 @@ export const zhCN = {
     timeGroupArchived: "更早",
     loadMore: "加载更多…",
     loadMoreCount: "加载更多（{{count}} 条）…",
+    expandSessions: "展开显示",
+    collapseSessions: "收起",
     hoverCardSpace: "所属空间",
     hoverCardUpdatedAt: "更新于 {{when}}",
     hoverCardLocalTask: "本地任务",
@@ -1484,6 +1486,8 @@ sklm: {
     skip: "跳过",
     decline: "全部拒绝",
     queued: "还有 {{count}} 个提问在等待",
+    collapse: "收起提问面板",
+    expand: "展开提问面板",
     status: {
       answered: "第 {{number}} 题已回答",
       unanswered: "第 {{number}} 题未回答",

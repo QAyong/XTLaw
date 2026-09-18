@@ -1510,8 +1510,10 @@ identify the platform validation still needed.
   unreadable scale; code blocks scroll inside themselves, tables preserve
   their columns inside a bounded scroller, and wide media never widens the
   transcript. The minimap keeps a leading safe zone while the transcript is
-  441px–560px wide and hides, along with its preview, at 440px or below; the
-  transcript reclaims that space. MainChat and SideChat make the same decision
+  441px–560px wide and hides, along with its preview, at 440px or below; that
+  safe zone is mirrored on the trailing edge, so the assistant column keeps the
+  composer's centre line instead of drifting right, and the transcript
+  reclaims the space below 441px. MainChat and SideChat make the same decision
   from their own transcript widths. Swapping the panes does not change the
   answer's content or introduce a second renderer.
 - **Specs linked**: `04-ux/08-component-spec.md` §5.8, §11.2;
@@ -2136,6 +2138,16 @@ identify the platform validation still needed.
 - **Acceptance**: E (temp files isolated from workspace)
 - **Milestone**: M5
 - **Status**: Partially automated (host-core unit tests: dual-root resolve, scratch write/read, PI_SCRATCH_DIR, sweep)
+
+#### E2E-PANEL-session-scratch-browse
+
+- **Preconditions**: Agent mode; no project open; a temporary (path-less) conversation; the agent can run a mutating tool.
+- **Steps**: 1) In the temporary conversation, ask the agent to write a file (for example `notes.txt`). 2) Open the work panel and its file tab. 3) Expand the listing, open the file, and use the reveal action. 4) With the file tab closed, click a file reference the transcript renders for that file. 5) Open a fresh temporary conversation that has not run a mutating tool and inspect the file tab. 6) Open a project, select a temporary conversation, and inspect the file tab again.
+- **Expected**: The file lands under `<data_dir>/scratch/<sessionId>/`, and the file tab roots its tree at that directory instead of rendering "open a project"; the produced file opens with its content and is revealed in the file manager; the transcript reference opens the same file by absolute path even though no tree root exists; a conversation that has not produced anything yet shows an empty folder rather than a failure; with a project open the tree still browses that project; and a relative path can never leave the conversation's own scratch directory — a `../` path and a symlink pointing outside it are refused. The scratch write opens no artifact or Review tab.
+- **Specs linked**: `03-runtime/03-tools-and-permissions.md §4b`, `04-ux/08-component-spec.md §5.3/§5.4`, ADR 0124, ADR 0270
+- **Acceptance**: E (temporary files isolated from the workspace), Quality (file surface)
+- **Milestone**: M6+
+- **Status**: Documented; session-scoped resolution and containment are unit-covered (`fs-panel-guard.test.mjs`); rendered scenario Draft
 
 #### E2E-019b: Scratch containment matches workspace defenses (D114)
 
@@ -3430,7 +3442,7 @@ identify the platform validation still needed.
 - **Preconditions**: App running with any workspace state.
 - **Steps**: 1) Relaunch and inspect the titlebar and application menu; confirm
   the panel starts closed and a viewport-fixed work-panel toggle is present
-  (disabled with no session). Press Cmd/Ctrl+J or click the toggle and inspect
+  (available on every non-Settings route, session-less included; ADR 0269). Press Cmd/Ctrl+J or click the toggle and inspect
   the no-resource New launcher, then press/click again to confirm it
   collapses the
   panel and no tab is created or deleted; a third press must restore the same
@@ -3465,15 +3477,21 @@ identify the platform validation still needed.
   Move the normal window between displays and change the active display's
   work-area geometry. 12) Send valid and malformed reservation payloads,
   including positive values, and confirm the compatibility seam never changes
-  native bounds. 13) Relaunch.
+  native bounds. 13) Relaunch. 14) With no active conversation — on the empty
+  home and after switching to another project — press Cmd/Ctrl+J and click the
+  toggle: confirm the panel reveals the no-resource New launcher, that `+` and a
+  launcher row populate it (Review renders its no-recorded-changes state, the
+  side browser opens), that collapse and reopen retain those tabs, and that
+  starting a conversation closes it.
 - **Expected**: Startup shows no panel, welcome chooser, or fixed tool buttons.
   A viewport-fixed toggle in the window's top-right corner is the pointer
   equivalent of Cmd/Ctrl+J; there is still no application-menu launcher.
-  Cmd/Ctrl+J opens the active session's panel at its
+  Cmd/Ctrl+J opens the visible panel at its
   committed width without creating a resource tab and collapses it again on the
-  next press while retaining that context,
-  and the shortcut does nothing without an active session or while Settings is
-  open. Each artifact atomically opens the docked third column and creates or
+  next press while retaining that context — with no active conversation that is
+  the session-less context, so the empty home and a project without an active
+  conversation both reveal the New launcher (D436 / ADR 0269) — and the shortcut
+  is ignored while Settings is open.
   activates one resource; file resources are path-keyed and repeated resources
   deduplicate. Opening, collapse, and
   closing animate the panel's width/flex allocation with its bounded
@@ -3500,7 +3518,8 @@ identify the platform validation still needed.
   Browser preview does not intercept an active divider drag.
   A and B independently restore their runtime open state, ordered tabs, active
   tab, and Browser resource; selecting a project without an active conversation
-  hides the panel, and no relative resource crosses session/workspace context.
+  hides the visible panel and clears the session-less context, and no relative
+  resource crosses session/workspace context.
   Background artifacts update only their retained context and never change the
   visible panel or native window geometry. Before exit motion, the native
   Browser preview detaches from the window; collapse produces no stale preview
@@ -3515,7 +3534,7 @@ identify the platform validation still needed.
 - **Specs linked**: `03-runtime/01-ipc-protocol.md`, `04-ux/01-ui-ia.md`,
   `04-ux/07-ui-design-system.md`, `04-ux/08-component-spec.md`,
   `04-ux/09-interaction-patterns.md`, ADR 0068, ADR 0151, ADR 0195, D207, D292,
-  D357
+  D357, D436, ADR 0269
 - **Acceptance**: F (persistence), Quality
 - **Milestone**: M5
 - **Status**: Unit-covered (`work-panel-resize.test.mjs`,
@@ -7954,6 +7973,10 @@ identify the platform validation still needed.
 | Security (plugin real-time capabilities) | E2E-PLUGIN-global-shortcut-owns-only-its-own-command, E2E-PLUGIN-permission-gate-for-real-time-capabilities, E2E-PLUGIN-background-audio-and-realtime-connection |
 | C — Conversation & stream (disclosure reading position) | E2E-CHAT-disclosure-toggle-keeps-reading-position |
 | E — Tools & permissions (disclosure reading position) | E2E-CHAT-disclosure-toggle-keeps-reading-position |
+| D — Workspace (session scratch browsing) | E2E-PANEL-session-scratch-browse |
+| E — Tools & permissions (session scratch browsing) | E2E-PANEL-session-scratch-browse |
+| Security (session scratch browsing) | E2E-PANEL-session-scratch-browse |
+| Quality (session scratch browsing) | E2E-PANEL-session-scratch-browse |
 
 | Milestone | Scenarios |
 |---|---|
@@ -7987,6 +8010,7 @@ identify the platform validation still needed.
 | C — Conversation & stream (opaque floating surfaces) | E2E-CHAT-opaque-floating-decision-and-retry-surfaces |
 | Quality (opaque floating surfaces) | E2E-CHAT-opaque-floating-decision-and-retry-surfaces |
 | M6 (opaque floating surfaces) | E2E-CHAT-opaque-floating-decision-and-retry-surfaces |
+| M6+ (session scratch browsing) | E2E-PANEL-session-scratch-browse |
 
 The `US-UI-*` visual scenarios (§UI shell visual scenarios) trace to the
 Codex parity decisions in [decisions-log §D](../08-meta/decisions-log.md)
@@ -8925,6 +8949,29 @@ This test plan spec is accepted when:
 - **Acceptance**: E (interactive tool output), C (inline card)
 - **Milestone**: M5
 - **Status**: Draft (unit coverage active; desktop journey pending)
+
+#### E2E-ASKTOOL-collapse-hides-question-body-without-resolving
+
+- **Preconditions**: Agent, Plan, or Goal mode; a configured provider; a
+  session whose agent has an outstanding `asktool` request with at least two
+  questions.
+- **Steps**: 1) Confirm the card mounts expanded in the composer approval
+  area. 2) Click the collapse toggle in the card header. 3) Read the assistant
+  text behind the card while the question is still pending. 4) Click the
+  toggle again. 5) Answer a question, collapse, expand, and submit.
+- **Expected**: Collapsing keeps the header (title, progress, Decline all, and
+  the toggle) and hides the status indicators, question text, options, custom
+  input, and the Skip / Next / Submit row, so the assistant transcript beneath
+  the card is fully readable. The request stays pending: collapsing neither
+  resolves nor skips any question and no countdown appears. The toggle exposes
+  `aria-expanded` and `aria-controls`, and swaps its label between
+  `askTool.collapse` and `askTool.expand`. Draft selections, the current
+  question index, and the custom answer text survive a collapse/expand cycle,
+  and every new ask mounts expanded.
+- **Specs linked**: `04-ux/11-asktool-question-card.md`, ADR 0077
+- **Acceptance**: C (inline card), E (interactive tool output)
+- **Milestone**: M5
+- **Status**: Draft (source-contract coverage active; desktop journey pending)
 
 #### E2E-124: Window controls minimize to the taskbar and close to the chosen surface
 

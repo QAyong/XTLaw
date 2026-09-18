@@ -936,19 +936,27 @@ export const api = {
     invoke(IPC.invoke.browserOpenExternal, url ? { url } : {}),
   browserGetState: () =>
     invoke<BrowserState | null>(IPC.invoke.browserGetState),
-  fsList: (path?: string) =>
-    invoke<{ entries: FsEntry[] }>(IPC.invoke.fsList, { path: path ?? "" }),
-  fsRead: (path: string, mimeType?: string) =>
+  fsList: (path?: string, sessionId?: string) =>
+    invoke<{ entries: FsEntry[] }>(IPC.invoke.fsList, {
+      path: path ?? "",
+      ...(sessionId ? { sessionId } : {}),
+    }),
+  fsRead: (path: string, mimeType?: string, sessionId?: string) =>
     invoke<FsReadResult>(IPC.invoke.fsRead, {
       path,
       ...(mimeType ? { mimeType } : {}),
+      ...(sessionId ? { sessionId } : {}),
     }),
   fsReadImageDataUrl: (ref: string, mimeType?: string) =>
     invoke<FsImageDataUrlResult>(IPC.invoke.fsReadImageDataUrl, {
       ref,
       ...(mimeType ? { mimeType } : {}),
     }),
-  fsReveal: (path: string) => invoke(IPC.invoke.fsReveal, { path }),
+  fsReveal: (path: string, sessionId?: string) =>
+    invoke(IPC.invoke.fsReveal, {
+      path,
+      ...(sessionId ? { sessionId } : {}),
+    }),
   fsOpen: (path: string) => invoke(IPC.invoke.fsOpen, { path }),
   fsIndex: () => invoke<FsIndexResult>(IPC.invoke.fsIndex),
   /**

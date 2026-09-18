@@ -26,6 +26,22 @@ The card has no countdown or expiration copy. On narrow screens options remain
 full-width and actions may share the row; question text and custom input may
 wrap naturally without clipping.
 
+## Collapse
+
+The header carries a collapse toggle beside Decline all. Collapsing keeps the
+header — title, progress, Decline all, and the toggle — and hides the question
+body: status indicators, question text, options, custom input, and the
+Skip / Next / Submit row. A paused question therefore never covers the
+assistant text the user is still reading, and the remaining header reads as a
+single quiet row with reduced vertical padding.
+
+The toggle is a 24 px icon button using the shared chevron glyphs. It is
+labelled by `askTool.collapse` / `askTool.expand`, reports its state through
+`aria-expanded`, and points at the collapsed body with `aria-controls`. The
+card mounts expanded, and collapsing is per-card state that is not persisted —
+a new ask always arrives expanded. Declining, skipping, and the question index
+are unaffected by the collapsed state.
+
 ## Typography hierarchy
 
 The card uses a compact two-tier type scale — quiet labels, then content at

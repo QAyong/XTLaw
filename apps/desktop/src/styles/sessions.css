@@ -179,8 +179,8 @@
   width: 9px;
   height: 9px;
   border-radius: var(--radius-full);
-  background: var(--ds-warning);
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ds-warning) 15%, transparent);
+  background: var(--ds-success);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ds-success) 18%, transparent);
   content: "";
   animation: sidebar-status-breathe 1.6s ease-in-out infinite;
 }

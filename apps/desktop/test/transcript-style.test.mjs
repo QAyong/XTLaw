@@ -477,7 +477,14 @@ test("conversation minimap yields narrow transcript space to assistant output", 
   );
   assert.match(
     stylesSource,
-    /@container transcript \(min-width: 441px\) and \(max-width: 560px\)[\s\S]*?\.thread-content\s*\{[\s\S]*?padding-inline-start:\s*48px;[\s\S]*?padding-inline-end:\s*16px;/,
+    /@container transcript \(min-width: 441px\) and \(max-width: 560px\)[\s\S]*?\.thread-content\s*\{[\s\S]*?padding-inline:\s*40px;/,
+  );
+  // The safe zone has to stay symmetric. An asymmetric pair (48px leading,
+  // 16px trailing) shifted the whole reading column off the composer's centre
+  // line inside this band, which is where a zoomed-in pane lands.
+  assert.doesNotMatch(
+    stylesSource,
+    /@container transcript \(min-width: 441px\) and \(max-width: 560px\)[\s\S]{0,200}?padding-inline-(start|end):/,
   );
   assert.match(
     stylesSource,

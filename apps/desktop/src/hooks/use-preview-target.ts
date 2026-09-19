@@ -3,7 +3,13 @@ import { useTranslation } from "react-i18next";
 import { useAppStore } from "../stores/app-store";
 import { api } from "../lib/api";
 import { isHtmlFilePath, toWorkspaceRel, type ChatPreviewTarget } from "../lib/chat-links";
-import { FILE_MANAGER_PLUGIN_TAB, fileManagerPluginTab } from "../lib/work-panel-tabs";
+import {
+  FILE_MANAGER_PLUGIN_TAB,
+  isDocxFilePath,
+  OFFICE_PLUGIN_TAB,
+  fileManagerPluginTab,
+  officePluginTab,
+} from "../lib/work-panel-tabs";
 
 /**
  * Open one target the transcript named, in the work panel.
@@ -69,6 +75,15 @@ export function useOpenChatFileRef() {
       ),
     [pluginViews],
   );
+  const officeViewAvailable = useMemo(
+    () =>
+      pluginViews.some(
+        (view) =>
+          view.pluginId === OFFICE_PLUGIN_TAB.pluginId &&
+          view.viewId === OFFICE_PLUGIN_TAB.viewId,
+      ),
+    [pluginViews],
+  );
 
   return useCallback(
     (path: string, baseDir?: string, mimeType?: string) => {
@@ -103,6 +118,10 @@ export function useOpenChatFileRef() {
             openUrl(match.relativePath);
             return;
           }
+          if (officeViewAvailable && isDocxFilePath(target)) {
+            openTab(officePluginTab(target));
+            return;
+          }
           if (fileViewAvailable) {
             openTab(fileManagerPluginTab(target));
             return;
@@ -115,6 +134,7 @@ export function useOpenChatFileRef() {
     },
     [
       fileViewAvailable,
+      officeViewAvailable,
       openFile,
       openTab,
       openUrl,

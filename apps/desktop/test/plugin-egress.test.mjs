@@ -39,16 +39,18 @@ function forkPluginProcess({ entry }) {
 function createRuntime(t) {
   const audits = [];
   const panels = [];
+  const openedWorkPanelFiles = [];
   const runtime = new PluginRuntime({
     hostEntry: hostProcessEntry,
     spawnProcess: forkPluginProcess,
     audit: (entry) => audits.push(entry),
     openPanel: async (request) => panels.push(request),
+    openWorkPanelFile: async (input) => openedWorkPanelFiles.push(input),
   });
   t.after(async () => {
     for (const loaded of runtime.listLoaded()) await runtime.unload(loaded.manifest.id);
   });
-  return { runtime, audits, panels };
+  return { runtime, audits, panels, openedWorkPanelFiles };
 }
 
 /** A plugin whose only job is to exist so the host API can be exercised. */
@@ -246,6 +248,33 @@ test("the panel session is handed the plugin's allowlist", async (t) => {
   assert.equal(panels.length, 1);
   assert.deepEqual(panels[0].netDomains, ["api.github.com"]);
   assert.equal(panels[0].allowMicrophone, false);
+});
+
+test("ui.view plugins can route a file through the host work panel", async (t) => {
+  const { runtime, audits, openedWorkPanelFiles } = createRuntime(t);
+  const dir = writePlugin({
+    id: "workpanel.router",
+    permissions: ["ui.view"],
+    main: `
+      module.exports = {
+        async onLoad() {
+          await pi.ui.openWorkPanelFile({
+            path: "C:/project/example.docx",
+            mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          });
+        },
+      };
+    `,
+  });
+  await runtime.loadFromPath(dir);
+
+  assert.deepEqual(openedWorkPanelFiles, [
+    {
+      path: "C:/project/example.docx",
+      mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    },
+  ]);
+  assert.ok(audits.some((entry) => entry.api === "ui.openWorkPanelFile" && entry.ok === true));
 });
 
 test("ui.microphone grants audio-only media permission to a panel", async (t) => {

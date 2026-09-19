@@ -238,6 +238,15 @@ export function createPluginServices({
     readClipboardHistory: async () => clipboardHistory.getHistory(),
     getLocale: () => getUpdaterLocale(),
     getAppearance: () => getAppearance(),
+    openWorkPanelFile: ({ path, mimeType }) => {
+      sendToRenderer(IPC.event.pluginOpenWorkPanelFile, {
+        path,
+        ...(mimeType ? { mimeType } : {}),
+      });
+    },
+    appendComposerDraft: (text) => {
+      sendToRenderer(IPC.event.pluginComposerAppendDraft, { text });
+    },
     openPanel: async (request) => {
       await pluginPanels.open({
         ...request,

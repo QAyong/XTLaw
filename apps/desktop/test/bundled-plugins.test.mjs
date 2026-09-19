@@ -19,6 +19,7 @@ import test from "node:test";
 const read = (path) => readFileSync(resolve(path), "utf8");
 const FILE_MANAGER = "resources/plugins/pi.file-manager";
 const manifest = JSON.parse(read(`${FILE_MANAGER}/manifest.json`));
+const fileManagerMain = read(`${FILE_MANAGER}/main.js`);
 const view = read(`${FILE_MANAGER}/views/index.html`);
 const viewBundle = read(`${FILE_MANAGER}/views/assets/index.js`);
 const selectionActions = read(`${FILE_MANAGER}/views/selection-actions.js`);
@@ -27,6 +28,16 @@ const upstream = read(`${FILE_MANAGER}/UPSTREAM.md`);
 const panelSource = read("src/components/workpanel/WorkPanel.tsx");
 const hostProcessSource = read("electron/main/host-process.ts");
 const packageJson = JSON.parse(read("package.json"));
+const OFFICE = "resources/plugins/pi.office";
+const officeManifest = JSON.parse(read(`${OFFICE}/manifest.json`));
+const officeView = read(`${OFFICE}/views/index.html`);
+const officeOverrides = read(`${OFFICE}/views/pi-office-overrides.css`);
+const officeBridge = read(`${OFFICE}/views/bridge-shim.js`);
+const officeSelectionActions = read(`${OFFICE}/views/selection-actions.js`);
+const officeLayoutStability = read(`${OFFICE}/views/layout-stability.js`);
+const officeMain = read(`${OFFICE}/main.js`);
+const officeUpstream = read(`${OFFICE}/UPSTREAM.md`);
+const officePackage = JSON.parse(read(`${OFFICE}/package.json`));
 
 test("the file view ships as an ordinary plugin, not a privileged one", () => {
   assert.equal(manifest.id, "pi.file-manager");
@@ -68,6 +79,72 @@ test("the file view is a sandboxed page over the public bridge", () => {
   assert.match(view, /meta name="pi-plugin-chrome" content="v2"/);
 });
 
+test("the file view routes DOCX reads to the Office work panel", () => {
+  assert.match(fileManagerMain, /openWorkPanelFile/);
+  assert.match(
+    fileManagerMain,
+    /application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document/,
+  );
+});
+
+test("the Office view is a browser-only DOCX plugin over the public bridge", () => {
+  assert.equal(officeManifest.id, "pi.office");
+  assert.deepEqual(officeManifest.contributes.views.map((v) => v.id), ["editor"]);
+  assert.deepEqual(officeManifest.permissions, ["ui.view"]);
+  assert.equal(officeManifest.net, undefined);
+  assert.equal(officePackage.type, "commonjs");
+  assert.match(officeView, /bridge-shim\.js/);
+  assert.match(officeView, /pi-office-overrides\.css/);
+  assert.match(officeView, /selection-actions\.js/);
+  assert.match(officeView, /layout-stability\.js/);
+  assert.ok(
+    officeView.indexOf("./assets/index-JQsJMU5H.css") <
+      officeView.indexOf("./pi-office-overrides.css"),
+    "PI Office overrides must load after the vendor stylesheet",
+  );
+  assert.match(officeOverrides, /\.ribbon-group:has\(\.ai-entry\)/);
+  assert.match(officeOverrides, /\.rb-big:has\(\.ai-feature-icon\)/);
+  assert.match(officeOverrides, /data-tip\*="AI"/);
+  assert.match(officeOverrides, /\.ai-dock/);
+  assert.match(officeOverrides, /\.ai-ask-pop/);
+  assert.match(officeOverrides, /\.ctx-item:has\(\.copilot-badge\)/);
+  assert.match(officeOverrides, /\.file-tab-wrap/);
+  assert.match(officeOverrides, /\.files-edge-tab/);
+  assert.match(officeOverrides, /button\[data-tip="文件"\]/);
+  assert.match(officeOverrides, /\.files-pane/);
+  assert.match(officeOverrides, /新建标签/);
+  assert.match(officeOverrides, /切换标签/);
+  assert.match(officeOverrides, /display: none !important/);
+  assert.match(officeView, /connect-src 'none'/);
+  assert.match(officeBridge, /office\.read/);
+  assert.match(officeBridge, /office\.save/);
+  assert.match(officeBridge, /getCurrentDocxPath/);
+  assert.match(officeBridge, /office\.checkConflict/);
+  assert.match(officeBridge, /metadataOnly: true/);
+  assert.match(officeBridge, /setInterval\(\(\) =>/);
+  assert.match(officeBridge, /state\.dirty/);
+  assert.match(officeSelectionActions, /\.ProseMirror/);
+  assert.match(officeSelectionActions, /composer\.appendDraft/);
+  assert.match(officeSelectionActions, /pageNumber/);
+  assert.match(officeLayoutStability, /pageAnchor/);
+  assert.match(officeLayoutStability, /restoreAnchor/);
+  assert.match(officeLayoutStability, /scheduleResizeLock/);
+  assert.match(officeLayoutStability, /lastResizeAt/);
+  assert.match(officeLayoutStability, /overflowAnchor/);
+  assert.match(officeBridge, /aidocs\.showFiles/);
+  assert.match(officeBridge, /aidocs\.showAi/);
+  assert.doesNotMatch(officeBridge, /installAdaptiveRibbon/);
+  assert.doesNotMatch(officeBridge, /piOfficeOverflow/);
+  assert.doesNotMatch(officeBridge, /require\(|ipcRenderer/);
+  assert.doesNotMatch(officeView, /require\(|ipcRenderer/);
+  assert.match(officeMain, /mtimeMs/);
+  assert.match(officeMain, /expectedHash/);
+  assert.match(officeMain, /payload\?\.metadataOnly === true/);
+  assert.match(officeMain, /handle\.sync\(\)/);
+  assert.match(officeUpstream, /PI-owned stylesheet/);
+  assert.match(officeUpstream, /d1280d153362071de433a6439ca31585af4af8f7/);
+});
+
 test("the vendored copy stays traceable to its upstream release", () => {
   assert.match(upstream, /github\.com\/Tioit-Wang\/pi-desktop-plugin-file-manager/);
   assert.match(upstream, /d36ebe9f7fb82ee71e87670b0a65403660b18a00/);
@@ -76,8 +153,8 @@ test("the vendored copy stays traceable to its upstream release", () => {
   const tag = upstream.match(/`v(\d+\.\d+\.\d+)`/);
   assert.ok(tag, "UPSTREAM.md must name the vendored tag");
   assert.equal(manifest.version, tag[1]);
-  // Every file the vendored copy does not patch still hashes to the recorded
-  // value, so a silent edit cannot pass as the released artifact.
+  // Every vendored file has its current checksum recorded, so a silent edit
+  // cannot pass as the released artifact. Local patches are listed above.
   for (const file of [
     "main.js",
     "README.md",

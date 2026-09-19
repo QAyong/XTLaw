@@ -607,6 +607,29 @@ export function useAppShellRuntime() {
           ...browserPluginTab(event.path ?? event.url),
         });
     });
+    const offPluginOpenWorkPanelFile = api.onPluginOpenWorkPanelFile((event) => {
+      const path = typeof event.path === "string" ? event.path.trim() : "";
+      if (!path) return;
+      useAppStore.getState().openFileInWorkPanel(path, event.mimeType);
+    });
+    const offPluginComposerAppendDraft = api.onPluginComposerAppendDraft((text) => {
+      const input = document.querySelector<HTMLElement>(".composer-input");
+      if (!input) {
+        showToast("请先打开聊天输入框");
+        return;
+      }
+      input.focus();
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(input);
+      range.collapse(false);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      const current = input.textContent?.trim() ?? "";
+      const prefix = current ? "\\n\\n" : "";
+      document.execCommand("insertText", false, `${prefix}${text}`);
+      input.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: text }));
+    });
     const offHostStatus = api.onHostStatus((status) => {
       if (status.archMismatch) setArchMismatch(status.archMismatch);
       if (status.ok) {
@@ -792,6 +815,8 @@ export function useAppShellRuntime() {
       offComposerPrefill();
       offComposerSelection();
       offBrowserPreview();
+      offPluginOpenWorkPanelFile();
+      offPluginComposerAppendDraft();
       offHostStatus();
       offNotificationChanged();
       offSessionsChanged();

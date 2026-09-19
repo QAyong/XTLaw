@@ -80,9 +80,11 @@ const flush = () => new Promise((resolve) => setImmediate(resolve));
 
 function reset({ pluginView = false } = {}) {
   Object.values(calls).forEach((list) => list.splice(0, list.length));
-  state.pluginViews = pluginView
-    ? [{ pluginId: "pi.file-manager", viewId: "manager" }]
-    : [];
+  state.pluginViews = pluginView === "office"
+    ? [{ pluginId: "pi.office", viewId: "editor" }]
+    : pluginView
+      ? [{ pluginId: "pi.file-manager", viewId: "manager" }]
+      : [];
   nextMatch = null;
   resolveFails = false;
 }
@@ -132,6 +134,24 @@ test("a project file a tool surface names opens in the bundled file view", async
   ]);
   assert.deepEqual(calls.files, [], "the host file tab is not also opened");
   assert.deepEqual(calls.toasts, []);
+});
+
+test("a project DOCX opens in the bundled Office editor", async () => {
+  reset({ pluginView: "office" });
+  nextMatch = projectMatch({
+    relativePath: "docs/Report.docx",
+    absolutePath: "C:/project/docs/Report.docx",
+  });
+  await click({ kind: "file", path: "docs/Report.docx" });
+  assert.deepEqual(calls.tabs, [
+    {
+      id: "plugin:pi.office/editor",
+      kind: "plugin",
+      resource: "pi.office/editor",
+      location: "docs/Report.docx",
+    },
+  ]);
+  assert.deepEqual(calls.files, []);
 });
 
 test("without the file view a project file keeps falling back to the host file tab", async () => {

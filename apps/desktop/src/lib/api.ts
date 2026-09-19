@@ -1208,6 +1208,21 @@ export const api = {
       listener((payload ?? {}) as { reason?: string; pluginId?: string }),
     );
   },
+  onPluginOpenWorkPanelFile: (
+    listener: (event: { path: string; mimeType?: string }) => void,
+  ) => {
+    if (!window.piDesktop?.on) return () => undefined;
+    return window.piDesktop.on(IPC.event.pluginOpenWorkPanelFile, (payload) =>
+      listener((payload ?? {}) as { path: string; mimeType?: string }),
+    );
+  },
+  onPluginComposerAppendDraft: (listener: (text: string) => void) => {
+    if (!window.piDesktop?.on) return () => undefined;
+    return window.piDesktop.on(IPC.event.pluginComposerAppendDraft, (payload) => {
+      const text = (payload as { text?: unknown } | undefined)?.text;
+      if (typeof text === "string" && text.trim()) listener(text);
+    });
+  },
   onSettingsChanged: (listener: (patch: Record<string, unknown>) => void) => {
     if (!window.piDesktop?.on) return () => undefined;
     return window.piDesktop.on(IPC.event.settingsChanged, (payload) =>

@@ -7,11 +7,13 @@ const {
   closeWorkPanelTabState,
   emptyWorkPanelContext,
   fileWorkPanelTab,
+  isDocxFilePath,
   isKnownWorkPanelTab,
   isToolWorkPanelTab,
   normalizeWorkPanelFilePath,
   newWorkPanelTab,
-  NO_SESSION_WORK_PANEL_CONTEXT,
+    NO_SESSION_WORK_PANEL_CONTEXT,
+    officePluginTab,
   openWorkPanelTabState,
   pluginWorkPanelTab,
   replaceWorkPanelTabState,
@@ -78,6 +80,17 @@ test("file tabs normalize lexical paths and remain distinct by resource", () => 
   assert.notEqual(first.id, second.id);
   assert.equal(normalizeWorkPanelFilePath("../src/../App.tsx"), "../App.tsx");
   assert.equal(normalizeWorkPanelFilePath("/repo/./src/../App.tsx"), "/repo/App.tsx");
+});
+
+test("DOCX files address the bundled Office editor", () => {
+  assert.equal(isDocxFilePath("docs/Report.DOCX"), true);
+  assert.equal(isDocxFilePath("docs/Report.doc"), false);
+  assert.deepEqual(officePluginTab("docs/Report.docx"), {
+    id: "plugin:pi.office/editor",
+    kind: "plugin",
+    resource: "pi.office/editor",
+    location: "docs/Report.docx",
+  });
 });
 
 test("closing the active tab selects its right neighbor then its left", () => {

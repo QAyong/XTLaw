@@ -320,6 +320,10 @@ export type PluginHostServices = {
   readClipboardHistory: () => Promise<ClipboardHistoryEntry[]>;
   openPanel: (request: PluginPanelRequest) => Promise<void>;
   closePanel: (pluginId: string) => Promise<void>;
+  /** Ask the renderer to open a file through the normal work-panel router. */
+  openWorkPanelFile?: (input: { path: string; mimeType?: string }) => void | Promise<void>;
+  /** Append plugin-provided quoted content to the existing Composer draft. */
+  appendComposerDraft?: (text: string) => void | Promise<void>;
   fetch?: (input: {
     url: string;
     method?: string;
@@ -456,6 +460,8 @@ const HOST_API_ALLOWLIST = new Set([
   "plugin.getDataPath",
   "ui.openPanel",
   "ui.closePanel",
+  "ui.openWorkPanelFile",
+  "composer.appendDraft",
   "ui.showToast",
   "ui.notify",
   "ui.getNotificationPermission",
@@ -1862,6 +1868,20 @@ export class PluginRuntime {
       case "ui.closePanel":
         await api.ui.closePanel();
         return { ok: true };
+      case "composer.appendDraft": {
+        this.assertPermission(loaded, "ui.view");
+        const text = typeof payload?.text === "string" ? payload.text.trim() : "";
+        if (!text) throw apiError("INVALID_ARGUMENT", "composer draft text is empty");
+        if (text.length > 16_000) {
+          throw apiError("INVALID_ARGUMENT", "composer draft text is too large");
+        }
+        const service = this.services.appendComposerDraft;
+        if (!service) {
+          throw apiError("UNSUPPORTED", "host api not available: composer.appendDraft");
+        }
+        await service(text);
+        return { ok: true };
+      }
       case "fs.readText":
         return api.fs.readText(String(payload?.path ?? ""));
       case "fs.stat":
@@ -4544,6 +4564,29 @@ export class PluginRuntime {
         },
         closePanel: async () => {
           await this.services.closePanel(pluginId);
+        },
+        openWorkPanelFile: async (input: { path: string; mimeType?: string }) => {
+          this.assertPermission(loaded, "ui.view");
+          const path = typeof input?.path === "string" ? input.path.trim() : "";
+          if (!path || path.length > 4096) {
+            throw apiError("INVALID_ARGUMENT", "file path must be a non-empty string");
+          }
+          const service = this.services.openWorkPanelFile;
+          if (!service) {
+            throw apiError("UNSUPPORTED", "host api not available: ui.openWorkPanelFile");
+          }
+          await service({
+            path,
+            ...(typeof input?.mimeType === "string" && input.mimeType
+              ? { mimeType: input.mimeType }
+              : {}),
+          });
+          this.services.audit?.({
+            pluginId,
+            api: "ui.openWorkPanelFile",
+            ok: true,
+            ts: Date.now(),
+          });
         },
         showToast: async (message: string, level?: "info" | "warn" | "error") => {
           this.services.showToast(message, level);

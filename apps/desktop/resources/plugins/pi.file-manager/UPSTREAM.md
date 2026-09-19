@@ -28,15 +28,15 @@ listed below and intentionally do not change the marketplace artifact.
 > of the tagged tree with `views-src/` removed instead.
 
 The files below are byte-identical to that commit, except for the manifest
-field, view entry, and selection-actions companion script listed under local
-changes. Line endings are LF: the upstream commit stores LF, and this
+field, view entry, selection-actions companion script, and DOCX work-panel
+routing listed under local changes. Line endings are LF: the upstream commit stores LF, and this
 repository's `.gitattributes` keeps it that way.
 
-## Upstream checksums (sha256)
+## Bundled file checksums (sha256)
 
 | File | Bytes | sha256 |
 | --- | --- | --- |
-| `main.js` | 63234 | `43cface10124728f16e72530e699678177f97353b57190532e89c03186e6960d` |
+| `main.js` | 63507 | `195156e89d197a563e0a5fad1dbe0c8e4f866ae309ec05b049541d3e1a412d5f` |
 | `README.md` | 20039 | `8c524f6d13eac557e286fa0ec9b9cf5138bed0bd66d4a7914f3484443e627a01` |
 | `views/index.html` | 402 | `fcf3b9d984e367b41b12d835049ebb79414cc175d5f814ff1e0f733a2f5f63fd` |
 | `views/assets/index.js` | 1345417 | `d0a1dc369764bed2ab12ce0e65fe983fe0b4f9919f2f8ff4546b736208d66dac` |
@@ -48,7 +48,11 @@ directory carries the built view the plugin publishes, not its React source.
 
 ## Local changes
 
-Three, so a re-sync stays a copy:
+Four, so a re-sync stays a copy:
+
+- `main.js` opens `.docx` reads through the host work-panel router before the
+  file manager's ordinary binary fallback. This keeps the file manager as the
+  entry point while allowing the host to select the dedicated Office view.
 
 - `manifest.json` gains `"license": "MIT"` (after `author`), making the vendored
   copy 14191 bytes

@@ -120,6 +120,7 @@ pi.commands.unregister(id: string): Promise<void>
 ```ts
 pi.ui.openPanel(options?: { title?: string }): Promise<void>
 pi.ui.closePanel(): Promise<void>
+pi.ui.openWorkPanelFile(input: { path: string; mimeType?: string }): Promise<void>
 pi.ui.showToast(message: string, level?: "info"|"warn"|"error"): Promise<void>
 pi.ui.notify(input: { title: string; body?: string }): Promise<void>
 pi.ui.getNotificationPermission(): Promise<PluginNotificationPermission>

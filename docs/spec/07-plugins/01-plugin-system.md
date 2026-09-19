@@ -276,6 +276,7 @@ Namespace: `pi.plugin.*`
 - `pi.plugin.setSettings(partial)`
 - `pi.commands.register(command)`
 - `pi.ui.openPanel(options?)`
+- `pi.ui.openWorkPanelFile({ path, mimeType? })` // route a file through the host work panel
 - `pi.ui.showToast(message)`
 - `pi.ui.notify(title, body)`
 - `pi.ui.getNotificationPermission()`

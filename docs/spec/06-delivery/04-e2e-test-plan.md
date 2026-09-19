@@ -206,6 +206,73 @@ identify the platform validation still needed.
 
 ## 7. MVP Scenario Catalog
 
+### Office DOCX integration
+
+#### E2E-OFFICE-docx-open-edit-save: Open, edit, conflict-check, and save a DOCX in the work panel
+
+- **Preconditions**: `pi.office` is bundled and enabled; a fixture project
+  contains a readable DOCX with text and at least one formatted paragraph.
+- **Steps**: Open the bundled project file manager, click the DOCX, and verify
+  that the Office view opens with the generated Word editing toolbar. Confirm
+  that the unsupported file tab, AI entry points and assistant dock, file pane,
+  and document-tab window controls are not exposed. Edit text in the Office
+  view. Select a passage and click the reused Add to chat action; verify the
+  bounded DOCX excerpt and source location are inserted into the existing
+  Composer draft, then send it. Save. Enable automatic save, modify the same file outside PI while the
+  Office view is clean, and verify that the latest disk version is reloaded.
+  Make another unsaved edit, modify the file outside PI again, and wait for an
+  automatic-save attempt. Confirm that the view does not silently replace the
+  unsaved edit. Finally, save manually, confirm the overwrite prompt, and save
+  again.
+- **Expected**: The DOCX opens in the Office editor with Word formatting and
+  editing commands visible, without GenOffice desktop-shell or AI controls. The
+  first save writes an updated DOCX atomically. A clean editor reloads an
+  external update automatically, while a dirty editor retains its in-memory
+  changes and blocks autosave instead of silently overwriting the external
+  version. The confirmed manual save succeeds. Non-DOCX file references keep
+  their existing routing.
+- **Specs linked**: `07-plugins/17-office-docx-plugin.md`, ADR 0283
+- **Acceptance**: A (work-panel integration), D (file safety)
+- **Milestone**: M5
+- **Status**: Documented; automation pending
+
+#### E2E-OFFICE-docx-compact-toolbar-navigation: Keep Office tools compact in a narrow work panel
+
+- **Preconditions**: `pi.office` is bundled and enabled; a readable DOCX is
+  open in a work-panel width narrow enough to overflow the Office commands.
+- **Steps**: Inspect the two Office toolbar rows. Confirm category labels stay
+  horizontal and fixed in the first row. Confirm the command row is one compact
+  line with no visible bottom scrollbar, including the clipboard buttons,
+  paragraph indentation/spacing controls, table controls, and style controls.
+  Confirm the work-panel tab shows the opened DOCX filename. Click the left and
+  right edge arrows and verify that the command row advances at complete
+  control boundaries, with disabled states at the first and last page. Verify
+  that
+  both arrows remain visible when there is no overflow and after switching
+  categories. Scroll the DOCX to a middle page, resize the work panel, and
+  confirm the same page and its relative viewport position remain continuously
+  visible throughout the drag, without a temporary upward/downward jump.
+  Click the active category tab to collapse the command row and
+  click it again to expand it; select another category and confirm the command
+  row stays expanded with the new page. Resize the work panel narrower and
+  wider and repeat the checks.
+- **Expected**: The toolbar keeps a stable compact height, labels never split
+  into vertical characters, fixed category/title controls are not covered by
+  paging arrows, and the arrows page the existing Word commands without
+  changing their behavior. Arrows stay fixed at the command-row edges,
+  become disabled rather than hidden at boundaries, and do not move or
+  disappear when the category changes. Collapsing removes the entire command
+  row without leaving a blank strip or paging controls. When a page contains
+  one compact module, its complete button block is centered within the middle
+  command area. Resizing continuously preserves the active document reading
+  position without a visible correction jump. No AI actions,
+  assistant dock, file
+  pane or top-level file control is exposed.
+- **Specs linked**: `07-plugins/17-office-docx-plugin.md`, ADR 0283
+- **Acceptance**: A (work-panel integration), Quality
+- **Milestone**: M5
+- **Status**: Documented; automation pending
+
 ### Runtime Resource Governance
 
 #### E2E-097: Tool burst is bounded and recovers after host restart

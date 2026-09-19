@@ -49,18 +49,20 @@
     root.dataset.theme = next;
     const tokens = next === "dark"
       ? {
-          "--pi-selection-popup-bg": "#292929",
-          "--pi-selection-popup-fg": "#f5f5f5",
+          "--pi-selection-popup-bg": "#282828",
+          "--pi-selection-popup-fg": "#ffffff",
           "--pi-selection-popup-border": "rgba(255,255,255,.14)",
           "--pi-selection-popup-hover": "rgba(255,255,255,.1)",
-          "--pi-selection-popup-accent": "#8ea6ff",
+          "--pi-selection-popup-accent": "#ffffff",
+          "--pi-selection-popup-accent-fg": "#181818",
         }
       : {
           "--pi-selection-popup-bg": "#ffffff",
           "--pi-selection-popup-fg": "#1a1c1f",
           "--pi-selection-popup-border": "rgba(26,28,31,.14)",
           "--pi-selection-popup-hover": "rgba(26,28,31,.06)",
-          "--pi-selection-popup-accent": "#4f6ede",
+          "--pi-selection-popup-accent": "#1a1c1f",
+          "--pi-selection-popup-accent-fg": "#ffffff",
         };
     for (const [name, token] of Object.entries(tokens)) root.style.setProperty(name, token);
     for (const listener of themeListeners) listener(next);

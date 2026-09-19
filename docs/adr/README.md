@@ -253,7 +253,7 @@ Each ADR includes:
 | 0228 | Long-press the project title to reorder | Accepted (amended by 0229) |
 | 0229 | Press-and-move project title reorder | Accepted (amends 0228) |
 | 0230 | Skill ships with the Agent core tool set | Accepted (amends D174 / ADR 0048 / ADR 0219; issue #204) |
-| 0231 | Ideographic comma opens the composer slash menu | Accepted (amends D123 / D139 / ADR 0024; issue #65) |
+| 0231 | Ideographic comma opens the composer slash menu | Accepted (amends D123 / D139 / ADR 0024; issue #65; amended by D447) |
 | 0232 | Keep macOS DMG opening guidance text-only | Accepted (amends D371 / ADR 0204) |
 | 0233 | Renderer-owned multi-folder project creation | Accepted (amends ADR 0011 / ADR 0016) |
 | 0234 | Keep project memory host-owned and path-scoped | Accepted |
@@ -300,7 +300,7 @@ Each ADR includes:
 | 0269 | [Keep a work-panel context while no conversation is active](0269-session-less-work-panel-context.md) | Accepted (amends ADR 0068 / ADR 0195, D128, D357; D436) |
 | 0270 | [The file view lists a path-less conversation's own scratch directory](0270-session-scratch-in-the-file-view.md) | Accepted (D114, D437) |
 | 0282 | [Retry and right-size the compaction summary before retained-tail recovery](0282-compaction-summary-retry-and-sizing.md) | Accepted (amends ADR 0049; issue #543) |
-| 0284 | [Carry native DOCX paragraph anchors through Add to chat](0284-office-docx-selection-anchors.md) | Accepted (amends ADR 0283; D447) |
+| 0284 | [Carry native DOCX paragraph anchors through Add to chat](0284-office-docx-selection-anchors.md) | Accepted (amends ADR 0283; D-LOCAL-office-docx-paragraph-anchors) |
 | 0272 | [Judge a public-network address on the route the request will dial](0272-connection-time-public-network-route.md) | Accepted for implementation (amends ADR 0243; issue #419 / PR #473) |
 | 0277 | [Draggable chat content width](0277-draggable-chat-content-width.md) | Accepted (D439) |
 | turn-process-and-thinking-display | [Turn process and thinking presentation](turn-process-and-thinking-display.md) | Accepted |

@@ -9,6 +9,7 @@
   var state = null;
   var refreshFrame = 0;
   var copiedTimer = 0;
+  var pointerDown = false;
 
   function syncSelectionTheme() {
     var root = document.documentElement;
@@ -327,6 +328,7 @@
   function refresh() {
     refreshFrame = 0;
     if (state && state.mode === "comment") return;
+    if (pointerDown) return;
     var selection = window.getSelection();
     if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
       removeActions(false);
@@ -365,9 +367,20 @@
   window.addEventListener("resize", schedule);
   window.addEventListener("scroll", schedule, true);
   window.addEventListener("keyup", schedule);
-  window.addEventListener("pointerdown", function (event) {
+  function onPointerDown(event) {
     var actions = document.getElementById(ACTIONS_ID);
     if (actions && event.target instanceof Node && actions.contains(event.target)) return;
+    pointerDown = true;
     removeActions(false);
-  });
+  }
+  function onPointerUp() {
+    pointerDown = false;
+    schedule();
+  }
+  function onPointerCancel() {
+    pointerDown = false;
+  }
+  window.addEventListener("pointerdown", onPointerDown);
+  window.addEventListener("pointerup", onPointerUp);
+  window.addEventListener("pointercancel", onPointerCancel);
 })();

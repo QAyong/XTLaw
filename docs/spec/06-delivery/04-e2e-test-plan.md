@@ -216,9 +216,10 @@ identify the platform validation still needed.
   that the Office view opens with the generated Word editing toolbar. Confirm
   that the unsupported file tab, AI entry points and assistant dock, file pane,
   and document-tab window controls are not exposed. Edit text in the Office
-  view. Select a passage and click the reused Add to chat action; verify the
-  same inline comment pill and pending annotation surface used by Files. Save
-  the annotation and inspect the next prompt payload: it contains the bounded
+  view. Select a passage and click the reused Add to chat action; verify that
+  the Office page's compact comment card opens and the saved item appears in
+  the same pending annotation surface used by Files. Inspect the next prompt
+  payload: it contains the bounded
   DOCX excerpt, path, opened-file hash, and native Word paragraph IDs; the
   editor's block indexes and selection offsets are not included. Then send it.
   Save. Enable automatic save, modify the same file outside PI while the
@@ -1030,21 +1031,21 @@ identify the platform validation still needed.
 - **Steps**: 1) Click the Browser toolbar's selection button. 2) Hover a page
   element and confirm its box is highlighted without activating the page. 3)
   Click the element and use the floating `selection-quote` action **Add to
-  chat**; the pill becomes a small comment input above the pick — type a
-  comment and save. 4) Inspect the composer draft and the pending list above
-  it. 5)
+  chat**; confirm the Browser page's compact comment card opens. Enter a comment
+  and Save. 4) Inspect the composer draft and the pending list above it. 5)
   Drag-select visible page text and confirm the same action pill appears;
   choose **Add to chat** and inspect the second pending item. 6) Repeat on the
   input control and choose **Copy**. 7)
   Press Escape and confirm selection mode exits.
-- **Expected**: The same floating selection action pattern used for chat/file
+- **Expected**: The same selection action contract used for chat/file
   selections appears in the Browser for both elements and text ranges. Element
-  Add to chat collects the comment in the pill itself instead of opening an
-  editor over the native view, then lists one clearly delimited browser context
-  block — the page URL/title, element identity, visible text, sanitized outer
-  HTML, selector hint, and key computed styles — above the Composer
-  as a pending annotation instead of typing it into the draft. Text Add to chat
-  does the same for a URL/title/text block, sourcing both items to the page.
+  Add to chat opens the local compact card, then saves the bounded context as
+  one clearly delimited browser context block — the page URL/title,
+  element identity, visible text, sanitized outer HTML, selector hint, and key
+  computed styles — above the Composer as a pending annotation instead of
+  typing it into the draft. Text Add to chat does the same for a URL/title/text
+  block, sourcing both items to the page. The isolated guest keeps only its
+  action shell and follows the light/dark selection tokens.
   Password/input values are not present in the HTML
   context. Copy uses the host clipboard, clicking outside the action pill
   dismisses the current selection, Escape removes the picker, and normal page
@@ -1732,22 +1733,19 @@ identify the platform validation still needed.
 - **Preconditions**: A session with a completed answer containing at least two
   distinct paragraphs; no turn running.
 - **Steps**: 1) Select a phrase in the first paragraph and activate Add to chat
-  in the floating overlay; the pill becomes a small comment input anchored above
-  the excerpt — type a comment and Save. 2) Select a phrase in the second
-  paragraph, add it with an
+  in the floating overlay; the shared renderer comment editor opens. Enter a
+  comment and Save. 2) Select a phrase in the second paragraph, add it with an
   empty comment, then select the first phrase again, edit its comment, and Save.
-  3) Inspect the answer, the composer, and the editor draft; expand the floating
-  annotation index and inspect the list. 4) Send an instruction and inspect the request
-  the agent received.
-  turn starts, no draft text appears, and Save attaches the annotation with the
-  comment in its `annotation` field while Escape and Cancel attach nothing. The
-- **Expected**: Activating Add to chat swaps the pill for the comment input and
-  sends nothing: no
-  turn starts, no draft text appears, and Save attaches the annotation with the
-  comment in its `annotation` field while Escape and Cancel attach nothing. The
-  input quotes the selected Markdown as its excerpt snapshot. The answer body is
-  unchanged: nothing is inserted into its Markdown. Independent source badges
-  show the same numbers as the floating index (ADR floating-annotation-index / E2E-CHAT-annotation-source-index).
+  3) Inspect the answer, the Composer, and the editor draft; expand the
+  floating annotation index and inspect the list. 4) Send an instruction and
+  inspect the request the agent received.
+- **Expected**: Activating Add to chat opens the original compact editor and sends
+  nothing: no turn starts and no draft text appears. Save attaches the
+  annotation with the comment in its `annotation` field while Escape and Cancel
+  attach nothing. The editor quotes the selected Markdown as its excerpt
+  snapshot. The answer body is unchanged: nothing is inserted into its
+  Markdown. Independent source badges show the same numbers as the floating
+  index (ADR floating-annotation-index / E2E-CHAT-annotation-source-index).
   The index lists `1. <excerpt>` and `2. <excerpt>`; step 2 leaves two entries (reopening the
   first excerpt edits annotation 1's comment instead of adding a third), and the
   attachment's list shows each excerpt with its comment and its own edit and
@@ -3721,8 +3719,9 @@ identify the platform validation still needed.
   `file:` siblings. The preview yields to a blocking overlay only while that
   overlay's own rectangle actually overlaps the panel, keeps running underneath
   one that stays inside the chat column, and hides while unmounted, reappearing
-  with correct bounds afterwards. Add to chat in the picker collects its comment
-  in the pill itself, so no window-centred editor opens over the native view. An
+  with correct bounds afterwards. Add to chat in the picker sends the bounded
+  selection to the Browser's local compact card; the native view remains the
+  owner of that selection interaction. An
   inline permission
   card does not hide or remount the preview; resize/drag keeps the native view
   visible and aligned with the placeholder rect without a black flash. Opening
@@ -6878,23 +6877,21 @@ identify the platform validation still needed.
 - **Steps**: 1) Open the Files viewer and select only part of the source file,
   including a selection that crosses lines. 2) Confirm the Chat-style floating
   pill appears, inspect Copy, then select the text again and click Add to chat.
-  3) Inspect the Composer before sending: the draft stays untouched and nothing
-  is listed yet, because the pill itself became a small comment input anchored
-  above the selection. Write a comment, save, and confirm the excerpt is now
-  listed above the Composer. Type an instruction and submit. 4) Repeat with
-  rendered Markdown and with a browser-preview pick, whose in-page chip collects
-  the comment the same way, then inspect the action availability for image,
-  binary/oversized, attachment, and external paths.
+  3) Inspect the Composer before sending: the draft stays untouched and the
+  local file comment card is open. Write a comment, Save, and confirm
+  the excerpt is now listed above the Composer. Type an instruction and submit.
+  4) Repeat with rendered Markdown and with a browser-preview pick, whose
+  isolated action shell opens its local compact comment card, then inspect the action
+  availability for image, binary/oversized, attachment, and external paths.
 - **Expected**:
   - The pill follows only a non-empty selection inside the file body, is
     clamped to the viewer, and Copy copies the selected visible text.
-  - Add to chat turns the pill into a small comment input anchored above the
-    selection instead of typing the excerpt into the draft or opening a
-    window-centred editor: the excerpt carries only the selected content, the
-    workspace-relative file path, the `@path` location, and the available
-    one-based line range, and it lists above the Composer as a pending
-    annotation. Existing draft text is untouched, nothing is sent, and no
-    transcript row is created until the user submits the Composer.
+  - Add to chat opens the local compact comment card instead of typing the
+    bounded excerpt into the draft. On Save, the excerpt carries only the selected
+    content, the workspace-relative file path, the `@path` location, and the
+    available one-based line range, and it lists above the Composer as a
+    pending annotation after Save. Existing draft text is untouched, nothing is
+    sent, and no transcript row is created until the user submits the Composer.
   - The submitted prompt carries the annotation block with the file (path and
     line range) or page (URL and selector) as that item's source in place of a
     turn id, so a file or page excerpt draws no source badge in the transcript
@@ -7920,9 +7917,9 @@ identify the platform validation still needed.
   unexpected setup exception returns a rejected submission, retains annotations,
   and restores a draft only into an unchanged/empty slot. New comments, attachments,
   and another session's state survive. Steering neither carries nor consumes
-  annotations; no text means no steering turn. The comment input — in the pill or
-  in the window-centred editor — never triggers steering or send, and IME
-  confirmation never saves. Visible projections hide only
+  annotations; no text means no steering turn. The shared comment editor never
+  triggers steering or send, and IME confirmation never saves. Visible
+  projections hide only
   the generated block and preserve request headings; wire/storage remain intact.
   Closing a side-chat tab releases its projection, keeps other resources/children,
   and leaves the launcher visible when it was the final tab.
@@ -12638,7 +12635,7 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   later in the draft stays untouched text, and the `@` file menu never reacts
   to the mark.
 - **Specs linked**: `04-ux/04-builtin-commands.md` (§9),
-  `04-ux/08-component-spec.md` (§11), `08-meta/decisions-log.md` (D405),
+  `04-ux/08-component-spec.md` (§11), `08-meta/decisions-log.md` (D405, D447),
   ADR 0024, ADR 0231
 - **Acceptance**: C (conversation & stream), Localization, Quality
 - **Milestone**: M2
@@ -12754,8 +12751,7 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   3. Open a plugin view (Browser) in the panel, then manually collapse and
      reopen the sidebar while the work panel remains open, drag the sidebar
      handle, comparing the plugin's rendered rectangle with the dock's own
-    rectangle, and open a chat selection's comment pill (then the annotate
-    action's window-centred editor)
+    rectangle, and open a chat selection's shared annotation editor
     with the panel still open.
   4. Close the work panel and confirm the sidebar preserves its user-selected
      state; repeat after manually collapsing the sidebar.

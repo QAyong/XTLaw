@@ -40,7 +40,7 @@ repository's `.gitattributes` keeps it that way.
 | `README.md` | 20039 | `8c524f6d13eac557e286fa0ec9b9cf5138bed0bd66d4a7914f3484443e627a01` |
 | `views/index.html` | 402 | `fcf3b9d984e367b41b12d835049ebb79414cc175d5f814ff1e0f733a2f5f63fd` |
 | `views/assets/index.js` | 1345417 | `d0a1dc369764bed2ab12ce0e65fe983fe0b4f9919f2f8ff4546b736208d66dac` |
-| `views/selection-actions.js` | 15435 | `78ce39273ee97ac23f8686f411e12a93baec1c6ff37dc98b8803471f92791d36` |
+| `views/selection-actions.js` | 15790 | `d0e2592b967363d8be17e832dea6501e0caaa70d113952021e14f6fa1ef53187` |
 | `manifest.json` | 14171 | `751a5c86d6e4901cf7fc7f5d9e1de99c90c6dc0798b316500d20781d779e4188` |
 
 `views-src/` from the upstream repository is deliberately not vendored: this
@@ -71,7 +71,8 @@ Four, so a re-sync stays a copy:
   experience, never a user.
 - `views/index.html` loads the local `views/selection-actions.js` companion.
   The companion reuses the selected File Manager text and shows the same
-  compact copy / add-to-chat affordance as the host chat surface. Add to chat
+  compact copy / add-to-chat affordance as the host chat surface, waiting for
+  pointer release before showing it after a text drag. Add to chat
   swaps that pill into its small comment input, then hands the excerpt, the
   comment, and the file it came from to `composer.addSelection`; the host lists
   the saved item above the Composer. The text itself is never typed into the

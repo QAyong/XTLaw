@@ -233,10 +233,10 @@ export function useComposerDraft({
 
   /** Commit a native contenteditable input while preserving IME correction. */
   const handleInput = (source: string, caret: number): string => {
-    const nextValue =
-      valueRef.current === ""
-        ? rewriteIdeographicCommaTrigger(source)
-        : source;
+    // A Chinese IME commits "、" where a leading "/" is meant. Normalize the
+    // mark at exactly the position the slash trigger accepts, so "、" opens
+    // the ordinary menu wherever a typed "/" would (D405).
+    const nextValue = rewriteIdeographicCommaTrigger(source);
     invalidatePromptEnhancement();
     if (nextValue === source) {
       editorValueRef.current = nextValue;

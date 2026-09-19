@@ -5,6 +5,7 @@
   const ACTIONS_ID = "pi-office-selection-actions";
   let state = null;
   let refreshFrame = 0;
+  let pointerDown = false;
 
   const style = document.createElement("style");
   style.textContent =
@@ -12,7 +13,7 @@
     ".pi-office-selection-actions button{display:inline-flex;align-items:center;min-height:22px;padding:3px 10px;border:0;border-radius:999px;background:transparent;color:inherit;font:inherit;white-space:nowrap;cursor:pointer}" +
      ".pi-office-selection-actions button:hover{background:var(--pi-selection-popup-hover,rgba(26,28,31,.06))}" +
     ".pi-office-selection-actions button:active{transform:scale(.96)}" +
-     ".pi-office-selection-actions button:focus-visible{outline:2px solid var(--pi-selection-popup-accent,#4f6ede);outline-offset:1px}" +
+     ".pi-office-selection-actions button:focus-visible{outline:2px solid var(--pi-selection-popup-accent,#1a1c1f);outline-offset:1px}" +
     "@keyframes pi-office-selection-in{from{opacity:0;transform:translateY(2px)}}" +
     "@media (prefers-reduced-motion:reduce){.pi-office-selection-actions{animation:none}}" +
     ".pi-office-selection-actions.is-comment{display:block;width:min(260px,calc(100vw - 16px));padding:6px;border-radius:12px}" +
@@ -22,7 +23,7 @@
     ".pi-office-selection-comment-actions{display:flex;justify-content:flex-end;gap:4px;margin-top:2px}" +
     ".pi-office-selection-comment-actions button{display:inline-flex;align-items:center;min-height:22px;padding:3px 10px;border:0;border-radius:999px;background:transparent;color:inherit;font:inherit;font-size:11px;cursor:pointer;white-space:nowrap}" +
     ".pi-office-selection-comment-actions button:hover{background:var(--pi-selection-popup-hover,rgba(26,28,31,.06))}" +
-    ".pi-office-selection-comment-actions button.primary{background:var(--pi-selection-popup-accent,#4f6ede);color:#fff}";
+    ".pi-office-selection-comment-actions button.primary{background:var(--pi-selection-popup-accent,#1a1c1f);color:var(--pi-selection-popup-accent-fg,#fff)}";
   document.head.appendChild(style);
 
   function invoke(channel, payload) {
@@ -328,6 +329,7 @@
   function refresh() {
     refreshFrame = 0;
     if (state?.mode === "comment") return;
+    if (pointerDown) return;
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
       removeActions(false);
@@ -362,9 +364,20 @@
   window.addEventListener("resize", schedule);
   window.addEventListener("scroll", schedule, true);
   window.addEventListener("keyup", schedule);
-  document.addEventListener("pointerdown", (event) => {
+  const onPointerDown = (event) => {
     const actions = document.getElementById(ACTIONS_ID);
     if (actions && event.target instanceof Node && actions.contains(event.target)) return;
+    pointerDown = true;
     removeActions(false);
-  }, true);
+  };
+  const onPointerUp = () => {
+    pointerDown = false;
+    schedule();
+  };
+  const onPointerCancel = () => {
+    pointerDown = false;
+  };
+  document.addEventListener("pointerdown", onPointerDown, true);
+  document.addEventListener("pointerup", onPointerUp, true);
+  document.addEventListener("pointercancel", onPointerCancel, true);
 })();

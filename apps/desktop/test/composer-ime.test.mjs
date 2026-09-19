@@ -64,7 +64,7 @@ test("model menu keydown ignores IME composition keystrokes", () => {
   );
 });
 
-test("an ideographic comma opens the slash menu from an empty draft (D405)", () => {
+test("an ideographic comma follows the slash rule (D405)", () => {
   const handler = draftSource.slice(
     draftSource.indexOf("const handleInput ="),
     draftSource.indexOf("removeChipByTokenRef", draftSource.indexOf("const handleInput =")),
@@ -74,10 +74,10 @@ test("an ideographic comma opens the slash menu from an empty draft (D405)", () 
     /rewriteIdeographicCommaTrigger\(/,
     "the editable must route a committed 、 through the shared rewrite",
   );
-  assert.match(
+  assert.doesNotMatch(
     handler,
     /valueRef\.current === ""/,
-    "only a draft with nothing in it may be rewritten",
+    "the alias must not depend on the draft having been empty",
   );
   assert.match(
     handler,

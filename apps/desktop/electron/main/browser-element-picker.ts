@@ -17,7 +17,7 @@ export const BROWSER_ELEMENT_PICKER_INSTALL_SCRIPT = String.raw`(() => {
 
   // While the picker card is in comment mode it owns the captured selection;
   // focusing its input must not cause the page selection listeners to remove it.
-  const state = { enabled: true, selected: null, hover: null, menu: null, style: null, suppressClick: false, mode: null };
+  const state = { enabled: true, selected: null, hover: null, menu: null, style: null, suppressClick: false, mode: null, pointerDown: false };
   const max = (value, length) => String(value ?? "").trim().slice(0, length);
   const send = (message) => {
     try {
@@ -327,6 +327,7 @@ export const BROWSER_ELEMENT_PICKER_INSTALL_SCRIPT = String.raw`(() => {
     }
     state.selected = selection;
     if (state.selectedOverlay) state.selectedOverlay.hidden = true;
+    if (state.pointerDown) return;
     showMenu(selection);
   };
   const onPointerMove = (event) => {
@@ -336,7 +337,9 @@ export const BROWSER_ELEMENT_PICKER_INSTALL_SCRIPT = String.raw`(() => {
     paint(state.hoverOverlay, element ? rectData(element) : null);
   };
   const onPointerDown = (event) => {
-    if (!state.enabled || isUi(event.target) || !state.menu) return;
+    if (!state.enabled || isUi(event.target)) return;
+    state.pointerDown = true;
+    if (!state.menu) return;
     // Match the chat/file selection affordance: clicking away dismisses the
     // current action pill instead of exposing a second visible cancel button.
     clearSelection();
@@ -344,7 +347,11 @@ export const BROWSER_ELEMENT_PICKER_INSTALL_SCRIPT = String.raw`(() => {
   };
   const onPointerUp = () => {
     if (!state.enabled) return;
+    state.pointerDown = false;
     onSelectionChange();
+  };
+  const onPointerCancel = () => {
+    state.pointerDown = false;
   };
   const onClick = (event) => {
     if (!state.enabled || isUi(event.target)) return;
@@ -387,6 +394,7 @@ export const BROWSER_ELEMENT_PICKER_INSTALL_SCRIPT = String.raw`(() => {
   document.addEventListener("click", onClick, true);
   document.addEventListener("keydown", onKeyDown, true);
   document.addEventListener("pointerup", onPointerUp, true);
+  document.addEventListener("pointercancel", onPointerCancel, true);
   state.destroy = () => {
     state.enabled = false;
     document.removeEventListener("selectionchange", onSelectionChange, true);
@@ -395,6 +403,7 @@ export const BROWSER_ELEMENT_PICKER_INSTALL_SCRIPT = String.raw`(() => {
     document.removeEventListener("click", onClick, true);
     document.removeEventListener("keydown", onKeyDown, true);
     document.removeEventListener("pointerup", onPointerUp, true);
+    document.removeEventListener("pointercancel", onPointerCancel, true);
     hideMenu();
     state.hoverOverlay?.remove();
     state.selectedOverlay?.remove();

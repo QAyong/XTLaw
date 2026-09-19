@@ -5,7 +5,10 @@
  *
  * Grammar mirrors the pi CLI editor:
  * - "/" opens command mode only as the very first character of the draft,
- *   while the cursor is still inside that first whitespace-free token.
+ *   while the cursor is still inside that first whitespace-free token. The
+ *   ideographic comma "、" a Chinese IME produces for that keystroke is the
+ *   same trigger, so a Chinese draft reaches the menu without switching
+ *   input methods (D405).
  * - "@" opens file mode when the token containing the cursor starts with
  *   "@" and the character before it is start-of-input, whitespace, or one
  *   of the pi delimiters (" ' =). A `@"` prefix starts a quoted token that
@@ -49,11 +52,17 @@ const DELIMITERS = new Set([" ", "\t", "\n", "\r", '"', "'", "="]);
 export const IDEOGRAPHIC_COMMA = "、";
 
 /**
- * A Chinese IME types "、" where an ASCII "/" is meant, and switching input
- * methods to reach the slash menu breaks the flow of writing (issue #65). The
- * first character of an otherwise empty draft is rewritten to "/" so the
- * ordinary command menu opens; a mark anywhere later in the draft is text and
- * is left untouched.
+ * The trigger characters that open command mode as the first character of a
+ * draft. "/" and its "、" alias are one rule, not two: detection, filtering,
+ * insertion, and sending all run the ordinary slash path afterwards.
+ */
+const SLASH_TRIGGER_CHARS = new Set(["/", IDEOGRAPHIC_COMMA]);
+
+/**
+ * Normalize a committed "、" back to "/" so the draft stays an ordinary slash
+ * invocation for the send path. Only a mark at the very start of the draft is
+ * rewritten — exactly the position where a "/" would open the menu — and a
+ * mark anywhere later is ordinary punctuation and is left untouched.
  */
 export function rewriteIdeographicCommaTrigger(value: string): string {
   return value.startsWith(IDEOGRAPHIC_COMMA)
@@ -73,8 +82,9 @@ export function detectTrigger(
 ): ComposerTrigger | null {
   if (cursor < 0 || cursor > value.length) return null;
 
-  // Slash mode: draft starts with "/", cursor inside the first token.
-  if (value.startsWith("/") && cursor >= 1) {
+  // Slash mode: draft starts with "/" or its "、" alias, cursor inside the
+  // first token.
+  if (cursor >= 1 && SLASH_TRIGGER_CHARS.has(value.slice(0, 1))) {
     const head = value.slice(1, cursor);
     let hasWhitespace = false;
     for (const ch of head) {

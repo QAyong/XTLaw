@@ -116,11 +116,14 @@ longer active, the text follows the normal unknown-slash prompt path.
 ## 9. Ideographic comma opens the slash menu (D405)
 
 A Chinese IME produces `、` (U+3001) where the ASCII `/` is meant, so reaching
-the menu otherwise means switching input methods mid-sentence. When the composer
-is empty, a committed `、` as its first character is rewritten to `/` before
-trigger detection runs, and the ordinary slash menu opens with the same
-insertion, filtering, and send behavior described above.
+the menu otherwise means switching input methods mid-sentence. `、` is the same
+trigger as `/`: either character opens command mode as the first character of
+the draft while the cursor is still inside that first whitespace-free token, and
+the ordinary slash menu then behaves exactly as described above — the same
+filtering, the same keyboard navigation, and the same insertion. A committed
+`、` in that position is also normalized to `/`, so the draft, the transcript
+chip, and the send path only ever see an ordinary slash invocation (D447).
 
-Only the first character of an empty draft is rewritten. A `、` anywhere else in
-the draft is ordinary punctuation and is never touched, and the alias has no
-effect on the `@` file menu.
+Only the first character is a trigger. A `、` anywhere else in the draft is
+ordinary punctuation and is never touched, and the alias has no effect on the
+`@` file menu.

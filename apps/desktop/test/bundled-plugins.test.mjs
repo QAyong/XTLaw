@@ -70,6 +70,9 @@ test("the file view is a sandboxed page over the public bridge", () => {
   assert.match(selectionActions, /composer\.addSelection/);
   assert.match(selectionActions, /path: state\.path,/);
   assert.match(selectionActions, /comment-input|openCommentInput/);
+  assert.match(selectionActions, /var pointerDown = false/);
+  assert.match(selectionActions, /if \(pointerDown\) return/);
+  assert.match(selectionActions, /window\.addEventListener\("pointerup", onPointerUp\)/);
   assert.match(selectionActions, /clipboard\.writeText/);
   assert.match(viewBundle, /pluginBridge/);
   // No Node, no Electron, no host internals: it is a sandboxed page.
@@ -134,6 +137,9 @@ test("the Office view is a browser-only DOCX plugin over the public bridge", () 
   assert.match(officeSelectionActions, /paragraphIds/);
   assert.match(officeSelectionActions, /documentHash/);
   assert.match(officeSelectionActions, /commentPlaceholder|openCommentInput|selection-comment-input/);
+  assert.match(officeSelectionActions, /let pointerDown = false/);
+  assert.match(officeSelectionActions, /if \(pointerDown\) return/);
+  assert.match(officeSelectionActions, /document\.addEventListener\("pointerup", onPointerUp, true\)/);
   assert.doesNotMatch(officeSelectionActions, /blockIndexes|blockTypes|blockText|startOffset\s*:|endOffset\s*:/);
   assert.match(officeLayoutStability, /pageAnchor/);
   assert.match(officeLayoutStability, /restoreAnchor/);

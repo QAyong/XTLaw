@@ -45,6 +45,9 @@ coverage/
 .dev-data/
 .cc-connect/
 
+# Agent tooling state (Serena LSP project data)
+.serena/
+
 .playwright-mcp/
 .claude/
 .workbuddy

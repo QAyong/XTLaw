@@ -50,3 +50,28 @@ must not turn legitimate punctuation into commands.
   would corrupt ordinary prose, where `、` is the standard list separator.
 - **A toolbar button for commands:** rejected as a duplicate entry point to a
   menu that already exists (see D123).
+
+## Amendment (D447, 2026-09-19) — `、` is the leading slash trigger
+
+The alias was implemented only as a rewrite of the committed input event, gated
+on the draft having been empty and relying on the renderer repainting the
+editable before trigger detection ran. That covered a narrower set of states
+than `/` itself: a draft that already held text, and any input path whose
+rewrite did not reach the editable, left the mark as ordinary punctuation with
+the menu closed.
+
+1. `detectTrigger` accepts `、` as the same command-mode trigger as `/`: either
+   character opens the menu as the first character of the draft while the
+   cursor is still inside that first whitespace-free token. The alternative
+   rejected below — "accept `、` as an additional trigger character" — is
+   therefore adopted for detection, and one rule now serves both characters.
+2. Its stated objection is answered by leaving the insertion path unchanged:
+   accepting a row still inserts `/name `, so the draft, the transcript chip,
+   and the send path only ever see an ordinary slash invocation.
+3. The leading mark is still normalized to `/` on input, which keeps a typed
+   `、new` sending the same slash invocation as before. That normalization is no
+   longer restricted to a previously empty draft; the position rule — first
+   character of the draft, no whitespace before the cursor — is now the only
+   condition, which is exactly the condition `/` follows.
+4. A `、` anywhere else in the draft remains ordinary punctuation, and the `@`
+   file menu still never reacts to the mark.

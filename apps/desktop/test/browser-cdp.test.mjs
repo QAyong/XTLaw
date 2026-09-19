@@ -124,6 +124,10 @@ test("browser element annotation stays host-owned and bounded", () => {
   assert.match(pickerSource, /prefers-color-scheme:\s*light/);
   assert.match(pickerSource, /const textSelection/);
   assert.match(pickerSource, /selectionchange/);
+  assert.match(pickerSource, /pointerDown: false/);
+  assert.match(pickerSource, /if \(state\.pointerDown\) return/);
+  assert.match(pickerSource, /document\.addEventListener\("pointerup", onPointerUp, true\)/);
+  assert.match(pickerSource, /document\.addEventListener\("pointercancel", onPointerCancel, true\)/);
   assert.match(pickerSource, /untrusted page/i);
   assert.match(selectionSource, /parseBrowserElementSelection/);
   assert.match(selectionSource, /parseBrowserTextSelection/);
@@ -144,6 +148,7 @@ test("browser picker dismisses the action pill outside and keeps Escape for mode
   assert.doesNotMatch(pickerSource, /dataset\.action = "cancel"/);
   assert.match(pickerSource, /state\.suppressClick/);
   assert.match(pickerSource, /document\.addEventListener\("pointerdown", onPointerDown, true\)/);
+  assert.match(pickerSource, /state\.pointerDown = true/);
   assert.match(pickerSource, /event\.key !== "Escape"/);
 });
 

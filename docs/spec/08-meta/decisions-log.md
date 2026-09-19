@@ -80,6 +80,7 @@ This log freezes previously open questions into concrete decisions.
 | D403 | Press-and-move project title reorder | **Amend D402 / D093 / ADR 0228: mouse and pen reorder by pressing the project title and moving 8px; a click with no qualifying movement still selects and toggles collapse. Touch does not start a reorder. An accent insertion line shows before/after placement. ArrowUp/ArrowDown and Escape are unchanged. See ADR 0229 and E2E-253.** | A 400ms still press is a mobile long-press pattern and is slower than ChatGPT-style desktop sidebar lists. |
 | D404 | Skill ships with the Agent core tool set | **Amend D174 / D185 / ADR 0048 / ADR 0219: `Skill` joins the Agent-mode core tool set, so its schema is present on the first provider request whenever the skill catalog is non-empty. It is removed from the deferred catalog and never appears under `# On-demand tools`; the other on-demand capabilities and `ToolSearch` are unchanged, and Plan and Goal still omit the tool entirely. No protocol, storage, permission, or skill-body change. See ADR 0230 and E2E-254.** | A user-typed `/skill-id` and the `# Skills` section both ask the model to call `Skill`, and a tool that is absent from the schema cannot be called at all: the deferred entry added a discovery round trip before any skill body could load (issue #204). |
 | D405 | Ideographic comma opens the slash menu | **Amend D123 / D139 / ADR 0024: a `、` (U+3001) committed as the first character of an empty composer draft is rewritten to `/` before trigger detection, so a Chinese IME reaches the ordinary slash menu without switching input methods. Only that position is rewritten; a `、` anywhere else stays ordinary punctuation, and the `@` file menu is unaffected. Shared grammar and renderer only; no IPC, storage, or autocomplete-source change. See ADR 0231 and E2E-255.** | Reaching `/new`, `/compact`, a mode alias, or a Skill forced a Chinese IME user to switch to ASCII input mid-sentence and then switch back (issue #65). |
+| D447 | Ideographic comma is the leading slash trigger | **Amend D405 / ADR 0231: `、` (U+3001) and `/` are one command-mode trigger. `detectTrigger` accepts either character as the first character of the draft while the cursor is still inside that first whitespace-free token, so the menu opens wherever a typed `/` would, independent of whether the renderer's input rewrite has already substituted the mark in the editable. The leading mark is still normalized to `/` on input, and that normalization now follows the same position rule `/` follows instead of being limited to a draft that was previously empty. Insertion, filtering, sending, transcript chips, and the `@` file menu are unchanged. Shared grammar and renderer only; no IPC, storage, or autocomplete-source change. See the ADR 0231 amendment and E2E-255.** | The alias was implemented only as an input rewrite gated on the draft having been empty, which covered a narrower set of states than `/` itself: a draft that already held text, and any input path whose rewrite did not reach the editable, left `、` as ordinary punctuation with the menu closed. Sharing the grammar's trigger rule with `/` removes that dependency without changing what the insertion and send paths see. |
 | D406 | Keep macOS DMG opening guidance text-only | **Amend D371 / ADR 0204: macOS DMGs expose the opening-help note as `If app won't open, read this.txt` and no longer include the executable `PI-Desktop-macOS-open.command`. macOS ZIP packages retain both the note and the helper. The note provides the narrow Terminal fallback for trusted unsigned builds; signed and notarized builds do not need it. See ADR 0232 and E2E-196b.** | The DMG should keep the normal app-to-Applications flow focused while still giving users a visible, actionable answer when an unsigned app does not open. |
 | D407 | Restore archived projects after session import | **Additive renderer behavior for issue #250: when a core or plugin import adds a new project-bound session, the import-triggered session refresh normalizes its project path and clears the renderer's archived presentation state for that project. Pathless sessions, skipped imports, historical plugin paths without an active binding, and ordinary refreshes leave archive state unchanged. Host project rows, IPC channels, plugin methods, storage schema, and data formats do not change. See ADR 0236 and E2E-257.** | The host can successfully materialize an imported session under a project while the renderer still hides that project's sidebar row as archived. Restoring only the newly imported binding makes the result discoverable without weakening deliberate archive choices during ordinary refreshes (issue #250). |
 | D408 | Prioritize MainChat in the three-column shell | **Amend ADR 0226 / ADR 0151 / ADR 0033 for issue #267: MainChat keeps a hard 450px minimum, the work panel is capped by the live budget (`client width - 450px - expanded sidebar`, with no fixed maximum), and the user-controlled sidebar remains unchanged when that budget is exhausted. A manual sidebar reopen spends panel width first and otherwise targets 460px; closing the panel preserves the user's sidebar state. The native window never changes: the reservation seam stays at zero and no geometry is applied. Preview mode temporarily unmounts MainChat and uses a window-level chrome row; collapsed-sidebar macOS preview reserves 76px, or 8px in fullscreen, for traffic lights. See ADR 0238 and E2E-LAYOUT-three-column-width-priority.** | The fixed client area had no explicit width priority, so the side docks could pin MainChat to its floor and leave the composer unusable. Making the work panel yield while keeping sidebar state user-controlled keeps the chat readable inside the fixed window without reintroducing native window growth (issue #267). |
@@ -4683,13 +4684,15 @@ D193, and D194.
   like the app's other body-portaled popovers and follows the selection while the
   thread scrolls, rather than hiding.
 - The overlay offers Add to chat (`chat.addToChat`), Ask in side chat
-  (`chat.askInSideChat`) and Copy (`chat.copy`). Add to chat writes the excerpt
-  into the active session's composer draft under D-LOCAL-message-quotes's quote contract; Ask in
-  side chat forks at that row and sends the excerpt as that child's prompt, so
-  the question is answered in the panel instead of the visible conversation; Copy
-  writes the Markdown to the clipboard. Every action clears the native selection,
-  a drag that crosses rows raises no overlay, and a read-only projection renders
-  none.
+  (`chat.askInSideChat`) and Copy (`chat.copy`). On a user-message row, Add to
+  chat writes the excerpt into the active session's composer draft under
+  D-LOCAL-message-quotes's quote contract. On an assistant row, it opens the
+  shared response-annotation editor and saves a pending annotation; Ask in side
+  chat forks at that row and sends the excerpt as that child's prompt, so the
+  question is answered in the panel instead of the visible conversation; Copy
+  writes the Markdown to the clipboard. Every action clears the native
+  selection, a drag that crosses rows raises no overlay, and a read-only
+  projection renders none.
 - The excerpt is recovered from the rendered DOM instead of
   `Selection.toString()`: a range touching a formula expands to the whole formula
   and quotes KaTeX's `application/x-tex` annotation as `$…$` or `$$…$$`; a code
@@ -4729,16 +4732,18 @@ D193, and D194.
   quote. No protocol, storage-schema, IPC channel, or permission change. See
   ADR response-annotations and E2E-CHAT-annotation-attachments, E2E-CHAT-annotation-session-state.
 - *(Amended 2026-09-12.)* Add to chat, and the assistant turn's annotate action,
-  open a compact comment editor instead of attaching silently: the excerpt is
-  snapshotted before focus collapses the selection, the comment is multiline and
-  optional, Save attaches or updates the annotation with the comment in
-  `annotation`, and Cancel/Escape discards it without sending. Re-annotating an
-  excerpt that is already attached reopens that annotation's editor, and the
-  composer's count chip opens a list where each excerpt's comment can be edited
-  or that item removed beside the existing clear-all. The editor belongs to the
-  session it was opened in, and a save for an annotation that was already sent
-  or removed changes nothing. No protocol, storage-schema, IPC channel, or
-  permission change.
+  open the shared compact comment editor instead of attaching silently: the
+  excerpt is snapshotted before focus collapses the selection, the comment is
+  multiline and optional, Save attaches or updates the annotation with the
+  comment in `annotation`, and Cancel/Escape discards it without sending.
+  Re-annotating an excerpt that is already attached reopens that annotation's
+  editor, and the composer's count chip opens a list where each excerpt's
+  comment can be edited or that item removed beside the existing clear-all.
+  Transcript, Files, Office, file-manager, and Browser selections converge on
+  this Renderer-owned editor; isolated pages retain only their DOM-specific
+  action shell. The editor belongs to the session it was opened in, and a save
+  for an annotation that was already sent or removed changes nothing. No
+  protocol, storage-schema, IPC channel, or permission change.
 - *(Floating-index amendment, ADR floating-annotation-index.)* The user-requested collapsible floating
   index replaces the composer popover. Matching source badges and non-interactive
   highlights use renderer-only text offsets, never inserted Markdown. Locate reveals
@@ -5601,7 +5606,7 @@ that was sitting at the bottom — including after the turn had finished.
   `04-ux/08-component-spec.md`, `04-ux/09-interaction-patterns.md`, and
   E2E-CHAT-content-width-handles.
 
-## 2026-09-19 — Carry native DOCX paragraph anchors through Add to chat (D447)
+## 2026-09-19 — Carry native DOCX paragraph anchors through Add to chat (D-LOCAL-office-docx-paragraph-anchors)
 
 - Office text selection reuses the shared `composer.addSelection` and pending
   annotation UI instead of appending directly to the draft or opening a
@@ -5618,3 +5623,17 @@ that was sitting at the bottom — including after the turn had finished.
 - This is an additive renderer/plugin-runtime contract change. It does not
   change the protocol version, persistence schema, file-write permissions, or
   DOCX save behavior. See ADR 0284 and E2E-OFFICE-docx-open-edit-save.
+
+## 2026-09-19 — Ideographic comma is the leading slash trigger (D447)
+
+- `detectTrigger` accepts `、` (U+3001) as the same command-mode trigger as `/`:
+  either character opens the menu as the first character of the draft while the
+  cursor is still inside that first whitespace-free token. Reaching the menu no
+  longer depends on the input rewrite having already substituted the character
+  in the editable.
+- The leading mark is still normalized to `/` on input, now under the same
+  position rule `/` follows instead of being limited to a previously empty
+  draft. Insertion, filtering, sending, transcript chips, and the `@` file menu
+  are unchanged.
+- Decision D447 amends D405 / ADR 0231. See `04-ux/04-builtin-commands.md` §9
+  and E2E-255.

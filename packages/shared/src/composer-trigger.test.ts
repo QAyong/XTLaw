@@ -48,6 +48,24 @@ describe("detectTrigger — slash mode", () => {
     expect(detectTrigger("hi /cmd", 7)).toBeNull();
     expect(detectTrigger("hi\n/cmd", 7)).toBeNull();
   });
+
+  it("accepts an ideographic comma as the same leading trigger (D405)", () => {
+    expect(detectTrigger("、", 1)).toEqual({
+      mode: "slash",
+      query: "",
+      tokenStart: 0,
+      tokenEnd: 1,
+    });
+    expect(detectTrigger("、rev", 4)).toMatchObject({
+      mode: "slash",
+      query: "rev",
+      tokenStart: 0,
+    });
+    expect(detectTrigger("、rev", 0)).toBeNull();
+    expect(detectTrigger("、rev src", 9)).toBeNull();
+    expect(detectTrigger("你好、world", 8)).toBeNull();
+    expect(detectTrigger("你好、", 3)).toBeNull();
+  });
 });
 
 describe("rewriteIdeographicCommaTrigger", () => {

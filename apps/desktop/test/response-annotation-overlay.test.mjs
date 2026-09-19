@@ -134,6 +134,12 @@ test("all saved resolved ranges stay highlighted without selecting an item or ex
   }
 });
 
+test("the rootless attachment index observes sidebar layout changes", () => {
+  assert.match(source, /const composerDock = document\.querySelector<HTMLElement>\("\[data-composer-dock\]"\);/);
+  assert.match(source, /const resizeTargets = \[[\s\S]*composerDock,[\s\S]*composerStack,[\s\S]*mainPane,[\s\S]*appShell/);
+  assert.match(source, /mutation\.observe\(appShell, \{ attributes: true, attributeFilter: \["class", "style"\] \}\)/);
+});
+
 test("only the visible writable pane owns badges and navigation releases follow mode", async () => {
   const transcript = await readTranscriptSource();
   assert.match(transcript, /!transcriptReadOnly && paneVisible && !veilCovering && sessionId/);

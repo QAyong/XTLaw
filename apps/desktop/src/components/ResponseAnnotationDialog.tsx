@@ -109,37 +109,65 @@ function CommentEditor({
     if (!dialog) return;
 
     // The shared editor is used for existing annotation edits and assistant
-    // turn actions. Place it once above the Composer; the selection surfaces
-    // themselves use their original local compact card.
+    // turn actions. Keep it above the composer and remeasure when the shell
+    // layout changes; sidebar resizing changes the composer width without
+    // emitting `window.resize`.
+    let frame = 0;
+    const measure = () => {
+      frame = 0;
+      const dock = document.querySelector<HTMLElement>("[data-composer-dock]");
+      const stack = dock?.querySelector<HTMLElement>(".composer-stack");
+      const dockRect = dock?.getBoundingClientRect();
+      const stackRect = stack?.getBoundingClientRect();
+      const maxWidth = Math.max(
+        0,
+        Math.min(
+          260,
+          window.innerWidth - 16,
+          stackRect?.width ?? window.innerWidth - 16,
+        ),
+      );
+      const reference = stackRect ?? dockRect;
+      const left = reference
+        ? Math.max(
+            8,
+            Math.min(
+              window.innerWidth - maxWidth - 8,
+              reference.left + (reference.width - maxWidth) / 2,
+            ),
+          )
+        : Math.max(8, (window.innerWidth - maxWidth) / 2);
+      setPosition({
+        left,
+        maxWidth,
+        bottom: dockRect
+          ? Math.max(8, window.innerHeight - dockRect.top + 8)
+          : 24,
+      });
+    };
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(measure);
+    };
     const dock = document.querySelector<HTMLElement>("[data-composer-dock]");
     const stack = dock?.querySelector<HTMLElement>(".composer-stack");
-    const dockRect = dock?.getBoundingClientRect();
-    const stackRect = stack?.getBoundingClientRect();
-    const maxWidth = Math.max(
-      0,
-      Math.min(
-        260,
-        window.innerWidth - 16,
-        stackRect?.width ?? window.innerWidth - 16,
-      ),
-    );
-    const reference = stackRect ?? dockRect;
-    const left = reference
-      ? Math.max(
-          8,
-          Math.min(
-            window.innerWidth - maxWidth - 8,
-            reference.left + (reference.width - maxWidth) / 2,
-          ),
-        )
-      : Math.max(8, (window.innerWidth - maxWidth) / 2);
-    setPosition({
-      left,
-      maxWidth,
-      bottom: dockRect
-        ? Math.max(8, window.innerHeight - dockRect.top + 8)
-        : 24,
-    });
+    const mainPane = document.querySelector<HTMLElement>(".main-pane");
+    const appShell = document.querySelector<HTMLElement>(".app-shell");
+    const resize = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(schedule);
+    for (const target of [dock, stack, mainPane, appShell]) {
+      if (resize && target) resize.observe(target);
+    }
+    const mutation = typeof MutationObserver === "undefined" ? null : new MutationObserver(schedule);
+    if (appShell && mutation) {
+      mutation.observe(appShell, { attributes: true, attributeFilter: ["class", "style"] });
+    }
+    measure();
+    window.addEventListener("resize", schedule);
+    return () => {
+      cancelAnimationFrame(frame);
+      resize?.disconnect();
+      mutation?.disconnect();
+      window.removeEventListener("resize", schedule);
+    };
   }, []);
 
   const saveComment = (value = comment) => onSave(value);

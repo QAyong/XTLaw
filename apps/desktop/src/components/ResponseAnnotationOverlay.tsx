@@ -73,7 +73,7 @@ export function ResponseAnnotationOverlay({
       // pending file/browser annotations must remain visible there too. The
       // transcript bounds below still use the docked-only selector because
       // only a transcript has a reading boundary to clamp against.
-      const composerDock = document.querySelector("[data-composer-dock]");
+      const composerDock = document.querySelector<HTMLElement>("[data-composer-dock]");
       const dockRect = composerDock?.getBoundingClientRect();
       const stackRect = composerDock
         ?.querySelector<HTMLElement>(".composer-stack")
@@ -166,23 +166,42 @@ export function ResponseAnnotationOverlay({
       }
       schedule();
     };
+    // The attachment index has no transcript root (`scrollRef` is null), but it
+    // still has to follow the composer when the sidebar changes the main-pane
+    // width. Observe both layout boxes and the shell's inline CSS variable
+    // updates; a sidebar drag does not emit `window.resize`.
+    const composerDock = document.querySelector<HTMLElement>("[data-composer-dock]");
+    const composerStack = composerDock?.querySelector<HTMLElement>(".composer-stack");
+    const mainPane = document.querySelector<HTMLElement>(".main-pane");
+    const appShell = document.querySelector<HTMLElement>(".app-shell");
+
     measure();
     if (root) {
       root.addEventListener("scroll", onScroll, { capture: true, passive: true });
       root.addEventListener("scrollend", onScrollEnd, { passive: true });
     }
     window.addEventListener("resize", schedule);
-    const resize = new ResizeObserver(schedule);
-    if (wrap) resize.observe(wrap);
-    if (root) {
-      resize.observe(root);
-      if (root.firstElementChild) resize.observe(root.firstElementChild);
+    const resize = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(schedule);
+    const resizeTargets = [
+      wrap,
+      root,
+      root?.firstElementChild,
+      composerDock,
+      composerStack,
+      mainPane,
+      appShell,
+    ];
+    if (resize) {
+      for (const target of resizeTargets) {
+        if (target) resize.observe(target);
+      }
     }
-    const resizeDock = document.querySelector(COMPOSER_DOCK_SELECTOR);
-    if (resizeDock) resize.observe(resizeDock);
-    const mutation = root ? new MutationObserver(schedule) : null;
+    const mutation = typeof MutationObserver === "undefined" ? null : new MutationObserver(schedule);
     if (root && mutation) {
       mutation.observe(root, { childList: true, subtree: true, characterData: true });
+    }
+    if (appShell && mutation) {
+      mutation.observe(appShell, { attributes: true, attributeFilter: ["class", "style"] });
     }
     return () => {
       cancelAnimationFrame(frame);
@@ -191,7 +210,7 @@ export function ResponseAnnotationOverlay({
       root?.removeEventListener("scroll", onScroll, true);
       root?.removeEventListener("scrollend", onScrollEnd);
       window.removeEventListener("resize", schedule);
-      resize.disconnect();
+      resize?.disconnect();
       if (mutation) mutation.disconnect();
     };
   }, [annotations, scrollRef, sessionId]);

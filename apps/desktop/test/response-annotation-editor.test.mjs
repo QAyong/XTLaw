@@ -248,7 +248,8 @@ test("the comment editor is accessible, saves on submit, and never sends", () =>
   assert.match(dialog, /onSave\(value\)/);
   assert.match(dialog, /selection-quote is-comment response-annotation-popover/);
   assert.doesNotMatch(dialog, /annotationSelectedText|response-annotation-quote|IconChat|IconClose/);
-  assert.doesNotMatch(dialog, /addEventListener\("scroll"|addEventListener\("resize"/);
+  assert.match(dialog, /addEventListener\("resize"/);
+  assert.match(dialog, /ResizeObserver/);
   assert.doesNotMatch(dialog, /sendPrompt|api\.prompt/);
   assert.match(messagesStyles, /\.selection-quote\.is-comment\s*\{[\s\S]*?width: min\(260px/);
   assert.doesNotMatch(messagesStyles, /\.response-annotation-dialog\s*\{|\.response-annotation-popover\s*\{/);

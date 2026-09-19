@@ -7865,7 +7865,9 @@ identify the platform validation still needed.
   ranges before clicking any item, then expand the floating index, inspect the
   list, and collapse it again. 3) Click each numbered item, then
   its source badge. 4) Scroll, resize the work panel and composer, and revisit the
-  session after its source is outside the mounted history window. 5) Edit/remove
+  session after its source is outside the mounted history window. Open the app
+  sidebar and drag its edge while the index and editor are visible, then reopen
+  the editor. 5) Edit/remove
   an item; clear or send the remaining annotations. Copy the answer and inspect
   the outgoing prompt. 6) Repeat on formulas, split highlighted code, and a source
   whose text changed or was removed. 7) Save an annotation, empty the composer,
@@ -7887,7 +7889,9 @@ identify the platform validation still needed.
   coincident and clip to the visible transcript, never the composer. Copied answer
   text, Markdown, formulas and layout are unchanged. Anchor metadata is not in the
   prompt. Hidden/read-only panes show no index or badges. Send/clear removes both;
-  no persistence, host protocol, schema, IPC or permission change. Step 7 enables
+  Opening or dragging the app sidebar keeps the floating index, source badges,
+  and comment editor aligned with the composer; no stale coordinates remain. There
+  is no persistence, host protocol, schema, IPC or permission change. Step 7 enables
   Send for saved annotations without request text (queues while running), carries
   each excerpt/comment in the existing block, and consumes only that session's
   sent annotations. No filler request is invented. Truly empty submissions remain

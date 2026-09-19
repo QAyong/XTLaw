@@ -582,11 +582,11 @@ export function useAppShellRuntime() {
         useAppStore.getState().appendComposerDraftText(text);
       }
     });
-    // A file or browser selection is a pending comment, not draft text, and it
-    // lists above the composer the same way a transcript selection does. The
-    // panel's own pill collected the comment beside the selection, so the
-    // excerpt is attached outright; an excerpt sent without one still gets the
-    // renderer's editor.
+    // A file or browser selection is a pending annotation, not draft text, and
+    // it lists above the composer the same way a transcript selection does.
+    // Isolated panel/browser clients normally collect the comment locally and
+    // send it with this event; older clients without it still use the shared
+    // renderer editor as a compatibility fallback.
     const offComposerSelection = api.onComposerSelection(
       ({ text, source, comment }) => {
         if (typeof text !== "string" || !text.trim() || !source) return;

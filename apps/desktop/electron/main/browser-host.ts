@@ -67,9 +67,10 @@ export type BrowserHostDeps = {
   getScratchDir?: (sessionId?: string) => string | null;
   onState: (state: BrowserState) => void;
   /**
-   * Selections carry the comment written in the picker's own card. It is
-   * undefined for a card that was never used, and an empty string for one
-   * saved without text — downstream the two are not the same thing.
+   * The guest picker collects the optional comment in its local compact card.
+   * It is undefined for a card that was never used and may be an empty string
+   * when the user explicitly saves without text; older picker clients may
+   * still omit it and use the renderer fallback editor.
    */
   onElementSelection?: (selection: BrowserElementSelection, comment?: string) => void;
   onElementCopy?: (selection: BrowserElementSelection) => void;

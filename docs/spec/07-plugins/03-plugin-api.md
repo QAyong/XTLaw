@@ -573,8 +573,11 @@ The bundled Browser chrome also uses the fixed panel channels
 `browser.setElementPicker({ enabled: boolean })` and
 `browser.getElementPicker()` (same `browser.cdp` permission) to enter, leave,
 or restore host-controlled DOM element annotation. This is a panel interaction,
-not an agent action; selected content is returned to the host and appended
-through the existing Composer prefill path.
+not an agent action; selected content is returned to the host through the same
+`composer.addSelection` pending-annotation contract as Files and Office. The
+isolated Browser page owns the compact comment card for this selection and
+sends the page context together with the optional comment only when the user
+saves it; it never appends the context to the Composer draft.
 
 `getHistory` returns newest-first entries explicitly recorded by the host, with
 text and images interleaved in capture order. Content written through
@@ -956,7 +959,10 @@ additive `docx?` anchor. A DOCX anchor has the opened-file `documentHash` and
 one or more native Word `w14:paraId` values in `paragraphIds`. The editor's
 internal block indexes and character offsets never cross the plugin boundary.
 An empty excerpt, an unknown source shape, an invalid DOCX anchor, or an
-unbounded one is refused with `INVALID_ARGUMENT`.
+unbounded one is refused with `INVALID_ARGUMENT`. Current bundled surfaces
+collect the optional comment in their local compact card and send it with the
+selection; the optional field remains accepted for older plugins that omit it
+and use the renderer fallback editor.
 
 `plugin.setSettings`, `fs.remove`, and arbitrary Electron IPC are not exposed. A
 channel the host does not implement itself is forwarded to the plugin's

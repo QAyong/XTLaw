@@ -10,7 +10,7 @@
  * it never participates in the transcript's layout or scroll extent. The
  * selection is serialized back to Markdown when the pill appears — the DOM the
  * range points at can change while it is on screen — and every action only
- * writes a draft, a clipboard entry, a side chat, or the annotation comment
+ * writes a draft, a clipboard entry, a side chat, or the shared annotation
  * editor: nothing is sent to the conversation being read, no session is created,
  * and nothing is written to its transcript.
  */
@@ -19,6 +19,7 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import type { RefObject } from "react";
 import { IconCheck, IconCopy } from "./icons";
+import { SelectionActionPopover } from "./SelectionActionPopover";
 import { useCopy } from "./Markdown";
 import { useAppStore } from "../stores/app-store";
 import {
@@ -55,19 +56,13 @@ export function SelectionQuoteButton({
     maxWidth: number;
   } | null>(null);
   const pillRef = useRef<HTMLDivElement | null>(null);
-  // Add to chat on an assistant turn turns the pill into the comment input in
-  // place (D-LOCAL-selection-overlay): the comment is written next to the
-  // passage it belongs to, so no window-centred editor has to open over the
-  // work panel.
+  // Add to chat keeps the original selection pill and swaps its action row for
+  // the small comment input. The guard prevents its focus-induced selection
+  // collapse from dismissing the card.
   const [comment, setComment] = useState("");
   const [commenting, setCommenting] = useState(false);
-  // Read by the document listeners below, which are installed once.
   const commentingRef = useRef(false);
   const commentRef = useRef<HTMLTextAreaElement | null>(null);
-  // The selected occurrence, read while the native selection is still live: the
-  // comment input takes focus on the frame it appears, which collapses that
-  // selection, and an annotation saved afterwards could no longer tell which
-  // passage it quoted (D-LOCAL-response-annotations).
   const annotationAnchorRef = useRef<ResponseAnnotationAnchor | undefined>(undefined);
   // A press on the pill must not be read as "the user clicked away", and the
   // host refuses a fork while the visible turn is still running.
@@ -80,8 +75,6 @@ export function SelectionQuoteButton({
     let frame = 0;
     const sync = () => {
       frame = 0;
-      // Focusing the comment input collapses the document selection, and a
-      // recomputed target would take the card away mid-sentence.
       if (pressedRef.current || commentingRef.current) return;
       const dock = document.querySelector(COMPOSER_DOCK_SELECTOR);
       const next = selectionQuoteTarget({
@@ -91,9 +84,9 @@ export function SelectionQuoteButton({
         bottomBoundaryTop: dock ? dock.getBoundingClientRect().top : null,
       });
       // The exact occurrence is snapshotted here, while the native selection is
-      // still live: the comment input takes focus on the frame it appears and
-      // collapses that selection, so reading it at save time would silently
-      // fall back to locating the whole row (D-LOCAL-response-annotations).
+      // still live: the shared editor takes focus after the action and collapses
+      // that selection, so reading it at save time would silently fall back to
+      // locating the whole row (D-LOCAL-response-annotations).
       annotationAnchorRef.current = next?.annotatable
         ? selectionAnnotationAnchorWithinRow(next.rowAnchorId)
         : undefined;
@@ -179,8 +172,6 @@ export function SelectionQuoteButton({
     );
   }, [target, commenting]);
 
-  // The input takes the caret on the frame it appears, so Add to chat then
-  // typing needs no second click.
   useLayoutEffect(() => {
     if (commenting) commentRef.current?.focus();
   }, [commenting]);
@@ -201,10 +192,8 @@ export function SelectionQuoteButton({
 
   const addToChat = () => {
     if (target.annotatable) {
-      // A response turn turns the pill itself into the comment input, anchored
-      // above the passage it quotes (D-LOCAL-selection-overlay). Both the excerpt
-      // and the exact occurrence were snapshotted while the selection was still
-      // live, so focusing the input cannot lose either of them.
+      // The comment is entered in the original compact selection pill. The
+      // excerpt and exact occurrence were already snapshotted on the target.
       commentingRef.current = true;
       setCommenting(true);
       return;
@@ -213,11 +202,11 @@ export function SelectionQuoteButton({
     dismiss();
   };
 
-  const saveComment = () => {
+  const saveComment = (value = comment) => {
     addResponseAnnotation({
       messageId: target.rowAnchorId,
       text: target.markdown,
-      comment,
+      comment: value,
       anchor: annotationAnchorRef.current,
     });
     dismiss();
@@ -228,9 +217,6 @@ export function SelectionQuoteButton({
     dismiss();
   };
 
-  // The comment form of the same pill. It keeps the pill's anchor above the
-  // passage, so the excerpt it quotes stays on screen while the comment is
-  // written, and it never crosses into the work panel's native surface.
   if (commenting) {
     return createPortal(
       <div
@@ -266,7 +252,7 @@ export function SelectionQuoteButton({
             if (event.key !== "Enter" || event.shiftKey) return;
             event.preventDefault();
             event.stopPropagation();
-            if (!event.repeat) saveComment();
+            if (!event.repeat) saveComment(event.currentTarget.value);
           }}
         />
         <div className="selection-quote-comment-actions">
@@ -280,7 +266,7 @@ export function SelectionQuoteButton({
           <button
             type="button"
             className="btn btn-primary selection-quote-comment-btn"
-            onClick={saveComment}
+            onClick={() => saveComment()}
           >
             {t("common.save")}
           </button>
@@ -290,47 +276,32 @@ export function SelectionQuoteButton({
     );
   }
 
-  return createPortal(
-    <div
-      ref={pillRef}
-      className="selection-quote"
-      data-testid="selection-quote"
-      style={
-        placement
-          ? {
-              top: placement.top,
-              left: placement.left,
-              maxWidth: placement.maxWidth,
-            }
-          : { top: 0, left: 0, visibility: "hidden" }
-      }
-      // Keeping the selection alive through the press is what lets the quote be
-      // taken from it rather than from a collapsed caret.
-      onPointerDown={(event) => event.preventDefault()}
-    >
-      <button type="button" className="selection-quote-action" onClick={addToChat}>
-        {t("chat.addToChat")}
-      </button>
-      <span className="selection-quote-sep" aria-hidden="true" />
-      <button
-        type="button"
-        className="selection-quote-action"
-        disabled={sessionRunning}
-        onClick={() => void askInSideChat()}
-      >
-        {t("chat.askInSideChat")}
-      </button>
-      <span className="selection-quote-sep" aria-hidden="true" />
-      <button
-        type="button"
-        className="selection-quote-action icon"
-        aria-label={t("chat.copy")}
-        title={t("chat.copy")}
-        onClick={() => copy(target.markdown)}
-      >
-        {copied ? <IconCheck size={13} /> : <IconCopy size={13} />}
-      </button>
-    </div>,
-    document.body,
+  return (
+    <SelectionActionPopover
+      pillRef={pillRef}
+      placement={placement}
+      testId="selection-quote"
+      actions={[
+        {
+          key: "add",
+          label: t("chat.addToChat"),
+          onClick: addToChat,
+        },
+        {
+          key: "side-chat",
+          label: t("chat.askInSideChat"),
+          disabled: sessionRunning,
+          onClick: () => void askInSideChat(),
+        },
+        {
+          key: "copy",
+          label: copied ? <IconCheck size={13} /> : <IconCopy size={13} />,
+          ariaLabel: t("chat.copy"),
+          title: t("chat.copy"),
+          iconOnly: true,
+          onClick: () => copy(target.markdown),
+        },
+      ]}
+    />
   );
 }

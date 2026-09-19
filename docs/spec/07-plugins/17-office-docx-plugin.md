@@ -75,14 +75,15 @@ applies the same credential-path and containment checks to both forms.
   open lifecycle. If the editor is dirty, the view does not replace the
   in-memory document; autosave remains blocked and the existing save conflict
   flow remains authoritative.
-- Text selected inside the DOCX editor reuses the file-view selection action
-  pattern. The action keeps the same floating pill and inline comment editor,
-  then sends the excerpt through `composer.addSelection` so it appears above
-  the Composer as the same pending annotation used by Files and Browser. The
-  annotation source carries the DOCX path, the opened-file SHA-256, and the
-  native Word paragraph IDs for the selected paragraphs. The selected text is
-  still included as the short human-readable context; the paragraph IDs are
-  the machine-readable location an external DOCX tool can use.
+- Text selected inside the DOCX editor reuses the selection action contract.
+  The isolated Office page owns the DOM action pill and compact comment card,
+  then sends the excerpt and optional comment through
+  `composer.addSelection`. The saved item appears above the Composer as the
+  same pending annotation used by Chat, Files, and Browser. The annotation
+  source carries the DOCX path, the opened-file SHA-256, and the native Word
+  paragraph IDs for the selected paragraphs. The selected text is still
+  included as the short human-readable context; the paragraph IDs are the
+  machine-readable location an external DOCX tool can use.
 - The DOCX anchor is resolved from the open editor's temporary `docxIndex` to
   the native paragraph-ID map at send time. The editor's block indexes,
   character offsets, page numbers, and block text are never sent as the

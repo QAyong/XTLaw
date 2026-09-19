@@ -22,8 +22,10 @@ used by an Office-aware CLI without depending on the renderer's coordinates.
 ## Decision
 
 1. Office selection actions reuse the existing `composer.addSelection` contract
-   and its floating comment editor. They do not open GenOffice's AI panel and
-   they do not change the visible document as part of selection.
+   and the compact comment-card behavior of the original selection surface. The
+   isolated Office page owns its DOM action pill and comment input; it does not
+   open GenOffice's AI panel or change the visible document as part of
+   selection.
 2. The file source gains an additive `docx` anchor containing the opened-file
    SHA-256 and a bounded, unique `paragraphIds` array of native Word
    `w14:paraId` values. The selected text remains the human-readable context.
@@ -58,8 +60,8 @@ used by an Office-aware CLI without depending on the renderer's coordinates.
 
 ## Consequences
 
-- Office selections use the same pending annotation UI as Files and Browser,
-  so the visible Composer behavior is consistent.
+- Office selections use the same pending annotation contract as Files and
+  Browser while preserving each isolated surface's local compact comment card.
 - The next prompt contains both the bounded excerpt and a machine-readable
   document anchor. An Office-aware CLI can locate the selected paragraph by
   its native ID.

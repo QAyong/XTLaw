@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import type { RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { IconCheck, IconCopy } from "../icons";
+import { SelectionActionPopover } from "../SelectionActionPopover";
 import { useCopy } from "../Markdown";
 import {
   activeSelectionRange,
@@ -80,21 +81,14 @@ export function FileSelectionQuoteButton({
   containerRef: RefObject<HTMLElement | null>;
   sessionId: string | null;
   canAddToChat: boolean;
-  /**
-   * The pill collected the comment itself, beside the passage it quotes, so the
-   * selection arrives with the comment the user wrote (empty when skipped).
-   */
+  /** The pill collects the comment beside the selected workspace excerpt. */
   onAddComment: (
-    selection: Omit<WorkspaceFileSelection, "path" | "language"> & {
-      comment: string;
-    },
+    selection: Omit<WorkspaceFileSelection, "path" | "language"> & { comment: string },
   ) => void;
 }) {
   const { t } = useTranslation();
   const { copied, copy } = useCopy();
   const [target, setTarget] = useState<FileSelectionTarget | null>(null);
-  // The comment form of the pill: the same anchor, a small input instead of the
-  // action row, so nothing has to open a window-centred editor.
   const [commenting, setCommenting] = useState(false);
   const [comment, setComment] = useState("");
   const [placement, setPlacement] = useState<{
@@ -122,8 +116,6 @@ export function FileSelectionQuoteButton({
     };
     const sync = () => {
       frame = 0;
-      // A comment being written owns the card: focusing its input collapses the
-      // document selection, which must not take the card away.
       if (pressedRef.current || commentingRef.current) return;
       setTarget(fileSelectionTarget(containerRef.current));
     };
@@ -186,47 +178,38 @@ export function FileSelectionQuoteButton({
     setPlacement(
       placeSelectionQuote({ anchor: target.anchor, size, bounds: target.bounds }),
     );
-    // Re-measured when the card replaces the action row, so the wider form still
-    // sits against the passage instead of jumping away from it.
   }, [target, commenting]);
 
   useLayoutEffect(() => {
-    if (!commenting) return;
-    commentRef.current?.focus();
+    if (commenting) commentRef.current?.focus();
   }, [commenting]);
 
   const dismiss = useCallback(() => {
     window.getSelection()?.removeAllRanges();
-    setTarget(null);
-    setPlacement(null);
     commentingRef.current = false;
     setCommenting(false);
     setComment("");
+    setTarget(null);
+    setPlacement(null);
   }, []);
 
   if (!target) return null;
 
   const addToChat = () => {
-    // The pill turns into the comment input in place, anchored above the passage
-    // it quotes (D-LOCAL-selection-overlay). The excerpt is already snapshotted
-    // on the target, so focusing the input cannot lose it.
     commentingRef.current = true;
     setCommenting(true);
   };
 
-  const saveComment = () => {
+  const saveComment = (value = comment) => {
     onAddComment({
       text: target.text,
       startLine: target.startLine,
       endLine: target.endLine,
-      comment,
+      comment: value,
     });
     dismiss();
   };
 
-  // The comment form of the same pill. It keeps the pill's anchor above the
-  // passage, so the excerpt it quotes stays on screen while the comment is
-  // written. No pointerdown guard here: the input has to take the caret.
   if (commenting) {
     return createPortal(
       <div
@@ -262,7 +245,7 @@ export function FileSelectionQuoteButton({
             if (event.key !== "Enter" || event.shiftKey) return;
             event.preventDefault();
             event.stopPropagation();
-            if (!event.repeat) saveComment();
+            if (!event.repeat) saveComment(event.currentTarget.value);
           }}
         />
         <div className="selection-quote-comment-actions">
@@ -276,7 +259,7 @@ export function FileSelectionQuoteButton({
           <button
             type="button"
             className="btn btn-primary selection-quote-comment-btn"
-            onClick={saveComment}
+            onClick={() => saveComment()}
           >
             {t("common.save")}
           </button>
@@ -286,44 +269,30 @@ export function FileSelectionQuoteButton({
     );
   }
 
-  return createPortal(
-    <div
-      ref={pillRef}
-      className="selection-quote"
-      data-testid="file-selection-quote"
-      style={
-        placement
-          ? {
-              top: placement.top,
-              left: placement.left,
-              maxWidth: placement.maxWidth,
-            }
-          : { top: 0, left: 0, visibility: "hidden" }
-      }
-      onPointerDown={(event) => event.preventDefault()}
-    >
-      {canAddToChat && (
-        <>
-          <button
-            type="button"
-            className="selection-quote-action"
-            onClick={addToChat}
-          >
-            {t("chat.addToChat")}
-          </button>
-          <span className="selection-quote-sep" aria-hidden="true" />
-        </>
-      )}
-      <button
-        type="button"
-        className="selection-quote-action icon"
-        aria-label={t("chat.copy")}
-        title={t("chat.copy")}
-        onClick={() => copy(target.text)}
-      >
-        {copied ? <IconCheck size={13} /> : <IconCopy size={13} />}
-      </button>
-    </div>,
-    document.body,
+  return (
+    <SelectionActionPopover
+      pillRef={pillRef}
+      placement={placement}
+      testId="file-selection-quote"
+      actions={[
+        ...(canAddToChat
+          ? [
+              {
+                key: "add",
+                label: t("chat.addToChat"),
+                onClick: addToChat,
+              },
+            ]
+          : []),
+        {
+          key: "copy",
+          label: copied ? <IconCheck size={13} /> : <IconCopy size={13} />,
+          ariaLabel: t("chat.copy"),
+          title: t("chat.copy"),
+          iconOnly: true,
+          onClick: () => copy(target.text),
+        },
+      ]}
+    />
   );
 }

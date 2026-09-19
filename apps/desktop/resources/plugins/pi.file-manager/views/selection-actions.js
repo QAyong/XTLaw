@@ -10,29 +10,52 @@
   var refreshFrame = 0;
   var copiedTimer = 0;
 
+  function syncSelectionTheme() {
+    var root = document.documentElement;
+    var light = root.dataset.base === "light" || root.dataset.theme === "light";
+    var tokens = light
+      ? {
+          "--pi-selection-popup-bg": "#ffffff",
+          "--pi-selection-popup-fg": "#1a1c1f",
+          "--pi-selection-popup-border": "rgba(26,28,31,.14)",
+          "--pi-selection-popup-hover": "rgba(26,28,31,.06)",
+          "--pi-selection-popup-accent": "#4f6ede",
+        }
+      : {
+          "--pi-selection-popup-bg": "#1f1f1f",
+          "--pi-selection-popup-fg": "#ffffff",
+          "--pi-selection-popup-border": "rgba(255,255,255,.14)",
+          "--pi-selection-popup-hover": "rgba(255,255,255,.1)",
+          "--pi-selection-popup-accent": "#8ea6ff",
+        };
+    Object.keys(tokens).forEach(function (name) { root.style.setProperty(name, tokens[name]); });
+  }
+
+  syncSelectionTheme();
+  new MutationObserver(syncSelectionTheme).observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["data-base", "data-theme"],
+  });
+
   var style = document.createElement("style");
   style.textContent =
-    ".pi-file-selection-actions{position:fixed;z-index:60;display:inline-flex;align-items:center;padding:3px;border:1px solid var(--border-strong);border-radius:999px;background:var(--surface-raised);color:var(--fg);font-size:11px;line-height:1.35;box-shadow:0 8px 28px color-mix(in oklab,#000 28%,transparent);animation:pi-file-selection-actions-in 120ms ease-out}" +
+    ".pi-file-selection-actions{position:fixed;z-index:60;display:inline-flex;align-items:center;padding:3px;border:1px solid var(--pi-selection-popup-border,var(--border-strong));border-radius:999px;background:var(--pi-selection-popup-bg,var(--surface-raised));color:var(--pi-selection-popup-fg,var(--fg));font-size:11px;line-height:1.35;box-shadow:0 8px 28px color-mix(in oklab,#000 28%,transparent);animation:pi-file-selection-actions-in 120ms ease-out}" +
     ".pi-file-selection-actions button{display:inline-flex;align-items:center;gap:5px;min-height:22px;padding:3px 9px;border:0;border-radius:999px;background:transparent;color:inherit;font:inherit;white-space:nowrap;cursor:pointer;transition:background 120ms ease-out}" +
-    ".pi-file-selection-actions button:hover{background:var(--surface-hover)}" +
+     ".pi-file-selection-actions button:hover{background:var(--pi-selection-popup-hover,var(--surface-hover))}" +
     ".pi-file-selection-actions button:active{transform:scale(.96)}" +
-    ".pi-file-selection-actions button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}" +
+     ".pi-file-selection-actions button:focus-visible{outline:2px solid var(--pi-selection-popup-accent,var(--accent));outline-offset:1px}" +
     ".pi-file-selection-actions .icon{padding:3px 7px}" +
-    ".pi-file-selection-actions .sep{align-self:stretch;width:1px;background:var(--border-strong)}" +
+    ".pi-file-selection-actions .sep{align-self:stretch;width:1px;background:var(--pi-selection-popup-border,var(--border-strong))}" +
     "@keyframes pi-file-selection-actions-in{from{opacity:0}}" +
     "@media (prefers-reduced-motion:reduce){.pi-file-selection-actions{animation:none}}" +
-    // The comment form of the same pill: Add to chat swaps the action row for
-    // a compact input above the selection, so the comment is written next to
-    // the passage it belongs to instead of in a window-centred editor.
     ".pi-file-selection-actions.is-comment{display:block;width:min(260px,calc(100vw - 16px));padding:6px;border-radius:12px}" +
     ".pi-file-selection-comment-input{display:block;width:100%;min-height:40px;max-height:120px;padding:4px 6px;border:0;background:transparent;color:inherit;font:inherit;font-size:12px;line-height:1.35;resize:none}" +
     ".pi-file-selection-comment-input:focus{outline:none}" +
-    ".pi-file-selection-comment-input::placeholder{color:var(--fg);opacity:.4}" +
+    ".pi-file-selection-comment-input::placeholder{color:currentColor;opacity:.45}" +
     ".pi-file-selection-comment-actions{display:flex;justify-content:flex-end;gap:4px;margin-top:2px}" +
-    ".pi-file-selection-comment-actions button{display:inline-flex;align-items:center;min-height:22px;padding:3px 10px;border:0;border-radius:999px;background:transparent;color:inherit;font:inherit;font-size:11px;cursor:pointer}" +
-    ".pi-file-selection-comment-actions button:hover{background:var(--surface-hover)}" +
-    ".pi-file-selection-comment-actions button.primary{background:var(--accent);color:var(--surface-raised)}" +
-    ".pi-file-selection-comment-actions button.primary:hover{opacity:.9}";
+    ".pi-file-selection-comment-actions button{display:inline-flex;align-items:center;min-height:22px;padding:3px 10px;border:0;border-radius:999px;background:transparent;color:inherit;font:inherit;font-size:11px;cursor:pointer;white-space:nowrap}" +
+    ".pi-file-selection-comment-actions button:hover{background:var(--pi-selection-popup-hover,var(--surface-hover))}" +
+    ".pi-file-selection-comment-actions button.primary{background:var(--pi-selection-popup-accent,var(--accent));color:#fff}";
   document.head.appendChild(style);
 
   function bridge() {
@@ -163,27 +186,26 @@
     return document.documentElement.lang.toLowerCase().indexOf("zh") === 0
       ? {
           add: "添加到聊天",
-          copy: "复制",
-          copied: "已复制",
-          added: "已添加",
           comment: "评论",
           commentPlaceholder: "写下你的评论…",
           save: "保存",
           cancel: "取消",
+          copy: "复制",
+          copied: "已复制",
+          added: "已添加",
         }
       : {
           add: "Add to chat",
-          copy: "Copy",
-          copied: "Copied",
-          added: "Added",
           comment: "Comment",
           commentPlaceholder: "Write a comment…",
           save: "Save",
           cancel: "Cancel",
+          copy: "Copy",
+          copied: "Copied",
+          added: "Added",
         };
   }
 
-  /** The excerpt and the place it came from, with the comment it was given. */
   function selectionPayload(comment) {
     return {
       text: serialize(state.path, state.text, state.startLine, state.endLine),
@@ -194,29 +216,44 @@
           endLine: state.endLine,
         },
       },
-      comment: comment,
+      comment: String(comment || "").trim(),
     };
   }
 
-  /**
-   * Add to chat turns the pill into the comment input in place. The excerpt
-   * stays on screen next to the passage it quotes, and nothing opens a
-   * window-centred editor that this page — a native surface — would sit on top
-   * of. `state` already snapshots the selection, so focusing the input (which
-   * collapses the document selection) cannot lose it. Saving attaches the
-   * excerpt with its comment; an empty comment still attaches the excerpt.
-   */
   function openCommentInput(actions) {
     if (!state || !bridge()) return;
     state.mode = "comment";
     actions.classList.add("is-comment");
     actions.innerHTML = "";
-
+    var textLabels = labels();
     var input = document.createElement("textarea");
     input.className = "pi-file-selection-comment-input";
     input.rows = 2;
-    input.placeholder = labels().commentPlaceholder;
-    input.setAttribute("aria-label", labels().comment);
+    input.placeholder = textLabels.commentPlaceholder;
+    input.setAttribute("aria-label", textLabels.comment);
+    var row = document.createElement("div");
+    row.className = "pi-file-selection-comment-actions";
+    var cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.textContent = textLabels.cancel;
+    cancel.addEventListener("click", function () { removeActions(false); });
+    var submit = document.createElement("button");
+    submit.type = "button";
+    submit.className = "primary";
+    submit.textContent = textLabels.save;
+    var save = function () {
+      if (!state) return;
+      var payload = selectionPayload(input.value);
+      if (!payload || !payload.text) return;
+      submit.disabled = true;
+      invoke("composer.addSelection", payload)
+        .then(function () { removeActions(true); })
+        .catch(function () {
+          submit.disabled = false;
+          invoke("ui.showToast", { message: textLabels.add + " failed" }).catch(function () {});
+        });
+    };
+    submit.addEventListener("click", save);
     input.addEventListener("keydown", function (event) {
       if (event.isComposing || event.keyCode === 229) return;
       if (event.key === "Escape") {
@@ -226,46 +263,16 @@
       }
       if (event.key !== "Enter" || event.shiftKey) return;
       event.preventDefault();
-      save(input.value);
+      if (!event.repeat) save();
     });
-
-    var row = document.createElement("div");
-    row.className = "pi-file-selection-comment-actions";
-
-    var cancel = document.createElement("button");
-    cancel.type = "button";
-    cancel.textContent = labels().cancel;
-    cancel.addEventListener("click", function () { removeActions(false); });
-
-    var submit = document.createElement("button");
-    submit.type = "button";
-    submit.className = "primary";
-    submit.textContent = labels().save;
-    submit.addEventListener("click", function () { save(input.value); });
-
     row.appendChild(cancel);
     row.appendChild(submit);
     actions.appendChild(input);
     actions.appendChild(row);
-
-    // The card is wider than the action pill it replaced: re-anchor it above
-    // the selection with its own size before it is painted.
     var position = boundsFor(state.range, actions);
     actions.style.top = position.top + "px";
     actions.style.left = position.left + "px";
     window.requestAnimationFrame(function () { input.focus(); });
-
-    function save(comment) {
-      var payload = state ? selectionPayload(comment) : null;
-      if (!payload || !payload.text) return;
-      submit.disabled = true;
-      invoke("composer.addSelection", payload)
-        .then(function () { removeActions(true); })
-        .catch(function () {
-          submit.disabled = false;
-          invoke("ui.showToast", { message: labels().add + " failed" }).catch(function () {});
-        });
-    }
   }
 
   function makeActions() {
@@ -319,8 +326,6 @@
 
   function refresh() {
     refreshFrame = 0;
-    // The comment input owns the pill while it is open: focusing it collapses
-    // the document selection, and a refresh would take the card away.
     if (state && state.mode === "comment") return;
     var selection = window.getSelection();
     if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {

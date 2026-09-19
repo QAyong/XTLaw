@@ -1131,14 +1131,15 @@ export const api = {
   },
   /**
    * A file or browser selection waiting for a comment. It is not draft text:
-   * the renderer opens the comment editor and lists the excerpt above the
-   * composer, the same way a transcript selection does.
+   * the owning selection surface collects the comment, then the renderer lists
+   * the saved excerpt above the Composer. Older clients may omit the comment
+   * and use the renderer editor fallback.
    */
   onComposerSelection: (
     listener: (event: {
       text: string;
       source: ComposerSelectionSource;
-      /** Present when the panel collected it beside the selection. */
+      /** Isolated surfaces provide the comment collected by their local card. */
       comment?: string;
     }) => void,
   ) => {

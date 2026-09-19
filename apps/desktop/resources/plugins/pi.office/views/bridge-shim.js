@@ -27,6 +27,66 @@
     return noop;
   }
 
+  let currentTheme = null;
+  let appearanceUnsubscribe = null;
+  const themeListeners = new Set();
+
+  function mediaTheme() {
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+
+  function normalizedTheme(value) {
+    const candidate = typeof value === "string" ? value : value?.base || value?.theme;
+    if (candidate === "dark") return "dark";
+    if (candidate === "light") return "light";
+    return mediaTheme();
+  }
+
+  function applyTheme(value) {
+    const next = normalizedTheme(value);
+    currentTheme = next;
+    const root = document.documentElement;
+    root.dataset.theme = next;
+    const tokens = next === "dark"
+      ? {
+          "--pi-selection-popup-bg": "#292929",
+          "--pi-selection-popup-fg": "#f5f5f5",
+          "--pi-selection-popup-border": "rgba(255,255,255,.14)",
+          "--pi-selection-popup-hover": "rgba(255,255,255,.1)",
+          "--pi-selection-popup-accent": "#8ea6ff",
+        }
+      : {
+          "--pi-selection-popup-bg": "#ffffff",
+          "--pi-selection-popup-fg": "#1a1c1f",
+          "--pi-selection-popup-border": "rgba(26,28,31,.14)",
+          "--pi-selection-popup-hover": "rgba(26,28,31,.06)",
+          "--pi-selection-popup-accent": "#4f6ede",
+        };
+    for (const [name, token] of Object.entries(tokens)) root.style.setProperty(name, token);
+    for (const listener of themeListeners) listener(next);
+    return next;
+  }
+
+  async function resolveTheme() {
+    if (currentTheme) return currentTheme;
+    try {
+      const appearance = await bridge?.invoke?.("app.getAppearance");
+      if (appearance) return applyTheme(appearance);
+    } catch {
+      // Fall back to the system theme until the host appearance is available.
+    }
+    return applyTheme(mediaTheme());
+  }
+
+  function subscribeTheme(listener) {
+    themeListeners.add(listener);
+    if (!appearanceUnsubscribe && typeof bridge?.on === "function") {
+      appearanceUnsubscribe = bridge.on("appearance:changed", applyTheme);
+    }
+    void resolveTheme();
+    return () => themeListeners.delete(listener);
+  }
+
   function isAbsolutePath(value) {
     return /^[A-Za-z]:[\\/]/.test(value) || value.startsWith("/");
   }
@@ -54,7 +114,7 @@
   }
 
   function theme() {
-    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    return currentTheme || mediaTheme();
   }
 
   async function readDoc(path) {
@@ -253,7 +313,7 @@
   const desktop = {
     getLanguage: () => Promise.resolve(language()),
     onLanguageChanged: unsubscribe,
-    getTheme: () => Promise.resolve(theme()),
+    getTheme: () => resolveTheme(),
     getCurrentDocxPath: () => currentPath,
     /**
      * Return the document fingerprint and the native paragraph-ID map. The
@@ -272,7 +332,7 @@
         paragraphIds: file.paragraphIds || [],
       });
     },
-    onThemeChanged: unsubscribe,
+    onThemeChanged: subscribeTheme,
     getAutoSaveDefault: () => Promise.resolve({ on: false, updatedAt: 0 }),
     onAutoSaveDefaultChanged: unsubscribe,
     getAiPanelPrefs: () => Promise.resolve(aiPanelPrefs),
@@ -365,6 +425,8 @@
       return () => Promise.resolve(null);
     },
   });
+
+  void resolveTheme();
 
   window.filesPaneApi = new Proxy({}, { get: () => () => Promise.resolve({ ok: false, entries: [] }) });
   window.projectApi = new Proxy({}, { get: () => () => Promise.resolve(null) });

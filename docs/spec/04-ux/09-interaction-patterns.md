@@ -1041,14 +1041,14 @@ Running turns and pending approvals continue to gate the controls.
   raises no overlay, and a range that leaves its row is clamped back to it. It
   never renders in a read-only projection, and it does not steal the selection:
   the pointer press is prevented so the excerpt is whatever was selected,
-  including a whole formula. Add to chat writes a composer draft and focuses the
-  composer; Ask in side chat prefills a blockquote in the side chat anchored at that
-  row; neither sends into the conversation being read. On an assistant turn, Add
-  to chat turns the pill itself into a comment input anchored above the passage
-  instead of writing draft text (D-LOCAL-response-annotations): the excerpt is
-  snapshotted before the selection collapses, Save attaches one annotation to the
-  session's floating index, and the next send carries the excerpts as numbered prompt
-  data (see §7.5a).
+  including a whole formula. On a user-message row, Add to chat writes a
+  composer draft and focuses the composer; Ask in side chat prefills a
+  blockquote in the side chat anchored at that row; neither sends into the
+  conversation being read. On an assistant turn, Add to chat opens the original
+  compact comment card (D-LOCAL-response-annotations): the excerpt is
+  snapshotted before focus collapses the selection, Save attaches one pending
+  annotation to the session's floating index, and the next send carries the
+  excerpts as numbered prompt data (see §7.5a).
 - Selection rules must not disable `focus-visible` feedback or native window
   drag regions.
 
@@ -1056,22 +1056,24 @@ Running turns and pending approvals continue to gate the controls.
 
 - An annotation belongs to an **assistant turn**, never to the user's own
   message: annotating is a response concept (D-LOCAL-response-annotations).
-  Selecting text inside a response fills the comment input in the selection pill
-  itself, anchored above the passage it quotes; a file or browser selection does
-  the same in the surface it came from — inside the plugin page or the preview
-  document where that pill already lives. The turn's annotate action, and an
-  excerpt a surface sent without a comment, opens the compact window-centred
-  editor instead. Either way the comment is written on a snapshot of the excerpt;
-  **Save** attaches one numbered annotation
-  with the optional comment; **Enter** in the comment textarea does the same,
-  while **Shift+Enter** keeps native multiline input and IME confirmation Enter
-  never saves. **Cancel** and **Escape** discard it. Saving
-  the comment sends nothing, and an excerpt that is already attached reopens its
-  own annotation for editing instead of adding a second one (same row and selected
-  offsets; repeated phrases elsewhere remain separate under ADR floating-annotation-index). The annotation does
-  not edit the response: the answer gains a numbered reference only where the
-  model cites the annotation (`:codex-annotation{index="N"}`), and that reference
-  is a tooltip target, not selectable text.
+  Selecting text inside a response opens the original compact renderer comment
+  pill; the selected excerpt is snapshotted in state, but the pill contains only
+  the comment input and actions. It is placed once above the selection and does
+  not follow later scroll or resize. Files, Office, and Browser selections use
+  the same `composer.addSelection` data contract, but keep the compact comment
+  card in the owning page because their source pages are isolated; those pages
+  retain the DOM-specific extraction and action shell required by their security
+  boundary. **Save** attaches one numbered pending annotation with the optional
+  comment; **Enter** in the local textarea does the same, while **Shift+Enter**
+  keeps native multiline input and IME confirmation Enter never saves. **Cancel**,
+  **Escape**, or a press outside the card discard it.
+  Saving the comment sends nothing, and an excerpt that is already attached
+  reopens its own annotation for editing instead of adding a second one (same
+  row and selected offsets; repeated phrases elsewhere remain separate under
+  ADR floating-annotation-index). The annotation does not edit the response:
+  the answer gains a numbered reference only where the model cites it
+  (`:codex-annotation{index="N"}`), and that reference is a tooltip target, not
+  selectable text.
 - Annotations are session state that lives exactly as long as the send that
   carries them. They are numbered in attachment order, listed in a collapsible
   floating index above the composer — collapsed to a one-line count capsule
@@ -1342,7 +1344,8 @@ Project drag/drop follows these patterns:
 ## 8b. Workspace file selection
 
 The host Files viewer supports the same selection affordance as Chat for
-readable file content. This is a draft action, not a second send path.
+readable file content. This is a pending-annotation action, not a draft or
+second send path.
 
 - **Selection scope**: only a non-empty selection whose start and end are both
   inside the visible file body is eligible. Plain text, highlighted code, and
@@ -1354,17 +1357,21 @@ readable file content. This is a draft action, not a second send path.
   chat` plus `Copy`. Clicking elsewhere dismisses it; either action consumes
   the current selection. Copy copies exactly the selected visible text.
 - **Add to chat**: when an active session and a workspace-relative path are
-  available, the action appends ordinary editable text to the active Composer.
-  The draft contains the selected text in a length-bounded fenced block,
+  available, the action opens the compact comment card in the file viewer. Save
+  sends the bounded excerpt, file source, and comment through the shared
+  pending-annotation contract, lists the annotation above the Composer without
+  changing the draft, and no prompt is sent until the user explicitly submits
+  the Composer.
+  The annotation text contains the selected content in a fenced block,
   relative file path, an `@path` location, and the available one-based line
-  range. Existing draft text remains before the excerpt, and no prompt is
-  sent until the user explicitly submits the Composer.
+  range.
 - **Guardrails**: the viewer never reads the whole file again for this action.
   Attachment, absolute/external, image, binary, oversized, missing, or
   failed-to-read content cannot be added to chat. A selection longer than the
-  bounded excerpt is clipped and marked in the draft; fences grow when the
-  selected content contains backticks.
-- **Focus and lifecycle**: adding a selection returns focus to the Composer;
+  bounded excerpt is clipped and marked in the annotation; fences grow when
+  the selected content contains backticks.
+- **Focus and lifecycle**: saving an annotation closes the local card and leaves
+  the Composer available;
   changing files, changing workspace/session, leaving the Files tab, or
   clearing the browser selection removes the pill. The existing file viewer
   remains read-only and its filesystem ownership does not change.
@@ -1372,7 +1379,7 @@ readable file content. This is a draft action, not a second send path.
 ## 8c. Browser element annotation
 
 The bundled Browser view exposes an explicit element-annotation mode for adding
-page context to the current Composer draft.
+page context as a pending annotation for the current Composer.
 
 - **Mode and highlight**: clicking the Browser toolbar's selection button
   enters a host-controlled picker. Hovering outlines the DOM element under the
@@ -1384,12 +1391,14 @@ page context to the current Composer draft.
   Clicking outside the pill dismisses the current selection; Escape exits
   selection mode. The action surface is injected into the native Browser guest
   because that surface composites above the renderer.
-- **Add to chat**: the host appends ordinary editable text through the existing
-  Composer prefill path. Element context includes the URL/title, element
-  identity and accessible name, visible text, a sanitized outer-HTML excerpt,
-  a selector hint, and key computed styles. Text-range context includes the
-  URL/title and the selected text. Page content is delimited as untrusted data
-  and no prompt is sent until the user submits the Composer.
+- **Add to chat**: the host opens the compact comment card in the Browser guest.
+  Save sends the bounded page context and comment through the shared
+  pending-annotation contract, lists the annotation above the Composer without
+  writing the page context into the draft, and no prompt is sent until the user
+  submits the Composer. Element context includes the URL/title, element identity
+  and accessible name, visible text, a sanitized outer-HTML excerpt, a selector
+  hint, and key computed styles. Text-range context includes the URL/title and
+  the selected text. Page content is delimited as untrusted data.
 - **Guardrails**: input, textarea, and select values are removed from the HTML
   excerpt; all returned fields are length-bounded by the host. The guest gets
   no renderer, filesystem, or arbitrary IPC capability. Copy is performed by

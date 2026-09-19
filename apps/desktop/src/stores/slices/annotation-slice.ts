@@ -67,10 +67,10 @@ export function createAnnotationSlice({ get, set }: StoreAccess): Pick<AppState,
     },
 
     /**
-     * The selection pills write here directly: the comment is typed in the pill
-     * itself, next to the passage it belongs to, so nothing has to open a
-     * window-centred editor (D-LOCAL-selection-overlay). A blank excerpt, a stale
-     * target, or an excerpt that is already attached changes nothing.
+     * Compatibility path for older host/panel clients that already supplied a
+     * comment. Current renderer and bundled-plugin selection surfaces open the
+     * shared editor instead. A blank excerpt, a stale target, or an excerpt that
+     * is already attached changes nothing.
      */
     addResponseAnnotation: ({ messageId, text, comment, anchor, source }) => {
       const sessionId = get().activeSessionId;

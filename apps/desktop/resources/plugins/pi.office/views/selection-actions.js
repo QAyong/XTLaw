@@ -8,21 +8,21 @@
 
   const style = document.createElement("style");
   style.textContent =
-    ".pi-office-selection-actions{position:fixed;z-index:2147483640;display:inline-flex;align-items:center;padding:3px;border:1px solid var(--border-strong,#555);border-radius:999px;background:var(--surface-raised,#292929);color:var(--fg,#f5f5f5);font:11px/1.35 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;box-shadow:0 8px 28px rgba(0,0,0,.28);animation:pi-office-selection-in 120ms ease-out}" +
+     ".pi-office-selection-actions{position:fixed;z-index:2147483640;display:inline-flex;align-items:center;padding:3px;border:1px solid var(--pi-selection-popup-border,#d0d5dd);border-radius:999px;background:var(--pi-selection-popup-bg,#fff);color:var(--pi-selection-popup-fg,#1a1c1f);font:11px/1.35 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;box-shadow:0 8px 28px rgba(0,0,0,.18);animation:pi-office-selection-in 120ms ease-out}" +
     ".pi-office-selection-actions button{display:inline-flex;align-items:center;min-height:22px;padding:3px 10px;border:0;border-radius:999px;background:transparent;color:inherit;font:inherit;white-space:nowrap;cursor:pointer}" +
-    ".pi-office-selection-actions button:hover{background:var(--surface-hover,rgba(255,255,255,.1))}" +
+     ".pi-office-selection-actions button:hover{background:var(--pi-selection-popup-hover,rgba(26,28,31,.06))}" +
     ".pi-office-selection-actions button:active{transform:scale(.96)}" +
-    ".pi-office-selection-actions button:focus-visible{outline:2px solid var(--accent,#6d8cff);outline-offset:1px}" +
+     ".pi-office-selection-actions button:focus-visible{outline:2px solid var(--pi-selection-popup-accent,#4f6ede);outline-offset:1px}" +
     "@keyframes pi-office-selection-in{from{opacity:0;transform:translateY(2px)}}" +
     "@media (prefers-reduced-motion:reduce){.pi-office-selection-actions{animation:none}}" +
     ".pi-office-selection-actions.is-comment{display:block;width:min(260px,calc(100vw - 16px));padding:6px;border-radius:12px}" +
     ".pi-office-selection-comment-input{display:block;width:100%;min-height:40px;max-height:120px;padding:4px 6px;border:0;background:transparent;color:inherit;font:inherit;font-size:12px;line-height:1.35;resize:vertical}" +
     ".pi-office-selection-comment-input:focus{outline:none}" +
-    ".pi-office-selection-comment-input::placeholder{color:var(--fg,#f5f5f5);opacity:.4}" +
+    ".pi-office-selection-comment-input::placeholder{color:currentColor;opacity:.45}" +
     ".pi-office-selection-comment-actions{display:flex;justify-content:flex-end;gap:4px;margin-top:2px}" +
-    ".pi-office-selection-comment-actions button{display:inline-flex;align-items:center;min-height:22px;padding:3px 10px;border:0;border-radius:999px;background:transparent;color:inherit;font:inherit;font-size:11px;cursor:pointer}" +
-    ".pi-office-selection-comment-actions button:hover{background:var(--surface-hover,rgba(255,255,255,.1))}" +
-    ".pi-office-selection-comment-actions button.primary{background:var(--accent,#6d8cff);color:var(--surface-raised,#292929)}";
+    ".pi-office-selection-comment-actions button{display:inline-flex;align-items:center;min-height:22px;padding:3px 10px;border:0;border-radius:999px;background:transparent;color:inherit;font:inherit;font-size:11px;cursor:pointer;white-space:nowrap}" +
+    ".pi-office-selection-comment-actions button:hover{background:var(--pi-selection-popup-hover,rgba(26,28,31,.06))}" +
+    ".pi-office-selection-comment-actions button.primary{background:var(--pi-selection-popup-accent,#4f6ede);color:#fff}";
   document.head.appendChild(style);
 
   function invoke(channel, payload) {
@@ -246,30 +246,25 @@
 
   function openCommentInput(actions) {
     if (!state) return;
-    const textLabels = labels();
     state.mode = "comment";
     actions.classList.add("is-comment");
     actions.innerHTML = "";
-
+    const textLabels = labels();
     const input = document.createElement("textarea");
     input.className = "pi-office-selection-comment-input";
     input.rows = 2;
     input.placeholder = textLabels.commentPlaceholder;
     input.setAttribute("aria-label", textLabels.comment);
-
     const row = document.createElement("div");
     row.className = "pi-office-selection-comment-actions";
-
     const cancel = document.createElement("button");
     cancel.type = "button";
     cancel.textContent = textLabels.cancel;
     cancel.addEventListener("click", () => removeActions(false));
-
     const submit = document.createElement("button");
     submit.type = "button";
     submit.className = "primary";
     submit.textContent = textLabels.save;
-
     const save = async () => {
       let payload;
       try {
@@ -288,7 +283,6 @@
         void invoke("ui.showToast", { message: textLabels.failed });
       }
     };
-
     submit.addEventListener("click", () => void save());
     input.addEventListener("keydown", (event) => {
       if (event.isComposing || event.keyCode === 229) return;
@@ -301,11 +295,8 @@
       event.preventDefault();
       if (!event.repeat) void save();
     });
-
-    row.appendChild(cancel);
-    row.appendChild(submit);
-    actions.appendChild(input);
-    actions.appendChild(row);
+    row.append(cancel, submit);
+    actions.append(input, row);
     const position = positionFor(state.range, actions);
     actions.style.top = `${position.top}px`;
     actions.style.left = `${position.left}px`;

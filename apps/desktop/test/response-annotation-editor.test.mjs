@@ -20,6 +20,7 @@ const composer = await read("../src/components/ResponseAnnotationOverlay.tsx");
 const overlay = await read("../src/components/SelectionQuoteButton.tsx");
 const transcript = await readTranscriptSource();
 const dialog = await read("../src/components/ResponseAnnotationDialog.tsx");
+const messagesStyles = await read("../src/styles/messages.css");
 
 test("Add to chat opens the comment editor instead of attaching the excerpt", () => {
   assert.deepEqual(
@@ -187,14 +188,11 @@ test("the editor belongs to the session it was opened in", () => {
   assert.match(dialog, /editor\.sessionId !== activeSessionId/);
 });
 
-test("the quote surfaces attach the excerpt with the comment they collected", () => {
-  // The pill writes the comment beside the passage it quotes, so it attaches
-  // the excerpt and the comment together instead of opening the editor
-  // (D-LOCAL-selection-overlay).
-  assert.match(
-    overlay,
-    /addResponseAnnotation\(\{\s*messageId: target\.rowAnchorId,\s*text: target\.markdown,\s*comment,\s*anchor: annotationAnchorRef\.current,\s*\}\)/,
-  );
+test("the response selection keeps the original compact comment pill", () => {
+  // Add to chat swaps the selection pill into the small local comment editor.
+  assert.match(overlay, /setCommenting\(true\)/);
+  assert.match(overlay, /data-testid="selection-quote-comment"/);
+  assert.match(overlay, /addResponseAnnotation\(\{/);
   // The excerpt and its exact occurrence are both snapshotted while the native
   // selection is still live, so Locate keeps pointing at the passage the user
   // picked rather than at the whole turn.
@@ -206,9 +204,8 @@ test("the quote surfaces attach the excerpt with the comment they collected", ()
     transcript,
     /openResponseAnnotationEditor\(\{\s*messageId: entry\.anchorId,\s*text: selection \|\| content,\s*anchor: selectionAnnotationAnchorWithinRow\(entry\.anchorId\),\s*\}\)/,
   );
-  // The per-turn action row has no passage to sit beside, so it keeps the
-  // editor.
-  assert.doesNotMatch(overlay, /openResponseAnnotationEditor/);
+  assert.match(overlay, /dismiss\(\)/);
+  assert.match(overlay, /selection-quote-comment-input/);
   assert.doesNotMatch(transcript, /addResponseAnnotation/);
 });
 
@@ -220,8 +217,8 @@ test("the store saves the editor through the annotation transition", () => {
   );
   // A no-op save closes the editor without resurrecting the annotation.
   assert.match(store, /if \(!next\) return \{ responseAnnotationEditor: null \};/);
-  // The pills write through the direct attach path: same transition, no
-  // editor state and therefore no window-centred dialog.
+  // The direct attach path remains available for legacy host/panel clients;
+  // current selection surfaces open the shared editor above.
   assert.match(
     store,
     /addResponseAnnotation: \(\{ messageId, text, comment, anchor, source \}\) => \{/,
@@ -244,10 +241,15 @@ test("the floating index lists each annotation with edit and remove actions", ()
 
 test("the comment editor is accessible, saves on submit, and never sends", () => {
   assert.match(dialog, /role="dialog"/);
-  assert.match(dialog, /aria-modal="true"/);
+  assert.match(dialog, /aria-modal="false"/);
   assert.match(dialog, /event\.key === "Escape"/);
   assert.match(dialog, /input\.focus\(\)/);
   assert.match(dialog, /t\("chat\.annotationCommentPlaceholder"\)/);
-  assert.match(dialog, /onSave\(comment\)/);
+  assert.match(dialog, /onSave\(value\)/);
+  assert.match(dialog, /selection-quote is-comment response-annotation-popover/);
+  assert.doesNotMatch(dialog, /annotationSelectedText|response-annotation-quote|IconChat|IconClose/);
+  assert.doesNotMatch(dialog, /addEventListener\("scroll"|addEventListener\("resize"/);
   assert.doesNotMatch(dialog, /sendPrompt|api\.prompt/);
+  assert.match(messagesStyles, /\.selection-quote\.is-comment\s*\{[\s\S]*?width: min\(260px/);
+  assert.doesNotMatch(messagesStyles, /\.response-annotation-dialog\s*\{|\.response-annotation-popover\s*\{/);
 });

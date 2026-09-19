@@ -15,6 +15,7 @@ function mount({ previousFocus } = {}) {
   const effects = [];
   const hooks = [];
   const listeners = new Map();
+  const documentListeners = new Map();
   let cursor = 0;
   let tree;
   let closed = 0;
@@ -24,6 +25,8 @@ function mount({ previousFocus } = {}) {
   if (previousFocus) previousFocus.focus = () => { document.activeElement = previousFocus; };
   const composer = { focus() { document.activeElement = composer; } };
   document.querySelector = (selector) => selector.includes('[contenteditable="true"]') ? composer : null;
+  document.addEventListener = (name, handler) => documentListeners.set(name, handler);
+  document.removeEventListener = (name) => documentListeners.delete(name);
   const state = {
     activeSessionId: "s1",
     responseAnnotationEditor: { sessionId: "s1", messageId: "m1", text: "$x^2$", annotationId: null, comment: "" },
@@ -61,6 +64,7 @@ function mount({ previousFocus } = {}) {
     },
     requestAnimationFrame: (callback) => { effects.push(callback); return 1; },
     cancelAnimationFrame() {},
+    Node: class Node {},
   });
   function nodes(node = tree) {
     if (!node || typeof node !== "object") return [];
@@ -98,6 +102,11 @@ function mount({ previousFocus } = {}) {
       listeners.get("keydown")(event);
       return event;
     },
+    pointer: (overrides = {}) => {
+      const event = { target: {}, ...overrides };
+      documentListeners.get("pointerdown")?.(event);
+      return event;
+    },
     unmount: () => { for (const cleanup of cleanups) cleanup(); },
   };
 }
@@ -105,12 +114,12 @@ function mount({ previousFocus } = {}) {
 test("the mounted editor shows the excerpt, focuses the comment and saves typed content", () => {
   const view = mount();
   assert.ok(view.nodes().some((node) => node.props.role === "dialog"));
-  assert.equal(view.nodes().find((node) => node.type === "blockquote").props.children, "$x^2$");
+  assert.equal(view.nodes().some((node) => node.type === "blockquote"), false);
   const input = view.nodes().find((node) => node.type === "textarea");
   assert.equal(view.document.activeElement, input);
   input.props.onChange({ target: { value: "请解释这一步" } });
   view.render();
-  view.nodes().find((node) => node.type === "form").props.onSubmit({ preventDefault() {} });
+  view.nodes().find((node) => node.props.children === "common.save").props.onClick();
   assert.equal(view.saved, "请解释这一步");
   assert.equal(view.closed, 0);
 });
@@ -153,26 +162,15 @@ test("IME Escape keeps the editor open; ordinary Escape is owned by the dialog",
   assert.equal(event.stopped, true, "Escape must not also reach application shortcuts");
 });
 
-test("only a press starting on the backdrop dismisses, not a selection drag ending there", () => {
+test("a pointer outside the compact comment card dismisses it", () => {
   const view = mount();
-  const backdrop = view.nodes()[0];
-  backdrop.props.onClick?.({ target: backdrop, currentTarget: backdrop });
-  assert.equal(view.closed, 0, "a synthesized click after dragging text must not discard it");
-  backdrop.props.onPointerDown({ target: {}, currentTarget: backdrop });
-  assert.equal(view.closed, 0);
-  backdrop.props.onPointerDown({ target: backdrop, currentTarget: backdrop, preventDefault() {} });
+  view.pointer();
   assert.equal(view.closed, 1);
 });
 
-test("Tab stays inside the dialog and Cancel never saves", () => {
+test("Cancel never saves", () => {
   const view = mount();
-  const controls = view.nodes().filter((node) => node.type === "button" || node.type === "textarea");
-  controls.at(-1).focus();
-  view.key({ key: "Tab" });
-  assert.equal(view.document.activeElement, controls[0]);
-  view.key({ key: "Tab", shiftKey: true });
-  assert.equal(view.document.activeElement, controls.at(-1));
-  controls.find((node) => node.props.children === "common.cancel").props.onClick();
+  view.nodes().find((node) => node.props.children === "common.cancel").props.onClick();
   assert.equal(view.closed, 1);
   assert.equal(view.saved, undefined);
 });

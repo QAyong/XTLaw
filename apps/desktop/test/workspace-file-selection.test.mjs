@@ -4,9 +4,10 @@ import test from "node:test";
 
 const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
 
-const [helper, overlay, filesTab] = await Promise.all([
+const [helper, overlay, actionPopover, filesTab] = await Promise.all([
   read("../src/lib/workspace-file-selection.ts"),
   read("../src/components/workpanel/FileSelectionQuoteButton.tsx"),
+  read("../src/components/SelectionActionPopover.tsx"),
   read("../src/components/workpanel/FilesTab.tsx"),
 ]);
 
@@ -22,22 +23,20 @@ test("the file viewer action uses the live selection and never sends it directly
   assert.match(overlay, /activeSelectionRange\(\)/);
   assert.match(overlay, /range\.toString\(\)\.replace\(\/\\r\\n\?\/g, "\\n"\)\.trim\(\)/);
   assert.match(overlay, /window\.getSelection\(\)\?\.removeAllRanges\(\)/);
-  assert.match(overlay, /data-testid="file-selection-quote"/);
+  assert.match(actionPopover, /data-testid=\{testId\}/);
   assert.match(overlay, /t\("chat\.addToChat"\)/);
   assert.doesNotMatch(overlay, /sendPrompt/);
-  // Add to chat fills in a comment beside the passage instead of sending it.
+  // Add to chat keeps the original compact comment input in the file viewer.
+  assert.match(overlay, /SelectionActionPopover/);
   assert.match(overlay, /selection-quote is-comment/);
   assert.match(overlay, /file-selection-quote-comment-input/);
-  assert.doesNotMatch(overlay, /openResponseAnnotationEditor/);
 });
 
-test("adding a file selection attaches the excerpt with the comment it collected", () => {
-  // The excerpt becomes a pending comment item, not draft text: the file viewer
-  // follows the same "Add to chat" contract as the transcript selection pill.
+test("adding a file selection attaches the comment collected in the pill", () => {
   assert.match(filesTab, /addResponseAnnotation\(\{/);
   assert.match(filesTab, /messageId: "",/);
-  assert.match(filesTab, /comment: selection\.comment,/);
   assert.match(filesTab, /source: \{\s*file: \{\s*path: selected,/);
+  assert.match(filesTab, /selection\.comment/);
   assert.doesNotMatch(filesTab, /appendComposerDraftText\(/);
   assert.match(filesTab, /data-file-line-number=\{i \+ 1\}/);
   assert.match(filesTab, /serializeWorkspaceFileSelection\(/);

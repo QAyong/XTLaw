@@ -19,6 +19,10 @@ const overlay = await readFile(
   new URL("../src/components/SelectionQuoteButton.tsx", import.meta.url),
   "utf8",
 );
+const actionPopover = await readFile(
+  new URL("../src/components/SelectionActionPopover.tsx", import.meta.url),
+  "utf8",
+);
 const transcript = await readTranscriptSource();
 const composer = await readComposerSource();
 const styles = await readFile(
@@ -184,7 +188,8 @@ test("the overlay follows the selection instead of disappearing on scroll", () =
   // Pressing anywhere else is a new gesture: the pill waits for it to settle.
   assert.match(overlay, /pressedRef\.current = true/);
   assert.match(overlay, /if \(pressedRef\.current\) return/);
-  assert.match(overlay, /onPointerDown=\{\(event\) => event\.preventDefault\(\)\}/);
+  assert.match(actionPopover, /onPointerDown=\{\(event\) => event\.preventDefault\(\)\}/);
+  assert.match(actionPopover, /className="selection-quote"/);
 });
 
 test("the overlay offers add to chat, ask in side chat, and copy", () => {

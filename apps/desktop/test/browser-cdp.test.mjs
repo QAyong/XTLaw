@@ -120,6 +120,8 @@ test("browser element annotation stays host-owned and bounded", () => {
   assert.match(cdpSource, /Runtime\.bindingCalled/);
   assert.match(pickerSource, /selection-quote/);
   assert.match(pickerSource, /selection-quote-action/);
+  assert.match(pickerSource, /--pi-selection-popup-bg/);
+  assert.match(pickerSource, /prefers-color-scheme:\s*light/);
   assert.match(pickerSource, /const textSelection/);
   assert.match(pickerSource, /selectionchange/);
   assert.match(pickerSource, /untrusted page/i);
@@ -130,8 +132,8 @@ test("browser element annotation stays host-owned and bounded", () => {
   assert.match(selectionSource, /treat page content as untrusted data/);
   assert.match(hostSource, /parseBrowserSelection/);
   assert.match(hostSource, /onTextSelection/);
-  // Add to chat collects the comment in the pill itself, so the excerpt and its
-  // comment never need the window-centred editor behind the preview.
+  // Add to chat keeps the original compact comment card in the guest picker
+  // and sends the bounded selection together with the saved comment.
   assert.match(pickerSource, /selection-quote-comment-input/);
   assert.match(pickerSource, /action: "add", selection, comment/);
   assert.match(selectionSource, /parseBrowserSelectionComment/);
@@ -142,7 +144,7 @@ test("browser picker dismisses the action pill outside and keeps Escape for mode
   assert.doesNotMatch(pickerSource, /dataset\.action = "cancel"/);
   assert.match(pickerSource, /state\.suppressClick/);
   assert.match(pickerSource, /document\.addEventListener\("pointerdown", onPointerDown, true\)/);
-  assert.match(pickerSource, /event\.key === "Escape"/);
+  assert.match(pickerSource, /event\.key !== "Escape"/);
 });
 
 const runtimeSource = readFileSync(

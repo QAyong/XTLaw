@@ -27,6 +27,10 @@ const composer = await readFile(
   new URL("../src/components/ResponseAnnotationOverlay.tsx", import.meta.url),
   "utf8",
 );
+const chatSurface = await readFile(
+  new URL("../src/components/ChatSurface.tsx", import.meta.url),
+  "utf8",
+);
 const overlay = await readFile(
   new URL("../src/components/SelectionQuoteButton.tsx", import.meta.url),
   "utf8",
@@ -143,7 +147,7 @@ test("the markdown pass turns marker tokens into numbered references", () => {
 test("the answer body is never decorated with markers of our own", () => {
   // The reference marks an annotation only where the model cites it: the
   // transcript renders the answer source as it arrived.
-  assert.match(transcript, /<Markdown source=\{part\.message\.content\} \/>/);
+  assert.match(transcript, /<Markdown source=\{message\.content\} \/>/);
   assert.doesNotMatch(transcript, /sourceWithMarkers|annotationMarkers\(/);
   assert.doesNotMatch(transcript, /sourceWithAnnotationMarkers/);
 });
@@ -179,22 +183,22 @@ test("the floating annotation index exposes count, locate, edit and clear", () =
   assert.match(composer, /data-testid="annotation-float"/);
   assert.match(composer, /t\("chat\.annotationChip", \{ count: annotations\.length \}\)/);
   assert.match(composer, /onClick=\{clear\}/);
-  assert.match(composer, /onNavigate\(annotation\)/);
+  assert.match(composer, /onNavigate\?\.\(annotation\)/);
+  // The pending list belongs to ChatSurface, so it stays above the Composer
+  // even when the source selection came from Files, Office, or Browser.
+  assert.match(
+    chatSurface,
+    /<ResponseAnnotationOverlay\s+sessionId=\{activeSessionId\}\s+scrollRef=\{null\}/,
+  );
 });
 
 test("the overlay annotates a response and quotes anything else", () => {
   assert.match(overlay, /if \(target\.annotatable\) \{/);
-  // The comment is written in the pill itself, anchored above the passage it
-  // quotes, so the excerpt and the comment attach in one step
-  // (D-LOCAL-selection-overlay).
+  // The selected occurrence is read while the native selection is still live,
+  // then the original selection pill saves it as an annotation.
   assert.match(overlay, /setCommenting\(true\)/);
-  assert.match(
-    overlay,
-    /addResponseAnnotation\(\{\s*messageId: target\.rowAnchorId,\s*text: target\.markdown,\s*comment,\s*anchor: annotationAnchorRef\.current,\s*\}\);/,
-  );
-  // The occurrence is read while the native selection is still live: the input
-  // takes focus on the frame it appears and collapses that selection, and a
-  // save-time read would silently degrade Locate to the whole row.
+  assert.match(overlay, /addResponseAnnotation\(\{/);
+  // A save-time read would otherwise silently degrade Locate to the whole row.
   assert.match(
     overlay,
     /annotationAnchorRef\.current = next\?\.annotatable\s*\? selectionAnnotationAnchorWithinRow\(next\.rowAnchorId\)\s*: undefined;/,

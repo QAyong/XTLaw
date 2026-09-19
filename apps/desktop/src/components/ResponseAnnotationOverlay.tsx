@@ -10,11 +10,19 @@ import { TooltipButton } from "./ui";
 
 const EMPTY: ResponseAnnotation[] = [];
 
-/** One session's floating index and out-of-flow source badges; never edits Markdown. */
-export function ResponseAnnotationOverlay({ sessionId, scrollRef, onNavigate }: {
+/** One session's pending-annotation surface and optional out-of-flow source badges. */
+export function ResponseAnnotationOverlay({
+  sessionId,
+  scrollRef,
+  onNavigate,
+  showAttachment = true,
+}: {
   sessionId: string;
-  scrollRef: RefObject<HTMLDivElement | null>;
-  onNavigate: (annotation: ResponseAnnotation) => void;
+  /** Transcript scroller used for source highlights; omit for the composer surface. */
+  scrollRef?: RefObject<HTMLDivElement | null> | null;
+  onNavigate?: (annotation: ResponseAnnotation) => void;
+  /** Transcript keeps the source markers but delegates the pending list to ChatSurface. */
+  showAttachment?: boolean;
 }) {
   const { t } = useTranslation();
   const annotations = useAppStore((state) => state.responseAnnotations[sessionId] ?? EMPTY);
@@ -50,9 +58,9 @@ export function ResponseAnnotationOverlay({ sessionId, scrollRef, onNavigate }: 
   }, [annotations.length]);
 
   useLayoutEffect(() => {
-    const root = scrollRef.current;
+    const root = scrollRef?.current ?? null;
     const wrap = root?.parentElement;
-    if (!root || !wrap || !annotations.length) {
+    if (!annotations.length) {
       setGeometry({ badges: [], highlights: [] });
       setFloatPosition(null);
       scrollBaselineRef.current = null;
@@ -61,20 +69,44 @@ export function ResponseAnnotationOverlay({ sessionId, scrollRef, onNavigate }: 
     let frame = 0;
     const measure = () => {
       frame = 0;
+      // The empty-session home surface uses `data-composer-dock="home"`;
+      // pending file/browser annotations must remain visible there too. The
+      // transcript bounds below still use the docked-only selector because
+      // only a transcript has a reading boundary to clamp against.
+      const composerDock = document.querySelector("[data-composer-dock]");
+      const dockRect = composerDock?.getBoundingClientRect();
+      const stackRect = composerDock
+        ?.querySelector<HTMLElement>(".composer-stack")
+        ?.getBoundingClientRect();
+      const anchorRect = wrap?.getBoundingClientRect() ?? stackRect ?? dockRect;
+      if (anchorRect) {
+        const composerMaxWidth = wrap
+          ? Number.parseFloat(
+              getComputedStyle(wrap).getPropertyValue("--chat-composer-max-width"),
+            ) || 768
+          : anchorRect.width;
+        setFloatPosition({
+          left: wrap
+            ? anchorRect.left + Math.max(24, (anchorRect.width - composerMaxWidth) / 2)
+            : anchorRect.left,
+          bottom: Math.max(
+            4,
+            window.innerHeight - (dockRect?.top ?? anchorRect.bottom) + 4,
+          ),
+          maxWidth: Math.max(0, (dockRect ?? anchorRect).width - 48),
+        });
+      } else {
+        setFloatPosition(null);
+      }
+      if (!root || !wrap) {
+        setGeometry({ badges: [], highlights: [] });
+        return;
+      }
       scrollBaselineRef.current = root.scrollTop;
-      const wrapRect = wrap.getBoundingClientRect();
-      const composerMaxWidth = Number.parseFloat(
-        getComputedStyle(wrap).getPropertyValue("--chat-composer-max-width"),
-      ) || 768;
-      setFloatPosition({
-        left: wrapRect.left + Math.max(24, (wrapRect.width - composerMaxWidth) / 2),
-        bottom: Math.max(4, window.innerHeight - wrapRect.bottom + 4),
-        maxWidth: Math.max(0, wrapRect.width - 48),
-      });
-      const dock = document.querySelector(COMPOSER_DOCK_SELECTOR);
+      const transcriptDock = document.querySelector(COMPOSER_DOCK_SELECTOR);
       const bounds = selectionQuoteBounds({ element: root,
         viewport: { width: window.innerWidth, height: window.innerHeight },
-        bottomBoundaryTop: dock?.getBoundingClientRect().top,
+        bottomBoundaryTop: transcriptDock?.getBoundingClientRect().top,
       });
       if (!bounds) { setGeometry({ badges: [], highlights: [] }); return; }
       // The band is clipped by the outer layer, which never moves, while the
@@ -107,6 +139,7 @@ export function ResponseAnnotationOverlay({ sessionId, scrollRef, onNavigate }: 
     };
     const schedule = () => { if (!frame) frame = requestAnimationFrame(measure); };
     const onScroll = () => {
+      if (!root) return;
       const baseline = scrollBaselineRef.current;
       if (baseline === null) {
         schedule();
@@ -134,28 +167,34 @@ export function ResponseAnnotationOverlay({ sessionId, scrollRef, onNavigate }: 
       schedule();
     };
     measure();
-    root.addEventListener("scroll", onScroll, { capture: true, passive: true });
-    root.addEventListener("scrollend", onScrollEnd, { passive: true });
+    if (root) {
+      root.addEventListener("scroll", onScroll, { capture: true, passive: true });
+      root.addEventListener("scrollend", onScrollEnd, { passive: true });
+    }
     window.addEventListener("resize", schedule);
     const resize = new ResizeObserver(schedule);
-    resize.observe(wrap);
-    resize.observe(root);
-    if (root.firstElementChild) resize.observe(root.firstElementChild);
-    const dock = document.querySelector(COMPOSER_DOCK_SELECTOR);
-    if (dock) resize.observe(dock);
-    const mutation = new MutationObserver(schedule);
-    mutation.observe(root, { childList: true, subtree: true, characterData: true });
+    if (wrap) resize.observe(wrap);
+    if (root) {
+      resize.observe(root);
+      if (root.firstElementChild) resize.observe(root.firstElementChild);
+    }
+    const resizeDock = document.querySelector(COMPOSER_DOCK_SELECTOR);
+    if (resizeDock) resize.observe(resizeDock);
+    const mutation = root ? new MutationObserver(schedule) : null;
+    if (root && mutation) {
+      mutation.observe(root, { childList: true, subtree: true, characterData: true });
+    }
     return () => {
       cancelAnimationFrame(frame);
       if (scrollSettleTimerRef.current) clearTimeout(scrollSettleTimerRef.current);
       scrollSettleTimerRef.current = null;
-      root.removeEventListener("scroll", onScroll, true);
-      root.removeEventListener("scrollend", onScrollEnd);
+      root?.removeEventListener("scroll", onScroll, true);
+      root?.removeEventListener("scrollend", onScrollEnd);
       window.removeEventListener("resize", schedule);
       resize.disconnect();
-      mutation.disconnect();
+      if (mutation) mutation.disconnect();
     };
-  }, [annotations, scrollRef]);
+  }, [annotations, scrollRef, sessionId]);
 
   // While scrolling, the layer is offset with a compositor transform (see
   // `onScroll`). The freshly measured rects are published in a commit, and the
@@ -172,7 +211,7 @@ export function ResponseAnnotationOverlay({ sessionId, scrollRef, onNavigate }: 
     setExpanded(true);
     // A file or browser excerpt has no transcript row to travel to; it is
     // listed and edited here like any other annotation.
-    if (annotation.messageId) onNavigate(annotation);
+    if (annotation.messageId) onNavigate?.(annotation);
   };
 
   const annotationFloat = <aside className="response-annotation-float" data-annotation-layer
@@ -219,8 +258,8 @@ export function ResponseAnnotationOverlay({ sessionId, scrollRef, onNavigate }: 
     </aside>;
 
   return <>
-    {createPortal(annotationFloat, document.body)}
-    {createPortal(<div ref={sourceLayerRef} className="response-annotation-source-layer" data-annotation-layer>
+    {showAttachment ? createPortal(annotationFloat, document.body) : null}
+    {scrollRef ? createPortal(<div ref={sourceLayerRef} className="response-annotation-source-layer" data-annotation-layer>
       <div ref={scrollLayerRef} className="response-annotation-scroll-layer">
         {geometry.highlights.map((rect, index) => <span key={index} aria-hidden="true"
           className="response-annotation-highlight" style={{ top: rect.top, left: rect.left, width: rect.width, height: rect.height }} />)}
@@ -237,6 +276,6 @@ export function ResponseAnnotationOverlay({ sessionId, scrollRef, onNavigate }: 
             onClick={() => choose(annotation)}>{index + 1}</button>;
         })}
       </div>
-    </div>, document.body)}
+    </div>, document.body) : null}
   </>;
 }

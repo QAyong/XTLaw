@@ -204,7 +204,12 @@ export const ChatTranscript = memo(function ChatTranscript({
         <SelectionQuoteButton scrollRef={scrollRef} title={sessionTitle} />
       )}
       {!transcriptReadOnly && paneVisible && !veilCovering && sessionId ? (
-        <ResponseAnnotationOverlay sessionId={sessionId} scrollRef={scrollRef} onNavigate={navigateAnnotation} />
+        <ResponseAnnotationOverlay
+          sessionId={sessionId}
+          scrollRef={scrollRef}
+          onNavigate={navigateAnnotation}
+          showAttachment={false}
+        />
       ) : null}
       <div
         className="thread-scroll"

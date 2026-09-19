@@ -142,22 +142,23 @@ prompt as data, numbered so the model can address `Annotation 1`,
 ## Amendment (2026-09-12) — the attachment opens a comment editor
 
 The reference attaches an excerpt through a comment entry, not a silent action:
-selecting text in a response and choosing Comment opens a compact editor over the
-selection with the quote in place. This amendment replaces decision 1's "attaches
+selecting text in a response and choosing Comment opens the original compact
+selection card over the selection. The excerpt snapshot stays in editor state;
+the card renders only the comment input and actions. This amendment replaces decision 1's "attaches
 with an empty `annotation` field" reading and decision 2's silent duplicate no-op
 with that editor; the annotation shape, the prompt block, and every boundary of
 decision 8 are unchanged.
 
 - **Add to chat** on an assistant turn, and the turn's annotate action, open the
-  comment editor instead of attaching the excerpt immediately. The editor shows
+  comment editor instead of attaching the excerpt immediately. The editor keeps
   the excerpt snapshot — the Markdown serialized when the selection was taken,
-  before focus moves into the editor and collapses the selection — above a
-  multiline, optional comment. **Save** attaches the annotation (or updates the
+  before focus moves into the editor and collapses the selection — in state; the
+  compact card renders only a multiline, optional comment input. **Save** attaches the annotation (or updates the
   one being edited) with `annotation` set to the comment with surrounding
   whitespace trimmed; **Cancel**, **Escape** outside IME composition, and a press
-  starting on the backdrop discard it. Dragging selected text onto the backdrop
-  does not dismiss it. Escape is consumed before application shortcuts; closing
-  restores focus to the trigger or the rich composer if the trigger is gone.
+  outside the compact card discards it. Escape is consumed before
+  application shortcuts; closing restores focus to the trigger or the rich
+  composer if the trigger is gone.
   A save with an empty comment still attaches, so Add to chat keeps working
   as a plain reference. Opening or saving the editor sends nothing: no prompt, no
   session, no transcript row.
@@ -203,3 +204,22 @@ newline, and the comment editor's Enter/IME semantics remain independent.
 Queue previews and edit seeds hide the recognized generated block without changing
 stored/wire content. Editing does not rebuild previously consumed attachments;
 ordinary retry reuses the stored prompt. See E2E-CHAT-annotation-ack-and-steering.
+
+## Selection-surface integration amendment (2026-09-19)
+
+All current selection surfaces converge on the same pending-annotation data and
+save lifecycle, while keeping the comment input in the surface that owns the
+selection. Renderer transcript and workspace selections use the compact
+selection card directly; Office, file-manager, and Browser pages keep their
+isolated compact cards because they are native or untrusted surfaces. Their
+**Save** action sends `{ text, source, comment }` through `composer.addSelection`,
+which creates the same pending attachment above the Composer. The next explicit
+Composer send is the only operation that sends it to the model.
+
+The isolated shells publish the shared `--pi-selection-popup-*` semantic tokens.
+Office follows `appearance:changed`, file-manager follows its host theme
+attributes, and Browser follows the host-controlled `prefers-color-scheme`, so
+light mode does not leave an embedded dark action pill. The shared renderer
+editor remains available for assistant-turn annotate actions and editing an
+existing attachment; it is not inserted into the Office, Browser, or file
+manager selection flow.

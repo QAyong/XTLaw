@@ -1017,7 +1017,7 @@ entirely inside the plugin's isolated page:
 | Open with no resource | `Cmd/Ctrl + J` reveals the panel without creating a tab, so the body renders the New launcher. Clicking `+` creates an explicit, closable New tab with the same launcher rows. Activating a row from that tab replaces it with or selects the singleton view. Closing the final tab leaves the panel open in the no-resource state. |
 | Constrained work area | The panel is capped by the shared three-column budget inside the existing client area; MainChat never drops below its 450px floor and the sidebar remains in its user-selected state |
 | New launcher active | The body hosts concise Review and plugin-view buttons. Each row replaces the launcher tab with its destination or activates the existing singleton; the page is independently closeable. |
-| Plugin view active | The body hosts the plugin's own isolated page as a native `WebContentsView`, positioned from the measured surface rect. The rect is re-measured after every render for a short settle window and re-sent only when it changed: collapsing, dragging, or swapping a column moves the dock without resizing it, and a surface that tracks size alone stays at its previous origin — painting over the chat column, covering the selection pill and the prose under it. It remains visible at its full rect while the divider is being resized or a New launcher tab is created; creating a page never pushes the plugin body down or changes its bounds. The native surface is painted with the app's window background for the active theme, so a frame before first paint, or a page that paints nothing, composites as the shell colour rather than black. It is hidden whenever the tab is inactive, the panel is animating, or a blocking overlay reaches into the dock — the search palette, the work-panel menu, and any modal-family dialog whose own box overlaps it, since a dialog composites below the native page. A dialog that stays inside the conversation pane, such as the comment input the floating selection pill opens, leaves the surface up. The same rule governs the Browser preview, which also composites above renderer content. A view whose plugin is disabled, uninstalled, reloaded, or crashed is destroyed; the tab stays and re-opens the page on the next lifecycle event (ADR 0104) |
+| Plugin view active | The body hosts the plugin's own isolated page as a native `WebContentsView`, positioned from the measured surface rect. The rect is re-measured after every render for a short settle window and re-sent only when it changed: collapsing, dragging, or swapping a column moves the dock without resizing it, and a surface that tracks size alone stays at its previous origin — painting over the chat column, covering the selection pill and the prose under it. It remains visible at its full rect while the divider is being resized or a New launcher tab is created; creating a page never pushes the plugin body down or changes its bounds. The native surface is painted with the app's window background for the active theme, so a frame before first paint, or a page that paints nothing, composites as the shell colour rather than black. It is hidden whenever the tab is inactive, the panel is animating, or a blocking overlay reaches into the dock — the search palette, the work-panel menu, and any modal-family dialog whose own box overlaps it, since a dialog composites below the native page. The shared renderer annotation editor is used for assistant-turn and existing-annotation editing; when it is open, the native page yields. Selection surfaces keep their own compact comment card in the isolated page. The same rule governs the Browser preview, which also composites above renderer content. A view whose plugin is disabled, uninstalled, reloaded, or crashed is destroyed; the tab stays and re-opens the page on the next lifecycle event (ADR 0104) |
 | Plugin out of scope | A view contributed by a plugin that is not active in the current project disappears from the New launcher when the project changes. Unlike contributed themes, which are one global setting and stay unfiltered, a view is scoped work |
 
 ### 5.4 Interactions
@@ -1144,15 +1144,11 @@ entirely inside the plugin's isolated page:
 - Tab content specs: Review has host-guarded rollback but no line comments;
   Browser is user-driven (no agent control); Files remains read-only, but
   selecting text in a readable workspace file shows the same floating selection
-  actions as Chat. Add to chat appends only the selected text, relative path,
-  and available line range to the active Composer; it never sends automatically.
-  Images, binary/oversized files, attachment paths, and external paths do not
-  expose the Add to chat action.
-  actions as Chat. Add to chat opens the annotation comment editor with the
-  excerpt — selected text plus relative path and available line range — as a
-  selection sourced from that file; it never sends automatically and never
+  actions as Chat. Add to chat opens the compact comment card in the file view
+  with the excerpt — selected text plus relative path and available line range —
+  as a selection sourced from that file; it never sends automatically and never
   types into the draft. Images, binary/oversized files, attachment paths, and
-  external paths do not
+  external paths do not expose the Add to chat action.
 - Single panel instance; no per-tab detach or split
 
 ### 5.7 Subagent task conversation
@@ -2007,22 +2003,15 @@ Renderer: `apps/desktop/src/components/Markdown.tsx` + `apps/desktop/src/lib/shi
   whole formula), a code block quotes as a fence whose delimiter outgrows any
   backtick run inside it, a table quotes as one `a | b` line per row, and both
   Quote paths — row action and floating affordance — share that one recovery.
-- **Add to chat** writes the comment where the selection is when the row is an
-  assistant turn (§11.10, D-LOCAL-response-annotations): the pill swaps its
-  action row for a compact comment input anchored above the passage it quotes,
-  the excerpt is snapshotted before the selection collapses, and the attachment
-  is created when that input saves — the input itself sends nothing. The
-  assistant turn's action row does the same for its selection (or the whole
-  answer when there is no selection) through the window-centred editor, which
-  is what an entry with no passage to sit beside still opens. Quoting into the
-  draft remains the path for a user message and for the side chat's **Add to
-  main chat**.
-  The Files viewer and the file-manager plugin follow the same rule: their pill
-  becomes that comment input — in the plugin's case inside its own page, which
-  is a native surface no renderer layer can paint over — and the browser
-  preview's pick chip does it inside the guest document. Saving attaches the
-  excerpt with its comment while naming the file or the page it came from
-  instead of a turn id — nothing lands in the draft there either.
+- **Add to chat** on an assistant turn opens the compact response-selection
+  comment card (§11.10, D-LOCAL-response-annotations). The excerpt is
+  snapshotted before focus moves into the card; Save creates a pending
+  annotation above the Composer and sends nothing. Files, Office, file-manager,
+  and Browser pages keep their own compact DOM comment cards where their
+  native/plugin boundary requires them, but send the same `{ text, source,
+  comment }` payload and use the same light/dark selection tokens. Quoting into the draft
+  remains the path for a user message and for the side chat's **Add to main
+  chat**.
 
 ---
 
@@ -3075,12 +3064,13 @@ Anatomy:
 
 ### 11.9 Quoted message drafts (D-LOCAL-message-quotes, D-LOCAL-selection-overlay)
 
-- Quote in the transcript action row (§8.8), Add to chat in the floating
-  selection overlay (§8.8), and Add to main chat in the side chat (§5.8) prefill
-  the composer draft with ordinary Markdown text: each
-  excerpt line prefixed with `> `, then one blank line, then the attribution
-  line rendered from `chat.quoteSource` ("Quoted from {{title}}"; Chinese
-  "引用自 {{title}}"), where the title is the source session's title.
+- Quote in a user-message action row and Add to main chat in the side chat
+  (§5.8) prefill the composer draft with ordinary Markdown text: each excerpt
+  line prefixed with `> `, then one blank line, then the attribution line
+  rendered from `chat.quoteSource` ("Quoted from {{title}}"; Chinese
+  "引用自 {{title}}"), where the title is the source session's title. Add to
+  chat on an assistant turn is the pending-annotation path described in
+  §11.10, not a draft prefill.
 - A selection is serialized back to Markdown before it becomes an excerpt
   (D-LOCAL-selection-overlay): `$…$` / `$$…$$` TeX from the KaTeX annotation, fenced code with a
   language and a delimiter that outgrows its content, backticked inline code,
@@ -3092,43 +3082,32 @@ Anatomy:
 
 ## 11.10 Response annotations (D-LOCAL-response-annotations)
 
-- An excerpt never attaches the moment it is selected. The surface it came from
-  collects the comment next to the passage it quotes, in one of two shapes.
-  The pill itself — selecting text inside an assistant turn and activating
-  **Add to chat** — swaps its action row for a compact comment input anchored
-  above the quoted passage (§8.x, D-LOCAL-selection-overlay). The excerpt is the
-  snapshot taken when the selection was made (the Markdown serialized before
-  focus moves into the input and collapses the selection); the input is a
-  multiline, optional comment beside it. **Save** — or **Enter**, with
-  **Shift+Enter** inserting a newline, independent of the main composer's
-  Enter-to-send preference — attaches the annotation with the comment in its
-  `annotation` field. IME confirmation Enter never saves; key-repeat is ignored
-  by the pill. Saving by keyboard only attaches/updates the annotation, never
-  sends a prompt. An empty comment still attaches the excerpt. **Cancel**,
-  **Escape** outside IME composition, and a press starting outside the pill
-  discard it, and the surface it came from keeps running underneath: no dialog
-  opens, so no native panel has to step aside.
-  The same pill collects it in the other surfaces: the Files viewer's own
-  floating action row and the file-manager plugin page, whose in-page pill
-  becomes the input because that page is a native surface no renderer layer can
-  paint over, and the browser preview's pick chip, which does it inside the
-  guest document. Those items are listed, edited, numbered, and sent like any
-  other annotation, but the block item names the file (path plus line range) or
-  the page (URL plus selector) as its source instead of a turn id: they draw no
-  source badge in the transcript, and **Locate** has no row to travel to.
-- An entry with no passage to sit beside opens the compact, window-centred
-  comment editor over the conversation instead: the assistant turn's annotate
-  action (its selection, or the whole answer when there is none), and any
-  excerpt a surface sent without a comment. It shows the excerpt snapshot above
-  the same multiline, optional comment and follows the same **Save** contract.
-  **Cancel**, **Escape** outside IME composition, and a press starting on
-  the backdrop discard it. Dragging a selection out of the editor never dismisses
-  it. The dialog owns Escape before application shortcuts and restores focus to
-  its trigger, or the rich composer when the floating trigger is gone. Opening
-  or saving the editor never sends. While it is open the work panel yields only
-  when the dialog actually overlaps it — a native panel surface cannot be
-  painted over, and a dialog that stays inside the chat column leaves the panel
-  running. The answer body is not decorated: an
+- An excerpt never attaches the moment it is selected. Selecting text inside an
+  assistant turn opens the compact response-selection comment card; an external
+  surface keeps its own compact card and sends a bounded `{ text, source,
+  comment }` payload through the public selection bridge. Plugin and Browser
+  pages keep their isolated action DOM because they are native or untrusted
+  surfaces. Each card keeps the snapshot taken while the selection was live,
+  renders only the compact comment input, accepts an optional multiline comment,
+  and **Save** — or **Enter**, with **Shift+Enter**
+  inserting a newline, independent of the main composer's Enter-to-send
+  preference — attaches the annotation. IME confirmation Enter never saves;
+  **Cancel** and **Escape** discard it. Saving attaches or updates only the
+  pending annotation and never sends a prompt. A file/page item names its
+  source instead of a turn id, so it draws no transcript badge and Locate has
+  no row to travel to.
+- The response-selection editor is the original compact selection card for a
+  renderer selection, including the assistant turn's annotate action (its
+  selection, or the whole answer when there is none). It is measured and placed
+  once above the selection and does not follow scroll or resize. Office, Browser,
+  and file-manager selections use their equivalent compact card in the owning
+  surface; their cards are also placed once and send the saved comment with the
+  source payload.
+  **Cancel**, **Escape** outside IME composition, and a press outside the card
+  discard it. The editor owns Escape before application shortcuts and restores
+  focus to its trigger, or the rich Composer when the floating trigger is gone.
+  Opening or saving the editor never sends. The
+  answer body is not decorated: an
   annotation appears in the answer only where the model cites it, as a small
   accent-colored numbered reference (`:codex-annotation{index="N"}` in the
   answer's source) whose tooltip is the excerpt and any comment. A marker takes

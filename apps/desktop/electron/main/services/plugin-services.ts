@@ -593,12 +593,17 @@ export function createPluginServices({
     appendComposerDraft: (text) =>
       sendToRenderer(IPC.event.composerPrefill, { text }),
     /**
-     * A panel selection that wants a comment, not draft text. A comment the
-     * panel collected beside the selection attaches directly and lists above
-     * the composer; an excerpt on its own opens the renderer's editor.
+     * A panel selection that wants an annotation, not draft text. Current
+     * isolated panels collect `comment` in their local compact card; the
+     * optional field remains for older panel clients that use the renderer
+     * fallback editor.
      */
     addComposerSelection: ({ text, source, comment }) =>
-      sendToRenderer(IPC.event.composerSelection, { text, source, comment }),
+      sendToRenderer(IPC.event.composerSelection, {
+        text,
+        source,
+        ...(comment === undefined ? {} : { comment }),
+      }),
     /**
      * The richer workspace payload, so `pi.workspace.get` and the
      * `workspace:changed` event both expose the open project's folder roots

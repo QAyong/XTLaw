@@ -1,20 +1,16 @@
 /**
  * Compact comment editor for one response annotation (ADR response-annotations / D-LOCAL-response-annotations).
  *
- * Add to chat in the selection overlay and the assistant turn's annotate action
- * open it with the excerpt snapshotted when the selection was taken; the
- * composer's annotation list opens it to edit an existing comment. Saving writes
- * only the annotation's `annotation` field: nothing is sent, no session is
- * created, and the excerpt is never re-read from the DOM, so a focus change that
- * collapses the selection cannot lose it.
+ * The visual contract intentionally matches the original selection comment
+ * pill: Add to chat swaps the action row for a small textarea with Cancel and
+ * Save. The excerpt remains a renderer snapshot in the store; this card does
+ * not open a second large dialog or repeat the selected text.
  */
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../stores/app-store";
 import type { ResponseAnnotationEditor } from "../lib/response-annotations";
-import { Button, TooltipButton } from "./ui";
-import { IconChat, IconClose } from "./icons";
 
 export function ResponseAnnotationDialog() {
   const editor = useAppStore((s) => s.responseAnnotationEditor);
@@ -28,8 +24,7 @@ export function ResponseAnnotationDialog() {
   const owned = editor && editor.sessionId === activeSessionId ? editor : null;
 
   // The editor belongs to the session it was opened in: switching sessions
-  // must not carry a half-written comment into another conversation, and the
-  // save path must never touch another session's annotations.
+  // must not carry a half-written comment into another conversation.
   useEffect(() => {
     if (editor && editor.sessionId !== activeSessionId) {
       closeResponseAnnotationEditor();
@@ -60,13 +55,17 @@ function CommentEditor({
 }) {
   const { t } = useTranslation();
   const [comment, setComment] = useState(editor.comment);
+  const [position, setPosition] = useState<{
+    top?: number;
+    left: number;
+    maxWidth: number;
+    bottom?: number;
+  } | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const previouslyFocused = document.activeElement as HTMLElement | null;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     const frame = requestAnimationFrame(() => {
       const input = textareaRef.current;
       if (!input) return;
@@ -76,125 +75,123 @@ function CommentEditor({
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.isComposing || event.keyCode === 229) return;
-      if (event.key === "Escape") {
-        event.preventDefault();
-        // The modal owns Escape, not the application's abort shortcut.
-        event.stopImmediatePropagation();
-        onClose();
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      // The comment pill owns Escape, not the application's abort shortcut.
+      event.stopImmediatePropagation();
+      onClose();
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.target instanceof Node && dialogRef.current?.contains(event.target)) {
         return;
       }
-      if (event.key !== "Tab") return;
-      const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
-        "textarea:not([disabled]), button:not([disabled])",
-      );
-      if (!focusable?.length) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
+      onClose();
     };
 
     window.addEventListener("keydown", onKeyDown, true);
+    document.addEventListener("pointerdown", onPointerDown, true);
     return () => {
       cancelAnimationFrame(frame);
       window.removeEventListener("keydown", onKeyDown, true);
-      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("pointerdown", onPointerDown, true);
       if (previouslyFocused?.isConnected && previouslyFocused !== document.body) {
         previouslyFocused.focus();
         if (document.activeElement === previouslyFocused) return;
       }
-      // The floating selection pill disappears on open and never takes focus.
       document.querySelector<HTMLElement>(
         '[data-composer-dock] [contenteditable="true"]',
       )?.focus();
     };
   }, [onClose]);
 
-  const submit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    onSave(comment);
-  };
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+
+    // The shared editor is used for existing annotation edits and assistant
+    // turn actions. Place it once above the Composer; the selection surfaces
+    // themselves use their original local compact card.
+    const dock = document.querySelector<HTMLElement>("[data-composer-dock]");
+    const stack = dock?.querySelector<HTMLElement>(".composer-stack");
+    const dockRect = dock?.getBoundingClientRect();
+    const stackRect = stack?.getBoundingClientRect();
+    const maxWidth = Math.max(
+      0,
+      Math.min(
+        260,
+        window.innerWidth - 16,
+        stackRect?.width ?? window.innerWidth - 16,
+      ),
+    );
+    const reference = stackRect ?? dockRect;
+    const left = reference
+      ? Math.max(
+          8,
+          Math.min(
+            window.innerWidth - maxWidth - 8,
+            reference.left + (reference.width - maxWidth) / 2,
+          ),
+        )
+      : Math.max(8, (window.innerWidth - maxWidth) / 2);
+    setPosition({
+      left,
+      maxWidth,
+      bottom: dockRect
+        ? Math.max(8, window.innerHeight - dockRect.top + 8)
+        : 24,
+    });
+  }, []);
+
+  const saveComment = (value = comment) => onSave(value);
 
   const dialog = (
     <div
-      className="overlay session-rename-dialog-overlay"
-      role="presentation"
-      onPointerDown={(event) => {
-        if (event.target === event.currentTarget) {
-          event.preventDefault();
-          onClose();
-        }
-      }}
+      ref={dialogRef}
+      className="selection-quote is-comment response-annotation-popover"
+      role="dialog"
+      aria-modal="false"
+      aria-label={t("chat.annotationCommentTitle")}
+      data-testid="annotation-comment-dialog"
+      style={position ?? { top: 0, left: 0, visibility: "hidden" }}
     >
-      <div
-        ref={dialogRef}
-        className="dialog session-rename-dialog response-annotation-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="response-annotation-dialog-title"
-        data-testid="annotation-comment-dialog"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="session-rename-dialog-head">
-          <div>
-            <h2
-              id="response-annotation-dialog-title"
-              className="session-rename-dialog-title"
-            >
-              <IconChat size={16} aria-hidden />
-              {t("chat.annotationCommentTitle")}
-            </h2>
-          </div>
-          <TooltipButton
-            type="button"
-            className="session-rename-dialog-close"
-            tooltip={t("common.cancel")}
-            ariaLabel={t("common.cancel")}
-            onClick={onClose}
-          >
-            <IconClose size={16} />
-          </TooltipButton>
-        </div>
-        <form onSubmit={submit}>
-          <div className="response-annotation-quote">
-            <span className="response-annotation-quote-label">
-              {t("chat.annotationSelectedText")}
-            </span>
-            <blockquote className="response-annotation-quote-text">
-              {editor.text}
-            </blockquote>
-          </div>
-          <textarea
-            ref={textareaRef}
-            className="field-textarea response-annotation-comment-input"
-            value={comment}
-            rows={3}
-            aria-label={t("chat.annotationCommentTitle")}
-            placeholder={t("chat.annotationCommentPlaceholder")}
-            onChange={(event) => setComment(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
-              if (event.key !== "Enter" || event.shiftKey) return;
-              event.preventDefault();
-              event.stopPropagation();
-              if (!event.repeat) onSave(event.currentTarget.value);
-            }}
-            data-testid="annotation-comment-input"
-          />
-          <div className="session-rename-dialog-actions">
-            <Button type="button" variant="ghost" onClick={onClose}>
-              {t("common.cancel")}
-            </Button>
-            <Button type="submit" variant="primary">
-              {t("common.save")}
-            </Button>
-          </div>
-        </form>
+      <textarea
+        ref={textareaRef}
+        className="selection-quote-comment-input"
+        data-testid="annotation-comment-input"
+        rows={2}
+        value={comment}
+        aria-label={t("chat.annotationCommentTitle")}
+        placeholder={t("chat.annotationCommentPlaceholder")}
+        onChange={(event) => setComment(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
+          if (event.key === "Escape") {
+            event.preventDefault();
+            event.stopPropagation();
+            onClose();
+            return;
+          }
+          if (event.key !== "Enter" || event.shiftKey) return;
+          event.preventDefault();
+          event.stopPropagation();
+          if (!event.repeat) saveComment(event.currentTarget.value);
+        }}
+      />
+      <div className="selection-quote-comment-actions">
+        <button
+          type="button"
+          className="btn btn-ghost selection-quote-comment-btn"
+          onClick={onClose}
+        >
+          {t("common.cancel")}
+        </button>
+        <button
+          type="button"
+          className="btn btn-primary selection-quote-comment-btn"
+          onClick={() => saveComment()}
+        >
+          {t("common.save")}
+        </button>
       </div>
     </div>
   );

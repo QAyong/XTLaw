@@ -65,10 +65,11 @@ test("the file view is a sandboxed page over the public bridge", () => {
       `expected the view to call ${channel} over the bridge`,
     );
   }
-  // Add to chat opens the host's comment editor: the view sends the excerpt
-  // together with the file it came from instead of typing it into the draft.
+  // Add to chat opens the original compact local comment editor and sends the
+  // bounded excerpt plus the comment through the public bridge.
   assert.match(selectionActions, /composer\.addSelection/);
   assert.match(selectionActions, /path: state\.path,/);
+  assert.match(selectionActions, /comment-input|openCommentInput/);
   assert.match(selectionActions, /clipboard\.writeText/);
   assert.match(viewBundle, /pluginBridge/);
   // No Node, no Electron, no host internals: it is a sandboxed page.
@@ -132,7 +133,7 @@ test("the Office view is a browser-only DOCX plugin over the public bridge", () 
   assert.match(officeSelectionActions, /docxIndex/);
   assert.match(officeSelectionActions, /paragraphIds/);
   assert.match(officeSelectionActions, /documentHash/);
-  assert.match(officeSelectionActions, /commentPlaceholder/);
+  assert.match(officeSelectionActions, /commentPlaceholder|openCommentInput|selection-comment-input/);
   assert.doesNotMatch(officeSelectionActions, /blockIndexes|blockTypes|blockText|startOffset\s*:|endOffset\s*:/);
   assert.match(officeLayoutStability, /pageAnchor/);
   assert.match(officeLayoutStability, /restoreAnchor/);

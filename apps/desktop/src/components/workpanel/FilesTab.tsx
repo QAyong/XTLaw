@@ -278,12 +278,7 @@ export function FilesTab() {
     [usingSessionRoot, activeSessionId],
   );
 
-  /**
-   * The viewer's pill collects the comment beside the passage it quotes, so the
-   * excerpt arrives with it and attaches outright (D-LOCAL-selection-overlay).
-   * `messageId` stays empty: the block names the file it came from instead of a
-   * transcript row.
-   */
+  /** Attach the comment collected in the compact workspace selection pill. */
   const addFileSelectionComment = useCallback(
     (
       selection: Omit<WorkspaceFileSelection, "path" | "language"> & {

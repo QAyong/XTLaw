@@ -15,8 +15,8 @@ export const BROWSER_ELEMENT_PICKER_INSTALL_SCRIPT = String.raw`(() => {
   const old = window[stateKey];
   if (old && typeof old.destroy === "function") old.destroy();
 
-  // "comment" while the pill shows the comment input it swaps in for its action
-  // row, so a focus-induced selection collapse cannot dismiss the card.
+  // While the picker card is in comment mode it owns the captured selection;
+  // focusing its input must not cause the page selection listeners to remove it.
   const state = { enabled: true, selected: null, hover: null, menu: null, style: null, suppressClick: false, mode: null };
   const max = (value, length) => String(value ?? "").trim().slice(0, length);
   const send = (message) => {
@@ -155,41 +155,41 @@ export const BROWSER_ELEMENT_PICKER_INSTALL_SCRIPT = String.raw`(() => {
       "background:color-mix(in srgb,#7c9cff 12%,transparent);box-shadow:0 0 0 1px rgba(255,255,255,.55);" +
       "transition:all 60ms ease}" +
       ".pi-browser-picker-selected{border-color:#35c98b;background:color-mix(in srgb,#35c98b 12%,transparent)}" +
+      ":root{--pi-selection-popup-border:rgba(255,255,255,.14);" +
+      "--pi-selection-popup-bg:rgba(30,30,34,.96);" +
+      "--pi-selection-popup-fg:#f7f7f8;" +
+      "--pi-selection-popup-hover:rgba(255,255,255,.12);" +
+      "--pi-selection-popup-separator:rgba(255,255,255,.14);" +
+      "--pi-selection-popup-shadow:rgba(0,0,0,.24)}" +
       ".selection-quote[data-pi-browser-picker-ui]{position:fixed;z-index:2147483647;display:flex;" +
-      "align-items:center;gap:2px;padding:3px;border:1px solid rgba(255,255,255,.14);border-radius:999px;" +
-      "background:rgba(30,30,34,.96);box-shadow:0 8px 24px rgba(0,0,0,.24);font:12px/1.35 -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}" +
+      "align-items:center;gap:2px;padding:3px;border:1px solid var(--pi-selection-popup-border);border-radius:999px;" +
+      "background:var(--pi-selection-popup-bg);box-shadow:0 8px 24px var(--pi-selection-popup-shadow);font:12px/1.35 -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif}" +
       ".selection-quote[data-pi-browser-picker-ui] .selection-quote-action{display:inline-flex;align-items:center;" +
-      "gap:5px;min-height:22px;padding:3px 9px;border:0;border-radius:999px;background:transparent;color:#f7f7f8;" +
+      "gap:5px;min-height:22px;padding:3px 9px;border:0;border-radius:999px;background:transparent;color:var(--pi-selection-popup-fg);" +
       "font:inherit;cursor:pointer;white-space:nowrap;transition:background 120ms ease-out}" +
-      ".selection-quote[data-pi-browser-picker-ui] .selection-quote-action:hover{background:rgba(255,255,255,.12)}" +
+      ".selection-quote[data-pi-browser-picker-ui] .selection-quote-action:hover{background:var(--pi-selection-popup-hover)}" +
       ".selection-quote[data-pi-browser-picker-ui] .selection-quote-action:active{transform:scale(.96)}" +
       ".selection-quote[data-pi-browser-picker-ui] .selection-quote-action.icon{padding:3px 7px}" +
-      ".selection-quote[data-pi-browser-picker-ui] .selection-quote-sep{align-self:stretch;width:1px;background:rgba(255,255,255,.14)}" +
-      // The comment form of the same pill: Add to chat swaps the action row for
-      // a compact input above the selection, so the comment is written beside
-      // the passage it belongs to instead of in a window-centred editor.
-      ".selection-quote[data-pi-browser-picker-ui].is-comment{display:block;width:min(260px,calc(100vw - 16px));padding:6px;border-radius:12px;color:#f7f7f8}" +
+      ".selection-quote[data-pi-browser-picker-ui] .selection-quote-sep{align-self:stretch;width:1px;background:var(--pi-selection-popup-separator)}" +
+      ".selection-quote[data-pi-browser-picker-ui].is-comment{display:block;width:min(260px,calc(100vw - 16px));padding:6px;border-radius:12px;color:var(--pi-selection-popup-fg)}" +
       ".selection-quote[data-pi-browser-picker-ui] .selection-quote-comment-input{display:block;width:100%;min-height:40px;max-height:120px;padding:4px 6px;border:0;background:transparent;color:inherit;font:inherit;font-size:12px;line-height:1.35;resize:none}" +
       ".selection-quote[data-pi-browser-picker-ui] .selection-quote-comment-input:focus{outline:none}" +
       ".selection-quote[data-pi-browser-picker-ui] .selection-quote-comment-input::placeholder{color:currentColor;opacity:.45}" +
       ".selection-quote[data-pi-browser-picker-ui] .selection-quote-comment-actions{display:flex;justify-content:flex-end;gap:4px;margin-top:2px}" +
       ".selection-quote[data-pi-browser-picker-ui] .selection-quote-comment-actions button{display:inline-flex;align-items:center;min-height:22px;padding:3px 10px;border:0;border-radius:999px;background:transparent;color:inherit;font:inherit;font-size:11px;cursor:pointer;white-space:nowrap}" +
-      ".selection-quote[data-pi-browser-picker-ui] .selection-quote-comment-actions button:hover{background:rgba(255,255,255,.12)}" +
-      ".selection-quote[data-pi-browser-picker-ui] .selection-quote-comment-actions button.primary{background:#7c9cff;color:#fff}" +
-      ".selection-quote[data-pi-browser-picker-ui] .selection-quote-comment-actions button.primary:hover{opacity:.9}" +
+      ".selection-quote[data-pi-browser-picker-ui] .selection-quote-comment-actions button:hover{background:var(--pi-selection-popup-hover)}" +
+      ".selection-quote[data-pi-browser-picker-ui] .selection-quote-comment-actions button.primary{background:var(--pi-selection-popup-accent,#4f6ede);color:#fff}" +
       // The chip floats over an untrusted page, but it is still host UI: it
       // follows the app palette the host publishes to every renderer instead
       // of staying dark under a light theme.
       "@media (prefers-color-scheme: light){" +
       ".pi-browser-picker-highlight{box-shadow:0 0 0 1px rgba(26,28,31,.2)}" +
-      ".selection-quote[data-pi-browser-picker-ui]{border-color:rgba(26,28,31,.08);" +
-      "background:rgba(255,255,255,.97);box-shadow:0 8px 24px rgba(26,28,31,.18)}" +
-      ".selection-quote[data-pi-browser-picker-ui] .selection-quote-action{color:#1a1c1f}" +
-      ".selection-quote[data-pi-browser-picker-ui] .selection-quote-action:hover{background:rgba(26,28,31,.06)}" +
-      ".selection-quote[data-pi-browser-picker-ui] .selection-quote-sep{background:rgba(26,28,31,.12)}" +
-      ".selection-quote[data-pi-browser-picker-ui] .selection-quote-comment-actions button:hover{background:rgba(26,28,31,.06)}" +
-      ".selection-quote[data-pi-browser-picker-ui].is-comment{color:#1a1c1f}" +
-      ".selection-quote[data-pi-browser-picker-ui] .selection-quote-comment-actions button.primary{background:#4f6ede}" +
+      ":root{--pi-selection-popup-border:rgba(26,28,31,.08);" +
+      "--pi-selection-popup-bg:rgba(255,255,255,.97);" +
+      "--pi-selection-popup-fg:#1a1c1f;" +
+      "--pi-selection-popup-hover:rgba(26,28,31,.06);" +
+      "--pi-selection-popup-separator:rgba(26,28,31,.12);" +
+      "--pi-selection-popup-shadow:rgba(26,28,31,.18)}" +
       "}";
     (document.head || document.documentElement).appendChild(style);
     state.style = style;
@@ -232,12 +232,7 @@ export const BROWSER_ELEMENT_PICKER_INSTALL_SCRIPT = String.raw`(() => {
     menu.style.left = Math.max(8, Math.min(window.innerWidth - width - 8, box.x + box.width / 2 - width / 2)) + "px";
     menu.style.top = Math.max(8, Math.min(window.innerHeight - height - 8, top)) + "px";
   };
-  /**
-   * Add to chat turns the pill into the comment input in place, so the comment
-   * is written next to the passage it quotes and nothing opens a window-centred
-   * editor behind a native surface. The selection is already snapshotted, so
-   * focusing the input — which collapses the page selection — cannot lose it.
-   */
+  /** Add to chat keeps the original compact selection card and swaps its actions for the comment input. */
   const openComment = (menu, selection) => {
     const isZh = /^zh/i.test(document.documentElement.lang || navigator.language || "");
     state.mode = "comment";
@@ -253,13 +248,13 @@ export const BROWSER_ELEMENT_PICKER_INSTALL_SCRIPT = String.raw`(() => {
     row.className = "selection-quote-comment-actions";
     const cancel = document.createElement("button");
     cancel.type = "button";
-    cancel.dataset.commentAction = "cancel";
     cancel.textContent = isZh ? "取消" : "Cancel";
+    cancel.dataset.commentAction = "cancel";
     const submit = document.createElement("button");
     submit.type = "button";
     submit.className = "primary";
-    submit.dataset.commentAction = "save";
     submit.textContent = isZh ? "保存" : "Save";
+    submit.dataset.commentAction = "save";
     const save = () => {
       const comment = max(input.value, 2000);
       clearSelection();
@@ -269,7 +264,6 @@ export const BROWSER_ELEMENT_PICKER_INSTALL_SCRIPT = String.raw`(() => {
     submit.addEventListener("click", save);
     input.addEventListener("keydown", (event) => {
       if (event.isComposing || event.keyCode === 229) return;
-      // The open card owns Escape; the picker itself stays on.
       if (event.key === "Escape") {
         event.preventDefault();
         event.stopPropagation();
@@ -278,13 +272,11 @@ export const BROWSER_ELEMENT_PICKER_INSTALL_SCRIPT = String.raw`(() => {
       }
       if (event.key !== "Enter" || event.shiftKey) return;
       event.preventDefault();
-      save();
+      if (!event.repeat) save();
     });
     row.append(cancel, submit);
     menu.append(input, row);
     placeMenu(menu, selection.box);
-    // Measured after it has its final size, so the wider card still sits
-    // against the selection instead of jumping away from it.
     window.requestAnimationFrame(() => {
       placeMenu(menu, selection.box);
       input.focus();
@@ -327,8 +319,6 @@ export const BROWSER_ELEMENT_PICKER_INSTALL_SCRIPT = String.raw`(() => {
     state.menu = menu;
   };
   const onSelectionChange = () => {
-    // The comment card snapshots its selection, so the collapse that focusing
-    // its input causes must not dismiss what is being written in it.
     if (!state.enabled || state.mode === "comment") return;
     const selection = textSelection();
     if (!selection) {
@@ -383,8 +373,6 @@ export const BROWSER_ELEMENT_PICKER_INSTALL_SCRIPT = String.raw`(() => {
   };
   const onKeyDown = (event) => {
     if (event.key !== "Escape") return;
-    // Capture runs before the card's own listener: the open comment input owns
-    // Escape there, which cancels the comment without leaving picker mode.
     if (isUi(event.target)) return;
     clearSelection();
     send({ type: "action", action: "cancel" });

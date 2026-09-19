@@ -395,9 +395,9 @@ export type AppState = {
   /** Save the editor's comment and close it; a stale target is dropped. */
   saveResponseAnnotationEditor: (comment: string) => void;
   /**
-   * Attach an excerpt with its comment in one call, without the editor: the
-   * selection pills collect the comment next to the passage it belongs to
-   * (D-LOCAL-selection-overlay).
+   * Attach an excerpt with its comment in one call, without the editor. This is
+   * retained for legacy host/panel compatibility; current selection surfaces
+   * route through the shared editor.
    */
   addResponseAnnotation: (input: {
     messageId: string;

@@ -70,6 +70,7 @@
       hash: result.hash,
       size: result.size,
       mtimeMs: result.mtimeMs,
+      paragraphIds: Array.isArray(result.paragraphIds) ? result.paragraphIds : [],
     };
     opened.set(file.path, file);
     currentPath = file.path;
@@ -181,6 +182,9 @@
         hash: result.hash,
         size: result.size,
         mtimeMs: result.mtimeMs,
+        paragraphIds: Array.isArray(result.paragraphIds)
+          ? result.paragraphIds
+          : previous.paragraphIds || [],
       });
       externalChangePending = false;
     }
@@ -251,6 +255,23 @@
     onLanguageChanged: unsubscribe,
     getTheme: () => Promise.resolve(theme()),
     getCurrentDocxPath: () => currentPath,
+    /**
+     * Return the document fingerprint and the native paragraph-ID map. The
+     * selection action uses these values to bind a DOCX anchor to the exact
+     * bytes and body-block order the user saw; document bytes remain private
+     * to the editor/plugin lifecycle.
+     */
+    getCurrentDocxState: () => {
+      const file = currentPath ? opened.get(currentPath) : null;
+      if (!file) return Promise.resolve(null);
+      return Promise.resolve({
+        path: file.path,
+        hash: file.hash,
+        size: file.size,
+        mtimeMs: file.mtimeMs,
+        paragraphIds: file.paragraphIds || [],
+      });
+    },
     onThemeChanged: unsubscribe,
     getAutoSaveDefault: () => Promise.resolve({ on: false, updatedAt: 0 }),
     onAutoSaveDefaultChanged: unsubscribe,

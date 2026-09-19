@@ -300,6 +300,7 @@ Each ADR includes:
 | 0269 | [Keep a work-panel context while no conversation is active](0269-session-less-work-panel-context.md) | Accepted (amends ADR 0068 / ADR 0195, D128, D357; D436) |
 | 0270 | [The file view lists a path-less conversation's own scratch directory](0270-session-scratch-in-the-file-view.md) | Accepted (D114, D437) |
 | 0282 | [Retry and right-size the compaction summary before retained-tail recovery](0282-compaction-summary-retry-and-sizing.md) | Accepted (amends ADR 0049; issue #543) |
+| 0284 | [Carry native DOCX paragraph anchors through Add to chat](0284-office-docx-selection-anchors.md) | Accepted (amends ADR 0283; D447) |
 | 0272 | [Judge a public-network address on the route the request will dial](0272-connection-time-public-network-route.md) | Accepted for implementation (amends ADR 0243; issue #419 / PR #473) |
 | 0277 | [Draggable chat content width](0277-draggable-chat-content-width.md) | Accepted (D439) |
 | turn-process-and-thinking-display | [Turn process and thinking presentation](turn-process-and-thinking-display.md) | Accepted |

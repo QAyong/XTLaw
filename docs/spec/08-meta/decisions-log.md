@@ -5600,3 +5600,21 @@ that was sitting at the bottom — including after the turn had finished.
   runtime change. See ADR 0277, `04-ux/07-ui-design-system.md`,
   `04-ux/08-component-spec.md`, `04-ux/09-interaction-patterns.md`, and
   E2E-CHAT-content-width-handles.
+
+## 2026-09-19 — Carry native DOCX paragraph anchors through Add to chat (D447)
+
+- Office text selection reuses the shared `composer.addSelection` and pending
+  annotation UI instead of appending directly to the draft or opening a
+  GenOffice AI panel.
+- The file source carries the opened-file hash and native Word `w14:paraId`
+  values for the selected paragraphs. GenOffice block indexes, character
+  offsets, page numbers, and block text remain renderer-only implementation
+  details; future Office-aware mutation must validate the hash and resolve the
+  paragraph IDs before writing.
+- `pi.office` preserves existing paragraph IDs and performs a one-time,
+  invisible OOXML normalization for missing IDs on read, with an atomic write
+  and a hash recheck. Saves repeat the normalization for newly created
+  paragraphs.
+- This is an additive renderer/plugin-runtime contract change. It does not
+  change the protocol version, persistence schema, file-write permissions, or
+  DOCX save behavior. See ADR 0284 and E2E-OFFICE-docx-open-edit-save.

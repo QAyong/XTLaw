@@ -217,21 +217,30 @@ identify the platform validation still needed.
   that the unsupported file tab, AI entry points and assistant dock, file pane,
   and document-tab window controls are not exposed. Edit text in the Office
   view. Select a passage and click the reused Add to chat action; verify the
-  bounded DOCX excerpt and source location are inserted into the existing
-  Composer draft, then send it. Save. Enable automatic save, modify the same file outside PI while the
+  same inline comment pill and pending annotation surface used by Files. Save
+  the annotation and inspect the next prompt payload: it contains the bounded
+  DOCX excerpt, path, opened-file hash, and native Word paragraph IDs; the
+  editor's block indexes and selection offsets are not included. Then send it.
+  Save. Enable automatic save, modify the same file outside PI while the
   Office view is clean, and verify that the latest disk version is reloaded.
   Make another unsaved edit, modify the file outside PI again, and wait for an
   automatic-save attempt. Confirm that the view does not silently replace the
   unsaved edit. Finally, save manually, confirm the overwrite prompt, and save
   again.
 - **Expected**: The DOCX opens in the Office editor with Word formatting and
-  editing commands visible, without GenOffice desktop-shell or AI controls. The
-  first save writes an updated DOCX atomically. A clean editor reloads an
-  external update automatically, while a dirty editor retains its in-memory
-  changes and blocks autosave instead of silently overwriting the external
-  version. The confirmed manual save succeeds. Non-DOCX file references keep
-  their existing routing.
-- **Specs linked**: `07-plugins/17-office-docx-plugin.md`, ADR 0283
+  editing commands visible, without GenOffice desktop-shell or AI controls. An
+  Office selection uses the shared `composer.addSelection` contract and carries
+  a bounded, versioned document anchor made from native Word paragraph IDs
+  rather than relying on a page number or a free-form text guess. Opening a
+  legacy DOCX without paragraph IDs performs one invisible, atomic metadata
+  normalization before the editor opens. The first save writes an updated DOCX
+  atomically. A clean editor reloads an external update automatically, while a
+  dirty editor retains its in-memory changes and blocks autosave instead of
+  silently overwriting the external version. The confirmed manual save
+  succeeds.
+  Non-DOCX file references keep their existing routing.
+- **Specs linked**: `07-plugins/17-office-docx-plugin.md`,
+  `07-plugins/03-plugin-api.md`, ADR 0283, ADR 0284
 - **Acceptance**: A (work-panel integration), D (file safety)
 - **Milestone**: M5
 - **Status**: Documented; automation pending

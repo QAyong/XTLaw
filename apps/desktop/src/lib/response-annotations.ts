@@ -17,7 +17,10 @@
 
 import type { ResponseAnnotationAnchor } from "./response-annotation-anchor";
 
-import type { ComposerSelectionSource } from "@pi-desktop/shared";
+import type {
+  ComposerDocxSelectionAnchor,
+  ComposerSelectionSource,
+} from "@pi-desktop/shared";
 
 /**
  * Where a quoted excerpt came from. A transcript excerpt is anchored by the
@@ -119,13 +122,24 @@ function sameAnnotationSource(
   if ("file" in left && "file" in right) {
     return left.file.path === right.file.path &&
       left.file.startLine === right.file.startLine &&
-      left.file.endLine === right.file.endLine;
+      left.file.endLine === right.file.endLine &&
+      sameDocxSelectionAnchor(left.file.docx, right.file.docx);
   }
   if ("element" in left && "element" in right) {
     return left.element.url === right.element.url &&
       left.element.selector === right.element.selector;
   }
   return false;
+}
+
+function sameDocxSelectionAnchor(
+  left?: ComposerDocxSelectionAnchor,
+  right?: ComposerDocxSelectionAnchor,
+): boolean {
+  if (!left || !right) return !left && !right;
+  return left.documentHash === right.documentHash &&
+    left.paragraphIds.length === right.paragraphIds.length &&
+    left.paragraphIds.every((value, index) => value === right.paragraphIds[index]);
 }
 
 /** Missing offsets mean an unknown location, not proof of another occurrence. */

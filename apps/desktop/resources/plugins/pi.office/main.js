@@ -3,6 +3,7 @@
 const crypto = require("node:crypto");
 const fs = require("node:fs/promises");
 const path = require("node:path");
+const { ensureDocxParagraphIds } = require("./docx-paragraph-ids.cjs");
 
 // DOCX is a ZIP container, so the plugin keeps the byte limit explicit rather
 // than letting an accidental path open turn into an unbounded memory read.
@@ -125,7 +126,7 @@ function hashBytes(data) {
   return crypto.createHash("sha256").update(data).digest("hex");
 }
 
-function fileResult(target, stat, data) {
+function fileResult(target, stat, data, paragraphIds) {
   return {
     ok: true,
     path: target.abs,
@@ -135,13 +136,29 @@ function fileResult(target, stat, data) {
     size: stat.size,
     mtimeMs: stat.mtimeMs,
     external: target.external,
+    paragraphIds,
   };
 }
 
 async function handleRead(payload) {
   const target = await resolveTarget(payload);
-  const { stat, data } = await readBytes(target.abs);
-  return fileResult(target, stat, data);
+  const initial = await readBytes(target.abs);
+  const prepared = ensureDocxParagraphIds(initial.data);
+  if (!prepared.changed) return fileResult(target, initial.stat, initial.data, prepared.paragraphIds);
+  if (prepared.data.length > MAX_DOCX_BYTES) {
+    throw failure("TOO_LARGE", "normalized DOCX exceeds the 64 MiB limit");
+  }
+
+  // Normalization is an invisible metadata-only write. Re-read immediately
+  // before replacing the file so an external edit is never overwritten by the
+  // one-time paragraph-ID preparation.
+  const current = await readBytes(target.abs);
+  if (hashBytes(current.data) !== hashBytes(initial.data)) {
+    throw failure("CONFLICT", "the DOCX changed while paragraph IDs were being prepared");
+  }
+  await atomicWrite(target.abs, prepared.data, current.stat.mode);
+  const normalized = await readBytes(target.abs);
+  return fileResult(target, normalized.stat, normalized.data, prepared.paragraphIds);
 }
 
 async function atomicWrite(abs, data, mode) {
@@ -177,9 +194,14 @@ async function atomicWrite(abs, data, mode) {
 async function handleSave(payload) {
   const target = await resolveTarget(payload);
   const encoded = typeof payload?.dataBase64 === "string" ? payload.dataBase64 : "";
-  const data = Buffer.from(encoded, "base64");
+  let data = Buffer.from(encoded, "base64");
   if (!data.length || data.length > MAX_DOCX_BYTES) {
     throw failure("TOO_LARGE", "DOCX data is empty or exceeds the 64 MiB limit");
+  }
+  const prepared = ensureDocxParagraphIds(data);
+  data = prepared.data;
+  if (data.length > MAX_DOCX_BYTES) {
+    throw failure("TOO_LARGE", "normalized DOCX exceeds the 64 MiB limit");
   }
 
   const current = await readBytes(target.abs);
@@ -211,6 +233,7 @@ async function handleSave(payload) {
     hash: hashBytes(next.data),
     size: next.stat.size,
     mtimeMs: next.stat.mtimeMs,
+    paragraphIds: prepared.paragraphIds,
   };
 }
 

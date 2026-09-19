@@ -46,6 +46,14 @@ export const NATIVE_MENU_ACTIONS = [
 
 export type NativeMenuAction = (typeof NATIVE_MENU_ACTIONS)[number];
 
+/** A location inside the currently open DOCX using native Word paragraph IDs. */
+export type ComposerDocxSelectionAnchor = {
+  /** SHA-256 of the DOCX bytes that were open when the selection was captured. */
+  documentHash?: string;
+  /** Word's native w14:paraId values, in document order for the selection. */
+  paragraphIds: string[];
+};
+
 /**
  * Where a quoted excerpt came from. An excerpt taken from an assistant response
  * is anchored by that turn's message id; the file and browser surfaces name the
@@ -53,7 +61,15 @@ export type NativeMenuAction = (typeof NATIVE_MENU_ACTIONS)[number];
  * block carries it so the model can tell a file excerpt from an answer excerpt.
  */
 export type ComposerSelectionSource =
-  | { file: { path: string; startLine?: number; endLine?: number } }
+  | {
+      file: {
+        path: string;
+        startLine?: number;
+        endLine?: number;
+        /** Present for selections captured from the bundled Office editor. */
+        docx?: ComposerDocxSelectionAnchor;
+      };
+    }
   | { element: { url: string; selector?: string } };
 
 export const WINDOW_CONTROL_ACTIONS = [

@@ -69,6 +69,7 @@ import {
   normalizeKeybinding,
   type PluginServiceStatus,
   type PluginSettingDefinition,
+  type ComposerDocxSelectionAnchor,
   type ComposerSelectionSource,
   type PluginWorkspaceInfo,
 } from "@pi-desktop/shared";
@@ -709,6 +710,48 @@ function selectionLineNumber(value: unknown): number | undefined {
   return Number.isInteger(line) && line > 0 && line <= 10_000_000 ? line : undefined;
 }
 
+const MAX_DOCX_PARAGRAPH_IDS = 64;
+
+/** Keep the Office anchor bounded before it reaches renderer-owned annotation state. */
+function parseComposerDocxSelectionAnchor(
+  value: unknown,
+): ComposerDocxSelectionAnchor | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as {
+    documentHash?: unknown;
+    paragraphIds?: unknown;
+  };
+  if (
+    record.documentHash !== undefined &&
+    (typeof record.documentHash !== "string" ||
+      !/^[0-9a-f]{64}$/i.test(record.documentHash))
+  ) {
+    return null;
+  }
+  if (
+    !Array.isArray(record.paragraphIds) ||
+    record.paragraphIds.length === 0 ||
+    record.paragraphIds.length > MAX_DOCX_PARAGRAPH_IDS
+  ) {
+    return null;
+  }
+  const paragraphIds: string[] = [];
+  for (const value of record.paragraphIds) {
+    if (typeof value !== "string") return null;
+    const paragraphId = value.trim().toUpperCase();
+    if (!/^[0-9A-F]{8}$/.test(paragraphId) || paragraphIds.includes(paragraphId)) {
+      return null;
+    }
+    paragraphIds.push(paragraphId);
+  }
+  const documentHash =
+    typeof record.documentHash === "string" ? record.documentHash : undefined;
+  return {
+    ...(documentHash ? { documentHash } : {}),
+    paragraphIds,
+  };
+}
+
 /**
  * Validate the source a panel names for a selection it wants commented on.
  * Only the two shapes the renderer understands reach it, and every string is
@@ -721,18 +764,29 @@ function parseComposerSelectionSource(
   if (!value || typeof value !== "object") return null;
   const record = value as { file?: unknown; element?: unknown };
   const file = record.file as
-    | { path?: unknown; startLine?: unknown; endLine?: unknown }
+    | {
+        path?: unknown;
+        startLine?: unknown;
+        endLine?: unknown;
+        docx?: unknown;
+      }
     | undefined;
   if (file && typeof file === "object") {
     const path = typeof file.path === "string" ? file.path.trim().slice(0, 1_024) : "";
     if (!path) return null;
     const startLine = selectionLineNumber(file.startLine);
     const endLine = selectionLineNumber(file.endLine);
+    const docx =
+      file.docx === undefined
+        ? undefined
+        : parseComposerDocxSelectionAnchor(file.docx);
+    if (file.docx !== undefined && !docx) return null;
     return {
       file: {
         path,
         ...(startLine ? { startLine } : {}),
         ...(endLine ? { endLine } : {}),
+        ...(docx ? { docx } : {}),
       },
     };
   }

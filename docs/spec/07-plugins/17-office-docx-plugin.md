@@ -57,7 +57,15 @@ applies the same credential-path and containment checks to both forms.
 
 ## File lifecycle
 
-- `office.read` returns bounded DOCX bytes plus path, size, mtime, and SHA-256.
+- `office.read` returns bounded DOCX bytes plus path, size, mtime, SHA-256, and
+  a paragraph-ID map indexed by the editor's internal document-body order. On
+  the first read, the plugin preserves every existing Word `w14:paraId` and
+  adds a unique eight-hex-digit ID to paragraphs that do not have one. This is
+  an invisible OOXML metadata change, written atomically only after the file is
+  re-read and its hash is confirmed unchanged. The returned hash is the hash
+  of the normalized bytes that the editor actually opened.
+- `office.save` applies the same paragraph-ID normalization before writing, so
+  paragraphs introduced by an edit also receive native IDs.
 - `office.save` refuses silent overwrite when any expected mtime, size, or hash
   differs from the opened file. A manual save may explicitly confirm an
   overwrite in the plugin view; autosave remains blocked on conflict.
@@ -68,8 +76,20 @@ applies the same credential-path and containment checks to both forms.
   in-memory document; autosave remains blocked and the existing save conflict
   flow remains authoritative.
 - Text selected inside the DOCX editor reuses the file-view selection action
-  pattern. The action appends a bounded, fenced excerpt with the DOCX path and
-  page location to the existing Composer draft; it does not modify the DOCX.
+  pattern. The action keeps the same floating pill and inline comment editor,
+  then sends the excerpt through `composer.addSelection` so it appears above
+  the Composer as the same pending annotation used by Files and Browser. The
+  annotation source carries the DOCX path, the opened-file SHA-256, and the
+  native Word paragraph IDs for the selected paragraphs. The selected text is
+  still included as the short human-readable context; the paragraph IDs are
+  the machine-readable location an external DOCX tool can use.
+- The DOCX anchor is resolved from the open editor's temporary `docxIndex` to
+  the native paragraph-ID map at send time. The editor's block indexes,
+  character offsets, page numbers, and block text are never sent as the
+  location contract. The host validates the hash and every eight-hex-digit
+  paragraph ID before it enters renderer-owned annotation state. Existing
+  plugins may continue to send the older `{ file: { path, startLine?,
+  endLine? } }` source shape.
 - When the work-panel width changes, the view locks the currently visible page
   and its viewport offset while GenOffice recalculates fit-to-width zoom. The
   anchor is corrected in the rendering cycle throughout the resize and once

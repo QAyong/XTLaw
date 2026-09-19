@@ -257,8 +257,6 @@ export type PluginDesktopConsentRequest = {
 
 export type PluginHostServices = {
   getWorkspacePath: () => string | null;
-  /** Append an explicit panel selection to the active renderer composer draft. */
-  appendComposerDraft?: (text: string) => void;
   /**
    * Hand the renderer a panel selection to comment on. It becomes a pending
    * annotation above the composer instead of draft text (ADR
@@ -1807,19 +1805,6 @@ export class PluginRuntime {
     }
     const api = this.hostApi(loaded);
     switch (channel) {
-      case "composer.appendDraft": {
-        this.assertPermission(loaded, "ui.view");
-        const text = typeof payload?.text === "string" ? payload.text.trim() : "";
-        if (!text) throw apiError("INVALID_ARGUMENT", "composer draft text is empty");
-        if (text.length > 16_000) {
-          throw apiError("INVALID_ARGUMENT", "composer draft text is too large");
-        }
-        if (!this.services.appendComposerDraft) {
-          throw apiError("UNSUPPORTED", "composer bridge is unavailable");
-        }
-        this.services.appendComposerDraft(text);
-        return { ok: true };
-      }
       case "composer.addSelection": {
         this.assertPermission(loaded, "ui.view");
         const text = typeof payload?.text === "string" ? payload.text.trim() : "";

@@ -42,7 +42,7 @@ test("adding a file selection attaches the comment collected in the pill", () =>
   assert.match(filesTab, /serializeWorkspaceFileSelection\(/);
   assert.match(
     filesTab,
-    /canAddToChat=\{Boolean\([\s\S]*?activeSessionId[\s\S]*?isWorkspaceRelativePath\(selected\)/,
+    /canAddToChat=\{Boolean\([\s\S]*?isWorkspaceRelativePath\(selected\)/,
   );
   assert.match(filesTab, /file\?\.kind === "text"/);
 });

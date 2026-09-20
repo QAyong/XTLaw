@@ -6871,15 +6871,18 @@ identify the platform validation still needed.
 
 #### E2E-FILE-selected-content-reaches-composer
 
-- **Preconditions**: The app is running with an active Agent session in a
-  workspace containing a readable source file, a Markdown file, and at least
-  one image or binary/oversized file.
+- **Preconditions**: The app is running in a workspace containing a readable
+  source file, a Markdown file, and at least one image or binary/oversized file;
+  the flow is exercised both from the home composer before a session exists and
+  from an active Agent session.
 - **Steps**: 1) Open the Files viewer and select only part of the source file,
   including a selection that crosses lines. 2) Confirm the Chat-style floating
   pill appears, inspect Copy, then select the text again and click Add to chat.
   3) Inspect the Composer before sending: the draft stays untouched and the
   local file comment card is open. Write a comment, Save, and confirm
-  the excerpt is now listed above the Composer. Type an instruction and submit.
+  the excerpt is now listed above the Composer. If this is the home surface,
+  confirm that a session is created and the annotation capsule appears before
+  typing an instruction and submitting.
   4) Repeat with rendered Markdown and with a browser-preview pick, whose
   isolated action shell opens its local compact comment card, then inspect the action
   availability for image, binary/oversized, attachment, and external paths.

@@ -44,6 +44,11 @@ test("Add to chat opens the comment editor instead of attaching the excerpt", ()
   );
 });
 
+test("workspace selections create a session before attaching annotations", () => {
+  assert.match(store, /if \(!sessionId\) \{[\s\S]*?newSession\(\)[\s\S]*?addResponseAnnotation/);
+  assert.match(store, /if \(!sessionId\) \{[\s\S]*?newSession\(\)[\s\S]*?openResponseAnnotationEditor/);
+});
+
 test("saving attaches the excerpt with its comment in attachment order", () => {
   const first = annotationEditorFor([], {
     sessionId: "s1",

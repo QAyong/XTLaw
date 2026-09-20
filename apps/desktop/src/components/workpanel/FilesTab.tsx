@@ -285,11 +285,7 @@ export function FilesTab() {
         comment: string;
       },
     ) => {
-      if (
-        !activeSessionId ||
-        !selected ||
-        !isWorkspaceRelativePath(selected)
-      ) {
+      if (!selected || !isWorkspaceRelativePath(selected)) {
         return;
       }
       const excerpt = serializeWorkspaceFileSelection({
@@ -470,11 +466,7 @@ export function FilesTab() {
             <FileSelectionQuoteButton
               containerRef={viewerBodyRef}
               sessionId={activeSessionId ?? null}
-              canAddToChat={Boolean(
-                activeSessionId &&
-                  selected &&
-                  isWorkspaceRelativePath(selected),
-              )}
+              canAddToChat={Boolean(selected && isWorkspaceRelativePath(selected))}
               onAddComment={addFileSelectionComment}
             />
           )}

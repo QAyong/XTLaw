@@ -25,7 +25,25 @@ export function createAnnotationSlice({ get, set }: StoreAccess): Pick<AppState,
 
     openResponseAnnotationEditor: ({ messageId, text, annotationId, anchor, source }) => {
       const sessionId = get().activeSessionId;
-      if (!sessionId) return;
+      if (!sessionId) {
+        void get()
+          .newSession()
+          .then(() => {
+            if (get().activeSessionId) {
+              get().openResponseAnnotationEditor({
+                messageId,
+                text,
+                annotationId,
+                anchor,
+                source,
+              });
+            }
+          })
+          .catch((error) => {
+            get().showToast(error instanceof Error ? error.message : String(error));
+          });
+        return;
+      }
       const current = get().responseAnnotations[sessionId] ?? [];
       // An excerpt that is already attached reopens its own annotation for
       // editing. The excerpt is snapshotted here, before focus moves into the
@@ -74,7 +92,19 @@ export function createAnnotationSlice({ get, set }: StoreAccess): Pick<AppState,
      */
     addResponseAnnotation: ({ messageId, text, comment, anchor, source }) => {
       const sessionId = get().activeSessionId;
-      if (!sessionId) return;
+      if (!sessionId) {
+        void get()
+          .newSession()
+          .then(() => {
+            if (get().activeSessionId) {
+              get().addResponseAnnotation({ messageId, text, comment, anchor, source });
+            }
+          })
+          .catch((error) => {
+            get().showToast(error instanceof Error ? error.message : String(error));
+          });
+        return;
+      }
       const current = get().responseAnnotations[sessionId] ?? [];
       const editor = annotationEditorFor(current, {
         sessionId,

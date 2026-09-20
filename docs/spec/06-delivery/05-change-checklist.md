@@ -58,18 +58,31 @@ See [R6 — Merge a linked pull request whose principle is sound, then follow up
 
 ## 1. Request Start Checklist
 
+Before any remote action, verify the repository topology:
+
+- [ ] `mine` is the user's writable fork (`QAyong/PiLaw`) and is the only
+      publication target.
+- [ ] `origin` is the upstream source (`vastsa/PI-Desktop`) and is fetch-only
+      for this workflow.
+- [ ] The target remote and tracking branch were checked with `git remote -v`
+      and `git branch -vv`; no default-remote assumption was used.
+- [ ] No unrelated branch, worktree, remote URL, or tracking configuration was
+      changed or cleaned up.
+
 Before editing any file for a new request:
 
 - [ ] Existing uncommitted work is identified and preserved.
 - [ ] `origin/main` is fetched and local `main` is fast-forwarded when its
   worktree is clean.
-- [ ] A dedicated `<type>/<short-description>` request branch and worktree are
-  created from that updated `main` commit.
-- [ ] The request worktree reuses the primary checkout's toolchains, package
-  stores, caches, and ignored local configuration where safe.
-- [ ] Mutable, incompatible, or concurrency-sensitive environment state stays
-  worktree-local and ignored.
-- [ ] The current branch is not `main` before implementation begins.
+- [ ] The primary checkout is used by default. Only when explicitly requested,
+      a dedicated `<type>/<short-description>` request branch/worktree is
+      created from that updated `main` commit.
+- [ ] If a request worktree exists, it reuses the primary checkout's toolchains,
+      package stores, caches, and ignored local configuration where safe.
+- [ ] If a request worktree exists, mutable, incompatible, or
+      concurrency-sensitive environment state stays worktree-local and ignored.
+- [ ] The current branch is not `main` only when a branch was explicitly
+      requested; otherwise work proceeds on the checked-out branch.
 - [ ] Delivery scope is recorded: a commit request includes local `main`
   integration; a push request includes PR-based remote `main` integration and
   local synchronization. Explicit branch-only or draft-only limits are honored.
@@ -167,9 +180,10 @@ explicit branch-only or draft-only requests retain their narrower scope:
   affected suites were rerun and recorded.
 - [ ] No direct push to `main`, force-push, discarded unrelated work, or bypassed
   gate was inferred from the delivery request. Genuine blockers were reported.
-- [ ] Request worktree is removed after merge.
-- [ ] Merged request branch is deleted locally (`git branch -d`).
-- [ ] Any remotely published request branch is deleted after merge.
+- [ ] Only the request-owned worktree is removed after merge.
+- [ ] Only the merged request branch is deleted locally (`git branch -d`).
+- [ ] Any remotely published request branch is deleted after merge only when it
+      belongs to this request and the remote workflow permits deletion.
 - [ ] Issue reference is included when applicable (e.g. `Refs #12` or
   `Closes #12`).
 
@@ -184,12 +198,14 @@ merge happened remotely via PR/MR or locally in the primary checkout:
   when remote delivery was requested.
 - [ ] The request worktree is clean — no uncommitted or untracked request files
   remain.
-- [ ] `git worktree remove <worktree-path>` succeeded without forcing.
+- [ ] `git worktree remove <worktree-path>` succeeded without forcing for this
+      request's worktree only.
 - [ ] `git branch -d <type>/<short-description>` succeeded (no `-D` fallback on
-  an unmerged branch).
-- [ ] `git worktree prune` leaves `git worktree list` free of stale entries for
-  this request.
-- [ ] No other agent's worktree or branch was removed.
+      an unmerged branch) for this request's branch only.
+- [ ] Any pruning is limited to metadata for this request; unrelated stale
+      entries are left untouched unless separately requested by the user.
+- [ ] No other agent's worktree, branch, remote, or tracking configuration was
+      removed or changed.
 - [ ] If launch was requested after delivery, the app was built and started
   from the integrated `main` checkout and its development environment.
 
@@ -228,7 +244,7 @@ user's delivery scope:
 
 | # | Gate | Source |
 |---|---|---|
-| 1 | Request branch and worktree created from an up-to-date `main`; primary environment reused where safe | [R4 — Request branch + worktree + merge gate](03-ai-development-workflow.md#r4--request-branch--worktree--merge-gate) |
+| 1 | Primary checkout used by default, or an explicitly requested request branch/worktree created from an up-to-date `main`; primary environment reused where safe | [R4 — Request integration and merge gate](03-ai-development-workflow.md#r4--request-integration-and-merge-gate) |
 | 2 | Code/doc implements the planned change | Step 4 of [development loop](03-ai-development-workflow.md#2-development-loop) |
 | 3 | All impacted specs updated | [R1 — Spec-sync](03-ai-development-workflow.md#r1--spec-first--spec-sync) |
 | 4 | E2E scenarios documented (or confirmed not needed) | [R3 — E2E coverage doc](03-ai-development-workflow.md#r3--e2e-coverage-doc) |
@@ -236,7 +252,7 @@ user's delivery scope:
 | 6 | Change committed with conventional message | [R2 — Commit-per-change](03-ai-development-workflow.md#r2--commit-per-change) |
 | 7 | BOARD updated if milestone deliverable completed | Step 9 of development loop |
 | 8 | No secrets or local data in commit | [§4.4 Never commit](03-ai-development-workflow.md#44-never-commit) |
-| 9 | Requested local/remote `main` integration completed under R4; expected commits verified and merged worktree/branch removed; any requested launch uses integrated `main` | [R4 — Request branch + worktree + merge gate](03-ai-development-workflow.md#r4--request-branch--worktree--merge-gate) |
+| 9 | Requested local/remote `main` integration completed under R4; expected commits verified and only request-owned worktree/branch removed; any requested launch uses integrated `main` | [R4 — Request integration and merge gate](03-ai-development-workflow.md#r4--request-integration-and-merge-gate) |
 | 10 | No merged worktree left on disk; `git worktree list` has no stale entry for this request | [§6.1 Merge Cleanup Checklist](#61-merge-cleanup-checklist) |
 | 11 | If a GitHub issue was linked: verified before work; commented in the issue language; closed when conclusive | [R5 — Verify linked GitHub issues](03-ai-development-workflow.md#r5--verify-linked-github-issues-before-work-then-reply-and-close) |
 | 12 | If a GitHub pull request was linked: principle reviewed; merged first when sound; follow-up after merge; contributor work not discarded | [R6 — Merge a linked pull request whose principle is sound, then follow up](03-ai-development-workflow.md#r6--merge-a-linked-pull-request-whose-principle-is-sound-then-follow-up) |

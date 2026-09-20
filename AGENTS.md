@@ -109,6 +109,26 @@ Changing a frozen architecture, public interface, data ownership model, or secur
 
 ## 4. Branch and Worktree Policy
 
+### Remote topology and ownership
+
+This checkout has two intentionally different remotes:
+
+* `mine` (`QAyong/PiLaw`) is the user's writable fork and the only remote
+  allowed as a publication target for the user's changes.
+* `origin` (`vastsa/PI-Desktop`) is the upstream source repository. Fetching it
+  is allowed for comparison or synchronization, but it is not the user's
+  delivery target.
+
+Before any remote operation, run `git remote -v`, confirm the destination, and
+state whether the operation is a fetch from `origin` or publication to `mine`.
+Never infer that `origin` is the user's repository merely because it is the
+default remote or the current branch tracks `origin/main`. Do not rewrite
+remote URLs or change tracking configuration unless the user explicitly asks.
+
+Remote publication means the user's fork only: push a request branch to
+`mine`, open/merge the PR into `mine/main`, and synchronize the local checkout
+with the landed commit. Do not push user work to `origin`.
+
 Work in the primary checkout by default.
 
 ```text
@@ -125,14 +145,20 @@ Never:
 * reuse another task's worktree
 * modify another agent's branch
 * delete another agent's branch or worktree
+* delete, prune, or clean up any branch/worktree that is not owned by the
+  current request
 * reset or discard unrelated work
 * include unrelated changes in your task
 
-Refresh against `main` before starting work and before integration:
+Refresh against the upstream source before starting work and before integration:
 
 ```bash
 git fetch origin main
 ```
+
+Fetching `origin/main` does not authorize rebasing, resetting, or deleting
+local work. Preserve the current checkout's commits and unrelated work unless
+the user explicitly requests synchronization or cleanup.
 
 Only when the user explicitly requests a branch:
 
@@ -155,7 +181,8 @@ The delivery order for every request is fixed:
 3. push the working branch and open the PR/MR
 4. merge into remote `main` through the PR/MR gates
 5. synchronize local `main`
-6. if a branch or worktree was requested, remove it and delete the merged branch
+6. if a branch or worktree was explicitly created for this request, remove only
+   that request-owned worktree and branch; never clean unrelated entries
 ```
 
 A code-bearing change must not be pushed for review, opened as a PR/MR, or

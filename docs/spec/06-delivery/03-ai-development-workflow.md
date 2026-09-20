@@ -35,23 +35,38 @@ The rules below govern every change to the PI-Desktop codebase and documentation
 - Document the scenario in `06-delivery/04-e2e-test-plan.md` — even before the automated test exists.
 - Internal-only changes (logging format, internal variable rename) do not require e2e doc updates.
 
-### R4 — Request branch + worktree + merge gate
+### R4 — Request integration and merge gate
 
-> **Every development request starts from `main` in a dedicated branch and
-> worktree. A user request to commit or push includes completing the task's
-> integration into `main` through the authorized delivery route.**
+#### Remote ownership
 
-- Before editing, preserve any existing uncommitted work, fetch `origin/main`,
-  fast-forward local `main` when its worktree is clean, and create a new request
-  branch and worktree from that up-to-date commit. Existing work in the primary
-  checkout must never be moved, stashed, or overwritten merely to start a new
-  request.
-- Use one short-lived branch per request. Name it
+The repository's remotes have separate roles and must not be conflated:
+
+| Remote | Repository | Role | Allowed delivery action |
+|---|---|---|---|
+| `mine` | `QAyong/PiLaw` | User-owned fork | Push request branches and merge the user's PR into `mine/main` |
+| `origin` | `vastsa/PI-Desktop` | Upstream source | Fetch for comparison/synchronization only; never publish user work here |
+
+Before a fetch, push, PR, or merge, verify `git remote -v` and the branch's
+tracking target. A default remote or an `origin/main` tracking relationship is
+not evidence that `origin` is user-owned. Remote URLs, tracking branches, and
+unrelated branches must not be changed as incidental cleanup.
+
+> **Every development request starts from the current primary checkout unless
+> the user explicitly requests a branch or worktree. A user request to commit
+> or push includes completing the task's integration into `main` through the
+> authorized delivery route.**
+
+- Before editing, preserve any existing uncommitted work and fetch
+  `origin/main` when an upstream refresh is needed. Do not move, stash, reset,
+  or overwrite primary-checkout work merely to start a request.
+- Only when the user explicitly requests a branch/worktree, use one short-lived
+  branch per request. Name it
   `<type>/<short-description>`, where `type` matches the conventional change
   type when practical, for example `feat/provider-import` or
   `docs/request-branch-workflow`.
-- Use one dedicated worktree per request. Do not implement a new request in the
-  primary checkout or reuse another request's worktree.
+- If a branch/worktree is requested, create one dedicated worktree for this
+  request. Otherwise implement on the already checked-out branch and never
+  reuse another request's worktree.
 - Reuse the primary checkout's development environment where safe: installed
   toolchains, package-manager stores, build caches, and ignored local
   environment configuration remain the canonical environment. Reference or
@@ -81,12 +96,13 @@ The rules below govern every change to the PI-Desktop codebase and documentation
   pushed for review, under R7. If a gate, authentication, permissions, or
   required review prevents integration, report the actual blocker and remaining
   work; the requested integration is not Done.
-- Worktree cleanup is mandatory and immediate. As soon as the request branch is
-  integrated into `main` — including a local `main` merge when the request is
-  delivered without a remote PR/MR — remove the worktree and delete the merged
-  branch. A merged request must not leave a worktree on disk. Remove only your
-  own worktree and branch, and only after verifying the merge commits are
-  present in `main`.
+- Request-owned worktree cleanup is mandatory and immediate. As soon as the
+  request branch is integrated into `main` — including a local `main` merge
+  when the request is delivered without a remote PR/MR — remove that request's
+  worktree and delete that request's merged branch. This cleanup is scoped to
+  paths and refs created by the current request only. Never prune, delete, or
+  modify another request's worktree/branch, stale entries, or remote tracking
+  configuration as incidental cleanup.
 - If the user requests a launch after delivery, build and start the app from
   the integrated `main` checkout and its development environment.
 
@@ -257,7 +273,7 @@ Every change follows this sequence. Steps may be iterated if the implementation 
 |---|---|---|
 | **0. Issue verify** | When a GitHub issue is linked, fetch it and independently verify that the reported problem exists. Stop here (comment, and close only if conclusive) when it does not. | Verified issue, or a comment and close/leave-open decision. |
 | **0b. PR review** | When a GitHub pull request is linked, fetch it and independently judge whether the principle is sound. Merge first when it is; start follow-up only after it is in `main`. Stop (comment, do not rewrite) when it is not. | Merged contributor PR plus follow-up plan, or a comment and no merge. |
-| **1. Branch + worktree** | Preserve existing work, update from `origin/main`, and create a dedicated request branch in a dedicated worktree. Reuse the primary checkout's environment where safe. | Isolated task files on current `main` with a consistent development environment. |
+| **1. Checkout** | Preserve existing work and use the primary checkout by default. Only when explicitly requested, update from `origin/main` and create a dedicated request branch/worktree. | Changes stay in the checked-out request context without incidental worktree churn. |
 | **2. Read** | Read `00-baseline.md` and any specs relevant to the change area. | Mental model of constraints. |
 | **3. Plan** | Describe the intended change. List every spec, ADR, and e2e scenario that will need updates, and assess whether local validation is necessary. | Change plan + impact and validation list. |
 | **4. Implement** | Write code, config, or assets. | Changed files. |
@@ -267,7 +283,7 @@ Every change follows this sequence. Steps may be iterated if the implementation 
 | **8. Commit** | Git commit with conventional message (see §4). | One or more commits. |
 | **9. BOARD** | If the change completes a milestone deliverable, update `docs/project/BOARD.md`. | Updated board. |
 | **10. Local integrate + gate** | Complete the requested local `main` integration, then run the relevant E2E gate from that integrated commit. When remote publishing is authorized, push the request branch and open a PR/MR targeting `main` only after that gate. | Verified local `main` integration with the E2E gate result, or a recorded `NOT RUN` limitation; reviewable remote change or a local-only delivery route. |
-| **11. Remote merge + cleanup** | For authorized remote delivery, merge the PR/MR into remote `main` through the required gates and synchronize local `main`; rerun the affected suites when the landed executable content differs from the commit the gate ran on. Verify the expected commits and remove the merged worktree and branch. | Requested integration complete, or an explicit blocker / narrower user-requested handoff. |
+| **11. Remote merge + cleanup** | For authorized remote delivery, merge the PR/MR into remote `main` through the required gates and synchronize local `main`; rerun the affected suites when the landed executable content differs from the commit the gate ran on. Verify the expected commits and remove only a worktree/branch explicitly created for this request. | Requested integration complete, or an explicit blocker / narrower user-requested handoff. |
 | **12. Launch** | When requested, build and start from the integrated `main` checkout and its development environment. | Running app includes the delivered change. |
 
 ### Local Validation and E2E Execution Policy
@@ -525,8 +541,8 @@ another request's worktree.
 A change is **Done** when all applicable conditions are true, respecting an
 explicit branch-only or draft-only delivery scope:
 
-1. A dedicated request branch and worktree were created from an up-to-date
-   `main`.
+1. The primary checkout was used by default, or an explicitly requested
+   request branch/worktree was created from an up-to-date `main`.
 2. Code (or doc) implements the planned change.
 3. All impacted specs are updated.
 4. E2E scenarios are documented (or confirmed not needed per §3).
@@ -609,8 +625,8 @@ This workflow spec itself is accepted when:
 - [ ] Development loop is documented and referenced by `AGENTS.md`.
 - [ ] Spec update matrix covers all change types in the baseline.
 - [ ] Git commit rules match existing repo commit style (`docs:`, `chore:`).
-- [ ] Every development request is required to use a dedicated branch and
-      worktree created from current `main`.
+- [ ] The primary checkout is used by default; a branch/worktree is created only
+      when the user explicitly requests one.
 - [ ] Request worktrees reuse the primary checkout's environment where safe
       without committing local environment state.
 - [ ] Commit/push requests complete local `main` integration without another

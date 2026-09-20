@@ -57,16 +57,8 @@ const claude = claudeRaw ? normalize(claudeRaw) : "";
 /** @type {{ id: string, anyOf: string[] }[]} */
 const REQUIRED_ANCHORS = [
   {
-    id: "worktree-isolation",
-    anyOf: ["1 request = 1 branch + 1 dedicated worktree"],
-  },
-  {
-    id: "never-develop-on-main",
-    anyOf: [
-      "never develop on `main`",
-      "never develop directly on `main`",
-      "develop directly on `main`",
-    ],
+    id: "local-development-workflow",
+    anyOf: ["current checkout by default"],
   },
   {
     id: "process-model",
@@ -88,12 +80,12 @@ const REQUIRED_ANCHORS = [
     anyOf: ["electron main must remain a thin orchestrator", "electron main stays a thin orchestrator"],
   },
   {
-    id: "no-local-main-before-e2e",
-    anyOf: ["merge task → local main"],
+    id: "user-controls-submission-workflow",
+    anyOf: ["the user controls the branch and submission workflow"],
   },
   {
-    id: "task-candidate-e2e",
-    anyOf: ["task-candidate e2e"],
+    id: "candidate-e2e-scope",
+    anyOf: ["actual candidate being considered for delivery"],
   },
   {
     id: "architecture-ratchet-hotspots",

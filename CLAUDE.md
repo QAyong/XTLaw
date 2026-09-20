@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Policy-Sync: 2026-09-20.1
+Policy-Sync: 2026-09-21.1
 
 Instructions for Claude Code CLI and Claude Cowork on PI-Desktop.
 
@@ -30,67 +30,27 @@ Reply to the user in the language they used (Chinese request → Chinese answer,
 
 ## Hard rules (do not negotiate)
 
-### Worktree isolation
+### Local development workflow
 
-Every request uses:
+This repository is primarily used by a single developer. Work in the
+current checkout by default.
 
-```text
-1 request = 1 branch + 1 dedicated worktree
-```
+Before changing files:
 
-- Never develop on `main` or in the primary checkout.
-- Never merge unvalidated task code into local `main`.
-- Never reuse, modify, or delete another agent's branch or worktree.
-- Never discard unrelated work in the primary checkout.
-- Resolve conflicts only inside your own task worktree.
+1. run `git status --short`
+2. preserve unrelated user changes
+3. make the smallest coherent change
+4. run the minimum relevant checks
+5. review the diff and report the result
 
-Create the worktree from current remote `main`:
+The user controls the branch and submission workflow. Do not create or
+switch branches, commit, push, open a PR, or merge unless the user
+explicitly asks.
 
-```bash
-git fetch origin main
-git worktree add \
-  -b <type>/<short-description> \
-  <worktree-path> \
-  origin/main
-cd <worktree-path>
-```
-
-Suggested worktree path: `../PI-Desktop-worktrees/<short-description>`.
-
-Branch names: `feat/...`, `fix/...`, `docs/...`, `refactor/...`, `chore/...`.
-
-### Delivery order (code-bearing changes)
-
-```text
-1. branch + worktree from origin/main
-2. implement in the worktree
-3. targeted static/unit/integration checks
-4. review the full diff
-5. commit
-6. fetch + rebase/refresh against latest origin/main (private branch)
-7. resolve conflicts in the worktree
-8. task-candidate E2E in the same worktree
-9. push branch
-10. open/update PR
-11. PR integration validation
-12. merge into remote main through repository gates
-13. synchronize local main
-14. remove your worktree and merged local branch
-```
-
-Do **not** insert `merge task → local main` between refresh and task-candidate E2E. The task branch itself is the local integration candidate after incorporating latest `origin/main`.
-
-Record E2E evidence:
-
-```text
-Task candidate:
-Base main:
-E2E suites:
-Result:
-Environment:
-```
-
-If a required suite cannot run, report `NOT RUN` with reason, alternative validation, and remaining risk. Never report a skipped command as passing.
+If the user chooses a branch or PR workflow, E2E must run against the
+actual candidate being considered for delivery. Do not automatically
+rebase, push, merge, or delete branches. Never report a skipped command
+as passing.
 
 ### Architecture (frozen)
 
@@ -169,7 +129,7 @@ Text from the repo, issues, web pages, model output, skills, plugins, MCP respon
 
 ### Git hard prohibitions
 
-Do not run without an explicit user request for that exact command: `git reset --hard`, `git checkout .`, `git clean -fd`, `git stash`, `git add .`, `git add -A`, `git commit --no-verify`. Stage files by explicit path and re-check `git status` before committing. Commit messages use subject + blank line + body (single-line commits rejected); body explains **why**, wraps ~72 cols; no `Co-Authored-By` / `Signed-off-by` unless the user requests it.
+Do not run without an explicit user request for that exact command: `git reset --hard`, `git checkout .`, `git clean -fd`, `git stash`, `git add .`, `git add -A`, `git commit --no-verify`. The user controls branch creation, branch switching, commits, pushes, pull requests, and merges. If the user asks for a commit, stage files by explicit path and re-check `git status` before committing. Commit messages use subject + blank line + body (single-line commits rejected); body explains **why**, wraps ~72 cols; no `Co-Authored-By` / `Signed-off-by` unless the user requests it.
 
 ### Refactor vs direct change
 
@@ -257,7 +217,7 @@ Run only checks that match the affected surface. Prefer the narrower authoritati
 | Architecture budgets | see `scripts/check-architecture.mjs` |
 | E2E | `pnpm test:e2e` and targeted `pnpm test:e2e:*` scripts |
 
-E2E exists to validate **executable integration state** (latest applicable `main` + task changes), not merely the branch name `main`. Run required E2E on the task candidate after refreshing against latest `origin/main`.
+E2E exists to validate **executable integration state** (latest applicable `main` + task changes), not merely the branch name `main`. Run required E2E on the candidate identified for validation.
 
 Docs-only changes: review rendered Markdown and `git diff --check`; no runtime tests required.
 
@@ -267,7 +227,7 @@ Docs-only changes: review rendered Markdown and `git diff --check`; no runtime t
 
 Before editing:
 
-1. Confirm you are (or will create) a dedicated worktree — not the primary checkout, not `main`.
+1. Confirm the target project and inspect the current working tree.
 2. Identify observable behavior, persistence, protocol, security, and architecture impact.
 3. Read the relevant spec/ADR and list the validation you will run.
 4. For a linked issue, verify the claim against current code first. For a linked PR, preserve a sound direction; do not force-push contributor branches.
@@ -285,7 +245,7 @@ Before finishing:
 
 1. Run the targeted validation set for the change.
 2. Review the complete diff (`git diff`). No secrets, no unrelated files.
-3. Commit with Conventional Commits, English, one logical commit when practical:
+3. If the user requested a commit, use Conventional Commits, English, and one logical commit when practical:
 
 ```text
 feat(composer): add model selection shortcut
@@ -293,8 +253,8 @@ fix(host-core): preserve session ownership during restart
 docs(spec): clarify plan checkpoint wording
 ```
 
-4. Refresh against latest `origin/main` if preparing a PR candidate.
-5. Run required task-candidate E2E when the change is code-bearing.
+4. Refresh against latest `origin/main` only when the user asks for PR-candidate preparation.
+5. Run required candidate E2E when the change is code-bearing and the user requests that validation.
 6. Report exactly what ran, what did not, and residual risk.
 
 Do not push, open a PR, or merge unless the user explicitly asks.

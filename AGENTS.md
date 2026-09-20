@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Policy-Sync: 2026-09-20.1
+Policy-Sync: 2026-09-21.1
 
 Mandatory rules for AI coding agents working in PI-Desktop.
 
@@ -76,8 +76,8 @@ workflow. Domain specifications remain authoritative for product
 behavior, architecture, protocol contracts, persistence semantics,
 security boundaries, and acceptance criteria.
 
-If a delivery document conflicts with the branch / worktree / integration
-/ E2E workflow defined in this file:
+If a delivery document conflicts with the integration / E2E workflow
+defined in this file:
 
 1. do not silently choose one
 2. treat the conflict as documentation drift
@@ -193,92 +193,33 @@ or security boundary requires an ADR.
 
 ---
 
-## 5. Multi-Agent Isolation Is Mandatory
+## 5. Local Development Workflow
 
-Assume multiple agents work concurrently.
+This repository is primarily used by a single developer. Work in the
+current checkout by default.
 
-Every development request uses:
+Before changing files:
 
-```text
-1 request = 1 branch + 1 dedicated worktree
-```
+1. run `git status --short`
+2. preserve unrelated user changes
+3. make the smallest coherent change
+4. run the minimum relevant checks
+5. review the diff and report the result
 
-The primary checkout and local `main` are coordination surfaces, not
-development workspaces.
+The user controls the branch and submission workflow. Do not create or
+switch branches, commit, push, open a PR, or merge unless the user
+explicitly asks for that action.
 
-### Never
+Never:
 
-* develop directly on `main`
-* develop in the primary checkout
-* merge unvalidated task code into local `main`
-* use local `main` as a temporary integration branch
-* reuse another task's worktree
+* overwrite, reset, or discard unrelated user changes
 * modify another agent's branch
-* delete another agent's branch or worktree
-* reset or discard unrelated work
-* include unrelated changes in your task
-* depend on uncommitted work from another worktree
+* depend on uncommitted work from another checkout
+* treat a PR workflow as a prerequisite for ordinary local development
 
-### Start from current `main`
-
-```bash
-git fetch origin main
-
-git worktree add \
-  -b <type>/<short-description> \
-  <worktree-path> \
-  origin/main
-
-cd <worktree-path>
-```
-
-All implementation, targeted validation, conflict resolution, and
-task-candidate E2E happen inside the task's dedicated worktree.
-
-### Before candidate validation
-
-Refresh the task against the latest remote `main`.
-
-For a private branch that has not been pushed or shared:
-
-```bash
-git fetch origin main
-git rebase origin/main
-```
-
-If the branch has already been shared and rewriting history would be
-unsafe, do not force-push merely to rebase. Use a non-destructive
-integration strategy or rely on the PR integration candidate per § 16.
-
-Resolve conflicts inside your own worktree. Never resolve task conflicts
-by modifying the primary checkout.
-
-### Fixed delivery order
-
-```text
-1. create dedicated branch + worktree from current origin/main
-2. implement in the request worktree
-3. run targeted static/unit/integration checks
-4. review the task diff
-5. commit the task
-6. refresh the task branch against latest origin/main
-7. resolve conflicts inside the task worktree
-8. run required task-candidate E2E in the task worktree
-9. push the request branch
-10. open/update the PR/MR
-11. validate the PR integration candidate
-12. merge into remote main through repository gates
-13. synchronize local main
-14. remove the worktree and merged local branch
-```
-
-Do not insert `merge task → local main` between steps 6 and 8. The task
-branch itself becomes the local integration candidate by incorporating
-the latest `origin/main`.
-
-A task-candidate E2E result is valid only when its tested commit and
-base revision are known. The PR integration gate then protects against
-`main` changing between local candidate validation and final merge.
+When the user chooses a branch or PR workflow, validate the actual
+checkout or integration candidate they identify. Do not automatically
+rebase, push, merge, or delete branches.
 
 ---
 
@@ -775,8 +716,8 @@ Task Candidate Validation
 PR Integration Validation
 ```
 
-Task Candidate Validation runs in the request worktree after the
-request branch incorporates the latest available `origin/main`.
+Task Candidate Validation runs against the task changes and the
+candidate checkout identified for validation.
 
 PR Integration Validation verifies the actual code that is about to
 land, using:
@@ -797,42 +738,15 @@ new integration candidate.
 
 ---
 
-## 16. E2E Validates Integration Candidates, Not Branch Names
+## 16. E2E Scope
 
-E2E validates executable integration state. It does **not** validate
-whether Git reports the current branch name as `main`.
+E2E validates executable integration state. For ordinary local
+development, run the relevant lower-level checks first and use E2E when
+the changed behavior crosses a real process, browser, filesystem, or
+network boundary, or when the user asks for it.
 
-The invariant:
-
-```text
-latest applicable main + task changes = candidate executable state
-```
-
-not:
-
-```text
-current branch name == main
-```
-
-### 16.1 Task-candidate E2E
-
-Every code-bearing change runs relevant E2E suites against a candidate
-that contains:
-
-1. the request's commits
-2. the latest `origin/main` incorporated at candidate preparation
-3. all conflict resolutions required to combine them
-
-Normally:
-
-```bash
-git fetch origin main
-git rebase origin/main
-```
-
-then E2E from the same task worktree.
-
-Record:
+If the user chooses a branch or PR workflow, E2E must run against the
+actual candidate being considered for delivery. Record:
 
 ```text
 Task candidate:
@@ -842,13 +756,9 @@ Result:
 Environment:
 ```
 
-An E2E result applies only to the commit that actually ran. Do not
-modify local `main` to create this candidate.
-
-### 16.2 PR integration E2E
-
-The final landing decision uses PR integration E2E, run against the
-integration candidate defined above.
+Do not automatically rebase, create an integration candidate, or modify
+local `main` merely to satisfy this documentation. Never report a
+skipped command as passing.
 
 ---
 
@@ -874,9 +784,11 @@ command.
 
 ### Commit rules
 
-* Commit only when the user asks.
-* Stage files by explicit path, then re-run `git status` to confirm
-  what is staged.
+* The user controls branch creation, branch switching, commits, pushes,
+  pull requests, and merges. Do not perform these actions unless the
+  user explicitly asks for the specific action.
+* If the user asks for a commit, stage files by explicit path, then
+  re-run `git status` to confirm what is staged.
 * Message format: subject + blank line + body. Single-line commits are
   rejected.
 * Subject uses the repo's semantic prefix (`feat(scope): ...`,

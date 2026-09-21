@@ -22,11 +22,17 @@ export type ThemePreference = "system" | "light" | "dark" | `plugin:${string}`;
 export type CloseBehavior = "ask" | "tray" | "quit";
 
 export type AppSettings = {
+  imageGeneration?: import("../image-generation.js").ImageGenerationBinding | null;
   defaultProviderId?: string;
   defaultModelId?: string;
   /** Host speech bindings. Absent means voice actions stay disabled. */
   speech?: SpeechSettings;
   defaultMode: Mode;
+  /**
+   * Keep retryable provider/network failures retrying until the request succeeds.
+   * Absent and false use the bounded ten-retry policy.
+   */
+  infiniteProviderRetry?: boolean;
   /** Configured command shell for the agent Bash protocol tool. */
   defaultCommandShell?: CommandShellId;
   /**

@@ -42,6 +42,7 @@ import {
   MessageMeta,
 } from "./shared";
 import { activityItemsEqual, ActivityGroup } from "./ActivityGroup";
+import { GeneratedImages } from "./GeneratedImages";
 import { MessageRow } from "./MessageRow";
 import { assistantTurnMenuItems } from "./menu-items";
 import {
@@ -328,7 +329,7 @@ export const AssistantTurn = memo(function AssistantTurn({
     part.kind === "activity" ? (
       <ActivityGroup
         embedded
-        key={`activity-${part.items[0].message.id}`}
+        key={`activity-${part.items[0].message.id}-${part.items[0].kind}${part.items[0].kind === "hostedSearch" ? `-${part.items[0].round.id}` : ""}`}
         items={part.items}
         endedAt={part.endedAt}
         isActive={part === activePart}
@@ -370,7 +371,7 @@ export const AssistantTurn = memo(function AssistantTurn({
       <div className="message-col">
         {groupProcess ? (
           <>
-            <TurnProcess processParts={process} turnParts={entry.parts} isActive={isActive}>
+            <TurnProcess turnId={entry.id} processParts={process} turnParts={entry.parts} isActive={isActive} delegationStatuses={turnDelegationStatuses}>
               {process.map(renderPart)}
             </TurnProcess>
             {responses.map(renderPart)}
@@ -378,6 +379,9 @@ export const AssistantTurn = memo(function AssistantTurn({
         ) : (
           entry.parts.map(renderPart)
         )}
+        {turnAllActivityItems.filter((item) => item.kind === "tool" && item.message.toolName === "GenerateImages").map((item) => (
+          <GeneratedImages key={item.message.id} message={item.message} />
+        ))}
         {!isActive && metaMessage ? (
           <MessageMeta
             modelId={modelId}

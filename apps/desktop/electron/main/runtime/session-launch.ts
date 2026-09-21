@@ -3,6 +3,7 @@ import {
   ErrorCodes as SharedErrorCodes,
   isActiveInProject,
   isCommandShellCatalog,
+  isImageGenerationModel,
   normalizeMode,
   resolveBindingContextWindow,
   trustedExtensionAgentKeyFromProviderId,
@@ -19,6 +20,7 @@ import {
   capabilitiesFromModelConfig,
   clampThinkingLevel,
   genericModelConfig,
+  loadCustomSystemPrompt,
   loadInstructionChain,
   loadSubagentDefinitions,
   modelConfigWithBinding,
@@ -325,6 +327,11 @@ export function createSessionLaunchRuntime({
         errorCode: ErrorCodes.MODEL_NOT_CONFIGURED,
       });
     }
+    if (isImageGenerationModel(settings.imageGeneration, provider.id, modelId)) {
+      throw Object.assign(new Error("The image model cannot be used for conversation; select a chat model"), {
+        errorCode: ErrorCodes.MODEL_NOT_CONFIGURED,
+      });
+    }
     // The authenticated collection owns a vendor account's available model IDs
     // and wire endpoint. models.dev owns metadata; one account can span multiple
     // wire APIs and gateway catalogs.
@@ -366,6 +373,9 @@ export function createSessionLaunchRuntime({
         ? session.projectPath.trim()
         : undefined;
     let projectInstructions = await loadInstructionChain(projectPath);
+    // pi-compatible SYSTEM.md / APPEND_SYSTEM.md (issue #542): resolved once
+    // per launch; a change retires the runtime through the reuse match.
+    const customSystemPrompt = await loadCustomSystemPrompt(projectPath);
     let projectMemory: string | undefined;
     if (projectPath) {
       try {
@@ -607,10 +617,12 @@ export function createSessionLaunchRuntime({
         ),
         ...(overrides.turnId ? { turnId: overrides.turnId } : {}),
         thinkingLevel,
+        infiniteProviderRetry: settings.infiniteProviderRetry === true,
         commandShell,
         scratchDir: join(dataDir, "scratch", sessionId),
         attachmentsDir: join(dataDir, "attachments"),
         projectPath,
+        customSystemPrompt,
         projectInstructions,
         projectMemory,
         provider: {

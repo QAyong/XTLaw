@@ -1,9 +1,9 @@
 {
   "name": "@pi-desktop/desktop",
   "version": "0.15.2-beta.2",
-  "desktopName": "pi-desktop.desktop",
+  "desktopName": "xtlaw.desktop",
   "private": true,
-  "description": "PI-Desktop Electron application",
+  "description": "XTLaw Electron application",
   "homepage": "https://github.com/vastsa/PI-Desktop",
   "author": {
     "name": "vastsa",
@@ -76,7 +76,7 @@
   },
   "build": {
     "appId": "net.aiuo.pi-desktop",
-    "productName": "PI-Desktop",
+    "productName": "XTLaw",
     "directories": {
       "output": "release"
     },
@@ -132,7 +132,7 @@
       }
     ],
     "mac": {
-      "artifactName": "PI-Desktop-${version}-${arch}-mac.${ext}",
+      "artifactName": "XTLaw-${version}-${arch}-mac.${ext}",
       "target": [
         {
           "target": "dmg"
@@ -148,8 +148,8 @@
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
       "extendInfo": {
-        "NSLocalNetworkUsageDescription": "PI-Desktop needs local network access so agents can reach OpenAI-compatible providers, Ollama, and other AI endpoints running on your LAN. / PI-Desktop 需要本地网络访问权限，以便助手请求同一局域网中的 OpenAI 兼容服务、Ollama 等本地 AI 端点。",
-        "NSMicrophoneUsageDescription": "PI-Desktop plugins may use the microphone after you grant them audio access. / 在你授权后，PI-Desktop 插件可以使用麦克风。",
+        "NSLocalNetworkUsageDescription": "XTLaw needs local network access so agents can reach OpenAI-compatible providers, Ollama, and other AI endpoints running on your LAN. / XTLaw 需要本地网络访问权限，以便助手请求同一局域网中的 OpenAI 兼容服务、Ollama 等本地 AI 端点。",
+        "NSMicrophoneUsageDescription": "XTLaw plugins may use the microphone after you grant them audio access. / 在你授权后，XTLaw 插件可以使用麦克风。",
         "NSBonjourServices": [
           "_http._tcp",
           "_https._tcp"
@@ -171,7 +171,7 @@
       ]
     },
     "dmg": {
-      "artifactName": "PI-Desktop-${version}-${arch}.${ext}",
+      "artifactName": "XTLaw-${version}-${arch}.${ext}",
       "background": "build/dmg-background.png",
       "icon": "build/icon.icns",
       "window": {
@@ -194,7 +194,7 @@
       ]
     },
     "win": {
-      "executableName": "PI-Desktop",
+      "executableName": "XTLaw",
       "target": [
         {
           "target": "nsis",
@@ -224,28 +224,28 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "shortcutName": "PI-Desktop",
-      "artifactName": "PI-Desktop-Setup-${version}.${ext}"
+      "shortcutName": "XTLaw",
+      "artifactName": "XTLaw-Setup-${version}.${ext}"
     },
     "portable": {
-      "artifactName": "PI-Desktop-Portable-${version}.${ext}",
+      "artifactName": "XTLaw-Portable-${version}.${ext}",
       "requestExecutionLevel": "user",
-      "unpackDirName": "PI-Desktop-Portable"
+      "unpackDirName": "XTLaw-Portable"
     },
     "deb": {
-      "packageName": "pi-desktop",
-      "artifactName": "pi-desktop_${version}_${arch}.${ext}"
+      "packageName": "xtlaw",
+      "artifactName": "xtlaw_${version}_${arch}.${ext}"
     },
     "rpm": {
-      "packageName": "pi-desktop",
-      "artifactName": "pi-desktop-${version}-${arch}.${ext}",
+      "packageName": "xtlaw",
+      "artifactName": "xtlaw-${version}-${arch}.${ext}",
       "fpm": [
         "--rpm-rpmbuild-define",
         "_build_id_links none"
       ]
     },
     "linux": {
-      "executableName": "pi-desktop",
+      "executableName": "xtlaw",
       "syncDesktopName": true,
       "target": [
         {

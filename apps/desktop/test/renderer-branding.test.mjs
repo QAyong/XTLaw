@@ -30,11 +30,11 @@ const [
     read("../src/components/HomeMascotLogo.tsx"),
   ]);
 
-test("renderer surfaces the PI-Desktop brand instead of the Codex shell brand", () => {
-  assert.match(english, /shellName:\s*"PI-Desktop"/);
-  assert.match(chinese, /shellName:\s*"PI-Desktop"/);
-  assert.match(english, /placeholder:\s*"Ask PI-Desktop to help with anything"/);
-  assert.match(chinese, /placeholder:\s*"让 PI-Desktop 帮你做任何事"/);
+test("renderer surfaces the XTLaw brand instead of the Codex shell brand", () => {
+  assert.match(english, /shellName:\s*"XTLaw"/);
+  assert.match(chinese, /shellName:\s*"XTLaw"/);
+  assert.match(english, /placeholder:\s*"Ask XTLaw to help with anything"/);
+  assert.match(chinese, /placeholder:\s*"让 XTLaw 帮你做任何事"/);
   assert.doesNotMatch(english, /shellName:\s*"Codex"/);
   assert.doesNotMatch(chinese, /shellName:\s*"Codex"/);
   // Codex remains a supported external import source, not the app identity.
@@ -44,6 +44,9 @@ test("renderer surfaces the PI-Desktop brand instead of the Codex shell brand", 
 
 test("app chrome uses the shared brand asset without branding the composer input", async () => {
   // Renderer-sized brand marks, not the 1024px electron-builder installer icons.
+  const darkLogo = await readFile(new URL("../src/assets/brand/logo-dark.png", import.meta.url));
+  const lightLogo = await readFile(new URL("../src/assets/brand/logo-light.png", import.meta.url));
+  assert.deepEqual(darkLogo, lightLogo, "dark and light renderer logos stay synchronized");
   assert.match(brandLogo, /import brandLogoUrlLight from\s*"\.\.\/assets\/brand\/logo-light\.png"/);
   assert.match(brandLogo, /import brandLogoUrlDark from\s*"\.\.\/assets\/brand\/logo-dark\.png"/);
   assert.doesNotMatch(brandLogo, /\.\.\/\.\.\/build\//);

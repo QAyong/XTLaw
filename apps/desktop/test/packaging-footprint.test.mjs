@@ -266,9 +266,9 @@ test("macOS DMG is a two-icon install; ZIP keeps the unsigned helper", () => {
   assert.ok(macOpenScriptStat.mode & 0o111, "opening helper must be executable");
   assert.match(
     macOpenFixNote,
-    /xattr -r -d com\.apple\.quarantine \/Applications\/PI-Desktop\.app/,
+    /xattr -r -d com\.apple\.quarantine \/Applications\/XTLaw\.app/,
   );
-  assert.match(macOpenFixNote, /trusted PI-Desktop source/);
+  assert.match(macOpenFixNote, /trusted XTLaw source/);
   assert.match(macOpenFixNote, /Signed and\s+notarized\s+builds do not need/);
   assert.match(macOpenFixNote, /PI-Desktop-macOS-open\.command/);
   assert.match(macOpenScript, /\/Applications\/\$\{APP_BUNDLE_NAME\}/);

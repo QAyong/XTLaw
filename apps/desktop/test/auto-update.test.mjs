@@ -234,7 +234,7 @@ test("packaging publishes an electron-updater feed for GitHub Releases", () => {
   for (const script of ["dist", "dist:mac", "dist:win", "dist:linux"]) {
     assert.match(pkg.scripts[script], /--publish never/, script);
   }
-  assert.equal(pkg.build.linux.executableName, "pi-desktop");
+  assert.equal(pkg.build.linux.executableName, "xtlaw");
   const linuxTargets = pkg.build.linux.target.map((entry) => entry.target);
   assert.deepEqual(
     linuxTargets,
@@ -242,12 +242,12 @@ test("packaging publishes an electron-updater feed for GitHub Releases", () => {
     "Linux release targets",
   );
   // Scoped package name is not a valid deb/rpm package or file name.
-  assert.equal(pkg.build.deb.packageName, "pi-desktop");
-  assert.equal(pkg.build.rpm.packageName, "pi-desktop");
+  assert.equal(pkg.build.deb.packageName, "xtlaw");
+  assert.equal(pkg.build.rpm.packageName, "xtlaw");
   assert.ok(!pkg.build.deb.artifactName.includes("${name}"), "deb artifactName");
   assert.equal(
     pkg.build.rpm.artifactName,
-    "pi-desktop-${version}-${arch}.${ext}",
+    "xtlaw-${version}-${arch}.${ext}",
     "rpm artifactName",
   );
   assert.deepEqual(
@@ -256,17 +256,17 @@ test("packaging publishes an electron-updater feed for GitHub Releases", () => {
     "rpm build-id configuration",
   );
   // GitHub asset URLs mangle spaces; keep Windows artifact names space-free.
-  assert.equal(pkg.build.nsis.artifactName, "PI-Desktop-Setup-${version}.${ext}");
+  assert.equal(pkg.build.nsis.artifactName, "XTLaw-Setup-${version}.${ext}");
   const winTargets = pkg.build.win.target.map((entry) => entry.target);
   assert.deepEqual(winTargets, ["nsis", "portable"], "Windows release targets");
   assert.equal(
     pkg.build.portable.artifactName,
-    "PI-Desktop-Portable-${version}.${ext}",
+    "XTLaw-Portable-${version}.${ext}",
   );
   assert.equal(pkg.build.portable.requestExecutionLevel, "user");
   assert.equal(
     pkg.build.portable.unpackDirName,
-    "PI-Desktop-Portable",
+    "XTLaw-Portable",
     "portable extraction path stays stable for Windows taskbar identity",
   );
   // The upload step must carry every updater feed, and the release publishes

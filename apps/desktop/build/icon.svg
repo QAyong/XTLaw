@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 1254 1254"
+>
+  <!-- Background -->
+  <rect x="42" y="42" width="1170" height="1170" rx="180" fill="#000"/>
+
+  <!-- X -->
+  <path
+    fill="#fff"
+    d="
+      M207 351
+      L384 574
+      L492 576
+      L197 903
+      H372
+      L524 733
+      L662 903
+      H834
+      L638 656
+      L723 559
+      H551
+      L387 351
+      Z
+    "
+  />
+
+  <!-- T -->
+  <path
+    fill="#fff"
+    d="
+      M670 347
+      L525 491
+      L534 503
+      L792 505
+      L791 805
+      L864 903
+      H913
+      L913 504
+      L1050 503
+      V347
+      Z
+    "
+  />
+</svg>

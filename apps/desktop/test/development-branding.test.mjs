@@ -51,9 +51,9 @@ test("Windows runtime registers the canonical native application identity", () =
   );
 });
 
-test("Windows packages pin PI-Desktop executable and shortcut names", () => {
-  assert.equal(packageJson.build.win.executableName, "PI-Desktop");
-  assert.equal(packageJson.build.nsis.shortcutName, "PI-Desktop");
+test("Windows packages pin XTLaw executable and shortcut names", () => {
+  assert.equal(packageJson.build.win.executableName, "XTLaw");
+  assert.equal(packageJson.build.nsis.shortcutName, "XTLaw");
 });
 
 test("Windows packages and windows use the canonical PI-Desktop icon", () => {
@@ -76,7 +76,7 @@ test("Windows packages and windows use the canonical PI-Desktop icon", () => {
 });
 
 test("Linux packages align the desktop entry with the Wayland app identity", () => {
-  assert.equal(packageJson.desktopName, "pi-desktop.desktop");
+  assert.equal(packageJson.desktopName, "xtlaw.desktop");
   assert.equal(packageJson.build.linux.syncDesktopName, true);
 });
 
@@ -188,7 +188,7 @@ test(
         await readFile(join(brandedContents, "Resources", "icon.icns"), "utf8"),
         "canonical-icon",
       );
-      assert.match(plist, /<string>PI-Desktop<\/string>/);
+      assert.match(plist, /<string>XTLaw<\/string>/);
       assert.match(plist, /<string>net\.aiuo\.pi-desktop\.dev<\/string>/);
       assert.equal(prepareMacDevelopmentBundle(options), brandedExecutable);
     } finally {

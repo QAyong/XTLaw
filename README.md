@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="docs/image/readme/logo.png" alt="PI-Desktop" width="108" />
+<img src="docs/image/readme/logo.png" alt="XTLaw" width="108" />
 
-# PI-Desktop
+# XTLaw
 
 ### A modular desktop workspace for AI agents
 
@@ -28,7 +28,7 @@ Local-first · Model-agnostic · Plugin-powered · macOS / Windows / Linux
 
 <br />
 
-<img src="docs/image/readme/home.webp" alt="PI-Desktop" width="94%" />
+<img src="docs/image/readme/home.webp" alt="XTLaw" width="94%" />
 
 <br />
 
@@ -40,11 +40,11 @@ Local-first · Model-agnostic · Plugin-powered · macOS / Windows / Linux
 
 ---
 
-## Why PI-Desktop?
+## Why XTLaw?
 
 Terminal agents are great at execution. IDE agents are great at living inside an editor.
 
-PI-Desktop goes one step further:
+XTLaw goes one step further:
 
 > **Give AI agents a persistent, independent, and extensible desktop workspace of their own.**
 
@@ -106,7 +106,7 @@ Switch models without rebuilding your workflow.
 
 ## Plugins are part of the workspace, not an afterthought
 
-PI-Desktop keeps the Core focused.
+XTLaw keeps the Core focused.
 
 **Your actual workflow is assembled through extensions.**
 
@@ -207,7 +207,7 @@ Plugins can be distributed as `.piplug` packages or installed through the market
 ## One foundation, many workflows
 
 ```text
-                         PI-Desktop
+                         XTLaw
                              │
           ┌──────────────────┼──────────────────┐
           │                  │                  │
@@ -223,7 +223,7 @@ Plugins can be distributed as `.piplug` packages or installed through the market
                        Your Workflow
 ```
 
-PI-Desktop can simply be your coding agent.
+XTLaw can simply be your coding agent.
 
 Or you can turn it into:
 
@@ -277,7 +277,7 @@ Best for complex and long-running tasks.
 </tr>
 </table>
 
-Privileged operations still pass through PI-Desktop's permission layer.
+Privileged operations still pass through XTLaw's permission layer.
 
 ---
 
@@ -285,7 +285,7 @@ Privileged operations still pass through PI-Desktop's permission layer.
 
 Complex work should not be forced into one context window.
 
-PI-Desktop provides two levels of delegation.
+XTLaw provides two levels of delegation.
 
 ### Subagents
 
@@ -315,7 +315,7 @@ Main Session
     └── Review
 ```
 
-Workers are full PI-Desktop sessions:
+Workers are full XTLaw sessions:
 
 **Independent context · Independent execution · Directly inspectable · Reusable · Full transcript**
 
@@ -351,7 +351,7 @@ Workers are full PI-Desktop sessions:
 
 ## Built for work that lasts
 
-PI-Desktop is organized around:
+XTLaw is organized around:
 
 <div align="center">
 
@@ -385,7 +385,7 @@ You can:
 
 <td width="50%">
 
-<img src="docs/image/readme/chat_en.png" alt="PI-Desktop Session" />
+<img src="docs/image/readme/chat_en.png" alt="XTLaw Session" />
 
 <p align="center"><sub>Persistent Sessions instead of disposable chats</sub></p>
 
@@ -393,7 +393,7 @@ You can:
 
 <td width="50%">
 
-<img src="docs/image/readme/model_en.png" alt="PI-Desktop Model" />
+<img src="docs/image/readme/model_en.png" alt="XTLaw Model" />
 
 <p align="center"><sub>Switch models and reasoning levels inside the Session</sub></p>
 
@@ -405,7 +405,7 @@ You can:
 
 <td width="50%">
 
-<img src="docs/image/readme/plugins_en.png" alt="PI-Desktop Plugins" />
+<img src="docs/image/readme/plugins_en.png" alt="XTLaw Plugins" />
 
 <p align="center"><sub>A plugin marketplace that extends both the agent and the desktop</sub></p>
 
@@ -413,7 +413,7 @@ You can:
 
 <td width="50%">
 
-<img src="docs/image/readme/addmodel_en.png" alt="PI-Desktop Providers" />
+<img src="docs/image/readme/addmodel_en.png" alt="XTLaw Providers" />
 
 <p align="center"><sub>Connect your own provider, gateway, or local model</sub></p>
 
@@ -432,7 +432,7 @@ You can:
 
 ## Swap the model, keep the workflow
 
-PI-Desktop does not tie your workflow to a single model vendor.
+XTLaw does not tie your workflow to a single model vendor.
 
 Use:
 
@@ -461,7 +461,7 @@ Private Task → Local Model
 
 Keep your existing work.
 
-PI-Desktop can import local sessions from:
+XTLaw can import local sessions from:
 
 **Claude Code · Codex · OpenCode · Pi**
 
@@ -469,7 +469,7 @@ PI-Desktop can import local sessions from:
 
 ## Local-first
 
-PI-Desktop does not require you to move your development environment into our cloud.
+XTLaw does not require you to move your development environment into our cloud.
 
 | Data                 | Default behavior                          |
 | -------------------- | ----------------------------------------- |
@@ -478,12 +478,12 @@ PI-Desktop does not require you to move your development environment into our cl
 | Settings             | Local                                     |
 | Logs                 | Local                                     |
 | API credentials      | OS Keychain                               |
-| PI-Desktop telemetry | None                                      |
+| XTLaw telemetry | None                                      |
 | Model requests       | Sent directly to your configured provider |
 
-**No mandatory PI-Desktop account.**
+**No mandatory XTLaw account.**
 
-**No mandatory PI-Desktop relay.**
+**No mandatory XTLaw relay.**
 
 When using a remote model, the context required for the request is sent directly to that provider.
 
@@ -522,7 +522,7 @@ Execution
 
 **Download**
 
-Install PI-Desktop
+Install XTLaw
 
 </td>
 
@@ -561,7 +561,7 @@ Agent / Plan / Goal
 
 <div align="center">
 
-### [Download PI-Desktop →](https://github.com/vastsa/PI-Desktop/releases/latest)
+### [Download XTLaw →](https://github.com/vastsa/PI-Desktop/releases/latest)
 
 **macOS · Windows · Linux**
 
@@ -603,20 +603,20 @@ ldd --version
 
 ## Built on Pi
 
-PI-Desktop is built on the [pi](https://github.com/badlogic/pi-mono) ecosystem.
+XTLaw is built on the [pi](https://github.com/badlogic/pi-mono) ecosystem.
 
 The Agent Runtime uses:
 
 * `pi-ai`
 * `pi-agent-core`
 
-> **Pi provides the Agent Engine. PI-Desktop builds the persistent desktop workspace, sessions, permissions, plugins, and agent orchestration around it.**
+> **Pi provides the Agent Engine. XTLaw builds the persistent desktop workspace, sessions, permissions, plugins, and agent orchestration around it.**
 
 ---
 
 ## For Developers
 
-PI-Desktop can also serve as a host platform for building agent products.
+XTLaw can also serve as a host platform for building agent products.
 
 You can build:
 
@@ -707,7 +707,7 @@ Keep the Core focused. Let the ecosystem grow.
 <div align="center">
 
 <a href="https://trendshift.io/repositories/178787?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-178787">
-<img src="https://trendshift.io/api/badge/repositories/178787" alt="PI-Desktop on Trendshift" width="230" height="51" />
+<img src="https://trendshift.io/api/badge/repositories/178787" alt="XTLaw on Trendshift" width="230" height="51" />
 </a>
 
 </div>
@@ -724,7 +724,7 @@ Keep the Core focused. Let the ecosystem grow.
 
 > **Not by a lone genius, but by a token-powered construction crew.**
 
-PI-Desktop has been built with the help of models from multiple providers.
+XTLaw has been built with the help of models from multiple providers.
 
 More than **27 billion tokens** have been used across development, refactoring, review, design, and debugging.
 
@@ -734,7 +734,7 @@ Thanks to every human contributor — and every model that helped us build it.
 
 ## License
 
-PI-Desktop is licensed under the **GNU Lesser General Public License v3.0**.
+XTLaw is licensed under the **GNU Lesser General Public License v3.0**.
 
 See [LICENSE](LICENSE) for details.
 
@@ -742,9 +742,9 @@ See [LICENSE](LICENSE) for details.
 
 <div align="center">
 
-<img src="docs/image/readme/logo.png" alt="PI-Desktop" width="72" />
+<img src="docs/image/readme/logo.png" alt="XTLaw" width="72" />
 
-## PI-Desktop
+## XTLaw
 
 ### Build your own Agent workspace.
 

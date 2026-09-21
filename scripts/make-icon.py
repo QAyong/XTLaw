@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Derive PI-Desktop platform icon resources from the canonical logo.
+"""Derive XTLaw platform icon resources from the canonical logo.
 
 The tracked ``apps/desktop/build/icon_1024.png`` file is the brand source of
 truth. This script preserves that file and emits:
@@ -19,13 +19,43 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from PIL import Image, ImageChops, ImageDraw
+from PIL import Image, ImageChops
 
 ROOT = Path(__file__).resolve().parent.parent
 BUILD = ROOT / "apps" / "desktop" / "build"
 SOURCE = BUILD / "icon_1024.png"
 
 BASE = 1024
+
+
+def windows_taskbar_variant(master: Image.Image) -> Image.Image:
+    """Optically enlarge the white mark for Windows taskbar rendering."""
+    luminance = master.convert("L")
+    mark_alpha = ImageChops.multiply(
+        luminance.point(lambda value: 255 if value > 32 else 0),
+        master.getchannel("A"),
+    )
+    mark_bounds = mark_alpha.getbbox()
+    if mark_bounds is None:
+        raise ValueError("canonical logo does not contain a white XTLaw mark")
+
+    mark = Image.new("RGBA", master.size, (0, 0, 0, 0))
+    mark.paste(master, (0, 0), mark_alpha)
+    mark = mark.crop(mark_bounds)
+    enlarged_size = (
+        round(mark.width * 1.12),
+        round(mark.height * 1.12),
+    )
+    enlarged_mark = mark.resize(enlarged_size, Image.LANCZOS)
+
+    background = master.copy()
+    background.paste((0, 0, 0, 0), (0, 0), mark_alpha)
+    offset = (
+        (master.width - enlarged_mark.width) // 2,
+        (master.height - enlarged_mark.height) // 2,
+    )
+    background.alpha_composite(enlarged_mark, offset)
+    return background
 
 
 def main() -> None:
@@ -41,11 +71,13 @@ def main() -> None:
 
     BUILD.mkdir(parents=True, exist_ok=True)
     windows_icon = BUILD / "icon.ico"
-    master.save(
+    windows_master = windows_taskbar_variant(master)
+    windows_master.save(
         windows_icon,
         format="ICO",
         sizes=[
             (16, 16),
+            (24, 24),
             (32, 32),
             (48, 48),
             (64, 64),
@@ -57,29 +89,18 @@ def main() -> None:
     master.resize((512, 512), Image.LANCZOS).save(package_icon)
 
     # macOS menu bar icons are template images: the opaque pixels are tinted
-    # by the system. The application icon has an opaque light tile, so using
-    # it directly would turn that tile into the tray silhouette. Derive the
-    # dark PI mark as a transparent, monochrome image instead.
+    # by the system. The XTLaw artwork has a black background and white mark,
+    # so keep the white mark and make the background transparent.
     tray_icon = master.convert("L")
     tray_alpha = ImageChops.multiply(
-        tray_icon.point(
-            lambda luminance: max(0, min(255, (160 - luminance) * 255 // 80))
-        ),
+        tray_icon.point(lambda luminance: 255 if luminance > 32 else 0),
         master.getchannel("A"),
     )
-    # The source artwork also contains a soft outline around its light app
-    # tile. Keep the known PI mark area so that outline cannot leak into the
-    # menu bar template silhouette.
-    mark_clip = Image.new("L", master.size, 0)
-    mark_draw = ImageDraw.Draw(mark_clip)
-    mark_draw.rectangle((120, 115, 850, 800), fill=255)
-    mark_draw.rectangle((120, 115, 250, 250), fill=0)
-    tray_alpha = ImageChops.multiply(tray_alpha, mark_clip)
     tray_icon_mac = Image.new("RGBA", master.size, (0, 0, 0, 0))
     tray_icon_mac.putalpha(tray_alpha)
     mark_bounds = tray_alpha.getbbox()
     if mark_bounds is None:
-        raise ValueError("canonical logo does not contain a dark PI mark")
+        raise ValueError("canonical logo does not contain a white XTLaw mark")
     mark = tray_icon_mac.crop(mark_bounds).resize((768, 768), Image.LANCZOS)
     tray_icon_mac = Image.new("RGBA", master.size, (0, 0, 0, 0))
     tray_icon_mac.paste(mark, (128, 128), mark)

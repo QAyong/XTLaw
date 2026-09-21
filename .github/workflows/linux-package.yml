@@ -68,19 +68,19 @@ jobs:
             echo 'RPM must not ship global build-id links for bundled Electron binaries'
             exit 1
           fi
-          grep -Fx '/opt/PI-Desktop/resources/app.asar' "$rpm_file_list" >/dev/null
+          grep -Fx '/opt/XTLaw/resources/app.asar' "$rpm_file_list" >/dev/null
           grep -Fx '/opt/PI-Desktop/resources/bin/pi-desktop-host-core' "$rpm_file_list" >/dev/null
-          grep -Fx '/usr/share/applications/pi-desktop.desktop' "$rpm_file_list" >/dev/null
-          grep -Fx '/usr/share/icons/hicolor/512x512/apps/pi-desktop.png' "$rpm_file_list" >/dev/null
+          grep -Fx '/usr/share/applications/xtlaw.desktop' "$rpm_file_list" >/dev/null
+          grep -Fx '/usr/share/icons/hicolor/512x512/apps/xtlaw.png' "$rpm_file_list" >/dev/null
 
           desktop_root=$(mktemp -d)
           (
             cd "$desktop_root"
-            rpm2cpio "$rpm_package" | cpio --quiet -id './usr/share/applications/pi-desktop.desktop'
+            rpm2cpio "$rpm_package" | cpio --quiet -id './usr/share/applications/xtlaw.desktop'
           )
-          desktop_entry="$desktop_root/usr/share/applications/pi-desktop.desktop"
-          grep -Fx 'Icon=pi-desktop' "$desktop_entry" >/dev/null
-          grep -Fx 'StartupWMClass=pi-desktop' "$desktop_entry" >/dev/null
+          desktop_entry="$desktop_root/usr/share/applications/xtlaw.desktop"
+          grep -Fx 'Icon=xtlaw' "$desktop_entry" >/dev/null
+          grep -Fx 'StartupWMClass=xtlaw' "$desktop_entry" >/dev/null
 
       - name: Upload RPM package
         uses: actions/upload-artifact@v7

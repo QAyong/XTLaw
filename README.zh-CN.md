@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="docs/image/readme/logo.png" alt="PI-Desktop" width="108" />
+<img src="docs/image/readme/logo.png" alt="XTLaw" width="108" />
 
-# PI-Desktop
+# XTLaw
 
 ### 可拆卸的 AI Agent 桌面工作台
 
@@ -28,7 +28,7 @@
 
 <br />
 
-<img src="docs/image/readme/home.webp" alt="PI-Desktop" width="94%" />
+<img src="docs/image/readme/home.webp" alt="XTLaw" width="94%" />
 
 <br />
 
@@ -38,11 +38,11 @@
 
 ---
 
-## 为什么是 PI-Desktop？
+## 为什么是 XTLaw？
 
 终端 Agent 擅长执行，IDE Agent 擅长嵌入编辑器。
 
-PI-Desktop 想做得更进一步：
+XTLaw 想做得更进一步：
 
 > **给 AI Agent 一个独立、长期、可扩展的桌面工作空间。**
 
@@ -101,7 +101,7 @@ Subagent 与 Worker Session 可以承担独立任务并行工作。
 </div>
 
 > [!NOTE]
-> **PI-Desktop 目前仍处于 Early Preview。** 已可用于真实开发工作流，部分 API、插件接口与桌面能力仍在持续演进。
+> **XTLaw 目前仍处于 Early Preview。** 已可用于真实开发工作流，部分 API、插件接口与桌面能力仍在持续演进。
 
 > **当前发布线：0.15.x（Early Preview）。**
 
@@ -109,7 +109,7 @@ Subagent 与 Worker Session 可以承担独立任务并行工作。
 
 ## 插件不是附加功能，而是工作台的一部分
 
-PI-Desktop 的 Core 负责提供稳定底座。
+XTLaw 的 Core 负责提供稳定底座。
 
 **真正属于你的工作流，由插件组合出来。**
 
@@ -210,7 +210,7 @@ Session Analytics
 ## 一个底座，组装不同的工作流
 
 ```text
-                         PI-Desktop
+                         XTLaw
                              │
           ┌──────────────────┼──────────────────┐
           │                  │                  │
@@ -226,7 +226,7 @@ Session Analytics
                        Your Workflow
 ```
 
-PI-Desktop 可以只是一个 Coding Agent。
+XTLaw 可以只是一个 Coding Agent。
 
 也可以被组装成：
 
@@ -280,7 +280,7 @@ PI-Desktop 可以只是一个 Coding Agent。
 </tr>
 </table>
 
-高权限操作始终经过 PI-Desktop 的 Permission Layer。
+高权限操作始终经过 XTLaw 的 Permission Layer。
 
 ---
 
@@ -288,7 +288,7 @@ PI-Desktop 可以只是一个 Coding Agent。
 
 复杂任务不应该全部挤在一个 Context 里。
 
-PI-Desktop 提供两层任务拆分能力。
+XTLaw 提供两层任务拆分能力。
 
 ### Subagents
 
@@ -318,7 +318,7 @@ Main Session
     └── Review
 ```
 
-Worker 是完整的 PI-Desktop Session：
+Worker 是完整的 XTLaw Session：
 
 **独立 Context · 独立运行 · 可直接查看 · 可持续接受任务 · 保留完整 Transcript**
 
@@ -354,7 +354,7 @@ Worker 是完整的 PI-Desktop Session：
 
 ## 为持续工作而设计
 
-PI-Desktop 围绕：
+XTLaw 围绕：
 
 <div align="center">
 
@@ -388,7 +388,7 @@ PI-Desktop 围绕：
 
 <td width="50%">
 
-<img src="docs/image/readme/chat_en.png" alt="PI-Desktop Session" />
+<img src="docs/image/readme/chat_en.png" alt="XTLaw Session" />
 
 <p align="center"><sub>长期 Session，而不是一次性对话</sub></p>
 
@@ -396,7 +396,7 @@ PI-Desktop 围绕：
 
 <td width="50%">
 
-<img src="docs/image/readme/model_en.png" alt="PI-Desktop Model" />
+<img src="docs/image/readme/model_en.png" alt="XTLaw Model" />
 
 <p align="center"><sub>在 Session 中直接切换模型与推理等级</sub></p>
 
@@ -408,7 +408,7 @@ PI-Desktop 围绕：
 
 <td width="50%">
 
-<img src="docs/image/readme/plugins_en.png" alt="PI-Desktop Plugins" />
+<img src="docs/image/readme/plugins_en.png" alt="XTLaw Plugins" />
 
 <p align="center"><sub>插件市场：扩展 Agent，也扩展整个桌面</sub></p>
 
@@ -416,7 +416,7 @@ PI-Desktop 围绕：
 
 <td width="50%">
 
-<img src="docs/image/readme/addmodel_en.png" alt="PI-Desktop Providers" />
+<img src="docs/image/readme/addmodel_en.png" alt="XTLaw Providers" />
 
 <p align="center"><sub>连接 Provider、Gateway 或本地模型</sub></p>
 
@@ -435,7 +435,7 @@ PI-Desktop 围绕：
 
 ## 模型可以换，工作流不用换
 
-PI-Desktop 不把 Agent 工作流绑定到某一家模型厂商。
+XTLaw 不把 Agent 工作流绑定到某一家模型厂商。
 
 支持：
 
@@ -464,7 +464,7 @@ Private Task → Local Model
 
 已有工作不需要从零开始。
 
-PI-Desktop 可以导入本地 Session：
+XTLaw 可以导入本地 Session：
 
 **Claude Code · Codex · OpenCode · Pi**
 
@@ -472,7 +472,7 @@ PI-Desktop 可以导入本地 Session：
 
 ## Local-first
 
-PI-Desktop 不要求你把开发环境搬到我们的云端。
+XTLaw 不要求你把开发环境搬到我们的云端。
 
 | 数据                   | 默认行为               |
 | -------------------- | ------------------ |
@@ -481,12 +481,12 @@ PI-Desktop 不要求你把开发环境搬到我们的云端。
 | Settings             | 本地                 |
 | Logs                 | 本地                 |
 | API Credentials      | OS Keychain        |
-| PI-Desktop Telemetry | 无                  |
+| XTLaw Telemetry | 无                  |
 | Model Request        | 直接发送到你配置的 Provider |
 
-**无需 PI-Desktop 账号。**
+**无需 XTLaw 账号。**
 
-**无需经过 PI-Desktop 云端 Relay。**
+**无需经过 XTLaw 云端 Relay。**
 
 使用远程模型时，请求所需 Context 会直接发送给对应 Provider。
 
@@ -525,7 +525,7 @@ Execution
 
 **下载**
 
-安装 PI-Desktop
+安装 XTLaw
 
 </td>
 
@@ -564,7 +564,7 @@ Agent / Plan / Goal
 
 <div align="center">
 
-### [下载 PI-Desktop →](https://github.com/vastsa/PI-Desktop/releases/latest)
+### [下载 XTLaw →](https://github.com/vastsa/PI-Desktop/releases/latest)
 
 **macOS · Windows · Linux**
 
@@ -606,20 +606,20 @@ ldd --version
 
 ## Built on Pi
 
-PI-Desktop 构建在 [pi](https://github.com/badlogic/pi-mono) 生态之上。
+XTLaw 构建在 [pi](https://github.com/badlogic/pi-mono) 生态之上。
 
 Agent Runtime 使用：
 
 * `pi-ai`
 * `pi-agent-core`
 
-> **Pi 提供 Agent Engine，PI-Desktop 在其上构建 Desktop Workspace、Session、权限、插件与 Agent 编排。**
+> **Pi 提供 Agent Engine，XTLaw 在其上构建 Desktop Workspace、Session、权限、插件与 Agent 编排。**
 
 ---
 
 ## 开发者
 
-PI-Desktop 也可以作为开发者构建 Agent 产品的宿主平台。
+XTLaw 也可以作为开发者构建 Agent 产品的宿主平台。
 
 你可以开发：
 
@@ -710,7 +710,7 @@ pnpm test
 <div align="center">
 
 <a href="https://trendshift.io/repositories/178787?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-178787">
-<img src="https://trendshift.io/api/badge/repositories/178787" alt="PI-Desktop on Trendshift" width="230" height="51" />
+<img src="https://trendshift.io/api/badge/repositories/178787" alt="XTLaw on Trendshift" width="230" height="51" />
 </a>
 
 </div>
@@ -727,17 +727,17 @@ pnpm test
 
 > **Not by a lone genius, but by a token-powered construction crew.**
 
-PI-Desktop 的开发过程中使用了来自多个 Provider 的模型。
+XTLaw 的开发过程中使用了来自多个 Provider 的模型。
 
 累计模型使用量已超过 **27 Billion Tokens**。
 
-感谢参与构建 PI-Desktop 的每一位贡献者，以及陪我们一起写下这些代码的模型。
+感谢参与构建 XTLaw 的每一位贡献者，以及陪我们一起写下这些代码的模型。
 
 ---
 
 ## License
 
-PI-Desktop 使用 **GNU Lesser General Public License v3.0**。
+XTLaw 使用 **GNU Lesser General Public License v3.0**。
 
 详见 [LICENSE](LICENSE)。
 
@@ -745,9 +745,9 @@ PI-Desktop 使用 **GNU Lesser General Public License v3.0**。
 
 <div align="center">
 
-<img src="docs/image/readme/logo.png" alt="PI-Desktop" width="72" />
+<img src="docs/image/readme/logo.png" alt="XTLaw" width="72" />
 
-## PI-Desktop
+## XTLaw
 
 ### Build your own Agent workspace.
 

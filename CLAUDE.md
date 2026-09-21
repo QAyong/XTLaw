@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Policy-Sync: 2026-09-21.1
+Policy-Sync: 2026-09-22.1
 
 Instructions for Claude Code CLI and Claude Cowork on PI-Desktop.
 
@@ -143,7 +143,7 @@ Before coding, decide "direct change" vs "refactor first". Refactor (or make it 
 | New feature | Implementation + user-path & key-behavior tests + i18n/docs + changelog on released surfaces |
 | Internal refactor | State preserved invariants; prove via existing/contract/differential tests |
 | Public contract | Cover producers and consumers; compat/migration; protocol/schema tests |
-| UI interaction | Component/interaction tests; targeted Electron E2E only for real cross-process risk; do not run `verify:ui:*` unless the user asks |
+| UI interaction | Component/interaction tests; targeted Electron E2E only for real cross-process risk; do not run `test:e2e:*` unless the user asks |
 | Docs / no-logic config | Verify links, paths, commands, facts; no unit tests required |
 
 "Diff is small", "no time", "typecheck passed", "manually clicked through" are not reasons to skip tests. When you skip, state the basis, alternative verification you ran, and residual risk.

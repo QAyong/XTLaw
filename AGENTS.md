@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Policy-Sync: 2026-09-21.1
+Policy-Sync: 2026-09-22.1
 
 Mandatory rules for AI coding agents working in PI-Desktop.
 
@@ -44,10 +44,11 @@ Before non-trivial work:
 
 1. Run `git status --short` and confirm the workspace state. Preserve
    changes from the user and other agents.
-2. Locate the affected packages and read the nearest `AGENTS.md` in each
-   target directory (deeper files can tighten root rules; on conflict the
-   closest file to the target wins).
-3. Read the target package's `README.md`, the relevant ADRs under
+2. Locate the affected packages. A target directory may carry its own
+   `AGENTS.md` that tightens root rules; on conflict the closest file to
+   the target wins. Do not search for one: when it is absent, this file
+   governs the package.
+3. Read the target package's public entry points, the relevant ADRs under
    `docs/adr/`, and the source and tests around the change point. Note
    the current behavior and the invariants that must hold.
 4. Read the applicable domain spec:
@@ -93,22 +94,22 @@ an older document describes local-main E2E integration.
 ## 2. Instruction Scope
 
 Do not maintain per-file lists in this root file. Route to the nearest
-`AGENTS.md`, the package `README.md`, and the tests instead.
+`AGENTS.md`, the applicable domain spec, and the tests instead.
 
-Common scoped rules:
+Common scoped rules are routed through the domain specs:
 
 | Area | Rules |
 | --- | --- |
-| Electron main process | `apps/desktop/electron/AGENTS.md` |
-| Renderer & UI | `apps/desktop/src/AGENTS.md` |
-| Rust host-core | `crates/host-core/AGENTS.md` |
-| Node agent runtime | `packages/agent-runtime/AGENTS.md` |
-| Plugin SDK | `packages/plugin-sdk/AGENTS.md` |
-| Shared contracts | `packages/shared/AGENTS.md` |
-| IPC surface | `apps/desktop/electron/ipc/AGENTS.md` |
+| Electron main process, IPC surface | `docs/spec/03-runtime/01-ipc-protocol.md` |
+| Renderer & UI | `docs/spec/04-ux/` |
+| Rust host-core | `docs/spec/02-architecture/01-architecture.md` |
+| Node agent runtime | `docs/spec/03-runtime/02-agent-runtime.md` |
+| Plugin SDK | `docs/spec/07-plugins/` |
+| Shared contracts | `docs/spec/02-architecture/01-architecture.md` |
+| Repo structure and ownership | `docs/spec/02-architecture/03-repo-structure.md` |
 
-Directories without a local `AGENTS.md` follow this file, the package
-README, existing tests, and current code patterns.
+Directories without a local `AGENTS.md` follow this file, the applicable
+domain spec above, the existing tests, and current code patterns.
 
 ---
 
@@ -499,7 +500,7 @@ Never finish the code and then argue "the change is small, skip tests."
 | New feature | Implementation, user-path + key-behavior tests, i18n / user docs where applicable, changelog if a released surface |
 | Internal refactor | State the preserved invariants and prove them via existing tests, differential tests, or contract tests |
 | Public contract change | Cover producers and consumers, define compat / migration, add protocol / schema / API contract tests |
-| UI interaction change | Component / interaction tests; use targeted Electron E2E only for real cross-process risk. Do not run `verify:ui:*` unless the user asks |
+| UI interaction change | Component / interaction tests; use targeted Electron E2E only for real cross-process risk. Do not run `test:e2e:*` unless the user asks |
 | Docs / copy / no-logic config | Verify links, paths, commands, and facts; no unit tests required |
 
 ### Must add or update tests when
@@ -593,7 +594,7 @@ and do not skip an applicable gate merely because narrower tests passed.
 
 Never report a skipped command as passing.
 
-`verify:ui:*` starts or attaches to a Desktop instance and must only run
+`test:e2e:*` starts or attaches to a Desktop instance and must only run
 when the user explicitly asks in the current task. UI / icon / style /
 main-renderer changes do not by themselves authorize it, and do not ask
 the user just because the change is UI-shaped.

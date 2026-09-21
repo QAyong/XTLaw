@@ -45,6 +45,8 @@
     "check:release-docs": "node scripts/check-release-docs.mjs",
     "check:agent-policy": "node scripts/check-agent-policy-sync.mjs",
     "check:pr-base": "node scripts/check-pr-base-main.mjs",
+    "build:provider-icons": "node scripts/provider-icons/build.mjs",
+    "check:provider-icons": "node scripts/provider-icons/build.mjs --check",
     "docs:dev": "pnpm --filter @pi-desktop/docs dev",
     "docs:build": "pnpm --filter @pi-desktop/docs build",
     "docs:preview": "pnpm --filter @pi-desktop/docs preview",

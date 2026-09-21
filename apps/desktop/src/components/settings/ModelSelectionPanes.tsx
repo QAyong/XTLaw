@@ -31,6 +31,7 @@ import {
   MAX_OUTPUT_PRESETS,
   matchPresetIndex,
 } from "../../lib/model-limit-presets";
+import { ModelIcon } from "../../lib/model-icons";
 import { Button, Field, HelpIcon, Input, Tooltip, TooltipButton, cx } from "../ui";
 import { IconClose, IconGripVertical, IconHelp, IconPlus, IconRefresh, IconSearch } from "../icons";
 import { SettingsMenuSelect } from "./SettingsMenuSelect";
@@ -195,6 +196,8 @@ export type ModelSelectionPanesProps = {
    * tool offer the checkbox at all.
    */
   apiStyle?: string;
+  /** Provider vendor key/name used to resolve the model icon. */
+  providerId?: string;
 };
 
 /**
@@ -209,6 +212,7 @@ export function ModelSelectionPanes({
   busy = false,
   onReload,
   apiStyle,
+  providerId,
   imageModelId,
   onImageModelChange,
 }: ModelSelectionPanesProps) {
@@ -397,6 +401,12 @@ export function ModelSelectionPanes({
                 onChange={() => toggleModel(row)}
               />
               <span className="provider-models-row-copy selectable">
+                <ModelIcon
+                  provider={providerId ?? ""}
+                  modelId={row.id}
+                  modelName={row.displayName}
+                  size={14}
+                />
                 <span className="provider-models-row-id font-mono">{row.id}</span>
                 {row.displayName && row.displayName !== row.id ? (
                   <span className="provider-models-row-name">{row.displayName}</span>

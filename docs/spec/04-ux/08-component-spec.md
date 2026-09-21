@@ -2627,9 +2627,12 @@ reasoning-level control.
   large radius/dialog shadow tokens, and enters with a short upward fade.
 - The Model submenu establishes a clear provider → model hierarchy: sticky
   provider headings use the stronger `--text-md` section treatment, while
-  indented model options use normal-weight `--text-sm` text. In zh-CN, provider
-  headings remove uppercase transformation and wide tracking so localized labels
-  remain readable.
+  indented model options use normal-weight `--text-sm` text. Each option row
+  leads with the model's provider mark: a 14px monochrome glyph resolved from
+  the model id/display name first and the provider's `vendorKey` second, with
+  the Bot glyph as the fallback, colored by the muted text token so it tracks
+  the theme. In zh-CN, provider headings remove uppercase transformation and
+  wide tracking so localized labels remain readable.
 - Width: Home and thread-docked composers share one `24px` horizontal gutter
   and a `768px` maximum content envelope. The left-edge conversation minimap
   is absolutely positioned outside that envelope, so its appearance or

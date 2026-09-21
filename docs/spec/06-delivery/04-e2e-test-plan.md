@@ -1662,7 +1662,8 @@ identify the platform validation still needed.
   menu opens upward from the bottom composer. 3) Enter Model, select a different
   provider/model, and return to the root. 4) Enter Reasoning level and select a
   supported level. 5) Open Settings from the command palette or application menu.
-- **Expected**: The trigger uses a Bot icon while retaining the current model
+- **Expected**: The trigger uses the model's provider icon (the Bot glyph when
+  the provider and model name match no known vendor) while retaining the current model
   and reasoning labels. The root shows only Model and Reasoning level entries.
   The Model submenu lists enabled runnable providers and only the model bindings
   saved for each provider, with each model row visibly indented beneath its provider
@@ -1680,6 +1681,42 @@ identify the platform validation still needed.
 - **Acceptance**: C
 - **Milestone**: M2
 - **Status**: Draft
+
+#### E2E-COMPOSER-model-provider-icons: Composer and Settings show the model's provider icon
+
+- **Preconditions**: Chat route active; at least two providers configured with
+  different vendors (for example Anthropic and DeepSeek), one of them a
+  third-party relay whose model id carries a known vendor name
+  (`deepseek-ai/DeepSeek-V3.2`), plus one provider whose vendor is not in the
+  icon map; light and dark themes available.
+- **Steps**: 1) Inspect the Composer-right model × reasoning chip, then open the
+  menu and inspect the Model entry. 2) Enter Model and inspect every model row.
+  3) Switch the active model between the two providers and re-inspect the chip.
+  4) Open Settings, then the model list of a configured provider or vendor
+  account, and inspect its rows. 5) Toggle the theme between light and dark.
+  6) Select the provider whose vendor is unmapped, then a model whose id and
+  display name match no known vendor.
+- **Expected**: The chip, the Model entry, every Composer model row, and every
+  Settings model row render the model's provider mark as a 14px monochrome
+  glyph, resolved from the model id/display name first and from the provider's
+  `vendorKey` second. The relay's `deepseek-ai/DeepSeek-V3.2` row shows the
+  DeepSeek mark rather than the relay's. Switching models updates the chip
+  immediately. Marks follow the theme through the muted text token: no brand
+  colors, and no glyph keeps a fixed dark value in dark mode. A provider or
+  model that matches nothing falls back to the Bot glyph, never a blank box or
+  a broken image. Icons never widen a row: long model ids still ellipsize and
+  the menu layout is unchanged.
+- **Specs linked**: `04-ux/07-ui-design-system.md` (§ composer right toolbar),
+  `04-ux/08-component-spec.md` (§11, model menu), `scripts/provider-icons/README.md`
+- **Acceptance**: C / Quality
+- **Milestone**: M2
+- **Status**: Manually verified on 2026-09-21 in a `dev` instance (Windows,
+  `node scripts/dev-electron.mjs`, user-confirmed preview): the chip, the Model
+  entry, the Composer model rows, and the Settings model rows show the provider
+  mark, and the dev server serves `./provider-icons.svg` (HTTP 200, 30 symbols).
+  Automated coverage: `apps/desktop/test/model-icons.test.mjs` plus the Composer
+  source contracts in `composer-model-thinking-menu.test.mjs` and
+  `composer-send-state.test.mjs`.
 
 #### E2E-COMPOSER-narrow-controls: Composer controls adapt to a narrow chat column
 
@@ -3182,7 +3219,8 @@ identify the platform validation still needed.
   Native range dragging
   follows immediately; arrow keys retain focus and update the selection.
   With reduced motion enabled, the target is shown without a transition.
-- **Expected**: The chip is in the right toolbar with a Bot icon, before the
+- **Expected**: The chip is in the right toolbar with the model's provider icon
+  (the Bot glyph when no vendor matches), before the
   standalone prompt-enhancement Sparkles action and Send/Abort; Off omits the
   level text. The single anchored menu replaces its root
   with an in-place back row and submenu, never opens tabs or a second popover,
@@ -7987,11 +8025,12 @@ identify the platform validation still needed.
 | E — Tools & permissions (capability level move) | E2E-CAPABILITY-move-across-levels |
 | F — Persistence (capability level move) | E2E-CAPABILITY-move-across-levels |
 | Quality (capability level move) | E2E-CAPABILITY-move-across-levels |
+| C / Quality — Model provider icons | E2E-COMPOSER-model-provider-icons |
 
 | Milestone | Scenarios |
 |---|---|
 | M1 | E2E-001, E2E-002, E2E-003, E2E-028, E2E-029 |
-| M2 | E2E-004, E2E-005, E2E-006, E2E-007, E2E-008, E2E-008d, E2E-008e, E2E-009, E2E-010, E2E-011, E2E-011a, E2E-011b, E2E-011d, E2E-011e, E2E-011g, E2E-020, E2E-021, E2E-021a, E2E-027, E2E-031, E2E-036, E2E-037, E2E-042, E2E-087, E2E-088, E2E-088b, E2E-089, E2E-090, E2E-COMPOSER-narrow-controls, E2E-144, E2E-005J, E2E-201, E2E-202, E2E-207, E2E-206 |
+| M2 | E2E-004, E2E-005, E2E-006, E2E-007, E2E-008, E2E-008d, E2E-008e, E2E-009, E2E-010, E2E-011, E2E-011a, E2E-011b, E2E-011d, E2E-011e, E2E-011g, E2E-020, E2E-021, E2E-021a, E2E-027, E2E-031, E2E-036, E2E-037, E2E-042, E2E-087, E2E-088, E2E-088b, E2E-089, E2E-090, E2E-COMPOSER-narrow-controls, E2E-144, E2E-005J, E2E-201, E2E-202, E2E-207, E2E-206, E2E-COMPOSER-model-provider-icons |
 | M3 | E2E-012, E2E-013, E2E-014, E2E-015, E2E-016, E2E-017, E2E-018, E2E-019, E2E-040 |
 | M4 | E2E-022, E2E-023, E2E-024, E2E-025, E2E-026, E2E-030, E2E-038 |
 | M5 | E2E-CHAT-running-status-survives-output-pauses, E2E-008a, E2E-032, E2E-033, E2E-034, E2E-039, E2E-043, E2E-044, E2E-045, E2E-046, E2E-047, E2E-048, E2E-048A, E2E-049, E2E-050, E2E-051, E2E-052, E2E-053, E2E-054, E2E-055, E2E-056, E2E-057, E2E-058, E2E-059, E2E-060, E2E-061, E2E-062, E2E-063, E2E-064, E2E-065, E2E-066, E2E-067, E2E-068, E2E-069, E2E-070, E2E-071, E2E-072, E2E-073, E2E-074, E2E-075, E2E-076, E2E-077, E2E-078, E2E-079, E2E-080, E2E-081, E2E-082, E2E-083, E2E-084, E2E-085, E2E-086, E2E-092, E2E-093, E2E-096, E2E-097, E2E-098, E2E-099, E2E-100, E2E-101, E2E-102, E2E-102a, E2E-102b, E2E-102c, E2E-102d, E2E-102e, E2E-AGENTS-001, E2E-059a, E2E-060b, E2E-060c, E2E-061a, E2E-073a, E2E-094, E2E-095, E2E-143, E2E-145, E2E-146, E2E-146a, E2E-147, E2E-177, E2E-178, E2E-180, E2E-181, E2E-182, E2E-183, E2E-186, E2E-187, E2E-194, E2E-195, E2E-204, E2E-208, E2E-CHAT-content-width-handles, E2E-250, E2E-252, E2E-102i |

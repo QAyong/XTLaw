@@ -920,7 +920,8 @@ The composer renders only controls connected to the active pi session:
   Agent.
 - The right toolbar exposes one combined model × reasoning trigger immediately
   before the standalone prompt-enhancement Sparkles action and Send/Abort. The
-  trigger shows a Bot icon, the current model, and reasoning level; `off` omits
+  trigger shows the model's provider icon — the Bot glyph when the provider and
+  model name match no known vendor — the current model, and reasoning level; `off` omits
   the level text. Its single `role="menu"`
   popover opens above the trigger at `bottom: calc(100% + 8px)` and starts with
   exactly two current-value entries. When the menu lists more than one

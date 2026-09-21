@@ -102,7 +102,7 @@ test("the combined chip and menu meet the compact accessible visual contract", (
   assert.match(stylesSource, /\.composer-model-thinking-menu\s*\{[\s\S]*?position:\s*fixed;/);
   assert.match(stylesSource, /\.composer-model-thinking-menu\s*\{[\s\S]*?top:\s*0;/);
   assert.match(stylesSource, /\.composer-model-thinking-menu\s*\{[\s\S]*?width:\s*min\(300px,\s*calc\(100vw - 24px\)\)/);
-  assert.match(composerSource, /className="composer-model-thinking-icon"[\s\S]*?<IconBot size=\{14\} \/>/);
+  assert.match(composerSource, /className="composer-model-thinking-icon"[\s\S]*?<ModelIcon[\s\S]*?size=\{14\}/);
   assert.doesNotMatch(stylesSource, /\.composer-model-thinking-icon\.is-off/);
   assert.match(stylesSource, /@media \(prefers-reduced-motion: reduce\)/);
 });

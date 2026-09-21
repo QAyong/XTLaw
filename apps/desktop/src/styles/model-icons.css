@@ -1,0 +1,14 @@
+/*
+ * Provider marks are monochrome: the sprite carries `fill="currentColor"`, so
+ * the glyph paints in the color inherited at the <use> site. The color comes
+ * from the design-system muted text token, which already resolves per theme —
+ * no per-theme override belongs here.
+ */
+:root {
+  --model-icon-color: var(--ds-text-muted);
+}
+
+.model-icon-sprite {
+  flex-shrink: 0;
+  color: var(--model-icon-color);
+}

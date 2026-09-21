@@ -735,6 +735,32 @@ unit/integration 测试；代码 pull request 使用有选择且高价值的 E2E
 - **里程碑**：M2
 - **状态**：草案
 
+#### E2E-COMPOSER-model-provider-icons：Composer 与设置页显示模型的厂商图标
+
+- **先决条件**：聊天路线激活；至少配置两个不同厂商的提供商（例如 Anthropic 与
+  DeepSeek），其中一个是模型 id 带已知厂商名的第三方中转站
+  （`deepseek-ai/DeepSeek-V3.2`），另有一个厂商不在图标映射表内；亮/暗主题均可用。
+- **步骤**：1) 查看 Composer 右侧的模型 × 推理芯片，然后打开菜单查看“模型”入口。
+  2）进入“模型”并查看每一行模型。3）在两个提供商之间切换当前模型，再查看芯片。
+  4）打开设置，进入某个已配置提供商或供应商账号的模型列表，查看其行。
+  5）在亮色与暗色主题之间切换。6）选择厂商未映射的提供商，再选一个 id 与显示名
+  都匹配不到已知厂商的模型。
+- **预期**：芯片、“模型”入口、Composer 的每一行模型、以及设置页的每一行模型都渲染
+  该模型的厂商图形，为 14px 单色字形；先按模型 id/显示名解析，其次按提供商的
+  `vendorKey`。中转站的 `deepseek-ai/DeepSeek-V3.2` 行显示 DeepSeek 图形而不是中转站的。
+  切换模型后芯片立即更新。图形通过次级文字色令牌跟随主题：不出现品牌彩色，
+  暗色下也不会停留在固定的深色值。匹配不到任何厂商的提供商或模型回退为 Bot 字形，
+  不会出现空白或破图。图标不会撑宽行：长模型 id 仍省略号截断，菜单布局不变。
+- **链接规格**：`04-ux/07-ui-design-system.md`（§ Composer 右侧工具栏）、
+  `04-ux/08-component-spec.md`（§11，模型菜单）、`scripts/provider-icons/README.md`
+- **接受**：C / 品质
+- **里程碑**：M2
+- **状态**：2026-09-21 已在 dev 实例中人工验证（Windows，`node scripts/dev-electron.mjs`，
+  用户确认预览通过）：芯片、“模型”入口、Composer 模型行与设置页模型行都显示厂商图形，
+  且 dev server 能提供 `./provider-icons.svg`（HTTP 200，30 个符号）。自动化覆盖：
+  `apps/desktop/test/model-icons.test.mjs`，以及 `composer-model-thinking-menu.test.mjs`
+  与 `composer-send-state.test.mjs` 的 Composer 源码契约。
+
 #### E2E-090：转录底部保留跟踪停靠的输入框高度
 
 - **先决条件**：聊天路线激活；会议记录
@@ -5242,11 +5268,12 @@ eleven-tool-round desktop paths are verified by
 | E — 工具与权限（能力跨级别迁移） | E2E-CAPABILITY-move-across-levels |
 | F — 持久化（能力跨级别迁移） | E2E-CAPABILITY-move-across-levels |
 | 品质（能力跨级别迁移） | E2E-CAPABILITY-move-across-levels |
+| C / 品质 —— 模型厂商图标 | E2E-COMPOSER-model-provider-icons |
 
 | 里程碑 | 应用场景 |
 |---|---|
 | M1 | E2E-001、E2E-002、E2E-003、E2E-028、E2E-029 |
-| M2 | E2E-004、E2E-005、E2E-006、E2E-007、E2E-008、E2E-008d、E2E-009、E2E-010、E2E-011、E2E-011a、E2E-011b、E2E-020、E2E-021、E2E-027、E2E-031、 E2E-036、E2E-037、E2E-042、E2E-087、E2E-088、E2E-088b、E2E-089、E2E-090、E2E-144、E2E-005J、E2E-201 |
+| M2 | E2E-004、E2E-005、E2E-006、E2E-007、E2E-008、E2E-008d、E2E-009、E2E-010、E2E-011、E2E-011a、E2E-011b、E2E-020、E2E-021、E2E-027、E2E-031、 E2E-036、E2E-037、E2E-042、E2E-087、E2E-088、E2E-088b、E2E-089、E2E-090、E2E-144、E2E-005J、E2E-201、E2E-COMPOSER-model-provider-icons |
 | M3 | E2E-012、E2E-013、E2E-014、E2E-015、E2E-016、E2E-017、E2E-018、E2E-019、E2E-040 |
 | M4 | E2E-022、E2E-023、E2E-024、E2E-025、E2E-026、E2E-030、E2E-038 |
 | M5 | E2E-CHAT-running-status-survives-output-pauses、E2E-008a、E2E-032、E2E-033、E2E-034、E2E-039、E2E-043、E2E-044、E2E-045、E2E-046、E2E-047、E2E-048、E2E-048A、E2E-049、E2E-050、 E2E-051、E2E-052、E2E-053、E2E-054、E2E-055、E2E-056、E2E-057、E2E-058、E2E-059、E2E-060、E2E-061、E2E-062、E2E-063、E2E-064、 E2E-065、E2E-066、E2E-067、E2E-068、E2E-069、E2E-070、E2E-071、E2E-072、E2E-073、E2E-074、E2E-075、E2E-076、E2E-077、E2E-078、 E2E-079、E2E-080、E2E-081、E2E-082、E2E-083、E2E-084、E2E-085、E2E-086、E2E-092、E2E-093、E2E-096、E2E-097、E2E-098、E2E-099、 E2E-100、E2E-101、E2E-102、E2E-102a、E2E-102b、E2E-AGENTS-001、E2E-059a、E2E-060b、E2E-060c、E2E-061a、E2E-073a、E2E-094、E2E-095、E2E-143、E2E-145、E2E-146、E2E-147、E2E-194、E2E-195、E2E-204、E2E-250 |

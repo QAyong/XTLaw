@@ -183,6 +183,7 @@ SVG 规格如下：
 - `origin`（当前开发和发布仓库）：`https://github.com/QAyong/XTLaw.git`。
 - `upstream`（二开基础仓库）：`https://github.com/vastsa/PI-Desktop.git`。
 - 当前 XTLaw 是基于 `upstream` 的下游二次开发版本，`origin` 用于维护 XTLaw 自己的代码和发布内容。
+- 桌面应用的 `electron-updater` 更新源已切换到 `https://github.com/QAyong/XTLaw/releases/latest`，发布配置也指向 `QAyong/XTLaw`；上游仓库仍作为二开基础仓库保留。
 - 插件市场相关地址仍可能指向上游的插件仓库或镜像；本次简单改名不改变这些仓库关系。
 
 因此，本次只替换产品显示名称、界面文案和打包图标，不把上游关系仓库误改成 XTLaw，也不重写历史文档中的来源信息。
@@ -195,7 +196,8 @@ SVG 规格如下：
 4. 同步替换其他语言文案中的当前产品名称。
 5. 将已提供的 SVG 保存为图标源，并生成 PNG、ICO 和 ICNS 打包资源。
 6. 修改 README 和 macOS 辅助说明中的当前产品名称。
-7. 构建并检查窗口标题、设置页、安装包文件名、快捷方式名称和各平台图标。
+7. 将桌面自动更新源和 GitHub Release 发布配置切换到 XTLaw 仓库。
+8. 构建并检查窗口标题、设置页、安装包文件名、快捷方式名称和各平台图标。
 
 ## 7. 验收标准
 
@@ -206,6 +208,7 @@ SVG 规格如下：
 - [x] macOS、Windows 和 Linux 打包配置均使用新的 XTLaw 图标。
 - [x] Windows `icon.ico` 包含多个标准尺寸，覆盖 `16x16`、`24x24`、`32x32`、`48x48`、`64x64`、`128x128` 和 `256x256`。
 - [x] `APP_ID` 保持不变。
+- [x] 桌面自动更新源指向 `QAyong/XTLaw`，与当前 `origin` 发布仓库一致。
 - [x] `~/.pi-desktop` 数据目录保持不变。
 - [x] `PI_DESKTOP_*` 环境变量保持不变。
 - [x] `@pi-desktop/*` 包名和 `pi-desktop/...` IPC 通道保持不变。

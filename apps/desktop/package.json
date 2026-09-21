@@ -83,8 +83,8 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "vastsa",
-        "repo": "PI-Desktop"
+        "owner": "QAyong",
+        "repo": "XTLaw"
       }
     ],
     "files": [

@@ -1,4 +1,6 @@
-# ADR 0283: Ship the DOCX editor as a bundled plugin
+# ADR 9000: Ship the DOCX editor as a bundled plugin
+
+- Status: Accepted for implementation
 
 ## Context
 

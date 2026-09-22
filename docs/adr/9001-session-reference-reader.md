@@ -1,4 +1,4 @@
-# ADR 0300: Read referenced sessions through a local auxiliary tool
+# ADR 9001: Read referenced sessions through a local auxiliary tool
 
 - Status: Accepted for implementation
 - Date: 2026-09-22

@@ -16,6 +16,10 @@ Each ADR includes:
 - Consequences
 - Alternatives (optional)
 
+Fork-owned decisions use the `9xxx` range. Upstream claims `0000`–`8999`, so a
+fork record never collides with an upstream number when the fork syncs
+`upstream/main`. Fork records are still one row here and one file in `docs/adr/`.
+
 ## Index
 
 | ID | Title | Status |
@@ -328,9 +332,17 @@ Each ADR includes:
 | 0297 | [Provider-hosted web search as an adapter capability](0297-provider-hosted-web-search-adapter-capability.md) | Accepted |
 | 0298 | [The app ships no fonts](0298-remove-bundled-fonts.md) | Accepted (D598; amends ADR 0083 / D232) |
 | 0299 | [Subagent context budget and delegate compaction](0299-subagent-context-budget.md) | Accepted for implementation (amends ADR 0064; extends ADR 0062 / ADR 0279) |
-| 0300 | [Read referenced sessions through a local auxiliary tool](0300-session-reference-reader.md) | Accepted for implementation |
+| 0300 | [Host-owned encrypted portable configuration sync](0300-host-owned-encrypted-portable-configuration-sync.md) | Accepted for implementation |
+| 0301 | [Explicit append-only WebDAV compatibility mode](0301-explicit-append-only-webdav-compatibility-mode.md) | Accepted for implementation |
+| 0302 | [A failed compaction keeps the recent window, and an oversized summary is chunked](0302-compaction-fallback-recent-window-and-chunked-summary.md) | Accepted for implementation (issue #827; amends ADR 0049 / ADR 0282) |
+| 0303 | [A skill package carries resources far above the document cap](0303-skill-package-resource-limits.md) | Accepted for implementation (amends ADR 0300) |
+| 0304 | [Trust the network endpoints the user enters themselves](0304-user-supplied-endpoint-trust.md) | Accepted for implementation (amends ADR 0243 / 0245 / 0247; follows ADR 0142 / 0257 / 0300) |
+| 0305 | [Keep scheduled-task execution settings task-owned](0305-scheduled-task-execution-settings.md) | Accepted for implementation (amends scheduled-desktop-automations) |
+| 9000 | [Ship the DOCX editor as a bundled plugin](9000-office-docx-plugin.md) | Accepted for implementation (fork record) |
+| 9001 | [Read referenced sessions through a local auxiliary tool](9001-session-reference-reader.md) | Accepted for implementation (fork record) |
 | turn-process-and-thinking-display | [Turn process and thinking presentation](turn-process-and-thinking-display.md) | Accepted |
 | provider-display-order | [Provider display order](provider-display-order.md) | Accepted |
 | registry-header-variable-spelling | [Remote header variables accept the registry's `{name}` spelling](registry-header-variable-spelling.md) | Proposed |
 | provider-system-certificates | [Desktop sidecar uses OS-trusted certificates](provider-system-certificates.md) | Accepted |
 | image-generation-capability | [Image generation as a configured Agent capability](image-generation-capability.md) | Accepted |
+| trusted-extension-operation-ownership | [Trusted extension operation ownership](trusted-extension-operation-ownership.md) | Implemented candidate |

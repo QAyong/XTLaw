@@ -1399,7 +1399,7 @@ identify the platform validation still needed.
   reference is gray with a removal tooltip, and an archived reference is not
   treated as deleted. A later turn without B rejects the stale id.
 - **Specs linked**: `docs/specs/feature-002-session-reference.md`,
-  `docs/adr/0300-session-reference-reader.md`,
+  `docs/adr/9001-session-reference-reader.md`,
   `03-runtime/01-ipc-protocol.md`, `03-runtime/04-data-storage.md`
 - **Acceptance**: C (composer interaction), F (persistence), Quality
 - **Milestone**: M5

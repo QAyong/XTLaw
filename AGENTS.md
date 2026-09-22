@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Policy-Sync: 2026-09-22.1
+Policy-Sync: 2026-09-23.1
 
 Mandatory rules for AI coding agents working in PI-Desktop.
 
@@ -191,6 +191,10 @@ or security boundary requires an ADR.
 - To change frozen architecture, propose alternatives and migration
   impact to the user first, then implement, then record a new ADR.
   Do not change only the ADR to claim behavior has changed.
+- Fork-owned decisions use the `9xxx` ADR id range. Upstream keeps
+  `0000`–`8999`, so a fork record never collides with an upstream number
+  when the fork syncs `upstream/main`. Never renumber an upstream record
+  and never take an upstream number for a new fork record.
 
 ---
 
@@ -760,6 +764,9 @@ Environment:
 Do not automatically rebase, create an integration candidate, or modify
 local `main` merely to satisfy this documentation. Never report a
 skipped command as passing.
+
+Do not run `pnpm install`, `npm install`, or create a second dependency
+or runtime environment solely to execute e2e; reuse the host environment.
 
 ---
 

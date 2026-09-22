@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Policy-Sync: 2026-09-22.1
+Policy-Sync: 2026-09-23.1
 
 Instructions for Claude Code CLI and Claude Cowork on PI-Desktop.
 
@@ -79,6 +79,8 @@ Boundaries you must not break:
 - Plugin permissions and sandbox boundaries are never bypassed.
 
 Changing a frozen architecture, public interface, data ownership model, or security boundary requires an ADR under `docs/adr/`.
+
+Fork-owned decisions use the `9xxx` ADR id range; upstream keeps `0000`–`8999`.
 
 ### Behavior and data safety
 
@@ -256,6 +258,8 @@ docs(spec): clarify plan checkpoint wording
 4. Refresh against latest `origin/main` only when the user asks for PR-candidate preparation.
 5. Run required candidate E2E when the change is code-bearing and the user requests that validation.
 6. Report exactly what ran, what did not, and residual risk.
+
+Do not run `pnpm install`, `npm install`, or create a second dependency or runtime environment solely to execute e2e; reuse the host environment.
 
 Do not push, open a PR, or merge unless the user explicitly asks.
 

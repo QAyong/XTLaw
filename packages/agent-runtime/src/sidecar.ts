@@ -19,7 +19,7 @@ import {
   type RuntimeProviderConfig,
 } from "./runtime.js";
 import type { PluginSkillDef } from "./plugin-skills-prompt.js";
-import type { SessionMessageOrigin, TrustedExtensionSpec } from "@pi-desktop/shared";
+import type { AgentSessionReference, SessionMessageOrigin, TrustedExtensionSpec } from "@pi-desktop/shared";
 import type { ProjectInstructions } from "./project-instructions.js";
 import type { CustomSystemPrompt } from "./custom-system-prompt.js";
 import {
@@ -119,6 +119,7 @@ type RuntimeParams = {
   attachmentsDir?: string;
   userMessageId?: string;
   sessionMessage?: SessionMessageOrigin;
+  sessionReferences?: AgentSessionReference[];
   attachments?: RuntimePromptAttachment[];
 };
 
@@ -531,6 +532,7 @@ async function handle(method: string, params: any): Promise<unknown> {
       const prompt: RuntimePrompt = {
         text: content,
         attachments,
+        ...(params.sessionReferences ? { sessionReferences: params.sessionReferences } : {}),
         ...(params.sessionMessage ? { sessionMessage: params.sessionMessage as SessionMessageOrigin } : {}),
       };
       void runtime.prompt(prompt, userMessageId, turnId).catch((err) => {
@@ -558,7 +560,13 @@ async function handle(method: string, params: any): Promise<unknown> {
       const expectedTurnId = String(params.expectedTurnId ?? "");
       if (method === "agent.steeringContext") return runtime.steeringContext(expectedTurnId);
       return runtime.steer(
-        { text: String(params.content ?? ""), attachments: params.attachments },
+        {
+          text: String(params.content ?? ""),
+          attachments: params.attachments,
+          ...(Array.isArray(params.sessionReferences)
+            ? { sessionReferences: params.sessionReferences as AgentSessionReference[] }
+            : {}),
+        },
         expectedTurnId,
         params.message,
       );

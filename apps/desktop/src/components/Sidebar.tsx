@@ -42,7 +42,10 @@ import {
   sidebarSessionStatus,
   type SidebarSessionStatus,
 } from "../lib/sidebar-session-status";
-import { ErrorCodes } from "@pi-desktop/shared";
+import {
+  ErrorCodes,
+  formatSessionReferenceClipboard,
+} from "@pi-desktop/shared";
 import type { SessionSummary } from "@pi-desktop/shared";
 import type {
   ProjectMeta,
@@ -1275,6 +1278,22 @@ export function Sidebar({
     closeMenus();
   };
 
+  const copySessionReference = async (session: SessionSummary) => {
+    try {
+      await navigator.clipboard.writeText(
+        formatSessionReferenceClipboard({
+          id: session.id,
+          title: session.title,
+          cwd: session.projectPath,
+        }),
+      );
+      showToast(t("chat.copied"));
+    } catch (error) {
+      reportError(error);
+    }
+    closeMenus();
+  };
+
   const openSessionPath = async (session: SessionSummary) => {
     closeMenus(false);
     try {
@@ -1979,6 +1998,15 @@ export function Sidebar({
                 {t("nav.createBranch")}
               </button>
             ) : null}
+            <button
+              type="button"
+              role="menuitem"
+              data-action="copy-session-reference"
+              onClick={() => void copySessionReference(session)}
+            >
+              <IconCopy size={14} />
+              {t("nav.copySessionReference", { defaultValue: "Copy session reference" })}
+            </button>
             {settings?.developerMode === true ? (
               <>
                 <button

@@ -15,6 +15,7 @@ import {
   isImageGenerationModel,
   modelIdsMatch,
   normalizeLargePasteThreshold,
+  stripSessionReferenceTokens,
   stripInlineComposerFileReferenceTokens,
 } from "@pi-desktop/shared";
 import { useAppStore } from "../stores/app-store";
@@ -176,8 +177,12 @@ export function Composer({
     placeholderIndex,
     activeFileReferences,
     fileReferencesRef,
+    sessionReferences,
+    sessionReferencesRef,
+    activeSessionReferences,
     applyEditorDraft,
     snapshotReferences,
+    snapshotSessionReferences,
     draftSnapshot,
     clearDraftForKey,
     restoreDraftForKey,
@@ -202,6 +207,7 @@ export function Composer({
       ref,
       valueRef,
       fileReferencesRef: draft.fileReferencesRef,
+      sessionReferencesRef,
       applyEditorDraft,
       snapshotReferences,
       commitEditorDom,
@@ -226,15 +232,15 @@ export function Composer({
   const inputBlocked = approvalPending || pasting || nativeInputBlocked;
   const controlsBlocked = approvalPending || nativeSession;
   const sendBlocked = approvalPending || pasting || nativeInputBlocked;
-  const enhancementDraft = stripInlineComposerFileReferenceTokens(
-    value,
-    activeFileReferences,
+  const enhancementDraft = stripSessionReferenceTokens(
+    stripInlineComposerFileReferenceTokens(value, activeFileReferences),
+    activeSessionReferences,
   );
   // Edit returns one queued row to the composer. The row is removed and its
   // captured draft becomes the input, so the input must be empty first: the
   // live read is the only current source (the draft cache is not per keystroke).
   const handleEditQueuedPrompt = (id: string) => {
-    if (readLiveDraft().trim() || activeFileReferences.length) {
+    if (readLiveDraft().trim() || activeFileReferences.length || activeSessionReferences.length) {
       showToast(t("chat.editQueuedPromptBusy"), { variant: "info" });
       return;
     }
@@ -395,7 +401,9 @@ export function Composer({
       !isImageGenerationModel(settings?.imageGeneration, provider.id, modelId) &&
       (provider.hasSecret || provider.authKind === "none");
   const enterToSend = settings?.enterToSend ?? true;
-  const hasDraftContent = Boolean(value.trim() || activeFileReferences.length);
+  const hasDraftContent = Boolean(
+    value.trim() || activeFileReferences.length || activeSessionReferences.length,
+  );
 
   useEffect(() => {
     if (!controlsBlocked) return;
@@ -413,6 +421,7 @@ export function Composer({
     sendBlocked,
     pasting,
     activeFileReferences,
+    activeSessionReferences,
     t,
     sendPrompt,
     steerPrompt,

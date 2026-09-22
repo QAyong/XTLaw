@@ -1,4 +1,7 @@
-import type { ComposerDraftSnapshot } from "./composer-smart-stop";
+import type {
+  ComposerDraftSessionReference,
+  ComposerDraftSnapshot,
+} from "./composer-smart-stop";
 
 type CachedComposerDraft = ComposerDraftSnapshot & {
   /** Workspace that owned relative file references when the draft was captured. */
@@ -25,6 +28,10 @@ export type ComposerDraftFileInput = {
   token?: string;
 };
 
+export type ComposerDraftSessionInput = ComposerDraftSessionReference & {
+  sessionId?: string;
+};
+
 const cache = new Map<string, CachedComposerDraft>();
 
 export function draftKeyForSession(sessionId: string | null | undefined): string {
@@ -41,6 +48,7 @@ export function snapshotComposerDraft(
   fileReferences: readonly ComposerDraftFileInput[],
   key: string,
   workspacePath?: string,
+  sessionReferences: readonly ComposerDraftSessionInput[] = [],
 ): CachedComposerDraft {
   const owner = draftOwnerSessionId(key);
   const snapshot: CachedComposerDraft = {
@@ -54,6 +62,18 @@ export function snapshotComposerDraft(
         ...(mimeType ? { mimeType } : {}),
         ...(token ? { token } : {}),
       })),
+    ...(sessionReferences.length
+      ? {
+          sessionReferences: sessionReferences
+            .filter((reference) => (reference.sessionId ?? "") === owner)
+            .map(({ id, title, cwd, token }) => ({
+              id,
+              ...(title ? { title } : {}),
+              ...(cwd ? { cwd } : {}),
+              ...(token ? { token } : {}),
+            })),
+        }
+      : {}),
   };
   if (workspacePath !== undefined) snapshot.workspacePath = workspacePath;
   return snapshot;
@@ -72,6 +92,9 @@ export function writeComposerDraft(
   const next: CachedComposerDraft = {
     ...snapshot,
     fileReferences: snapshot.fileReferences.map((reference) => ({ ...reference })),
+    ...(snapshot.sessionReferences
+      ? { sessionReferences: snapshot.sessionReferences.map((reference) => ({ ...reference })) }
+      : {}),
   };
   if (workspacePath !== undefined) {
     next.workspacePath = workspacePath;
@@ -80,14 +103,14 @@ export function writeComposerDraft(
   }
   cache.set(key, next);
 }
-
 export function captureComposerDraft(
   key: string,
   text: string,
   fileReferences: readonly ComposerDraftFileInput[],
   workspacePath?: string,
+  sessionReferences: readonly ComposerDraftSessionInput[] = [],
 ): CachedComposerDraft {
-  const snapshot = snapshotComposerDraft(text, fileReferences, key, workspacePath);
+  const snapshot = snapshotComposerDraft(text, fileReferences, key, workspacePath, sessionReferences);
   cache.set(key, snapshot);
   return snapshot;
 }
@@ -119,7 +142,7 @@ export function adoptHomeDraftForSession(sessionId: string): void {
   const home = cache.get(HOME_DRAFT_KEY);
   cache.delete(HOME_DRAFT_KEY);
   if (!home) return;
-  if (!home.text && home.fileReferences.length === 0) return;
+  if (!home.text && home.fileReferences.length === 0 && !home.sessionReferences?.length) return;
   writeComposerDraft(sessionId, home);
 }
 

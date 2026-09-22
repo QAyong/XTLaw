@@ -28,6 +28,9 @@ pub struct QueuedTurnInput {
     pub input_hash: String,
     pub content: String,
     pub session_message_id: Option<String>,
+    /// Model-only metadata for a queued prompt. Stored in the existing JSON
+    /// payload so the queue schema remains backward-compatible.
+    pub session_references: Option<Value>,
     pub attachments: Option<Value>,
     pub permission_mode: String,
 }
@@ -45,6 +48,8 @@ pub struct QueuedTurn {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub session_message_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_references: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub attachments: Option<Value>,
     pub permission_mode: String,
     pub position: i64,
@@ -56,8 +61,48 @@ pub struct QueuedTurn {
     pub created_at: String,
 }
 
+const QUEUE_PAYLOAD_MARKER: &str = "__piDesktopQueuePayload";
+
+/// Keep the existing attachments column usable for old rows while adding
+/// queue-only metadata without another database migration.
+fn encode_queue_payload(
+    attachments: Option<Value>,
+    session_references: Option<Value>,
+) -> Result<Option<String>> {
+    if session_references.is_none() {
+        return attachments
+            .map(|value| serde_json::to_string(&value))
+            .transpose()
+            .map_err(Into::into);
+    }
+    let mut payload = serde_json::Map::new();
+    payload.insert(QUEUE_PAYLOAD_MARKER.into(), Value::Bool(true));
+    if let Some(value) = attachments {
+        payload.insert("attachments".into(), value);
+    }
+    if let Some(value) = session_references {
+        payload.insert("sessionReferences".into(), value);
+    }
+    Ok(Some(serde_json::to_string(&Value::Object(payload))?))
+}
+
+fn decode_queue_payload(raw: Option<String>) -> (Option<Value>, Option<Value>) {
+    let Some(raw) = raw else { return (None, None) };
+    let Ok(value) = serde_json::from_str::<Value>(&raw) else {
+        return (None, None);
+    };
+    if value.get(QUEUE_PAYLOAD_MARKER).and_then(Value::as_bool) == Some(true) {
+        return (
+            value.get("attachments").cloned(),
+            value.get("sessionReferences").cloned(),
+        );
+    }
+    (Some(value), None)
+}
+
 fn row_to_entry(row: &rusqlite::Row<'_>) -> rusqlite::Result<QueuedTurn> {
     let attachments: Option<String> = row.get(6)?;
+    let (attachments, session_references) = decode_queue_payload(attachments);
     Ok(QueuedTurn {
         id: row.get(0)?,
         session_id: row.get(1)?,
@@ -66,7 +111,8 @@ fn row_to_entry(row: &rusqlite::Row<'_>) -> rusqlite::Result<QueuedTurn> {
         input_hash: row.get(4)?,
         content: row.get(5)?,
         session_message_id: row.get(10)?,
-        attachments: attachments.and_then(|text| serde_json::from_str(&text).ok()),
+        session_references,
+        attachments,
         permission_mode: row.get(7)?,
         position: row.get(8)?,
         priority: row.get(11)?,
@@ -125,11 +171,8 @@ pub fn push(db: &Database, input: QueuedTurnInput) -> Result<QueuedTurn> {
         .id
         .filter(|id| !id.trim().is_empty())
         .unwrap_or_else(|| Uuid::new_v4().to_string());
-    let attachments_json = input
-        .attachments
-        .as_ref()
-        .map(serde_json::to_string)
-        .transpose()?;
+    let attachments_json =
+        encode_queue_payload(input.attachments.clone(), input.session_references.clone())?;
     let created_at = now_ms();
     tx.execute(
         "INSERT INTO turn_queue (
@@ -159,6 +202,7 @@ pub fn push(db: &Database, input: QueuedTurnInput) -> Result<QueuedTurn> {
         input_hash: input.input_hash,
         content: input.content,
         session_message_id: input.session_message_id,
+        session_references: input.session_references,
         attachments: input.attachments,
         permission_mode: input.permission_mode,
         position: max_position + 1,
@@ -330,6 +374,7 @@ mod tests {
             input_hash: format!("hash:{content}"),
             content: content.to_string(),
             session_message_id: None,
+            session_references: None,
             attachments: None,
             permission_mode: "ask".into(),
         }
@@ -386,6 +431,21 @@ mod tests {
             list(&db, Some(&session_id)).unwrap()[0].attachments,
             entry.attachments
         );
+    }
+
+    #[test]
+    fn queue_preserves_session_references_with_the_existing_payload_column() {
+        let (_dir, db, session_id) = open_with_session();
+        let mut queued = input(&session_id, "look this up later", None);
+        queued.session_references = Some(serde_json::json!([
+            { "id": "past-session", "title": "Past decision" }
+        ]));
+        queued.attachments = Some(serde_json::json!([{ "name": "notes.txt" }]));
+
+        let entry = push(&db, queued).unwrap();
+        let restored = list(&db, Some(&session_id)).unwrap().remove(0);
+        assert_eq!(restored.session_references, entry.session_references);
+        assert_eq!(restored.attachments, entry.attachments);
     }
 
     fn content_order(db: &Database, session_id: &str) -> Vec<String> {

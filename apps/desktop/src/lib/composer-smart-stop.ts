@@ -7,9 +7,18 @@ export type ComposerDraftFileReference = {
   token?: string;
 };
 
+export type ComposerDraftSessionReference = {
+  id: string;
+  title?: string;
+  cwd?: string;
+  /** Visible inline token for a referenced session. */
+  token?: string;
+};
+
 export type ComposerDraftSnapshot = {
   text: string;
   fileReferences: ComposerDraftFileReference[];
+  sessionReferences?: ComposerDraftSessionReference[];
 };
 
 export type ComposerPrefill = ComposerDraftSnapshot & {

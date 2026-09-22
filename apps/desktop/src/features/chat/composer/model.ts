@@ -69,6 +69,15 @@ export type ComposerFileReference = {
   mimeType?: string;
   token?: string;
 };
+export type ComposerSessionReference = {
+  referenceType: "session";
+  id: string;
+  sessionId: string;
+  title?: string;
+  cwd?: string;
+  invalid?: boolean;
+  token?: string;
+};
 
 export type ComposerMenuView = "root" | "model" | "thinking";
 

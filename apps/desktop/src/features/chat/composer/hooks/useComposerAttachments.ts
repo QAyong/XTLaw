@@ -6,6 +6,7 @@ import {
 } from "react";
 import type { TFunction } from "i18next";
 import { materializeDraftSession, useAppStore } from "../../../../stores/app-store";
+import { parseSessionReferenceClipboard } from "@pi-desktop/shared";
 import { api } from "../../../../lib/api";
 import {
   HOME_DRAFT_KEY,
@@ -43,6 +44,7 @@ type UseComposerAttachmentsOptions = {
     | "ref"
     | "valueRef"
     | "fileReferencesRef"
+    | "sessionReferencesRef"
     | "applyEditorDraft"
     | "snapshotReferences"
     | "commitEditorDom"
@@ -160,6 +162,48 @@ export function useComposerAttachments({
   const pasteClipboardFiles = async (event: ClipboardEvent<HTMLDivElement>) => {
     if (isInputBlocked) return;
     const text = event.clipboardData.getData("text/plain");
+    const sessionReferenceData = parseSessionReferenceClipboard(text);
+    if (sessionReferenceData?.length) {
+      event.preventDefault();
+      const editor = event.currentTarget;
+      const { start: selectionStart, end: selectionEnd } = editorSelectionRange(editor);
+      const sourceValue = readEditorValue(editor);
+      const ownerSessionId = activeSessionId ?? "";
+      const previousReferences = draft.sessionReferencesRef.current.filter(
+        (reference) => reference.sessionId === ownerSessionId,
+      );
+      const existingIds = new Set(previousReferences.map((reference) => reference.id));
+      const acceptedReferences = sessionReferenceData.filter((reference) => {
+        if (existingIds.has(reference.id)) return false;
+        existingIds.add(reference.id);
+        return true;
+      });
+      const duplicateCount = sessionReferenceData.length - acceptedReferences.length;
+      if (duplicateCount > 0) {
+        showToast(t, "chat.sessionReferenceDuplicate", { count: duplicateCount }, "info");
+      }
+      if (acceptedReferences.length === 0) return;
+      const inserted = acceptedReferences.map(() => nextChipToken()).join("");
+      const nextText = sourceValue.slice(0, selectionStart) + inserted + sourceValue.slice(selectionEnd);
+      const nextReferences = [
+        ...previousReferences,
+        ...acceptedReferences.map((reference, index) => ({
+          referenceType: "session" as const,
+          id: reference.id,
+          sessionId: ownerSessionId,
+          ...(reference.title ? { title: reference.title } : {}),
+          ...(reference.cwd ? { cwd: reference.cwd } : {}),
+          token: inserted[index],
+        })),
+      ];
+      draft.applyEditorDraft(
+        nextText,
+        draft.fileReferencesRef.current,
+        selectionStart + inserted.length,
+        nextReferences,
+      );
+      return;
+    }
     const pastedFiles = clipboardFiles(event.clipboardData);
     const files = preferClipboardText(text, pastedFiles, api.getDroppedFilePath)
       ? []

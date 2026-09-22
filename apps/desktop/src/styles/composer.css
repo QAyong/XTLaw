@@ -310,6 +310,12 @@
   outline-offset: 1px;
 }
 
+.composer-session-chip.is-invalid {
+  background: var(--ds-bg-subtle);
+  color: var(--ds-text-muted);
+  opacity: 0.72;
+}
+
 .composer-chip-icon {
   display: inline-flex;
   flex: 0 0 auto;

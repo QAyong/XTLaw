@@ -1288,6 +1288,40 @@ identify the platform validation still needed.
   coverage in `scripts/e2e/composer-paste.tsx` (`pnpm test:e2e:composer-paste`);
   full UI scenario Draft
 
+#### E2E-SESSION-reference-read: Copy, paste, and read a referenced session
+
+- **Preconditions**: Provider configured; sessions A and B exist; B contains
+  visible user/assistant history and is not the currently selected session.
+- **Steps**: 1) Open B's sidebar context menu and choose Copy session
+  reference. 2) Paste the clipboard block into A's composer and confirm the
+  session chip appears. 3) Paste the same block again and confirm only one
+  chip remains with a duplicate notice. 4) Send a question that requires a
+  fact from B. 5) Inspect the runtime tool trace and the persisted user row.
+  6) Delete or archive B, then repeat the composer inspection and the read
+  attempt where applicable.
+- **Expected**: The clipboard block contains the B id, title, and cwd; the
+  visible user message remains clean while its metadata preserves the
+  reference; the model-only context lists the id/title without transcript
+  text; `read_session` accepts only B for that turn, reads the complete host
+  transcript through the auxiliary model, and returns an extracted answer
+  rather than raw history. A duplicate paste is ignored, the deleted
+  reference is gray with a removal tooltip, and an archived reference is not
+  treated as deleted. A later turn without B rejects the stale id.
+- **Specs linked**: `docs/specs/feature-002-session-reference.md`,
+  `docs/adr/0300-session-reference-reader.md`,
+  `03-runtime/01-ipc-protocol.md`, `03-runtime/04-data-storage.md`
+- **Acceptance**: C (composer interaction), F (persistence), Quality
+- **Milestone**: M5
+- **Status**: Lower-level coverage implemented. On 2026-09-23, the authorized
+  `pnpm test:e2e` protocol smoke passed 23/23 checks (2 live-provider checks
+  skipped without credentials). The dedicated Composer UI probe
+  `pnpm test:e2e:composer-paste` did not pass: its isolated Electron preview
+  reached the image-preview Escape path but failed the existing focus-restore
+  assertion (`cancel did not close and restore attachment focus`). This run is
+  not evidence of a session-reference regression; the image-preview source was
+  unchanged by the session-reference work. Keep the dedicated UI scenario
+  open until the harness/native-dialog focus timing is corrected.
+
 #### E2E-011d: New task creates an immediate durable empty slot
 
 - **Preconditions**: Provider configured; at least one real session exists so

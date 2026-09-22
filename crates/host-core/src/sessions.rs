@@ -146,6 +146,10 @@ pub struct UiMessage {
     pub id: String,
     pub role: String,
     pub content: String,
+    /// Renderer-owned metadata that is not part of the visible message text.
+    /// Currently this carries the session-reference list for model replay.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub meta: Option<Value>,
     /// Host-authenticated agent-to-agent origin, never a human authorization.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub session_message: Option<Value>,
@@ -282,6 +286,11 @@ fn is_default_title(title: &str) -> bool {
 /// the search index row (None for tool rows, matching the FTS triggers).
 pub(crate) fn ui_to_record(message: &UiMessage) -> (MessageRecord, Option<String>) {
     let mut meta_obj = serde_json::Map::new();
+    if let Some(Value::Object(fields)) = &message.meta {
+        for (key, value) in fields {
+            meta_obj.insert(key.clone(), value.clone());
+        }
+    }
     if let Some(origin) = &message.session_message {
         meta_obj.insert("sessionMessage".into(), origin.clone());
     }
@@ -429,6 +438,10 @@ pub(crate) fn record_to_ui(record: MessageRecord) -> UiMessage {
         _ => Vec::new(),
     };
     let meta = record.meta.unwrap_or(Value::Null);
+    let message_meta = meta
+        .get("sessionReferences")
+        .filter(|value| value.is_array())
+        .map(|value| json!({ "sessionReferences": value }));
     let session_message = meta.get("sessionMessage").cloned();
     let steering = meta.get("steering").and_then(Value::as_bool);
     let status = meta
@@ -531,6 +544,7 @@ pub(crate) fn record_to_ui(record: MessageRecord) -> UiMessage {
             id: record.id,
             role: record.role,
             content: text,
+            meta: message_meta.clone(),
             session_message,
             attachments: None,
             steering,
@@ -580,6 +594,7 @@ pub(crate) fn record_to_ui(record: MessageRecord) -> UiMessage {
             id: record.id,
             role: record.role,
             content,
+            meta: message_meta,
             session_message,
             attachments,
             steering,
@@ -3652,6 +3667,7 @@ mod tests {
             id: id.into(),
             role: "user".into(),
             content: content.into(),
+            meta: None,
             attachments: None,
             steering: None,
             created_at: ts.into(),
@@ -4148,6 +4164,30 @@ mod tests {
     }
 
     #[test]
+    fn session_reference_metadata_roundtrips_without_visible_text_changes() {
+        let db = test_db();
+        let session = create_session(&db, None, None, None, None, Some("/tmp/x".into())).unwrap();
+        let mut message = user_msg(
+            "m1",
+            "Summarize the earlier decision.",
+            "2025-05-01T00:00:00Z",
+        );
+        message.meta = Some(json!({
+            "sessionReferences": [{ "id": "older-session", "title": "Earlier decision" }]
+        }));
+        append_message(&db, &session.id, &message, None).unwrap();
+
+        let detail = get_session(&db, &session.id).unwrap().unwrap();
+        assert_eq!(detail.messages[0].content, message.content);
+        assert_eq!(
+            detail.messages[0].meta,
+            Some(json!({
+                "sessionReferences": [{ "id": "older-session", "title": "Earlier decision" }]
+            }))
+        );
+    }
+
+    #[test]
     fn append_and_roundtrip_tool_message() {
         let db = test_db();
         let session = create_session(&db, None, None, None, None, Some("/tmp/x".into())).unwrap();
@@ -4163,6 +4203,7 @@ mod tests {
             id: "m2".into(),
             role: "tool".into(),
             content: "ok".into(),
+            meta: None,
             attachments: None,
             steering: None,
             created_at: "2025-05-01T00:00:02Z".into(),
@@ -4592,6 +4633,7 @@ mod tests {
             id: "assistant-1".into(),
             role: "assistant".into(),
             content: "final answer".into(),
+            meta: None,
             attachments: None,
             steering: None,
             created_at: "2025-05-01T00:00:01Z".into(),
@@ -4675,6 +4717,7 @@ mod tests {
             id: "assistant-search-1".into(),
             role: "assistant".into(),
             content: "answer with sources".into(),
+            meta: None,
             attachments: None,
             steering: None,
             created_at: "2025-05-01T00:00:01Z".into(),

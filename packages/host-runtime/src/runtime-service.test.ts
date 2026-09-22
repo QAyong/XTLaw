@@ -148,6 +148,30 @@ async function settle(): Promise<void> {
 }
 
 describe("RuntimeService prompt lifecycle", () => {
+  it("keeps session references in metadata while forwarding clean visible text", async () => {
+    const { host, sidecar, service } = build();
+    await service.prompt({
+      sessionId: "s1",
+      content: "What did we decide?",
+      sessionReferences: [{ id: "past-session", title: "Past decision" }],
+      effectivePermissionMode: "ask",
+      principal: owner,
+    });
+
+    const row = host.messages.get("s1")?.[0];
+    expect(row).toMatchObject({
+      content: "What did we decide?",
+      meta: { sessionReferences: [{ id: "past-session", title: "Past decision" }] },
+    });
+    expect(sidecar.calls.find((call) => call.method === "agent.prompt")?.params).toMatchObject({
+      content: "What did we decide?",
+      sessionReferences: [{ id: "past-session", title: "Past decision" }],
+    });
+    expect(sidecar.calls.find((call) => call.method === "agent.prompt")?.params.content).not.toContain(
+      "[Session references]",
+    );
+  });
+
   it("opens a durable turn, persists the user row, then starts the runtime under that turn id", async () => {
     const { host, sidecar, service, events } = build();
     const { turnId } = await service.prompt({ sessionId: "s1", content: "hello", effectivePermissionMode: "ask", principal: owner });

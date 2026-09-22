@@ -13,6 +13,7 @@ import type { PersistenceOutbox } from "../persistence-outbox";
 import type { ComposerCommandService } from "./composer-ipc";
 import type { IpcRegistrar } from "./types";
 import { withPromptEnhancementTimeout } from "../prompt-enhancement-timeout";
+import { normalizeAgentSessionReferences } from "@pi-desktop/shared";
 
 export type AgentIpcDependencies = {
   registrar: IpcRegistrar;
@@ -248,9 +249,10 @@ export function registerAgentIpc({
 
   handle(IPC.invoke.agentSteer, async (req: AgentSteerRequest) => {
     if (!host || !sidecar) throw new Error("backend unavailable");
+    const sessionReferences = normalizeAgentSessionReferences(req?.sessionReferences);
     if (
       !req?.sessionId || typeof req.content !== "string" || !req.expectedTurnId ||
-      (!req.content.trim() && !req.attachments?.length)
+      (!req.content.trim() && !req.attachments?.length && !sessionReferences.length)
     ) {
       throw Object.assign(new Error("Steering input and expectedTurnId required"), {
         errorCode: ErrorCodes.INVALID_ARGUMENT,
@@ -280,12 +282,14 @@ export function registerAgentIpc({
       createdAt: new Date().toISOString(),
       steering: true,
       ...(prepared.length ? { attachments: prepared.map((attachment) => attachment.message) } : {}),
+      ...(sessionReferences.length ? { meta: { sessionReferences } } : {}),
     };
     // Revalidate inside the runtime after all file/host IO. A stale target must
     // never turn into a normal prompt or alter the next turn's configuration.
     return sidecar.call<{ accepted: boolean; turnId: string }>("agent.steer", {
       sessionId: req.sessionId, expectedTurnId: req.expectedTurnId, message,
       content: appendPromptFallbackPaths(req.content, prepared),
+      ...(sessionReferences.length ? { sessionReferences } : {}),
       attachments: prepared.filter((attachment) => attachment.inlineData).map((attachment) => ({
         path: attachment.message.ref, name: attachment.message.name, kind: attachment.message.kind,
         mimeType: attachment.message.mimeType, size: attachment.message.size, data: attachment.inlineData,
@@ -295,8 +299,9 @@ export function registerAgentIpc({
 
   handle(IPC.invoke.agentPrompt, async (req: AgentPromptRequest) => {
     if (!sidecar) throw new Error("sidecar unavailable");
+    const sessionReferences = normalizeAgentSessionReferences(req?.sessionReferences);
     if (req.sessionId.startsWith("native-pi:")) {
-      if (req.sessionMessageId || req.truncateFromMessageId || req.truncateBefore !== undefined || req.attachments?.length) {
+      if (req.sessionMessageId || sessionReferences.length || req.truncateFromMessageId || req.truncateBefore !== undefined || req.attachments?.length) {
         throw Object.assign(new Error("Native Pi continuation currently supports text prompts only"), {
           errorCode: ErrorCodes.INVALID_ARGUMENT,
         });
@@ -538,6 +543,7 @@ export function registerAgentIpc({
             activeRevision: revisionMeta.activeRevision,
           }
         : {}),
+      ...(sessionReferences.length ? { meta: { sessionReferences } } : {}),
     };
     try {
       await host.call("session.appendMessage", {
@@ -580,6 +586,7 @@ export function registerAgentIpc({
           turnId: durableTurnId,
           content: modelContent,
           ...(sessionMessage ? { sessionMessage: sessionMessage.origin } : {}),
+          ...(sessionReferences.length ? { sessionReferences } : {}),
           attachments: preparedAttachments
             .filter((attachment) => attachment.inlineData)
             .map((attachment) => ({

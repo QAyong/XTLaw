@@ -3,6 +3,7 @@ import type { TFunction } from "i18next";
 import {
   canonicalThinkingLevel,
   restoreInlineComposerFileReferenceTokens,
+  stripSessionReferenceTokens,
   serializeComposerFileReferences,
   serializeInlineComposerFileReferences,
   stripInlineComposerFileReferenceTokens,
@@ -15,6 +16,7 @@ import { draftKeyForSession } from "../../../../lib/composer-draft-cache";
 import { runExtensionCommand, runPaletteCommand } from "../../../../lib/commands";
 import { resolveComposerCommand } from "../../../../hooks/use-composer-autocomplete";
 import { readEditorValue, setEditorCaret, type ComposerFileReference } from "../editor";
+import type { ComposerSessionReference } from "../editor";
 import type { ComposerDraftController } from "./useComposerDraft";
 
 type UseComposerSubmitOptions = {
@@ -28,6 +30,7 @@ type UseComposerSubmitOptions = {
   sendBlocked: boolean;
   pasting: boolean;
   activeFileReferences: ComposerFileReference[];
+  activeSessionReferences: ComposerSessionReference[];
   t: TFunction;
   sendPrompt: AppState["sendPrompt"];
   steerPrompt: AppState["steerPrompt"];
@@ -70,6 +73,7 @@ export function useComposerSubmit({
   sendBlocked,
   pasting,
   activeFileReferences,
+  activeSessionReferences,
   t,
   sendPrompt,
   steerPrompt,
@@ -93,9 +97,9 @@ export function useComposerSubmit({
 
   const enhancePrompt = async () => {
     const sourceText = value;
-    const textToEnhance = stripInlineComposerFileReferenceTokens(
-      sourceText,
-      activeFileReferences,
+    const textToEnhance = stripSessionReferenceTokens(
+      stripInlineComposerFileReferenceTokens(sourceText, activeFileReferences),
+      activeSessionReferences,
     );
     const sourceKey = draftKey;
     const sourceVersion = enhancementVersionRef.current;
@@ -133,16 +137,24 @@ export function useComposerSubmit({
       const modelDraft = result.enhancedDraft.trim();
       if (
         !modelDraft ||
-        !stripInlineComposerFileReferenceTokens(modelDraft, activeFileReferences).trim()
+        !stripSessionReferenceTokens(
+          stripInlineComposerFileReferenceTokens(modelDraft, activeFileReferences),
+          activeSessionReferences,
+        ).trim()
       ) {
         throw Object.assign(new Error("The model returned an empty enhanced draft."), {
           code: "PROMPT_ENHANCEMENT_EMPTY",
         });
       }
-      const enhancedDraft = restoreInlineComposerFileReferenceTokens(
+      const enhancedWithFiles = restoreInlineComposerFileReferenceTokens(
         sourceText,
         modelDraft,
         activeFileReferences,
+      );
+      const enhancedDraft = restoreInlineComposerFileReferenceTokens(
+        sourceText,
+        enhancedWithFiles,
+        activeSessionReferences,
       );
       enhancementVersionRef.current += 1;
       draft.setValue(enhancedDraft);
@@ -191,12 +203,22 @@ export function useComposerSubmit({
 
   const submit = async (steering = false) => {
     const text = draft.ref.current ? readEditorValue(draft.ref.current) : value;
-    const inlineContent = serializeInlineComposerFileReferences(
+    const textWithoutSessionReferences = stripSessionReferenceTokens(
       text,
-      activeFileReferences,
+      activeSessionReferences,
     );
-    const serializedContent = serializeComposerFileReferences(text, activeFileReferences);
-    if (!serializedContent) return;
+    const inlineContent = stripSessionReferenceTokens(
+      serializeInlineComposerFileReferences(
+        text,
+        activeFileReferences,
+      ),
+      activeSessionReferences,
+    );
+    const serializedContent = stripSessionReferenceTokens(
+      serializeComposerFileReferences(text, activeFileReferences),
+      activeSessionReferences,
+    );
+    if (!serializedContent && !activeSessionReferences.length) return;
     if (sendBlocked) {
       if (pasting) showToast(t("chat.pasteInProgress"), { variant: "info" });
       return;
@@ -222,7 +244,7 @@ export function useComposerSubmit({
         if (isModeCommand && commandBody) {
           try {
             await runPaletteCommand(command.id);
-            const visibleDraft = text.trim();
+            const visibleDraft = textWithoutSessionReferences.trim();
             const visibleCommandEnd = visibleDraft.search(/\s/);
             const visibleCommandBody =
               visibleCommandEnd === -1

@@ -7,10 +7,12 @@ import type { MessageUsage, ToolTokenUsage, UiMessage } from "./messages.js";
 import type { PermissionDecision, Risk } from "./permissions.js";
 import type { ThinkingLevel } from "./models.js";
 import type { RacpPermissionMode } from "../racp.js";
-
+import type { AgentSessionReference } from "../session-reference.js";
 export type AgentPromptRequest = {
   sessionId: string;
   content: string;
+  /** User-selected past sessions; transcript content is read only by read_session. */
+  sessionReferences?: AgentSessionReference[];
   /** Host-owned collaboration delivery; its durable record supplies the input. */
   sessionMessageId?: string;
   /** Attachments are resolved by Electron main and never trusted by the sidecar. */
@@ -68,7 +70,7 @@ export type AgentPromptAttachment = {
 
 export type AgentSteerRequest = Pick<
   AgentPromptRequest,
-  "sessionId" | "content" | "attachments" | "messageId"
+  "sessionId" | "content" | "sessionReferences" | "attachments" | "messageId"
 > & {
   expectedTurnId: string;
 };
@@ -137,6 +139,7 @@ export type QueuedTurnSummary = {
   sessionId: string;
   content: string;
   sessionMessageId?: string;
+  sessionReferences?: AgentSessionReference[];
   attachments?: AgentPromptAttachment[];
   position: number;
   /** Set only for promoted entries; entries arrive in delivery order. */
@@ -148,6 +151,7 @@ export type AgentQueuePushRequest = {
   sessionId: string;
   content: string;
   sessionMessageId?: string;
+  sessionReferences?: AgentSessionReference[];
   attachments?: AgentPromptAttachment[];
   idempotencyKey?: string;
 };
@@ -156,6 +160,7 @@ export type AgentQueueChangedEvent = {
   sessionId: string;
   entries: QueuedTurnSummary[];
 };
+
 
 export type AgentCompactRequest = {
   sessionId: string;

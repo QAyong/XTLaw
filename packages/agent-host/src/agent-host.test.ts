@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type {
   AgentEvent,
   AgentEventEnvelope,
+  AgentSessionReference,
   AskToolResolution,
   RacpEventEnvelope,
   RacpItemSummary,
@@ -291,6 +292,24 @@ describe("AgentHost turns", () => {
     expect(same.turn.id).toBe(first.turn.id);
     expect(runtime.prompts).toHaveLength(1);
     await expect(host.startTurn(owner, { ...request, input: { ...request.input, sessionMessageId: "m2" } })).rejects.toMatchObject({ code: "IDEMPOTENCY_CONFLICT" });
+  });
+
+  it("normalizes remote session references before dispatch", async () => {
+    const { host, runtime } = build();
+    const references = [
+      { id: "  older-session  ", title: "Earlier decision" },
+      { id: "older-session", title: "duplicate metadata" },
+      null,
+      { id: "   " },
+    ] as unknown as AgentSessionReference[];
+    await host.startTurn(owner, {
+      sessionId: "s1",
+      input: { text: "read the earlier decision", sessionReferences: references },
+      context: { requestId: "r-normalize" },
+    });
+    expect(runtime.prompts[0]?.sessionReferences).toEqual([
+      { id: "older-session", title: "Earlier decision" },
+    ]);
   });
 
   it("cancels a queued collaboration message without dispatching it", async () => {

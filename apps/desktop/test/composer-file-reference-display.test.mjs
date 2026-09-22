@@ -5,13 +5,15 @@ import { readComposerSource } from "./helpers/composer-source.mjs";
 
 const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
 
-const [autocomplete, autocompleteHook, autocompleteStyles, composer, composerStyles] =
+const [autocomplete, autocompleteHook, autocompleteStyles, composer, composerStyles, editor, draftHook] =
   await Promise.all([
     read("../src/components/ComposerAutocomplete.tsx"),
     read("../src/hooks/use-composer-autocomplete.ts"),
     read("../src/styles/composer-autocomplete.css"),
     readComposerSource(),
     read("../src/styles/composer.css"),
+    read("../src/features/chat/composer/editor.ts"),
+    read("../src/features/chat/composer/hooks/useComposerDraft.ts"),
   ]);
 
 test("file autocomplete rows keep the path out of the persistent label", () => {
@@ -84,6 +86,13 @@ test("composer renders atomic inline chips and serializes paths on send", () => 
     composerStyles,
     /\.composer-chip-name[\s\S]*?text-overflow: ellipsis/,
   );
+});
+
+test("session reference removal separates the action label from the completion toast", () => {
+  assert.match(editor, /sessionReferenceRemoveLabel/);
+  assert.match(editor, /chipRemoveLabel = isSession \? sessionReferenceRemoveLabel\(label\)/);
+  assert.match(draftHook, /t\("chat\.removeSessionReference", \{ name \}\)/);
+  assert.match(draftHook, /t\("chat\.sessionReferenceRemoved", \{ name: removedSession\.title \|\| removedSession\.id \}\)/);
 });
 
 test("text file chips expand into editable draft text", () => {

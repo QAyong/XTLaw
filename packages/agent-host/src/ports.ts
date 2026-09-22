@@ -1,12 +1,12 @@
 import type {
   AgentPromptAttachment,
+  AgentSessionReference,
   AskToolResolution,
   RacpItemSummary,
   RacpPermissionMode,
   RacpPlanningState,
   RacpRole,
 } from "@pi-desktop/shared";
-
 /** Who is calling. The local desktop uses an `owner` principal with `pairedDevice`. */
 export type Principal = {
   subject: string;
@@ -35,6 +35,7 @@ export type TurnStartRequest = {
   sessionId: string;
   content: string;
   sessionMessageId?: string;
+  sessionReferences?: AgentSessionReference[];
   /** Client-chosen id for the durable user row (D288); the runtime mints one otherwise. */
   userMessageId?: string;
   attachments?: AgentPromptAttachment[];
@@ -53,6 +54,7 @@ export type TurnSteerRequest = {
   turnId: string;
   content: string;
   sessionMessageId?: string;
+  sessionReferences?: AgentSessionReference[];
   attachments?: AgentPromptAttachment[];
   principal: Principal;
 };
@@ -78,6 +80,7 @@ export type QueuedTurnRecord = {
   principalSubject: string;
   content: string;
   sessionMessageId?: string;
+  sessionReferences?: AgentSessionReference[];
   /** Client-chosen id for the durable user row (D288). */
   userMessageId?: string;
   attachments?: AgentPromptAttachment[];

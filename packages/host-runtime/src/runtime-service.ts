@@ -8,6 +8,7 @@ import {
   type AskToolResolution,
   type Risk,
   type UiMessage,
+  normalizeAgentSessionReferences,
 } from "@pi-desktop/shared";
 
 import type { LaunchResolver } from "./launch-resolver.js";
@@ -293,6 +294,7 @@ export class RuntimeService implements RuntimePort {
   private async startTurn(sessionId: string, request: TurnStartRequest): Promise<{ turnId: string }> {
     const host = this.requireHost();
     const sidecar = this.requireSidecar();
+    const sessionReferences = normalizeAgentSessionReferences(request.sessionReferences);
     const sessionMessage = await resolveSessionMessageInput(host, {
       sessionId,
       ...(request.sessionMessageId !== undefined ? { sessionMessageId: request.sessionMessageId } : {}),
@@ -334,6 +336,7 @@ export class RuntimeService implements RuntimePort {
       createdAt: new Date(this.now()).toISOString(),
       status: "complete",
       ...(command ? { command } : {}),
+      ...(sessionReferences.length ? { meta: { sessionReferences } } : {}),
     };
     try {
       await host.call("session.appendMessage", { sessionId, message: userMessage, turnId });
@@ -355,6 +358,7 @@ export class RuntimeService implements RuntimePort {
         turnId,
         content,
         ...(sessionMessage ? { sessionMessage: sessionMessage.origin } : {}),
+        ...(sessionReferences.length ? { sessionReferences } : {}),
         attachments: [],
         userMessageId: userMessage.id,
         // Per-turn permission ceiling override (R1 leftover; spec §7.3). Only
@@ -380,6 +384,7 @@ export class RuntimeService implements RuntimePort {
 
   async steer(request: TurnSteerRequest): Promise<{ accepted: boolean }> {
     const sessionId = request.sessionId.trim();
+    const sessionReferences = normalizeAgentSessionReferences(request.sessionReferences);
     if (!this.isTurnDispatchable(sessionId, request.turnId)) return { accepted: false };
     try {
       const host = this.requireHost();
@@ -396,12 +401,14 @@ export class RuntimeService implements RuntimePort {
         status: "complete",
         createdAt: new Date(this.now()).toISOString(),
         steering: true,
+        ...(sessionReferences.length ? { meta: { sessionReferences } } : {}),
       };
       const result = await sidecar.call<{ accepted?: boolean }>("agent.steer", {
         sessionId,
         expectedTurnId: request.turnId,
         message,
         content: request.content,
+        ...(sessionReferences.length ? { sessionReferences } : {}),
         attachments: [],
       });
       return { accepted: result?.accepted !== false };

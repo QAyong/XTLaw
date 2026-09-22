@@ -2,9 +2,9 @@ import {
   fileReferenceLabel,
   formatFileInsert,
 } from "@pi-desktop/shared";
-import type { ComposerFileReference } from "./model";
+import type { ComposerFileReference, ComposerSessionReference } from "./model";
 
-export { type ComposerFileReference } from "./model";
+export { type ComposerFileReference, type ComposerSessionReference } from "./model";
 
 let composerFileReferenceSequence = 0;
 
@@ -234,6 +234,7 @@ const CHIP_ICON_SVG: Record<string, string> = {
   video:
     '<path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5"/><rect x="2" y="6" width="14" height="12" rx="2"/>',
   file: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>',
+  session: '<path d="M4 12h16"/><path d="m13 5 7 7-7 7"/><path d="M20 12H4"/>',
   x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
 };
 
@@ -263,24 +264,46 @@ export function isComposerAudioReference(reference: ComposerFileReference): bool
   const mime = reference.mimeType?.toLowerCase() ?? "";
   return mime.startsWith("audio/") || AUDIO_FILE_PATTERN.test(reference.name);
 }
+function isSessionReference(
+  reference: ComposerFileReference | ComposerSessionReference,
+): reference is ComposerSessionReference {
+  return "referenceType" in reference && reference.referenceType === "session";
+}
 
-/** Build the atomic inline chip element for one attachment reference. */
+/** Build the atomic inline chip element for an attachment or session reference. */
 function buildChipElement(
-  reference: ComposerFileReference,
+  reference: ComposerFileReference | ComposerSessionReference,
   token: string,
   removeLabel: string,
   onRemove: (token: string) => void,
   onExpandText: (token: string) => void,
+  sessionReferenceRemovedLabel: (name: string) => string,
+  sessionReferenceRemoveLabel: (name: string) => string,
 ): HTMLElement {
   const chip = document.createElement("span");
+  const isSession = isSessionReference(reference);
   chip.className = "composer-chip";
+  if (isSession) chip.classList.add("composer-session-chip");
+  if (isSession && reference.invalid) chip.classList.add("is-invalid");
   chip.contentEditable = "false";
   chip.dataset.token = token;
-  chip.title = reference.path;
-  const editableText = isEditableTextReference(reference);
+  const label = isSession ? reference.title || reference.id : reference.name;
+  const detail = isSession ? reference.id : reference.path;
+  if (isSession) {
+    chip.title = reference.invalid ? sessionReferenceRemovedLabel(label) : detail;
+  } else {
+    chip.title = reference.path;
+  }
+  const chipRemoveLabel = isSession ? sessionReferenceRemoveLabel(label) : removeLabel;
+  const editableText = !isSession && isEditableTextReference(reference);
   const activate = editableText ? () => onExpandText(token) : undefined;
   chip.setAttribute("role", activate ? "button" : "listitem");
-  chip.setAttribute("aria-label", `${reference.name} — ${reference.path}`);
+  chip.setAttribute(
+    "aria-label",
+    isSession && reference.invalid
+      ? sessionReferenceRemovedLabel(label)
+      : `${label} — ${detail}`,
+  );
   if (activate) {
     chip.tabIndex = 0;
     chip.dataset.action = "expand-text-reference";
@@ -296,22 +319,21 @@ function buildChipElement(
 
   const icon = document.createElement("span");
   icon.className = "composer-chip-icon";
-  icon.innerHTML = chipSvg(chipIconKey(reference));
+  icon.innerHTML = chipSvg(isSession ? "session" : chipIconKey(reference));
 
   const nameSpan = document.createElement("span");
   nameSpan.className = "composer-chip-name";
-  nameSpan.textContent = reference.name;
+  if (isSession) nameSpan.textContent = label;
+  else nameSpan.textContent = reference.name;
 
   const remove = document.createElement("button");
   remove.type = "button";
   remove.className = "composer-chip-remove";
-  remove.title = removeLabel;
-  remove.setAttribute("aria-label", removeLabel);
+  remove.title = chipRemoveLabel;
+  remove.setAttribute("aria-label", chipRemoveLabel);
   remove.innerHTML = chipSvg("x", 11);
-  // Swallow the mousedown so removing a chip never moves the editable caret.
   remove.addEventListener("mousedown", (event) => event.preventDefault());
   remove.addEventListener("keydown", (event) => {
-    // Keep native button activation, without bubbling Enter into send.
     if (event.key === "Enter" || event.key === " ") event.stopPropagation();
   });
   remove.addEventListener("click", (event) => {
@@ -331,6 +353,9 @@ export function paintEditorValue(
   removeLabelFor: (name: string) => string,
   onRemove: (token: string) => void,
   onExpandText: (token: string) => void,
+  sessionReferenceByToken: Map<string, ComposerSessionReference> = new Map(),
+  sessionReferenceRemovedLabel: (name: string) => string = (name) => name,
+  sessionReferenceRemoveLabel: (name: string) => string = (name) => name,
 ): void {
   el.replaceChildren();
   let textBuffer = "";
@@ -342,30 +367,28 @@ export function paintEditorValue(
   };
   for (const char of Array.from(value)) {
     if (isChipTokenChar(char)) {
-      const reference = referenceByToken.get(char);
+      const reference = referenceByToken.get(char) ?? sessionReferenceByToken.get(char);
       if (reference) {
         flush();
+        const label = isSessionReference(reference) ? reference.title || reference.id : reference.name;
         el.appendChild(
           buildChipElement(
             reference,
             char,
-            removeLabelFor(reference.name),
+            removeLabelFor(label),
             onRemove,
             onExpandText,
+            sessionReferenceRemovedLabel,
+            sessionReferenceRemoveLabel,
           ),
         );
         continue;
       }
-      // A private-use code point with no chip behind it is user text (for
-      // example a Nerd Font glyph pasted from a terminal); keep it verbatim.
     }
     textBuffer += char;
   }
   flush();
-  if (el.childNodes.length === 0) {
-    // Chromium needs at least one node for reliable caret placement.
-    el.appendChild(document.createTextNode(""));
-  }
+  if (el.childNodes.length === 0) el.appendChild(document.createTextNode(""));
 }
 
 export function clipboardFiles(data: DataTransfer): File[] {

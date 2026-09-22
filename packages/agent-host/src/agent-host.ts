@@ -2,6 +2,7 @@ import type {
   AgentEvent,
   AgentEventEnvelope,
   AgentPromptAttachment,
+  AgentSessionReference,
   AgentStatus,
   AskToolRequest,
   PlanningStateEvent,
@@ -35,6 +36,7 @@ import {
   applyMessageUpdate,
   deltaStreamPayloadFits,
   effectiveRemotePermissionMode,
+  normalizeAgentSessionReferences,
   racpKindForAgentEvent,
   rolesAllowOperation,
 } from "@pi-desktop/shared";
@@ -82,17 +84,18 @@ export type QueueEntryView = {
   turn: RacpTurn;
   content: string;
   sessionMessageId?: string;
+  sessionReferences?: AgentSessionReference[];
   attachments?: AgentPromptAttachment[];
   /** Set only for promoted entries; entries are already in delivery order. */
   priority?: number;
 };
-
 export type StartTurnParams = {
   sessionId: string;
   idempotencyKey?: string;
   admission?: RacpTurnAdmission;
   input: {
     text: string;
+    sessionReferences?: AgentSessionReference[];
     attachments?: AgentPromptAttachment[];
     sessionMessageId?: string;
     /** Client-chosen id for the durable user row (D288). */
@@ -439,7 +442,10 @@ export class AgentHost {
     const summary = await this.requireSession(params.sessionId);
     const state = this.state(summary.id);
     state.permissionMode = summary.permissionMode;
-    const inputHash = hashInput(params.input);
+    // RACP callers are remote/untrusted, so apply the same transport boundary
+    // here that the desktop IPC path applies before queuing or dispatching.
+    const sessionReferences = normalizeAgentSessionReferences(params.input.sessionReferences);
+    const inputHash = hashInput({ ...params.input, sessionReferences });
     const idempotencyKey = params.idempotencyKey ?? params.context.idempotencyKey;
     if (idempotencyKey) {
       const remembered = this.idempotency.get(`${principal.subject}|${idempotencyKey}`);
@@ -476,6 +482,7 @@ export class AgentHost {
         principalSubject: principal.subject,
         content: params.input.text,
         ...(params.input.sessionMessageId ? { sessionMessageId: params.input.sessionMessageId } : {}),
+        ...(sessionReferences.length ? { sessionReferences } : {}),
         ...(params.input.userMessageId ? { userMessageId: params.input.userMessageId } : {}),
         ...(params.input.attachments ? { attachments: params.input.attachments } : {}),
         effectivePermissionMode,
@@ -498,6 +505,7 @@ export class AgentHost {
         sessionId: state.id,
         content: params.input.text,
         ...(params.input.sessionMessageId ? { sessionMessageId: params.input.sessionMessageId } : {}),
+        ...(sessionReferences.length ? { sessionReferences } : {}),
         ...(params.input.userMessageId ? { userMessageId: params.input.userMessageId } : {}),
         ...(params.input.attachments ? { attachments: params.input.attachments } : {}),
         effectivePermissionMode,
@@ -707,6 +715,7 @@ export class AgentHost {
       turn: this.toRacpTurn(state, this.ensureTurn(state, record.id)),
       content: record.content,
       ...(record.sessionMessageId ? { sessionMessageId: record.sessionMessageId } : {}),
+      ...(record.sessionReferences ? { sessionReferences: record.sessionReferences } : {}),
       ...(record.attachments ? { attachments: record.attachments } : {}),
       ...(record.priority !== undefined ? { priority: record.priority } : {}),
     }));
@@ -813,6 +822,7 @@ export class AgentHost {
             sessionId,
             content: record.content,
             ...(record.sessionMessageId ? { sessionMessageId: record.sessionMessageId } : {}),
+            ...(record.sessionReferences ? { sessionReferences: record.sessionReferences } : {}),
             ...(record.userMessageId ? { userMessageId: record.userMessageId } : {}),
             ...(record.attachments ? { attachments: record.attachments } : {}),
             effectivePermissionMode: record.effectivePermissionMode,
@@ -898,6 +908,7 @@ export class AgentHost {
           turnId: runtimeTurnId,
           content: head.content,
           ...(head.sessionMessageId ? { sessionMessageId: head.sessionMessageId } : {}),
+          ...(head.sessionReferences ? { sessionReferences: head.sessionReferences } : {}),
           ...(head.attachments ? { attachments: head.attachments } : {}),
           principal: { subject: head.principalSubject, roles: ["controller"] },
         }));
@@ -1303,6 +1314,7 @@ export function hashInput(input: StartTurnParams["input"]): string {
   const encoded = JSON.stringify({
     text: input.text,
     attachments: input.attachments ?? [],
+    ...(input.sessionReferences ? { sessionReferences: input.sessionReferences } : {}),
     ...(input.sessionMessageId ? { sessionMessageId: input.sessionMessageId } : {}),
   });
   let hash = 5381;

@@ -1,6 +1,7 @@
 /** Shared public types grouped by the owning application domain. */
 import type { SessionMessageOrigin } from "../session-collaboration.js";
 import type { AppError } from "../errors.js";
+import type { SessionReferenceMeta } from "../session-reference.js";
 
 export type UiMessageRole = "user" | "assistant" | "system" | "tool";
 
@@ -69,6 +70,8 @@ export type UiMessage = {
   id: string;
   role: UiMessageRole;
   content: string;
+  /** Durable model-context metadata that must not be rendered as message text. */
+  meta?: SessionReferenceMeta;
   /** Authenticated agent-to-agent provenance; never inferred from message text. */
   sessionMessage?: SessionMessageOrigin;
   /** Files or images associated with a user turn, kept separate from text. */

@@ -1801,6 +1801,55 @@ describe("DesktopAgentRuntime live activity", () => {
 });
 
 describe("DesktopAgentRuntime deferred tool catalog", () => {
+  it("scopes read_session to the current prompt and replaces the whitelist on steering", async () => {
+    const runtime = createRuntime();
+    const agent = (runtime as any).agent;
+    const prompt = vi.spyOn(agent, "prompt").mockResolvedValue(undefined);
+    vi.spyOn(agent, "waitForIdle").mockResolvedValue(undefined);
+    const readSession = agent.state.tools.find((tool: any) => tool.name === "read_session");
+    expect(readSession).toBeDefined();
+
+    const beforePrompt = await readSession.execute("read-1", {
+      sessionId: "past-session",
+      question: "What happened?",
+    });
+    expect(beforePrompt.details).toMatchObject({ errorCode: "SESSION_NOT_REFERENCED" });
+
+    await runtime.prompt(
+      { text: "Use the referenced decision.", sessionReferences: [{ id: "past-session", title: "Past" }] },
+      "user-1",
+      "turn-1",
+    );
+    expect(prompt).toHaveBeenCalledWith(expect.stringContaining("past-session"), []);
+    expect((runtime as any).turnSessionReferenceIds).toEqual(new Set(["past-session"]));
+
+    agent.state.isStreaming = true;
+    vi.spyOn(agent, "steer").mockImplementation(() => undefined);
+    runtime.steer(
+      { text: "Continue without that reference." },
+      "turn-1",
+      {
+        id: "steer-1",
+        role: "user",
+        content: "Continue without that reference.",
+        createdAt: new Date().toISOString(),
+        status: "complete",
+      },
+    );
+    const afterSteering = await readSession.execute("read-2", {
+      sessionId: "past-session",
+      question: "What happened?",
+    });
+    expect(afterSteering.details).toMatchObject({ errorCode: "SESSION_NOT_REFERENCED" });
+
+    const selfRead = await readSession.execute("read-3", {
+      sessionId: "session-1",
+      question: "Read this session",
+    });
+    expect(selfRead.details).toMatchObject({ errorCode: "CURRENT_SESSION_NOT_ALLOWED" });
+    await runtime.dispose();
+  });
+
   it("keeps the first agent request on core tools plus discovery", async () => {
     const runtime = createRuntime({
       pluginTools: [

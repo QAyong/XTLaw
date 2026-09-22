@@ -87,6 +87,9 @@ export function createQueueSlice({
       draft: queuedDrafts.get(entry.id) ?? {
         text: entry.content,
         fileReferences: [],
+        ...(entry.sessionReferences?.length
+          ? { sessionReferences: entry.sessionReferences.map((reference) => ({ ...reference })) }
+          : {}),
       },
       createdAt: Date.parse(entry.createdAt) || Date.now(),
       // The Host owns ordering and priority: entries arrive in delivery order.
@@ -141,11 +144,12 @@ export function createQueueSlice({
       const queuedDraft: ComposerDraftSnapshot = draft
         ? {
             text: draft.text,
-            fileReferences: draft.fileReferences.map((reference) => ({
-              ...reference,
-            })),
+            fileReferences: draft.fileReferences.map((reference) => ({ ...reference })),
+            ...(draft.sessionReferences
+              ? { sessionReferences: draft.sessionReferences.map((reference) => ({ ...reference })) }
+              : {}),
           }
-        : { text: content, fileReferences: [] };
+        : { text: content, fileReferences: [], sessionReferences: [] };
       const item: QueuedPrompt = {
         id: `pending:${crypto.randomUUID()}`,
         sessionId,
@@ -161,6 +165,9 @@ export function createQueueSlice({
         .queuePrompt({
           sessionId,
           content,
+          ...(queuedDraft.sessionReferences?.length
+            ? { sessionReferences: queuedDraft.sessionReferences.map((reference) => ({ id: reference.id, ...(reference.title ? { title: reference.title } : {}) })) }
+            : {}),
           ...(attachments.length ? { attachments } : {}),
         })
         .then((entry) => {
@@ -215,6 +222,9 @@ export function createQueueSlice({
         fileReferences: item.draft.fileReferences.map((reference) => ({
           ...reference,
         })),
+        ...(item.draft.sessionReferences?.length
+          ? { sessionReferences: item.draft.sessionReferences.map((reference) => ({ ...reference })) }
+          : {}),
       };
       detachQueuedPrompt(sessionId, promptId);
       set({ composerPrefill: restored });
@@ -313,10 +323,24 @@ export function createQueueSlice({
         crypto.randomUUID(), content, draft?.fileReferences ?? [],
       );
       message.steering = true;
+      if (draft?.sessionReferences?.length) {
+        message.meta = {
+          sessionReferences: draft.sessionReferences.map((reference) => ({
+            id: reference.id,
+            ...(reference.title ? { title: reference.title } : {}),
+          })),
+        };
+      }
       runtime.insertOptimisticUserMessage(sessionId, message);
       try {
         await api.steer({
-          sessionId, expectedTurnId, content, messageId: message.id,
+          sessionId,
+          expectedTurnId,
+          content,
+          messageId: message.id,
+          ...(draft?.sessionReferences?.length
+            ? { sessionReferences: draft.sessionReferences.map((reference) => ({ id: reference.id, ...(reference.title ? { title: reference.title } : {}) })) }
+            : {}),
           attachments: draft ? promptAttachmentsFromDraft(draft.fileReferences) : [],
         });
         return true;
@@ -382,8 +406,11 @@ export function createQueueSlice({
                 fileReferences: draft.fileReferences.map((reference) => ({
                   ...reference,
                 })),
+                ...(draft.sessionReferences?.length
+                  ? { sessionReferences: draft.sessionReferences.map((reference) => ({ ...reference })) }
+                  : {}),
               }
-            : { text: content, fileReferences: [] },
+            : { text: content, fileReferences: [], sessionReferences: [] },
         };
         runtime.submittedComposerDrafts.set(startedIn, submission);
         set((state) => ({
@@ -400,6 +427,14 @@ export function createQueueSlice({
           content,
           submission.draft.fileReferences,
         );
+        if (submission.draft.sessionReferences?.length) {
+          optimisticMessage.meta = {
+            sessionReferences: submission.draft.sessionReferences.map((reference) => ({
+              id: reference.id,
+              ...(reference.title ? { title: reference.title } : {}),
+            })),
+          };
+        }
         runtime.insertOptimisticUserMessage(startedIn, optimisticMessage);
         try {
           const current = get().sessions.find((session) => session.id === sessionId);
@@ -435,6 +470,9 @@ export function createQueueSlice({
             content,
             messageId: optimisticMessage.id,
             viewingSessionId: viewingSessionIdForPrompt(get(), sessionId),
+            ...(draft?.sessionReferences?.length
+              ? { sessionReferences: draft.sessionReferences.map((reference) => ({ id: reference.id, ...(reference.title ? { title: reference.title } : {}) })) }
+              : {}),
             attachments: draft ? promptAttachmentsFromDraft(draft.fileReferences) : [],
           });
           const submitted = runtime.submittedComposerDrafts.get(startedIn);

@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Policy-Sync: 2026-09-23.1
+Policy-Sync: 2026-09-23.2
 
 Mandatory rules for AI coding agents working in PI-Desktop.
 
@@ -597,6 +597,10 @@ expensive validation for ceremony when a narrower gate is authoritative,
 and do not skip an applicable gate merely because narrower tests passed.
 
 Never report a skipped command as passing.
+
+Known failures that are expected on this machine are recorded in
+`docs/project/known-test-failures.md`. Check that list before investigating a
+failing test; anything not listed there is new and must be investigated.
 
 `test:e2e:*` starts or attaches to a Desktop instance and must only run
 when the user explicitly asks in the current task. UI / icon / style /

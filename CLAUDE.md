@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Policy-Sync: 2026-09-23.1
+Policy-Sync: 2026-09-23.2
 
 Instructions for Claude Code CLI and Claude Cowork on PI-Desktop.
 
@@ -218,6 +218,8 @@ Run only checks that match the affected surface. Prefer the narrower authoritati
 | Full local | `pnpm typecheck` · `pnpm test` |
 | Architecture budgets | see `scripts/check-architecture.mjs` |
 | E2E | `pnpm test:e2e` and targeted `pnpm test:e2e:*` scripts |
+
+Known and expected failures on this machine are listed in `docs/project/known-test-failures.md`; check that list before investigating a failing test.
 
 E2E exists to validate **executable integration state** (latest applicable `main` + task changes), not merely the branch name `main`. Run required E2E on the candidate identified for validation.
 

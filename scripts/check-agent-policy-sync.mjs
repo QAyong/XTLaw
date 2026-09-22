@@ -88,6 +88,13 @@ const REQUIRED_ANCHORS = [
     anyOf: ["actual candidate being considered for delivery"],
   },
   {
+    id: "host-e2e-environment",
+    anyOf: [
+      "do not run `pnpm install`, `npm install`, or create a second dependency or runtime environment solely to execute e2e",
+      "never run `pnpm install` or `npm install`, or create a second dependency or runtime environment, solely for e2e",
+    ],
+  },
+  {
     id: "architecture-ratchet-hotspots",
     anyOf: [
       "apps/desktop/src/stores/app-store.ts",

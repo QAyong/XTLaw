@@ -23,3 +23,4 @@ export * from "./types/filesystem.js";
 export * from "./types/speech.js";
 export * from "./types/remote-host.js";
 export * from "./session-reference.js";
+export * from "./types/config-sync.js";

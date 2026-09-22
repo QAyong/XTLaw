@@ -139,6 +139,11 @@ export function VendorAccountDialog({
             listTitle={t("settings.accountModels")}
             busy={saving}
             onReload={discovery.reload}
+            lookupContext={{
+              baseUrl: provider.baseUrl,
+              vendorKey: provider.vendorKey,
+              providerId: provider.id,
+            }}
             apiStyle={provider.apiStyle ?? ""}
           />
         </div>

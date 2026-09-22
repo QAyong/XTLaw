@@ -95,7 +95,11 @@ test("updater gates delivery mode by platform and delivery policy", () => {
   // Dev builds are disabled outright.
   assert.match(updaterSource, /if \(!isPackaged\) return "disabled"/);
   assert.match(updaterSource, /win32.*in-app|in-app.*win32/s);
-  assert.match(updaterSource, /PORTABLE_EXECUTABLE_FILE \? "manual"/);
+  assert.match(
+    updaterSource,
+    /PORTABLE_EXECUTABLE_FILE[\s\S]*distribution === "zip"/,
+  );
+  assert.match(updaterSource, /piDistribution/);
   assert.match(updaterSource, /platform === "darwin"[\s\S]*return "in-app"/);
   assert.match(updaterSource, /APPIMAGE/);
   assert.match(updaterSource, /autoInstallOnAppQuit = true/);
@@ -231,8 +235,12 @@ test("packaging publishes an electron-updater feed for GitHub Releases", () => {
   assert.ok(macTargets.includes("zip"), "mac zip target (Squirrel.Mac feed)");
   // electron-builder must never self-publish (implicit tag publishing would
   // fail on the missing token and race the softprops release step).
-  for (const script of ["dist", "dist:mac", "dist:win", "dist:linux"]) {
-    assert.match(pkg.scripts[script], /--publish never/, script);
+  for (const script of ["dist:mac", "dist:win", "dist:linux"]) {
+    assert.match(
+      pkg.scripts[script],
+      /--publish never|build-desktop-release\.mjs/,
+      script,
+    );
   }
   assert.equal(pkg.build.linux.executableName, "xtlaw");
   const linuxTargets = pkg.build.linux.target.map((entry) => entry.target);

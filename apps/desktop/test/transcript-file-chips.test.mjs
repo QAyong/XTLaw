@@ -18,7 +18,8 @@ const [transcript, styles, hook, api, toolDetails, toolRow] = await Promise.all(
 ]);
 
 test("sent user-message file refs render as composer-like chips", () => {
-  assert.match(transcript, /className=\"composer-chip chat-file-chip\"/);
+  assert.match(transcript, /className=\"chat-file-chip\"/);
+  assert.match(transcript, /const chipClassName = `composer-chip \$\{className\}`/);
   assert.match(transcript, /function FileRefChip/);
   assert.match(transcript, /segment\.target\.kind === \"file\"/);
   assert.match(transcript, /useOpenChatFileRef/);

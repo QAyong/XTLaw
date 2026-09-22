@@ -5,9 +5,11 @@ import {
   useId,
   useRef,
   useState,
+  type ComponentType,
 } from "react";
 import { useTranslation } from "react-i18next";
 import type {
+  AgentSessionReference,
   MessageAttachment,
   MessageUsage,
   UiMessage,
@@ -55,6 +57,7 @@ import {
   IconTerminal,
   IconVideo,
   IconWrench,
+  type IconProps,
 } from "../../../components/icons";
 import { TooltipButton } from "../../../components/ui";
 
@@ -352,6 +355,61 @@ export function fileChipIcon(name: string, kind?: "image" | "file") {
   return IconFileText;
 }
 
+type MessageReferenceChipProps = {
+  Icon: ComponentType<IconProps>;
+  name: string;
+  title: string;
+  ariaLabel: string;
+  className: string;
+  onClick?: () => void;
+} & SourcePositionProps;
+
+/** Shared visual shell for file and session references in a user message. */
+export function MessageReferenceChip({
+  Icon,
+  name,
+  title,
+  ariaLabel,
+  className,
+  onClick,
+  ...position
+}: MessageReferenceChipProps) {
+  const content = (
+    <>
+      <span className="composer-chip-icon" aria-hidden>
+        <Icon size={13} />
+      </span>
+      <span className="composer-chip-name">{name}</span>
+    </>
+  );
+  const chipClassName = `composer-chip ${className}`;
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        className={chipClassName}
+        {...position}
+        title={title}
+        aria-label={ariaLabel}
+        onClick={onClick}
+      >
+        {content}
+      </button>
+    );
+  }
+  return (
+    <span
+      className={chipClassName}
+      {...position}
+      role="listitem"
+      title={title}
+      aria-label={ariaLabel}
+    >
+      {content}
+    </span>
+  );
+}
+
 /** Compact leaf-name chip matching the composer file node (D320). */
 export function FileRefChip({
   name,
@@ -369,19 +427,34 @@ export function FileRefChip({
   const Icon = fileChipIcon(name, kind);
   const html = isHtmlFilePath(path) || isHtmlFilePath(name);
   return (
-    <button
-      type="button"
-      className="composer-chip chat-file-chip"
-      {...position}
+    <MessageReferenceChip
+      Icon={Icon}
+      name={name}
+      className="chat-file-chip"
       title={`${html ? t("chat.previewUrl") : t("chat.openFile")} — ${path}`}
-      aria-label={`${name} — ${path}`}
+      ariaLabel={`${name} — ${path}`}
       onClick={() => onOpen(path)}
-    >
-      <span className="composer-chip-icon" aria-hidden>
-        <Icon size={13} />
-      </span>
-      <span className="composer-chip-name">{name}</span>
-    </button>
+      {...position}
+    />
+  );
+}
+
+/** Session reference chip using the same compact surface as file references. */
+export function SessionRefChip({
+  reference,
+}: {
+  reference: AgentSessionReference;
+}) {
+  const name = reference.title?.trim() || reference.id;
+  const detail = `${name} — ${reference.id}`;
+  return (
+    <MessageReferenceChip
+      Icon={IconBranch}
+      name={name}
+      className="chat-session-chip"
+      title={detail}
+      ariaLabel={detail}
+    />
   );
 }
 

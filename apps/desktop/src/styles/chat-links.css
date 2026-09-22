@@ -42,6 +42,11 @@
   background: var(--ds-tile-hover);
 }
 
+/* Session references share the file chip surface but have no open action. */
+.chat-session-chip {
+  cursor: default;
+}
+
 /* Path/URL tokens inside plain user-message text. */
 .chat-text-link {
   background: none;

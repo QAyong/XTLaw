@@ -1300,10 +1300,11 @@ identify the platform validation still needed.
   6) Delete or archive B, then repeat the composer inspection and the read
   attempt where applicable.
 - **Expected**: The clipboard block contains the B id, title, and cwd; the
-  visible user message remains clean while its metadata preserves the
-  reference; the model-only context lists the id/title without transcript
-  text; `read_session` accepts only B for that turn, reads the complete host
-  transcript through the auxiliary model, and returns an extracted answer
+  sent user message remains clean while its metadata preserves the reference
+  and the transcript shows that reference as a compact, non-navigating chip
+  alongside file-style attachments; the model-only context lists the id/title
+  without transcript text; `read_session` accepts only B for that turn, reads
+  the complete host transcript through the auxiliary model, and returns an extracted answer
   rather than raw history. A duplicate paste is ignored, the deleted
   reference is gray with a removal tooltip, and an archived reference is not
   treated as deleted. A later turn without B rejects the stale id.

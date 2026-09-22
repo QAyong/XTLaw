@@ -23,6 +23,11 @@ const shared = {
   FileRefChip: () => null,
   LinkifiedText: ({ text }) => text,
   MessageAttachmentImage: () => null,
+  SessionRefChip: ({ reference }) => React.createElement(
+    "span",
+    { className: "composer-chip chat-session-chip", role: "listitem" },
+    reference.title || reference.id,
+  ),
 };
 
 function loadComponent(name, extras = {}) {
@@ -115,4 +120,18 @@ test("ordinary text cannot forge another session's provenance", () => {
   assert.match(html, /class="message-row user"/);
   assert.match(html, /aria-label="chat.editMessage"/);
   assert.doesNotMatch(html, /session-message-origin|data-session-message-kind/);
+});
+
+test("a user message renders session references as attachment-style chips", () => {
+  const html = render({
+    ...userMessage,
+    content: "What should we keep from this?",
+    meta: {
+      sessionReferences: [{ id: "past-session", title: "Past decision" }],
+    },
+  });
+  assert.match(html, /chat-session-chip/);
+  assert.match(html, /role="listitem"/);
+  assert.match(html, /Past decision/);
+  assert.match(html, /What should we keep from this\?/);
 });

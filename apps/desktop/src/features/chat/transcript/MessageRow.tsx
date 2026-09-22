@@ -24,6 +24,7 @@ import {
   FileRefChip,
   LinkifiedText,
   MessageAttachmentImage,
+  SessionRefChip,
 } from "./shared";
 import {
   useChatTextActions,
@@ -75,6 +76,9 @@ export const MessageRow = memo(function MessageRow({
     );
     return attachments.filter((attachment) => !inline.has(attachment.ref));
   }, [message.attachments, message.content, workspaceRoot]);
+  const sessionReferences = message.meta?.sessionReferences ?? [];
+  const hasMessageReferences =
+    extraAttachments.length > 0 || sessionReferences.length > 0;
   const cancelEdit = () => {
     setEditValue(editSeed);
     setEditing(false);
@@ -182,7 +186,7 @@ export const MessageRow = memo(function MessageRow({
               </form>
             ) : isUser ? (
               <>
-                {extraAttachments.length ? (
+                {hasMessageReferences ? (
                   <div
                     className="message-attachments"
                     role="list"
@@ -209,6 +213,9 @@ export const MessageRow = memo(function MessageRow({
                         </span>
                       ),
                     )}
+                    {sessionReferences.map((reference) => (
+                      <SessionRefChip key={reference.id} reference={reference} />
+                    ))}
                   </div>
                 ) : null}
                 {message.content ? (

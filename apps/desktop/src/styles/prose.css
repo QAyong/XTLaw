@@ -8,8 +8,9 @@
   Chat prose — refined markdown typography for the assistant transcript.
   Goal: calm reading surface with clear hierarchy — headings without rules,
   links always discoverable, borderless inline code, quotes as soft tiles, and
-  code/table shells that sit in the same family as the rest of the UI. No block
-  draws a stroke (D297): tone and spacing carry the structure.
+  code/table shells that sit in the same family as the rest of the UI. UI chrome
+  stays stroke-free (D297); authored Markdown thematic breaks keep their
+  semantic horizontal rule.
   Blocks render as direct children of .prose-chat.
 */
 .prose-chat {
@@ -242,10 +243,11 @@
   margin: 0.5em 0;
 }
 
-/* A thematic break is pure space: no line is drawn (D297). */
+/* Keep Markdown's thematic break visible as a quiet, theme-aware separator. */
 .prose-chat hr {
-  margin: 1.8em 0;
+  margin: 1em 0;
   border: 0;
+  border-top: 1px solid var(--ds-border-default);
   height: 0;
   background: none;
 }

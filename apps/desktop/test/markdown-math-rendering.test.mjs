@@ -15,7 +15,7 @@ import { fileURLToPath } from "node:url";
  * block splitting, `remark-math`, the TeX bracket normalizer, `rehype-raw`,
  * `rehype-sanitize` and `rehype-katex`.
  */
-test("TeX bracket math renders through the production Markdown pipeline", async () => {
+test("the production Markdown pipeline renders thematic breaks and TeX bracket math", async () => {
   const server = await createServer({
     root: fileURLToPath(new URL("..", import.meta.url)),
     configFile: false,
@@ -44,6 +44,7 @@ test("TeX bracket math renders through the production Markdown pipeline", async 
           createElement(Markdown, { source }),
         ),
       );
+    assert.match(render("Before\n\n---\n\nAfter"), /<hr\b[^>]*\/?\s*>/);
     const display = (html) => html.includes("katex-display");
     const inline = (html) =>
       html.includes('class="katex"') && !html.includes("katex-display");

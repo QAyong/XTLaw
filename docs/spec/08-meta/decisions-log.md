@@ -3432,7 +3432,8 @@ D193, and D194.
   cards, segmented controls, level filters) is a raised pill or tile plus the
   existing check; no selected border. Form controls are tile fills with an
   accent focus ring. Markdown loses code-block, table, blockquote and heading
-  rules (zebra rows, tile plates, spacing). Subagent trees draw connectors as
+  rules (zebra rows, tile plates, spacing); authored thematic breaks retain a
+  subtle 1px theme-aware rule as content rather than UI chrome. Subagent trees draw connectors as
   2px tinted bars on a tile group with raised nodes.
 - Floating layers keep their edge: menus, popovers, autocomplete, the search
   dialog, dialogs, tooltips, toasts and hover cards retain

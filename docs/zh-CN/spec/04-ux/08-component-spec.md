@@ -1440,7 +1440,8 @@ Renderer： `apps/desktop/src/components/Markdown.tsx` + `apps/desktop/src/lib/s
   漂亮的包装；航向坡道 h1 `text-xl`（自 D297 起无下划线）→ h2
   `text-lg-plus` → h3 `text-lg` → h4 `text-base-plus` → h5/h6 `text-base`
   次要； blockquotes 在软板上使用 3px 中性规则；
-  引用块是无线条的柔和 `--ds-tile` 色块（D297）；hr 只是留白；列表使用更安静的标记和弹性任务
+  引用块是无线条的柔和 `--ds-tile` 色块（D297）；Markdown 水平分隔线显示为适配主题的
+  1px 细线，上下间距为 1em；列表使用更安静的标记和弹性任务
   行；内联代码只有柔和的灰色色调、无边框；表格去掉单元格边框，
   改用 `--ds-tile-deep` 表头与 `--ds-tile` 斑马行；桌子包裹
   在 `.table-wrap`（圆壳、标题行、偶数行洗、悬停洗）。

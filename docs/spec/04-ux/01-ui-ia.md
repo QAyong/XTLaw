@@ -239,7 +239,7 @@ destination, chat as the home surface, tools and permissions inline.
   first, and Name. Pinned rows precede unpinned rows. Project groups switch
   to `manual` by dragging a title or using ArrowUp/ArrowDown on that
   title. Session `manual` remains a compatibility value.
-- **Conversation list**: each group shows the ten most-recent sessions in the
+- **Conversation list**: each group shows the five most-recent sessions in the
   active sort order by default; the remainder folds behind a **Load N more…**
   row that expands the full time-grouped list on click. Pinned rows precede
   unpinned rows and are never pushed behind the fold; the expansion state is

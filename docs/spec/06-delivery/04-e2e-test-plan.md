@@ -3271,24 +3271,24 @@ identify the platform validation still needed.
 - **Status**: Unit-covered (`project-edit.test.mjs`,
   `sidebar-preferences.test.mjs`); rendered scenario Draft
 
-#### E2E-048A: Project session lists fold after the ten most recent rows
+#### E2E-048A: Project session lists fold after the five most recent rows
 
-- **Preconditions**: One retained project contains more than ten durable
+- **Preconditions**: One retained project contains more than five durable
   sessions with distinct updated timestamps; the sidebar uses the default
-  Recently updated sort; another retained project has ten or fewer sessions.
+  Recently updated sort; another retained project has five or fewer sessions.
 - **Steps**: 1) Inspect the large project's session rows and count them. 2)
   Select the **Load N more…** control. 3) Switch the sort to Name and inspect
   the same group before expanding. 4) Restart the app and inspect the group
   again.
-- **Expected**: The group shows exactly ten session rows by default plus a
+- **Expected**: The group shows exactly five session rows by default plus a
   **Load N more…** control (N = remaining session count) styled like the
-  time-grouped overflow; the ten rows are the first rows in the active sort
+  time-grouped overflow; the five rows are the first rows in the active sort
   order, so pinned rows are never pushed behind unpinned rows and a Name sort
-  folds everything after the first ten alphabetically; selecting Load more
+  folds everything after the first five alphabetically; selecting Load more
   expands the full time-grouped list (Yesterday/Previous 7 days/Previous 14
   days/Older headers appear as applicable) and the control disappears;
   expansion is per group and resets on restart (not persisted); the project
-  with ten or fewer sessions shows no fold control.
+  with five or fewer sessions shows no fold control.
 - **Specs linked**: `04-ux/01-ui-ia.md`, `04-ux/09-interaction-patterns.md`
 - **Acceptance**: C (session organization)
 - **Milestone**: M5

@@ -7,6 +7,7 @@ import {
   normalizeProjectPath,
   projectPathsForNewSessions,
   sessionMatchesProject,
+  visibleProjectSessions,
 } from "../src/lib/sidebar-session-groups.ts";
 
 function session(overrides) {
@@ -158,4 +159,19 @@ test("ordinary date groups retain their order after pins are removed", () => {
     groupSidebarSessionsByTime(rows, new Date(2026, 8, 13, 12)).map((group) => group.group),
     ["today", "yesterday", "thisWeek", "older14d", "archived"],
   );
+});
+
+test("a project group shows five rows before the remainder folds", () => {
+  const rows = Array.from({ length: 8 }, (_, index) => session({ id: `row-${index}` }));
+  assert.deepEqual(
+    visibleProjectSessions(rows, false).map((row) => row.id),
+    ["row-0", "row-1", "row-2", "row-3", "row-4"],
+    "folds after the fifth row and keeps the active sort order",
+  );
+  assert.deepEqual(
+    visibleProjectSessions(rows.slice(0, 3), false).map((row) => row.id),
+    ["row-0", "row-1", "row-2"],
+    "groups at or below the limit stay unfolded",
+  );
+  assert.equal(visibleProjectSessions(rows, true).length, 8, "expansion reveals every row");
 });

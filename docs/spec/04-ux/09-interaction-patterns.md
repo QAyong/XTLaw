@@ -279,7 +279,7 @@ may be retained while exactly one workspace supplies the visible shell context.
   contiguous order per normalized path. Archived and pinned priority remains
   ahead of the manual order; projects without an assigned order fall back to
   a stable path order until they are moved.
-- Each project group shows the ten most-recent rows in the active sort order
+- Each project group shows the five most-recent rows in the active sort order
   by default; the remaining sessions fold behind a **Load N more…** control
   (the same affordance used for time-grouped overflow). Selecting it expands
   the full time-grouped list, and the expanded state is per-group, for the

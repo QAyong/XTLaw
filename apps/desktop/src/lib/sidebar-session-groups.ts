@@ -114,3 +114,14 @@ export function groupSidebarSessionsByTime(sessions: SessionSummary[], now = new
     return rows?.length ? [{ group, sessions: rows }] : [];
   });
 }
+
+/** Rows a project group shows before the remainder folds behind "Load N more…". */
+export const MAX_VISIBLE_PROJECT_SESSIONS = 5;
+
+/**
+ * Row limit for one project group. Callers remove global pins first, so pinned
+ * rows are never pushed behind the fold.
+ */
+export function visibleProjectSessions<T>(sessions: T[], expanded: boolean): T[] {
+  return expanded ? sessions : sessions.slice(0, MAX_VISIBLE_PROJECT_SESSIONS);
+}

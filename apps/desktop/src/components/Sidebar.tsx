@@ -13,8 +13,6 @@ import {
 } from "react";
 import { TooltipButton, cx } from "./ui";
 
-/** Default number of most-recent sessions shown per project group before the rest fold. */
-const MAX_VISIBLE_SESSIONS = 10;
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { api } from "../lib/api";
@@ -27,6 +25,7 @@ import {
   normalizeProjectPath,
   sessionArchived,
   sessionPinned,
+  visibleProjectSessions,
 } from "../lib/sidebar-session-groups";
 import {
   composerDropItems,
@@ -1660,12 +1659,12 @@ export function Sidebar({
     const projectId = projectDomId(entry.key);
     const isMenuOpen = projectMenu === entry.key;
 
-    // Show the most recent MAX_VISIBLE_SESSIONS rows by default; the remaining
-    // sessions stay folded behind the same load-more affordance used for the
-    // time-grouped overflow and expand on click.
+    // Show the most recent rows by default; the remaining sessions stay folded
+    // behind the same load-more affordance used for the time-grouped overflow
+    // and expand on click.
     const sessionsExpanded = expandedProjectSessions[entry.key] ?? false;
     const history = entry.sessions.filter((session) => !pinnedSessionIds.has(session.id));
-    const visibleSessions = sessionsExpanded ? history : history.slice(0, MAX_VISIBLE_SESSIONS);
+    const visibleSessions = visibleProjectSessions(history, sessionsExpanded);
     const hiddenCount = history.length - visibleSessions.length;
 
     const renderTimeGroupedSessions = (sessions: SessionSummary[]) => {

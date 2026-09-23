@@ -2102,9 +2102,10 @@ terminally failed; terminal agent errors remain owned by the assistant error or
 TurnOutcomeCard surface. A user action on a group, item, or collapse rail claims
 that level and its ancestors without toggling them, so streaming and completion
 never reverse the chosen state or close around focused/selected content.
-When the grouped turn heading and a nested delegated-agent status are both
-visible, align the nested status header's leading edge with the turn heading;
-keep the expanded detail rows indented beneath their owning disclosure.
+When the active turn's processing heading and its lower running-status row are
+both visible, align the status text with the heading text. Keep the status mark
+in the same leading icon area; expanded activity details retain their hierarchy
+indentation.
 Elapsed labels use compact automatically carried units: seconds below one
 minute, minutes plus seconds below one hour, and hours plus minutes (and
 seconds when non-zero) from one hour onward. Zero-value units are omitted, so

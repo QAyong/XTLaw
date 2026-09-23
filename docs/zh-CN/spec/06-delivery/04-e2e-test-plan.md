@@ -7828,8 +7828,8 @@ runner 会在运行时的隔离临时目录中生成六个插件形态 fixture�
   3. 在布局收起左栏后手动重开左栏。
   4. 关闭工作面板并确认左栏恢复；再在手动收起左栏后重复一次。
   5. 用 `ArrowLeft`、`ArrowRight`、`Home`、`End` 重复调整分隔线。
-  6. 在同一条助手回合中展开处理组，确认下方“等待模型响应”状态的左边缘与上方
-     “AI 正在处理”标题对齐；处理组的详细内容仍保留原有缩进。
+  6. 在活动中的助手回合里，确认下方运行状态文字起点与上方处理标题文字起点对齐；
+     状态标记仍处于左侧图标区域，处理组的详细内容仍保留原有缩进。
   7. Navigate to the real Plugins, Pull requests, and Scheduled routes with the
      work panel closed, then collapse the sidebar. In light and dark themes,
      measure both titlebar actions and compare their rest/hover styling with the

@@ -13536,8 +13536,9 @@ plugin-form fixtures in an isolated temporary directory at runtime.
      In light and dark themes, confirm both layouts keep the dividers legible.
      Hovering, focusing, or dragging either divider thickens its full height to
      1.5px rather than showing a short grip.
-     During a grouped assistant turn, confirm a nested “Waiting for model”
-     status aligns its leading edge with the “Processing” heading above it.
+     During an active assistant turn, confirm the lower running-status text
+     aligns with the processing heading text above it; the status mark stays in
+     the leading icon area.
   7. Hide and restore the right chat pane with the fixed toggle. Confirm the
      same work-panel session and active resource remain visible, `Cmd/Ctrl + J`
      still toggles the work panel, and the layout switch is hidden while either

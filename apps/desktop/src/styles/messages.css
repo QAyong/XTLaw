@@ -268,7 +268,7 @@
   align-items: center;
   gap: 7px;
   margin: 2px 0 8px;
-  padding: 8px 0 4px 16px;
+  padding: 8px 0 4px;
   color: var(--ds-text-secondary);
   font-size: var(--text-sm-plus);
 }
@@ -466,6 +466,8 @@
 }
 
 .working-indicator-label {
+  /* Match the label start after the sparkle icon in the processing header. */
+  margin-left: -4px;
   color: var(--ds-text-secondary);
 }
 
@@ -3021,13 +3023,6 @@
 .turn-process-body {
   position: relative;
   padding-left: 18px;
-}
-
-/* The nested delegation status belongs to the same process row as the
-   TurnProcess heading. Keep its header aligned with that heading while the
-   expanded details below remain indented as a disclosure body. */
-.turn-process-body > .tool-activity-group.has-subagents > .tool-activity-header {
-  transform: translateX(-18px);
 }
 
 .turn-process-body[hidden],

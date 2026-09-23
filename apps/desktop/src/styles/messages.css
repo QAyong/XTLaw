@@ -266,9 +266,9 @@
   display: flex;
   width: min(100%, var(--chat-prose-max-width, 720px));
   align-items: center;
-  gap: 7px;
+  gap: 5px;
   margin: 2px 0 8px;
-  padding: 8px 0 4px;
+  padding: 8px 0 4px 2px;
   color: var(--ds-text-secondary);
   font-size: var(--text-sm-plus);
 }
@@ -447,6 +447,11 @@
   gap: 3px;
 }
 
+.working-indicator > .working-indicator-mark {
+  width: 14px;
+  gap: 1px;
+}
+
 .working-indicator-mark > span {
   width: 4px;
   height: 4px;
@@ -466,8 +471,6 @@
 }
 
 .working-indicator-label {
-  /* Match the label start after the sparkle icon in the processing header. */
-  margin-left: -4px;
   color: var(--ds-text-secondary);
 }
 

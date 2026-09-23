@@ -180,11 +180,11 @@ test("active turns show immediate and phase-specific feedback without a progress
   // changed together or the row starts moving again.
   assert.match(
     messagesStyles,
-    /\.working-indicator \{[\s\S]*?margin: 2px 0 8px;[\s\S]*?padding: 8px 0 4px;/,
+    /\.working-indicator \{[\s\S]*?gap: 5px;[\s\S]*?margin: 2px 0 8px;[\s\S]*?padding: 8px 0 4px 2px;/,
   );
   assert.match(
     messagesStyles,
-    /\.working-indicator-label \{[\s\S]*?margin-left: -4px;/,
+    /\.working-indicator > \.working-indicator-mark \{[\s\S]*?width: 14px;[\s\S]*?gap: 1px;/,
   );
   assert.match(
     messagesStyles,

@@ -520,6 +520,10 @@ may be retained while exactly one workspace supplies the visible shell context.
   divider updates the renderer-owned panel target from 244px upward, capped by
   the live three-column budget, while native window edges resize only the fixed
   application window (ADR 0151).
+- WorkPanel header dragging uses the header's empty surface as a native window
+  drag region in both Chat and Work layout. The tab strip, tab close buttons,
+  `+`, maximize, and other controls opt out with `no-drag`; blank header space
+  remains draggable while controls remain clickable.
 - No tool result creates or activates a work-panel tab. Review opens only from
   an explicit user action — its `+` launcher row, or the retained context the
   viewport-fixed toggle and `Cmd/Ctrl + J` reveal — so a successful workspace
@@ -1079,28 +1083,29 @@ Work-panel and application-window resizing are implemented in MVP:
 - The 10px inner separator anchors to the press position and starting target
   width, then follows pointer delta without jumping. In the default layout it
   sits on the panel's left edge: moving left grows the panel until MainChat
-  reaches its 450px minimum and the expanded sidebar collapses immediately. In
+  reaches its 450px minimum, while the expanded sidebar remains visible. In
   Work layout it sits on the panel's right edge and adjusts the right chat
   width: moving right grows the center work area, while moving left grows chat.
 - The separator target clamps to the active layout's three-column budget. The
   default layout protects a 450px MainChat floor with no fixed panel cap. Work
-  layout targets a 450px right chat pane with the same 450px minimum and preserves at least
-  300px for the central work area; the expanded sidebar yields when necessary.
-  Pointer movement is frame-coalesced and release commits that layout's target.
-  Escape, pointer cancellation, and lost capture restore the press-time target.
-  A double-click restores the default 360px panel width or 450px chat width
-  within the same live bounds.
+  layout targets a 450px right chat pane with the same 450px minimum and
+  preserves at least 300px for the central work area; the sidebar remains
+  visible until the user explicitly collapses it. Pointer movement is
+  frame-coalesced and release commits that layout's target. Escape, pointer
+  cancellation, and lost capture restore the press-time target. A double-click
+  restores the default 360px panel width or 450px chat width within the same
+  live bounds.
 - Opening and closing animate the dock's `width` and `flex-basis` together with
   the bounded opacity/transform feedback, so panes reflow continuously inside
   the existing client area without crossing their active layout minimums
   instead of changing width before the first motion frame. While `sidebar-out` still
   occupies flex space, the shared budget continues to count the sidebar.
-- Reopening a sidebar the layout collapsed spends right-column width first. In
+- Reopening a manually collapsed sidebar spends right-column width first. In
   the default layout the panel keeps its width while MainChat stays at or above
   450px, and otherwise the reopen targets 460px. In Work layout chat compresses
-  toward 450px while preserving 300px for the center work area; the expanded
-  sidebar width is clamped to the resulting budget. Closing the panel restores
-  only a sidebar the layout collapsed; a manual collapse stays collapsed.
+  toward 450px while preserving 300px for the center work area; the sidebar
+  width is clamped to the resulting budget. Closing the panel does not undo a
+  manual sidebar collapse.
 - No panel action requests a positive native reservation: the preferred panel
   width is renderer-local, the native seam stays at zero, and native window
   edges resize only the fixed app window. Background-session artifacts never
@@ -1583,6 +1588,6 @@ This does not prevent state changes — it makes them instant.
     solely because the current assistant message appended content
 21. The work panel opens and collapses inside the fixed client area; the inner
     divider follows the shared budget while MainChat keeps its 450px minimum,
-    the expanded sidebar yields at the threshold and returns when the panel
-    closes, and divider cancellation restores the prior panel width
-    (ADR 0033 / ADR 0151 / ADR 0238)
+    panel/chat targets clamp at the active floors, and the sidebar remains
+    visible until explicitly collapsed. Divider cancellation restores the prior
+    panel width (ADR 0033 / ADR 0151 / ADR 0238)

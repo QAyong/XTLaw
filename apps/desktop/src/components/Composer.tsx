@@ -14,7 +14,6 @@ import {
   initialThinkingLevelForBinding,
   imageGenerationBindings,
   isImageGenerationModel,
-  modelIdsMatch,
   normalizeLargePasteThreshold,
   stripSessionReferenceTokens,
   stripInlineComposerFileReferenceTokens,
@@ -24,10 +23,7 @@ import { latestTurnContextInspector } from "../lib/latest-turn-context";
 import { isActivePlanExecution } from "../lib/plan-mode-state";
 import { headAsk, queuedAskCount } from "../lib/pending-asks";
 import type { QueuedPrompt } from "../lib/queued-prompts";
-import {
-  composerModelDisplayName,
-  composerModelsForProvider,
-} from "../lib/composer-models";
+import { composerModelDisplayName, sameComposerModelId } from "../lib/composer-models";
 import {
   providerThinkingLevels,
   resolveComposerThinkingProvider,
@@ -189,6 +185,7 @@ export function Composer({
     snapshotReferences,
     snapshotSessionReferences,
     draftSnapshot,
+    draftRevision,
     clearDraftForKey,
     restoreDraftForKey,
     persistDraft,
@@ -215,6 +212,7 @@ export function Composer({
       sessionReferencesRef,
       applyEditorDraft,
       snapshotReferences,
+      snapshotSessionReferences,
       commitEditorDom,
     },
   });
@@ -345,8 +343,7 @@ export function Composer({
   const modelId =
     activeSession?.modelId ??
     (!activeSession ? draftConfiguration?.modelId : undefined) ??
-    settings?.defaultModelId ??
-    provider?.defaultModelId;
+    (settings?.defaultModelId?.trim() || provider?.models?.[0]?.id || provider?.defaultModelId);
   const selectedModelCatalog = provider ? providerModels[provider.id] : undefined;
   const catalogThinkingProvider = thinkingProviderForModel(
     provider,
@@ -360,7 +357,7 @@ export function Composer({
     catalogThinkingProvider,
   });
   const selectedBinding = provider?.models.find((candidate) =>
-    modelIdsMatch(candidate.id, modelId ?? ""),
+    sameComposerModelId(candidate.id, modelId ?? ""),
   );
   // A draft without a session starts at the selected model's stored default
   // thinking level, clamped onto that binding's enabled ladder.
@@ -381,14 +378,12 @@ export function Composer({
     configuredThinkingLevel,
   );
   const thinkingLabel = thinkingLevel;
-  const selectedModel = provider?.id
-    ? composerModelsForProvider(provider, providerModels[provider.id], imageGenerationCandidates).find(
-        (model) => modelIdsMatch(model.modelId, modelId ?? ""),
-      )
-    : undefined;
-  const modelLabel = provider && modelId
-    ? composerModelDisplayName(provider, modelId, selectedModel?.displayName)
-    : selectedModel?.displayName || modelId || t("chat.model");
+  const selectedModelInfo = selectedModelCatalog?.find((candidate) =>
+    sameComposerModelId(candidate.modelId, modelId ?? ""),
+  );
+  const modelLabel = modelId
+    ? composerModelDisplayName(provider, modelId, selectedModelInfo?.displayName)
+    : t("chat.model");
   const modelMenu = useComposerModelMenu({
     configureActiveSession,
     mode,
@@ -435,6 +430,7 @@ export function Composer({
     draft: {
       ref,
       draftSnapshot,
+      draftRevision,
       clearDraftForKey,
       restoreDraftForKey,
       setValue,
@@ -527,7 +523,7 @@ export function Composer({
           <PlanApprovalBar proposal={planCheckpoint} />
         ) : null}
         {pendingAsk ? (
-          <AskToolCard request={pendingAsk} queued={queuedAsks} />
+          <AskToolCard key={pendingAsk.requestId} request={pendingAsk} queued={queuedAsks} />
         ) : null}
         {nativeReadOnly ? (
           <div className="composer-status" role="status">

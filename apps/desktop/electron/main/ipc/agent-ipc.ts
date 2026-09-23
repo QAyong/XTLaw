@@ -289,7 +289,7 @@ export function registerAgentIpc({
     return sidecar.call<{ accepted: boolean; turnId: string }>("agent.steer", {
       sessionId: req.sessionId, expectedTurnId: req.expectedTurnId, message,
       content: appendPromptFallbackPaths(req.content, prepared),
-      ...(sessionReferences.length ? { sessionReferences } : {}),
+      sessionReferences,
       attachments: prepared.filter((attachment) => attachment.inlineData).map((attachment) => ({
         path: attachment.message.ref, name: attachment.message.name, kind: attachment.message.kind,
         mimeType: attachment.message.mimeType, size: attachment.message.size, data: attachment.inlineData,

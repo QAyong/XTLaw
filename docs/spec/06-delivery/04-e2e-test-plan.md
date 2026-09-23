@@ -13532,23 +13532,24 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   1. Open the work panel and request the user's preferred width.
   2. Drag the inner divider toward MainChat's left edge, including during
      pointer preview, then release.
-  3. Manually reopen the sidebar after the layout collapsed it.
-  4. Close the work panel and confirm the sidebar returns; repeat after
-     manually collapsing the sidebar.
+  3. Continue resizing until the chat pane reaches its 450px floor and confirm
+     the sidebar stays visible. Collapse and reopen the sidebar manually.
+  4. Close the work panel and confirm a manually collapsed sidebar remains
+     collapsed; repeat after reopening the panel.
   5. Repeat divider changes with `ArrowLeft`, `ArrowRight`, `Home`, and `End`.
   6. With the panel and chat both visible, confirm a continuous 1px,
      theme-aware divider at each boundary in the default order: sidebar, chat,
      WorkPanel. Switch to Work layout and confirm the order becomes sidebar,
      WorkPanel, chat, with the same two dividers. Confirm Tab traversal
      follows that visible order. Resize the shared divider by pointer and
-     keyboard in both directions; at the minimum window size confirm that the
-     sidebar yields before the center work area or chat drops below its floor.
-     In light and dark themes, confirm both layouts keep the dividers legible.
+     keyboard in both directions; at the minimum window size confirm the
+     sidebar remains visible while the panel/chat targets clamp to their
+     floors. Confirm that only explicit sidebar controls collapse it. In light
+     and dark themes, confirm both layouts keep the dividers legible.
      Hovering, focusing, or dragging either divider thickens its full height to
-     1.5px rather than showing a short grip.
-     During an active assistant turn, confirm the lower running-status text
-     aligns with the processing heading text above it; the status mark stays in
-     the leading icon area.
+     1.5px rather than showing a short grip. During an active assistant turn,
+     confirm the lower running-status text aligns with the processing heading
+     text above it; the status mark stays in the leading icon area.
   7. Hide and restore the right chat pane with the fixed toggle. Confirm the
      same work-panel session and active resource remain visible, `Cmd/Ctrl + J`
      still toggles the work panel, and the layout switch is hidden while either
@@ -13565,9 +13566,12 @@ plugin-form fixtures in an isolated temporary directory at runtime.
      the selected layout and each layout's target width persist.
   9. Navigate to the real Plugins, Pull requests, and Scheduled routes with the
      work panel closed, then collapse the sidebar. In light and dark themes,
-     measure both titlebar actions and compare their rest/hover styling with the
-     shared work-panel toggle. Reopen the sidebar, collapse it again, and use
-     New Task to return to an editable chat composer on each route.
+     measure both titlebar actions and compare their rest/hover styling with
+     the shared work-panel toggle. Reopen the sidebar, collapse it again, and
+     use New Task to return to an editable chat composer on each route.
+  10. Drag empty space in the WorkPanel header in both Chat and Work layout and
+      confirm the native window moves. Confirm tab, close, `+`, and maximize
+      controls remain clickable.
 - **Expected**: The ordinary `.main-titlebar` actions (without a preview chrome
   ancestor) render as centered 28px square targets, with the shared transparent
   rest surface, secondary ink, radius, and semantic hover wash/primary ink.
@@ -13576,25 +13580,26 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   in the default layout — including mid-drag and while `sidebar-out` still
   occupies flex space. Its effective panel maximum is the client width minus
   that floor and the expanded sidebar width. When that budget is exhausted the
-  expanded sidebar collapses immediately, and the panel may keep growing
-  afterwards. A manual reopen spends panel width first; MainChat is preserved
-  where possible and otherwise lands on the 460px reopen target. In Work layout
-  the center work area remains at least 300px and the right chat pane stays at
-  or above 450px when both are visible; the expanded sidebar yields first. The
-  divider, keyboard direction, reset, ARIA values, titlebar toggle meaning, and
-  DOM focus order follow the active layout. Hiding chat is temporary; restoring
-  or closing the work panel does not overwrite saved layout or width targets.
+  panel/chat targets clamp while the expanded sidebar remains visible; only an
+  explicit sidebar action collapses it. A manual reopen spends panel width
+  first; MainChat is preserved where possible and otherwise lands on the 460px
+  reopen target. In Work layout the center work area remains at least 300px and
+  the right chat pane stays at or above 450px when both are visible; the
+  sidebar remains visible. The divider, keyboard direction, reset, ARIA values,
+  titlebar toggle meaning, and DOM focus order follow the active layout. Hiding
+  chat is temporary; restoring or closing the work panel does not overwrite
+  saved layout or width targets.
   A native plugin view follows both its surface's size and position while the
   sidebar is resized or enters/exits; it never covers the sidebar or leaves a
   gap after the transition.
-  Closing the panel restores only a sidebar the layout collapsed. The
-  separator's ARIA minimum/maximum follow the same dynamic budget. The panel
-  header's `+`, maximize, and viewport-fixed collapse toggle resolve to a single
-  control gap (`--ds-work-panel-control-gap`) with no divider, inset, or margin
-  of the action group's own, and all three are the shared chrome icon control:
-  28px square on a transparent seat with only a semantic hover wash, so the
-  header shows quiet icons rather than filled or raised squares. The collapse
-  toggle's open state changes its glyph and ink only.
+  Closing the panel does not undo a manual sidebar collapse. The separator's
+  ARIA minimum/maximum follow the same dynamic budget. The panel header's `+`,
+  maximize, and viewport-fixed collapse toggle resolve to a single control gap
+  (`--ds-work-panel-control-gap`) with no divider, inset, or margin of the
+  action group's own, and all three are the shared chrome icon control: 28px
+  square on a transparent seat with only a semantic hover wash, so the header
+  shows quiet icons rather than filled or raised squares. The collapse toggle's
+  open state changes its glyph and ink only.
 - **Overlay coverage measured in the running app**: on the Plugins route a plugin
   modal opens; the modal veil is the topmost hit at the work-panel toggle inside
   the titlebar band; the titlebar band is not the topmost hit there, so it does
@@ -13609,9 +13614,9 @@ plugin-form fixtures in an isolated temporary directory at runtime.
 - **Status**: Partially automated (`scripts/e2e-three-column-layout.mjs` via
   `pnpm test:e2e:layout` — fixed-window width invariance, the 450px floor across
   a pointer drag, one non-wrapping composer toolbar at that floor with the
-  model chip collapsed to its 32px icon, sidebar
-  yield/restore, the 460px reopen target, the panel action group's shared
-  control gap, preview mode, and ordinary Plugins/Pull requests/Scheduled titlebar
+  model chip collapsed to its 32px icon, manual sidebar collapse/reopen
+  behavior, the 460px reopen target, the panel action group's shared control
+  gap, preview mode, and ordinary Plugins/Pull requests/Scheduled titlebar.
   Source contracts in `chrome-control-geometry.test.mjs` also cover the shared
   disabled state and panel controls' transparent seat; the panel surface still
   needs the eyes-on pass above. The existing automation covers the default

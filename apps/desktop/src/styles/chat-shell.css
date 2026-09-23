@@ -61,62 +61,62 @@
 }
 
 .app-shell:not(.work-layout-with-panel):not(.work-panel-maximized):has(
-    > .work-panel:not(.is-exiting)
+    .work-panel:not(.is-exiting)
   )
-  > .main-pane {
+  .main-pane {
   border-right: 1px solid var(--ds-border-default);
   transition: border-right-color var(--motion-duration-fast) var(--motion-ease-out);
 }
 
 .app-shell.work-layout-with-panel:not(.work-panel-maximized):not(.work-panel-exiting):has(
-    > .work-panel.is-left-of-chat > .work-panel-resize:hover,
-    > .work-panel.is-left-of-chat > .work-panel-resize:active,
-    > .work-panel.is-left-of-chat > .work-panel-resize:focus-visible,
-    > .work-panel.is-left-of-chat[data-resizing="true"] > .work-panel-resize
+    .work-panel.is-left-of-chat > .work-panel-resize:hover,
+    .work-panel.is-left-of-chat > .work-panel-resize:active,
+    .work-panel.is-left-of-chat > .work-panel-resize:focus-visible,
+    .work-panel.is-left-of-chat[data-resizing="true"] > .work-panel-resize
   )
-  > .main-pane {
+  .main-pane {
   border-left-width: 1.5px;
 }
 
 .app-shell.work-layout-with-panel:not(.work-panel-maximized):not(.work-panel-exiting):has(
-    > .work-panel.is-left-of-chat > .work-panel-resize:hover
+    .work-panel.is-left-of-chat > .work-panel-resize:hover
   )
-  > .main-pane {
+  .main-pane {
   border-left-color: var(--ds-border-strong);
 }
 
 .app-shell.work-layout-with-panel:not(.work-panel-maximized):not(.work-panel-exiting):has(
-    > .work-panel.is-left-of-chat > .work-panel-resize:focus-visible,
-    > .work-panel.is-left-of-chat > .work-panel-resize:active,
-    > .work-panel.is-left-of-chat[data-resizing="true"] > .work-panel-resize
+    .work-panel.is-left-of-chat > .work-panel-resize:focus-visible,
+    .work-panel.is-left-of-chat > .work-panel-resize:active,
+    .work-panel.is-left-of-chat[data-resizing="true"] > .work-panel-resize
   )
-  > .main-pane {
+  .main-pane {
   border-left-color: var(--ds-accent);
 }
 
 .app-shell:not(.work-layout-with-panel):not(.work-panel-maximized):has(
-    > .work-panel > .work-panel-resize:hover,
-    > .work-panel > .work-panel-resize:active,
-    > .work-panel > .work-panel-resize:focus-visible,
-    > .work-panel[data-resizing="true"] > .work-panel-resize
+    .work-panel > .work-panel-resize:hover,
+    .work-panel > .work-panel-resize:active,
+    .work-panel > .work-panel-resize:focus-visible,
+    .work-panel[data-resizing="true"] > .work-panel-resize
   )
-  > .main-pane {
+  .main-pane {
   border-right-width: 1.5px;
 }
 
 .app-shell:not(.work-layout-with-panel):not(.work-panel-maximized):has(
-    > .work-panel > .work-panel-resize:hover
+    .work-panel > .work-panel-resize:hover
   )
-  > .main-pane {
+  .main-pane {
   border-right-color: var(--ds-border-strong);
 }
 
 .app-shell:not(.work-layout-with-panel):not(.work-panel-maximized):has(
-    > .work-panel > .work-panel-resize:focus-visible,
-    > .work-panel > .work-panel-resize:active,
-    > .work-panel[data-resizing="true"] > .work-panel-resize
+    .work-panel > .work-panel-resize:focus-visible,
+    .work-panel > .work-panel-resize:active,
+    .work-panel[data-resizing="true"] > .work-panel-resize
   )
-  > .main-pane {
+  .main-pane {
   border-right-color: var(--ds-accent);
 }
 

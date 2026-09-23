@@ -11,6 +11,10 @@ import {
   type SelectHTMLAttributes,
   type TextareaHTMLAttributes,
 } from "react";
+import {
+  portalToBody,
+  visiblePortalContent,
+} from "../lib/portal-visibility";
 
 import { IconEye, IconEyeOff, IconHelp } from "./icons";
 import {
@@ -36,7 +40,9 @@ function overlayRoot(): HTMLElement {
 
 /** Mount a modal overlay on a viewport-fixed host so a transformed ancestor cannot trap `position: fixed`. */
 export function portalOverlay(node: ReactNode) {
-  return typeof document === "undefined" ? node : createPortal(node, overlayRoot());
+  return typeof document === "undefined"
+    ? node
+    : createPortal(visiblePortalContent(node), overlayRoot());
 }
 
 function setRef<T>(ref: Ref<T> | undefined, value: T | null) {
@@ -405,7 +411,7 @@ function PortalTooltip({
     setLayout(best);
   }, [className, label, occlusions, position]);
 
-  return createPortal(
+  return portalToBody(
     <span
       ref={tooltipRef}
       className={cx("ui-tooltip", className)}
@@ -418,7 +424,6 @@ function PortalTooltip({
     >
       {label}
     </span>,
-    document.body,
   );
 }
 

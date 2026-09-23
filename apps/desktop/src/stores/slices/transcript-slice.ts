@@ -44,6 +44,7 @@ export function createTranscriptSlice({
   | "compactContext"
   | "retryAssistantMessage"
   | "editUserMessage"
+  | "prepareUserMessageEdit"
   | "retryLastPrompt"
   | "clearError"
   | "activateMessageRevision"
@@ -109,6 +110,14 @@ export function createTranscriptSlice({
       await get().editUserMessage(root.id, root.content, root.attachments);
     },
 
+    prepareUserMessageEdit: async (messageId, signal) => {
+      const prepared = await prepareTranscriptAction({ get, set }, runtime, messageId, signal);
+      const state = get();
+      if (!prepared || state.activeSessionId !== prepared.activeSessionId || state.isRunning) return null;
+      const message = state.messages.find((candidate) => candidate.id === messageId);
+      return message?.role === "user" && !message.sessionMessage ? message : null;
+    },
+
     editUserMessage: async (messageId, content, attachments) => {
       const prepared = await prepareTranscriptAction({ get, set }, runtime, messageId);
       const state = get();
@@ -132,18 +141,22 @@ export function createTranscriptSlice({
       );
       const kept = state.messages.slice(0, userIndex);
       const truncateFromMessageId = state.messages[userIndex].id;
-      const optimisticMessage = optimisticUserMessage(
-        crypto.randomUUID(),
-        prompt,
-        (attachments ?? state.messages[userIndex].attachments ?? []).map(
-          (attachment) => ({
-            path: attachment.ref,
-            name: attachment.name,
-            kind: attachment.kind,
-            mimeType: attachment.mimeType,
-          }),
+      const sessionReferences = state.messages[userIndex].meta?.sessionReferences ?? [];
+      const optimisticMessage = {
+        ...optimisticUserMessage(
+          crypto.randomUUID(),
+          prompt,
+          (attachments ?? state.messages[userIndex].attachments ?? []).map(
+            (attachment) => ({
+              path: attachment.ref,
+              name: attachment.name,
+              kind: attachment.kind,
+              mimeType: attachment.mimeType,
+            }),
+          ),
         ),
-      );
+        ...(sessionReferences.length ? { meta: { sessionReferences } } : {}),
+      };
 
       set((current) => ({
         messages: [...kept, optimisticMessage],
@@ -163,6 +176,7 @@ export function createTranscriptSlice({
           messageId: optimisticMessage.id,
           viewingSessionId: viewingSessionIdForPrompt(get(), sessionId),
           attachments: promptAttachments,
+          ...(sessionReferences.length ? { sessionReferences } : {}),
           truncateFromMessageId,
         });
         return true;
@@ -235,6 +249,7 @@ export function createTranscriptSlice({
       const promptAttachments = promptAttachmentsFromMessage(
         state.messages[userIndex].attachments,
       );
+      const sessionReferences = state.messages[userIndex].meta?.sessionReferences ?? [];
       const kept = state.messages.slice(0, userIndex);
       const truncateFromMessageId = state.messages[userIndex].id;
       set((current) => ({
@@ -253,6 +268,7 @@ export function createTranscriptSlice({
           content: prompt,
           viewingSessionId: viewingSessionIdForPrompt(get(), sessionId),
           attachments: promptAttachments,
+          ...(sessionReferences.length ? { sessionReferences } : {}),
           truncateFromMessageId,
         });
       } catch (error) {

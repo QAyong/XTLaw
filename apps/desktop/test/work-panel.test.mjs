@@ -244,6 +244,9 @@ test("work panel header exposes a scrollable tab strip and direct new-page actio
 
   assert.ok(stripIndex > headerIndex);
   assert.ok(actionsIndex > stripIndex && bodyIndex > actionsIndex);
+  // Keep the empty header area draggable; only tab/action controls opt out.
+  assert.doesNotMatch(panelSource, /className="work-panel-tab-strip-wrap no-drag"/);
+  assert.match(globalStyles, /\.work-panel-tab-strip button \{[^}]*app-region:\s*no-drag;/s);
   assert.match(panelSource, /role="tablist"/);
   assert.match(panelSource, /role="tab"/);
   assert.match(panelSource, /aria-selected=\{selected\}/);
@@ -310,6 +313,22 @@ test("plus creates a blank page and launcher rows open tools in that page", () =
   assert.match(storeSource, /replaceWorkPanelTab: \(sourceTabId, tab\) =>/);
   assert.match(storeSource, /replaceWorkPanelTabState/);
   assert.doesNotMatch(panelSource, /setMenuOpen|menuOpen|newTabMenuRef|createPortal/);
+});
+
+test("work panel tabs support pointer and keyboard reordering", () => {
+  assert.match(panelSource, /beginTabReorder/);
+  assert.match(panelSource, /data-work-panel-tab-id/);
+  assert.match(panelSource, /workPanelTabReorderShouldArm/);
+  assert.match(panelSource, /workPanelTabReorderInsertAfter/);
+  assert.match(panelSource, /workPanelTabReorderScrollDelta/);
+  assert.match(panelSource, /autoScrollFrame/);
+  assert.match(panelSource, /requestAnimationFrame\(tick\)/);
+  assert.match(panelSource, /data-work-panel-tab-reordering/);
+  assert.match(panelSource, /event\.altKey/);
+  assert.match(panelSource, /reorderWorkPanelTabs/);
+  assert.match(storeSource, /reorderWorkPanelTabs: \(sourceTabId, targetTabId, insertAfter\)/);
+  assert.match(storeSource, /reorderWorkPanelTabsState/);
+  assert.match(globalStyles, /\.work-panel-tab\.is-drop-before::before/);
 });
 
 test("work panel starts closed with no tabs and persists width only", () => {
@@ -602,7 +621,7 @@ test("work panel empty states match the app's other empty-state proportions", ()
 
 test("the shell budgets the three columns inside the fixed client area", () => {
   // MainChat is the first-priority column: the panel is capped by the shared
-  // budget and the expanded sidebar is the column that yields.
+  // budget and the expanded sidebar remains under the user's control.
   assert.equal(MAIN_PANE_MIN_WIDTH, 450);
   assert.match(
     globalStyles,
@@ -615,8 +634,6 @@ test("the shell budgets the three columns inside the fixed client area", () => {
   assert.match(panelSource, /const renderPanelWidth = layout\.panelWidth/);
   assert.match(panelSource, /maxWidth: layout\.maxPanelWidth/);
   assert.match(panelSource, /sidebarOccupiesBudget = !sidebarCollapsed \|\| sidebarExiting/);
-  assert.match(panelSource, /layout\.shouldCollapseSidebar\) onAutoCollapseSidebar/);
-  assert.match(appSource, /onAutoCollapseSidebar=\{autoCollapseSidebar\}/);
   assert.match(appSource, /containerWidth=\{shellWidth\}/);
   assert.match(appSource, /sidebarExiting=\{sidebarExiting\}/);
   assert.match(appSource, /workPanelWidthForSidebarReopen/);

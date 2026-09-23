@@ -29,6 +29,10 @@ const appSource = await readFile(
   new URL("../src/components/ChatSurface.tsx", import.meta.url),
   "utf8",
 );
+const launchErrorSource = await readFile(
+  new URL("../src/lib/chat-launch-error.ts", import.meta.url),
+  "utf8",
+);
 const providerCatalogSource = await readMainModule("runtime/provider-catalog.ts");
 const sessionIpcSource = await readMainModule("ipc/session-ipc.ts");
 const sessionLaunchSource = await readMainModule("runtime/session-launch.ts");
@@ -104,6 +108,10 @@ test("Composer owns the mode and model controls", () => {
   // default thinking level instead of pinning the draft to its current value.
   assert.match(scheduledModelPickerSource, /activeSessionId: null/);
   assert.doesNotMatch(scheduledModelPickerSource, /useId\(/);
+  assert.match(
+    scheduledModelPickerSource,
+    /composerModelDisplayName\(provider, value\.modelId \?\? "", selected\.displayName\)/,
+  );
   assert.doesNotMatch(leftToolbar, /composer-thinking|thinking-chip/);
   assert.doesNotMatch(topbarSource, /ModelSelect|model-chip/);
   assert.doesNotMatch(topbarSource, /ct-mode|ct-mode-btn|configureActiveSession/);
@@ -285,8 +293,9 @@ test("activity headers omit the redundant status capsule", () => {
 });
 
 test("thinking-only assistant streams open the transcript surface", () => {
-  assert.match(appSource, /typeof message\.thinking === "string"/);
-  assert.match(appSource, /hasContent \|\| hasThinking/);
+  assert.match(launchErrorSource, /typeof message\.thinking === "string"/);
+  assert.match(launchErrorSource, /hasContent \|\| hasThinking/);
+  assert.match(appSource, /messageHasTranscriptContent\(message\)/);
 });
 
 test("provider settings persist model-local limits and thinking configuration", () => {

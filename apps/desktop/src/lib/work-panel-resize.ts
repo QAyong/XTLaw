@@ -84,16 +84,15 @@ export type WorkPanelLayout = {
   minTargetWidth: number;
   maxTargetWidth: number;
   targetWidth: number;
-  shouldCollapseSidebar: boolean;
 };
 
 export type WorkPanelLayoutMode = "chat" | "work";
 
 /**
  * Shared three-column budget. The shell is a fixed-width client area, so the
- * only way to satisfy the MainChat floor is to cap the panel and, at the
- * threshold, collapse the sidebar. The cap is the client width itself: a wide
- * window lets the panel keep growing until MainChat reaches its floor.
+ * panel is capped to preserve the MainChat floor while the sidebar remains
+ * under user control. A wide window lets the panel keep growing until that
+ * floor is reached.
  */
 export function workPanelLayout({
   layoutMode = "chat",
@@ -126,7 +125,6 @@ export function workPanelLayout({
       minTargetWidth: 0,
       maxTargetWidth: fullWidth,
       targetWidth: fullWidth,
-      shouldCollapseSidebar: false,
     };
   }
   if (layoutMode === "work") {
@@ -139,7 +137,6 @@ export function workPanelLayout({
         minTargetWidth: 0,
         maxTargetWidth: availableWidth,
         targetWidth: 0,
-        shouldCollapseSidebar: false,
       };
     }
     const maxChatWidth = Math.max(
@@ -160,9 +157,6 @@ export function workPanelLayout({
       minTargetWidth: WORK_LAYOUT_CHAT_MIN_WIDTH,
       maxTargetWidth: maxChatWidth,
       targetWidth: mainWidth,
-      shouldCollapseSidebar:
-        !sidebarCollapsed &&
-        availableWidth - targetWidth < WORK_LAYOUT_WORK_MIN_WIDTH,
     };
   }
   const requested = clampWorkPanelWidth(
@@ -188,9 +182,6 @@ export function workPanelLayout({
     ),
     maxTargetWidth: maxPanelWidth,
     targetWidth: panelWidth,
-    shouldCollapseSidebar:
-      !sidebarCollapsed &&
-      width - leftWidth - requestedPanelWidth <= MAIN_PANE_MIN_WIDTH,
   };
 }
 

@@ -109,7 +109,6 @@ export function useAppShellRuntime() {
   const workLayoutChatWidthRef = useRef(chatWorkLayoutPreferences.workLayoutChatWidth);
   const chatPaneHiddenRef = useRef(chatPaneHidden);
   const chatPaneWidthPreviewRef = useRef(chatPaneWidthPreview);
-  const autoCollapsedSidebarRef = useRef(false);
   sidebarCollapsedRef.current = sidebarCollapsed;
   sidebarWidthRef.current = sidebarWidth;
   shellWidthRef.current = shellWidth;
@@ -158,7 +157,6 @@ export function useAppShellRuntime() {
     saveSidebarWidth(nextWidth);
   }, []);
   const handleSidebarResizeCollapse = useCallback(() => {
-    autoCollapsedSidebarRef.current = false;
     if (layoutModeRef.current === "work") setChatPaneWidthPreview(null);
     setSidebarCollapsed(true);
   }, []);
@@ -199,7 +197,6 @@ export function useAppShellRuntime() {
       });
       useAppStore.getState().setWorkPanelWidth(nextPanelWidth);
     }
-    autoCollapsedSidebarRef.current = false;
     setSidebarWidth(preferredWidth);
     setSidebarCollapsed(false);
   }, []);
@@ -209,7 +206,6 @@ export function useAppShellRuntime() {
   // must never capture a stale `sidebarCollapsed`. Every invocation is a user
   // action, so it clears an automatic-collapse record before toggling.
   const toggleSidebar = useCallback(() => {
-    autoCollapsedSidebarRef.current = false;
     if (sidebarCollapsedRef.current) reopenSidebar();
     else {
       if (layoutModeRef.current === "work") setChatPaneWidthPreview(null);
@@ -217,14 +213,6 @@ export function useAppShellRuntime() {
     }
   }, [reopenSidebar]);
 
-  // The layout, not the user, yields the sidebar when the panel would push
-  // MainChat under its floor. The record is remembered only until the panel
-  // closes.
-  const autoCollapseSidebar = useCallback(() => {
-    if (sidebarCollapsedRef.current) return;
-    autoCollapsedSidebarRef.current = true;
-    setSidebarCollapsed(true);
-  }, []);
   const [presentedWorkPanelOpen, setPresentedWorkPanelOpen] = useState(false);
   const [workPanelMaximized, setWorkPanelMaximized] = useState(false);
   const [workPanelExiting, setWorkPanelExiting] = useState(false);
@@ -394,10 +382,6 @@ export function useAppShellRuntime() {
         setWorkPanelExiting(false);
         workPanelExitingRef.current = false;
         workPanelExitClosing.current = false;
-        if (autoCollapsedSidebarRef.current) {
-          autoCollapsedSidebarRef.current = false;
-          setSidebarCollapsed(false);
-        }
       },
     }).then((committed) => {
       // Reservation failed or was superseded — allow a later exit retry.
@@ -455,22 +439,8 @@ export function useAppShellRuntime() {
     return () => window.clearTimeout(timer);
   }, [workPanelExiting, finishWorkPanelExit]);
 
-  // If the panel disappears without an exit commit (the active session closed
-  // it, or the route changed), restore a sidebar this layout mechanism
-  // collapsed — but never one the user collapsed manually.
-  const previousWorkPanelOpen = useRef(workPanelVisible);
   useEffect(() => {
-    if (
-      previousWorkPanelOpen.current &&
-      !workPanelVisible &&
-      !presentedWorkPanelRef.current &&
-      autoCollapsedSidebarRef.current
-    ) {
-      autoCollapsedSidebarRef.current = false;
-      setSidebarCollapsed(false);
-    }
     if (!workPanelVisible) setWorkPanelMaximized(false);
-    previousWorkPanelOpen.current = workPanelVisible;
   }, [workPanelVisible]);
 
   const runMenuCommand = useCallback(
@@ -740,7 +710,11 @@ export function useAppShellRuntime() {
       }
     });
     const offNotificationChanged = api.onNotificationChanged((notification) => {
-      useAppStore.getState().receiveNotification(notification);
+      const accepted = useAppStore.getState().receiveNotification(notification);
+      // A host replay, renderer reload, or post-clear delayed event may refer
+      // to a row that is already present/acknowledged. Do not surface a native
+      // banner for an event the store intentionally rejected.
+      if (!accepted) return;
       const failed = notification.kind === "task.failed";
       const title = t(
         failed ? "notifications.failedTitle" : "notifications.completedTitle",
@@ -758,6 +732,7 @@ export function useAppShellRuntime() {
           kind: "task",
           title,
           body,
+          createdAt: notification.createdAt,
         })
         .catch(() => undefined);
     });
@@ -1071,7 +1046,6 @@ export function useAppShellRuntime() {
     handleSidebarResizeCollapse,
     toggleSidebar,
     reopenSidebar,
-    autoCollapseSidebar,
     appShellRef,
     shellWidth,
     workPanelWidth,

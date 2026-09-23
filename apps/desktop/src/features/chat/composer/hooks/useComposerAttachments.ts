@@ -47,6 +47,7 @@ type UseComposerAttachmentsOptions = {
     | "sessionReferencesRef"
     | "applyEditorDraft"
     | "snapshotReferences"
+    | "snapshotSessionReferences"
     | "commitEditorDom"
   >;
 };
@@ -89,6 +90,8 @@ export function useComposerAttachments({
 
   const snapshotReferences = (sourceSessionId: string) =>
     draft.snapshotReferences(sourceSessionId);
+  const snapshotSessionReferences = (sourceSessionId: string) =>
+    draft.snapshotSessionReferences(sourceSessionId);
 
   const pickAndAttach = async () => {
     // The ref closes the gap before React re-renders the disabled button.
@@ -109,6 +112,7 @@ export function useComposerAttachments({
       const sourceSessionId = activeSessionId;
       const sourceDraftKey = draftKey;
       const previousReferences = snapshotReferences(sourceSessionId ?? "");
+      const previousSessionReferences = snapshotSessionReferences(sourceSessionId ?? "");
       // A picker action is real input, so a home draft gets a durable owner
       // before native paths are copied into scratch.
       const sessionId = sourceSessionId ?? (await materializeDraftSession());
@@ -143,6 +147,7 @@ export function useComposerAttachments({
           ...previousReferences,
           ...chips.map((chip) => toDraftReference(chip.reference)),
         ],
+        sessionReferences: previousSessionReferences,
       });
       const currentSessionId = useAppStore.getState().activeSessionId;
       if (currentSessionId === sessionId) {
@@ -218,6 +223,7 @@ export function useComposerAttachments({
       const sourceSessionId = activeSessionId;
       const sourceDraftKey = draftKey;
       const previousReferences = snapshotReferences(sourceSessionId ?? "");
+      const previousSessionReferences = snapshotSessionReferences(sourceSessionId ?? "");
       setPasting(true);
       try {
         const payload = files.length
@@ -275,6 +281,7 @@ export function useComposerAttachments({
             ...previousReferences,
             ...chips.map((chip) => toDraftReference(chip.reference)),
           ],
+          sessionReferences: previousSessionReferences,
         });
         const currentSessionId = useAppStore.getState().activeSessionId;
         if (currentSessionId === sessionId) {
@@ -327,6 +334,7 @@ export function useComposerAttachments({
     const sourceSessionId = activeSessionId;
     const sourceDraftKey = draftKey;
     const previousReferences = snapshotReferences(sourceSessionId ?? "");
+    const previousSessionReferences = snapshotSessionReferences(sourceSessionId ?? "");
     const fileItems = items.filter((item) => !item.isDirectory);
     setPasting(true);
     try {
@@ -389,6 +397,7 @@ export function useComposerAttachments({
           ...previousReferences,
           ...chips.map((chip) => toDraftReference(chip.reference)),
         ],
+        sessionReferences: previousSessionReferences,
       });
       const currentSessionId = useAppStore.getState().activeSessionId;
       if (currentSessionId === sessionId) {

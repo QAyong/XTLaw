@@ -21,7 +21,7 @@ import {
   workPanelWidthForSidebarReopen,
 } from "../src/lib/work-panel-resize.ts";
 
-test("the three-column budget protects MainChat and collapses the sidebar at the threshold", () => {
+test("the three-column budget protects MainChat without collapsing the sidebar", () => {
   assert.equal(MAIN_PANE_MIN_WIDTH, 450);
   assert.equal(MAIN_PANE_REOPEN_TARGET_WIDTH, 460);
   const layout = workPanelLayout({
@@ -34,10 +34,9 @@ test("the three-column budget protects MainChat and collapses the sidebar at the
   assert.equal(layout.maxPanelWidth, 315);
   assert.equal(layout.panelWidth, 315);
   assert.equal(layout.mainWidth, MAIN_PANE_MIN_WIDTH);
-  assert.equal(layout.shouldCollapseSidebar, true);
 });
 
-test("the expanded sidebar collapses as soon as MainChat reaches 450px", () => {
+test("the expanded sidebar stays visible as MainChat reaches 450px", () => {
   const justAbove = workPanelLayout({
     containerWidth: 1040,
     sidebarWidth: 275,
@@ -52,9 +51,7 @@ test("the expanded sidebar collapses as soon as MainChat reaches 450px", () => {
   });
 
   assert.equal(justAbove.mainWidth, 451);
-  assert.equal(justAbove.shouldCollapseSidebar, false);
   assert.equal(atFloor.mainWidth, MAIN_PANE_MIN_WIDTH);
-  assert.equal(atFloor.shouldCollapseSidebar, true);
 });
 
 test("work-layout chat keeps the same 450px floor as MainChat", () => {
@@ -69,7 +66,6 @@ test("work-layout chat keeps the same 450px floor as MainChat", () => {
   });
   assert.equal(constrained.targetWidth, MAIN_PANE_MIN_WIDTH);
   assert.equal(constrained.minTargetWidth, MAIN_PANE_MIN_WIDTH);
-  assert.equal(constrained.shouldCollapseSidebar, true);
 
   const afterCollapse = workPanelLayout({
     layoutMode: "work",
@@ -94,7 +90,6 @@ test("a collapsed sidebar exposes the full dynamic right-column budget", () => {
   assert.equal(layout.maxPanelWidth, 590);
   assert.equal(layout.panelWidth, 590);
   assert.equal(layout.mainWidth, MAIN_PANE_MIN_WIDTH);
-  assert.equal(layout.shouldCollapseSidebar, false);
 });
 
 test("sidebar reopen spends right-panel width before using the 460px target", () => {
@@ -153,7 +148,6 @@ test("a wide window lets the panel grow past the old fixed cap", () => {
   assert.equal(wide.maxPanelWidth, 875);
   assert.equal(wide.panelWidth, 875);
   assert.equal(wide.mainWidth, MAIN_PANE_MIN_WIDTH);
-  assert.equal(wide.shouldCollapseSidebar, true);
 
   // The same window with the sidebar already yielded spends its width on the
   // panel down to the floor.
@@ -179,7 +173,6 @@ test("preview mode gives the panel the whole client area beside the sidebar", ()
   assert.equal(expanded.panelWidth, 925);
   assert.equal(expanded.maxPanelWidth, 925);
   assert.equal(expanded.mainWidth, 0);
-  assert.equal(expanded.shouldCollapseSidebar, false);
 
   const collapsed = workPanelLayout({
     containerWidth: 1200,

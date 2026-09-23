@@ -12,8 +12,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { TooltipButton, cx } from "./ui";
-
-import { createPortal } from "react-dom";
+import { portalToBody } from "../lib/portal-visibility";
 import { useTranslation } from "react-i18next";
 import { api } from "../lib/api";
 import { SessionHoverCard } from "../features/sessions/SessionHoverCard";
@@ -1867,7 +1866,7 @@ export function Sidebar({
         ? t("nav.newTemporarySession")
         : t("nav.newProject");
       const Icon = isSessions ? IconNewSession : IconNewProject;
-      return createPortal(
+      return portalToBody(
         <div
           className="sidebar-row-menu sidebar-floating-menu sidebar-section-menu"
           role="menu"
@@ -1893,11 +1892,10 @@ export function Sidebar({
             <span>{label}</span>
           </button>
         </div>,
-        document.body,
       );
     }
     if (sortOpen) {
-      return createPortal(
+      return portalToBody(
         <div
           className="sidebar-popover sidebar-sort-menu sidebar-floating-menu"
           role="menu"
@@ -1922,7 +1920,6 @@ export function Sidebar({
             <span className={`sidebar-checkbox ${showArchived ? "checked" : ""}`}>{showArchived ? "✓" : ""}</span>
           </button>
         </div>,
-        document.body,
       );
     }
     const session = sessionMenu
@@ -1932,7 +1929,7 @@ export function Sidebar({
       ? projectEntries.find((item) => item.key === projectMenu)
       : undefined;
     if (!session && !entry) return null;
-    return createPortal(
+    return portalToBody(
       <div
         className="sidebar-row-menu sidebar-floating-menu"
         role="menu"
@@ -2119,7 +2116,6 @@ export function Sidebar({
           </>
         ) : null}
       </div>,
-      document.body,
     );
   };
 
@@ -2388,6 +2384,8 @@ export function Sidebar({
         <SessionHoverCard
           key={sessionHoverCard.session.id}
           card={sessionHoverCard}
+          runningSessions={runningSessions}
+          pendingPermissions={pendingPermissions}
           refreshProject={refreshProject}
           onOpenSession={openSessionFromHover}
           keepVisible={keepSessionHoverCardVisible}

@@ -267,7 +267,7 @@ export function ProviderSetupDialog({
     // existing save path when the image selection did not change.
     const imageSelection = imageModelDraft ?? imageModelIds;
     const remainingImageModels = imageSelection?.filter((imageModelId) =>
-      persisted.some((model) => model.id === imageModelId),
+      persisted.some((model) => model.id.toLowerCase() === imageModelId.toLowerCase()),
     );
     const imageModelIdsToSave = imageModelDraft !== undefined ||
       remainingImageModels?.length !== imageSelection?.length
@@ -315,8 +315,10 @@ export function ProviderSetupDialog({
   const updateImageModelDraft = (id: string, selected: boolean) => {
     setImageModelDraft((current) => {
       const next = current ?? imageModelIds ?? [];
-      if (selected) return next.includes(id) ? next : [...next, id];
-      return next.filter((entry) => entry !== id);
+      if (selected) {
+        return next.some((entry) => entry.toLowerCase() === id.toLowerCase()) ? next : [...next, id];
+      }
+      return next.filter((entry) => entry.toLowerCase() !== id.toLowerCase());
     });
   };
 

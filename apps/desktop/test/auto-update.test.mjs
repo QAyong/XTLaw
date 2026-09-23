@@ -24,6 +24,7 @@ const [
   appSource,
   stylesSource,
   pkgSource,
+  buildReleaseSource,
   releaseWorkflowSource,
   enSource,
   zhSource,
@@ -41,6 +42,7 @@ const [
   readAppSource(),
   loadStyles(),
   read("../package.json"),
+  read("../../../scripts/build-desktop-release.mjs"),
   read("../../../.github/workflows/release.yml"),
   read("../../../packages/i18n/src/locales/en/index.ts"),
   read("../../../packages/i18n/src/locales/zh-CN/index.ts"),
@@ -276,6 +278,13 @@ test("packaging publishes an electron-updater feed for GitHub Releases", () => {
     pkg.build.portable.unpackDirName,
     "XTLaw-Portable",
     "portable extraction path stays stable for Windows taskbar identity",
+  );
+  // Upstream fix: the Windows release build launches the pnpm.cmd shim
+  // through a shell so the hosted runner can start it consistently.
+  assert.match(
+    buildReleaseSource,
+    /shell:\s*process\.platform === "win32"/,
+    "Windows must launch the pnpm.cmd shim through a shell",
   );
   // The upload step must carry every updater feed, and the release publishes
   // all platforms unfiltered (D126/D285).

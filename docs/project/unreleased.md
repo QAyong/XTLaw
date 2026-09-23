@@ -1,5 +1,17 @@
 # Unreleased changes
 
+- Upstream `main` was synchronized at `d07d8a4a1` from the fork's
+  `26dc6563a` baseline. The `0.15.6` runtime/recovery, queue, model-ID,
+  plugin, attachment, and renderer updates are integrated while XTLaw branding,
+  session-reference reading, Chat/Work layout, and the fork's local docs remain
+  authoritative.
+- Session references now survive explicit and promoted steering, edit/retry
+  regeneration, and asynchronous attachment draft writes; the runtime keeps
+  the per-turn read whitelist fail-closed.
+- WorkPanel resizing keeps the sidebar under user control instead of collapsing
+  it automatically. The compact Composer model rows retain the local model
+  icons and capability metadata, and empty WorkPanel header space remains a
+  native window-drag region.
 - Resuming a subagent no longer selects another definition's private model
   binding. On-demand delegation permissions are checked again on the next parent
   turn, so revoking automatic delegation takes effect without restarting the runtime.

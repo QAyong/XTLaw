@@ -11,14 +11,15 @@ import {
 import { ProjectCreateDialog } from "../../components/ProjectCreateDialog";
 import { SearchDialog } from "../../components/SearchDialog";
 import { Sidebar } from "../../components/Sidebar";
+import { StartupRecovery } from "../../components/StartupRecovery";
 import { ToastHost } from "../../components/Toast";
 import { UpdateBanner } from "../../components/UpdateBanner";
 import { cx, TooltipButton } from "../../components/ui";
-import { StartupRecovery } from "../../components/StartupRecovery";
 import { WindowControls } from "../../components/WindowControls";
 import { WorkPanel } from "../../components/workpanel/WorkPanel";
 import { useCopyTex } from "../../hooks/use-copy-tex";
 import { api } from "../../lib/api";
+import { PortalVisibilityProvider } from "../../lib/portal-visibility";
 import { CollapsedTitlebarActions, RoutePending } from "./chrome";
 import { useAppShellRuntime } from "./useAppShellRuntime";
 
@@ -65,7 +66,6 @@ export function AppShell() {
     handleSidebarResizeCollapse,
     toggleSidebar,
     reopenSidebar,
-    autoCollapseSidebar,
     appShellRef,
     shellWidth,
     runMenuCommand,
@@ -249,7 +249,6 @@ export function AppShell() {
       sidebarCollapsed={sidebarCollapsed}
       sidebarEntering={sidebarEntering}
       sidebarExiting={sidebarExiting}
-      onAutoCollapseSidebar={autoCollapseSidebar}
       maximized={workPanelMaximized}
       onToggleMaximize={toggleWorkPanelMaximize}
       layoutMode={layoutMode}
@@ -279,123 +278,123 @@ export function AppShell() {
 
   let shell: ReactNode = null;
   if (ready) {
-    if (page === "settings") {
-      shell = (
-        <>
+    shell = (
+      <>
+        <PortalVisibilityProvider visible={page !== "settings"}>
+          <div
+            className="app-chat-shell"
+            hidden={page === "settings"}
+            inert={page === "settings" ? true : undefined}
+            aria-hidden={page === "settings" ? true : undefined}
+          >
+            {!sidebarCollapsed || sidebarExiting ? (
+              <Sidebar
+                className={cx(sidebarEntering && "is-entering", sidebarExiting && "is-exiting")}
+                onAnimationEnd={handleSidebarAnimationEnd}
+                onToggleSidebar={toggleSidebar}
+                sidebarToggleShortcut={sidebarToggleShortcut}
+                sidebarWidth={sidebarWidth}
+                widthMax={sidebarWidthMax}
+                onWidthChange={handleSidebarWidthChange}
+                onWidthCommit={handleSidebarWidthCommit}
+                onResizeCollapse={handleSidebarResizeCollapse}
+              />
+            ) : null}
+
+            {workPanelMaximized && (
+              /* MainChat is absent; the panel header owns dragging while this
+                 pass-through row keeps the shell controls available. */
+              <div
+                className={cx(
+                  "window-chrome-row",
+                  !sidebarCollapsed && "sidebar-expanded",
+                )}
+              >
+                {sidebarCollapsed && (
+                  <CollapsedTitlebarActions
+                    onToggleSidebar={toggleSidebar}
+                    onNewTask={() => void runMenuCommand("newTask")}
+                    sidebarToggleShortcut={sidebarToggleShortcut}
+                    nativeTooltip
+                  />
+                )}
+                {!sidebarCollapsed && (
+                  <TooltipButton
+                    type="button"
+                    className="title-nav-btn"
+                    nativeTooltip
+                    tooltip={t("nav.newTask")}
+                    ariaLabel={t("nav.newTask")}
+                    data-nav="new-task"
+                    onClick={() => void runMenuCommand("newTask")}
+                  >
+                    <IconNewSession size={15} />
+                  </TooltipButton>
+                )}
+                <div className="window-chrome-drag" aria-hidden />
+              </div>
+            )}
+
+            {orderedPanes}
+
+            {page === "chat" &&
+              presentedWorkPanelOpen &&
+              !workPanelExiting &&
+              !workPanelMaximized &&
+              !chatPaneHidden && (
+                <TooltipButton
+                  type="button"
+                  className="app-chat-work-layout-toggle no-drag"
+                  nativeTooltip={workAreaToolbarOverlaid}
+                  tooltip={t(
+                    layoutMode === "work"
+                      ? "nav.switchToChatLayout"
+                      : "nav.switchToWorkLayout",
+                  )}
+                  ariaLabel={t(
+                    layoutMode === "work"
+                      ? "nav.switchToChatLayout"
+                      : "nav.switchToWorkLayout",
+                  )}
+                  aria-pressed={layoutMode === "work"}
+                  onClick={switchChatWorkLayout}
+                >
+                  <IconArrowLeftRight size={15} aria-hidden />
+                </TooltipButton>
+              )}
+
+            <TooltipButton
+              type="button"
+              className="app-work-panel-toggle no-drag"
+              nativeTooltip={workAreaToolbarOverlaid}
+              tooltip={workPanelToggleTooltip}
+              ariaLabel={workPanelToggleTooltip}
+              aria-pressed={
+                layoutMode === "work" && presentedWorkPanelOpen
+                  ? !chatPaneHidden
+                  : workPanelOpen || presentedWorkPanelOpen
+              }
+              disabled={!activeSessionId && !presentedWorkPanelOpen && !workPanelExiting}
+              onClick={toggleCurrentRightRegion}
+            >
+              <span className="app-work-panel-toggle-icon" aria-hidden>
+                <IconPanel size={15} />
+                <IconPanelOpen size={15} />
+              </span>
+            </TooltipButton>
+          </div>
+        </PortalVisibilityProvider>
+        {page === "settings" ? (
           <Suspense fallback={<RoutePending />}>
             <SettingsPage />
           </Suspense>
-          <SearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} />
-          <ToastHost />
-          <ExtensionPromptHost />
-          <UpdateBanner />
-        </>
-      );
-    } else {
-      shell = (
-        <>
-          {!sidebarCollapsed || sidebarExiting ? (
-            <Sidebar
-              className={cx(sidebarEntering && "is-entering", sidebarExiting && "is-exiting")}
-              onAnimationEnd={handleSidebarAnimationEnd}
-              onToggleSidebar={toggleSidebar}
-              sidebarToggleShortcut={sidebarToggleShortcut}
-              sidebarWidth={sidebarWidth}
-              widthMax={sidebarWidthMax}
-              onWidthChange={handleSidebarWidthChange}
-              onWidthCommit={handleSidebarWidthCommit}
-              onResizeCollapse={handleSidebarResizeCollapse}
-            />
-          ) : null}
-
-          {workPanelMaximized && (
-            /* MainChat is absent; the panel header owns dragging while this
-               pass-through row keeps the shell controls available. */
-            <div
-              className={cx(
-                "window-chrome-row",
-                !sidebarCollapsed && "sidebar-expanded",
-              )}
-            >
-              {sidebarCollapsed && (
-                <CollapsedTitlebarActions
-                  onToggleSidebar={toggleSidebar}
-                  onNewTask={() => void runMenuCommand("newTask")}
-                  sidebarToggleShortcut={sidebarToggleShortcut}
-                  nativeTooltip
-                />
-              )}
-              {!sidebarCollapsed && (
-                <TooltipButton
-                  type="button"
-                  className="title-nav-btn"
-                  nativeTooltip
-                  tooltip={t("nav.newTask")}
-                  ariaLabel={t("nav.newTask")}
-                  data-nav="new-task"
-                  onClick={() => void runMenuCommand("newTask")}
-                >
-                  <IconNewSession size={15} />
-                </TooltipButton>
-              )}
-              <div className="window-chrome-drag" aria-hidden />
-            </div>
-          )}
-
-          {orderedPanes}
-
-          {page === "chat" &&
-            presentedWorkPanelOpen &&
-            !workPanelExiting &&
-            !workPanelMaximized &&
-            !chatPaneHidden && (
-              <TooltipButton
-                type="button"
-                className="app-chat-work-layout-toggle no-drag"
-                nativeTooltip={workAreaToolbarOverlaid}
-                tooltip={t(
-                  layoutMode === "work"
-                    ? "nav.switchToChatLayout"
-                    : "nav.switchToWorkLayout",
-                )}
-                ariaLabel={t(
-                  layoutMode === "work"
-                    ? "nav.switchToChatLayout"
-                    : "nav.switchToWorkLayout",
-                )}
-                aria-pressed={layoutMode === "work"}
-                onClick={switchChatWorkLayout}
-              >
-                <IconArrowLeftRight size={15} aria-hidden />
-              </TooltipButton>
-            )}
-
-          <TooltipButton
-            type="button"
-            className="app-work-panel-toggle no-drag"
-            nativeTooltip={workAreaToolbarOverlaid}
-            tooltip={workPanelToggleTooltip}
-            ariaLabel={workPanelToggleTooltip}
-            aria-pressed={
-              layoutMode === "work" && presentedWorkPanelOpen
-                ? !chatPaneHidden
-                : workPanelOpen || presentedWorkPanelOpen
-            }
-            disabled={!activeSessionId && !presentedWorkPanelOpen && !workPanelExiting}
-            onClick={toggleCurrentRightRegion}
-          >
-            <span className="app-work-panel-toggle-icon" aria-hidden>
-              <IconPanel size={15} />
-              <IconPanelOpen size={15} />
-            </span>
-          </TooltipButton>
-
-          <SearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} />
-          <ToastHost />
-          <ExtensionPromptHost />
-        </>
-      );
-    }
+        ) : null}
+        <SearchDialog open={searchOpen} onClose={() => setSearchOpen(false)} />
+        <ToastHost />
+        <ExtensionPromptHost />
+        {page === "settings" ? <UpdateBanner /> : null}
+      </>
+    );
   }
 
   return (

@@ -486,7 +486,11 @@ may be retained while exactly one workspace supplies the visible shell context.
   `Cmd/Ctrl + J` both toggle the active session's panel: they reveal the
   retained context without creating a resource tab, and collapse the visible
   panel without deleting tabs, retaining tabs, active resource, and committed
-  width. They are a no-op without an active session or while Settings is the
+  width. In the persisted Work layout, the viewport-fixed toggle instead
+  controls the right chat pane while the work panel is open; `Cmd/Ctrl + J`
+  continues to toggle the work panel. The layout switch is available only
+  while both panes are visible, and their DOM order follows their visible
+  order. They are a no-op without an active session or while Settings is the
   active page. The panel's `+` trigger can then create a New launcher tab whose
   body offers Browser or an in-scope plugin view.
 - An artifact trigger atomically creates or reuses its resource, activates it,
@@ -1072,25 +1076,31 @@ Running turns and pending approvals continue to gate the controls.
 
 Work-panel and application-window resizing are implemented in MVP:
 
-- The 10px inner left-edge separator anchors to the press position and
-  starting panel width, then follows pointer delta without jumping. Moving it
-  left grows the panel until the shared budget is exhausted; when MainChat
-  reaches its 450px minimum the expanded sidebar collapses immediately. Moving
-  it right gives space back to MainChat.
-- The inner divider's target clamps to the shared three-column budget
-  (`client width - 450px - expanded sidebar`, with no fixed pixel cap); pointer movement is
-  frame-coalesced and release commits the preferred width. Escape, pointer
-  cancellation, and lost capture restore the press-time panel width. A
-  double-click restores the default 360px width inside those same live bounds.
+- The 10px inner separator anchors to the press position and starting target
+  width, then follows pointer delta without jumping. In the default layout it
+  sits on the panel's left edge: moving left grows the panel until MainChat
+  reaches its 450px minimum and the expanded sidebar collapses immediately. In
+  Work layout it sits on the panel's right edge and adjusts the right chat
+  width: moving right grows the center work area, while moving left grows chat.
+- The separator target clamps to the active layout's three-column budget. The
+  default layout protects a 450px MainChat floor with no fixed panel cap. Work
+  layout targets a 450px right chat pane with the same 450px minimum and preserves at least
+  300px for the central work area; the expanded sidebar yields when necessary.
+  Pointer movement is frame-coalesced and release commits that layout's target.
+  Escape, pointer cancellation, and lost capture restore the press-time target.
+  A double-click restores the default 360px panel width or 450px chat width
+  within the same live bounds.
 - Opening and closing animate the dock's `width` and `flex-basis` together with
-  the bounded opacity/transform feedback, so MainChat reflows continuously
-  inside the existing client area without crossing its 450px minimum instead of
-  changing width before the first motion frame. While `sidebar-out` still
+  the bounded opacity/transform feedback, so panes reflow continuously inside
+  the existing client area without crossing their active layout minimums
+  instead of changing width before the first motion frame. While `sidebar-out` still
   occupies flex space, the shared budget continues to count the sidebar.
-- Reopening a sidebar the layout collapsed spends work-panel width first: the
-  panel keeps its width while MainChat stays at or above 450px, and otherwise
-  the reopen targets 460px. Closing the panel restores only a sidebar the
-  layout collapsed; a manual collapse stays collapsed.
+- Reopening a sidebar the layout collapsed spends right-column width first. In
+  the default layout the panel keeps its width while MainChat stays at or above
+  450px, and otherwise the reopen targets 460px. In Work layout chat compresses
+  toward 450px while preserving 300px for the center work area; the expanded
+  sidebar width is clamped to the resulting budget. Closing the panel restores
+  only a sidebar the layout collapsed; a manual collapse stays collapsed.
 - No panel action requests a positive native reservation: the preferred panel
   width is renderer-local, the native seam stays at zero, and native window
   edges resize only the fixed app window. Background-session artifacts never

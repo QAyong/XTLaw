@@ -596,6 +596,7 @@ export function Composer({
           />
           <ComposerToolbar
             t={t}
+            horizontalBoundaryRef={dockRef}
             mode={mode}
             planningLive={planningLive}
             providerId={provider?.id}

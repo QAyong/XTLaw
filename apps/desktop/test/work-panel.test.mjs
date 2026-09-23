@@ -25,6 +25,10 @@ const panelSource = await readFile(
   new URL("../src/components/workpanel/WorkPanel.tsx", import.meta.url),
   "utf8",
 );
+const appChromeSource = await readFile(
+  new URL("../src/features/app/chrome.tsx", import.meta.url),
+  "utf8",
+);
 const transcriptSource = await readTranscriptSource();
 const storeSource = await readStoreSource();
 const globalStyles = await loadStyles();
@@ -52,6 +56,19 @@ test("work panel replaces the context panel overlay", async () => {
   // the bridge channel `IPC.invoke.nav.toggleWorkPanel` is not.
   assert.doesNotMatch(appSource, /IPC\.invoke\.nav\.toggleWorkPanel|navToggleWorkPanel/);
   assert.doesNotMatch(appSource, /key\.toLowerCase\(\) === "j"/);
+});
+
+test("collapsed sidebar actions in Work layout omit New Task", () => {
+  const start = appSource.indexOf("sidebarLeadingActions={");
+  const end = appSource.indexOf("\n    />", start);
+  assert.ok(start >= 0 && end > start);
+
+  const workLayoutSidebarActions = appSource.slice(start, end);
+  assert.match(workLayoutSidebarActions, /<CollapsedTitlebarActions/);
+  assert.match(workLayoutSidebarActions, /onToggleSidebar=\{reopenSidebar\}/);
+  assert.doesNotMatch(workLayoutSidebarActions, /onNewTask=/);
+  assert.match(appChromeSource, /onNewTask\?: \(\) => void;/);
+  assert.match(appChromeSource, /\{onNewTask \? \([\s\S]*?data-nav="new-task"/);
 });
 
 test("a viewport-fixed toggle is the sole pointer collapse control", () => {

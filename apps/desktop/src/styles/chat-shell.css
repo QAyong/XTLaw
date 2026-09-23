@@ -51,6 +51,91 @@
   --chat-width-transition: var(--motion-duration-normal) var(--motion-ease-out);
 }
 
+.app-shell.work-layout-with-panel:not(.work-panel-maximized):not(.work-panel-exiting)
+  .main-pane {
+  width: var(--work-layout-chat-width);
+  min-width: var(--ds-main-pane-min-width, 450px);
+  flex: 0 0 var(--work-layout-chat-width);
+  border-left: 1px solid var(--ds-border-default);
+  transition: border-left-color var(--motion-duration-fast) var(--motion-ease-out);
+}
+
+.app-shell:not(.work-layout-with-panel):not(.work-panel-maximized):has(
+    > .work-panel:not(.is-exiting)
+  )
+  > .main-pane {
+  border-right: 1px solid var(--ds-border-default);
+  transition: border-right-color var(--motion-duration-fast) var(--motion-ease-out);
+}
+
+.app-shell.work-layout-with-panel:not(.work-panel-maximized):not(.work-panel-exiting):has(
+    > .work-panel.is-left-of-chat > .work-panel-resize:hover,
+    > .work-panel.is-left-of-chat > .work-panel-resize:active,
+    > .work-panel.is-left-of-chat > .work-panel-resize:focus-visible,
+    > .work-panel.is-left-of-chat[data-resizing="true"] > .work-panel-resize
+  )
+  > .main-pane {
+  border-left-width: 1.5px;
+}
+
+.app-shell.work-layout-with-panel:not(.work-panel-maximized):not(.work-panel-exiting):has(
+    > .work-panel.is-left-of-chat > .work-panel-resize:hover
+  )
+  > .main-pane {
+  border-left-color: var(--ds-border-strong);
+}
+
+.app-shell.work-layout-with-panel:not(.work-panel-maximized):not(.work-panel-exiting):has(
+    > .work-panel.is-left-of-chat > .work-panel-resize:focus-visible,
+    > .work-panel.is-left-of-chat > .work-panel-resize:active,
+    > .work-panel.is-left-of-chat[data-resizing="true"] > .work-panel-resize
+  )
+  > .main-pane {
+  border-left-color: var(--ds-accent);
+}
+
+.app-shell:not(.work-layout-with-panel):not(.work-panel-maximized):has(
+    > .work-panel > .work-panel-resize:hover,
+    > .work-panel > .work-panel-resize:active,
+    > .work-panel > .work-panel-resize:focus-visible,
+    > .work-panel[data-resizing="true"] > .work-panel-resize
+  )
+  > .main-pane {
+  border-right-width: 1.5px;
+}
+
+.app-shell:not(.work-layout-with-panel):not(.work-panel-maximized):has(
+    > .work-panel > .work-panel-resize:hover
+  )
+  > .main-pane {
+  border-right-color: var(--ds-border-strong);
+}
+
+.app-shell:not(.work-layout-with-panel):not(.work-panel-maximized):has(
+    > .work-panel > .work-panel-resize:focus-visible,
+    > .work-panel > .work-panel-resize:active,
+    > .work-panel[data-resizing="true"] > .work-panel-resize
+  )
+  > .main-pane {
+  border-right-color: var(--ds-accent);
+}
+
+.app-shell.work-layout-with-panel.work-panel-exiting .main-pane {
+  width: auto;
+  min-width: var(--ds-main-pane-min-width, 450px);
+  flex: 1 1 auto;
+}
+
+.app-shell.work-layout-with-panel.chat-pane-hidden .main-pane,
+.main-pane[hidden] {
+  display: none;
+}
+
+.app-shell.work-layout-with-panel .chat-surface,
+.app-shell.work-layout-with-panel .route-page {
+  min-width: 0;
+}
+
 /*
  * Collapsing the sidebar frees pane width; the centered band keeps the user's
  * preferred max (D439) and only compresses when the pane itself is narrower.

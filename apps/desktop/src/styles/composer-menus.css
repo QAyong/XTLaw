@@ -100,6 +100,8 @@
 .composer-model-thinking-menu {
   z-index: 60;
   width: min(300px, calc(100vw - 24px));
+  container-type: inline-size;
+  container-name: composer-model-menu;
 }
 
 .composer-model-thinking-menu.is-open {
@@ -200,7 +202,11 @@
 }
 
 .composer-menu-entry-label {
-  flex: 0 0 auto;
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .composer-menu-entry-value {
@@ -215,6 +221,23 @@
 
 .composer-menu-entry > svg:last-child {
   color: var(--ds-text-muted);
+}
+
+@container composer-model-menu (max-width: 240px) {
+  .composer-model-option-ctx {
+    display: none;
+  }
+
+  .composer-model-group-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .composer-thinking-heading {
+    overflow-wrap: anywhere;
+  }
 }
 
 /* Menu groups are separated by a breath of space, not a rule (D297). */

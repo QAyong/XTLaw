@@ -15,8 +15,8 @@
   height: 100%;
   min-height: 0;
   z-index: 20;
-  /* The dock is a step lighter than the conversation pane, and that tone
-     change is its only edge (D297): no divider against the chat column.
+  /* The dock is a step lighter than the conversation pane. The neighboring
+     shell panes draw theme-aware 1px separators between visible columns.
      `--ds-bg-dock` is a token, not a literal, so a contributed theme can move
      the whole column (D419). */
   background: var(--ds-bg-dock);
@@ -41,12 +41,16 @@
     both;
 }
 
+.work-panel.is-left-of-chat {
+  --work-panel-slide-offset: -8px;
+}
+
 @keyframes work-panel-in {
   from {
     opacity: 0;
     flex-basis: 0;
     width: 0;
-    transform: translateX(8px);
+    transform: translateX(var(--work-panel-slide-offset, 8px));
   }
   to {
     opacity: 1;
@@ -67,7 +71,7 @@
     opacity: 0;
     flex-basis: 0;
     width: 0;
-    transform: translateX(8px);
+    transform: translateX(var(--work-panel-slide-offset, 8px));
   }
 }
 
@@ -89,35 +93,30 @@
   touch-action: none;
 }
 
-.work-panel-resize::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 2px;
-  height: 32px;
-  border-radius: var(--radius-full);
-  background: color-mix(in oklab, var(--ds-text-primary) 20%, transparent);
-  opacity: 0;
-  transform: translate(-50%, -50%);
-  transition: opacity var(--motion-duration-fast) var(--motion-ease-out);
+.work-panel.is-left-of-chat .work-panel-resize {
+  right: -5px;
+  left: auto;
 }
 
-.work-panel-resize:hover::after,
-.work-panel-resize:active::after,
-.work-panel-resize:focus-visible::after,
-.work-panel[data-resizing="true"] .work-panel-resize::after {
-  opacity: 1;
+.work-panel.is-maximized .work-panel-resize,
+.work-panel.chat-pane-hidden .work-panel-resize {
+  display: none;
+}
+
+.app-shell.work-layout-with-panel:not(.work-panel-maximized)
+  .work-panel.is-left-of-chat {
+  min-width: 0;
+  flex: 0 0 var(--work-panel-width);
+  max-width: none;
+}
+
+.app-shell.work-layout-with-panel.chat-pane-hidden
+  .work-panel.is-left-of-chat {
+  flex: 0 0 var(--work-panel-width);
 }
 
 .work-panel-resize:focus-visible {
   outline: none;
-}
-
-.work-panel-resize:focus-visible::after,
-.work-panel-resize:active::after,
-.work-panel[data-resizing="true"] .work-panel-resize::after {
-  background: var(--ds-accent);
 }
 
 :root[data-work-panel-resizing="true"],
@@ -140,11 +139,31 @@
      toggle instead of behind a divider. */
   padding: 0
     calc(
-      var(--ds-work-panel-toggle-size) + var(--ds-work-panel-toggle-inset) +
+      var(--ds-work-panel-toggle-size) + var(--ds-work-panel-toggle-size) +
+        var(--ds-work-panel-toggle-inset) + var(--ds-work-panel-control-gap) +
         var(--ds-work-panel-control-gap)
     )
     0 12px;
   -webkit-app-region: drag;
+}
+
+.work-panel-leading {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--ds-work-panel-control-gap);
+}
+
+.app-shell.work-layout-with-panel .work-panel.is-left-of-chat .work-panel-header {
+  margin-right: 0;
+  padding-right: 12px;
+}
+
+:root[data-platform="darwin"]
+  .app-shell.work-layout-with-panel.sidebar-collapsed
+  .work-panel.is-left-of-chat
+  .work-panel-header {
+  padding-left: var(--ds-window-lead-inset);
 }
 
 .app-shell.work-panel-maximized .work-panel-header {

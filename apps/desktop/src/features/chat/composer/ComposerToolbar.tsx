@@ -1,4 +1,4 @@
-import type { Dispatch, SetStateAction } from "react";
+import type { Dispatch, RefObject, SetStateAction } from "react";
 import type { TFunction } from "i18next";
 import {
   keybindingDisplayParts,
@@ -31,6 +31,7 @@ type ContextUsage = Parameters<typeof ContextUsageInspector>[0];
 
 export type ComposerToolbarProps = {
   t: TFunction;
+  horizontalBoundaryRef: RefObject<HTMLElement | null>;
   mode: Mode;
   planningLive: boolean;
   providerId?: string;
@@ -66,6 +67,7 @@ export type ComposerToolbarProps = {
 /** Composer controls: mode, permission, model, enhancement, and send/stop. */
 export function ComposerToolbar({
   t,
+  horizontalBoundaryRef,
   mode,
   planningLive,
   providerId,
@@ -99,6 +101,9 @@ export function ComposerToolbar({
 }: ComposerToolbarProps) {
   const platform = (window.piDesktop?.platform ?? "darwin") as ShortcutPlatform;
   const steeringShortcut = keybindingDisplayParts("Alt+Enter", platform).join("+");
+  const modeAccessibilityLabel = `${t("settings.mode")}: ${t(MODE_LABEL_KEYS[mode])}${
+    planningLive ? ` · ${t(`${mode}.planning`)}` : ""
+  }`;
   return (
     <div className="composer-toolbar">
       <div className="composer-left">
@@ -122,8 +127,8 @@ export function ComposerToolbar({
           className="icon-btn mode-chip composer-mode-chip"
           data-mode={mode}
           data-planning={planningLive ? "true" : undefined}
-          tooltip={planningLive ? t(`${mode}.planning`) : t("settings.mode")}
-          ariaLabel={planningLive ? t(`${mode}.planning`) : t("settings.mode")}
+          tooltip={modeAccessibilityLabel}
+          ariaLabel={modeAccessibilityLabel}
           disabled={controlsBlocked}
           onClick={async () => {
             modelMenu.setOpen(false);
@@ -175,6 +180,7 @@ export function ComposerToolbar({
         {contextUsage ? <ContextUsageInspector {...contextUsage} /> : null}
         <ComposerModelPicker
           t={t}
+          horizontalBoundaryRef={horizontalBoundaryRef}
           controller={modelMenu}
           modelLabel={modelLabel}
           thinkingLabel={thinkingLabel}

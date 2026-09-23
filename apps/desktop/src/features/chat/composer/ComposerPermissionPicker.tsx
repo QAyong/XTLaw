@@ -3,7 +3,7 @@ import type { TFunction } from "i18next";
 import type { GlobalPermissionMode, Mode } from "@pi-desktop/shared";
 import { AnchoredMenu } from "../../../components/settings/AnchoredMenu";
 import { TooltipButton } from "../../../components/ui";
-import { IconCheck, IconChevronDown } from "../../../components/icons";
+import { IconCheck, IconChevronDown, IconKey } from "../../../components/icons";
 import { PERMISSION_MODE_I18N_KEYS } from "../../../lib/permission-mode-labels";
 
 /** Controlled permission UI shared by conversations and task drafts. */
@@ -19,6 +19,17 @@ export function ComposerPermissionPicker({t, mode, composerPermissionMode,
   onCloseOtherMenus: () => void;
   onSelect: (mode: GlobalPermissionMode) => void | Promise<void>;
 }) {
+  const selectedPermissionLabel = t(PERMISSION_MODE_I18N_KEYS[composerPermissionMode]);
+  const permissionWarning =
+    mode === "goal"
+      ? t("goal.autoWarning")
+      : mode === "plan" && composerPermissionMode === "auto"
+        ? t("plan.autoWarning")
+        : undefined;
+  const triggerLabel = `${t("chat.permissionMode")}: ${selectedPermissionLabel}${
+    permissionWarning ? ` · ${permissionWarning}` : ""
+  }`;
+
   return (
         <AnchoredMenu
           className="composer-permission"
@@ -34,20 +45,8 @@ export function ComposerPermissionPicker({t, mode, composerPermissionMode,
               ref={ref}
               type="button"
               className={`icon-btn mode-chip ${permissionOpen ? "active" : ""}`}
-              tooltip={
-                mode === "goal"
-                  ? `${t("chat.permissionMode")} · ${t("goal.autoWarning")}`
-                  : mode === "plan" && composerPermissionMode === "auto"
-                    ? `${t("chat.permissionMode")} · ${t("plan.autoWarning")}`
-                    : t("chat.permissionMode")
-              }
-              ariaLabel={
-                mode === "goal"
-                  ? `${t("chat.permissionMode")} · ${t("goal.autoWarning")}`
-                  : mode === "plan" && composerPermissionMode === "auto"
-                    ? `${t("chat.permissionMode")} · ${t("plan.autoWarning")}`
-                    : t("chat.permissionMode")
-              }
+              tooltip={triggerLabel}
+              ariaLabel={triggerLabel}
               aria-haspopup={mode === "goal" ? undefined : "menu"}
               aria-expanded={mode === "goal" ? false : permissionOpen}
               disabled={controlsBlocked || mode === "goal"}
@@ -56,10 +55,17 @@ export function ComposerPermissionPicker({t, mode, composerPermissionMode,
                 setPermissionOpen((open) => !open);
               }}
             >
-              <span className="text-sm">
-                {t(PERMISSION_MODE_I18N_KEYS[composerPermissionMode])}
+              <span className="composer-permission-icon" aria-hidden="true">
+                <IconKey size={14} />
               </span>
-              <IconChevronDown size={12} />
+              <span className="composer-permission-label text-sm">
+                {selectedPermissionLabel}
+              </span>
+              <IconChevronDown
+                className="composer-permission-chevron"
+                size={12}
+                aria-hidden="true"
+              />
             </TooltipButton>
           )}
         >

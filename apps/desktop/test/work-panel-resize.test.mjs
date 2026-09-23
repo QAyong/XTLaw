@@ -8,6 +8,8 @@ import {
   WORK_PANEL_DEFAULT_WIDTH,
   WORK_PANEL_COMPACT_MIN_WIDTH,
   WORK_PANEL_MIN_WIDTH,
+  WORK_LAYOUT_CHAT_MIN_WIDTH,
+  WORK_LAYOUT_WORK_MIN_WIDTH,
   clampWorkPanelChatWidth,
   clampWorkPanelWidth,
   committedWorkPanelChatWidth,
@@ -53,6 +55,32 @@ test("the expanded sidebar collapses as soon as MainChat reaches 450px", () => {
   assert.equal(justAbove.shouldCollapseSidebar, false);
   assert.equal(atFloor.mainWidth, MAIN_PANE_MIN_WIDTH);
   assert.equal(atFloor.shouldCollapseSidebar, true);
+});
+
+test("work-layout chat keeps the same 450px floor as MainChat", () => {
+  assert.equal(WORK_LAYOUT_CHAT_MIN_WIDTH, MAIN_PANE_MIN_WIDTH);
+
+  const constrained = workPanelLayout({
+    layoutMode: "work",
+    containerWidth: 1040,
+    sidebarWidth: 520,
+    sidebarCollapsed: false,
+    requestedPanelWidth: 320,
+  });
+  assert.equal(constrained.targetWidth, MAIN_PANE_MIN_WIDTH);
+  assert.equal(constrained.minTargetWidth, MAIN_PANE_MIN_WIDTH);
+  assert.equal(constrained.shouldCollapseSidebar, true);
+
+  const afterCollapse = workPanelLayout({
+    layoutMode: "work",
+    containerWidth: 1040,
+    sidebarWidth: 520,
+    sidebarCollapsed: true,
+    requestedPanelWidth: 320,
+  });
+  assert.equal(afterCollapse.targetWidth, MAIN_PANE_MIN_WIDTH);
+  assert.equal(afterCollapse.panelWidth, 1040 - MAIN_PANE_MIN_WIDTH);
+  assert.ok(afterCollapse.panelWidth >= WORK_LAYOUT_WORK_MIN_WIDTH);
 });
 
 test("a collapsed sidebar exposes the full dynamic right-column budget", () => {

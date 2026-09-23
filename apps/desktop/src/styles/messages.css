@@ -3023,6 +3023,13 @@
   padding-left: 18px;
 }
 
+/* The nested delegation status belongs to the same process row as the
+   TurnProcess heading. Keep its header aligned with that heading while the
+   expanded details below remain indented as a disclosure body. */
+.turn-process-body > .tool-activity-group.has-subagents > .tool-activity-header {
+  transform: translateX(-18px);
+}
+
 .turn-process-body[hidden],
 .process-activity-body[hidden] {
   display: none;

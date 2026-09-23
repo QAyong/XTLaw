@@ -292,6 +292,14 @@
   position: relative;
 }
 
+.app-shell:not(.work-panel-maximized):has(> .work-panel:not(.is-exiting))
+  > .sidebar {
+  border-right: 1px solid var(--ds-border-default);
+  transition:
+    border-right-color var(--motion-duration-fast) var(--motion-ease-out),
+    border-right-width var(--motion-duration-fast) var(--motion-ease-out);
+}
+
 .sidebar.is-entering {
   animation: sidebar-in var(--motion-duration-normal) var(--motion-ease-out) both;
 }
@@ -307,33 +315,25 @@
   user-select: none;
 }
 
-.sidebar-resize-handle::after {
-  position: absolute;
-  top: 50%;
-  right: 2px;
-  width: 2px;
-  height: 32px;
-  content: "";
-  border-radius: var(--radius-full);
-  background: color-mix(in oklab, var(--ds-text-primary) 20%, transparent);
-  opacity: 0;
-  transform: translateY(-50%);
-  transition: opacity var(--motion-duration-fast) var(--motion-ease-out);
+.sidebar:has(> .sidebar-resize-handle:hover),
+.sidebar:has(> .sidebar-resize-handle:active),
+.sidebar:has(> .sidebar-resize-handle:focus-visible),
+.sidebar:has(> .sidebar-resize-handle.is-resizing) {
+  border-right-width: 1.5px;
 }
 
-.sidebar-resize-handle:hover::after,
-.sidebar-resize-handle:focus-visible::after,
-.sidebar-resize-handle.is-resizing::after {
-  opacity: 1;
+.sidebar:has(> .sidebar-resize-handle:hover) {
+  border-right-color: var(--ds-border-strong);
+}
+
+.sidebar:has(> .sidebar-resize-handle:active),
+.sidebar:has(> .sidebar-resize-handle:focus-visible),
+.sidebar:has(> .sidebar-resize-handle.is-resizing) {
+  border-right-color: var(--ds-accent);
 }
 
 .sidebar-resize-handle:focus-visible {
   outline: none;
-}
-
-.sidebar-resize-handle:focus-visible::after,
-.sidebar-resize-handle.is-resizing::after {
-  background: var(--ds-accent);
 }
 
 :root[data-sidebar-resizing="true"],
@@ -602,6 +602,7 @@
    them. */
 .conversation-topbar .ct-icon-btn,
 .app-work-panel-toggle,
+.app-chat-work-layout-toggle,
 .main-titlebar .title-nav-btn,
 .window-chrome-row .title-nav-btn,
 .work-panel-new-tab,
@@ -623,6 +624,7 @@
 
 .conversation-topbar .ct-icon-btn:hover:not(:disabled),
 .app-work-panel-toggle:hover:not(:disabled),
+.app-chat-work-layout-toggle:hover:not(:disabled),
 .main-titlebar .title-nav-btn:hover:not(:disabled),
 .window-chrome-row .title-nav-btn:hover:not(:disabled),
 .work-panel-new-tab:hover:not(:disabled),
@@ -633,6 +635,7 @@
 
 .conversation-topbar .ct-icon-btn:disabled,
 .app-work-panel-toggle:disabled,
+.app-chat-work-layout-toggle:disabled,
 .main-titlebar .title-nav-btn:disabled,
 .window-chrome-row .title-nav-btn:disabled,
 .work-panel-new-tab:disabled,
@@ -671,6 +674,23 @@
   app-region: no-drag;
 }
 
+.app-chat-work-layout-toggle {
+  position: fixed;
+  top: 9px;
+  right: calc(
+    var(--ds-work-panel-toggle-inset) + var(--ds-work-panel-toggle-size) +
+      var(--ds-work-panel-control-gap)
+  );
+  z-index: 30;
+  pointer-events: auto;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+.app-chat-work-layout-toggle[aria-pressed="true"] {
+  color: var(--ds-text-primary);
+}
+
 /* The open state is the glyph swap plus the engaged ink — the same transparent
    seat as every other chrome icon control, so the toggle never floats over the
    panel header as a raised pill. */
@@ -700,6 +720,36 @@
 :root[data-platform="linux"] .app-work-panel-toggle {
   right: calc(
     var(--ds-window-controls-width) + var(--ds-work-panel-toggle-inset)
+  );
+}
+
+:root[data-platform="win32"] .app-chat-work-layout-toggle,
+:root[data-platform="linux"] .app-chat-work-layout-toggle {
+  right: calc(
+    var(--ds-window-controls-width) + var(--ds-work-panel-toggle-inset) +
+      var(--ds-work-panel-toggle-size) + var(--ds-work-panel-control-gap)
+  );
+}
+
+.app-shell.work-layout-with-panel:not(.work-panel-exiting)
+  .main-pane .conversation-topbar .ct-right {
+  padding-right: calc(
+    var(--ds-work-panel-toggle-size) + var(--ds-work-panel-toggle-size) +
+      var(--ds-work-panel-toggle-inset) + var(--ds-work-panel-control-gap) +
+      var(--ds-work-panel-control-gap)
+  );
+}
+
+:root[data-platform="win32"]
+  .app-shell.work-layout-with-panel:not(.work-panel-exiting)
+  .main-pane .conversation-topbar .ct-right,
+:root[data-platform="linux"]
+  .app-shell.work-layout-with-panel:not(.work-panel-exiting)
+  .main-pane .conversation-topbar .ct-right {
+  padding-right: calc(
+    var(--ds-window-controls-width) + var(--ds-work-panel-toggle-size) +
+      var(--ds-work-panel-toggle-size) + var(--ds-work-panel-toggle-inset) +
+      var(--ds-work-panel-control-gap) + var(--ds-work-panel-control-gap)
   );
 }
 
@@ -1103,6 +1153,17 @@
 
 /* Follow the adjacent titlebar surface when the dock occupies the right edge. */
 .app-shell:has(> .work-panel) > .window-controls {
+  background: var(--ds-bg-dock-raised);
+}
+
+.app-shell:has(> .work-panel.is-left-of-chat) > .window-controls {
+  background: var(--ds-bg-primary);
+}
+
+.app-shell.work-layout-with-panel.chat-pane-hidden:has(
+    > .work-panel.is-left-of-chat
+  )
+  > .window-controls {
   background: var(--ds-bg-dock-raised);
 }
 

@@ -6,6 +6,7 @@ import {
   useState,
   type ComponentType,
   type CSSProperties,
+  type ReactNode,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { useTranslation } from "react-i18next";
@@ -42,12 +43,14 @@ import { SubagentPanel } from "./SubagentPanel";
 import type { SubagentPanelSelection } from "../../lib/subagent-panel";
 import {
   MAIN_PANE_MIN_WIDTH,
+  WORK_LAYOUT_CHAT_MIN_WIDTH,
+  WORK_LAYOUT_WORK_MIN_WIDTH,
   WORK_PANEL_COMPACT_MIN_WIDTH,
   WORK_PANEL_MIN_WIDTH,
-  clampWorkPanelWidth,
   workPanelLayout,
-  workPanelResetWidth,
-  workPanelWidthBounds,
+  workPanelResetTargetWidth,
+  workPanelResizeTargetBounds,
+  type WorkPanelLayoutMode,
 } from "../../lib/work-panel-resize";
 
 const TAB_ICONS = {
@@ -62,6 +65,7 @@ type WorkPanelResizeState = {
   startClientX: number;
   startWidth: number;
   minimumWidth: number;
+  maximumWidth: number;
   currentWidth: number;
   frame: number;
 };
@@ -148,11 +152,18 @@ export function WorkPanel({
   onCloseSubagentPanel,
   containerWidth = 0,
   sidebarCollapsed = false,
+  sidebarEntering = false,
   sidebarExiting = false,
   sidebarWidth = 0,
   onAutoCollapseSidebar,
   maximized = false,
   onToggleMaximize,
+  layoutMode = "chat",
+  chatPaneHidden = false,
+  chatPaneWidth = 450,
+  onChatPaneWidthPreview,
+  onChatPaneWidthCommit,
+  sidebarLeadingActions = null,
 }: {
   /**
    * Hides every native surface in the panel. Both the preview browser and a
@@ -170,6 +181,8 @@ export function WorkPanel({
   containerWidth?: number;
   /** Sidebar state is part of the shared shell budget. */
   sidebarCollapsed?: boolean;
+  /** Keep native plugin-view bounds aligned while the sidebar animates. */
+  sidebarEntering?: boolean;
   /** Keep the dock in the budget while `sidebar-out` still occupies flex space. */
   sidebarExiting?: boolean;
   sidebarWidth?: number;
@@ -179,6 +192,16 @@ export function WorkPanel({
   maximized?: boolean;
   /** Toggles the preview mode from the panel header. */
   onToggleMaximize?: () => void;
+  /** Selects which side of the divider owns the persisted width target. */
+  layoutMode?: WorkPanelLayoutMode;
+  /** Work layout can temporarily hide its right chat pane. */
+  chatPaneHidden?: boolean;
+  /** Preferred right chat width in work layout. */
+  chatPaneWidth?: number;
+  onChatPaneWidthPreview?: (width: number | null) => void;
+  onChatPaneWidthCommit?: (width: number) => void;
+  /** Shell controls that stay at the left edge when this pane is centered. */
+  sidebarLeadingActions?: ReactNode;
 }) {
   const { t } = useTranslation();
   const blockingOverlayActive = useBlockingOverlayActive();
@@ -204,9 +227,12 @@ export function WorkPanel({
   const [nativeSurfaceReadyForExit, setNativeSurfaceReadyForExit] =
     useState(false);
 
-  const requestedPanelWidth = panelDragWidth ?? width;
+  const requestedPanelWidth =
+    panelDragWidth ?? (layoutMode === "work" ? chatPaneWidth : width);
   const panelMinimum =
-    requestedPanelWidth < WORK_PANEL_MIN_WIDTH
+    layoutMode === "work"
+      ? WORK_LAYOUT_CHAT_MIN_WIDTH
+      : requestedPanelWidth < WORK_PANEL_MIN_WIDTH
       ? WORK_PANEL_COMPACT_MIN_WIDTH
       : WORK_PANEL_MIN_WIDTH;
   // The first render can precede ResizeObserver's first notification. Use a
@@ -218,16 +244,28 @@ export function WorkPanel({
       ? containerWidth
       : requestedPanelWidth +
         (sidebarOccupiesBudget ? sidebarWidth : 0) +
-        MAIN_PANE_MIN_WIDTH;
+        (layoutMode === "work"
+          ? WORK_LAYOUT_WORK_MIN_WIDTH
+          : MAIN_PANE_MIN_WIDTH);
   const layout = workPanelLayout({
+    layoutMode,
     containerWidth: budgetWidth,
     sidebarWidth,
     sidebarCollapsed: !sidebarOccupiesBudget,
     requestedPanelWidth,
     maximized,
+    rightPaneHidden: chatPaneHidden,
   });
   const renderPanelWidth = layout.panelWidth;
+  const renderTargetWidth = layout.targetWidth;
   const isResizing = panelDragWidth !== null;
+  const commitResizeTarget = useCallback(
+    (nextWidth: number) => {
+      if (layoutMode === "work") onChatPaneWidthCommit?.(nextWidth);
+      else setWidth(nextWidth);
+    },
+    [layoutMode, onChatPaneWidthCommit, setWidth],
+  );
 
   useLayoutEffect(() => {
     if (!exiting && layout.shouldCollapseSidebar) onAutoCollapseSidebar?.();
@@ -342,50 +380,56 @@ export function WorkPanel({
       if (drag.frame) cancelAnimationFrame(drag.frame);
       if (target.hasPointerCapture(pointerId)) target.releasePointerCapture(pointerId);
       setPanelDragWidth(null);
+      if (layoutMode === "work") onChatPaneWidthPreview?.(null);
       if (!cancelled && drag.currentWidth !== drag.startWidth) {
-        setWidth(drag.currentWidth);
+        commitResizeTarget(drag.currentWidth);
       }
     },
-    [setWidth],
+    [commitResizeTarget, layoutMode, onChatPaneWidthPreview],
   );
 
   const onPanelResizeStart = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
       // While maximized there is no second column to trade width with.
-      if (maximized) return;
+      if (maximized || chatPaneHidden) return;
       if (event.button !== 0 || panelResizeState.current) return;
       event.preventDefault();
       event.stopPropagation();
       event.currentTarget.focus({ preventScroll: true });
-      const startWidth = clampWorkPanelWidth(renderPanelWidth, panelMinimum);
+      const startWidth = Math.round(renderTargetWidth);
       panelResizeState.current = {
         pointerId: event.pointerId,
         startClientX: event.clientX,
         startWidth,
         minimumWidth: panelMinimum,
+        maximumWidth: layout.maxTargetWidth,
         currentWidth: startWidth,
         frame: 0,
       };
       setPanelDragWidth(startWidth);
       event.currentTarget.setPointerCapture(event.pointerId);
     },
-    [maximized, panelMinimum, renderPanelWidth],
+    [chatPaneHidden, layout.maxTargetWidth, maximized, panelMinimum, renderTargetWidth],
   );
 
   const onPanelResizeMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     const drag = panelResizeState.current;
     if (drag?.pointerId !== event.pointerId) return;
-    drag.currentWidth = clampWorkPanelWidth(
-      drag.startWidth + drag.startClientX - event.clientX,
-      drag.minimumWidth,
+    drag.currentWidth = Math.min(
+      drag.maximumWidth,
+      Math.max(
+        drag.minimumWidth,
+        drag.startWidth + drag.startClientX - event.clientX,
+      ),
     );
     if (drag.frame) return;
     drag.frame = requestAnimationFrame(() => {
       if (panelResizeState.current !== drag) return;
       drag.frame = 0;
       setPanelDragWidth(drag.currentWidth);
+      if (layoutMode === "work") onChatPaneWidthPreview?.(drag.currentWidth);
     });
-  }, []);
+  }, [layoutMode, onChatPaneWidthPreview]);
 
   const onPanelResizeCommit = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
@@ -420,22 +464,19 @@ export function WorkPanel({
         return;
       }
       // While maximized there is no second column to trade width with.
-      if (maximized) return;
+      if (maximized || chatPaneHidden) return;
       const step = event.shiftKey ? 32 : 16;
-      const { minimum, maximum } = workPanelWidthBounds(
-        panelMinimum,
-        layout.maxPanelWidth,
-      );
+      const { minimum, maximum } = workPanelResizeTargetBounds(layout);
       let nextWidth: number | null = null;
-      if (event.key === "ArrowLeft") nextWidth = renderPanelWidth + step;
-      else if (event.key === "ArrowRight") nextWidth = renderPanelWidth - step;
+      if (event.key === "ArrowLeft") nextWidth = renderTargetWidth + step;
+      else if (event.key === "ArrowRight") nextWidth = renderTargetWidth - step;
       else if (event.key === "Home") nextWidth = minimum;
       else if (event.key === "End") nextWidth = maximum;
       if (nextWidth === null) return;
       event.preventDefault();
-      setWidth(clampWorkPanelWidth(nextWidth, minimum));
+      commitResizeTarget(Math.min(maximum, Math.max(minimum, nextWidth)));
     },
-    [finishPanelResize, layout.maxPanelWidth, maximized, panelMinimum, renderPanelWidth, setWidth],
+    [chatPaneHidden, commitResizeTarget, finishPanelResize, layout, maximized, renderTargetWidth],
   );
 
   /**
@@ -446,15 +487,16 @@ export function WorkPanel({
   const onPanelResizeReset = useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
       // While maximized there is no second column to trade width with.
-      if (maximized) return;
+      if (maximized || chatPaneHidden) return;
       // A gesture that is still open (a second pointer) must not overwrite the
       // reset when it is finally released.
       const drag = panelResizeState.current;
       if (drag) finishPanelResize(event.currentTarget, drag.pointerId, true);
       setPanelDragWidth(null);
-      setWidth(workPanelResetWidth(panelMinimum, layout.maxPanelWidth));
+      if (layoutMode === "work") onChatPaneWidthPreview?.(null);
+      commitResizeTarget(workPanelResetTargetWidth(layoutMode, layout));
     },
-    [finishPanelResize, layout.maxPanelWidth, maximized, panelMinimum, setWidth],
+    [chatPaneHidden, commitResizeTarget, finishPanelResize, layout, layoutMode, maximized, onChatPaneWidthPreview],
   );
 
   const activePluginView =
@@ -467,7 +509,7 @@ export function WorkPanel({
   const exitAnimationReady = exiting && nativeSurfaceReadyForExit;
   const panelStyle = {
     width: renderPanelWidth,
-    maxWidth: layout.maxPanelWidth,
+    maxWidth: layoutMode === "work" ? "none" : layout.maxPanelWidth,
     "--work-panel-width": `${renderPanelWidth}px`,
   } as CSSProperties;
 
@@ -475,7 +517,9 @@ export function WorkPanel({
     <aside
       className={cx(
         "work-panel",
+        layoutMode === "work" && "is-left-of-chat",
         maximized && "is-maximized",
+        chatPaneHidden && "chat-pane-hidden",
         exiting && !exitAnimationReady && "is-exit-pending",
         exitAnimationReady && "is-exiting",
       )}
@@ -483,6 +527,7 @@ export function WorkPanel({
       data-testid="work-panel"
       data-resizing={isResizing ? "true" : undefined}
       data-exiting={exiting ? "true" : undefined}
+      data-layout={layoutMode}
       onAnimationEnd={(event) => {
         if (!exitAnimationReady) return;
         if (event.target !== event.currentTarget) return;
@@ -495,17 +540,12 @@ export function WorkPanel({
         role="separator"
         aria-orientation="vertical"
         aria-label={t("panel.resize")}
-        aria-valuemin={Math.min(
-          panelMinimum,
-          Math.max(WORK_PANEL_COMPACT_MIN_WIDTH, layout.maxPanelWidth),
-        )}
-        aria-valuemax={Math.max(
-          Math.min(panelMinimum, layout.maxPanelWidth),
-          layout.maxPanelWidth,
-        )}
-        aria-valuenow={Math.round(panelDragWidth ?? renderPanelWidth)}
-        aria-disabled={maximized || undefined}
+        aria-valuemin={workPanelResizeTargetBounds(layout).minimum}
+        aria-valuemax={workPanelResizeTargetBounds(layout).maximum}
+        aria-valuenow={Math.round(panelDragWidth ?? renderTargetWidth)}
+        aria-disabled={maximized || chatPaneHidden || undefined}
         data-maximized={maximized ? "true" : undefined}
+        data-hidden={chatPaneHidden ? "true" : undefined}
         tabIndex={0}
         onPointerDown={onPanelResizeStart}
         onPointerMove={onPanelResizeMove}
@@ -517,6 +557,11 @@ export function WorkPanel({
       />
       <div className="work-panel-main">
         <header className="work-panel-header">
+          {sidebarLeadingActions && (
+            <div className="work-panel-leading no-drag">
+              {sidebarLeadingActions}
+            </div>
+          )}
           <div className="work-panel-tab-strip-wrap no-drag">
             {subagentPanel ? (
               <div className="work-panel-subagent-heading" aria-label={t("panel.subagent")}>
@@ -585,6 +630,7 @@ export function WorkPanel({
               <TooltipButton
                 type="button"
                 className="work-panel-subagent-back"
+                nativeTooltip
                 tooltip={t("panel.subagentClose")}
                 ariaLabel={t("panel.subagentClose")}
                 onClick={closeSubagentPanelAndFocus}
@@ -596,6 +642,7 @@ export function WorkPanel({
                 ref={newTabButtonRef}
                 type="button"
                 className="work-panel-new-tab"
+                nativeTooltip
                 tooltip={t("panel.new.open")}
                 ariaLabel={t("panel.new.open")}
                 onClick={openNewWorkPanelTab}
@@ -603,20 +650,23 @@ export function WorkPanel({
                 <IconPlus size={16} />
               </TooltipButton>
             )}
-            <TooltipButton
-              type="button"
-              className="work-panel-maximize"
-              tooltip={t(maximized ? "panel.restore" : "panel.maximize")}
-              ariaLabel={t(maximized ? "panel.restore" : "panel.maximize")}
-              aria-pressed={maximized}
-              onClick={() => onToggleMaximize?.()}
-            >
-              {maximized ? (
-                <IconPanelRestore size={15} />
-              ) : (
-                <IconPanelMaximize size={15} />
-              )}
-            </TooltipButton>
+            {!(layoutMode === "work" && chatPaneHidden) && (
+              <TooltipButton
+                type="button"
+                className="work-panel-maximize"
+                nativeTooltip
+                tooltip={t(maximized ? "panel.restore" : "panel.maximize")}
+                ariaLabel={t(maximized ? "panel.restore" : "panel.maximize")}
+                aria-pressed={maximized}
+                onClick={() => onToggleMaximize?.()}
+              >
+                {maximized ? (
+                  <IconPanelRestore size={15} />
+                ) : (
+                  <IconPanelMaximize size={15} />
+                )}
+              </TooltipButton>
+            )}
           </div>
         </header>
         <div className="work-panel-body">
@@ -662,6 +712,11 @@ export function WorkPanel({
                     icon={activePluginView?.icon}
                     sessionId={activeSessionId ?? undefined}
                     location={activeTab.location}
+                    layoutMode={layoutMode}
+                    sidebarCollapsed={sidebarCollapsed}
+                    sidebarEntering={sidebarEntering}
+                    sidebarExiting={sidebarExiting}
+                    sidebarWidth={sidebarWidth}
                     // Native WebContentsViews composite above renderer content.
                     blocked={exiting || panelBlocked || blockingOverlayActive}
                   />

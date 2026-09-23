@@ -21,10 +21,18 @@ import {
   saveSidebarWidth,
 } from "../../lib/sidebar-preferences";
 import { sidebarWidthBudget } from "../../lib/sidebar-resize";
+import {
+  loadChatWorkLayoutPreferences,
+  saveChatWorkLayoutPreferences,
+  type ChatWorkLayoutMode,
+} from "../../lib/chat-work-layout-preferences";
 import { commitWorkPanelPresentation } from "../../lib/work-panel-presentation";
 import {
   MAIN_PANE_MIN_WIDTH,
+  WORK_LAYOUT_CHAT_MIN_WIDTH,
+  WORK_LAYOUT_WORK_MIN_WIDTH,
   workPanelWidthForSidebarReopen,
+  workPanelLayout,
 } from "../../lib/work-panel-resize";
 import { browserPluginTab } from "../../lib/work-panel-tabs";
 import { useAppStore } from "../../stores/app-store";
@@ -70,6 +78,13 @@ export function useAppShellRuntime() {
   const workPanelVisible = workPanelOpen || subagentPanelOpen;
 
   const [searchOpen, setSearchOpen] = useState(false);
+  const [chatWorkLayoutPreferences, setChatWorkLayoutPreferences] = useState(
+    loadChatWorkLayoutPreferences,
+  );
+  const [chatPaneHidden, setChatPaneHidden] = useState(false);
+  const [chatPaneWidthPreview, setChatPaneWidthPreview] = useState<number | null>(null);
+  const layoutMode: ChatWorkLayoutMode =
+    page === "chat" ? chatWorkLayoutPreferences.mode : "chat";
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(() => loadSidebarWidth());
   const { sidebarEntering, sidebarExiting, handleSidebarAnimationEnd } = useSidebarTransition(
@@ -90,12 +105,20 @@ export function useAppShellRuntime() {
   const workPanelWidthRef = useRef(workPanelWidth);
   const workPanelOpenRef = useRef(workPanelVisible);
   const workPanelMaximizedRef = useRef(false);
+  const layoutModeRef = useRef(layoutMode);
+  const workLayoutChatWidthRef = useRef(chatWorkLayoutPreferences.workLayoutChatWidth);
+  const chatPaneHiddenRef = useRef(chatPaneHidden);
+  const chatPaneWidthPreviewRef = useRef(chatPaneWidthPreview);
   const autoCollapsedSidebarRef = useRef(false);
   sidebarCollapsedRef.current = sidebarCollapsed;
   sidebarWidthRef.current = sidebarWidth;
   shellWidthRef.current = shellWidth;
   workPanelWidthRef.current = workPanelWidth;
   workPanelOpenRef.current = workPanelVisible;
+  layoutModeRef.current = layoutMode;
+  workLayoutChatWidthRef.current = chatWorkLayoutPreferences.workLayoutChatWidth;
+  chatPaneHiddenRef.current = chatPaneHidden;
+  chatPaneWidthPreviewRef.current = chatPaneWidthPreview;
 
   // The shell is a fixed client area: the three-column budget needs its real
   // measured width, not the native window bounds, because the reservation seam
@@ -117,8 +140,13 @@ export function useAppShellRuntime() {
     sidebarWidthBudget({
       containerWidth: appShellRef.current?.clientWidth || shellWidthRef.current,
       workPanelOpen: workPanelOpenRef.current,
-      workPanelWidth: workPanelWidthRef.current,
+      workPanelWidth:
+        layoutModeRef.current === "work"
+          ? chatPaneWidthPreviewRef.current ?? workLayoutChatWidthRef.current
+          : workPanelWidthRef.current,
       workPanelMaximized: workPanelMaximizedRef.current,
+      layoutMode: layoutModeRef.current,
+      rightPaneHidden: chatPaneHiddenRef.current,
     });
   const handleSidebarWidthChange = useCallback((width: number) => {
     setSidebarWidth(clampSidebarWidth(width, resolveSidebarMax()));
@@ -131,6 +159,7 @@ export function useAppShellRuntime() {
   }, []);
   const handleSidebarResizeCollapse = useCallback(() => {
     autoCollapsedSidebarRef.current = false;
+    if (layoutModeRef.current === "work") setChatPaneWidthPreview(null);
     setSidebarCollapsed(true);
   }, []);
   // Reopening prefers the right column: the work panel gives up width first so
@@ -139,8 +168,25 @@ export function useAppShellRuntime() {
   // the user's preferred width, which a collapsing drag never overwrites.
   const reopenSidebar = useCallback(() => {
     if (!sidebarCollapsedRef.current) return;
-    const preferredWidth = clampSidebarWidth(sidebarPreferredWidthRef.current);
-    if (workPanelOpenRef.current && !workPanelMaximizedRef.current) {
+    const preferredWidth = clampSidebarWidth(
+      sidebarPreferredWidthRef.current,
+      resolveSidebarMax(),
+    );
+    if (
+      layoutModeRef.current === "work" &&
+      workPanelOpenRef.current &&
+      !workPanelMaximizedRef.current
+    ) {
+      const width = appShellRef.current?.clientWidth || shellWidthRef.current;
+      const available = Math.max(0, width - preferredWidth);
+      const maxChatWidth = Math.max(
+        WORK_LAYOUT_CHAT_MIN_WIDTH,
+        available - WORK_LAYOUT_WORK_MIN_WIDTH,
+      );
+      setChatPaneWidthPreview(
+        Math.min(workLayoutChatWidthRef.current, maxChatWidth),
+      );
+    } else if (workPanelOpenRef.current && !workPanelMaximizedRef.current) {
       const currentPanelWidth = workPanelWidthRef.current;
       const width =
         appShellRef.current?.clientWidth ||
@@ -165,7 +211,10 @@ export function useAppShellRuntime() {
   const toggleSidebar = useCallback(() => {
     autoCollapsedSidebarRef.current = false;
     if (sidebarCollapsedRef.current) reopenSidebar();
-    else setSidebarCollapsed(true);
+    else {
+      if (layoutModeRef.current === "work") setChatPaneWidthPreview(null);
+      setSidebarCollapsed(true);
+    }
   }, [reopenSidebar]);
 
   // The layout, not the user, yields the sidebar when the panel would push
@@ -212,6 +261,58 @@ export function useAppShellRuntime() {
   useEffect(() => {
     presentedWorkPanelRef.current = presentedWorkPanelOpen;
   }, [presentedWorkPanelOpen]);
+
+  const previousSessionIdRef = useRef(activeSessionId);
+  useEffect(() => {
+    if (previousSessionIdRef.current === activeSessionId) return;
+    previousSessionIdRef.current = activeSessionId;
+    setChatPaneHidden(false);
+    setChatPaneWidthPreview(null);
+  }, [activeSessionId]);
+
+  useEffect(() => {
+    if (page !== "chat" || !presentedWorkPanelOpen) {
+      setChatPaneHidden(false);
+      setChatPaneWidthPreview(null);
+    }
+  }, [page, presentedWorkPanelOpen]);
+
+  const switchChatWorkLayout = useCallback(() => {
+    setChatWorkLayoutPreferences((current) => {
+      const mode: ChatWorkLayoutMode = current.mode === "chat" ? "work" : "chat";
+      const next = {
+        ...current,
+        mode,
+      };
+      saveChatWorkLayoutPreferences(next);
+      return next;
+    });
+    setChatPaneHidden(false);
+    setChatPaneWidthPreview(null);
+  }, []);
+
+  const previewWorkLayoutChatWidth = useCallback((width: number | null) => {
+    setChatPaneWidthPreview(width);
+  }, []);
+
+  const commitWorkLayoutChatWidth = useCallback((width: number) => {
+    const safeWidth = Math.max(WORK_LAYOUT_CHAT_MIN_WIDTH, Math.round(width));
+    setChatWorkLayoutPreferences((current) => {
+      const next = { ...current, workLayoutChatWidth: safeWidth };
+      saveChatWorkLayoutPreferences(next);
+      return next;
+    });
+    setChatPaneWidthPreview(null);
+  }, []);
+
+  const toggleChatPaneVisibility = useCallback(() => {
+    if (workPanelMaximizedRef.current && layoutModeRef.current === "work") {
+      setWorkPanelMaximized(false);
+      setChatPaneHidden(false);
+      return;
+    }
+    setChatPaneHidden((current) => !current);
+  }, []);
 
   useEffect(() => {
     if (
@@ -267,6 +368,14 @@ export function useAppShellRuntime() {
     }
     store.openWorkPanel();
   }, []);
+
+  const toggleCurrentRightRegion = useCallback(() => {
+    if (layoutMode === "work" && presentedWorkPanelOpen) {
+      toggleChatPaneVisibility();
+      return;
+    }
+    togglePresentedWorkPanel();
+  }, [layoutMode, presentedWorkPanelOpen, toggleChatPaneVisibility, togglePresentedWorkPanel]);
 
   const finishWorkPanelExit = useCallback((generation: number) => {
     if (generation !== workPanelExitGeneration.current) return;
@@ -898,17 +1007,46 @@ export function useAppShellRuntime() {
         shortcutPlatform,
       ).join(shortcutPlatform === "darwin" ? "" : "+")
     : "";
-  const workPanelToggleLabel = t("nav.toggleWorkPanel");
-  const workPanelToggleTooltip = workPanelToggleShortcut
-    ? `${workPanelToggleLabel} ${workPanelToggleShortcut}`
-    : workPanelToggleLabel;
+  const rightRegionToggleLabel =
+    layoutMode === "work" && presentedWorkPanelOpen
+      ? t(chatPaneHidden ? "nav.expandChatPane" : "nav.collapseChatPane")
+      : t(
+          presentedWorkPanelOpen && !workPanelExiting
+            ? "nav.collapseWorkArea"
+            : "nav.expandWorkArea",
+        );
+  const workPanelToggleTooltip =
+    layoutMode === "work" && presentedWorkPanelOpen
+      ? rightRegionToggleLabel
+      : workPanelToggleShortcut
+        ? `${rightRegionToggleLabel} ${workPanelToggleShortcut}`
+        : rightRegionToggleLabel;
 
-
+  const workLayoutWidth =
+    chatPaneWidthPreview ?? chatWorkLayoutPreferences.workLayoutChatWidth;
+  const fallbackContainerWidth =
+    layoutMode === "work"
+      ? workLayoutWidth + sidebarWidth + WORK_LAYOUT_WORK_MIN_WIDTH
+      : workPanelWidth + sidebarWidth + MAIN_PANE_MIN_WIDTH;
+  const shellBudgetWidth =
+    shellWidth || appShellRef.current?.clientWidth || fallbackContainerWidth;
+  const layoutSizing = workPanelLayout({
+    layoutMode,
+    containerWidth: shellBudgetWidth,
+    sidebarWidth,
+    sidebarCollapsed: sidebarCollapsed && !sidebarExiting,
+    requestedPanelWidth:
+      layoutMode === "work" ? workLayoutWidth : workPanelWidth,
+    maximized: workPanelMaximized,
+    rightPaneHidden: layoutMode === "work" && chatPaneHidden,
+  });
   const sidebarWidthMax = sidebarWidthBudget({
     containerWidth: shellWidth,
     workPanelOpen: workPanelVisible || presentedWorkPanelOpen,
-    workPanelWidth,
+    workPanelWidth: layoutMode === "work" ? workLayoutWidth : workPanelWidth,
     workPanelMaximized,
+    layoutMode,
+    rightPaneHidden: chatPaneHidden,
   });
 
   return {
@@ -937,6 +1075,13 @@ export function useAppShellRuntime() {
     appShellRef,
     shellWidth,
     workPanelWidth,
+    layoutMode,
+    chatPaneHidden,
+    workLayoutChatWidth: workLayoutWidth,
+    renderedChatWidth: layoutSizing.mainWidth,
+    switchChatWorkLayout,
+    previewWorkLayoutChatWidth,
+    commitWorkLayoutChatWidth,
     runMenuCommand,
     handleSidebarAnimationEnd,
     presentedWorkPanelOpen,
@@ -944,6 +1089,7 @@ export function useAppShellRuntime() {
     workPanelExitGeneration,
     finishWorkPanelExit,
     togglePresentedWorkPanel,
+    toggleCurrentRightRegion,
     workPanelMaximized,
     toggleWorkPanelMaximize,
     backendDown,

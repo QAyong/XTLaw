@@ -36,10 +36,12 @@ export function CollapsedTitlebarActions({
   onToggleSidebar,
   onNewTask,
   sidebarToggleShortcut,
+  nativeTooltip = false,
 }: {
   onToggleSidebar: () => void;
-  onNewTask: () => void;
+  onNewTask?: () => void;
   sidebarToggleShortcut: string;
+  nativeTooltip?: boolean;
 }) {
   const { t } = useTranslation();
   const toggleLabel = t("nav.expandSidebar");
@@ -47,6 +49,7 @@ export function CollapsedTitlebarActions({
     <div className="titlebar-nav no-drag">
       <TooltipButton
         className="title-nav-btn"
+        nativeTooltip={nativeTooltip}
         tooltip={
           sidebarToggleShortcut
             ? `${toggleLabel} (${sidebarToggleShortcut})`
@@ -59,15 +62,18 @@ export function CollapsedTitlebarActions({
       >
         <IconSidebar size={15} />
       </TooltipButton>
-      <TooltipButton
-        className="title-nav-btn"
-        tooltip={t("nav.newTask")}
-        ariaLabel={t("nav.newTask")}
-        data-nav="new-task"
-        onClick={onNewTask}
-      >
-        <IconNewSession size={15} />
-      </TooltipButton>
+      {onNewTask ? (
+        <TooltipButton
+          className="title-nav-btn"
+          nativeTooltip={nativeTooltip}
+          tooltip={t("nav.newTask")}
+          ariaLabel={t("nav.newTask")}
+          data-nav="new-task"
+          onClick={onNewTask}
+        >
+          <IconNewSession size={15} />
+        </TooltipButton>
+      ) : null}
     </div>
   );
 }

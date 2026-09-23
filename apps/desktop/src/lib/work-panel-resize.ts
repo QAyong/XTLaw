@@ -14,6 +14,10 @@ export const WORK_PANEL_CHAT_MAX_WIDTH = 10000;
  * composer reservation of ADR 0226.
  */
 export const MAIN_PANE_MIN_WIDTH = 450;
+/** Both chat/work orders preserve the same minimum conversation width. */
+export const WORK_LAYOUT_CHAT_MIN_WIDTH = MAIN_PANE_MIN_WIDTH;
+export const WORK_LAYOUT_CHAT_DEFAULT_WIDTH = MAIN_PANE_MIN_WIDTH;
+export const WORK_LAYOUT_WORK_MIN_WIDTH = 300;
 export const MAIN_PANE_REOPEN_TARGET_WIDTH = MAIN_PANE_MIN_WIDTH + 10;
 /**
  * The regular panel minimum is a presentation affordance. The sidebar reopen
@@ -77,8 +81,13 @@ export type WorkPanelLayout = {
   mainWidth: number;
   panelWidth: number;
   maxPanelWidth: number;
+  minTargetWidth: number;
+  maxTargetWidth: number;
+  targetWidth: number;
   shouldCollapseSidebar: boolean;
 };
+
+export type WorkPanelLayoutMode = "chat" | "work";
 
 /**
  * Shared three-column budget. The shell is a fixed-width client area, so the
@@ -87,17 +96,22 @@ export type WorkPanelLayout = {
  * window lets the panel keep growing until MainChat reaches its floor.
  */
 export function workPanelLayout({
+  layoutMode = "chat",
   containerWidth,
   sidebarWidth,
   sidebarCollapsed,
   requestedPanelWidth,
   maximized = false,
+  rightPaneHidden = false,
 }: {
+  layoutMode?: WorkPanelLayoutMode;
   containerWidth: number;
   sidebarWidth: number;
   sidebarCollapsed: boolean;
+  /** Work-panel target in chat layout; chat target in work layout. */
   requestedPanelWidth: number;
   maximized?: boolean;
+  rightPaneHidden?: boolean;
 }): WorkPanelLayout {
   const width = Math.max(0, Math.round(containerWidth));
   const leftWidth = sidebarCollapsed ? 0 : Math.max(0, Math.round(sidebarWidth));
@@ -109,7 +123,46 @@ export function workPanelLayout({
       mainWidth: 0,
       panelWidth: fullWidth,
       maxPanelWidth: fullWidth,
+      minTargetWidth: 0,
+      maxTargetWidth: fullWidth,
+      targetWidth: fullWidth,
       shouldCollapseSidebar: false,
+    };
+  }
+  if (layoutMode === "work") {
+    const availableWidth = Math.max(0, width - leftWidth);
+    if (rightPaneHidden) {
+      return {
+        mainWidth: 0,
+        panelWidth: availableWidth,
+        maxPanelWidth: availableWidth,
+        minTargetWidth: 0,
+        maxTargetWidth: availableWidth,
+        targetWidth: 0,
+        shouldCollapseSidebar: false,
+      };
+    }
+    const maxChatWidth = Math.max(
+      WORK_LAYOUT_CHAT_MIN_WIDTH,
+      availableWidth - WORK_LAYOUT_WORK_MIN_WIDTH,
+    );
+    const targetWidth = Math.min(
+      maxChatWidth,
+      Math.max(WORK_LAYOUT_CHAT_MIN_WIDTH, Math.round(requestedPanelWidth)),
+    );
+    const mainWidth = Math.min(availableWidth, targetWidth);
+    const panelWidth = Math.max(0, availableWidth - mainWidth);
+    return {
+      mainWidth,
+      panelWidth,
+      // In work layout the separator changes the right chat width.
+      maxPanelWidth: maxChatWidth,
+      minTargetWidth: WORK_LAYOUT_CHAT_MIN_WIDTH,
+      maxTargetWidth: maxChatWidth,
+      targetWidth: mainWidth,
+      shouldCollapseSidebar:
+        !sidebarCollapsed &&
+        availableWidth - targetWidth < WORK_LAYOUT_WORK_MIN_WIDTH,
     };
   }
   const requested = clampWorkPanelWidth(
@@ -127,10 +180,39 @@ export function workPanelLayout({
     mainWidth: Math.max(0, width - leftWidth - panelWidth),
     panelWidth,
     maxPanelWidth,
+    minTargetWidth: Math.min(
+      requested < WORK_PANEL_MIN_WIDTH
+        ? WORK_PANEL_COMPACT_MIN_WIDTH
+        : WORK_PANEL_MIN_WIDTH,
+      maxPanelWidth,
+    ),
+    maxTargetWidth: maxPanelWidth,
+    targetWidth: panelWidth,
     shouldCollapseSidebar:
       !sidebarCollapsed &&
       width - leftWidth - requestedPanelWidth <= MAIN_PANE_MIN_WIDTH,
   };
+}
+
+export function workPanelResizeTargetBounds(
+  layout: WorkPanelLayout,
+) {
+  return {
+    minimum: Math.min(layout.minTargetWidth, layout.maxTargetWidth),
+    maximum: Math.max(layout.minTargetWidth, layout.maxTargetWidth),
+  };
+}
+
+export function workPanelResetTargetWidth(
+  layoutMode: WorkPanelLayoutMode,
+  layout: WorkPanelLayout,
+) {
+  const { minimum, maximum } = workPanelResizeTargetBounds(layout);
+  const preferred =
+    layoutMode === "work"
+      ? WORK_LAYOUT_CHAT_DEFAULT_WIDTH
+      : WORK_PANEL_DEFAULT_WIDTH;
+  return Math.min(maximum, Math.max(minimum, preferred));
 }
 
 /**

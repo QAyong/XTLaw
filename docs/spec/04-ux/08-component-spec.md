@@ -44,6 +44,7 @@ Outer frame that positions Topbar, Sidebar, MainChat, and WorkPanel. Owns resize
 | Default | Sidebar expanded, work panel hidden |
 | Narrow (<640px) | Sidebar auto-collapses to icon rail |
 | Work panel open in a fixed client area | Work panel keeps its committed width while MainChat keeps its 450px hard floor; the expanded sidebar yields first when the budget is exhausted |
+| Work layout | WorkPanel is the center column and MainChat is the right column. The right chat target defaults to and never compresses below 450px; the sidebar yields before the center work area drops below 300px |
 | Preview (maximize) | MainChat is unmounted and the work panel fills the client area beside the sidebar; a window-level chrome row keeps shell actions and native window controls available |
 | Fullscreen | Topbar remains; sidebar toggle and artifact-driven panel stay available |
 
@@ -80,7 +81,20 @@ Outer frame that positions Topbar, Sidebar, MainChat, and WorkPanel. Owns resize
   12px gap. The main process uses that same shared geometry.
 - Work panel resize: its inner left-edge handle changes the committed panel
   width in the renderer, so dragging left gives the panel more internal space
-  and dragging right returns space to MainChat (§5.4)
+  and dragging right returns space to MainChat (§5.4). In Work layout the handle
+  moves to the panel's right edge and changes the right chat target: dragging
+  left widens chat, dragging right widens the center work area. Keyboard arrows,
+  separator ARIA values, cancellation, and double-click reset follow the active
+  target width.
+- Chat/work layout: the switch control appears only while both panes are
+  visible. It reorders the keyed chat and work-panel panes so their mounted
+  session state is retained, and the DOM order follows the visible left-to-right
+  order. The fixed top-right toggle controls whichever pane is currently on the
+  right; `Cmd/Ctrl + J` always toggles the work panel. The selected layout and
+  work-layout chat target persist across sessions and launches, while hiding the
+  right chat pane is transient. When the sidebar is collapsed in Work layout,
+  only the expand-sidebar action appears at the left edge of the center pane;
+  New Task remains available in the ordinary collapsed-sidebar titlebar.
 - Window resize: native edges and corners resize the fixed application window;
   they never resize or reserve the work panel. Responsive layout follows
   [07-ui-design-system.md](07-ui-design-system.md) §10.1
@@ -88,7 +102,9 @@ Outer frame that positions Topbar, Sidebar, MainChat, and WorkPanel. Owns resize
 ### 1.5 Accessibility
 
 - Landmark roles: `<nav>` for sidebar, `<main>` for chat, `<aside>` for work panel, `<header>` for topbar
-- Tab sequence: topbar → sidebar → main chat → work panel → composer
+- Tab sequence: sidebar → visible center pane → visible right pane → fixed
+  shell controls; chat/work pane order follows the active layout. Hidden panes
+  are removed from layout and accessibility navigation.
 
 ### 1.6 MVP constraints
 
@@ -674,6 +690,14 @@ visually distinct from list content.
   icon-only action must also expose that localized purpose on hover and focus:
   use the native `title` together with `aria-label`, or the existing themed
   `data-tip` pattern when a custom tooltip is required.
+- Controls placed in the work-area titlebar, including window controls and the
+  right-region and chat/work layout toggles when they overlay that area, use
+  native `title` tooltips.
+  Work-panel header actions and collapsed-sidebar actions placed in that header
+  follow the same rule. The expanded sidebar's collapse action keeps its themed
+  tooltip. When a native plugin view covers a themed tooltip's default position,
+  it moves below its trigger and shifts only as far as the work-area edge
+  requires, staying close to the trigger.
 - The expanded sidebar brand is a localized button with a 20px logo and the
   shell name on Windows/Linux; pointer or keyboard activation navigates to the
   chat home. macOS hides this brand and right-aligns Collapse sidebar in the
@@ -981,9 +1005,9 @@ singleton without duplicating it:
   strip rather than by a second resource list. Launcher rows use the same
   fast hover/focus feedback as other panel rows.
 - Active tabs, file-tree rows, and diff headers ease hover fills with
-  `--motion-duration-fast` / `--motion-ease-out`. The resize handle matches the
-  sidebar: a 32px centered 2px grip that appears on direct hover/focus, with
-  the solid accent reserved for keyboard focus and an in-progress drag
+  `--motion-duration-fast` / `--motion-ease-out`. Work-panel and sidebar
+  separators remain 1px at rest and thicken to 1.5px along their full height on
+  hover, keyboard focus, or drag; the accent color marks focus and active drag.
 - Browser URL and empty-tool chrome share the light inset field treatment used
   by Settings controls (D148)
 - Every empty state in the panel — the no-resource body and each tab's own —
@@ -1060,11 +1084,13 @@ entirely inside the plugin's isolated page:
 | Multiple artifacts | The header keeps a horizontally scrollable tab strip. The fixed `+` action creates a new launcher tab; its buttons open Review and all in-scope plugin views without duplicating open resource tabs. |
 | Session switch | The destination session's retained open state, tabs, active tab, and Browser resource replace the previous session's panel context atomically; neither context is deleted |
 | Resizing | The inner left divider follows anchored pointer delta or keyboard input for the panel target; pointer changes are frame-coalesced and committed in the renderer. Escape, pointer cancellation, or lost capture restores the prior panel width. Native window edges resize only the fixed application window. |
+| Three-column separators | Whenever the sidebar, chat, and work panel are all visible, a 1px theme-aware divider separates each adjacent pair in the active order: sidebar, work panel, chat in Work layout; sidebar, chat, work panel in the default layout. |
+| Work layout | The work panel is centered and chat is on the right. The shared divider changes the right chat target, which defaults to and is clamped to at least 450px, matching the MainChat floor in the default layout, while preserving a 300px work area; the sidebar collapses first if needed. The layout choice and chat target persist globally, but a temporarily hidden right pane does not. |
 | No workspace | Each tab renders its own "open a project" empty state |
 | Open with no resource | `Cmd/Ctrl + J` reveals the panel without creating a tab, so the body renders the New launcher. Clicking `+` creates an explicit, closable New tab with the same launcher rows. Activating a row from that tab replaces it with or selects the singleton view. Closing the final tab leaves the panel open in the no-resource state. |
-| Constrained work area | The panel is capped by the shared three-column budget inside the existing client area; MainChat never drops below its 450px floor and the expanded sidebar yields at the threshold |
+| Constrained work area | In the default layout, the panel is capped by the shared three-column budget and MainChat never drops below its 450px floor. In Work layout, the central work area keeps 300px and chat keeps the same 450px floor when both are visible; the expanded sidebar yields at the threshold |
 | New launcher active | The body hosts concise Review and plugin-view buttons. Each row replaces the launcher tab with its destination or activates the existing singleton; the page is independently closeable. |
-| Plugin view active | The body hosts the plugin's own isolated page as a native `WebContentsView`, positioned from the measured surface rect. It remains visible at its full rect while the divider is being resized or a New launcher tab is created; creating a page never pushes the plugin body down or changes its bounds. It is hidden whenever the tab is inactive, the panel is animating, or a panel-wide blocking overlay is open — the same rule the Browser preview follows, since both composite above renderer content. A view whose plugin is disabled, uninstalled, reloaded, or crashed is destroyed; the tab stays and re-opens the page on the next lifecycle event (ADR 0104) |
+| Plugin view active | The body hosts the plugin's own isolated page as a native `WebContentsView`, positioned from the measured surface rect. Its bounds follow both size and position changes, including sidebar resize and enter/exit motion. It remains visible at its full rect while the divider is being resized or a New launcher tab is created; creating a page never pushes the plugin body down or changes its bounds. It is hidden whenever the tab is inactive, the panel is animating, or a panel-wide blocking overlay is open — the same rule the Browser preview follows, since both composite above renderer content. A view whose plugin is disabled, uninstalled, reloaded, or crashed is destroyed; the tab stays and re-opens the page on the next lifecycle event (ADR 0104) |
 | Plugin out of scope | A view contributed by a plugin that is not active in the current project disappears from the New launcher when the project changes. Unlike contributed themes, which are one global setting and stay unfiltered, a view is scoped work |
 
 ### 5.4 Interactions
@@ -2076,6 +2102,9 @@ terminally failed; terminal agent errors remain owned by the assistant error or
 TurnOutcomeCard surface. A user action on a group, item, or collapse rail claims
 that level and its ancestors without toggling them, so streaming and completion
 never reverse the chosen state or close around focused/selected content.
+When the grouped turn heading and a nested delegated-agent status are both
+visible, align the nested status header's leading edge with the turn heading;
+keep the expanded detail rows indented beneath their owning disclosure.
 Elapsed labels use compact automatically carried units: seconds below one
 minute, minutes plus seconds below one hour, and hours plus minutes (and
 seconds when non-zero) from one hour onward. Zero-value units are omitted, so
@@ -2635,22 +2664,24 @@ reasoning-level control.
 - Padding: px-4 py-3 inner textarea
 - Font: text-sm for Agent, Plan, and Goal; mode changes semantics and tool
   controls, not the typography
-- The Agent/Plan/Goal mode chip reserves one fixed 88px width, sized from the
-  longest built-in label in English and zh-CN ("Agent" / "智能体"). Its label
-  stays single-line and ellipsizes if a future locale exceeds that budget, so
-  switching modes never reflows the adjacent Composer controls. Cycling the
-  chip cross-fades the icon and label in place. While the live turn is
-  `planning`, the chip pulses on its icon (purple) instead of leaving a
-  second status row parked above the composer; a staged mode choice still
-  updates the chip immediately and does not start that pulse until the
-  in-flight turn actually projects `planning`.
+- The Agent/Plan/Goal mode chip uses an 88px width in roomy composers and
+  compresses to 76px at 480px. Its label stays single-line and ellipsizes;
+  at 400px it becomes a 32px icon-only trigger. Cycling the chip cross-fades
+  the icon and label in place. Its tooltip and accessible name retain the
+  selected mode. While the live turn is `planning`, the chip pulses on its icon
+  (purple) instead of leaving a second status row parked above the composer; a
+  staged mode choice still updates the chip immediately and does not start
+  that pulse until the in-flight turn actually projects `planning`.
 - The permission chip remains visible in Agent, Plan, and Goal for a stable
   toolbar rhythm. Agent and Plan expose the effective selectable permission;
   Goal displays the localized Auto label as a disabled, non-opening chip while
   the approval card remains the separate place for choosing execution policy.
-  The permission menu stays 120px wide; its Chinese Composer short label for
-  Accept edits is `允许编辑` / `允許編輯` so the option remains single-line
-  beside its selection indicator.
+  At 480px the chip compresses to 84px and ellipsizes its label; at 400px it
+  becomes a 32px key icon. Its tooltip and accessible name retain the
+  selected permission and any applicable Plan/Goal warning. The permission
+  menu stays 120px wide; its Chinese Composer short label for Accept edits is
+  `允许编辑` / `允許編輯` so the option remains single-line beside its
+  selection indicator.
 - The right toolbar owns the remaining-capacity context inspector (when the
   newest assistant turn has usage) immediately left of one combined model ×
   reasoning-level chip, then the standalone prompt-enhancement action and the
@@ -2663,23 +2694,27 @@ reasoning-level control.
   `.tool-spinner` and localized `Enhancing…` label while running, and remains
   a one-shot draft rewrite action. Inline file-reference chips, including
   pasted image chips, do not disable this action and remain in the draft.
-- MainPane and the chat surface keep a 450px hard minimum. The composer toolbar
-  remains a single, non-wrapping row as its container narrows: the mode and
-  permission labels stay on one line and ellipsize within their chips, while
-  the combined model × reasoning trigger progressively gives up detail. At
-  560px it hides the reasoning level label, at 480px it tightens the model label
-  cap, and at the 450px floor it becomes a 32px icon-only trigger. The trigger's
-  menu and accessible name retain the complete model/reasoning selection. The
-  context inspector hides its percentage at the floor and the enhancement
-  loading state becomes icon-only, preserving the action hit targets without
-  clipping or overlapping toolbar content. Home and thread-docked composers
-  use the same responsive rules.
+- The composer toolbar remains a single, non-wrapping row and adapts to its own
+  container, including the 450px right-chat minimum in Work layout. At 560px it
+  hides the reasoning level label; at 480px it tightens the model label cap and
+  compresses the mode and permission chips; at 450px the combined model ×
+  reasoning trigger becomes a 32px icon-only control; at 400px the mode and
+  permission triggers also become 32px icon-only controls. Tooltips and
+  accessible names retain each control's full current value. The model menu
+  remains available, the context inspector hides its percentage, and the
+  enhancement loading state becomes icon-only. Action targets remain usable
+  without clipping or overlap. Home and thread-docked composers use the same
+  responsive rules.
 - The combined chip opens one anchored menu above itself. The menu starts with
   only Model and Reasoning level entries, each showing its current value and a
   chevron. Selecting an entry replaces the menu contents in place with a back
   row and its submenu; selecting a model or level returns to the two-entry root
   without closing the popover. The menu is `min(300px, 100vw - 24px)`, uses the
-  large radius/dialog shadow tokens, and enters with a short upward fade.
+  large radius/dialog shadow tokens, and enters with a short upward fade. In a
+  narrow Work-layout chat column, its measured width and horizontal position
+  stay inside the chat pane with an 8px gutter. Long row labels and values
+  ellipsize, and low-priority model context counts yield before model names;
+  keyboard and pointer access to the complete menu remains available.
 - The Model submenu establishes a clear provider → model hierarchy: sticky
   provider headings use the stronger `--text-md` section treatment, while
   indented model options use normal-weight `--text-sm` text. Each option row

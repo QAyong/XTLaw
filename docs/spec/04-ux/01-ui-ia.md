@@ -118,11 +118,18 @@ destination, chat as the home surface, tools and permissions inline.
   reached only through an explicit user action, so a successful workspace
   Write/Edit leaves the panel exactly as the user left it and shows its
   evidence as a transcript card instead. The inner
-  divider resizes the panel through the shared three-column budget; moving it
-  left takes space until MainChat reaches 450px, at which point the expanded
-  sidebar yields immediately, and moving it right gives space back. A manual
-  sidebar reopen spends work-panel width first and otherwise targets a 460px
-  MainChat width. The sole
+  divider resizes the panel through the shared three-column budget; in the
+  default chat layout, moving it left takes space until MainChat reaches 450px,
+  at which point the expanded sidebar yields immediately. A manual sidebar
+  reopen spends work-panel width first and otherwise targets a 460px MainChat
+  width. The application also remembers a switchable work layout: with both
+  panes visible, the work panel moves to the center and chat moves to the right.
+  Its divider adjusts the right chat width (default and minimum 450px) while
+  preserving at least 300px for the work area; the sidebar yields first if the
+  available budget is too small. The fixed top-right toggle always controls
+  the right pane, while `Cmd/Ctrl + J` continues to toggle the work panel. The
+  layout preference and work-layout chat target persist across sessions and
+  launches; hidden-pane state is transient. The sole
   panel-level control is the viewport-fixed toggle; each session retains its own runtime
   open state, tab set, active tab, and Browser resource in renderer memory.
   Selecting another session swaps the visible panel context without deleting
@@ -132,10 +139,13 @@ destination, chat as the home surface, tools and permissions inline.
   never open, activate, or resize the visible panel. Startup is closed with no
   retained session contexts, and only the preferred panel width persists across
   launches.
-  The work panel remains a fixed-width in-flow column beside MainChat inside
-  the existing client area (ADR 0033 / ADR 0151). MainChat keeps a hard 450px
-  minimum; the work panel's effective maximum is the remaining client width
-  after the expanded sidebar and that floor (ADR 0238). When the budget is
+  The work panel remains an in-flow column inside the existing client area
+  (ADR 0033 / ADR 0151). In the default chat layout it keeps its preferred
+  width beside MainChat, which has a hard 450px minimum; the work panel's
+  effective maximum is the remaining client width after the expanded sidebar
+  and that floor (ADR 0238). Work layout instead protects 300px for the central
+  work area and 450px for the right chat pane, yielding the expanded sidebar
+  when their combined budget is exhausted (ADR 9002). When the budget is
   exhausted the sidebar collapses immediately through its existing animation
   (the budget still counts it while `sidebar-out` occupies flex space) and
   returns when the panel closes. Opening and collapsing change only the

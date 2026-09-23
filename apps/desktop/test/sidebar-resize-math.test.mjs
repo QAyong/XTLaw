@@ -15,6 +15,8 @@ import {
 import {
   MAIN_PANE_MIN_WIDTH,
   WORK_PANEL_MIN_WIDTH,
+  WORK_LAYOUT_CHAT_MIN_WIDTH,
+  WORK_LAYOUT_WORK_MIN_WIDTH,
 } from "../src/lib/work-panel-resize.ts";
 
 test("pointer resize clamps to the expanded range and collapses below the snap threshold", () => {
@@ -106,6 +108,20 @@ test("the live sidebar budget keeps MainChat above its floor", () => {
   });
   assert.equal(1200 - capped - 360, MAIN_PANE_MIN_WIDTH + 1);
   assert.equal(SIDEBAR_WIDTH_DEFAULT, 275);
+});
+
+test("Work layout sidebar budget preserves the shared 450px chat floor", () => {
+  assert.equal(WORK_LAYOUT_CHAT_MIN_WIDTH, MAIN_PANE_MIN_WIDTH);
+  const maxSidebar = sidebarWidthBudget({
+    containerWidth: 1040,
+    workPanelOpen: true,
+    workPanelWidth: MAIN_PANE_MIN_WIDTH,
+    layoutMode: "work",
+  });
+  assert.equal(
+    1040 - maxSidebar - WORK_LAYOUT_WORK_MIN_WIDTH - 1,
+    WORK_LAYOUT_CHAT_MIN_WIDTH,
+  );
 });
 
 test("double-click resets the sidebar to its default inside the live budget", () => {

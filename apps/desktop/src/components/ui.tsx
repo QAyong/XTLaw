@@ -13,6 +13,11 @@ import {
 } from "react";
 
 import { IconEye, IconEyeOff, IconHelp } from "./icons";
+import {
+  getNativeSurfaceRects,
+  subscribeNativeSurfaceRects,
+  type NativeSurfaceRect,
+} from "../lib/native-surface-occlusion";
 
 export function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
@@ -106,7 +111,14 @@ function ensureTooltipGuards() {
   );
 }
 
-type TooltipPosition = { left: number; top: number; bottom: number };
+type TooltipPosition = {
+  left: number;
+  top: number;
+  bottom: number;
+  anchorLeft: number;
+  anchorRight: number;
+  anchorCenterY: number;
+};
 
 function useTooltip<T extends HTMLElement>(
   label: string,
@@ -288,6 +300,9 @@ function useTooltip<T extends HTMLElement>(
         left: rect.left + rect.width / 2,
         top: rect.top - 8,
         bottom: rect.bottom + 8,
+        anchorLeft: rect.left,
+        anchorRight: rect.right,
+        anchorCenterY: rect.top + rect.height / 2,
       });
     };
     updatePosition();
@@ -324,19 +339,71 @@ function PortalTooltip({
   className?: string;
 }) {
   const tooltipRef = useRef<HTMLSpanElement>(null);
-  const [layout, setLayout] = useState({ left: position.left, below: false });
+  const [occlusions, setOcclusions] = useState(getNativeSurfaceRects);
+  const [layout, setLayout] = useState({ left: position.left, top: position.top });
+
+  useEffect(() => {
+    const update = () => setOcclusions(getNativeSurfaceRects());
+    return subscribeNativeSurfaceRects(update);
+  }, []);
 
   useLayoutEffect(() => {
     const rect = tooltipRef.current?.getBoundingClientRect();
     if (!rect) return;
-    const halfWidth = rect.width / 2;
-    const minLeft = halfWidth + 8;
-    const maxLeft = window.innerWidth - halfWidth - 8;
-    setLayout({
-      left: Math.min(Math.max(position.left, minLeft), Math.max(minLeft, maxLeft)),
-      below: position.top - rect.height < 8,
+    const margin = 8;
+    const width = rect.width;
+    const height = rect.height;
+    const clamp = (value: number, min: number, max: number) =>
+      Math.min(Math.max(value, min), Math.max(min, max));
+    const placeInViewport = (candidate: { left: number; top: number }) => ({
+      left: clamp(candidate.left, margin, window.innerWidth - width - margin),
+      top: clamp(candidate.top, margin, window.innerHeight - height - margin),
     });
-  }, [className, label, position.left, position.top]);
+    const area = Math.max(1, width * height);
+    const anchor: NativeSurfaceRect = {
+      left: position.anchorLeft,
+      top: position.top + margin,
+      right: position.anchorRight,
+      bottom: position.bottom - margin,
+    };
+    const score = (candidate: { left: number; top: number }) =>
+      occlusions.reduce(
+        (total, surface) => total + overlapArea(candidate, width, height, surface),
+        0,
+      ) / area +
+      (overlapArea(candidate, width, height, anchor) / area) * 2;
+    const defaultTop =
+      position.top - height >= margin
+        ? position.top - height
+        : position.bottom;
+    const defaultPosition = placeInViewport({
+      left: position.left - width / 2,
+      top: defaultTop,
+    });
+    let best = defaultPosition;
+    if (occlusions.length > 0 && score(defaultPosition) > 0) {
+      const belowTop = position.bottom;
+      const candidates = [
+        defaultPosition,
+        { left: position.left - width / 2, top: belowTop },
+        ...occlusions.flatMap((surface) => [
+          { left: surface.left - width - margin, top: belowTop },
+          { left: surface.right + margin, top: belowTop },
+        ]),
+      ].map(placeInViewport);
+      best = candidates.reduce((preferred, candidate) => {
+        const scoreDifference = score(candidate) - score(preferred);
+        if (scoreDifference < -0.001) return candidate;
+        if (Math.abs(scoreDifference) <= 0.001) {
+          const candidateShift = Math.abs(candidate.left - defaultPosition.left);
+          const preferredShift = Math.abs(preferred.left - defaultPosition.left);
+          if (candidateShift < preferredShift) return candidate;
+        }
+        return preferred;
+      });
+    }
+    setLayout(best);
+  }, [className, label, occlusions, position]);
 
   return createPortal(
     <span
@@ -345,14 +412,33 @@ function PortalTooltip({
       role="tooltip"
       style={{
         left: layout.left,
-        top: layout.below ? position.bottom : position.top,
-        transform: layout.below ? "translateX(-50%)" : "translate(-50%, -100%)",
+        top: layout.top,
+        transform: "none",
       }}
     >
       {label}
     </span>,
     document.body,
   );
+}
+
+function overlapArea(
+  candidate: { left: number; top: number },
+  width: number,
+  height: number,
+  surface: NativeSurfaceRect,
+): number {
+  const overlapWidth = Math.max(
+    0,
+    Math.min(candidate.left + width, surface.right) -
+      Math.max(candidate.left, surface.left),
+  );
+  const overlapHeight = Math.max(
+    0,
+    Math.min(candidate.top + height, surface.bottom) -
+      Math.max(candidate.top, surface.top),
+  );
+  return overlapWidth * overlapHeight;
 }
 
 export function Tooltip({
@@ -415,6 +501,8 @@ export type TooltipButtonProps = Omit<
   tooltipDelayMs?: number;
   tooltipHideDelayMs?: number;
   tooltipClassName?: string;
+  /** Use the browser's native title tooltip when an embedded native view may cover portals. */
+  nativeTooltip?: boolean;
   ref?: Ref<HTMLButtonElement>;
 };
 
@@ -427,6 +515,7 @@ export function TooltipButton({
   tooltipDelayMs = 300,
   tooltipHideDelayMs = 100,
   tooltipClassName,
+  nativeTooltip = false,
   ref,
   onPointerEnter,
   onPointerLeave,
@@ -437,7 +526,7 @@ export function TooltipButton({
   ...buttonProps
 }: TooltipButtonProps) {
   const tooltip = useTooltip<HTMLButtonElement>(
-    label,
+    nativeTooltip ? "" : label,
     disabled,
     tooltipDelayMs,
     true,
@@ -453,6 +542,7 @@ export function TooltipButton({
         }}
         className={className}
         aria-label={ariaLabel ?? label}
+        title={nativeTooltip ? label : undefined}
         disabled={disabled}
         onPointerEnter={(event) => {
           tooltip.onPointerEnter();
@@ -481,7 +571,7 @@ export function TooltipButton({
       >
         {children}
       </button>
-      {tooltip.open && tooltip.position ? (
+      {!nativeTooltip && tooltip.open && tooltip.position ? (
         <PortalTooltip
           label={label}
           position={tooltip.position}

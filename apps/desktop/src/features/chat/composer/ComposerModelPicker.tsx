@@ -1,5 +1,5 @@
 import type { TFunction } from "i18next";
-import type { ReactNode } from "react";
+import type { ReactNode, RefObject } from "react";
 import { ComposerModelList } from "./ComposerModelList";
 import { AnchoredMenu } from "../../../components/settings/AnchoredMenu";
 import {
@@ -18,6 +18,7 @@ type ModelMenuController = ReturnType<typeof useComposerModelMenu>;
 
 export type ComposerModelPickerProps = {
   t: TFunction;
+  horizontalBoundaryRef?: RefObject<HTMLElement | null>;
   controller: ModelMenuController;
   modelLabel: string;
   thinkingLabel: string;
@@ -32,6 +33,7 @@ export type ComposerModelPickerProps = {
 /** Model/reasoning picker with its keyboard and focus contract intact. */
 export function ComposerModelPicker({
   t,
+  horizontalBoundaryRef,
   controller,
   modelLabel,
   thinkingLabel,
@@ -72,6 +74,8 @@ export function ComposerModelPicker({
       onClose={() => setOpen(false)}
       menuClassName="composer-model-menu composer-model-thinking-menu"
       label={`${t("chat.model")} ${t("chat.reasoningLevel")}`}
+      horizontalBoundaryRef={horizontalBoundaryRef}
+      preferredWidth={300}
       role="menu"
       align="end"
       side="top"

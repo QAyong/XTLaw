@@ -6,6 +6,7 @@ import {
   IconNewSession,
   IconPanel,
   IconPanelOpen,
+  IconArrowLeftRight,
 } from "../../components/icons";
 import { ProjectCreateDialog } from "../../components/ProjectCreateDialog";
 import { SearchDialog } from "../../components/SearchDialog";
@@ -73,9 +74,16 @@ export function AppShell() {
     workPanelExiting,
     workPanelExitGeneration,
     finishWorkPanelExit,
-    togglePresentedWorkPanel,
+    toggleCurrentRightRegion,
     workPanelMaximized,
     toggleWorkPanelMaximize,
+    layoutMode,
+    chatPaneHidden,
+    renderedChatWidth,
+    workLayoutChatWidth,
+    switchChatWorkLayout,
+    previewWorkLayoutChatWidth,
+    commitWorkLayoutChatWidth,
     backendDown,
     archMismatch,
     setArchMismatch,
@@ -89,6 +97,9 @@ export function AppShell() {
     workPanelToggleTooltip,
   } = useAppShellRuntime();
   useCopyTex();
+  const workAreaToolbarOverlaid =
+    presentedWorkPanelOpen &&
+    (layoutMode === "chat" || chatPaneHidden || workPanelMaximized);
 
   // A boot that never reaches the shell gets a surface it can act on instead of
   // a window that only knows how to wait (issue #831). Rendered as a direct child
@@ -103,6 +114,168 @@ export function AppShell() {
         down={backendDown}
       />
     );
+
+  const chatPane = !workPanelMaximized ? (
+    <section
+      key="chat-pane"
+      className="main-pane"
+      hidden={layoutMode === "work" && presentedWorkPanelOpen && chatPaneHidden}
+      aria-hidden={layoutMode === "work" && presentedWorkPanelOpen && chatPaneHidden}
+      style={
+        layoutMode === "work" && presentedWorkPanelOpen && !chatPaneHidden
+          ? ({ "--work-layout-chat-width": `${renderedChatWidth}px` } as CSSProperties)
+          : undefined
+      }
+    >
+      {page === "chat" ? (
+        <ConversationTopbar
+          sidebarCollapsed={
+            layoutMode === "work" && presentedWorkPanelOpen
+              ? false
+              : sidebarCollapsed
+          }
+          workPanelOpen={presentedWorkPanelOpen}
+          onToggleSidebar={toggleSidebar}
+          onNewTask={() => void runMenuCommand("newTask")}
+          onOpenSearch={() => setSearchOpen(true)}
+        />
+      ) : (
+        <div
+          className={cx(
+            "main-titlebar",
+            presentedWorkPanelOpen && "work-panel-open",
+          )}
+        >
+          {sidebarCollapsed && (
+            <div className="main-titlebar-left no-drag">
+              <CollapsedTitlebarActions
+                onToggleSidebar={reopenSidebar}
+                onNewTask={() => void runMenuCommand("newTask")}
+                sidebarToggleShortcut={sidebarToggleShortcut}
+              />
+            </div>
+          )}
+        </div>
+      )}
+      <UpdateBanner />
+
+      {backendDown && (
+        <div
+          className={`backend-banner no-drag ${backendDown.fatal ? "fatal" : "warn"}`}
+          role="status"
+        >
+          <span className="backend-dot" aria-hidden />
+          <span>
+            {backendDown.fatal
+              ? backendDown.message === "GLIBC_UNSUPPORTED"
+                ? t("status.unsupportedGlibc")
+                : backendDown.message === "DB_SCHEMA_TOO_NEW"
+                  ? t("status.dbSchemaTooNew", {
+                      found: backendDown.schema?.found ?? "?",
+                      supported: backendDown.schema?.supported ?? "?",
+                    })
+                  : t("status.fatal")
+              : t("status.restarting")}
+          </span>
+          {backendDown.fatal && (
+            <button
+              type="button"
+              className="backend-action"
+              onClick={() => void api.openLogs()}
+            >
+              {t("status.openLogs")}
+            </button>
+          )}
+        </div>
+      )}
+
+      {archMismatch && (
+        <div className="backend-banner no-drag warn" role="status">
+          <span className="backend-dot" aria-hidden />
+          <span>
+            {t("status.archMismatch", {
+              buildArch: t(
+                `status.archNames.${archMismatch.platform}.${archMismatch.processArch}`,
+                { defaultValue: archMismatch.processArch },
+              ),
+              machineArch: t(
+                `status.archNames.${archMismatch.platform}.${archMismatch.machineArch}`,
+                { defaultValue: archMismatch.machineArch },
+              ),
+            })}
+          </span>
+          <button
+            type="button"
+            className="backend-action"
+            onClick={() => setArchMismatch(null)}
+          >
+            {t("status.dismissArchMismatch")}
+          </button>
+        </div>
+      )}
+
+      <Suspense fallback={<RoutePending />}>
+        {page === "pulls" ? (
+          <div className="route-surface route-page">
+            <PullRequestsPage />
+          </div>
+        ) : page === "scheduled" ? (
+          <div className="route-surface route-page">
+            <ScheduledPage />
+          </div>
+        ) : page === "plugins" ? (
+          <div className="route-surface route-page">
+            <PluginsPage />
+          </div>
+        ) : (
+          <ChatSurface />
+        )}
+      </Suspense>
+    </section>
+  ) : null;
+
+  const workPanelNode = presentedWorkPanelOpen || workPanelExiting ? (
+    <WorkPanel
+      key="work-panel"
+      panelBlocked={searchOpen}
+      exiting={workPanelExiting}
+      onExitAnimationEnd={() =>
+        finishWorkPanelExit(workPanelExitGeneration.current)
+      }
+      subagentPanel={subagentPanelOpen ? subagentPanel : null}
+      onCloseSubagentPanel={closeSubagentPanel}
+      containerWidth={shellWidth}
+      sidebarWidth={sidebarWidth}
+      sidebarCollapsed={sidebarCollapsed}
+      sidebarEntering={sidebarEntering}
+      sidebarExiting={sidebarExiting}
+      onAutoCollapseSidebar={autoCollapseSidebar}
+      maximized={workPanelMaximized}
+      onToggleMaximize={toggleWorkPanelMaximize}
+      layoutMode={layoutMode}
+      chatPaneHidden={chatPaneHidden}
+      chatPaneWidth={workLayoutChatWidth}
+      onChatPaneWidthPreview={previewWorkLayoutChatWidth}
+      onChatPaneWidthCommit={commitWorkLayoutChatWidth}
+      sidebarLeadingActions={
+        layoutMode === "work" &&
+        presentedWorkPanelOpen &&
+        sidebarCollapsed &&
+        !workPanelMaximized ? (
+          <CollapsedTitlebarActions
+            onToggleSidebar={reopenSidebar}
+            sidebarToggleShortcut={sidebarToggleShortcut}
+            nativeTooltip
+          />
+        ) : null
+      }
+    />
+  ) : null;
+
+  const orderedPanes =
+    layoutMode === "work"
+      ? [workPanelNode, chatPane]
+      : [chatPane, workPanelNode];
 
   let shell: ReactNode = null;
   if (ready) {
@@ -149,12 +322,14 @@ export function AppShell() {
                   onToggleSidebar={toggleSidebar}
                   onNewTask={() => void runMenuCommand("newTask")}
                   sidebarToggleShortcut={sidebarToggleShortcut}
+                  nativeTooltip
                 />
               )}
               {!sidebarCollapsed && (
                 <TooltipButton
                   type="button"
                   className="title-nav-btn"
+                  nativeTooltip
                   tooltip={t("nav.newTask")}
                   ariaLabel={t("nav.newTask")}
                   data-nav="new-task"
@@ -167,138 +342,47 @@ export function AppShell() {
             </div>
           )}
 
-          {!workPanelMaximized && (
-          <section className="main-pane">
-            {page === "chat" ? (
-              <ConversationTopbar
-                sidebarCollapsed={sidebarCollapsed}
-                workPanelOpen={presentedWorkPanelOpen}
-                onToggleSidebar={toggleSidebar}
-                onNewTask={() => void runMenuCommand("newTask")}
-                onOpenSearch={() => setSearchOpen(true)}
-              />
-            ) : (
-              <div
-                className={cx(
-                  "main-titlebar",
-                  presentedWorkPanelOpen && "work-panel-open",
+          {orderedPanes}
+
+          {page === "chat" &&
+            presentedWorkPanelOpen &&
+            !workPanelExiting &&
+            !workPanelMaximized &&
+            !chatPaneHidden && (
+              <TooltipButton
+                type="button"
+                className="app-chat-work-layout-toggle no-drag"
+                nativeTooltip={workAreaToolbarOverlaid}
+                tooltip={t(
+                  layoutMode === "work"
+                    ? "nav.switchToChatLayout"
+                    : "nav.switchToWorkLayout",
                 )}
+                ariaLabel={t(
+                  layoutMode === "work"
+                    ? "nav.switchToChatLayout"
+                    : "nav.switchToWorkLayout",
+                )}
+                aria-pressed={layoutMode === "work"}
+                onClick={switchChatWorkLayout}
               >
-                {sidebarCollapsed && (
-                  <div className="main-titlebar-left no-drag">
-                    <CollapsedTitlebarActions
-                      onToggleSidebar={reopenSidebar}
-                      onNewTask={() => void runMenuCommand("newTask")}
-                      sidebarToggleShortcut={sidebarToggleShortcut}
-                    />
-                  </div>
-                )}
-              </div>
+                <IconArrowLeftRight size={15} aria-hidden />
+              </TooltipButton>
             )}
-            <UpdateBanner />
-
-            {backendDown && (
-              <div
-                className={`backend-banner no-drag ${backendDown.fatal ? "fatal" : "warn"}`}
-                role="status"
-              >
-                <span className="backend-dot" aria-hidden />
-                <span>
-                  {backendDown.fatal
-                    ? backendDown.message === "GLIBC_UNSUPPORTED"
-                      ? t("status.unsupportedGlibc")
-                      : backendDown.message === "DB_SCHEMA_TOO_NEW"
-                        ? t("status.dbSchemaTooNew", {
-                            found: backendDown.schema?.found ?? "?",
-                            supported: backendDown.schema?.supported ?? "?",
-                          })
-                        : t("status.fatal")
-                    : t("status.restarting")}
-                </span>
-                {backendDown.fatal && (
-                  <button
-                    type="button"
-                    className="backend-action"
-                    onClick={() => void api.openLogs()}
-                  >
-                    {t("status.openLogs")}
-                  </button>
-                )}
-              </div>
-            )}
-
-            {archMismatch && (
-              <div className="backend-banner no-drag warn" role="status">
-                <span className="backend-dot" aria-hidden />
-                <span>
-                  {t("status.archMismatch", {
-                    buildArch: t(
-                      `status.archNames.${archMismatch.platform}.${archMismatch.processArch}`,
-                      { defaultValue: archMismatch.processArch },
-                    ),
-                    machineArch: t(
-                      `status.archNames.${archMismatch.platform}.${archMismatch.machineArch}`,
-                      { defaultValue: archMismatch.machineArch },
-                    ),
-                  })}
-                </span>
-                <button
-                  type="button"
-                  className="backend-action"
-                  onClick={() => setArchMismatch(null)}
-                >
-                  {t("status.dismissArchMismatch")}
-                </button>
-              </div>
-            )}
-
-            <Suspense fallback={<RoutePending />}>
-              {page === "pulls" ? (
-                <div className="route-surface route-page">
-                  <PullRequestsPage />
-                </div>
-              ) : page === "scheduled" ? (
-                <div className="route-surface route-page">
-                  <ScheduledPage />
-                </div>
-              ) : page === "plugins" ? (
-                <div className="route-surface route-page">
-                  <PluginsPage />
-                </div>
-              ) : (
-                <ChatSurface />
-              )}
-            </Suspense>
-          </section>
-          )}
-
-          {(presentedWorkPanelOpen || workPanelExiting) && (
-            <WorkPanel
-              panelBlocked={searchOpen}
-              exiting={workPanelExiting}
-              onExitAnimationEnd={() =>
-                finishWorkPanelExit(workPanelExitGeneration.current)
-              }
-              subagentPanel={subagentPanelOpen ? subagentPanel : null}
-              onCloseSubagentPanel={closeSubagentPanel}
-              containerWidth={shellWidth}
-              sidebarWidth={sidebarWidth}
-              sidebarCollapsed={sidebarCollapsed}
-              sidebarExiting={sidebarExiting}
-              onAutoCollapseSidebar={autoCollapseSidebar}
-              maximized={workPanelMaximized}
-              onToggleMaximize={toggleWorkPanelMaximize}
-            />
-          )}
 
           <TooltipButton
             type="button"
             className="app-work-panel-toggle no-drag"
+            nativeTooltip={workAreaToolbarOverlaid}
             tooltip={workPanelToggleTooltip}
             ariaLabel={workPanelToggleTooltip}
-            aria-pressed={workPanelOpen || presentedWorkPanelOpen}
+            aria-pressed={
+              layoutMode === "work" && presentedWorkPanelOpen
+                ? !chatPaneHidden
+                : workPanelOpen || presentedWorkPanelOpen
+            }
             disabled={!activeSessionId && !presentedWorkPanelOpen && !workPanelExiting}
-            onClick={togglePresentedWorkPanel}
+            onClick={toggleCurrentRightRegion}
           >
             <span className="app-work-panel-toggle-icon" aria-hidden>
               <IconPanel size={15} />
@@ -323,9 +407,16 @@ export function AppShell() {
         page === "settings" && ready && "settings-mode",
         sidebarCollapsed && "sidebar-collapsed",
         workPanelMaximized && "work-panel-maximized",
+        layoutMode === "work" && "work-layout",
+        layoutMode === "work" && (presentedWorkPanelOpen || workPanelExiting) && "work-layout-with-panel",
+        layoutMode === "work" && workPanelExiting && "work-panel-exiting",
+        layoutMode === "work" && presentedWorkPanelOpen && chatPaneHidden && "chat-pane-hidden",
         showSplash && "is-booting",
       )}
-      style={{ "--ds-sidebar-width": `${sidebarWidth}px` } as CSSProperties}
+      style={{
+        "--ds-sidebar-width": `${sidebarWidth}px`,
+        "--work-layout-chat-width": `${renderedChatWidth}px`,
+      } as CSSProperties}
     >
       <div className="app-scenic-backdrop" aria-hidden />
       {shell}
@@ -335,7 +426,7 @@ export function AppShell() {
           window controls — the only ones a frameless Windows/Linux window has.
           The controls therefore follow the boot surface that is actually up. */}
       {(ready && !showSplash) || startupPhase !== "starting" ? (
-        <WindowControls />
+        <WindowControls nativeTooltip={workAreaToolbarOverlaid} />
       ) : null}
       <ProjectCreateDialog />
       {splash}

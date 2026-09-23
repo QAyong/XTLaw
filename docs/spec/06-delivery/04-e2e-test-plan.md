@@ -1856,26 +1856,29 @@ identify the platform validation still needed.
 - **Preconditions**: Chat route active; a configured model is selected; the
   composer is rendered in both empty-home and thread-docked variants.
 - **Steps**: 1) Set the Composer container to 560px and inspect the combined
-  model × reasoning trigger. 2) Set it to 480px, then 450px. 3) At each width,
-  inspect the mode, permission, context, enhancement, and Send/Stop controls;
-  open the model menu from the narrow trigger; repeat the visual check in the
-  other Composer variant.
+  model × reasoning trigger. 2) Set it to 480px, 450px, 400px, then 320px. 3)
+  At each width, inspect the mode, permission, context, enhancement, and
+  Send/Stop controls; open the model and permission menus from their narrow
+  triggers; repeat the visual check in the other Composer variant.
 - **Expected**: The toolbar remains one non-wrapping row and does not overflow
   its container. At 560px the reasoning label and separator yield first; at
-  480px the model label is further capped; at the 450px floor the combined
-  model × reasoning trigger is a 32px icon-only control. The full selection is
-  still available through the trigger's menu, tooltip, and accessible name.
-  Mode and permission labels remain single-line and ellipsized, the context
-  ring and action controls retain usable hit targets, and the single Send/Stop
-  slot remains reachable. Home and thread-docked composers match.
+  480px the model, mode, and permission labels compress; at 450px the combined
+  model × reasoning trigger becomes a 32px icon-only control; at 400px the mode
+  and permission triggers do too. Their tooltips and accessible names retain
+  the full current values. At the 450px Work-layout chat minimum, the context
+  ring and action controls retain usable hit targets, menus remain reachable,
+  and the single Send/Stop slot remains visible. Open the model menu and confirm
+  its bounds stay inside the right chat pane with an 8px gutter; long row values
+  ellipsize without hiding the model/search/selection controls. Home and
+  thread-docked composers match.
 - **Specs linked**: `04-ux/08-component-spec.md` (§11)
 - **Acceptance**: C (send/UI), Quality
 - **Milestone**: M2
-- **Status**: Automated on task candidate `737435248ebd32e0b2a406f93b7b245784bc4289`
-  (base `cea6e02c`): `pnpm test:e2e:layout` 167/167 including the 450px
-  model-chip assertion; `pnpm test:e2e:composer-autocomplete` and
-  `pnpm test:e2e:composer-paste` passed. Source-covered by
-  `composer-responsive.test.mjs`.
+- **Status**: Partially automated. Existing candidate evidence covers the
+  450px model-chip breakpoint and toolbar overflow; it predates the 400px
+  icon-only controls and the Work-layout menu boundary. The updated narrow
+  menu positioning still needs visual verification and automation.
+  `composer-responsive.test.mjs` covers the prior model breakpoints.
 
 #### E2E-090: Transcript bottom reserve tracks the docked composer height
 
@@ -7792,6 +7795,15 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
   3. Activate the plugin row. Confirm the plugin's page renders inside the panel body
      with no window-control capsule and no reserved 46px band, and that its
      button reaches the host toast.
+     With the sidebar collapsed, hover its expand and New Task actions in the
+     work-panel header, then the work-panel `+`, maximize/restore, window
+     controls, right-region toggle, and chat/work layout switch where they
+     overlay the work area. Confirm their localized native tooltips appear above
+     the plugin page.
+     Expand the sidebar and hover Collapse sidebar; confirm its themed tooltip
+     moves below the button and only as far horizontally as needed to clear the
+     work-area edge, staying close to the trigger instead of appearing behind
+     the plugin.
   4. Drag the inner panel divider and resize the conversation area. Confirm
      the page tracks the panel rect without lag or tearing, then drag the outer
      right window edge and confirm the panel width changes while the base chat
@@ -8282,6 +8294,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 | A / C — Unicode stdio framing | E2E-RPC-unicode-separators |
 | C / G / Quality — Plugins navigation | E2E-NAV-plugins-button-goes-back |
 | C / D / Quality — Sidebar row states | E2E-LAYOUT-sidebar-row-states |
+| F / Quality — Switchable chat and work layout | E2E-LAYOUT-three-column-width-priority |
 | A / C / Quality — Sidebar material and settings return | E2E-LAYOUT-sidebar-settings |
 | B / F / Security — Provider copy | E2E-PROVIDER-copy-config-without-credentials |
 | B / F / Quality — Selected model order | E2E-MODEL-selected-order-persists |
@@ -8353,6 +8366,7 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 | M6+ (Session Orchestrator) | E2E-PLUGIN-session-orchestrator-real-workers |
 | M6+ (Selected model order) | E2E-MODEL-selected-order-persists |
 | M6+ (Session list responsiveness) | E2E-SESSION-list-refresh-keeps-desktop-responsive |
+| M6+ (Switchable chat/work layout) | E2E-LAYOUT-three-column-width-priority |
 | M6+ (Independent session communication) | E2E-SESSION-independent-top-level-communication, E2E-SESSION-hover-card-model-and-links |
 | M5 (Chat file references) | E2E-CHAT-shorthand-file-ref-opens-the-matching-file, E2E-CHAT-file-ref-opens-the-surface-that-owns-it |
 | M6+ (Chat file references) | E2E-PLUGIN-file-view-collapse-persists |
@@ -13512,7 +13526,33 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   4. Close the work panel and confirm the sidebar returns; repeat after
      manually collapsing the sidebar.
   5. Repeat divider changes with `ArrowLeft`, `ArrowRight`, `Home`, and `End`.
-  6. Navigate to the real Plugins, Pull requests, and Scheduled routes with the
+  6. With the panel and chat both visible, confirm a continuous 1px,
+     theme-aware divider at each boundary in the default order: sidebar, chat,
+     WorkPanel. Switch to Work layout and confirm the order becomes sidebar,
+     WorkPanel, chat, with the same two dividers. Confirm Tab traversal
+     follows that visible order. Resize the shared divider by pointer and
+     keyboard in both directions; at the minimum window size confirm that the
+     sidebar yields before the center work area or chat drops below its floor.
+     In light and dark themes, confirm both layouts keep the dividers legible.
+     Hovering, focusing, or dragging either divider thickens its full height to
+     1.5px rather than showing a short grip.
+     During a grouped assistant turn, confirm a nested “Waiting for model”
+     status aligns its leading edge with the “Processing” heading above it.
+  7. Hide and restore the right chat pane with the fixed toggle. Confirm the
+     same work-panel session and active resource remain visible, `Cmd/Ctrl + J`
+     still toggles the work panel, and the layout switch is hidden while either
+     pane is collapsed. With the sidebar collapsed in Work layout, confirm its
+     center-pane leading actions contain only Expand Sidebar and omit New Task.
+     Reopen the sidebar manually and confirm it stays open at a width allowed
+     by the remaining pane budget.
+  8. Enter work-panel maximize and restore; confirm the prior layout and widths
+     return. With a native plugin view active, switch layouts without resizing
+     and confirm its measured bounds follow the panel's new position. In Work
+     layout with the sidebar collapsed, reopen it while the plugin view stays
+     active; confirm the native page follows the panel through the transition
+     and remains aligned when the animation ends. Reload the app and confirm
+     the selected layout and each layout's target width persist.
+  9. Navigate to the real Plugins, Pull requests, and Scheduled routes with the
      work panel closed, then collapse the sidebar. In light and dark themes,
      measure both titlebar actions and compare their rest/hover styling with the
      shared work-panel toggle. Reopen the sidebar, collapse it again, and use
@@ -13521,14 +13561,22 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   ancestor) render as centered 28px square targets, with the shared transparent
   rest surface, secondary ink, radius, and semantic hover wash/primary ink.
   Hover does not change geometry; sidebar and New Task actions remain usable.
-  The native window width never changes. MainChat never measures
-  below 450px — including mid-drag and while `sidebar-out` still occupies flex
-  space. The effective panel maximum is the client width minus the 450px
-  MainChat floor and the expanded sidebar width, with no fixed pixel cap. When that
-  budget is exhausted the expanded sidebar collapses immediately, and the panel
-  may keep growing afterwards. A manual reopen spends panel width first;
-  MainChat is preserved where possible and otherwise lands on the 460px reopen
-  target. Closing the panel restores only a sidebar the layout collapsed. The
+  The native window width never changes. MainChat never measures below 450px
+  in the default layout — including mid-drag and while `sidebar-out` still
+  occupies flex space. Its effective panel maximum is the client width minus
+  that floor and the expanded sidebar width. When that budget is exhausted the
+  expanded sidebar collapses immediately, and the panel may keep growing
+  afterwards. A manual reopen spends panel width first; MainChat is preserved
+  where possible and otherwise lands on the 460px reopen target. In Work layout
+  the center work area remains at least 300px and the right chat pane stays at
+  or above 450px when both are visible; the expanded sidebar yields first. The
+  divider, keyboard direction, reset, ARIA values, titlebar toggle meaning, and
+  DOM focus order follow the active layout. Hiding chat is temporary; restoring
+  or closing the work panel does not overwrite saved layout or width targets.
+  A native plugin view follows both its surface's size and position while the
+  sidebar is resized or enters/exits; it never covers the sidebar or leaves a
+  gap after the transition.
+  Closing the panel restores only a sidebar the layout collapsed. The
   separator's ARIA minimum/maximum follow the same dynamic budget. The panel
   header's `+`, maximize, and viewport-fixed collapse toggle resolve to a single
   control gap (`--ds-work-panel-control-gap`) with no divider, inset, or margin
@@ -13544,10 +13592,10 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   not as native hit-test proof.
 - **Specs linked**: `04-ux/01-ui-ia.md`, `04-ux/07-ui-design-system.md` §10,
   `04-ux/08-component-spec.md` §1 and §5, `04-ux/09-interaction-patterns.md` §8,
-  ADR 0238
+  ADR 0238, ADR 9002
 - **Acceptance**: F (persistence), Quality
 - **Milestone**: Post-M6 desktop shell maintenance
-- **Status**: Automated (`scripts/e2e-three-column-layout.mjs` via
+- **Status**: Partially automated (`scripts/e2e-three-column-layout.mjs` via
   `pnpm test:e2e:layout` — fixed-window width invariance, the 450px floor across
   a pointer drag, one non-wrapping composer toolbar at that floor with the
   model chip collapsed to its 32px icon, sidebar
@@ -13555,7 +13603,10 @@ plugin-form fixtures in an isolated temporary directory at runtime.
   control gap, preview mode, and ordinary Plugins/Pull requests/Scheduled titlebar
   Source contracts in `chrome-control-geometry.test.mjs` also cover the shared
   disabled state and panel controls' transparent seat; the panel surface still
-  needs the eyes-on pass above. DOM/CDP checks establish renderer behavior, not
+  needs the eyes-on pass above. The existing automation covers the default
+  layout only; Work-layout switching, compact composer rendering, pane focus
+  order, and native-surface repositioning still need automation and platform
+  verification. DOM/CDP checks establish renderer behavior, not
   native Windows/Linux hit testing; native platform checks remain separate.
   Unit coverage in
   `work-panel-resize.test.mjs`
@@ -14876,4 +14927,3 @@ renderer's durable transcript reads. No real model or provider is contacted.
 `node --test apps/desktop/test/plugin-timeout-budgets.test.mjs`,
 `pnpm --filter @pi-desktop/shared test`, and
 `pnpm --filter @pi-desktop/host-runtime test`.
-

@@ -4,7 +4,13 @@ import {
   SIDEBAR_WIDTH_MAX,
   SIDEBAR_WIDTH_MIN,
 } from "./sidebar-preferences.ts";
-import { MAIN_PANE_MIN_WIDTH, WORK_PANEL_MIN_WIDTH } from "./work-panel-resize.ts";
+import {
+  MAIN_PANE_MIN_WIDTH,
+  WORK_LAYOUT_CHAT_MIN_WIDTH,
+  WORK_LAYOUT_WORK_MIN_WIDTH,
+  WORK_PANEL_MIN_WIDTH,
+  type WorkPanelLayoutMode,
+} from "./work-panel-resize.ts";
 
 /** Keyboard and pointer step for the expanded-sidebar separator. */
 export const SIDEBAR_RESIZE_STEP = 16;
@@ -58,14 +64,28 @@ export function sidebarWidthBudget({
   workPanelOpen,
   workPanelWidth,
   workPanelMaximized = false,
+  layoutMode = "chat",
+  rightPaneHidden = false,
 }: {
   containerWidth: number;
   workPanelOpen: boolean;
   workPanelWidth: number;
   workPanelMaximized?: boolean;
+  layoutMode?: WorkPanelLayoutMode;
+  rightPaneHidden?: boolean;
 }): number {
   const width = Math.max(0, Math.round(containerWidth));
   if (width <= 0) return SIDEBAR_WIDTH_MAX;
+  if (layoutMode === "work") {
+    const protectedWidth = workPanelOpen
+      ? WORK_LAYOUT_WORK_MIN_WIDTH +
+        (rightPaneHidden ? 0 : WORK_LAYOUT_CHAT_MIN_WIDTH)
+      : WORK_LAYOUT_CHAT_MIN_WIDTH;
+    return Math.min(
+      SIDEBAR_WIDTH_MAX,
+      Math.max(SIDEBAR_WIDTH_MIN, width - (workPanelMaximized ? 0 : protectedWidth) - 1),
+    );
+  }
   if (workPanelMaximized) {
     return Math.min(
       SIDEBAR_WIDTH_MAX,

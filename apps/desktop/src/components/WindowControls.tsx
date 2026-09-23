@@ -12,7 +12,7 @@ import { TooltipButton } from "./ui";
  * buttons pinned to the top-right of the 46px titlebar band. AppShell owns a
  * single control band outside the conversation and work-panel stacking contexts.
  */
-export function WindowControls() {
+export function WindowControls({ nativeTooltip = false }: { nativeTooltip?: boolean }) {
   const { t } = useTranslation();
   const platform = window.piDesktop?.platform ?? "darwin";
   const [maximized, setMaximized] = useState(false);
@@ -41,6 +41,7 @@ export function WindowControls() {
       <TooltipButton
         type="button"
         className="window-control-btn"
+        nativeTooltip={nativeTooltip}
         tooltip={t("window.minimize", "Minimize")}
         ariaLabel={t("window.minimize", "Minimize")}
         onClick={() => void api.windowControl("minimize")}
@@ -50,6 +51,7 @@ export function WindowControls() {
       <TooltipButton
         type="button"
         className="window-control-btn"
+        nativeTooltip={nativeTooltip}
         tooltip={
           maximized
             ? t("window.restore", "Restore")
@@ -75,6 +77,7 @@ export function WindowControls() {
       <TooltipButton
         type="button"
         className="window-control-btn window-control-close"
+        nativeTooltip={nativeTooltip}
         tooltip={t("window.close", "Close")}
         ariaLabel={t("window.close", "Close")}
         onClick={() => void api.windowControl("close")}

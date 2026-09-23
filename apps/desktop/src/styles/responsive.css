@@ -19,10 +19,9 @@
 }
 
 /*
-  Composer controls share one row, but the model chip is the first surface to
-  give up descriptive text as the chat column gets narrower. Keep the action
-  buttons at their normal hit target and let the combined model/reasoning
-  trigger carry the full selection in its menu and accessible name.
+  Composer controls share one row. Descriptive text yields progressively as
+  the chat column narrows, while each compact trigger keeps its full state in
+  its tooltip and accessible name.
 */
 .composer-left,
 .composer-right {
@@ -43,6 +42,10 @@
   min-width: 0;
 }
 
+.composer-permission-icon {
+  display: none;
+}
+
 @container composer-stack (max-width: 560px) {
   .composer-model-thinking-dot,
   .composer-model-thinking-level {
@@ -57,6 +60,24 @@
 @container composer-stack (max-width: 480px) {
   .composer-model-thinking-model {
     max-width: 96px;
+  }
+
+  .composer-mode-chip {
+    width: 76px;
+    min-width: 76px;
+    max-width: 76px;
+    flex: 0 0 76px;
+  }
+
+  .composer-permission .mode-chip {
+    width: 84px;
+    min-width: 0;
+    max-width: 84px;
+    flex: 0 1 84px;
+  }
+
+  .composer-permission-label {
+    max-width: 46px;
   }
 }
 
@@ -92,6 +113,47 @@
 
   .composer-enhance-btn.is-loading > span:not(.tool-spinner) {
     display: none;
+  }
+}
+
+@container composer-stack (max-width: 400px) {
+  .composer-mode-chip {
+    width: 32px;
+    min-width: 32px;
+    max-width: 32px;
+    flex: 0 0 32px;
+    justify-content: center;
+    gap: 0 !important;
+    padding: 0 !important;
+  }
+
+  .composer-mode-chip-face {
+    gap: 0;
+  }
+
+  .composer-mode-chip-label {
+    display: none;
+  }
+
+  .composer-permission .mode-chip {
+    width: 32px;
+    min-width: 32px;
+    max-width: 32px;
+    flex: 0 0 32px;
+    justify-content: center;
+    gap: 0 !important;
+    padding: 0 !important;
+  }
+
+  .composer-permission-label,
+  .composer-permission-chevron {
+    display: none;
+  }
+
+  .composer-permission-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 }
 

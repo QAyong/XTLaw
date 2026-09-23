@@ -340,6 +340,7 @@ fork record never collides with an upstream number when the fork syncs
 | 0305 | [Keep scheduled-task execution settings task-owned](0305-scheduled-task-execution-settings.md) | Accepted for implementation (amends scheduled-desktop-automations) |
 | 9000 | [Ship the DOCX editor as a bundled plugin](9000-office-docx-plugin.md) | Accepted for implementation (fork record) |
 | 9001 | [Read referenced sessions through a local auxiliary tool](9001-session-reference-reader.md) | Accepted for implementation (fork record) |
+| 9002 | [Switchable chat and work layout](9002-switchable-chat-work-layout.md) | Accepted (fork record; amends ADR 0238 for Work layout) |
 | turn-process-and-thinking-display | [Turn process and thinking presentation](turn-process-and-thinking-display.md) | Accepted |
 | provider-display-order | [Provider display order](provider-display-order.md) | Accepted |
 | registry-header-variable-spelling | [Remote header variables accept the registry's `{name}` spelling](registry-header-variable-spelling.md) | Proposed |

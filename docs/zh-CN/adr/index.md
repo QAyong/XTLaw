@@ -304,6 +304,7 @@ ADR 记录那些不应被静默改变的架构选择。中文入口与英文索�
 | 0296 | [已签名 macOS DMG 改为双图标安装](/adr/0296-macos-signed-dmg-two-icon-install) | 已接受（D457；修订 ADR 0232 / ADR 0204） |
 | 0297 | [提供商托管联网搜索作为适配器能力](/adr/0297-provider-hosted-web-search-adapter-capability) | 已接受 |
 | 0298 | [应用不再随包发布任何字体](/adr/0298-remove-bundled-fonts) | 已接受（D598；修订 ADR 0083 / D232） |
+| 9002 | [可切换聊天与工作区布局](/adr/9002-switchable-chat-work-layout) | 已接受（分支 ADR；仅就工作布局修订 ADR 0238） |
 | registry-header-variable-spelling | [Remote header variables accept the registry's `{name}` spelling](/adr/registry-header-variable-spelling) | Proposed |
 
 ## 什么时候看 ADR

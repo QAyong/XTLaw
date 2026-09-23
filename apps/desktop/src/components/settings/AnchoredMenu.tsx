@@ -18,6 +18,7 @@ import {
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
+  type RefObject,
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
@@ -50,6 +51,10 @@ export type AnchoredMenuProps = {
   side?: "top" | "bottom";
   /** Keep the surface the same width as the anchor, e.g. autocomplete. */
   matchAnchorWidth?: boolean;
+  /** Optional horizontal region that the portaled surface must stay inside. */
+  horizontalBoundaryRef?: RefObject<HTMLElement | null>;
+  /** Natural width to restore when a horizontal boundary grows again. */
+  preferredWidth?: number;
   /** Keyboard handling for the portaled surface. */
   onMenuKeyDown?: (event: ReactKeyboardEvent<HTMLDivElement>) => void;
   /**
@@ -73,6 +78,8 @@ export function AnchoredMenu({
   initialFocus = "selected",
   side = "bottom",
   matchAnchorWidth = false,
+  horizontalBoundaryRef,
+  preferredWidth,
   onMenuKeyDown,
   restoreFocus = true,
 }: AnchoredMenuProps) {
@@ -140,12 +147,26 @@ export function AnchoredMenu({
       return;
     }
     const menuRect = menu.getBoundingClientRect();
-    const width = matchAnchorWidth ? anchorRect.width : undefined;
+    const boundaryRect = horizontalBoundaryRef?.current?.getBoundingClientRect();
+    const minLeft = boundaryRect
+      ? Math.max(MARGIN, boundaryRect.left + MARGIN)
+      : MARGIN;
+    const maxRight = boundaryRect
+      ? Math.min(window.innerWidth - MARGIN, boundaryRect.right - MARGIN)
+      : window.innerWidth - MARGIN;
+    const availableWidth = Math.max(0, maxRight - minLeft);
+    const width = matchAnchorWidth
+      ? boundaryRect
+        ? Math.min(anchorRect.width, availableWidth)
+        : anchorRect.width
+      : boundaryRect
+        ? Math.min(preferredWidth ?? menuRect.width, availableWidth)
+        : undefined;
     const surfaceWidth = width ?? menuRect.width;
-    const maxLeft = Math.max(MARGIN, window.innerWidth - surfaceWidth - MARGIN);
+    const maxLeft = Math.max(minLeft, maxRight - surfaceWidth);
     const preferredLeft =
       align === "end" ? anchorRect.right - surfaceWidth : anchorRect.left;
-    const left = Math.min(Math.max(MARGIN, preferredLeft), maxLeft);
+    const left = Math.min(Math.max(minLeft, preferredLeft), maxLeft);
     const below = anchorRect.bottom + GAP;
     const above = anchorRect.top - menuRect.height - GAP;
     const maxTop = Math.max(MARGIN, window.innerHeight - menuRect.height - MARGIN);
@@ -166,7 +187,15 @@ export function AnchoredMenu({
         ? previous
         : { top, left, width },
     );
-  }, [align, anchorRef, matchAnchorWidth, onClose, side]);
+  }, [
+    align,
+    anchorRef,
+    horizontalBoundaryRef,
+    matchAnchorWidth,
+    onClose,
+    preferredWidth,
+    side,
+  ]);
 
   useLayoutEffect(() => {
     if (!open) return;
@@ -179,8 +208,9 @@ export function AnchoredMenu({
     const observer = new ResizeObserver(updatePosition);
     if (menuRef.current) observer.observe(menuRef.current);
     if (anchorRef?.current) observer.observe(anchorRef.current);
+    if (horizontalBoundaryRef?.current) observer.observe(horizontalBoundaryRef.current);
     return () => observer.disconnect();
-  }, [anchorRef, open, updatePosition]);
+  }, [anchorRef, horizontalBoundaryRef, open, updatePosition]);
 
   /*
     Move focus into the menu once it is measured and visible: a keyboard user

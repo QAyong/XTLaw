@@ -4,7 +4,7 @@ interface ImagePathNode {
   children?: ImagePathNode[];
 }
 
-/** Recognition only: the host image reader remains responsible for containment. */
+/** Recognition only: the host reader or opener remains responsible for containment. */
 export function absoluteImagePath(source: string): string | null {
   let decoded: string;
   try {

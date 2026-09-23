@@ -29,8 +29,13 @@ cargo test -p host-core --locked
 
 ## Desktop suite
 
-`cd apps/desktop && node --test test/*.test.mjs` reports 2668 tests with 49
-failures. They group into the files below.
+`cd apps/desktop && node --test test/*.test.mjs` reports 2686 tests with 62
+failures. The 49 in the table below are the recorded ones; the other 13 are
+source-text contract assertions that already failed before the chat-link work —
+`work-panel.test.mjs` (7), `window-menu.test.mjs`, `startup-watchdog.test.mjs`,
+`auto-update.test.mjs`, `interaction-performance.test.mjs`,
+`sidebar-resize.test.mjs`, `sidebar-collapse-animation.test.mjs` — and are not
+listed per file here.
 
 | Test file | Kind | Reason |
 | --- | --- | --- |
@@ -93,8 +98,11 @@ its own.
 These gates pass in this checkout, so a new failure in them is a real
 regression:
 
-- `node docs/scripts/check-docs.mjs` — 520 pages
-- `node docs/scripts/check-locales.mjs` — 81 English/Chinese pairs
+- `node docs/scripts/check-docs.mjs` — 523 pages
+- `node docs/scripts/check-locales.mjs` — reports `04-ux/08-component-spec.md`
+  and `06-delivery/04-e2e-test-plan.md`: their Chinese pages carry one or two
+  fewer table rows than the English source. Pre-existing drift, verified
+  unchanged by the chat-link work; every other pair passes.
 - `node scripts/check-agent-policy-sync.mjs`
 - `apps/desktop` targeted feature tests for the fork's own work: branding,
   model icons, session references, office plugin, auto-update

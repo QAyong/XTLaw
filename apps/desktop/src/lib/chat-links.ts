@@ -5,15 +5,25 @@
  *
  * File detection is deliberately conservative: a bare token only counts as a
  * file when it carries a known extension, so ordinary dotted identifiers in
- * prose (`store.messages`) stay plain text. Explicit `@path` tokens from the
- * composer (D124 / D320) are accepted even when quoted or absolute.
+ * prose (`store.messages`) stay plain text. An extension is a short ASCII run,
+ * and a token carrying a separator is a path whatever its extension: a
+ * composer's `@` reference may carry Windows `\` separators, while a bare
+ * prose token is scanned on `/` only. Documents, archives and media count as
+ * known extensions too, because a chat attaches them. Explicit `@path` tokens
+ * from the composer (D124 / D320) are accepted even when quoted or absolute.
  *
  * Path tokens recognize Unicode letters and digits, so non-ASCII filenames
  * (CJK above all) link exactly like ASCII ones. Absolute and `~/` tokens are
  * captured whole and then resolved by the same workspace rules: a path under
  * the root resolves normally, and one outside it — or any home path — stays
- * plain text instead of rendering a chip that could never open. Links still
- * cannot escape the workspace (D322).
+ * plain text instead of rendering a chip that could never open. An absolute
+ * `@` token keeps its own spelling, so the chip and the attachment the file
+ * was pasted as name the same path. Links still cannot escape the workspace
+ * (D322).
+ *
+ * CJK prose runs into a reference with no separator (`看 @docs/a.md，然后呢`),
+ * so an `@` token is chipped up to its reference — at the character a path
+ * cannot carry, or at its extension — and the rest stays literal text.
  *
  * Relative paths are workspace-rooted unless they start with `./` or `../`,
  * in which case they resolve against an optional markdown-file directory and
@@ -27,6 +37,13 @@ const KNOWN_EXTS = new Set([
   "cpp", "hpp", "cs", "php", "vue", "svelte", "xml", "ini", "cfg", "conf",
   "env", "lock", "svg", "png", "jpg", "jpeg", "gif", "webp", "ico", "pdf",
   "csv", "tsv", "log",
+  // A chat attaches documents, archives, media and screenshots as often as it
+  // names source files, so those count as bare-name files too. Short word-like
+  // extensions that read as prose (`ai`, `key`, `pages`, `numbers`) stay out.
+  "doc", "docx", "xls", "xlsx", "ppt", "pptx", "rtf", "odt", "ods", "odp",
+  "epub", "zip", "rar", "7z", "tar", "gz", "tgz", "bz2", "xz",
+  "mp3", "wav", "m4a", "flac", "aac", "ogg", "mp4", "mov", "mkv", "avi",
+  "webm", "wmv", "bmp", "tif", "tiff", "heic", "psd",
 ]);
 
 const KNOWN_BARE_NAMES = new Set([
@@ -60,17 +77,18 @@ function leafName(path: string): string {
   return normalized.slice(normalized.lastIndexOf("/") + 1) || path;
 }
 
+/** A short ASCII extension; prose glued to a reference is not one. */
+const EXT_RE = /^[a-z0-9]{1,8}$/;
+
 function isLikelyFilePath(path: string): boolean {
-  const base = path.split("/").pop() ?? "";
+  // A Windows separator is a separator: `C:\work\报告.docx` is as much a path
+  // as `C:/work/报告.docx` and is resolved the same way.
+  const normalized = path.replaceAll("\\", "/");
+  const base = normalized.split("/").pop() ?? "";
   const dotIndex = base.lastIndexOf(".");
   const ext = dotIndex > 0 ? base.slice(dotIndex + 1).toLowerCase() : "";
-  if (path.includes("/")) {
-    if (ext && ext.length <= 8) return true;
-    if (KNOWN_BARE_NAMES.has(base)) return true;
-    return false;
-  }
-  if (KNOWN_BARE_NAMES.has(base)) return true;
-  return KNOWN_EXTS.has(ext);
+  if (!EXT_RE.test(ext)) return KNOWN_BARE_NAMES.has(base);
+  return normalized.includes("/") || KNOWN_EXTS.has(ext);
 }
 
 /**
@@ -185,6 +203,9 @@ export type ChatPreviewTarget =
   | { kind: "file"; path: string }
   | { kind: "url"; url: string };
 
+/** A Windows drive-absolute path, as the composer serializes one. */
+const DRIVE_PATH_RE = /^[A-Za-z]:[\\/]/;
+
 /** Resolve one raw chat token into a previewable target, or null. */
 export function resolvePreviewTarget(
   text: string,
@@ -195,8 +216,12 @@ export function resolvePreviewTarget(
   if (isHttpUrl(trimmed)) return { kind: "url", url: trimmed };
   const at = unwrapAtFileRef(trimmed);
   if (at) {
-    // Scratch/attachment @refs stay absolute so fs/open can contain them.
-    if (at.startsWith("/")) return { kind: "file", path: at };
+    // Scratch/attachment @refs stay absolute so fs/open can contain them, and
+    // they keep the spelling the composer wrote: a Windows drive path stays
+    // `C:\…`, so the chip names exactly the attachment it was pasted as.
+    if (at.startsWith("/") || DRIVE_PATH_RE.test(at)) {
+      return { kind: "file", path: at };
+    }
     const rel = toWorkspaceRel(at, root, baseDir);
     return rel ? { kind: "file", path: rel } : null;
   }
@@ -236,6 +261,13 @@ export type ChatTextSegment =
       /** Compact leaf label for file chips; the raw token for URLs. */
       label: string;
       target: ChatPreviewTarget;
+      /**
+       * The scan shortened the token to reach this reference
+       * (`看 @docs/a.md，然后呢`), so the chip is a guess about where the
+       * reference ends. The transcript verifies it like a bare candidate
+       * instead of trusting it the way an explicit composer ref is trusted.
+       */
+      trimmed?: true;
     };
 
 // Unicode-aware scan (#235). `~`- and `/`-prefixed paths are captured whole
@@ -247,22 +279,71 @@ export type ChatTextSegment =
 const SCAN_RE =
   /@"[^"\n]+"|@[^\s]+|https?:\/\/(?=[^\s<>"'()[\]{}])|(?:~\/)?\/?\.{1,2}\/(?:[\p{L}\p{N}_@+.-]+\/)*[\p{L}\p{N}_@+.-]+(?::\d+(?::\d+)?)?|(?:~\/)?\/?(?:[\p{L}\p{N}_@+.-]+\/)+[\p{L}\p{N}_@+.-]+(?::\d+(?::\d+)?)?|[\p{L}\p{N}_@+-][\p{L}\p{N}_@+.-]*\.[A-Za-z0-9]{1,8}(?![A-Za-z0-9_])/gu;
 
+/**
+ * Characters a URL body may carry unescaped (RFC 3986 plus `%`). The scan
+ * stops at the first character outside this set rather than at the next
+ * whitespace, because CJK prose follows a pasted URL with no separator:
+ * `https://host/doc，路径为桌面文件夹@C:\…` is one URL token in `SCAN_RE`, so
+ * a whitespace-delimited scan linked the whole sentence — file reference
+ * included — as a single URL (D320 keeps HTTP(S) URLs text links).
+ * `'` `[` `]` `{` `}` stay out even though a URL may carry them, matching the
+ * prose wrappers the transcript already treats as delimiters. A path that is
+ * not percent-encoded therefore ends the link at its first non-ASCII
+ * character; ASCII and percent-encoded CJK (`%E4%B8%AD`) stay whole.
+ */
+const URL_BODY_RE = /[A-Za-z0-9\-._~!$&()*+,;=:@/?#%]/;
+
 /** Scan once, keeping URL parentheses but stopping at a closing prose wrapper. */
 function scanUrl(text: string, start: number): string {
   let depth = 0;
   let end = start;
   for (; end < text.length; end += 1) {
     const character = text[end];
-    if (/[\s<>"'[\]{}]/u.test(character)) break;
-    if (character === "(") depth += 1;
-    else if (character === ")") {
+    if (character === "(") {
+      depth += 1;
+      continue;
+    }
+    if (character === ")") {
       if (depth === 0) break;
       depth -= 1;
+      continue;
     }
+    if (!URL_BODY_RE.test(character)) break;
   }
   // Sentence punctuation belongs to the surrounding prose, regardless of
   // whether the URL itself ends with a parenthesized path segment.
   return text.slice(start, end).replace(/[.,!?;:，。！？；：]+$/u, "");
+}
+
+/** Characters an `@` reference may carry between its separators, any script. */
+const PATH_CHAR_RE = /[\p{L}\p{N}_@+.\-\\:/]/u;
+
+/**
+ * The reference candidates of one `@` token, longest first.
+ *
+ * CJK prose runs into a reference with no separator, and the composer's token
+ * is everything up to the next space: `看 @docs/a.md，然后呢` names one file,
+ * not a file called `a.md，然后呢`. A path cannot carry `，`, so that character
+ * ends the reference, and an ASCII extension ends it when CJK letters follow
+ * (`@docs/a.md然后`). The whole token is tried first, so a real name that does
+ * carry those characters (`@报告（终稿）.md`) keeps resolving as itself.
+ *
+ * A candidate ending at a separator is a directory prefix, not the file the
+ * writer named: `@C:\work\app.v2\说明，谢谢` must not chip `C:\work\app.v2`.
+ */
+function atTokenCandidates(raw: string): string[] {
+  if (!raw.startsWith("@") || raw.startsWith('@"')) return [raw];
+  const body = raw.slice(1);
+  const candidates = [raw];
+  const add = (candidate: string) => {
+    if (candidate.length > 1 && !candidates.includes(candidate)) candidates.push(candidate);
+  };
+  let cut = 0;
+  while (cut < body.length && PATH_CHAR_RE.test(body[cut])) cut += 1;
+  if (cut > 0) add(`@${body.slice(0, cut)}`);
+  const anchored = /^[\s\S]*?\.[A-Za-z0-9]{1,8}/.exec(body)?.[0];
+  if (anchored && !/^[\\/]/.test(body.slice(anchored.length))) add(`@${anchored}`);
+  return candidates;
 }
 
 /**
@@ -284,13 +365,28 @@ export function splitChatText(
       ? scanUrl(text, start)
       : match[0];
     scanner.lastIndex = start + raw.length;
-    const target = resolvePreviewTarget(raw, root, baseDir);
+    let used = raw;
+    let target: ChatPreviewTarget | null = null;
+    for (const candidate of atTokenCandidates(raw)) {
+      const resolved = resolvePreviewTarget(candidate, root, baseDir);
+      if (!resolved) continue;
+      used = candidate;
+      target = resolved;
+      break;
+    }
     if (!target) continue;
+    if (used !== raw) scanner.lastIndex = start + used.length;
     if (start > last) segments.push({ kind: "text", text: text.slice(last, start) });
     const label =
-      target.kind === "file" ? leafName(target.path) : raw;
-    segments.push({ kind: "target", text: raw, label, target });
-    last = start + raw.length;
+      target.kind === "file" ? leafName(target.path) : used;
+    segments.push({
+      kind: "target",
+      text: used,
+      label,
+      target,
+      ...(used === raw ? {} : { trimmed: true as const }),
+    });
+    last = start + used.length;
   }
   if (segments.length === 0) return [{ kind: "text", text }];
   if (last < text.length) segments.push({ kind: "text", text: text.slice(last) });
@@ -313,6 +409,20 @@ const SKIP_MDAST = new Set([
   "definition",
   "html",
 ]);
+
+/**
+ * The markdown URL of a file target.
+ *
+ * A relative path travels as itself, but an absolute one cannot travel as a
+ * URL at all: react-markdown's transform and the rehype sanitize schema both
+ * drop a value whose scheme they do not know, which left `C:\work\报告.docx`
+ * as an inert link. Percent-encoding the whole path leaves a scheme-less
+ * single segment that both layers keep, and the transcript's anchor decodes
+ * it back before opening — the same trick local images already use.
+ */
+function markdownFileUrl(path: string): string {
+  return /^(?:[a-z]:[\\/]|\/)/i.test(path) ? encodeURIComponent(path) : path;
+}
 
 /**
  * Turn bare file/URL tokens in markdown phrasing into link nodes so the
@@ -347,7 +457,7 @@ export function linkifyMdastTree(
           const url =
             segment.target.kind === "url"
               ? segment.target.url
-              : segment.target.path;
+              : markdownFileUrl(segment.target.path);
           next.push({
             type: "link",
             url,

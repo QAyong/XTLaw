@@ -11257,6 +11257,14 @@ are withdrawn with ADR 0165.
   - Each sent reference renders as a compact leaf-name chip (icon + name),
     not as a full `@path`. The tooltip and accessible name keep the
     canonical path. Quoted and scratch-absolute paths are included.
+  - A reference written inside CJK prose chips only the reference
+    (`看 @docs/a.md，然后呢`), and a shortened chip is confirmed against the
+    filesystem first: a guess that matches nothing stays plain text.
+  - A Windows path (`@C:\work\报告.docx`) chips like its forward-slashed twin
+    and keeps the composer's spelling, and an attached `合同.docx` chips like
+    `docs/合同.docx`; documents, archives, media and screenshots count.
+  - An absolute reference in an assistant answer opens from the transcript
+    link: it travels percent-encoded so URL sanitization keeps it.
   - A chip plus a short prompt keeps the user plate content-sized; it does
     not stretch to the `min(82%, 600px)` ceiling.
   - Clicking the HTML chip opens the work-panel browser on that file.
@@ -11277,8 +11285,10 @@ are withdrawn with ADR 0165.
   ADR 0163, ADR 0241, ADR 0262, ADR 0263, `08-meta/decisions-log.md` (D320)
 - **Acceptance**: C (conversation & stream), Quality
 - **Milestone**: M5
-- **Status**: Unit-covered (`chat-links.test.mjs`, `transcript-file-chips.test.mjs`,
-  `fs-panel-guard.test.mjs`, `transcript-style.test.mjs`); full UI journey Draft (run only in a capable environment when this surface changes)
+- **Status**: Unit-covered (`chat-links.test.mjs`, `verified-chat-files.test.mjs`,
+  `transcript-file-chips.test.mjs`, `fs-panel-guard.test.mjs`,
+  `transcript-style.test.mjs`); full UI journey Draft (run only in a capable
+  environment when this surface changes)
 
 #### E2E-CHAT-shorthand-file-ref-opens-the-matching-file
 

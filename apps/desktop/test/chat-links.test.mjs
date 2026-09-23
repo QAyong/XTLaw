@@ -350,3 +350,220 @@ test("adjacent parenthesis-wrapped URLs all remain independently linkable", () =
   assert.equal(segments.filter(s => s.kind === "target").length, 1000);
   assert.equal(segments.map(s => s.text).join(""), source);
 });
+
+test("cjk prose right after a bare url stays outside the link", () => {
+  // The reported shape: a pasted URL followed by Chinese with no separator,
+  // ending in the @file reference the composer serialized.
+  const source =
+    "阅读这个：https://my.feishu.cn/docx/HeEhd04npo7vdBxnLQBcKZYDnqh，按照这里面文档的格式，制作该文件同样的表，格式为word文档，路径为桌面文件夹@C:\\Users\\dev\\.pi-desktop\\scratch\\s1\\pasted\\pasted-abc-合同.docx";
+  const segments = splitChatText(source, ROOT);
+  assert.deepEqual(
+    segments.filter((s) => s.kind === "target").map((s) => s.target),
+    [
+      {
+        kind: "url",
+        url: "https://my.feishu.cn/docx/HeEhd04npo7vdBxnLQBcKZYDnqh",
+      },
+      // The `@` reference the composer serialized after the sentence is its
+      // own chip, not part of the URL and not plain text either.
+      {
+        kind: "file",
+        path: "C:\\Users\\dev\\.pi-desktop\\scratch\\s1\\pasted\\pasted-abc-合同.docx",
+      },
+    ],
+  );
+  assert.equal(segments[0].text, "阅读这个：");
+  // The sentence between the URL and the reference stays prose.
+  assert.equal(
+    segments[2].text,
+    "，按照这里面文档的格式，制作该文件同样的表，格式为word文档，路径为桌面文件夹",
+  );
+  assert.equal(segments.at(-1).kind, "target");
+  assert.equal(segments.at(-1).label, "pasted-abc-合同.docx");
+  assert.equal(segments.map((s) => s.text).join(""), source);
+});
+
+test("markdown rewriting keeps cjk prose out of a bare url link", () => {
+  const tree = {
+    type: "root",
+    children: [
+      {
+        type: "paragraph",
+        children: [
+          { type: "text", value: "阅读这个：https://example.com/a，再看看文档" },
+        ],
+      },
+    ],
+  };
+  linkifyMdastTree(tree, ROOT);
+  const nodes = tree.children[0].children;
+  assert.deepEqual(
+    nodes.map((node) => node.type),
+    ["text", "link", "text"],
+  );
+  assert.equal(nodes[1].url, "https://example.com/a");
+  assert.equal(nodes[2].value, "，再看看文档");
+});
+
+test("a url body ends at the first character it cannot carry unescaped", () => {
+  for (const [source, url] of [
+    // A backslash (a Windows path) ends the link, not the next space.
+    ["See https://example.com/a\\report.docx", "https://example.com/a"],
+    // CJK letters end it too, with or without CJK punctuation.
+    ["See https://example.com/page页面", "https://example.com/page"],
+    ["See https://example.com/a页面", "https://example.com/a"],
+    ["See https://example.com/a。", "https://example.com/a"],
+    // Percent-encoded and ASCII paths stay whole.
+    [
+      "See https://example.com/%E4%B8%AD%E6%96%87/page",
+      "https://example.com/%E4%B8%AD%E6%96%87/page",
+    ],
+    [
+      "See https://example.com/a?q=1&b=2#frag",
+      "https://example.com/a?q=1&b=2#frag",
+    ],
+  ]) {
+    const segments = splitChatText(source, ROOT);
+    assert.equal(
+      segments.find((s) => s.kind === "target").target.url,
+      url,
+      source,
+    );
+    assert.equal(segments.map((s) => s.text).join(""), source);
+  }
+});
+
+test("an unencoded cjk path ends the link at its first non-ascii character", () => {
+  // Documented limit of the ASCII body: browsers copy such paths encoded.
+  const source = "见 https://zh.wikipedia.org/wiki/中国 页面";
+  const segments = splitChatText(source, ROOT);
+  assert.equal(
+    segments.find((s) => s.kind === "target").target.url,
+    "https://zh.wikipedia.org/wiki/",
+  );
+  assert.equal(segments.map((s) => s.text).join(""), source);
+});
+
+test("documents, archives and media are bare-name files", () => {
+  // Reported: `合同.docx` stayed plain text while `docs/合同.docx` already
+  // chipped, because the known-extension list held only source and image
+  // formats. A chat attaches documents, so those count too.
+  assert.equal(parseFileRef("报告.docx"), "报告.docx");
+  assert.equal(parseFileRef("归档.zip"), "归档.zip");
+  assert.equal(parseFileRef("录音.mp4"), "录音.mp4");
+  // Word-like extensions that read as prose stay out on purpose.
+  assert.equal(parseFileRef("store.messages"), null);
+  assert.equal(parseFileRef("i.e."), null);
+});
+
+test("a windows path is a path, separators and all", () => {
+  // Reported: `@C:\…\合同.docx` rendered as plain text because a backslash
+  // path was judged as a bare name and `.docx` was not a known extension.
+  assert.deepEqual(
+    resolvePreviewTarget("@C:\\Users\\dev\\报告.docx", ROOT),
+    { kind: "file", path: "C:\\Users\\dev\\报告.docx" },
+  );
+  const segments = splitChatText(
+    "见 @C:\\Users\\dev\\pasted\\pasted-abc-合同.docx 请审",
+    ROOT,
+  );
+  const files = segments.filter((s) => s.kind === "target");
+  assert.equal(files.length, 1);
+  assert.equal(files[0].label, "pasted-abc-合同.docx");
+  // The composer's own spelling is kept, so a chip names exactly the
+  // attachment ref the same file was pasted as.
+  assert.equal(files[0].target.path, "C:\\Users\\dev\\pasted\\pasted-abc-合同.docx");
+  // A directory without an extension is still not a file.
+  assert.deepEqual(splitChatText("看 C:\\Users\\dev 目录", ROOT), [
+    { kind: "text", text: "看 C:\\Users\\dev 目录" },
+  ]);
+});
+
+test("a reference glued to cjk prose chips only the reference", () => {
+  // Reported: `@docs/a.md，然后呢` chipped a path called `a.md，然后呢`.
+  const punctuated = splitChatText("看 @docs/a.md，然后呢", ROOT);
+  assert.deepEqual(punctuated.map((s) => s.kind), ["text", "target", "text"]);
+  assert.equal(punctuated[1].text, "@docs/a.md");
+  assert.deepEqual(punctuated[1].target, { kind: "file", path: "docs/a.md" });
+  assert.equal(punctuated[2].text, "，然后呢");
+  // CJK letters end it too, at the extension.
+  const letters = splitChatText("看 @docs/架构.md然后继续", ROOT);
+  assert.deepEqual(letters[1].target, { kind: "file", path: "docs/架构.md" });
+  assert.equal(letters[2].text, "然后继续");
+  // A line reference survives; the prose after it does not.
+  const line = splitChatText("看 @src/a.ts:12，第 12 行", ROOT);
+  assert.equal(line[1].text, "@src/a.ts:12");
+  assert.deepEqual(line[1].target, { kind: "file", path: "src/a.ts" });
+  // Closing punctuation after a windows path stays outside the chip.
+  const wrapped = splitChatText("见 @C:\\Users\\dev\\报告.docx）", ROOT);
+  assert.equal(wrapped[1].target.path, "C:\\Users\\dev\\报告.docx");
+  assert.equal(wrapped.at(-1).text, "）");
+});
+
+test("a name carrying the delimiter characters still resolves as itself", () => {
+  const segments = splitChatText("见 @报告（终稿）.md 一下", ROOT);
+  assert.deepEqual(segments[1].target, { kind: "file", path: "报告（终稿）.md" });
+  assert.equal(segments[1].label, "报告（终稿）.md");
+});
+
+test("an extension is a short ascii run", () => {
+  assert.equal(parseFileRef("docs/报告.终稿"), null);
+  assert.equal(parseFileRef("docs/a.md，然后呢"), null);
+  assert.equal(parseFileRef("docs/合同.docx"), "docs/合同.docx");
+});
+
+test("a truncated candidate is never a directory prefix", () => {
+  // `app.v2` is a dotted directory, not the file the writer named, so the
+  // extension-anchored candidate must not chip it.
+  assert.deepEqual(splitChatText("看 @C:\\work\\app.v2\\说明，谢谢", ROOT), [
+    { kind: "text", text: "看 @C:\\work\\app.v2\\说明，谢谢" },
+  ]);
+});
+
+test("a shortened reference is marked as trimmed", () => {
+  // The transcript verifies a shortened chip like a bare candidate instead of
+  // trusting it as an explicit composer ref (verified-chat-files).
+  const shortened = splitChatText("看 @docs/a.md，然后呢", ROOT);
+  assert.equal(shortened[1].trimmed, true);
+  const whole = splitChatText("看 @docs/a.md 然后呢", ROOT);
+  assert.equal(whole[1].text, "@docs/a.md");
+  assert.equal(whole[1].trimmed, undefined);
+});
+
+test("an absolute file reference travels percent-encoded in markdown", () => {
+  // A drive path has no URL scheme the markdown layer would keep, so the link
+  // url is encoded; the transcript anchor decodes it before opening.
+  const windows = "见 @C:\\Users\\dev\\报告.docx 请审";
+  const windowsTree = {
+    type: "root",
+    children: [{ type: "paragraph", children: [{ type: "text", value: windows }] }],
+  };
+  linkifyMdastTree(windowsTree, ROOT);
+  const windowsLink = windowsTree.children[0].children.find((n) => n.type === "link");
+  assert.equal(windowsLink.url, encodeURIComponent("C:\\Users\\dev\\报告.docx"));
+  assert.equal(windowsLink.url.includes(":"), false);
+  assert.equal(decodeURIComponent(windowsLink.url), "C:\\Users\\dev\\报告.docx");
+  assert.equal(windowsLink.children[0].value, "@C:\\Users\\dev\\报告.docx");
+
+  const scratch = "见 @/tmp/scratch/pasted/uuid-photo.png 吧";
+  const scratchTree = {
+    type: "root",
+    children: [{ type: "paragraph", children: [{ type: "text", value: scratch }] }],
+  };
+  linkifyMdastTree(scratchTree, ROOT);
+  const scratchLink = scratchTree.children[0].children.find((n) => n.type === "link");
+  assert.equal(scratchLink.url, encodeURIComponent("/tmp/scratch/pasted/uuid-photo.png"));
+
+  // A workspace-relative path still travels as itself.
+  const relativeTree = {
+    type: "root",
+    children: [
+      { type: "paragraph", children: [{ type: "text", value: "见 docs/a.md 吧" }] },
+    ],
+  };
+  linkifyMdastTree(relativeTree, ROOT);
+  assert.equal(
+    relativeTree.children[0].children.find((n) => n.type === "link").url,
+    "docs/a.md",
+  );
+});

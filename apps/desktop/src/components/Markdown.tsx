@@ -582,6 +582,15 @@ function Anchor({
     if (rel) {
       e.preventDefault();
       openFileRef(rel, baseDir);
+      return;
+    }
+    // A chat reference may be absolute: it travels percent-encoded so URL
+    // sanitization keeps it (chat-links), and the opener's own containment
+    // rules still decide whether it opens.
+    const absolute = absoluteImagePath(href);
+    if (absolute) {
+      e.preventDefault();
+      openFileRef(absolute, baseDir);
     }
   };
   return (

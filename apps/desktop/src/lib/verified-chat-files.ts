@@ -6,10 +6,15 @@ type FileSegment = Extract<ChatTextSegment, { kind: "target" }> & {
   target: { kind: "file"; path: string };
 };
 
-/** Explicit composer refs need no speculative lookup to retain their chip. */
+/**
+ * Explicit composer refs need no speculative lookup to retain their chip. A
+ * reference the scan had to shorten to reach (`看 @docs/a.md，然后呢`) is a
+ * guess about where the reference ends, so it is confirmed like a bare token
+ * rather than trusted: an unconfirmed guess stays readable text.
+ */
 function needsVerification(segment: ChatTextSegment): segment is FileSegment {
   return segment.kind === "target" && segment.target.kind === "file" &&
-    !segment.text.startsWith("@");
+    (segment.trimmed === true || !segment.text.startsWith("@"));
 }
 
 export function verifiedChatSegments(

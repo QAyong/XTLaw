@@ -142,3 +142,23 @@ test("the shared queue caps concurrency and aborts work still waiting", async ()
   assert.deepEqual(await Promise.all(blockers), [true, true, true, true]);
   assert.equal(peak, 4);
 });
+
+test("a reference the scan shortened is verified like a bare candidate", () => {
+  // `看 @docs/a.md，然后呢` names one file, but the chip is a guess about where
+  // the reference ends, so it must be confirmed before it is trusted.
+  const text = "看 @docs/a.md，然后呢";
+  const segments = splitChatText(text, ROOT);
+  assert.deepEqual(chatFileCandidates(segments), ["docs/a.md"]);
+
+  const pending = verifiedChatSegments(segments, new Set());
+  assert.ok(pending.every((segment) => segment.kind === "text"));
+  assert.equal(pending.map((segment) => segment.text).join(""), text);
+
+  const confirmed = verifiedChatSegments(segments, new Set(["docs/a.md"]));
+  assert.deepEqual(
+    confirmed
+      .filter((segment) => segment.kind === "target")
+      .map((segment) => segment.target),
+    [{ kind: "file", path: "docs/a.md" }],
+  );
+});

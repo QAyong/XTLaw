@@ -1682,6 +1682,17 @@ Single message render — either user (plaintext) or assistant (markdown streami
   and structured attachments retain their existing chips without speculative
   lookup. At most 32 unique candidates per message are checked, with four
   concurrent lookups across visible rows; additional candidates remain text.
+ An extension is a short ASCII run, and a token carrying a separator is a path
+ whatever its extension — a composer's `@` reference may carry Windows `\`
+ separators, while a bare prose token is scanned on `/` only: an attached
+ `合同.docx` and `docs/合同.docx` chip alike, while `store.messages` stays
+ prose. Documents, archives, media and screenshots count as known names.
+ extension — and the CJK prose around it stays text; an absolute `@` reference
+ keeps the composer's own spelling, so the chip names the attachment exactly.
+ A reference the scan shortened to reach is verified like a bare candidate
+ rather than trusted as a composer ref, and an absolute reference in assistant
+ markdown travels percent-encoded so the link keeps a value that both the URL
+ transform and the sanitize schema allow.
   Confirmation is scoped to the message text, workspace path, and session; changing
   any of these discards old results and cancels queued work. Newly created
   files are reconsidered when the message remounts or its scope changes, not
@@ -1704,8 +1715,12 @@ Single message render — either user (plaintext) or assistant (markdown streami
   in paths, queries, and fragments; an unmatched closing parenthesis wrapping
   the URL in prose stays outside the link. Sentence punctuation immediately
   after a closing URL parenthesis stays outside as well; suffixes such as
-  `(draft).html` remain part of the URL. Plain clicks — including markdown
-  links, autolinked URLs, inline-code URLs, and remote images — follow the
+  `(draft).html` remain part of the URL. A bare URL body ends at the first
+  character it cannot carry unescaped, so CJK prose — and the `@file`
+  reference a message serializes right after the URL — stays outside the
+  link; ASCII and percent-encoded paths stay whole. Plain clicks — including
+  markdown links, autolinked URLs, inline-code URLs, and remote images —
+  follow the
   persisted Link open destination setting (Work panel browser by default, or
   the system default browser). Right-clicking a link opens a body-level
   context menu with Open in default browser, Open in work panel, and Copy

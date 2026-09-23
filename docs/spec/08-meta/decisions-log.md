@@ -6947,3 +6947,38 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
 - Only those three are converted. pi's collector reads nothing else, so `Grep`,
   `Glob`, `Bash`, plugin and MCP names keep the spelling we register, and the
   summarized text changes only where pi consumes the name.
+
+## 2026-09-23 — A bare URL ends where its body ends (D621)
+
+- The chat link scan ends a bare URL at the first character a URL body cannot
+  carry unescaped (RFC 3986 plus `%`) instead of at the next whitespace. CJK
+  prose follows a pasted URL with no separator, so the whitespace-delimited
+  scan linked a whole sentence — including the `@file` reference serialized
+  after it — as one URL in the transcript bubble.
+- Balanced URL parentheses, a closing prose wrapper, and sentence punctuation
+  after a closing parenthesis keep the behavior `04-ux/08-component-spec.md`
+  §5 records; ASCII and percent-encoded paths stay whole, and an unencoded
+  non-ASCII path ends the link at its first such character.
+- Renderer only: no host protocol, IPC, storage, or permission change.
+  Regression coverage lives in `chat-links.test.mjs`.
+
+## 2026-09-23 — A reference is a chip wherever the composer put it (D622)
+
+- The chat link resolver treats a Windows separator as a separator, so
+  `@C:\…\合同.docx` is a path like `C:/…/合同.docx`, and an absolute `@`
+  reference keeps the composer's own spelling — which is what makes a
+  transcript chip name the attachment the file was pasted as. Documents,
+  archives, media and screenshots joined the known-extension list, so an
+  attached `合同.docx` chips like `docs/合同.docx` instead of staying text.
+- An extension must be a short ASCII run, and a reference glued to CJK prose is
+  chipped up to the reference (`看 @docs/a.md，然后呢`) instead of naming a path
+  called `a.md，然后呢` that could never open. A name that really carries those
+  characters (`报告（终稿）.md`) still resolves as itself.
+- Renderer only: no host protocol, IPC, storage, or permission change.
+  Regression coverage lives in `chat-links.test.mjs`, and the chip rules are
+  recorded in `04-ux/08-component-spec.md` §5.
+
+- A shortened reference is confirmed like a bare candidate, and an absolute
+  file reference in assistant markdown travels percent-encoded, so both the
+  URL transform and the sanitize schema keep the value and the anchor opens it
+  (`Markdown.tsx` decodes it; containment is still `fs/resolveRef`'s).

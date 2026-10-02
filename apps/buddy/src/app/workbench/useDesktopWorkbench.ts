@@ -25,6 +25,7 @@ import { WorkbenchPersistence } from '@/workbench/services/WorkbenchPersistence'
 import { WorkingCopyService } from '@/workbench/services/WorkingCopyService'
 import { ActiveTaskProjection } from './ActiveTaskProjection'
 import { ContextTabProjection } from './ContextTabProjection'
+import { createDesktopSelectionReferences } from './createDesktopSelectionReferences'
 import { registerDesktopContributions } from './registerDesktopContributions'
 import { restoreTaskInputViews } from './restoreTaskInputViews'
 import { TaskWorkspacePool } from './TaskWorkspacePool'
@@ -121,7 +122,8 @@ export function useDesktopWorkbench(options: { api: LexoraDesktopApi, events: Ap
       const resources = task.workspace.composer.resources.value.length
       const quotes = ((task.workspace.composer.composerContent.value?.attrs as { quotes?: unknown[] } | undefined)?.quotes?.length ?? 0) > 0
       const sessionReferences = ((task.workspace.composer.composerContent.value?.attrs as { sessionReferences?: unknown[] } | undefined)?.sessionReferences?.length ?? 0) > 0
-      return Boolean(text || resources || quotes || sessionReferences)
+      const resourceQuotes = (task.workspace.composer.composerContent.value?.attrs?.resourceQuotes?.length ?? 0) > 0
+      return Boolean(text || resources || quotes || resourceQuotes || sessionReferences)
     }
     try {
       const draft = await api.localChat.composerDrafts.get(view.resource.id)
@@ -575,7 +577,8 @@ export function useDesktopWorkbench(options: { api: LexoraDesktopApi, events: Ap
     await inputs.flush().catch(options.onError)
     return saved
   }
-  return { api, renderers, fileToolbarTargets, fileView, closeContextFiles, readingPositions, discardTask, prepareTaskDeletion, activeTask, activeResource: activity.resource, backupError, controller, copies, models, pool, persistence, initialize, flush, dispose, openTask, newTask, startTaskWithSkill, openFile, dropResource, language, get initialized() {
+  const selectionReferences = createDesktopSelectionReferences({ controller, pool, language, openFile, resources: options.resources, ready: () => initialized.value, independent: () => stores.applicationSettings.config.value?.desktop.contextPanelMode === 'independent', locateFile: target => api.localChat.spaces.readFile(target), editSelection: api.selectionReferenceMenu?.executeEdit })
+  return { selectionReferences, api, renderers, fileToolbarTargets, fileView, closeContextFiles, readingPositions, discardTask, prepareTaskDeletion, activeTask, activeResource: activity.resource, backupError, controller, copies, models, pool, persistence, initialize, flush, dispose, openTask, newTask, startTaskWithSkill, openFile, dropResource, language, get initialized() {
     return initialized.value
   }, get navigationVersion() {
     return navigationVersion

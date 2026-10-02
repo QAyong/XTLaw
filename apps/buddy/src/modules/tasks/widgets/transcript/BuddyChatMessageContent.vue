@@ -13,6 +13,7 @@ import { formatFileSize } from '@/shared/lib/formatFileSize'
 import { FileIcon, FolderIcon } from '@/shared/ui/file-icon'
 import BuddyChatMarkdownContent from '@/shared/ui/markdown/DesktopMarkdownContent.vue'
 import BuddyImagePreview from '@/shared/ui/media/BuddyImagePreview.vue'
+import ResourceQuoteStrip from '@/shared/ui/selection/ResourceQuoteStrip.vue'
 import { resolveBuddyAttachmentPreviewUrl } from '../../model/attachments/chatAttachmentView'
 import { getChatMessageDisplayText, getChatMessageImageLabels, getChatMessageUserContent } from '../../model/transcript/chatMessageContent'
 import { useResourceHighlight } from '../attachments/useResourceHighlight'
@@ -145,6 +146,7 @@ function handleMarkdownLink(href: string) {
       @update:show="updatePreviewOpen"
     />
     <ChatQuoteStrip :quotes="structuredUserContent?.userContent.quotes ?? []" :language="language" />
+    <ResourceQuoteStrip v-if="structuredUserContent?.userContent.resourceQuotes?.length" :quotes="structuredUserContent.userContent.resourceQuotes" :language="language" />
     <ChatSessionReferenceStrip :references="structuredUserContent?.userContent.sessionReferences ?? []" :language="language" />
     <NScrollbar
       v-if="attachmentViews.length"

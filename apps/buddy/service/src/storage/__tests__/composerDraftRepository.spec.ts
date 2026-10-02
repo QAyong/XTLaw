@@ -54,6 +54,17 @@ describe('composerDraftRepository', () => {
     expect(initial.content).toEqual(createBuddyUserContent('Hello'))
   })
 
+  it('restores file excerpt snapshots without creating attachments or comments', () => {
+    const database = createDatabase()
+    const repository = createComposerDraftRepository(database)
+    const initial = repository.open(createOpenInput())
+    const quote = { id: 'file-quote', text: 'frozen excerpt', source: { kind: 'file' as const, title: 'auth.ts', file: { spaceId: 'space', directoryId: 'directory', revision: 1, path: 'auth.ts' }, format: 'source' as const } }
+    const saved = repository.save({ ...initial, content: { ...initial.content, resourceQuotes: [quote] }, expectedRevision: 0, now: initial.updatedAt })
+    expect(createComposerDraftRepository(database).findById(initial.draftId)?.content.resourceQuotes).toEqual([quote])
+    expect(saved.content.panelResourceIds).toEqual([])
+    expect(saved.content.body).toEqual(initial.content.body)
+  })
+
   it('opens one canonical draft per scope and persists the complete initial snapshot', () => {
     const database = createDatabase()
     seedSpace(database)

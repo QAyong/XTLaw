@@ -1,6 +1,6 @@
 import type { BuddyMessageQuote } from '@buddy-shared/conversation/buddyUserContent'
 import type { Editor } from '@tiptap/core'
-import { BUDDY_QUOTE_COUNT_LIMIT, buddyMessageQuoteSchema } from '@buddy-shared/conversation/buddyUserContent'
+import { BUDDY_QUOTE_COUNT_LIMIT, BUDDY_QUOTE_TOTAL_TEXT_LIMIT, buddyMessageQuoteSchema } from '@buddy-shared/conversation/buddyUserContent'
 import { closeHistory } from '@tiptap/pm/history'
 
 export type ChatQuoteResult = 'added' | 'duplicate' | 'limit' | 'unavailable'
@@ -17,8 +17,11 @@ export function addChatQuote(editor: Editor | undefined, quote: BuddyMessageQuot
     && (item.textOffset === undefined || quote.textOffset === undefined || item.textOffset === quote.textOffset))) {
     return 'duplicate'
   }
-  if (quotes.length >= BUDDY_QUOTE_COUNT_LIMIT)
+  const resourceQuotes: readonly { text: string }[] = editor.state.doc.attrs.resourceQuotes ?? []
+  if (quotes.length + resourceQuotes.length >= BUDDY_QUOTE_COUNT_LIMIT
+    || [...quotes, ...resourceQuotes, quote].reduce((total, item) => total + item.text.length, 0) > BUDDY_QUOTE_TOTAL_TEXT_LIMIT) {
     return 'limit'
+  }
   editor.view.dispatch(closeHistory(editor.state.tr).setDocAttribute('quotes', [...quotes, parsed.data]))
   editor.view.dispatch(closeHistory(editor.state.tr))
   return 'added'

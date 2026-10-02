@@ -1,6 +1,6 @@
 # 架构概览
 
-**最后更新：** 2026-09-28
+**最后更新：** 2026-10-02
 
 **适用范围：** `apps/buddy/`（Lexora Buddy 桌面应用）
 
@@ -115,6 +115,36 @@ sequenceDiagram
     Svc->>DB: 写入该任务的记录
 ```
 
+### 4.3 工作台文字选区引用（第一批）
+
+文件编辑器、只读源码和 Markdown 预览分别采集选区，统一交给工作台引用服务；不是把文件伪装成一条聊天消息，也不是广播给所有对话。
+
+```mermaid
+flowchart LR
+    Source["文件 / Markdown 选区<br/>冻结文字与来源"]
+    Workbench["工作台引用服务<br/>捕获来源与草稿身份"]
+    Menu["组件右键菜单<br/>明确一个目标"]
+    Draft["目标草稿<br/>追加引用，保留最新正文"]
+    Send["现有发送与历史通路<br/>保存并展示快照"]
+    Source --> Workbench --> Menu
+    Menu -->|"重新校验来源和目标"| Draft
+    Draft -->|"用户自行发送"| Send
+```
+
+| 文件或标识 | 中文含义 | 职责 |
+|---|---|---|
+| `src/shared/ui/selection/workbenchSelectionReferences.ts` | 工作台公共引用服务 | 捕获来源与目标、去重、写入前重验、追加最新草稿 |
+| `src/app/workbench/createDesktopSelectionReferences.ts` | 桌面目标适配器 | 根据真实分屏、资源标签页关联和可写状态确定候选，不用最近焦点猜目标 |
+| `resourceQuotes` | 用户内容里的资源引用字段 | 保存冻结片段、文件来源与可用位置；与原聊天引用 `quotes` 并存 |
+| `src/shared/ui/selection/ResourceSelectionQuoteMenu.vue` | 资源选区组件菜单 | 使用现有 NDropdown（下拉菜单组件）承载适用的编辑操作和引用目标，限制主菜单与子菜单宽度 |
+| `lexora:selection-reference:edit` | 受限选区编辑通道 | 仅允许可信主渲染器主框架调用固定编辑命令，不接受任意脚本或角色 |
+
+引用写入只改变指定草稿的引用区域，不自动发送、不新建任务、不切换分屏或抢输入框焦点。菜单编辑操作先恢复来源选区；Monaco（源码编辑器）的撤销、重做和全选在原编辑器执行，复制等操作沿用宿主编辑命令。
+
+目标身份包含草稿、编辑器、对话目标和导航世代；切走后返回同一草稿也不能接受旧操作。模型接收的是标为不可信上下文的冻结片段，不重新读取原文件，也不增加文件访问授权。
+
+当前只完成文件/Markdown 第一批接入。浏览器按钮式元素拾取、网页桥接和隔离插件接口仍待实现；完整设计及验证边界见 [Spec-013：工作台选区引用与多分屏目标](../specs/feature-013-workbench-selection-reference.md)。
+
 ## 5. 目录职责
 
 | 目录 | 职责 |
@@ -154,7 +184,7 @@ sequenceDiagram
 以下约束来自代码本身，改动时必须保持：
 
 - **权限不能向上越级。** 子运行、子会话的权限不得超过所属会话的权限上限，由 `isExecutionProfileWithin()` 限制。见 `service/src/storage/turnRequestRepository.ts`、`service/src/chat/ChatTurnService.ts`、`service/src/agent/sessions/BuddySessionFactory.ts`。
-- **主进程每个 IPC 入口都校验发送方窗口。** 全部 `register*Ipc` 处理器都调用 `assertTrustedSender()`。见 `electron/main/ipc.ts`。
+- **桌面窗口 IPC 校验发送方窗口和主框架。** `electron/main/ipc.ts` 使用 `assertTrustedSender()` 或 `requireTrustedWindow()` 校验；选区编辑入口另通过固定命令枚举与严格结构校验，不接受任意脚本或角色。
 - **新任务的出厂默认权限是"智能审批"。** 由 `BUDDY_DEFAULT_APPROVAL_POLICY = 'policy'` 和 `BUDDY_DEFAULT_EXECUTION_PROFILE = 'workspace_write'` 决定，经 `resolveBuddyPermissionMode()` 解析为 `policy_approval`。见 `apps/buddy/shared/permissions/permissionMode.ts`。
 - **配置文件权限为 `0o600`。** 只有当前用户可以读写 `config.toml`。见 `electron/main/config/LexoraConfigStore.ts`。
 

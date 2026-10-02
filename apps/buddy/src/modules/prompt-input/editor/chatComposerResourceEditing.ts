@@ -85,7 +85,7 @@ export const ChatComposerDocument = Node.create({
   content: 'paragraph+',
 
   addAttributes() {
-    return { panelResourceIds: { default: [], rendered: false }, quotes: { default: null, rendered: false }, sessionReferences: { default: null, rendered: false } }
+    return { panelResourceIds: { default: [], rendered: false }, quotes: { default: null, rendered: false }, resourceQuotes: { default: null, rendered: false }, sessionReferences: { default: null, rendered: false } }
   },
 
   addProseMirrorPlugins() {

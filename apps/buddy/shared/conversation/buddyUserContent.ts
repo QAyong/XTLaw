@@ -1,11 +1,13 @@
 import { z } from 'zod'
 import { skillReferenceSchema } from '../skills/skillApi'
+import { spaceFileTargetSchema } from '../spaces/spaceFileApi'
 import { buddyLocalResourceSchema } from './localResource'
 
 export const buddyResourceIdSchema = z.string().regex(/^[A-Z0-9][\w-]{0,127}$/i)
 
 export const BUDDY_QUOTE_COUNT_LIMIT = 16
 export const BUDDY_QUOTE_TEXT_LIMIT = 32_768
+export const BUDDY_QUOTE_TOTAL_TEXT_LIMIT = 131_072
 export const BUDDY_SESSION_REFERENCE_TITLE_LIMIT = 80
 export const buddySessionReferenceSchema = z.object({
   id: buddyResourceIdSchema,
@@ -32,6 +34,30 @@ export const buddyMessageQuoteSchema = z.object({
 export type BuddyMessageQuote = z.infer<typeof buddyMessageQuoteSchema>
 
 export const buddyMessageQuotesSchema = z.array(buddyMessageQuoteSchema)
+  .max(BUDDY_QUOTE_COUNT_LIMIT)
+  .refine(quotes => new Set(quotes.map(quote => quote.id)).size === quotes.length)
+  .readonly()
+
+export const buddyResourceQuoteSchema = z.object({
+  id: buddyResourceIdSchema,
+  text: z.string().min(1).max(BUDDY_QUOTE_TEXT_LIMIT).refine(text => text.trim().length > 0),
+  textOffset: z.number().int().nonnegative().optional(),
+  range: z.object({
+    startLineNumber: z.number().int().positive(),
+    startColumn: z.number().int().positive(),
+    endLineNumber: z.number().int().positive(),
+    endColumn: z.number().int().positive(),
+  }).strict().refine(range => range.endLineNumber > range.startLineNumber
+    || (range.endLineNumber === range.startLineNumber && range.endColumn >= range.startColumn)).readonly().optional(),
+  source: z.object({
+    kind: z.literal('file'),
+    title: z.string().trim().min(1).max(512),
+    file: spaceFileTargetSchema.readonly(),
+    format: z.enum(['source', 'markdown']),
+  }).strict().readonly(),
+}).strict().readonly()
+export type BuddyResourceQuote = z.infer<typeof buddyResourceQuoteSchema>
+export const buddyResourceQuotesSchema = z.array(buddyResourceQuoteSchema)
   .max(BUDDY_QUOTE_COUNT_LIMIT)
   .refine(quotes => new Set(quotes.map(quote => quote.id)).size === quotes.length)
   .readonly()
@@ -74,9 +100,11 @@ export const buddyUserContentV1Schema = z.object({
     'Duplicate panel resource',
   ).readonly(),
   quotes: buddyMessageQuotesSchema.optional(),
+  resourceQuotes: buddyResourceQuotesSchema.optional(),
   sessionReferences: buddySessionReferencesSchema.optional(),
   version: z.literal(1),
-}).strict().readonly()
+}).strict().refine(content => (content.quotes?.length ?? 0) + (content.resourceQuotes?.length ?? 0) <= BUDDY_QUOTE_COUNT_LIMIT, 'Too many quotes').refine(content => !content.resourceQuotes?.length || [...content.quotes ?? [], ...content.resourceQuotes ?? []]
+  .reduce((total, quote) => total + quote.text.length, 0) <= BUDDY_QUOTE_TOTAL_TEXT_LIMIT, 'Quoted text exceeds total limit').readonly()
 
 export type BuddyUserContentV1 = z.infer<typeof buddyUserContentV1Schema>
 export type BuddyInlineNodeV1 = z.infer<typeof buddyInlineNodeV1Schema>
@@ -175,6 +203,7 @@ export function hasBuddyUserContent(content: BuddyUserContentV1 | null | undefin
     buddyUserContentToText(content).trim()
     || getBuddyUserContentResourceIds(content).length
     || content.quotes?.length
+    || content.resourceQuotes?.length
     || content.sessionReferences?.length,
   )
 }
@@ -197,4 +226,22 @@ export function buddyUserContentToText(
 
 export function buddyPromptDirectiveToText(directive: BuddyPromptDirective): string {
   return directive.directive === 'skill' ? `$${directive.value}` : directive.value
+}
+
+export function appendBuddyResourceQuote(content: BuddyUserContentV1, quote: BuddyResourceQuote): { result: 'added' | 'duplicate' | 'limit', content: BuddyUserContentV1 } {
+  const parsed = buddyResourceQuoteSchema.safeParse(quote)
+  if (!parsed.success)
+    return { result: 'limit', content }
+  const quotes = content.resourceQuotes ?? []
+  const candidate = parsed.data
+  if (quotes.some(item => item.source.file.spaceId === candidate.source.file.spaceId
+    && item.source.file.directoryId === candidate.source.file.directoryId
+    && item.source.file.revision === candidate.source.file.revision && item.source.file.path === candidate.source.file.path
+    && item.source.format === candidate.source.format && item.text === candidate.text
+    && item.textOffset === candidate.textOffset && JSON.stringify(item.range) === JSON.stringify(candidate.range))) {
+    return { result: 'duplicate', content }
+  }
+  const next = { ...content, resourceQuotes: [...quotes, candidate] }
+  const validated = buddyUserContentV1Schema.safeParse(next)
+  return validated.success ? { result: 'added', content: validated.data } : { result: 'limit', content }
 }

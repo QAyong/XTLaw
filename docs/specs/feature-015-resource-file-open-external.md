@@ -55,21 +55,100 @@
 - 改变现有文件预览 / 编辑、敏感文件脱敏与目录授权的既有策略。
 - 在 macOS / Linux 上定制额外的应用选择行为（统一交给 Electron `shell`）。
 
-## 4. 交互与文案
+## 4. 界面设计
 
-- 形态：工具条上一个“打开”按钮（图标 `Open20Regular`），点击展开下拉菜单；菜单两项（第一项“用默认应用打开”，第二项“在文件管理器中显示”），选择后菜单关闭并执行。
-- 菜单实现沿用工程既有做法（参考资源面板头部的“新建标签”菜单与浏览器工具条的菜单）。
-- 按钮位置：与现有工具条动作并排；文件标签放在 `DesktopDocumentToolbar` 的 `actions` 插槽内（与插件菜单 `resource.actions` 并列），制品标签复用同一位置。
-- 文案：
+### 4.1 位置
+
+按钮属于文件级动作，放在 `DesktopDocumentToolbar` 的 `actions` 插槽内，顺序为 `模式切换 → 打开按钮 → 插件动作`。
+
+**文件标签（选中文件后）**
+
+```
+┌────────────────────────────────────────────────────────────────────────────────┐
+│ math.ts               [预览][源码]   [⤢ 打开 ▾]   [⋯插件]    [↻] [≡] [▤]        │
+└────────────────────────────────────────────────────────────────────────────────┘
+        └────────文件视图工具条（teleport 进插槽）────────┘   └─刷新/换行/目录树─┘
+```
+
+**制品标签**
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│ report.html                     [预览][源码]  [⤢ 打开 ▾]          │ ← 名称 + 模式 + 动作
+│ /…/artifacts/report.html · HTML · 24 KB                          │ ← 路径 · 类型 · 大小 · 时间
+└──────────────────────────────────────────────────────────────────┘
+```
+
+- 文件标签未选中文件时（只显示面包屑与目录树），不出现该按钮。
+- 制品标签没有激活制品时不渲染 surface，按钮自然不存在。
+- 文件视图只注册在 `context` 位置，因此按钮只出现在资源面板（见第 7 节范围说明）。
+
+### 4.2 按钮形态
+
+- `NButton quaternary .buddy-icon-button`：图标 `Open20Regular` + 小号箭头 `ChevronDown16Regular`，表达“有菜单”。
+- `aria-haspopup="menu"`，`aria-expanded` 随展开状态。
+- 与旁边的插件菜单（`DesktopExtensionMenu`，图标 `MoreHorizontal20Regular`）同款视觉。
+- 备用简化版：只放 `Open20Regular`，与浏览器工具条 `⋯` 菜单同重量；可发现性略低，实现更省。
+
+### 4.3 菜单
+
+```
+                    ┌───────────────────────────────┐
+                    │ ⤢  用默认应用打开              │
+                    │ 📂 在文件管理器中显示           │
+                    └───────────────────────────────┘
+```
+
+- `NDropdown`：`trigger="click"`、`placement="bottom-end"`、`size="small"`，每项为图标 + 文案，与浏览器工具条菜单（`DesktopBrowserToolbar`）同构。
+- 选择后菜单关闭并执行；执行中按钮与菜单项一并禁用（沿用插件菜单的 `busy` 约定），不做 loading 动画。
+- **目录时（建议）**：菜单只显示一项「打开文件夹」（点击 = 资源管理器打开该目录）。对目录而言“用默认应用打开”与“打开文件夹”是同一件事，显示两项容易被误认为有区别；若希望实现更省，也可固定两项，行为仍按第 5 节语义表执行。
+
+### 4.4 图标与文案
+
+| 菜单项 | 图标 | 中文 | 英文 | 键 |
+|---|---|---|---|---|
+| 用默认应用打开 | `Open20Regular` | 用默认应用打开 | Open with default app | `desktop.context.openExternal`（新增） |
+| 在文件管理器中显示 | `FolderOpen20Regular` | 打开所在目录 | Open containing folder | `desktop.context.revealFile`（复用，已存在） |
+| 目录版单项 | `FolderOpen20Regular` | 打开文件夹 | Open folder | 复用 `desktop.context.revealFile` |
+
+失败提示（`useMessage().error(...)`，与插件菜单同一约定）：
 
 | 键 | 中文 | 英文 | 状态 |
 |---|---|---|---|
-| `desktop.context.openExternal` | 用默认应用打开 | Open with default app | 新增 |
-| `desktop.context.revealFile` | 打开所在目录 | Open containing folder | 复用（已存在） |
 | `desktop.context.openFailed` | 无法用外部应用打开该文件 | Could not open this file externally | 新增 |
 | `desktop.context.fileRevealFailed` | 无法打开文件所在目录 | Could not reveal this file | 复用（已存在） |
 
-- 无障碍：按钮与菜单项提供可访问名称；菜单支持键盘上下移动与 Esc 关闭。
+图标 `Open20Regular` / `FolderOpen20Regular` 与浏览器工具条的“打开外部 / 打开文件夹”一致，均已确认存在于当前依赖。
+
+### 4.5 状态、键盘与无障碍
+
+| 状态 | 表现 |
+|---|---|
+| 默认 | 与插件菜单按钮同款（透明底、`--buddy-text-secondary`） |
+| 悬停 / 聚焦 | 悬停底色 `--buddy-state-hover`；聚焦 `outline: 2px solid var(--buddy-focus-ring)`、`offset: -2px` |
+| 菜单展开 | 按钮保持高亮，菜单右缘与按钮对齐（`bottom-end`） |
+| 执行中 | 按钮与菜单项禁用 |
+| 执行失败 | 关闭菜单并弹出错误提示，按钮恢复可用 |
+
+- 键盘：`Tab → Enter/Space` 展开，`↑/↓` 移动，`Enter` 执行，`Esc` 关闭并把焦点还给按钮。
+- 无障碍：按钮与菜单项都提供可访问名称；不使用图标作为唯一语义来源。
+
+### 4.6 边界表现
+
+| 场景 | 表现 |
+|---|---|
+| 二进制 / 超大 / 无扩展名文件 | 菜单可用，交给系统程序处理（不受内置预览限制） |
+| 敏感文件（预览已脱敏） | 菜单可用，不额外加二次确认；差异记录见第 5 节 |
+| 文件已被删除 / 路径失效 | 提示失败，不静默 |
+| 面板很窄（约 360px） | 文件名称先省略；打开按钮与插件菜单保持不压缩（`flex: none`） |
+| 插件未提供任何文件动作 | 只剩 `[打开 ▾]`，与其他动作保持 6px 间距 |
+| 制品是目录 | 按 4.3 的目录规则显示 |
+
+### 4.7 设计取舍
+
+- 放在文档工具条而不是外层文件工具条：外层动作（刷新 / 换行 / 目录树）是视图级，打开动作属于当前文件，放进文件工具条更贴近对象。
+- 单按钮 + 菜单而不是分裂按钮：“用默认应用打开”与“在文件管理器中显示”使用频率接近，不预设主次；也避免工具条堆两个近似图标。
+- 用 `NDropdown` 而不是自定义菜单：与浏览器工具条、插件菜单同构，键位与关闭行为直接复用。
 
 ## 5. 行为与系统调用
 
@@ -122,7 +201,7 @@
 | `apps/buddy/src/modules/files/widgets/DesktopFilePreview.vue`、`DesktopFileEditor.vue` | 文件视图 | 在 `DesktopDocumentToolbar` 的 `actions` 插槽接入打开按钮 |
 | `apps/buddy/src/modules/tasks/widgets/context-panel/DesktopArtifactToolbar.vue`、`DesktopArtifactContextSurface.vue` | 制品工具条 | 接入同一个打开按钮，接线制品动作 |
 | `apps/buddy/src/modules/tasks/widgets/context-panel/DesktopTaskResourcePanel.vue` | 任务资源面板装配 | 把文件与制品的打开 / 定位动作传给各 surface |
-| `apps/buddy/src/i18n/locales/zh-CN/tasks.ts`、`en-US/tasks.ts` | 文案 | 第 4 节新增键 |
+| `apps/buddy/src/i18n/locales/zh-CN/tasks.ts`、`en-US/tasks.ts` | 文案 | 第 4.4 节新增键 |
 
 范围说明：文件视图只注册在资源面板（`locations: ['context']`），因此按钮天然只出现在资源面板；若后续文件视图被允许出现在主区，该按钮会随工具条一起出现，属于同一能力。
 
@@ -134,6 +213,7 @@
   - 空间文件：合法目标调用 `shell.openPath`；非法入参被 schema 拒绝；`openPath` 返回错误字符串时抛出。
   - 制品：合法 `{ conversationId, artifactId }` 调用 `shell.openPath` 或 `shell.showItemInFolder`；未授权 / 不存在的制品被拒绝。
 - 组件测试：打开按钮渲染菜单两项、点击触发对应回调；文件与制品工具条接入后按钮存在。
+- 为按钮与菜单项提供 `data-testid`（`file-open-menu`、`file-open-external`、`file-reveal`），与现有 `context-add-tab`、`browser-more` 的约定一致。
 - 类型检查与 lint：`pnpm check:buddy` 对应子项通过。
 
 ### 手工验收（Windows 为主，macOS / Linux 抽查）

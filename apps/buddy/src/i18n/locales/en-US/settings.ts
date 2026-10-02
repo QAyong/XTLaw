@@ -55,8 +55,8 @@ export default {
   'desktop.shortcuts.scope.main': 'Task pane',
   'desktop.shortcuts.scope.context': 'Context',
 
-  'desktop.settings.category.extensions': 'Workbench extensions',
-  'desktop.settings.categoryDescription.extensions': 'Install and manage commands and views for the workbench.',
+  'desktop.settings.category.extensions': 'Plugins',
+  'desktop.settings.categoryDescription.extensions': 'Install and manage plugins to add commands and views to the workbench.',
   'desktop.settings.category.browser': 'Browser',
   'desktop.settings.categoryDescription.browser': 'Configure screenshots, zoom, Energy Saver, and browsing data for the built-in browser.',
   'desktop.browser.preferences': 'Browsing preferences',

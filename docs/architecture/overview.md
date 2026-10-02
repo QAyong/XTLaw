@@ -130,6 +130,16 @@ sequenceDiagram
 | `apps/buddy/native/` | 原生代码（Rust）。桌宠等需要原生进程的能力 |
 | `packages/` | 仓库内共享包 |
 
+### 5.1 工作台插件与 Agent 内部扩展
+
+用户界面统一使用“插件”：它是可安装、启用、禁用、更新和卸载的功能包。内部代码使用 `Extension`（工作台扩展）作为这套机制的技术名称，不代表另一类可安装产品。`apps/buddy/platform/extensions/ExtensionService.ts`（插件运行管理服务）管理其生命周期，`apps/buddy/electron/main/extensions/SandboxedExtensionHost.ts`（隔离插件宿主）负责隔离执行。
+
+插件可以提供插件视图、命令、AI 工具和任务动作等。资源面板只是插件视图的一种展示容器，插件本身不属于资源面板；关闭标签页不等于禁用整个插件。
+
+`apps/buddy/service/src/agent/extensions/BuddyInProcessExtension.ts`（Agent 进程内扩展类型）则用于应用向底层 AI 运行时注入工具、策略和事件处理逻辑。`apps/buddy/service/src/agent/resources/createBuddyResourceLoader.ts`（Agent 资源加载器）关闭自动发现外部扩展，使用应用注入的内部扩展。用户安装的插件通过宿主受限接口贡献 AI 能力，不直接成为进程内扩展。
+
+术语规则与验收范围见 [Spec-012：插件术语统一](../specs/feature-012-plugin-terminology.md)。现有协议、清单文件名和安装包后缀保持不变。
+
 ## 6. 外部依赖
 
 | 依赖 | 用途 | 接入层 |

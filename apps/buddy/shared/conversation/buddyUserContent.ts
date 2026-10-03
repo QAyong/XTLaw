@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { browserElementSnapshotSchema, browserSelectionSourceSchema } from '../browser/browserSelection'
+import { timestampSchema } from '../runtime/apiValidation'
 import { skillReferenceSchema } from '../skills/skillApi'
 import { spaceFileTargetSchema } from '../spaces/spaceFileApi'
 import { buddyLocalResourceSchema } from './localResource'
@@ -42,7 +43,7 @@ export const buddyMessageQuotesSchema = z.array(buddyMessageQuoteSchema)
   .refine(quotes => new Set(quotes.map(quote => quote.id)).size === quotes.length)
   .readonly()
 
-export const buddyFileQuoteSchema = z.object({
+const buddyTextQuoteFields = {
   id: buddyResourceIdSchema,
   text: z.string().min(1).max(BUDDY_QUOTE_TEXT_LIMIT).refine(text => text.trim().length > 0),
   textOffset: z.number().int().nonnegative().optional(),
@@ -53,13 +54,26 @@ export const buddyFileQuoteSchema = z.object({
     endColumn: z.number().int().positive(),
   }).strict().refine(range => range.endLineNumber > range.startLineNumber
     || (range.endLineNumber === range.startLineNumber && range.endColumn >= range.startColumn)).readonly().optional(),
-  source: z.object({
-    kind: z.literal('file'),
-    title: z.string().trim().min(1).max(512),
-    file: spaceFileTargetSchema.readonly(),
-    format: z.enum(['source', 'markdown']),
-  }).strict().readonly(),
+}
+const buddyFileQuoteSourceSchema = z.object({
+  kind: z.literal('file'),
+  title: z.string().trim().min(1).max(512),
+  file: spaceFileTargetSchema.readonly(),
+  format: z.enum(['source', 'markdown']),
 }).strict().readonly()
+const buddyArtifactQuoteSourceSchema = z.object({
+  kind: z.literal('artifact'),
+  title: z.string().trim().min(1).max(512),
+  artifactId: buddyResourceIdSchema,
+  conversationId: buddyResourceIdSchema,
+  runId: buddyResourceIdSchema,
+  path: z.string().min(1).max(32_768),
+  updatedAt: timestampSchema,
+  format: z.enum(['source', 'markdown']),
+}).strict().readonly()
+export const buddyFileQuoteSchema = z.object({ ...buddyTextQuoteFields, source: buddyFileQuoteSourceSchema }).strict().readonly()
+export const buddyArtifactQuoteSchema = z.object({ ...buddyTextQuoteFields, source: buddyArtifactQuoteSourceSchema }).strict().readonly()
+export const buddyTextQuoteSchema = z.object({ ...buddyTextQuoteFields, source: z.union([buddyFileQuoteSourceSchema, buddyArtifactQuoteSourceSchema]) }).strict().readonly()
 export const buddyBrowserQuoteSchema = z.object({
   id: buddyResourceIdSchema,
   contentKind: z.literal('element'),
@@ -67,8 +81,10 @@ export const buddyBrowserQuoteSchema = z.object({
   source: browserSelectionSourceSchema,
   element: browserElementSnapshotSchema,
 }).strict().refine(quote => buddyQuoteSnapshotLength(quote) <= BUDDY_QUOTE_TEXT_LIMIT, 'Element snapshot exceeds quote limit').readonly()
-export const buddyResourceQuoteSchema = z.union([buddyFileQuoteSchema, buddyBrowserQuoteSchema])
+export const buddyResourceQuoteSchema = z.union([buddyTextQuoteSchema, buddyBrowserQuoteSchema])
 export type BuddyFileQuote = z.infer<typeof buddyFileQuoteSchema>
+export type BuddyArtifactQuote = z.infer<typeof buddyArtifactQuoteSchema>
+export type BuddyTextQuote = z.infer<typeof buddyTextQuoteSchema>
 export type BuddyBrowserQuote = z.infer<typeof buddyBrowserQuoteSchema>
 export type BuddyResourceQuote = z.infer<typeof buddyResourceQuoteSchema>
 export const buddyResourceQuotesSchema = z.array(buddyResourceQuoteSchema)
@@ -249,8 +265,13 @@ function sameResourceQuote(a: BuddyResourceQuote, b: BuddyResourceQuote): boolea
   }
   if ('element' in a || 'element' in b)
     return false
-  return a.source.file.spaceId === b.source.file.spaceId && a.source.file.directoryId === b.source.file.directoryId
-    && a.source.file.revision === b.source.file.revision && a.source.file.path === b.source.file.path && a.source.format === b.source.format
+  const sameSource = a.source.kind === 'artifact' && b.source.kind === 'artifact'
+    ? a.source.artifactId === b.source.artifactId && a.source.conversationId === b.source.conversationId
+    && a.source.runId === b.source.runId && a.source.updatedAt === b.source.updatedAt && a.source.path === b.source.path
+    : a.source.kind === 'file' && b.source.kind === 'file'
+      && a.source.file.spaceId === b.source.file.spaceId && a.source.file.directoryId === b.source.file.directoryId
+      && a.source.file.revision === b.source.file.revision && a.source.file.path === b.source.file.path
+  return sameSource && a.source.format === b.source.format
     && a.text === b.text && a.textOffset === b.textOffset && JSON.stringify(a.range) === JSON.stringify(b.range)
 }
 

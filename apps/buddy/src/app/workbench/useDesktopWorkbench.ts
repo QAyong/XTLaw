@@ -577,7 +577,7 @@ export function useDesktopWorkbench(options: { api: LexoraDesktopApi, events: Ap
     await inputs.flush().catch(options.onError)
     return saved
   }
-  const selectionReferences = createDesktopSelectionReferences({ controller, pool, language, openFile, browser: api.browser, resources: options.resources, ready: () => initialized.value, independent: () => stores.applicationSettings.config.value?.desktop.contextPanelMode === 'independent', locateFile: target => api.localChat.spaces.readFile(target), editSelection: api.selectionReferenceMenu?.executeEdit })
+  const selectionReferences = createDesktopSelectionReferences({ controller, pool, language, openFile, browser: api.browser, resources: options.resources, ready: () => initialized.value, independent: () => stores.applicationSettings.config.value?.desktop.contextPanelMode === 'independent', locateFile: target => api.localChat.spaces.readFile(target), readArtifactText: api.localChat.artifacts.readText, editSelection: api.selectionReferenceMenu?.executeEdit })
   return { selectionReferences, api, renderers, fileToolbarTargets, fileView, closeContextFiles, readingPositions, discardTask, prepareTaskDeletion, activeTask, activeResource: activity.resource, backupError, controller, copies, models, pool, persistence, initialize, flush, dispose, openTask, newTask, startTaskWithSkill, openFile, dropResource, language, get initialized() {
     return initialized.value
   }, get navigationVersion() {

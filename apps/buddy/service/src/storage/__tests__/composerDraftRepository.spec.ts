@@ -1,5 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite'
 import { afterEach, describe, expect, it } from 'vitest'
+import { artifactQuote } from '../../../../shared/artifacts/__tests__/artifactSelectionFixture'
 import { browserQuote } from '../../../../shared/browser/__tests__/browserSelectionFixture'
 import { createBuddyUserContent } from '../../../../shared/conversation/buddyUserContent'
 import {
@@ -75,6 +76,17 @@ describe('composerDraftRepository', () => {
     expect(restored.content.resourceQuotes).toEqual([browserQuote])
     expect(restored.content.panelResourceIds).toEqual([])
     expect(restored.content.body).toEqual(initial.content.body)
+  })
+
+  it('preserves artifact excerpts in the existing draft storage without attaching the original file', () => {
+    const database = createDatabase()
+    const repository = createComposerDraftRepository(database)
+    const initial = repository.open(createOpenInput())
+    repository.save({ ...initial, content: { ...initial.content, resourceQuotes: [artifactQuote] }, expectedRevision: 0, now: initial.updatedAt })
+    const saved = repository.findById(initial.draftId)!
+    expect(saved.content.resourceQuotes).toEqual([artifactQuote])
+    expect(saved.content.panelResourceIds).toEqual([])
+    expect(saved.content.body).toEqual(initial.content.body)
   })
 
   it('opens one canonical draft per scope and persists the complete initial snapshot', () => {

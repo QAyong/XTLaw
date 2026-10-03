@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { BuddyFileQuote, BuddyResourceQuote } from '@buddy-shared/conversation/buddyUserContent'
+import type { BuddyResourceQuote, BuddyTextQuote } from '@buddy-shared/conversation/buddyUserContent'
 import type { FileDocumentMode } from './fileDocumentPresentation'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import type { SelectionReferenceEditSource } from '@/shared/ui/selection/workbenchSelectionReferences'
@@ -7,7 +7,7 @@ import DesktopMarkdownContent from '@/shared/ui/markdown/DesktopMarkdownContent.
 import { readResourceTextSelection } from '@/shared/ui/selection/resourceQuoteSelection'
 import DesktopMonacoFile from './DesktopMonacoFile.vue'
 
-const props = withDefaults(defineProps<{ mode: FileDocumentMode | null, name: string, text?: string | null, imageUrl?: string | null, language: BuddyLocale, writeClipboardText: (text: string) => Promise<void>, wrap?: boolean, quoteSource?: BuddyFileQuote['source'], prepareQuote?: (quote: BuddyResourceQuote, x: number, y: number, isEditable?: boolean, editSource?: SelectionReferenceEditSource) => (() => void) | null }>(), { wrap: true })
+const props = withDefaults(defineProps<{ mode: FileDocumentMode | null, name: string, text?: string | null, imageUrl?: string | null, language: BuddyLocale, writeClipboardText: (text: string) => Promise<void>, wrap?: boolean, quoteSource?: BuddyTextQuote['source'], prepareQuote?: (quote: BuddyResourceQuote, x: number, y: number, isEditable?: boolean, editSource?: SelectionReferenceEditSource) => (() => void) | null }>(), { wrap: true })
 defineSlots<{ source?: () => unknown }>()
 function quoteText(event: MouseEvent) {
   if (!props.quoteSource || !props.prepareQuote || !(event.currentTarget instanceof HTMLElement))

@@ -1,6 +1,6 @@
-import type { BuddyFileQuote } from '@buddy-shared/conversation/buddyUserContent'
+import type { BuddyTextQuote } from '@buddy-shared/conversation/buddyUserContent'
 
-export function readResourceTextSelection(root: HTMLElement, selection: Selection | null, source: BuddyFileQuote['source']): BuddyFileQuote | null {
+export function readResourceTextSelection(root: HTMLElement, selection: Selection | null, source: BuddyTextQuote['source']): BuddyTextQuote | null {
   if (!selection || selection.isCollapsed || selection.rangeCount !== 1)
     return null
   const range = selection.getRangeAt(0)

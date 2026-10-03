@@ -1,9 +1,9 @@
-import type { BuddyResourceQuote } from '../buddyUserContent'
+import type { BuddyFileQuote } from '../buddyUserContent'
 import { describe, expect, it } from 'vitest'
 import { appendBuddyResourceQuote, BUDDY_QUOTE_COUNT_LIMIT, BUDDY_QUOTE_TEXT_LIMIT, buddyResourceQuoteSchema, buddyUserContentV1Schema, buddyUserMessageContentV1Schema, createBuddyUserContent, hasBuddyUserContent } from '../buddyUserContent'
 import { projectBuddyUserContent } from '../buddyUserContentProjection'
 
-const quote: BuddyResourceQuote = {
+const quote: BuddyFileQuote = {
   id: 'file-quote',
   text: 'const token = refresh()',
   source: { kind: 'file', title: 'auth.ts', file: { spaceId: 'space', directoryId: 'directory', revision: 1, path: 'auth.ts' }, format: 'source' },
@@ -28,7 +28,11 @@ describe('file excerpt snapshots', () => {
     expect(result.prompt).toContain('not access grants')
     expect(result.prompt).toContain('const token = refresh()')
     expect(result.prompt).toContain('auth.ts')
-    expect(result.prompt).toContain('startLineNumber')
+    expect(JSON.parse(result.prompt.split('\n')[1]!)).toEqual([{
+      source: { title: 'auth.ts', path: 'auth.ts', format: 'source' },
+      text: quote.text,
+      range: quote.range,
+    }])
     expect(result.prompt.endsWith('\n\nExplain')).toBe(true)
   })
 

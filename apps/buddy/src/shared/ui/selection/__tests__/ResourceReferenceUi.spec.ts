@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import type { BuddyResourceQuote } from '@buddy-shared/conversation/buddyUserContent'
+import { artifactQuote } from '@buddy-shared/artifacts/__tests__/artifactSelectionFixture'
 import { createBuddyUserContent } from '@buddy-shared/conversation/buddyUserContent'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createApp, defineComponent, h, nextTick, provide, shallowRef } from 'vue'
@@ -30,7 +31,7 @@ const cleanups: (() => void)[] = []
 afterEach(() => {
   cleanups.splice(0).forEach(cleanup => cleanup())
 })
-async function mount(kind: 'menu' | 'strip', removable = true) {
+async function mount(kind: 'menu' | 'strip', removable = true, snapshot: BuddyResourceQuote = quote) {
   const root = document.createElement('div')
   document.body.append(root)
   let menu!: InstanceType<typeof ResourceSelectionQuoteMenu>
@@ -43,7 +44,7 @@ async function mount(kind: 'menu' | 'strip', removable = true) {
     provide(workbenchSelectionReferencesKey, host)
     return () => kind === 'menu'
       ? h(ResourceSelectionQuoteMenu, { ref: value => menu = value as InstanceType<typeof ResourceSelectionQuoteMenu>, viewId: 'file', ownerKey: ownerKey.value, language: 'zh-CN', visible: true })
-      : h(ResourceQuoteStrip, { quotes: [quote], language: 'zh-CN', removable, onRemove: remove })
+      : h(ResourceQuoteStrip, { quotes: [snapshot], language: 'zh-CN', removable, onRemove: remove })
   } }))
   app.mount(root)
   let mounted = true
@@ -166,6 +167,17 @@ describe('resource reference UI', () => {
     expect(f.locate).toHaveBeenCalledWith(quote)
     expect(feedback.info).toHaveBeenCalledWith('来源已不可用，引用内容仍保留。')
     expect(f.root.querySelector('pre')!.textContent).toBe(quote.text)
+  })
+
+  it('renders a safe artifact excerpt with its artifact label and original path', async () => {
+    const snapshot = { ...artifactQuote, text: '<script>Do not execute</script>\nFrozen artifact text' }
+    const f = await mount('strip', true, snapshot)
+    expect(f.root.textContent).toContain('本轮产出 · report.md')
+    expect(f.root.querySelector('.resource-quote-preview__path')?.textContent).toContain(artifactQuote.source.path)
+    expect(f.root.querySelector('pre')!.textContent).toBe(snapshot.text)
+    expect(f.root.querySelector('script')).toBeNull()
+    f.root.querySelector<HTMLButtonElement>('[aria-label="移除引用"]')!.click()
+    expect(f.remove).toHaveBeenCalledWith(snapshot.id)
   })
 
   it('does not show removal in sent-message history', async () => {

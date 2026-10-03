@@ -1,10 +1,10 @@
-import type { BuddyFileQuote, BuddyResourceQuote } from '@buddy-shared/conversation/buddyUserContent'
+import type { BuddyResourceQuote, BuddyTextQuote } from '@buddy-shared/conversation/buddyUserContent'
 import type * as Monaco from 'monaco-editor/editor/editor.api.js'
 import type { SelectionReferenceEditSource } from './workbenchSelectionReferences'
 
 /** Freeze selection and restore the source editor only when an editing action is chosen. */
 export function registerMonacoResourceQuote(editor: Monaco.editor.IStandaloneCodeEditor, options: {
-  source: () => BuddyFileQuote['source']
+  source: () => BuddyTextQuote['source']
   prepare: (quote: BuddyResourceQuote, x: number, y: number, isEditable?: boolean, editSource?: SelectionReferenceEditSource) => (() => void) | null
   editable?: () => boolean
 }): Monaco.IDisposable {

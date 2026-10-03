@@ -31,7 +31,10 @@ watch(() => props.quotes.map(quote => quote.id), (ids, previous) => {
 })
 onBeforeUnmount(() => clearTimeout(timer))
 function label(quote: BuddyResourceQuote) {
-  return 'element' in quote ? `${quote.source.title} · ${new URL(quote.source.url).hostname || 'file'} · <${quote.element.tagName}>` : `${quote.source.title}${quote.range ? ` · L${quote.range.startLineNumber}–${quote.range.endLineNumber}` : ''}`
+  if ('element' in quote)
+    return `${quote.source.title} · ${new URL(quote.source.url).hostname || 'file'} · <${quote.element.tagName}>`
+  const title = quote.source.kind === 'artifact' ? `${t('desktop.chat.turnOutputs')} · ${quote.source.title}` : quote.source.title
+  return `${title}${quote.range ? ` · L${quote.range.startLineNumber}–${quote.range.endLineNumber}` : ''}`
 }
 async function locate(quote: BuddyResourceQuote) {
   if (!references || !await references.locate(quote))
@@ -47,7 +50,7 @@ async function locate(quote: BuddyResourceQuote) {
           <button type="button" class="resource-quote-card__preview" :aria-label="t('desktop.chat.resourceQuotePreview', { title: label(quote) })" @click.stop>
             <DesktopIcon :component="'element' in quote ? Globe20Regular : Document20Regular" class="resource-quote-card__icon" />
             <span class="resource-quote-card__body">
-              <small :title="'element' in quote ? quote.source.url : quote.source.file.path">{{ label(quote) }}</small>
+              <small :title="'element' in quote ? quote.source.url : quote.source.kind === 'file' ? quote.source.file.path : quote.source.path">{{ label(quote) }}</small>
               <span class="resource-quote-card__excerpt">{{ quote.text }}</span>
             </span>
           </button>
@@ -55,7 +58,7 @@ async function locate(quote: BuddyResourceQuote) {
         <section class="resource-quote-preview" :aria-label="t('desktop.chat.resourceQuotePreview', { title: label(quote) })">
           <header>{{ label(quote) }}</header>
           <p class="resource-quote-preview__path">
-            {{ 'element' in quote ? quote.source.url : quote.source.file.path }}
+            {{ 'element' in quote ? quote.source.url : quote.source.kind === 'file' ? quote.source.file.path : quote.source.path }}
           </p>
           <pre>{{ quote.text }}</pre>
           <pre v-if="'element' in quote">{{ JSON.stringify(quote.element, null, 2) }}</pre>

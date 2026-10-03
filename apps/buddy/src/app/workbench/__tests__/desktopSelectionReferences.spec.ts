@@ -1,6 +1,8 @@
 import type { TaskWorkspacePool } from '../TaskWorkspacePool'
 import type { TaskCapability } from '@/modules/tasks'
 import type { TaskResourcePanel } from '@/modules/tasks/contracts'
+import type { TaskArtifactContextTab } from '@/modules/tasks/model/context-panel/taskContextPanel'
+import { artifactQuote, selectionArtifact } from '@buddy-shared/artifacts/__tests__/artifactSelectionFixture'
 import { browserQuote } from '@buddy-shared/browser/__tests__/browserSelectionFixture'
 import { createBuddyUserContent } from '@buddy-shared/conversation/buddyUserContent'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -45,21 +47,100 @@ async function fixture() {
   const locateFile = vi.fn(async () => {})
   const openFile = vi.fn(async () => fileId)
   const browserStates = shallowRef({ 'browser-a': { sessionId: 'session', pageId: 'page', documentVersion: 1, url: 'https://example.com/', status: 'ready' } })
-  const resources = {
-    allTabs: shallowRef([{ id: 'files-a', scope: 'task:a' }, { id: 'browser-a', kind: 'browser', scope: 'task:a' }]),
-    activeTab: shallowRef({ id: 'browser-a' }),
-    browserStates,
-  } as unknown as TaskResourcePanel
-  const host = createDesktopSelectionReferences({ controller, pool, language: shallowRef('zh-CN'), resources: () => resources, independent: () => independent, ready: () => true, locateFile, openFile })
+  const artifactTab: TaskArtifactContextTab = { id: 'artifact:artifact-a', kind: 'artifact', scope: 'task:a', artifact: selectionArtifact, label: selectionArtifact.name, viewMode: 'preview' }
+  const allTabs = shallowRef([{ id: 'files-a', scope: 'task:a' }, { id: 'browser-a', kind: 'browser', scope: 'task:a' }, artifactTab])
+  const visibleTabs = shallowRef([artifactTab])
+  const activeTab = shallowRef({ id: 'browser-a' })
+  const selectTab = vi.fn((id: string) => activeTab.value = { id })
+  const readArtifactText = vi.fn(async (artifactId: string) => ({ artifactId, text: artifactQuote.text, language: 'markdown' }))
+  const resources = { allTabs, tabs: visibleTabs, activeTab, browserStates, selectTab } as unknown as TaskResourcePanel
+  const host = createDesktopSelectionReferences({ controller, pool, language: shallowRef('zh-CN'), resources: () => resources, independent: () => independent, ready: () => true, locateFile, openFile, readArtifactText })
   cleanups.push(() => {
     scope.stop()
     void controller.dispose()
   })
   const quote = { id: 'q', text: 'Frozen file text', source: { kind: 'file' as const, title: 'auth.ts', file, format: 'source' as const } }
-  return { a, b, fileId, controller, host, quote, resources, browserStates, draftsA, draftsB, tasks, keyA, locateFile, openFile, independent: () => independent = true }
+  return { a, b, fileId, controller, host, quote, resources, browserStates, draftsA, draftsB, tasks, keyA, locateFile, openFile, artifactTab, allTabs, visibleTabs, activeTab, selectTab, readArtifactText, independent: () => independent = true }
 }
 
-describe('desktop file quote adapter', () => {
+describe('desktop resource quote adapter', () => {
+  it('binds artifact references to their owning task and permits one explicit alternative target', async () => {
+    const f = await fixture()
+    f.activeTab.value = { id: f.artifactTab.id }
+    f.controller.focus(f.b)
+    const request = f.host.capture(f.artifactTab.id, artifactQuote)!
+    expect(request.defaultId).toBe(f.a)
+    f.draftsB.updateComposerContent('Newer question', userContentToChatComposerDocument(createBuddyUserContent('Newer question')))
+    expect(f.host.add(request, f.b)).toBe('added')
+    expect(chatComposerDocumentToUserContent(f.draftsA.composerContent.value).resourceQuotes).toBeUndefined()
+    expect(chatComposerDocumentToUserContent(f.draftsB.composerContent.value).resourceQuotes).toEqual([artifactQuote])
+    expect(f.draftsB.draft.value).toBe('Newer question')
+    expect(f.readArtifactText).not.toHaveBeenCalled()
+  })
+
+  it('requires an explicit artifact target in independent mode', async () => {
+    const f = await fixture()
+    f.activeTab.value = { id: f.artifactTab.id }
+    f.independent()
+    expect(f.host.capture(f.artifactTab.id, artifactQuote)?.defaultId).toBeNull()
+  })
+
+  it.each(['version', 'path', 'mode', 'scope', 'close', 'switch', 'independent'])('rejects an artifact operation after a %s source change', async (change) => {
+    const f = await fixture()
+    f.activeTab.value = { id: f.artifactTab.id }
+    const request = f.host.capture(f.artifactTab.id, artifactQuote)!
+    if (change === 'version')
+      f.artifactTab.artifact = { ...selectionArtifact, updatedAt: '2026-10-03T00:00:01.000Z' }
+    if (change === 'path')
+      f.artifactTab.artifact = { ...selectionArtifact, path: 'C:\\fixtures\\renamed.md' }
+    if (change === 'mode')
+      f.artifactTab.viewMode = 'source'
+    if (change === 'scope')
+      f.artifactTab.scope = 'task:b'
+    if (change === 'close')
+      f.allTabs.value = f.allTabs.value.filter(tab => tab.id !== f.artifactTab.id)
+    if (change === 'switch')
+      f.activeTab.value = { id: 'browser-a' }
+    if (change === 'independent')
+      f.independent()
+    expect(f.host.add(request, f.a)).toBe('unavailable')
+    expect(chatComposerDocumentToUserContent(f.draftsA.composerContent.value).resourceQuotes).toBeUndefined()
+  })
+
+  it('does not capture binary or directory artifact placeholders', async () => {
+    const f = await fixture()
+    f.activeTab.value = { id: f.artifactTab.id }
+    for (const artifact of [{ ...selectionArtifact, mimeType: 'application/pdf', name: 'report.pdf' }, { ...selectionArtifact, kind: 'directory' as const }]) {
+      f.artifactTab.artifact = artifact
+      expect(f.host.capture(f.artifactTab.id, artifactQuote)).toBeNull()
+    }
+  })
+
+  it('locates only an accessible retained artifact tab without opening a file or sending current text', async () => {
+    const f = await fixture()
+    expect(await f.host.locate(artifactQuote)).toBe(true)
+    expect(f.readArtifactText).toHaveBeenCalledWith(selectionArtifact.artifactId)
+    expect(f.selectTab).toHaveBeenCalledWith(f.artifactTab.id)
+    expect(f.openFile).not.toHaveBeenCalled()
+    f.selectTab.mockClear()
+    f.readArtifactText.mockRejectedValueOnce(new Error('Artifact deleted'))
+    expect(await f.host.locate(artifactQuote)).toBe(false)
+    expect(f.selectTab).not.toHaveBeenCalled()
+    f.visibleTabs.value = []
+    expect(await f.host.locate(artifactQuote)).toBe(false)
+  })
+
+  it('rejects a late locate result after the artifact tab closes', async () => {
+    const f = await fixture()
+    let finish!: (value: { artifactId: string, text: string, language: string }) => void
+    f.readArtifactText.mockImplementationOnce(() => new Promise(resolve => finish = resolve))
+    const pending = f.host.locate(artifactQuote)
+    f.visibleTabs.value = []
+    finish({ artifactId: selectionArtifact.artifactId, text: 'Current text', language: 'markdown' })
+    expect(await pending).toBe(false)
+    expect(f.selectTab).not.toHaveBeenCalled()
+  })
+
   it('associates browser tabs with their owning draft, not the focused pane', async () => {
     const f = await fixture()
     f.controller.focus(f.b)

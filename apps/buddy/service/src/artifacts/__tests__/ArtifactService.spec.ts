@@ -143,6 +143,27 @@ describe('artifactService', () => {
     })).rejects.toMatchObject({ code: 'PATH_OUTSIDE_GRANTED_DIRECTORY' })
   })
 
+  it('resolves ordinary files and directories by conversation, rejecting missing or outside targets', async () => {
+    const fixture = await createFixture()
+    const filePath = join(fixture.workspace, 'report.docx')
+    const directoryPath = join(fixture.workspace, 'reports')
+    await writeFile(filePath, 'fixture document')
+    await mkdir(directoryPath)
+    const [file, directory] = await fixture.service.presentOutputs({ conversationId: 'conversation-1', cwd: fixture.workspace, grants: fixture.grants, paths: [filePath, directoryPath] })
+    await expect(fixture.service.resolveExternalEntry('conversation-1', file!.id)).resolves.toEqual({ path: filePath, kind: 'file' })
+    await expect(fixture.service.resolveExternalEntry('conversation-1', directory!.id)).resolves.toEqual({ path: directoryPath, kind: 'directory' })
+    await expect(fixture.service.resolveExternalEntry('other-conversation', file!.id)).rejects.toMatchObject({ code: 'ARTIFACT_NOT_FOUND' })
+    const outsidePath = join(fixture.root, 'outside.docx')
+    await writeFile(outsidePath, 'outside')
+    fixture.repository.save({ ...file!, currentPath: outsidePath })
+    await expect(fixture.service.resolveExternalEntry('conversation-1', file!.id)).rejects.toMatchObject({ code: 'PATH_OUTSIDE_GRANTED_DIRECTORY' })
+    fixture.repository.save(file!)
+    await rm(filePath)
+    await expect(fixture.service.resolveExternalEntry('conversation-1', file!.id)).rejects.toThrow()
+    await mkdir(filePath)
+    await expect(fixture.service.resolveExternalEntry('conversation-1', file!.id)).rejects.toMatchObject({ code: 'VALIDATION_FAILED' })
+  })
+
   it('opens a presented HTML entry with its granted workspace root', async () => {
     const fixture = await createFixture()
     const entryPath = join(fixture.workspace, 'site', 'index.html')

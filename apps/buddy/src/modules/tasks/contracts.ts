@@ -205,6 +205,7 @@ export interface TaskChatWorkspace {
     getNodeDetail: LocalChatApi['conversations']['getNodeDetail']
     getChangeSet: LocalChatApi['changes']['get']
     readArtifactText: LocalChatApi['artifacts']['readText']
+    openArtifact: LocalChatApi['artifacts']['openExternal']
   }
   composer: TaskComposer
   execution: TaskExecution

@@ -6,12 +6,13 @@ import type {
   ArtifactRepository,
 } from '../storage/artifactRepository'
 import { randomUUID } from 'node:crypto'
-import { mkdir, readFile, stat, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, realpath, stat, writeFile } from 'node:fs/promises'
 import {
   basename,
   dirname,
   extname,
   isAbsolute,
+  relative,
   resolve,
   sep,
 } from 'node:path'
@@ -330,6 +331,18 @@ export class ArtifactService {
       bytes,
       resource: toArtifactResource(artifact),
     }
+  }
+
+  async resolveExternalEntry(conversationId: string, artifactId: string): Promise<{ path: string, kind: 'file' | 'directory' }> {
+    const artifact = this.#requireConversationArtifact(conversationId, artifactId)
+    const [path, root] = await Promise.all([realpath(artifact.currentPath), realpath(artifact.directoryRoot)])
+    const offset = relative(root, path)
+    if (offset === '..' || offset.startsWith(`..${sep}`) || isAbsolute(offset))
+      throw new ArtifactError('PATH_OUTSIDE_GRANTED_DIRECTORY')
+    const metadata = await stat(path)
+    if ((artifact.kind === 'file' && !metadata.isFile()) || (artifact.kind === 'directory' && !metadata.isDirectory()))
+      throw new ArtifactError('VALIDATION_FAILED')
+    return { path, kind: artifact.kind }
   }
 
   async resolveBrowserEntry(

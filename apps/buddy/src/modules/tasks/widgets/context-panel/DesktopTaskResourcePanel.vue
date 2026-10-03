@@ -5,12 +5,14 @@ import type { ContextPanelTab } from '@/modules/tasks/model/context-panel/taskCo
 import type { TaskResourcePanel } from '@/modules/tasks/state/context-panel/useTaskResourcePanel'
 import { computed, shallowRef } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
+import { resourceOpenTarget } from '@/modules/tasks/model/context-panel/resourceOpenTarget'
 import { useTaskEnvironment } from '@/modules/tasks/taskContext'
 import DesktopArtifactContextSurface from './DesktopArtifactContextSurface.vue'
 import DesktopBrowserContextSurface from './DesktopBrowserContextSurface.vue'
 import DesktopChangesContextSurface from './DesktopChangesContextSurface.vue'
 import DesktopFilesContextSurface from './DesktopFilesContextSurface.vue'
 import DesktopFileSpacePicker from './DesktopFileSpacePicker.vue'
+import DesktopResourceOpenMenu from './DesktopResourceOpenMenu.vue'
 import DesktopTaskContextPanel from './DesktopTaskContextPanel.vue'
 
 const props = withDefaults(defineProps<{
@@ -25,6 +27,7 @@ const { t } = useBuddyI18n(() => props.language)
 const fileSpacePickerOpen = shallowRef(false)
 const { browser, browserGuests, clipboard } = useTaskEnvironment()
 const activeTab = computed(() => props.panel.activeTab.value)
+const openTarget = computed(() => resourceOpenTarget(activeTab.value))
 const tabs = computed<ContextPanelTab[]>(() => props.panel.tabs.value.map((tab) => {
   if (tab.kind === 'view')
     return { id: tab.id, title: tab.label, icon: 'file' }
@@ -60,6 +63,9 @@ function add(kind: 'changes' | 'files' | 'browser') {
 <template>
   <DesktopFileSpacePicker v-model:show="fileSpacePickerOpen" :spaces="panel.fileSpaces.value" :language="language" @select="panel.openFiles" />
   <DesktopTaskContextPanel :active-tab-id="activeTab?.id ?? null" :tabs="tabs" :language="language" :can-add-changes="panel.canAddChanges.value" :can-add-files="Boolean(panel.fileEntry.value)" :maximized="maximized" @toggle-maximize="emit('toggleMaximize')" @add="add" @close-tab="panel.closeTab" @select-tab="panel.selectTab">
+    <template #headerActions>
+      <DesktopResourceOpenMenu :target="openTarget" :context="context" :language="language" />
+    </template>
     <DesktopFilesContextSurface :tab="activeTab?.kind === 'files' ? activeTab : null" :files="context.files" :has-tab="panel.hasTab" :language="language" @select="panel.selectFile">
       <template #file-toolbar="bindings">
         <slot name="file-toolbar" v-bind="bindings" />

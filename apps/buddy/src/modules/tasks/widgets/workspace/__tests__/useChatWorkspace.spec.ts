@@ -155,6 +155,7 @@ function createOwner(name: string) {
       },
       getChangeSet: async () => { throw new Error('Unused fixture operation') },
       readArtifactText: async () => { throw new Error('Unused fixture operation') },
+      openArtifact: async () => { throw new Error('Unused fixture operation') },
     },
   } satisfies TaskChatWorkspace
   return { delivered, workspace }

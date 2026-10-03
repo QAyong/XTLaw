@@ -456,6 +456,7 @@ export function useTaskCapability(options: UseTaskCapabilityOptions): TaskCapabi
       getNodeDetail: api.localChat.conversations.getNodeDetail,
       getChangeSet: api.localChat.changes.get,
       readArtifactText: api.localChat.artifacts.readText,
+      openArtifact: api.localChat.artifacts.openExternal,
     },
     composer: {
       target: execution.composerTarget.current,

@@ -29,6 +29,12 @@ export type LocalArtifact = DeepReadonly<z.infer<typeof artifactSchema>>
 
 export type LocalArtifactText = DeepReadonly<z.infer<typeof artifactTextSchema>>
 
+export const artifactTargetSchema = z.object({ conversationId: idSchema, artifactId: idSchema }).strict()
+export const artifactOpenRequestSchema = artifactTargetSchema.extend({ action: z.enum(['open', 'reveal', 'choose-app']) }).strict()
+export const artifactOpenResultSchema = z.object({ status: z.enum(['opened', 'choose-app', 'chooser-shown', 'cancelled']) }).strict()
+export type ArtifactOpenRequest = z.infer<typeof artifactOpenRequestSchema>
+export type ArtifactOpenResult = z.infer<typeof artifactOpenResultSchema>
+
 export const artifactsRequestSchemas = {
   artifactPreview: z.object({ artifactId: idSchema }).strict(),
   artifactText: z.object({ artifactId: idSchema }).strict(),
@@ -40,9 +46,11 @@ export const artifactsResponseSchemas = {
     path: z.string().refine(isAbsolutePath),
   }).strict(),
   artifactText: artifactTextSchema,
+  externalEntry: z.object({ path: z.string().refine(isAbsolutePath), kind: z.enum(['file', 'directory']) }).strict(),
 } as const
 
 export const artifactsRpc = {
+  resolveExternalEntry: { method: 'artifacts.resolveExternalEntry', input: artifactTargetSchema, response: artifactsResponseSchemas.externalEntry },
   readText: { method: 'artifacts.readText', input: artifactsRequestSchemas.artifactText, response: artifactsResponseSchemas.artifactText },
 } as const satisfies Record<string, RuntimeRequestContract>
 

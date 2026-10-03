@@ -8,6 +8,7 @@ import { subscribe } from '../subscribe'
 export function createActivityApi(): Pick<LocalChatApi, 'artifacts' | 'notifications' | 'changes' | 'runs' | 'approvals' | 'usage'> {
   return {
     artifacts: Object.freeze({
+      openExternal: input => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.artifactsOpenExternal, { ...input }),
       onChanged: listener => subscribe<ArtifactChangeNotice>(LOCAL_CHAT_IPC_CHANNELS.artifactsChanged, listener),
       readText: artifactId => ipcRenderer.invoke(
         LOCAL_CHAT_IPC_CHANNELS.artifactsReadText,

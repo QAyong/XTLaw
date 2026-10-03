@@ -20,7 +20,7 @@ const emit = defineEmits<{
   selectTab: [tabId: string]
   toggleMaximize: []
 }>()
-defineSlots<{ default?: () => unknown, toolbar?: () => unknown, icon?: (props: { tab: Tab }) => unknown }>()
+defineSlots<{ default?: () => unknown, toolbar?: () => unknown, headerActions?: () => unknown, icon?: (props: { tab: Tab }) => unknown }>()
 const { t } = useBuddyI18n(() => props.language)
 const panelId = `context-${useId()}`
 const menuOpen = shallowRef(false)
@@ -88,9 +88,12 @@ watch(() => [props.activeTabId, props.tabs.length], async () => {
           </button>
         </div>
       </NPopover>
-      <button v-if="maximized !== undefined" class="desktop-task-context-panel__add desktop-task-context-panel__maximize" type="button" data-testid="context-panel-maximize" :title="t(maximized ? 'desktop.context.restore' : 'desktop.context.maximize')" :aria-label="t(maximized ? 'desktop.context.restore' : 'desktop.context.maximize')" :aria-pressed="maximized" @click="emit('toggleMaximize')">
-        <DesktopIcon :component="maximized ? ArrowMinimize20Regular : ArrowMaximize20Regular" />
-      </button>
+      <div v-if="maximized !== undefined || $slots.headerActions" class="desktop-task-context-panel__header-actions">
+        <button v-if="maximized !== undefined" class="desktop-task-context-panel__add desktop-task-context-panel__maximize" type="button" data-testid="context-panel-maximize" :title="t(maximized ? 'desktop.context.restore' : 'desktop.context.maximize')" :aria-label="t(maximized ? 'desktop.context.restore' : 'desktop.context.maximize')" :aria-pressed="maximized" @click="emit('toggleMaximize')">
+          <DesktopIcon :component="maximized ? ArrowMinimize20Regular : ArrowMaximize20Regular" />
+        </button>
+        <slot name="headerActions" />
+      </div>
     </header>
     <div v-if="$slots.toolbar" class="desktop-task-context-panel__toolbar">
       <slot name="toolbar" />
@@ -260,7 +263,7 @@ watch(() => [props.activeTabId, props.tabs.length], async () => {
 .desktop-task-context-panel__toolbar { display: flex; min-width: 0; flex: none; min-height: var(--buddy-context-toolbar-height); align-items: center; border-bottom: 1px solid var(--buddy-border-subtle); }
 .desktop-task-context-panel__body { display: flex; flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
 .desktop-task-context-panel__add { display: grid; width: 2rem; height: 2rem; flex: none; align-self: center; place-items: center; border: 0; border-radius: var(--buddy-icon-button-radius); background: transparent; color: var(--buddy-text-secondary); cursor: pointer; }
-.desktop-task-context-panel__maximize { margin-left: auto; margin-right: 0.375rem; }
+.desktop-task-context-panel__header-actions { display: flex; flex: none; align-items: center; gap: 0.25rem; margin-left: auto; margin-right: 0.375rem; }
 .desktop-task-context-panel__add:hover, .desktop-task-context-panel__add.is-open { background: var(--buddy-state-hover); color: var(--buddy-text-strong); }
 .desktop-task-context-panel__add :deep(.n-icon) { transition: transform 150ms var(--buddy-motion-state-easing); }
 .desktop-task-context-panel__add.is-open :deep(.n-icon) { transform: rotate(45deg); }

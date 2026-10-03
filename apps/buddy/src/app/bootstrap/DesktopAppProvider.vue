@@ -263,6 +263,7 @@ const shellBindings: DesktopShellBindings = {
     getNodeDetail: api.localChat.conversations.getNodeDetail,
     getChangeSet: api.localChat.changes.get,
     readArtifactText: api.localChat.artifacts.readText,
+    openArtifact: api.localChat.artifacts.openExternal,
   },
   lifecycle,
   appInfo: shell.appInfo,

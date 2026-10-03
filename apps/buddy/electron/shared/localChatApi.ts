@@ -1,5 +1,5 @@
 import type { LocalConversationStatus } from '@buddy-shared/runs/conversationStatusApi'
-import type { ArtifactChangeNotice, LocalArtifactText } from '../../shared/artifacts/artifactApi'
+import type { ArtifactChangeNotice, ArtifactOpenRequest, ArtifactOpenResult, LocalArtifactText } from '../../shared/artifacts/artifactApi'
 import type { LocalAutomation, LocalAutomationCreateRequest, LocalAutomationListRequest, LocalAutomationMutationRequest, LocalAutomationOccurrenceListRequest, LocalAutomationOccurrencePage, LocalAutomationPage, LocalAutomationPreviewRequest, LocalAutomationPreviewResult, LocalAutomationRunNowResult, LocalAutomationUpdateRequest } from '../../shared/automation/automationApi'
 import type { ChangeOverviewRequest, ChangeSetChangeNotice, LocalChangeOverview, LocalChangeSetDetail } from '../../shared/changes/changeApi'
 import type { ConnectorChangeNotice, LocalConnector, LocalConnectorConfig, LocalConnectorCredential, LocalConnectorCredentialMutation } from '../../shared/connectors/connectorApi'
@@ -66,6 +66,7 @@ export const LOCAL_CHAT_IPC_CHANNELS = {
   artifactsChanged: 'lexora:buddy:artifacts:changed',
   changesChanged: 'lexora:buddy:changes:changed',
   artifactsReadText: 'lexora:buddy:artifacts:read-text',
+  artifactsOpenExternal: 'lexora:buddy:artifacts:open-external',
   automationChanged: 'lexora:buddy:automations:changed',
   automationsCreate: 'lexora:buddy:automations:create',
   automationsDelete: 'lexora:buddy:automations:delete',
@@ -229,6 +230,7 @@ export interface LocalChatApi {
   artifacts: {
     onChanged: (listener: (event: ArtifactChangeNotice) => void) => () => void
     readText: (artifactId: string) => Promise<LocalArtifactText>
+    openExternal: (input: ArtifactOpenRequest) => Promise<ArtifactOpenResult>
   }
   automations: {
     create: (input: LocalAutomationCreateRequest) => Promise<LocalAutomation>

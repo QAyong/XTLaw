@@ -1,244 +1,158 @@
-# Spec-015：资源文件用外部应用打开与在文件管理器中显示
+# Spec-015：当前资源标签的外部打开菜单
 
-**日期：** 2026-10-02
-**状态：** 方案已与用户确认，尚未实现或验收
-**基线：** master（`ccfdda6c`，2026-10-02）
+**原始日期：** 2026-10-02
+**更新日期：** 2026-10-03
+**状态：** 已实现；自动化验证通过，用户于 2026-10-03 确认开发版手动测试通过
+**代码基线：** master（`80cd0647`，已实现 Spec-014）
 
-> 本文档只描述方案，随本分支提交；截至提交时未修改产品代码。
+> 本版替代旧版方案：恢复下拉菜单，提供默认打开与文件管理器打开；默认打开失败时提供其他打开方式。目标仍按标签类型确定，不改为文件标签中选中的单个文件。
 
-## 1. 方案摘要
+## 1. 用户需求
 
-在资源面板的「文件」标签与「制品」标签的工具条上新增“打开”按钮：单按钮 + 下拉菜单，菜单包含两项——
+在资源面板头部、放大 / 还原按钮**右侧**增加文件夹图标按钮，点击展开打开菜单：
 
-1. **用默认应用打开**：交给系统关联程序打开文件（目录则由资源管理器打开）。
-2. **在文件管理器中显示**：文件用系统文件管理器高亮定位，目录则打开该目录。
-
-路径一律在服务端 / 主进程按授权解析，渲染层只提交“空间文件目标”或“制品 ID”，**不新增“打开任意绝对路径”的通用接口**（用户已确认走该方案）。
-
-已确认的取舍：
-
-- 覆盖范围只有「文件」标签与「制品」标签；「变更」标签本期不做。
-- 不做系统“打开方式”选择对话框。
-- 不新增键盘快捷键或命令面板命令。
-
-## 2. 背景与现状
-
-用户需求原文：给资源区提供一个文件打开按钮，可以用外部应用打开，里面还可以选择在文件管理器中打开。
-
-代码核查得到的现状：
-
-- **「文件」标签已有“在文件管理器中显示”的内核，但没有界面入口。** 渲染层上下文 `TaskChatWorkspace['context'].files` 已经带上 `revealFile`（`apps/buddy/src/app/bootstrap/DesktopAppProvider.vue`、`apps/buddy/src/modules/tasks/state/useTaskCapability.ts`、`apps/buddy/src/modules/tasks/contracts.ts` 三处装配），但全仓库没有一处 UI 调用；i18n 也已有 `desktop.context.revealFile`（打开所在目录）与 `desktop.context.fileRevealFailed`（无法打开文件所在目录）两个键，同样未接线。目前唯一实际调用者是任务侧栏的“打开空间目录”。
-- 现有 IPC `lexora:buddy:space-files:reveal`（`apps/buddy/electron/main/local-chat/spaces.ts`）的语义是：文件 → `shell.showItemInFolder`；目录 → `shell.openPath`。**没有“用默认应用打开文件”的入口。**
-- **「制品」标签没有任何打开 / 定位能力。** 制品记录里的 `path` 是服务端的绝对规范路径，但渲染层要打开它必须按 ID 解析（先例：主进程通过 `artifacts.resolveBrowserEntry` 把制品解析成浏览器可打开的本地文件，只服务于浏览器会话）。
-- **「变更」标签的 `path` 是授权相对路径**（由变更捕获服务按目录授权计算得出），不是绝对路径，无法直接交给系统打开，因此本期不做。
-- 文件视图（`files.preview` / `files.editor`）在 `registerDesktopContributions.ts` 中只注册到 `context` 位置，因此文件工具条只出现在资源面板，符合本期范围。
-- 工程安全约定：IPC 入参全部有 zod 严格校验，路径类操作都在服务端按空间目录授权 / revision 解析（`SpaceFileService.resolve` / `locate`），主进程只做 `shell.*` 调用。本方案顺着既有通路扩展。
-
-## 3. 需求边界
-
-**包含：**
-
-- 「文件」标签：当前预览 / 编辑文件的工具条显示“打开”按钮，菜单两项（默认应用打开、在文件管理器中显示）。
-- 「制品」标签：当前制品的工具条显示同一个按钮；制品为目录时同样适用。
-- 文件与目录在两个动作下的明确语义（见第 5 节）。
-- 系统调用失败时给出明确反馈（主进程返回的错误字符串 → 界面提示），中英文文案齐备。
-- 新增接口一律按“空间文件目标”或“制品 ID”解析路径，渲染层不接触绝对路径。
-- 组件复用：文件与制品共用一个打开按钮组件，避免两套实现。
-
-**不包含：**
-
-- 「变更」标签的打开 / 定位（路径体系不同，另行立项）。
-- 系统“打开方式”选择器（Windows `OpenAs` 对话框）与“用其他程序打开”。
-- 通用“打开任意绝对路径”的桌面 API。
-- 聊天消息卡片、任务侧栏、技能列表等其他位置的打开入口。
-- 保存后自动打开、双击树节点直接外部打开等联动行为。
-- 改变现有文件预览 / 编辑、敏感文件脱敏与目录授权的既有策略。
-- 在 macOS / Linux 上定制额外的应用选择行为（统一交给 Electron `shell`）。
-
-## 4. 界面设计
-
-### 4.1 位置
-
-按钮属于文件级动作，放在 `DesktopDocumentToolbar` 的 `actions` 插槽内，顺序为 `模式切换 → 打开按钮 → 插件动作`。
-
-**文件标签（选中文件后）**
-
-```
-┌────────────────────────────────────────────────────────────────────────────────┐
-│ math.ts               [预览][源码]   [⤢ 打开 ▾]   [⋯插件]    [↻] [≡] [▤]        │
-└────────────────────────────────────────────────────────────────────────────────┘
-        └────────文件视图工具条（teleport 进插槽）────────┘   └─刷新/换行/目录树─┘
+```text
+[标签…] [+]                    [放大 / 还原] [文件夹图标]
 ```
 
-**制品标签**
+- 第一项：**默认应用打开**（使用系统默认关联程序）。
+- 第二项：**文件夹打开**（在系统文件管理器中打开 / 定位）。
+- 当前文件没有默认关联应用时，提供**选择其他应用 / 打开方式**，不能只报错后结束。
+- 产出预览标签的目标是当前结果文件，例如生成的 `.docx`；文件标签的目标是该标签绑定的工作目录。
+- 浏览器标签暂不接入。`+` 的位置、显示条件和菜单逻辑保持不变。
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│ report.html                     [预览][源码]  [⤢ 打开 ▾]          │ ← 名称 + 模式 + 动作
-│ /…/artifacts/report.html · HTML · 24 KB                          │ ← 路径 · 类型 · 大小 · 时间
-└──────────────────────────────────────────────────────────────────┘
-```
+## 2. 标签与操作语义
 
-- 文件标签未选中文件时（只显示面包屑与目录树），不出现该按钮。
-- 制品标签没有激活制品时不渲染 surface，按钮自然不存在。
-- 文件视图只注册在 `context` 位置，因此按钮只出现在资源面板（见第 7 节范围说明）。
-
-### 4.2 按钮形态
-
-- `NButton quaternary .buddy-icon-button`：图标 `Open20Regular` + 小号箭头 `ChevronDown16Regular`，表达“有菜单”。
-- `aria-haspopup="menu"`，`aria-expanded` 随展开状态。
-- 与旁边的插件菜单（`DesktopExtensionMenu`，图标 `MoreHorizontal20Regular`）同款视觉。
-- 备用简化版：只放 `Open20Regular`，与浏览器工具条 `⋯` 菜单同重量；可发现性略低，实现更省。
-
-### 4.3 菜单
-
-```
-                    ┌───────────────────────────────┐
-                    │ ⤢  用默认应用打开              │
-                    │ 📂 在文件管理器中显示           │
-                    └───────────────────────────────┘
-```
-
-- `NDropdown`：`trigger="click"`、`placement="bottom-end"`、`size="small"`，每项为图标 + 文案，与浏览器工具条菜单（`DesktopBrowserToolbar`）同构。
-- 选择后菜单关闭并执行；执行中按钮与菜单项一并禁用（沿用插件菜单的 `busy` 约定），不做 loading 动画。
-- **目录时（建议）**：菜单只显示一项「打开文件夹」（点击 = 资源管理器打开该目录）。对目录而言“用默认应用打开”与“打开文件夹”是同一件事，显示两项容易被误认为有区别；若希望实现更省，也可固定两项，行为仍按第 5 节语义表执行。
-
-### 4.4 图标与文案
-
-| 菜单项 | 图标 | 中文 | 英文 | 键 |
-|---|---|---|---|---|
-| 用默认应用打开 | `Open20Regular` | 用默认应用打开 | Open with default app | `desktop.context.openExternal`（新增） |
-| 在文件管理器中显示 | `FolderOpen20Regular` | 打开所在目录 | Open containing folder | `desktop.context.revealFile`（复用，已存在） |
-| 目录版单项 | `FolderOpen20Regular` | 打开文件夹 | Open folder | 复用 `desktop.context.revealFile` |
-
-失败提示（`useMessage().error(...)`，与插件菜单同一约定）：
-
-| 键 | 中文 | 英文 | 状态 |
+| 当前标签 | 目标 | 系统默认打开 | 文件管理器打开 |
 |---|---|---|---|
-| `desktop.context.openFailed` | 无法用外部应用打开该文件 | Could not open this file externally | 新增 |
-| `desktop.context.fileRevealFailed` | 无法打开文件所在目录 | Could not reveal this file | 复用（已存在） |
+| 产出 / 制品预览，文件 | 当前标签的结果文件 | 系统关联应用打开文件 | 打开所在目录并定位该文件 |
+| 产出 / 制品预览，目录 | 当前结果目录 | 系统文件管理器打开目录 | 同样打开该目录 |
+| 文件标签 | 标签自身绑定的工作目录根 | 系统文件管理器打开目录 | 同样打开该目录 |
+| 浏览器、变更、通用工作台 / 插件视图、空面板 | 本期不支持 | 禁用 | 禁用 |
 
-图标 `Open20Regular` / `FolderOpen20Regular` 与浏览器工具条的“打开外部 / 打开文件夹”一致，均已确认存在于当前依赖。
+文件标签的行为**不随树中选中的文件变化**。即使预览 `report.docx`，头部菜单仍打开绑定的目录，不打开该文件。没有选中文件但绑定目录有效时，菜单仍可用。
 
-### 4.5 状态、键盘与无障碍
+“绑定目录”指标签 `target` 中的 `spaceId`、`directoryId`、`revision` 所指目录根，打开时明确使用 `path: ''`，不猜测当前文件的父目录或另一个会话的工作目录。
 
-| 状态 | 表现 |
+## 3. 下拉菜单与其他打开方式
+
+默认菜单固定两项，文件与目录均显示：
+
+```text
+[文件夹图标]
+┌──────────────────────┐
+│ 默认应用打开         │
+│ 文件夹打开           │
+└──────────────────────┘
+```
+
+- 文件默认打开成功后关闭菜单，不改变标签。
+- 文件已通过存在性 / 类型与访问校验，但默认打开失败时，提示用户可以选择其他应用，并在菜单增加「选择其他应用」。用户主动选择后启动系统打开方式选择器或应用选择对话框。
+- 不把所有错误都称为“没有默认应用”：Electron 的默认打开错误不能在所有平台可靠区分关联缺失与其他失败。统一说明“默认打开失败，可选择其他应用”；路径不存在、未授权等解析错误不进入此回退。
+- Windows 使用系统“打开方式”选择器；其他平台采用应用选择对话框，让用户明确选择应用后打开同一个已校验文件。
+- 取消选择是正常取消，不显示成功，也不显示失败。
+- 目录不提供选择其他应用；默认目录打开失败时正常提示错误，仍保留文件管理器动作。
+
+## 4. 界面与状态
+
+- 唯一入口在资源面板 header，不放进文件 / 制品内容工具条。
+- 用户开发预览后确认简化 UI：按钮只显示 `Folder20Regular`（文件夹图标），不显示「打开」文字或下拉箭头；尺寸为 `2rem × 2rem`，与放大 / 还原按钮一致，沿用透明底、圆角、悬停色和焦点环。
+- 菜单项只显示文字，不带图标；中文为「默认应用打开」「文件夹打开」，回退项为「选择其他应用」。英文为 “Default app”“Show in folder”“Choose another app”。
+- 纯图标按钮保留「打开当前标签资源」可访问名称、原生悬停提示及菜单展开状态，不以精简 UI 牺牲可访问性。
+- 右侧操作组只包含 `放大 / 还原 → 打开`；`+` 仍紧随标签滚动区，绝不移入此组。
+- 普通与最大化状态保持相同顺序；标签区沿用横向滚动，让出右侧按钮空间。
+- 无受支持目标时保留禁用按钮，执行中防止重复调用。
+- 切换活动标签、绑定目录或结果 ID 时关闭菜单、清除上一个目标的其他应用回退状态。
+- 点击时捕获当前目标；迟到的异步结果不得将回退选项或错误状态应用到新标签。
+- 键盘支持 Enter / Space 展开、方向键选择、Enter 执行、Esc 关闭；关闭后焦点回到按钮。
+- 外部打开针对磁盘文件，不自动保存未保存的编辑缓冲区。
+
+## 5. 安全解析与接口
+
+### 文件标签
+
+复用现有 `spaces.revealFile`（空间文件 / 目录的系统定位能力），传入该标签目录授权字段并将 `path` 置空。两个菜单动作对目录语义相同，不新增空间文件默认应用打开通道。
+
+现有主进程 `spaceFilesReveal` 会调用服务端 `spaceFilesRpc.locate` 校验授权与 revision，目录再交给 `shell.openPath`。不能原样提交当前 `tab.target.path`，因为它可能是选中文件。
+
+### 产出 / 制品标签
+
+新增按 `{ conversationId, artifactId }`（当前标签自身的结果标识）解析的安全动作，动作类型区分默认打开、文件管理器显示、选择其他应用。
+
+- 渲染层不提交任意绝对路径或应用启动命令。
+- 服务端验证结果可见性、所属会话、实际路径位于登记目录范围内、文件 / 目录存在且类型正确。
+- 主进程只对解析后的目标调用 `shell.openPath` / `shell.showItemInFolder`，选择其他应用前再次解析目标。
+- Windows 打开方式选择器使用固定系统程序及独立参数，不通过 shell 拼接文件路径；其他平台应用由本地对话框选择，不接受渲染层传入的程序路径。
+- 输入严格校验；无默认应用的回退只针对已校验的文件，不针对目录、无效目标或未授权路径。
+- `shell.openPath` 返回非空错误字符串视为失败。启动选择器仅表示已展示打开方式，不声称文件已经被某个应用成功打开。
+
+## 6. 实现范围
+
+| 位置 | 本次职责 |
 |---|---|
-| 默认 | 与插件菜单按钮同款（透明底、`--buddy-text-secondary`） |
-| 悬停 / 聚焦 | 悬停底色 `--buddy-state-hover`；聚焦 `outline: 2px solid var(--buddy-focus-ring)`、`offset: -2px` |
-| 菜单展开 | 按钮保持高亮，菜单右缘与按钮对齐（`bottom-end`） |
-| 执行中 | 按钮与菜单项禁用 |
-| 执行失败 | 关闭菜单并弹出错误提示，按钮恢复可用 |
+| `WorkbenchResourcePanel.vue` | 可选头部动作插槽，位于放大 / 还原右侧；保留 `+` 原逻辑 |
+| `DesktopTaskContextPanel.vue` | 透传头部插槽 |
+| `DesktopTaskResourcePanel.vue` 与打开菜单组件 | 根据活动标签建立目录 / 制品动作，提供两个菜单项及失败后的其他应用选项 |
+| 任务能力契约及两处装配 | 复用目录打开能力，增加制品动作 |
+| 制品协议、服务与消息桥 | 严格目标 / 动作契约、安全路径解析、默认打开 / 定位 / 选择应用 |
+| 中英文文案与相关测试 | 标签目标、菜单、回退、失败与访问边界 |
 
-- 键盘：`Tab → Enter/Space` 展开，`↑/↓` 移动，`Enter` 执行，`Esc` 关闭并把焦点还给按钮。
-- 无障碍：按钮与菜单项都提供可访问名称；不使用图标作为唯一语义来源。
+不为该入口修改 `DesktopFilePreview.vue`、`DesktopFileEditor.vue`、`DesktopArtifactToolbar.vue` 等内容工具条；不扩展浏览器、变更或插件视图。
 
-### 4.6 边界表现
+## 7. 验收标准
 
-| 场景 | 表现 |
-|---|---|
-| 二进制 / 超大 / 无扩展名文件 | 菜单可用，交给系统程序处理（不受内置预览限制） |
-| 敏感文件（预览已脱敏） | 菜单可用，不额外加二次确认；差异记录见第 5 节 |
-| 文件已被删除 / 路径失效 | 提示失败，不静默 |
-| 面板很窄（约 360px） | 文件名称先省略；打开按钮与插件菜单保持不压缩（`flex: none`） |
-| 插件未提供任何文件动作 | 只剩 `[打开 ▾]`，与其他动作保持 6px 间距 |
-| 制品是目录 | 按 4.3 的目录规则显示 |
+### 自动化
 
-### 4.7 设计取舍
+- [x] 打开位于放大 / 还原右边，`+` 保持原位置与既有菜单代码。
+- [x] 默认菜单两项分别调用对应动作；文件默认打开失败后提供其他打开方式。
+- [x] 文件标签无需选中文件即可打开目录；选择文件后目标仍为该标签的授权目录根。
+- [x] 制品动作使用当前标签的结果 ID 与所属会话，不接受额外路径 / 命令入参。
+- [x] 不存在、跨会话、目录越界或类型变化的结果被拒绝；解析失败不启动系统程序。
+- [x] 目录不出现文件打开方式回退；应用选择对话框取消不报错。
+- [x] 标签切换关闭旧菜单和清除回退，旧异步结果不污染新标签。
+- [x] 浏览器等不支持标签禁用；lint、类型检查、相关测试与构建通过。
 
-- 放在文档工具条而不是外层文件工具条：外层动作（刷新 / 换行 / 目录树）是视图级，打开动作属于当前文件，放进文件工具条更贴近对象。
-- 单按钮 + 菜单而不是分裂按钮：“用默认应用打开”与“在文件管理器中显示”使用频率接近，不预设主次；也避免工具条堆两个近似图标。
-- 用 `NDropdown` 而不是自定义菜单：与浏览器工具条、插件菜单同构，键位与关闭行为直接复用。
+验证记录（2026-10-03）：
 
-## 5. 行为与系统调用
+- 首轮 34 项测试通过，包括既有 IPC 可信调用者回归；最后一轮 8 个测试文件、60 项测试通过，包括任务能力及工作区装配回归。
+- 工作区完整 `pnpm --filter @uselexora/lexora-buddy lint` 通过，UI 静态设计检测无报告项。
+- `pnpm --filter @uselexora/lexora-buddy build:desktop` 通过，包含 `vue-tsc` 类型检查及主进程、预加载、界面构建；输出位于 `apps/buddy/.output/build/electron/`。
+- 开发预览后的 UI 精简：文件夹纯图标入口、纯文字短菜单；4 项菜单组件测试、修改文件 lint 与桌面类型检查通过。开发服务已热更新。
+- 用户手动验收通过后，提交前重新运行完整工作区 lint 与 `build:desktop`，最终 UI 版本的类型检查和桌面构建均通过。
+- 用户完成最终开发版预览后明确表示「手动测试已经通过」，本功能按该反馈完成本次手工验收。
+- 未运行完整 `pnpm check:buddy` 或安装包打包；未获得 macOS / Linux 的实机测试记录，不将 Windows 开发版验收外推为跨平台验证。
 
-| 动作 | 文件 | 目录 |
+### 开发版手工验收
+
+- [x] 用户于 2026-10-03 确认最终开发版手动测试通过，包含本次文件夹图标与简化文字菜单的最终版本。
+
+以下为验收场景定义。用户给出的是整体验收结论，未逐项提供操作记录，因此不额外声称每种文件类型、异常或键盘场景都已独立验证：
+
+- 生成 `.docx` 的预览标签：默认打开由关联应用打开当前文件，文件管理器动作定位同一文件。
+- 无默认关联应用的结果：提供其他打开方式，选择后交给指定应用；取消可正常返回。
+- 文件标签：两项均打开绑定工作目录，不受树中选中文件影响。
+- 目录制品：两项均打开该结果目录。
+- 多标签切换、普通 / 最大化、失败反馈与键盘操作正常；现有功能无回归。
+
+## 8. 当前不包含
+
+浏览器外部打开、当前选中文件的独立外部打开、任意路径接口、自动保存、自动打开、双击树节点外部打开、新快捷键及新设置。
+
+## 9. 实际接线与边界
+
+- 通用面板通过 `headerActions` 插槽提供右侧入口；`DesktopTaskResourcePanel.vue` 装配 `DesktopResourceOpenMenu.vue`（打开菜单）。`resourceOpenTarget.ts`（当前标签目标映射）确保文件标签始终使用 `path: ''`。
+- 新增 `artifacts.openExternal` 桌面 API，输入 `{ conversationId, artifactId, action }`，`action` 只允许 `open`、`reveal`、`choose-app`。
+- 主进程通过 `artifacts.resolveExternalEntry` 服务请求重新解析结果；服务核对所属会话、可见性、规范路径范围与实际类型。默认打开、定位与选择其他应用共用该解析。
+- 默认打开失败返回 `choose-app` 状态供菜单显示回退，不称其必然为“无关联程序”；已失效 / 未授权目标抛错，不展示回退。
+- Windows 使用固定系统目录下的 `rundll32.exe` 启动 `shell32.dll,OpenAs_RunDLL`，参数独立传递。返回 `chooser-shown` 只表示选择器进程已启动，不能观察用户最终取消或选择结果，也不提示“文件已打开”。
+- macOS / Linux 使用本地应用选择对话框；macOS 交给 `/usr/bin/open -a`，Linux 校验所选程序可执行后以单独文件参数启动。启动成功不等同于外部应用内部成功读取文件。
+
+## 10. 文件与术语说明
+
+| 原名称 | 中文含义 | 用途 |
 |---|---|---|
-| 用默认应用打开 | `shell.openPath(绝对路径)`：交给系统关联程序 | `shell.openPath(目录)`：资源管理器打开该目录 |
-| 在文件管理器中显示 | `shell.showItemInFolder(绝对路径)`：打开所在目录并高亮选中 | `shell.openPath(目录)`：打开该目录（与现有 reveal 语义一致） |
-
-- `shell.openPath` 返回非空字符串即为失败，主进程把该字符串作为错误抛出，界面按第 4 节文案提示。
-- 外部打开不受内置预览限制：二进制、超大文件、被预览策略脱敏的敏感文件，只要用户主动点击都允许交给系统程序处理；本差异需要在实现与验收中记录。
-
-## 6. 接口设计
-
-### 6.1 文件标签（空间文件，走既有授权通路）
-
-- 渲染层新增：`api.localChat.spaces.openFile(target: SpaceFileTarget): Promise<void>`。
-- 新增 IPC 通道：`lexora:buddy:space-files:open`（与现有 `…:reveal` 并列）。
-- 主进程实现：`electron/main/local-chat/spaces.ts` 中新增 handler，复用 `spaceFilesRpc.locate`（服务端按空间目录授权与 revision 解析）→ `shell.openPath(path)`；失败抛出。
-- 入参 schema 复用 `spaceFileTargetSchema`，不新增路径类入参。
-- 现有 `spaces.revealFile` 语义与实现保持不变，只作为菜单第二项。
-
-### 6.2 制品标签（按制品 ID 解析）
-
-- 渲染层新增：`api.localChat.artifacts.openExternal(input)` 与 `api.localChat.artifacts.reveal(input)`。
-- 新增 IPC 通道：`lexora:buddy:artifacts:open`、`lexora:buddy:artifacts:reveal`，输入 `{ conversationId, artifactId }`（严格 schema）。
-- 主进程：在 `electron/main/local-chat/activity.ts`（制品 `read-text` 已在此注册）新增 handler；路径解析经服务端完成——扩展现有“按制品解析本地条目”的能力（先例 `resolveArtifactEntry`，装配点在 `electron/main/app/DesktopIntegrations.ts`）为通用解析入口，返回 `{ path, kind }` 后由主进程调用 `shell.openPath` / `shell.showItemInFolder`。
-- 渲染层无法提交任意路径，只能提交制品 ID，保持现有 IPC 安全边界。
-
-### 6.3 渲染层装配（三处同步）
-
-| 文件 | 本次职责 |
-|---|---|
-| `apps/buddy/src/modules/tasks/contracts.ts` | `TaskChatWorkspace['context']` 增加 `openFile`、制品打开 / 定位两项 |
-| `apps/buddy/src/app/bootstrap/DesktopAppProvider.vue` | 同步 files / artifacts 装配 |
-| `apps/buddy/src/modules/tasks/state/useTaskCapability.ts` | 同步 files / artifacts 装配 |
-
-## 7. 实现要点
-
-| 文件 | 中文说明 | 本次职责 |
-|---|---|---|
-| `apps/buddy/shared/spaces/spaceFileApi.ts` | 空间文件协议 | 如需新增打开语义的 RPC / 类型在此扩展（默认复用 `locate`） |
-| `apps/buddy/shared/artifacts/artifactApi.ts` | 制品协议 | 新增打开 / 定位的请求 schema（`{ conversationId, artifactId }`） |
-| `apps/buddy/electron/shared/localChatApi.ts` | 渲染层本地 API 契约 | 新增通道常量与 `spaces.openFile`、`artifacts.openExternal` / `artifacts.reveal` 类型 |
-| `apps/buddy/electron/preload/local-chat/spaces.ts`、`…/activity.ts` | 预加载桥 | 暴露两个新 API |
-| `apps/buddy/electron/main/local-chat/spaces.ts` | 主进程空间文件 IPC | 新增“用默认应用打开”handler（`locate` → `shell.openPath`） |
-| `apps/buddy/electron/main/local-chat/activity.ts` | 主进程活动 IPC | 新增制品打开 / 定位 handler |
-| `apps/buddy/electron/main/app/DesktopIntegrations.ts` | 主进程服务装配 | 提供按制品 ID 解析本地路径的入口 |
-| `apps/buddy/service/src/artifacts/ArtifactService.ts`（或等价服务层） | 制品服务 | 如现有解析入口不足以覆盖“目录 + 文件”，在此补一个只返回路径与类型的解析方法 |
-| `apps/buddy/src/shared/ui/files/DesktopFileOpenButton.vue`（新增） | 打开按钮组件 | 单按钮 + 菜单，接收打开 / 定位两个动作 |
-| `apps/buddy/src/modules/files/widgets/DesktopFilePreview.vue`、`DesktopFileEditor.vue` | 文件视图 | 在 `DesktopDocumentToolbar` 的 `actions` 插槽接入打开按钮 |
-| `apps/buddy/src/modules/tasks/widgets/context-panel/DesktopArtifactToolbar.vue`、`DesktopArtifactContextSurface.vue` | 制品工具条 | 接入同一个打开按钮，接线制品动作 |
-| `apps/buddy/src/modules/tasks/widgets/context-panel/DesktopTaskResourcePanel.vue` | 任务资源面板装配 | 把文件与制品的打开 / 定位动作传给各 surface |
-| `apps/buddy/src/i18n/locales/zh-CN/tasks.ts`、`en-US/tasks.ts` | 文案 | 第 4.4 节新增键 |
-
-范围说明：文件视图只注册在资源面板（`locations: ['context']`），因此按钮天然只出现在资源面板；若后续文件视图被允许出现在主区，该按钮会随工具条一起出现，属于同一能力。
-
-## 8. 测试与验收
-
-### 自动化测试
-
-- 主进程单测（参考现有 `apps/buddy/electron/main/__tests__/localChatIpc.spec.ts` 的写法，mock `electron.shell`）：
-  - 空间文件：合法目标调用 `shell.openPath`；非法入参被 schema 拒绝；`openPath` 返回错误字符串时抛出。
-  - 制品：合法 `{ conversationId, artifactId }` 调用 `shell.openPath` 或 `shell.showItemInFolder`；未授权 / 不存在的制品被拒绝。
-- 组件测试：打开按钮渲染菜单两项、点击触发对应回调；文件与制品工具条接入后按钮存在。
-- 为按钮与菜单项提供 `data-testid`（`file-open-menu`、`file-open-external`、`file-reveal`），与现有 `context-add-tab`、`browser-more` 的约定一致。
-- 类型检查与 lint：`pnpm check:buddy` 对应子项通过。
-
-### 手工验收（Windows 为主，macOS / Linux 抽查）
-
-- [ ] 文件标签选中一个文本文件：菜单“用默认应用打开”能用关联程序打开；菜单“在文件管理器中显示”能在资源管理器中高亮该文件。
-- [ ] 文件标签选中一个目录节点：两个动作都能打开该目录。
-- [ ] 制品标签（文件）：两个动作按第 5 节语义生效。
-- [ ] 制品标签（目录）：两个动作都能打开该目录。
-- [ ] 二进制 / 超大 / 未知类型文件可被外部打开，不受内置预览限制。
-- [ ] 文件被删除或路径失效时给出明确失败提示，不静默。
-- [ ] 菜单键盘操作与 Esc 关闭正常，中英文文案正确。
-- [ ] 插件菜单（`resource.actions`）、预览 / 源码切换、目录树等既有功能无回归。
-
-## 9. 文件与术语说明
-
-| 名称 | 中文含义 | 说明 |
-|---|---|---|
-| `spaceFilesReveal` | 空间文件“在文件管理器中显示”通道 | 已有实现：文件高亮定位，目录打开 |
-| `spaceFilesOpen` | 空间文件“用默认应用打开”通道 | 本方案新增 |
-| `artifactsOpen` / `artifactsReveal` | 制品打开 / 定位通道 | 本方案新增，按制品 ID 解析 |
-| 制品 ID 解析 | 服务端按 `{ conversationId, artifactId }` 求本地规范路径 | 先例为浏览器打开的制品解析入口 |
-| 授权相对路径 | 变更记录里相对目录授权的路径 | 本期不处理，属「变更」标签后续方案 |
-
-## 10. 未决事项与风险
-
-- 「变更」标签的打开 / 定位需要“授权 + 相对路径”的另一套解析，单独立项；本方案不预留半成品接口。
-- 主进程错误文案目前计划复用固定提示；是否需要按错误类型细分（无关联程序 / 文件不存在 / 权限）在实现时确认，先用统一提示保证可发布。
-- 若后续需要在 macOS 上区分“用默认应用打开”和“用其他应用打开”，应另开方案，不在本期扩展。
+| `SpaceFileTarget` | 带授权的空间文件目标 | 置 `path: ''` 后表示标签绑定目录根 |
+| `artifactId` / `conversationId` | 结果标识 / 所属会话标识 | 按当前结果解析，不允许跨会话替换 |
+| `shell.openPath` | 系统默认打开 | 打开文件或目录，返回错误字符串时失败 |
+| `shell.showItemInFolder` | 文件管理器定位 | 打开所在目录并选中结果文件 |
+| IPC | 桌面进程间消息 | 严格校验渲染层提交的目标与动作 |

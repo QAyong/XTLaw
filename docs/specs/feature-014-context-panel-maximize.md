@@ -10,7 +10,7 @@
 
 ## 1. 方案摘要
 
-在资源面板头部最右端新增“最大化 / 还原”按钮；“新建标签（+）”仍跟在标签滚动区后，不移动到右侧按钮组。点击后收起聊天区，资源面板占满聊天区释放的空间；再次点击还原。
+在资源面板头部右侧新增“最大化 / 还原”按钮（Spec-015 接入后，其右侧还有文件夹打开菜单）；“新建标签（+）”仍跟在标签滚动区后，不移动到右侧按钮组。点击后收起聊天区，资源面板占满聊天区释放的空间；再次点击还原。
 
 实现上不新造一套状态，而是把既有的“聊天区隐藏”升级为面板内可见的一等状态：布局层（`WorkbenchLayout.vue`）已经支持隐藏聊天区后让资源面板填满可用宽度、隐藏失效的分隔线、普通最大化 / 还原切换不把临时全宽写回宽度偏好（最大化中拖动任务侧栏的既有边界见第 10 节）；会话级记忆规则沿用 Spec-002 与 Spec-010。
 
@@ -32,7 +32,7 @@
 - `apps/buddy/src/app/shell/DesktopShell.vue` 已持有 `chatPaneHidden`（聊天区隐藏）与 `contextOnLeft`（面板交换到左侧）两个视窗状态，并按会话/浏览模式恢复（`contextPanePlacement.ts`）。
 - `apps/buddy/src/workbench/browser/layout/WorkbenchLayout.vue` 在 `workspaceVisible=false` 时让资源面板 `flex: 1 1 0%` 填满、隐藏面板分隔线、不写回宽度偏好；这部分能力已经存在且已验收（Spec-002）。
 - 原缺口一：聊天区隐藏只有标题栏入口，且只在资源面板位于左侧时生效（`rightRegionIsChat`）。现新增 `toggleContextMaximize`，面板内按钮可在左右两侧切换同一个 `chatPaneHidden` 状态。
-- 原缺口二：资源面板头部只有标签栏和“新建标签”按钮。现直接在既有 `NPopover` 后追加原生最大化按钮，不重组头部布局。
+- 原缺口二：资源面板头部只有标签栏和“新建标签”按钮。Spec-014 在既有 `NPopover` 后追加原生最大化按钮；Spec-015 随后以头部动作插槽扩展右侧区域，`+` 仍保持原位置与行为。
 - `WorkbenchResourcePanel.vue` 是 workbench 层的通用容器组件，目前只被 `DesktopTaskContextPanel.vue` 使用，外加一个组件测试。改动必须保持向后兼容（不传新契约时不渲染新按钮）。
 
 ## 3. 需求边界
@@ -94,7 +94,7 @@
 
 ### 6.1 位置与结构
 
-最大化按钮作为独立原生 `<button>` 放在面板 header 最右端，使用 `margin-left: auto` 与 `margin-right: 0.375rem`。不新增右侧按钮组，不移动或修改 `+`；`+` 仍紧随标签滚动区，且仅在有标签时显示。DOM 顺序仍为 `标签滚动区 → 新建标签 → 最大化`，无标签时只保留最大化按钮。
+最大化按钮仍为原生 `<button>`，放在面板 header 右侧。Spec-015 接入后，使用右侧操作容器承接 `margin-left: auto` 与 `margin-right: 0.375rem`，容器内顺序为 `最大化 / 还原 → 文件夹打开菜单`；不移动或修改 `+`，它仍紧随标签滚动区，且仅在有标签时显示。未提供 `headerActions` 插槽时，只显示最大化按钮，保持本功能原入口。下列线框展示 Spec-014 单独的布局；与打开菜单组合后的布局见 Spec-015。
 
 ```
 资源面板 header（默认）
@@ -187,7 +187,7 @@
 - `Enter` / `Space` 触发切换；按钮为原生 `<button>`。
 - `aria-label` 随状态切换，`aria-pressed` 表达当前是否最大化；不使用图标作为唯一语义来源。
 - 悬停提示使用原生 `title`，与 `aria-label` 同步切换；不引入 `NTooltip` 或额外提示状态。
-- 按钮复用现有 `.desktop-task-context-panel__add` 样式，新加的 `.desktop-task-context-panel__maximize` 仅负责自身右对齐；不修改 `+` 的样式或布局。
+- 按钮复用现有 `.desktop-task-context-panel__add` 样式；Spec-015 接入后，右对齐由 `.desktop-task-context-panel__header-actions` 容器负责，不修改 `+` 的样式或布局。
 
 ### 6.6 设计取舍
 

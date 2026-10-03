@@ -22,7 +22,7 @@ const emit = defineEmits<{
   selectTab: [tabId: string]
   toggleMaximize: []
 }>()
-defineSlots<{ default?: () => unknown, toolbar?: () => unknown }>()
+defineSlots<{ default?: () => unknown, toolbar?: () => unknown, headerActions?: () => unknown }>()
 const { t } = useBuddyI18n(() => props.language)
 const actions = computed(() => [
   ...(props.canAddChanges ? [{ id: 'changes' as const, label: t('desktop.context.changes'), icon: Code16Regular }] : []),
@@ -42,6 +42,9 @@ function add(id: string) {
       <FileIcon v-if="tab.icon === 'file'" :name="tab.fileName ?? tab.title" />
       <FolderIcon v-else-if="tab.icon === 'folder'" class="desktop-task-context-panel__folder-icon" />
       <DesktopIcon v-else :component="tab.icon === 'browser' ? Globe16Regular : Code16Regular" />
+    </template>
+    <template v-if="$slots.headerActions" #headerActions>
+      <slot name="headerActions" />
     </template>
     <template v-if="$slots.toolbar" #toolbar>
       <slot name="toolbar" />

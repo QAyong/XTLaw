@@ -1,5 +1,5 @@
 import type { LocalChatIpcContext } from './registrar'
-import { artifactsRequestSchemas, artifactsRpc } from '../../../shared/artifacts/artifactApi'
+import { artifactOpenRequestSchema, artifactsRequestSchemas, artifactsRpc } from '../../../shared/artifacts/artifactApi'
 import { changeOverviewRequestSchema, changesRequestSchemas, changesRpc } from '../../../shared/changes/changeApi'
 import { notificationsRequestSchemas, notificationsRpc } from '../../../shared/notifications/notificationApi'
 import { approvalsRequestSchemas, approvalsRpc } from '../../../shared/permissions/approvalApi'
@@ -9,12 +9,18 @@ import { runsRequestSchemas, runsResponseSchemas, runsRpc } from '../../../share
 import { usageAnalyticsRpc, usagePeriodSchema, usageTopTasksRequestSchema, usageTrendRequestSchema } from '../../../shared/usage/usageAnalyticsApi'
 import { usageRpc } from '../../../shared/usage/usageApi'
 import { LOCAL_CHAT_IPC_CHANNELS } from '../../shared/localChatApi'
+import { openArtifactEntry } from './artifactExternalOpen'
 
 export function registerActivityIpc(context: LocalChatIpcContext): void {
   const { handle, request } = context
   handle(LOCAL_CHAT_IPC_CHANNELS.changesOverview, (_event, input) => request(changesRpc.overview, changeOverviewRequestSchema.parse(input)))
 
   handle(LOCAL_CHAT_IPC_CHANNELS.artifactsReadText, (_event, input) => request(artifactsRpc.readText, artifactsRequestSchemas.artifactText.parse(input)))
+  handle(LOCAL_CHAT_IPC_CHANNELS.artifactsOpenExternal, async (_event, input) => {
+    const target = artifactOpenRequestSchema.parse(input)
+    const entry = await request(artifactsRpc.resolveExternalEntry, { conversationId: target.conversationId, artifactId: target.artifactId })
+    return openArtifactEntry(entry, target.action, context.options.getWindow())
+  })
 
   handle(LOCAL_CHAT_IPC_CHANNELS.notificationsList, () => request(notificationsRpc.list, {}))
 

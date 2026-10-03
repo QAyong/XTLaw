@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { LocalChatApi } from '@buddy-electron/shared/localChatApi'
-import type { BuddyResourceQuote } from '@buddy-shared/conversation/buddyUserContent'
+import type { BuddyFileQuote, BuddyResourceQuote } from '@buddy-shared/conversation/buddyUserContent'
 import type { LocalSpaceFilePreview } from '@buddy-shared/spaces/spaceFileApi'
 import type { SelectionReferenceEditSource } from '@/shared/ui/selection/workbenchSelectionReferences'
 import type { WorkbenchView } from '@/workbench/common/workbench'
@@ -25,7 +25,7 @@ function prepareQuote(quote: BuddyResourceQuote, x: number, y: number, isEditabl
 const failed = shallowRef(false)
 const modes = computed(() => fileDocumentModes({ preview: preview.value?.kind === 'image' || (preview.value?.kind === 'text' && isMarkdownFile(props.view.title)), source: preview.value?.kind === 'text', edit: false }))
 const mode = computed({ get: () => resolveFileDocumentMode(props.view.state.mode, modes.value), set: value => controller.updateView(props.view.id, { state: { ...props.view.state, mode: value } }) })
-const quoteSource = computed<BuddyResourceQuote['source']>(() => ({
+const quoteSource = computed<BuddyFileQuote['source']>(() => ({
   kind: 'file',
   title: props.view.title,
   file: spaceFileTargetSchema.parse(props.view.resource.data),

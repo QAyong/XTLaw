@@ -30,8 +30,12 @@ export function useContextPanelTabs(options: {
   function adoptDraft(draftId: string, conversationId: string) {
     const draftScope: ContextPanelScope = `draft:${draftId}`
     const destination = taskContextPanelScope(conversationId)
-    if (discardedScopes.has(destination) || !resources.value.some(tab => tab.scope === draftScope))
+    if (discardedScopes.has(destination) || discardedScopes.has(draftScope))
       return
+    // First send changes scope, not the user's choice to keep the resource panel open or closed.
+    const open = openStates.get(draftScope)
+    if (open !== undefined && !openStates.has(destination))
+      openStates.set(destination, open)
     resources.value = resources.value.map(tab => tab.scope === draftScope ? { ...tab, scope: destination } : tab)
     const selected = selections.get(draftScope)
     if (selected && !selections.has(destination))

@@ -5,7 +5,8 @@ import type { LocalSpace } from '@buddy-shared/spaces/spaceApi'
 
 import { describe, expect, it } from 'vitest'
 import { nextTick, shallowRef } from 'vue'
-import { createTaskPanel } from './contextPanelFixture'
+import { useTaskContextPanel } from '../useTaskContextPanel'
+import { contextPanelFixture, createTaskPanel } from './contextPanelFixture'
 
 describe('useTaskContextPanel', () => {
   it('restores session panel visibility from the workbench snapshot', async () => {
@@ -247,6 +248,99 @@ describe('useTaskContextPanel', () => {
     activeDraftId.value = 'second-draft'
     activeConversationId.value = null
     expect(panel.activeTab.value?.id).toBe(secondId)
+  })
+
+  it.each([true, false])('preserves the draft panel open=%s and selected browser on first-send adoption', async (open) => {
+    const activeConversationId = shallowRef<string | null>(null)
+    const activeDraftId = shallowRef('first-send-draft')
+    const panel = createTaskPanel({ activeConversationId, activeDraftId })
+    await nextTick()
+    panel.addBrowser()
+    const selected = panel.activeTab.value!
+    panel.addBrowser()
+    panel.selectTab(selected.id)
+    if (!open)
+      panel.toggle()
+    await nextTick()
+    expect(panel.isOpen.value).toBe(open)
+    panel.adoptDraft('first-send-draft', 'created-task')
+    activeConversationId.value = 'created-task'
+    await nextTick()
+    expect(panel.isOpen.value).toBe(open)
+    expect(panel.activeTab.value).toMatchObject({ id: selected.id, scope: 'task:created-task' })
+    expect(panel.tabs.value).toHaveLength(2)
+    expect(panel.snapshot().openStates).toContainEqual(['task:created-task', open])
+    activeConversationId.value = 'other-task'
+    await nextTick()
+    expect(panel.isOpen.value).toBe(false)
+    activeConversationId.value = 'created-task'
+    await nextTick()
+    expect(panel.isOpen.value).toBe(open)
+  })
+
+  it('carries an open empty panel into the created conversation without forcing any tab open', async () => {
+    const activeConversationId = shallowRef<string | null>(null)
+    const panel = createTaskPanel({ activeConversationId, activeDraftId: shallowRef('empty-draft') })
+    await nextTick()
+    panel.toggle()
+    await nextTick()
+    expect(panel.isOpen.value).toBe(true)
+    panel.adoptDraft('empty-draft', 'created-task')
+    activeConversationId.value = 'created-task'
+    await nextTick()
+    expect(panel.isOpen.value).toBe(true)
+    expect(panel.tabs.value).toEqual([])
+  })
+
+  it('adopts a background draft using its own visibility rather than the currently active draft', async () => {
+    const activeConversationId = shallowRef<string | null>(null)
+    const activeDraftId = shallowRef('first-draft')
+    const panel = createTaskPanel({ activeConversationId, activeDraftId })
+    await nextTick()
+    panel.addBrowser()
+    await nextTick()
+    activeDraftId.value = 'second-draft'
+    await nextTick()
+    expect(panel.isOpen.value).toBe(false)
+    panel.adoptDraft('first-draft', 'created-task')
+    expect(panel.isOpen.value).toBe(false)
+    activeConversationId.value = 'created-task'
+    await nextTick()
+    expect(panel.isOpen.value).toBe(true)
+  })
+
+  it('supersedes an in-flight workspace close when first-send adoption restores the same open panel', async () => {
+    const activeConversationId = shallowRef<string | null>(null)
+    const activeDraftId = shallowRef<string | null>('first-draft')
+    const f = contextPanelFixture({ activeConversationId, activeDraftId })
+    const pending: Array<() => Promise<void>> = []
+    f.options.control = { ...f.options.control, execute: command => new Promise(resolve => pending.push(async () => {
+      resolve(await f.host.execute(command))
+    })) }
+    const panel = f.scope.run(() => useTaskContextPanel(f.options))!
+    await nextTick()
+    panel.addBrowser()
+    await pending.shift()!()
+    await nextTick()
+    expect(panel.isOpen.value).toBe(true)
+    panel.adoptDraft('first-draft', 'created-task')
+    activeDraftId.value = null // Workbench adoption can briefly remove the old active draft projection.
+    activeConversationId.value = 'created-task'
+    expect(pending).toHaveLength(2)
+    await pending.shift()!()
+    await nextTick()
+    expect(panel.snapshot().openStates).toContainEqual(['task:created-task', true])
+    expect(panel.snapshot().openStates).toContainEqual(['workspace', false])
+    await pending.shift()!()
+    await nextTick()
+    expect(panel.isOpen.value).toBe(true)
+    expect(panel.snapshot().openStates).toContainEqual(['task:created-task', true])
+    // Once restoration settles, a deliberate user collapse must still be persisted.
+    panel.toggle()
+    await pending.shift()!()
+    await nextTick()
+    expect(panel.isOpen.value).toBe(false)
+    expect(panel.snapshot().openStates).toContainEqual(['task:created-task', false])
   })
 
   it('opens conversation resources only after an explicit user action', async () => {

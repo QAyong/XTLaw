@@ -1,6 +1,7 @@
 import type { TaskWorkspacePool } from '../TaskWorkspacePool'
 import type { TaskCapability } from '@/modules/tasks'
 import type { TaskResourcePanel } from '@/modules/tasks/contracts'
+import { browserQuote } from '@buddy-shared/browser/__tests__/browserSelectionFixture'
 import { createBuddyUserContent } from '@buddy-shared/conversation/buddyUserContent'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { effectScope, shallowRef } from 'vue'
@@ -43,17 +44,40 @@ async function fixture() {
   let independent = false
   const locateFile = vi.fn(async () => {})
   const openFile = vi.fn(async () => fileId)
-  const resources = { allTabs: shallowRef([{ id: 'files-a', scope: 'task:a' }]) } as unknown as TaskResourcePanel
+  const browserStates = shallowRef({ 'browser-a': { sessionId: 'session', pageId: 'page', documentVersion: 1, url: 'https://example.com/', status: 'ready' } })
+  const resources = {
+    allTabs: shallowRef([{ id: 'files-a', scope: 'task:a' }, { id: 'browser-a', kind: 'browser', scope: 'task:a' }]),
+    activeTab: shallowRef({ id: 'browser-a' }),
+    browserStates,
+  } as unknown as TaskResourcePanel
   const host = createDesktopSelectionReferences({ controller, pool, language: shallowRef('zh-CN'), resources: () => resources, independent: () => independent, ready: () => true, locateFile, openFile })
   cleanups.push(() => {
     scope.stop()
     void controller.dispose()
   })
   const quote = { id: 'q', text: 'Frozen file text', source: { kind: 'file' as const, title: 'auth.ts', file, format: 'source' as const } }
-  return { a, b, fileId, controller, host, quote, draftsA, draftsB, tasks, keyA, locateFile, openFile, independent: () => independent = true }
+  return { a, b, fileId, controller, host, quote, resources, browserStates, draftsA, draftsB, tasks, keyA, locateFile, openFile, independent: () => independent = true }
 }
 
 describe('desktop file quote adapter', () => {
+  it('associates browser tabs with their owning draft, not the focused pane', async () => {
+    const f = await fixture()
+    f.controller.focus(f.b)
+    const request = f.host.capture('browser:browser-a', browserQuote)!
+    expect(request.defaultId).toBe(f.a)
+    expect(f.host.add(request, f.a)).toBe('added')
+    expect(chatComposerDocumentToUserContent(f.draftsB.composerContent.value).resourceQuotes).toBeUndefined()
+  })
+
+  it('invalidates browser operations on same-URL document changes and requires independent multi-target choice', async () => {
+    const f = await fixture()
+    const request = f.host.capture('browser:browser-a', browserQuote)!
+    f.browserStates.value['browser-a'] = { ...f.browserStates.value['browser-a'], documentVersion: 2 }
+    expect(f.host.add(request, f.a)).toBe('unavailable')
+    f.independent()
+    expect(f.host.capture('browser:browser-a', browserQuote)?.defaultId).toBeNull()
+  })
+
   it('routes through the owning tab rather than active pane and preserves the selected draft body', async () => {
     const f = await fixture()
     f.draftsA.updateComposerContent('Keep latest A input', userContentToChatComposerDocument(createBuddyUserContent('Keep latest A input')))

@@ -59,13 +59,13 @@ function renderLabel(option: DropdownOption) {
   const label = String(option.label ?? '')
   const command = editCommands[String(option.key)]
   return h('span', { class: 'resource-selection-menu-option' }, [
-    h('span', { class: 'resource-selection-menu-option__label', title: label }, label),
+    h('span', { class: 'resource-selection-menu-option__label' }, label),
     ...(command ? [h('span', { 'class': 'resource-selection-menu-option__shortcut', 'aria-hidden': 'true' }, shortcuts[command])] : []),
   ])
 }
 function menuProps() {
   return {
-    'class': 'resource-selection-menu',
+    'class': 'buddy-selection-menu resource-selection-menu',
     'role': 'menu',
     'aria-label': t('desktop.chat.quoteChooseTarget'),
     'style': 'width: var(--buddy-menu-width, 12.5rem); max-width: min(var(--buddy-menu-max-width, 17.5rem), calc(100vw - 16px));',
@@ -154,7 +154,16 @@ async function select(targetId: string) {
     message.warning(t(result === 'limit' ? 'desktop.chat.quoteLimit' : 'desktop.chat.quoteTargetChanged'))
   }
 }
-defineExpose({ open, prepare, close })
+function openRequest(request: SelectionReferenceRequest, x: number, y: number) {
+  close()
+  if (!mounted || !props.visible || !references?.isSourceCurrent(request)) {
+    message.warning(t('desktop.chat.quoteTargetChanged'))
+    return
+  }
+  position.value = { x, y }
+  pending.value = request
+}
+defineExpose({ open, prepare, close, openRequest })
 </script>
 
 <template>
@@ -167,9 +176,10 @@ defineExpose({ open, prepare, close })
 </template>
 
 <style>
-.resource-selection-menu { box-sizing: border-box; }
 .resource-selection-menu .n-dropdown-option-body__label { min-width: 0; overflow: hidden; }
 .resource-selection-menu-option { display: flex; width: 100%; min-width: 0; align-items: center; gap: 1.25rem; }
 .resource-selection-menu-option__label { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .resource-selection-menu-option__shortcut { flex: none; color: var(--buddy-text-muted); font-size: 0.72rem; }
+.resource-selection-menu .n-dropdown-option-body--pending .resource-selection-menu-option__shortcut,
+.resource-selection-menu .n-dropdown-option-body--active .resource-selection-menu-option__shortcut { color: var(--buddy-text-on-accent); }
 </style>

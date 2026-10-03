@@ -6,9 +6,10 @@ import { useTaskContextPanel } from '../useTaskContextPanel'
 import { contextPanelFixture, createTaskPanel } from './contextPanelFixture'
 
 describe('resource panel ownership', () => {
-  it('restores task tabs without changing visibility during navigation', async () => {
+  it('restores each task tab and its own saved visibility during navigation', async () => {
     const activeConversationId = shallowRef<string | null>('first')
     const panel = createTaskPanel({ activeConversationId })
+    await nextTick()
     panel.openBrowser()
     activeConversationId.value = 'second'
     panel.openBrowser()
@@ -16,8 +17,9 @@ describe('resource panel ownership', () => {
     activeConversationId.value = 'first'
     await nextTick()
     expect(panel.activeTab.value?.id).toBe('browser:first')
-    expect(panel.isOpen.value).toBe(false)
+    expect(panel.isOpen.value).toBe(true)
     activeConversationId.value = 'second'
+    await nextTick()
     expect(panel.activeTab.value?.id).toBe('browser:second')
     expect(panel.isOpen.value).toBe(false)
   })

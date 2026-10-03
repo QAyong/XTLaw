@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { BuddyResourceQuote } from '@buddy-shared/conversation/buddyUserContent'
+import type { BuddyFileQuote, BuddyResourceQuote } from '@buddy-shared/conversation/buddyUserContent'
 import type { JsonValue } from '@buddy-shared/workbench/workbenchState'
 import type * as Monaco from 'monaco-editor/editor/editor.api.js'
 import type { SelectionReferenceEditSource } from '@/shared/ui/selection/workbenchSelectionReferences'
@@ -25,7 +25,7 @@ const container = useTemplateRef<HTMLElement>('container')
 const quoteMenu = useTemplateRef<InstanceType<typeof ResourceSelectionQuoteMenu>>('quoteMenu')
 const references = useSelectionReferences()
 const { t } = useBuddyI18n(() => props.language)
-function quoteSource(format: 'source' | 'markdown' = 'source'): BuddyResourceQuote['source'] {
+function quoteSource(format: 'source' | 'markdown' = 'source'): BuddyFileQuote['source'] {
   return { kind: 'file', title: props.view.title, file: spaceFileTargetSchema.parse(props.view.resource.data), format }
 }
 function prepareQuote(quote: BuddyResourceQuote, x: number, y: number, isEditable = false, editSource?: SelectionReferenceEditSource) {

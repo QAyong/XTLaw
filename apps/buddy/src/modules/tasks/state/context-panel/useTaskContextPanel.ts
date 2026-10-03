@@ -24,14 +24,31 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
     },
   })
   let expectedOpenState: boolean | null = null
+  let openStateOperation = 0
+  function restoreOpenState(open: boolean) {
+    const operation = ++openStateOperation
+    expectedOpenState = open
+    void control.setOpen(open).finally(() => {
+      if (operation === openStateOperation)
+        expectedOpenState = null
+    })
+  }
+  function clearExpectedOpenState() {
+    openStateOperation += 1
+    expectedOpenState = null
+  }
+  function openPanel() {
+    clearExpectedOpenState()
+    void control.open()
+  }
   watch([control.initialized, store.scope, options.mode], ([initialized, scope, mode], [wasInitialized, previousScope, previousMode]) => {
     if (!initialized)
       return
     if (wasInitialized && previousMode === 'task' && (previousScope !== scope || previousMode !== mode)) {
-      store.setOpen(previousScope, control.isOpen.value)
+      store.setOpen(previousScope, expectedOpenState ?? control.isOpen.value)
     }
     if (wasInitialized && previousMode === 'independent' && previousMode !== mode) {
-      store.setOpen('independent', control.isOpen.value)
+      store.setOpen('independent', expectedOpenState ?? control.isOpen.value)
     }
 
     let nextOpenState: boolean | undefined
@@ -42,16 +59,14 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
       nextOpenState = store.getOpen('independent') ?? control.isOpen.value
       store.setOpen('independent', nextOpenState)
     }
-    if (nextOpenState !== undefined && control.isOpen.value !== nextOpenState) {
-      expectedOpenState = nextOpenState
-      void control.setOpen(nextOpenState)
-    }
+    // A pending close may not have reached the renderer yet: still supersede it on the next scope.
+    if (nextOpenState !== undefined && (expectedOpenState !== null || control.isOpen.value !== nextOpenState))
+      restoreOpenState(nextOpenState)
   }, { flush: 'sync' })
   watch(control.isOpen, (open) => {
-    if (expectedOpenState === open) {
-      expectedOpenState = null
+    // Intermediate IPC states belong to an earlier scope, not the current user's saved preference.
+    if (expectedOpenState !== null)
       return
-    }
     store.setOpen(options.mode.value === 'task' ? store.scope.value : 'independent', open)
   }, { flush: 'sync' })
   const fileSpaces = computed(() => options.spaces.value.filter(space => space.revokedAt === null
@@ -84,7 +99,7 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
 
   function openTab(tab: TaskContextTab) {
     store.put(tab)
-    void control.open()
+    openPanel()
   }
 
   function currentSource(): ContextPanelSource | undefined {
@@ -177,7 +192,7 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
     )
     if (exactTab) {
       store.select(exactTab.id)
-      void control.open()
+      openPanel()
       return
     }
 
@@ -193,7 +208,7 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
     if (spaceTab) {
       selectFile(spaceTab.id, target.path)
       store.select(spaceTab.id)
-      void control.open()
+      openPanel()
       return
     }
 
@@ -227,10 +242,8 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
   return {
     restoreSnapshot(value: unknown) {
       if (!value || typeof value !== 'object') {
-        if (options.mode.value === 'task') {
-          expectedOpenState = false
-          void control.setOpen(false)
-        }
+        if (options.mode.value === 'task')
+          restoreOpenState(false)
         return
       }
       const snapshot = value as { tabs?: unknown, selections?: unknown, openStates?: unknown }
@@ -241,9 +254,7 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
           Array.isArray(entry) && typeof entry[0] === 'string' && typeof entry[1] === 'boolean'))
       }
       if (options.mode.value === 'task') {
-        const nextOpenState = store.getOpen(store.scope.value) ?? false
-        expectedOpenState = nextOpenState
-        void control.setOpen(nextOpenState)
+        restoreOpenState(store.getOpen(store.scope.value) ?? false)
       }
       if (Array.isArray(snapshot.selections)) {
         for (const selection of snapshot.selections) {
@@ -282,6 +293,9 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
     setArtifactViewMode,
     restoreTab,
     selectTab: store.select,
-    toggle: control.toggle,
+    toggle: () => {
+      clearExpectedOpenState()
+      return control.toggle()
+    },
   }
 }

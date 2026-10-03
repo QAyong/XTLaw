@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import type { BuddyResourceQuote } from '@buddy-shared/conversation/buddyUserContent'
+import type { BuddyFileQuote, BuddyResourceQuote } from '@buddy-shared/conversation/buddyUserContent'
 import type * as Monaco from 'monaco-editor/editor/editor.api.js'
 import type { SelectionReferenceEditSource } from '@/shared/ui/selection/workbenchSelectionReferences'
 import { shallowRef, useTemplateRef, watch } from 'vue'
 import { loadDesktopMonaco, observeDesktopMonacoTheme } from '@/shared/ui/monaco/desktopMonaco'
 import { registerMonacoResourceQuote } from '@/shared/ui/selection/useMonacoResourceQuote'
 
-const props = defineProps<{ text: string, path: string, wrap: boolean, quoteSource?: BuddyResourceQuote['source'], prepareQuote?: (quote: BuddyResourceQuote, x: number, y: number, isEditable?: boolean, editSource?: SelectionReferenceEditSource) => (() => void) | null }>()
+const props = defineProps<{ text: string, path: string, wrap: boolean, quoteSource?: BuddyFileQuote['source'], prepareQuote?: (quote: BuddyResourceQuote, x: number, y: number, isEditable?: boolean, editSource?: SelectionReferenceEditSource) => (() => void) | null }>()
 const container = useTemplateRef<HTMLElement>('container')
 const failed = shallowRef(false)
 const languages: Record<string, string> = {

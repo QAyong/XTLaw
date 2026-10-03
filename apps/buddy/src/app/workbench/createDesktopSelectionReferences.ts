@@ -1,4 +1,5 @@
 import type { DesktopSelectionEditCommand } from '@buddy-electron/shared/desktopApi'
+import type { DesktopBrowserApi } from '@buddy-shared/browser/browserDesktopApi'
 import type { SpaceFileTarget } from '@buddy-shared/spaces/spaceFileApi'
 import type { Ref } from 'vue'
 import type { TaskWorkspacePool } from './TaskWorkspacePool'
@@ -21,6 +22,7 @@ export function createDesktopSelectionReferences(options: {
   independent: () => boolean
   ready: () => boolean
   locateFile: (target: SpaceFileTarget) => Promise<unknown>
+  browser?: DesktopBrowserApi
   editSelection?: (command: DesktopSelectionEditCommand) => Promise<void>
 }) {
   return new WorkbenchSelectionReferences({
@@ -51,6 +53,15 @@ export function createDesktopSelectionReferences(options: {
     source(viewId) {
       if (!options.ready())
         return null
+      if (viewId.startsWith('browser:')) {
+        const tabId = viewId.slice('browser:'.length)
+        const resources = options.resources()
+        const tab = resources.allTabs.value.find(tab => tab.id === tabId && tab.kind === 'browser')
+        const state = resources.browserStates.value[tabId]
+        if (!tab || resources.activeTab.value?.id !== tabId || !state || state.status !== 'ready')
+          return null
+        return { identity: JSON.stringify([tab.id, tab.scope, state.sessionId, state.pageId, state.documentVersion, state.url, options.independent()]), owner: !options.independent() && /^(?:task|draft):/.test(tab.scope) ? tab.scope : null }
+      }
       const view = options.controller.layout.views[viewId]
       if (!view || !['file', 'file-preview'].includes(view.resource.scheme))
         return null
@@ -63,6 +74,14 @@ export function createDesktopSelectionReferences(options: {
     },
     async locate(quote) {
       try {
+        if ('element' in quote) {
+          const resources = options.resources()
+          const tab = resources.tabs.value.find(tab => tab.kind === 'browser' && resources.browserStates.value[tab.id]?.sessionId === quote.source.sessionId)
+          if (!tab || !await options.browser?.locateElement({ source: quote.source, element: quote.element, text: quote.text }))
+            return false
+          resources.selectTab(tab.id)
+          return true
+        }
         await options.locateFile(quote.source.file)
         const id = await options.openFile(quote.source.file)
         if (!id)

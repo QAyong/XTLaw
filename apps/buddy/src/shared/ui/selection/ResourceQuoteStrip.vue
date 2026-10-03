@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { BuddyResourceQuote } from '@buddy-shared/conversation/buddyUserContent'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
-import { Dismiss16Regular, Document20Regular } from '@vicons/fluent'
+import { Dismiss16Regular, Document20Regular, Globe20Regular } from '@vicons/fluent'
 import { NButton, NPopover, useMessage } from 'naive-ui'
 import { computed, onBeforeUnmount, shallowRef, watch } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
@@ -31,7 +31,7 @@ watch(() => props.quotes.map(quote => quote.id), (ids, previous) => {
 })
 onBeforeUnmount(() => clearTimeout(timer))
 function label(quote: BuddyResourceQuote) {
-  return `${quote.source.title}${quote.range ? ` · L${quote.range.startLineNumber}–${quote.range.endLineNumber}` : ''}`
+  return 'element' in quote ? `${quote.source.title} · ${new URL(quote.source.url).hostname || 'file'} · <${quote.element.tagName}>` : `${quote.source.title}${quote.range ? ` · L${quote.range.startLineNumber}–${quote.range.endLineNumber}` : ''}`
 }
 async function locate(quote: BuddyResourceQuote) {
   if (!references || !await references.locate(quote))
@@ -45,9 +45,9 @@ async function locate(quote: BuddyResourceQuote) {
       <NPopover trigger="click" placement="top-start" :show-arrow="false">
         <template #trigger>
           <button type="button" class="resource-quote-card__preview" :aria-label="t('desktop.chat.resourceQuotePreview', { title: label(quote) })" @click.stop>
-            <DesktopIcon :component="Document20Regular" class="resource-quote-card__icon" />
+            <DesktopIcon :component="'element' in quote ? Globe20Regular : Document20Regular" class="resource-quote-card__icon" />
             <span class="resource-quote-card__body">
-              <small :title="quote.source.file.path">{{ label(quote) }}</small>
+              <small :title="'element' in quote ? quote.source.url : quote.source.file.path">{{ label(quote) }}</small>
               <span class="resource-quote-card__excerpt">{{ quote.text }}</span>
             </span>
           </button>
@@ -55,9 +55,10 @@ async function locate(quote: BuddyResourceQuote) {
         <section class="resource-quote-preview" :aria-label="t('desktop.chat.resourceQuotePreview', { title: label(quote) })">
           <header>{{ label(quote) }}</header>
           <p class="resource-quote-preview__path">
-            {{ quote.source.file.path }}
+            {{ 'element' in quote ? quote.source.url : quote.source.file.path }}
           </p>
           <pre>{{ quote.text }}</pre>
+          <pre v-if="'element' in quote">{{ JSON.stringify(quote.element, null, 2) }}</pre>
           <NButton v-if="references" size="tiny" secondary @click="locate(quote)">
             {{ t('desktop.chat.resourceQuoteLocate') }}
           </NButton>

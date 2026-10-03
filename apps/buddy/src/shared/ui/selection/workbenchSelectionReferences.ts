@@ -39,9 +39,14 @@ export class WorkbenchSelectionReferences {
   }) {}
 
   capture(viewId: string, quote: BuddyResourceQuote): SelectionReferenceRequest | null {
-    const source = this.options.source(viewId)
+    const scope = this.captureScope(viewId)
     const parsed = buddyResourceQuoteSchema.safeParse(quote)
-    if (!source || !parsed.success)
+    return scope && parsed.success ? { ...scope, quote: parsed.data } : null
+  }
+
+  captureScope(viewId: string): Omit<SelectionReferenceRequest, 'quote'> | null {
+    const source = this.options.source(viewId)
+    if (!source)
       return null
     const unique = new Map(this.options.targets().map(target => [target.identity, target]))
     const targets = [...unique.values()]
@@ -49,7 +54,6 @@ export class WorkbenchSelectionReferences {
     return {
       viewId,
       sourceIdentity: source.identity,
-      quote: parsed.data,
       targets: targets.map(({ id, identity, label }) => ({ id, identity, label })),
       defaultId: preferred?.id ?? null,
       isSplit: this.options.isSplit?.() ?? targets.length > 1,

@@ -100,18 +100,18 @@ test('bounded component menus keep editing actions and append file and Markdown 
   await expect(menu.getByRole('menuitem', { name: '引用到对话', exact: true })).toHaveCount(0)
   const label = menu.locator('.resource-selection-menu-option__label').filter({ hasText: '引用到「分屏 1' })
   await expect(label).toHaveCount(1)
+  await expect(menu.locator('.resource-selection-menu-option__label[title]')).toHaveCount(0)
   await label.evaluate((element) => {
     element.textContent += ` · ${'这是用于菜单宽度验收的很长的对话标题'.repeat(12)}`
-    element.title = element.textContent
   })
   expect(await label.evaluate(element => element.scrollWidth > element.clientWidth)).toBe(true)
   expect(await menu.evaluate(element => element.getBoundingClientRect().width)).toBeLessThanOrEqual(280)
   await menu.getByRole('menuitem', { name: '引用到其他对话', exact: true }).hover()
   const child = page.locator('.resource-selection-menu:visible').filter({ has: page.locator('.resource-selection-menu-option__label').filter({ hasText: /^分屏 2/ }) }).last()
   await expect(child).toBeVisible()
+  await expect(child.locator('.resource-selection-menu-option__label[title]')).toHaveCount(0)
   await child.locator('.resource-selection-menu-option__label').evaluate((element) => {
     element.textContent += ` · ${'这是另一个很长的分屏对话标题'.repeat(12)}`
-    element.title = element.textContent
   })
   expect(await child.locator('.resource-selection-menu-option__label').evaluate(element => element.scrollWidth > element.clientWidth)).toBe(true)
   expect(await child.evaluate(element => element.getBoundingClientRect().width)).toBeLessThanOrEqual(280)

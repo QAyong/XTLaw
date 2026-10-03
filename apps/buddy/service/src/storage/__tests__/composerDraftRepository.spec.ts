@@ -1,5 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite'
 import { afterEach, describe, expect, it } from 'vitest'
+import { browserQuote } from '../../../../shared/browser/__tests__/browserSelectionFixture'
 import { createBuddyUserContent } from '../../../../shared/conversation/buddyUserContent'
 import {
   ComposerDraftConflictError,
@@ -63,6 +64,17 @@ describe('composerDraftRepository', () => {
     expect(createComposerDraftRepository(database).findById(initial.draftId)?.content.resourceQuotes).toEqual([quote])
     expect(saved.content.panelResourceIds).toEqual([])
     expect(saved.content.body).toEqual(initial.content.body)
+  })
+
+  it('restores browser element snapshots from SQLite without reopening the page', () => {
+    const database = createDatabase()
+    const repository = createComposerDraftRepository(database)
+    const initial = repository.open(createOpenInput())
+    repository.save({ ...initial, content: { ...initial.content, resourceQuotes: [browserQuote] }, expectedRevision: 0, now: initial.updatedAt })
+    const restored = createComposerDraftRepository(database).findById(initial.draftId)!
+    expect(restored.content.resourceQuotes).toEqual([browserQuote])
+    expect(restored.content.panelResourceIds).toEqual([])
+    expect(restored.content.body).toEqual(initial.content.body)
   })
 
   it('opens one canonical draft per scope and persists the complete initial snapshot', () => {

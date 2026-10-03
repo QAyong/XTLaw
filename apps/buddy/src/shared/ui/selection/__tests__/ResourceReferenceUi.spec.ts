@@ -66,6 +66,7 @@ describe('resource reference UI', () => {
     await nextTick()
     expect(f.root.querySelectorAll('button')).toHaveLength(1)
     expect(f.root.textContent).toBe('引用到对话')
+    expect(f.root.querySelector('[role="menu"]')?.classList.contains('buddy-selection-menu')).toBe(true)
     f.root.querySelector('button')!.click()
     await nextTick()
     expect(f.content.value.resourceQuotes).toEqual([quote])
@@ -81,7 +82,7 @@ describe('resource reference UI', () => {
     f.menu.prepare(quote, 10, 20, true, { restore })!()
     await nextTick()
     const buttons = Array.from(f.root.querySelectorAll('button'))
-    expect(buttons.map(button => button.querySelector('[title]')?.getAttribute('title'))).toEqual(['撤销', '重做', '剪切', '复制', '粘贴', '全选', '引用到对话'])
+    expect(buttons.map(button => button.querySelector('.resource-selection-menu-option__label')?.textContent)).toEqual(['撤销', '重做', '剪切', '复制', '粘贴', '全选', '引用到对话'])
     expect(f.root.querySelectorAll('hr')).toHaveLength(2)
     const style = (f.root.querySelector('[role="menu"]') as HTMLElement).style
     expect(style.width).toBe('var(--buddy-menu-width, 12.5rem)')
@@ -92,7 +93,7 @@ describe('resource reference UI', () => {
     expect(f.content.value.resourceQuotes).toBeUndefined()
   })
 
-  it('keeps explicit split targets even when only one target is currently writable, with a full hover title', async () => {
+  it('keeps the full split target label without a native hover tooltip even when only one target is writable', async () => {
     const f = await mount('menu')
     f.host.options.isSplit = () => true
     const targets = f.host.options.targets()
@@ -102,7 +103,8 @@ describe('resource reference UI', () => {
     await nextTick()
     expect(f.root.textContent).toContain('引用到「分屏 1')
     expect(f.root.textContent).not.toContain('引用到对话')
-    expect(f.root.querySelector('[title]')?.getAttribute('title')).toBe(`引用到「${targets[0]!.label}」`)
+    expect(f.root.querySelector('.resource-selection-menu-option__label')?.textContent).toBe(`引用到「${targets[0]!.label}」`)
+    expect(f.root.querySelector('[title]')).toBeNull()
     f.root.querySelector('button')!.click()
     await nextTick()
     expect(f.content.value.resourceQuotes).toEqual([quote])

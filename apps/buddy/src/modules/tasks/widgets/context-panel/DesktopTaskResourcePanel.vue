@@ -13,12 +13,14 @@ import DesktopFilesContextSurface from './DesktopFilesContextSurface.vue'
 import DesktopFileSpacePicker from './DesktopFileSpacePicker.vue'
 import DesktopTaskContextPanel from './DesktopTaskContextPanel.vue'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   panel: TaskResourcePanel
   context: TaskChatWorkspace['context']
   language: BuddyLocale
   visible: boolean
-}>()
+  maximized?: boolean
+}>(), { maximized: undefined })
+const emit = defineEmits<{ toggleMaximize: [] }>()
 const { t } = useBuddyI18n(() => props.language)
 const fileSpacePickerOpen = shallowRef(false)
 const { browser, browserGuests, clipboard } = useTaskEnvironment()
@@ -57,7 +59,7 @@ function add(kind: 'changes' | 'files' | 'browser') {
 
 <template>
   <DesktopFileSpacePicker v-model:show="fileSpacePickerOpen" :spaces="panel.fileSpaces.value" :language="language" @select="panel.openFiles" />
-  <DesktopTaskContextPanel :active-tab-id="activeTab?.id ?? null" :tabs="tabs" :language="language" :can-add-changes="panel.canAddChanges.value" :can-add-files="Boolean(panel.fileEntry.value)" @add="add" @close-tab="panel.closeTab" @select-tab="panel.selectTab">
+  <DesktopTaskContextPanel :active-tab-id="activeTab?.id ?? null" :tabs="tabs" :language="language" :can-add-changes="panel.canAddChanges.value" :can-add-files="Boolean(panel.fileEntry.value)" :maximized="maximized" @toggle-maximize="emit('toggleMaximize')" @add="add" @close-tab="panel.closeTab" @select-tab="panel.selectTab">
     <DesktopFilesContextSurface :tab="activeTab?.kind === 'files' ? activeTab : null" :files="context.files" :has-tab="panel.hasTab" :language="language" @select="panel.selectFile">
       <template #file-toolbar="bindings">
         <slot name="file-toolbar" v-bind="bindings" />

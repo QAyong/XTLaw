@@ -15,6 +15,7 @@ import DesktopSidebarFooter from '../shell/DesktopSidebarFooter.vue'
 import DesktopDirectoryFileSurface from './DesktopDirectoryFileSurface.vue'
 
 const props = defineProps<{ bindings: DesktopShellBindings, tasksVisible: boolean, contextOnLeft: boolean, chatPaneHidden: boolean }>()
+const emit = defineEmits<{ toggleContextMaximize: [] }>()
 const { controller, layout, revision, labels } = useWorkbench()
 const pendingTaskIds = computed(() => {
   void revision.value
@@ -81,7 +82,7 @@ function navigate(id: string) {
     <RouterView v-if="!tasksVisible" />
     <template #context>
       <div class="desktop-workbench-area__context" data-workbench-context @focusin="focusContext" @pointerdown="focusContext">
-        <DesktopTaskResourcePanel :panel="bindings.resources" :context="bindings.resourceContext" :language="language" :visible="(tasksVisible || bindings.contextPanelGlobal.value) && bindings.resources.isOpen.value">
+        <DesktopTaskResourcePanel :maximized="chatPaneHidden" :panel="bindings.resources" :context="bindings.resourceContext" :language="language" :visible="(tasksVisible || bindings.contextPanelGlobal.value) && bindings.resources.isOpen.value" @toggle-maximize="emit('toggleContextMaximize')">
           <template #view="{ viewId }">
             <WorkbenchSurface :view-id="viewId" :visible="(tasksVisible || bindings.contextPanelGlobal.value) && bindings.resources.isOpen.value" />
           </template>

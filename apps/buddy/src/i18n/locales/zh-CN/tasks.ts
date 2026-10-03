@@ -114,6 +114,8 @@ export default {
   'desktop.context.selectFileSpace': '选择空间',
   'desktop.context.noFileSpaces': '暂无绑定工作目录的空间',
   'desktop.context.addTab': '新建标签页',
+  'desktop.context.maximize': '最大化资源面板',
+  'desktop.context.restore': '还原资源面板',
   'desktop.context.fileRevealFailed': '无法打开文件所在目录',
   'desktop.context.revealFile': '打开所在目录',
   'desktop.context.wrap': '自动换行',

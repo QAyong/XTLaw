@@ -80,6 +80,11 @@ function toggleCurrentRightRegion() {
   bindings.resources.toggle()
 }
 
+function toggleContextMaximize() {
+  if (bindings.resources.isOpen.value)
+    chatPaneHidden.value = !chatPaneHidden.value
+}
+
 function toggleContextPosition() {
   contextOnLeft.value = !contextOnLeft.value
   chatPaneHidden.value = false
@@ -106,7 +111,7 @@ function toggleContextPosition() {
       <WorkbenchHost :keybindings="bindings.shortcuts.bindings.value" :platform="bindings.shortcuts.platform.value" :active="activeView === 'lexora.tasks'" :controller="bindings.workbench.controller" :copies="bindings.workbench.copies" :language="language" :backup-error="bindings.workbench.backupError.value" @drop-resource="bindings.workbench.dropResource" @retry-backup="bindings.workbench.persistence.flush()">
         <div class="desktop-shell__content" :class="{ 'is-starting': startupVisible }" :inert="startupVisible" :aria-hidden="startupVisible">
           <WorkbenchMountPoint target="workbench" class="desktop-shell__workbench">
-            <DesktopWorkbenchArea :bindings="bindings" :tasks-visible="activeView === 'lexora.tasks'" :context-on-left="contextOnLeft" :chat-pane-hidden="chatPaneHidden" />
+            <DesktopWorkbenchArea :bindings="bindings" :tasks-visible="activeView === 'lexora.tasks'" :context-on-left="contextOnLeft" :chat-pane-hidden="chatPaneHidden" @toggle-context-maximize="toggleContextMaximize" />
           </WorkbenchMountPoint>
         </div>
         <template #view="{ view, visible }">

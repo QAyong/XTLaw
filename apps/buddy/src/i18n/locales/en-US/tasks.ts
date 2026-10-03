@@ -116,6 +116,8 @@ export default {
   'desktop.context.selectFileSpace': 'Select space',
   'desktop.context.noFileSpaces': 'No spaces have a working directory',
   'desktop.context.addTab': 'New tab',
+  'desktop.context.maximize': 'Maximize resource panel',
+  'desktop.context.restore': 'Restore resource panel',
   'desktop.context.fileRevealFailed': 'Could not reveal this file',
   'desktop.context.revealFile': 'Open containing folder',
   'desktop.context.wrap': 'Wrap lines',

@@ -8,17 +8,19 @@ import { FileIcon, FolderIcon } from '@/shared/ui/file-icon'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import WorkbenchResourcePanel from '@/workbench/browser/WorkbenchResourcePanel.vue'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   activeTabId: string | null
   canAddChanges: boolean
   canAddFiles: boolean
   language: BuddyLocale
+  maximized?: boolean
   tabs: readonly ContextPanelTab[]
-}>()
+}>(), { maximized: undefined })
 const emit = defineEmits<{
   add: [kind: 'changes' | 'files' | 'browser']
   closeTab: [tabId: string]
   selectTab: [tabId: string]
+  toggleMaximize: []
 }>()
 defineSlots<{ default?: () => unknown, toolbar?: () => unknown }>()
 const { t } = useBuddyI18n(() => props.language)
@@ -35,7 +37,7 @@ function add(id: string) {
 </script>
 
 <template>
-  <WorkbenchResourcePanel :active-tab-id="activeTabId" :tabs="tabs" :language="language" :actions="actions" @add="add" @close-tab="emit('closeTab', $event)" @select-tab="emit('selectTab', $event)">
+  <WorkbenchResourcePanel :active-tab-id="activeTabId" :tabs="tabs" :language="language" :actions="actions" :maximized="maximized" @toggle-maximize="emit('toggleMaximize')" @add="add" @close-tab="emit('closeTab', $event)" @select-tab="emit('selectTab', $event)">
     <template #icon="{ tab }">
       <FileIcon v-if="tab.icon === 'file'" :name="tab.fileName ?? tab.title" />
       <FolderIcon v-else-if="tab.icon === 'folder'" class="desktop-task-context-panel__folder-icon" />

@@ -1,22 +1,24 @@
 <script setup lang="ts" generic="Tab extends { id: string, title: string }">
 import type { Component } from 'vue'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
-import { Add20Regular, Dismiss16Regular } from '@vicons/fluent'
+import { Add20Regular, ArrowMaximize20Regular, ArrowMinimize20Regular, Dismiss16Regular } from '@vicons/fluent'
 import { NPopover } from 'naive-ui'
 import { nextTick, shallowRef, useId, useTemplateRef, watch } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   activeTabId: string | null
   actions: readonly { id: string, label: string, icon: Component }[]
   language: BuddyLocale
+  maximized?: boolean
   tabs: readonly Tab[]
-}>()
+}>(), { maximized: undefined })
 const emit = defineEmits<{
   add: [id: string]
   closeTab: [tabId: string]
   selectTab: [tabId: string]
+  toggleMaximize: []
 }>()
 defineSlots<{ default?: () => unknown, toolbar?: () => unknown, icon?: (props: { tab: Tab }) => unknown }>()
 const { t } = useBuddyI18n(() => props.language)
@@ -86,6 +88,9 @@ watch(() => [props.activeTabId, props.tabs.length], async () => {
           </button>
         </div>
       </NPopover>
+      <button v-if="maximized !== undefined" class="desktop-task-context-panel__add desktop-task-context-panel__maximize" type="button" data-testid="context-panel-maximize" :title="t(maximized ? 'desktop.context.restore' : 'desktop.context.maximize')" :aria-label="t(maximized ? 'desktop.context.restore' : 'desktop.context.maximize')" :aria-pressed="maximized" @click="emit('toggleMaximize')">
+        <DesktopIcon :component="maximized ? ArrowMinimize20Regular : ArrowMaximize20Regular" />
+      </button>
     </header>
     <div v-if="$slots.toolbar" class="desktop-task-context-panel__toolbar">
       <slot name="toolbar" />
@@ -255,6 +260,7 @@ watch(() => [props.activeTabId, props.tabs.length], async () => {
 .desktop-task-context-panel__toolbar { display: flex; min-width: 0; flex: none; min-height: var(--buddy-context-toolbar-height); align-items: center; border-bottom: 1px solid var(--buddy-border-subtle); }
 .desktop-task-context-panel__body { display: flex; flex: 1; min-width: 0; min-height: 0; overflow: hidden; }
 .desktop-task-context-panel__add { display: grid; width: 2rem; height: 2rem; flex: none; align-self: center; place-items: center; border: 0; border-radius: var(--buddy-icon-button-radius); background: transparent; color: var(--buddy-text-secondary); cursor: pointer; }
+.desktop-task-context-panel__maximize { margin-left: auto; margin-right: 0.375rem; }
 .desktop-task-context-panel__add:hover, .desktop-task-context-panel__add.is-open { background: var(--buddy-state-hover); color: var(--buddy-text-strong); }
 .desktop-task-context-panel__add :deep(.n-icon) { transition: transform 150ms var(--buddy-motion-state-easing); }
 .desktop-task-context-panel__add.is-open :deep(.n-icon) { transform: rotate(45deg); }

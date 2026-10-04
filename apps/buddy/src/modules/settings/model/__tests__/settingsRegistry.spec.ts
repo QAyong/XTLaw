@@ -38,8 +38,9 @@ describe('settings registry', () => {
     registry.register('settings', builtinSettings)
     registry.register('tests.settings', plugin())
     const general = registry.modules.find(module => module.id === 'settings.general')!
-    expect(general.groups.map(group => group.id)).toEqual(['settings.general.general', 'tests.settings.extra', 'settings.general.context-panel'])
-    expect(general.groups[0]!.items.map(item => item.id)).toEqual(['tests.settings.inline', 'settings.general.language'])
+    expect(general.groups.map(group => group.id)).toEqual(['settings.general.account', 'settings.general.general', 'settings.general.window-behavior', 'tests.settings.extra', 'settings.general.context-panel'])
+    expect(general.groups.find(group => group.id === 'settings.general.general')!.items.map(item => item.id)).toEqual(['tests.settings.inline', 'settings.general.language'])
+    expect(general.groups.find(group => group.id === 'settings.general.window-behavior')!.items).toContainEqual(expect.objectContaining({ kind: 'general', field: 'minimizeToTrayOnClose' }))
     expect(registry.modules.find(module => module.id === 'tests.settings.module')!.groups[0]!.id).toBe('tests.settings.group')
     expect(settingsText(general.title, 'zh-CN')).toBe('常规')
     expect(settingsText(general.title, 'en-US')).toBe('General')

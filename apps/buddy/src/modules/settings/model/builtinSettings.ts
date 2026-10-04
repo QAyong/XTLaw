@@ -19,6 +19,7 @@ export const builtinSettings = {
   groups: [
     { id: 'settings.general.account', module: 'settings.general', order: -10, unframed: true },
     { id: 'settings.general.general', module: 'settings.general', title: text('desktop.settings.category.general'), order: 0 },
+    { id: 'settings.general.window-behavior', module: 'settings.general', title: text('desktop.settings.windowBehavior'), order: 5 },
     { id: 'settings.general.context-panel', module: 'settings.general', title: text('desktop.settings.contextPanel'), order: 10 },
     ...builtinSettingsCategories.filter(category => category !== 'general').map(category => ({
       id: `settings.${category}.content`,
@@ -29,9 +30,13 @@ export const builtinSettings = {
   ],
   items: [
     { id: 'settings.general.profile', group: 'settings.general.account', order: 0, kind: 'content' as const },
-    ...(['language', 'contextPanelMode', 'contextPanelGlobal'] as GeneralSettingField[]).map((field, order) => ({
+    ...(['language', 'minimizeToTrayOnClose', 'contextPanelMode', 'contextPanelGlobal'] as GeneralSettingField[]).map((field, order) => ({
       id: `settings.general.${field}`,
-      group: field === 'language' ? 'settings.general.general' : 'settings.general.context-panel',
+      group: field === 'language'
+        ? 'settings.general.general'
+        : field === 'minimizeToTrayOnClose'
+          ? 'settings.general.window-behavior'
+          : 'settings.general.context-panel',
       order,
       kind: 'general' as const,
       field,

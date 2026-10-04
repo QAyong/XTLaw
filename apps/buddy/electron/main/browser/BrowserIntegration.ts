@@ -2,6 +2,8 @@ import type { BrowserWindow } from 'electron'
 import type { LocalEndpoint } from '../../../platform/ipc/localTransport'
 import type { BrowserPreferences } from '../../../shared/browser/browserPreferences'
 import type { ApplicationDiagnosticReporter } from '../../../shared/diagnostics/applicationDiagnostic'
+import { join } from 'node:path'
+import { dialog, shell } from 'electron'
 import { DESKTOP_IPC_CHANNELS } from '../../shared/desktopApi'
 import { BrowserAdapterServer } from './BrowserAdapterServer'
 import { BrowserAdapterTestLeasePublisher } from './BrowserAdapterTestLeasePublisher'
@@ -11,6 +13,7 @@ import { BrowserOperationGuard } from './BrowserOperationGuard'
 import { BrowserScreenshotService } from './BrowserScreenshotService'
 
 interface BrowserIntegrationOptions {
+  getLanguage?: () => string
   isTaskLinked?: () => boolean
   onActivityError?: () => void
   endpoint: LocalEndpoint
@@ -45,6 +48,33 @@ export class BrowserIntegration {
   bindWindow(window: BrowserWindow): void {
     this.closeWindow()
     this.#host = new BrowserHost({
+      guestPreloadPath: join(import.meta.dirname, '../preload/browserGuest.cjs'),
+      openExternal: url => shell.openExternal(url),
+      showDialog: async ({ type, message, origin }) => {
+        if (window.isDestroyed())
+          return false
+        const chinese = this.#options.getLanguage?.() === 'zh-CN'
+        const result = await dialog.showMessageBox(window, {
+          type: type === 'confirm' ? 'question' : 'info',
+          title: chinese ? 'Lexora — 网页对话框' : 'Lexora — Web page',
+          message: origin,
+          detail: message,
+          buttons: type === 'confirm' ? (chinese ? ['取消', '确定'] : ['Cancel', 'OK']) : [chinese ? '确定' : 'OK'],
+          defaultId: 0,
+          cancelId: 0,
+          noLink: true,
+        })
+        return type === 'alert' || result.response === 1
+      },
+      selectFiles: async ({ multiple, filters }) => {
+        if (window.isDestroyed())
+          return null
+        const result = await dialog.showOpenDialog(window, {
+          properties: multiple ? ['openFile', 'multiSelections'] : ['openFile'],
+          ...(filters ? { filters } : {}),
+        })
+        return result.canceled ? null : result.filePaths
+      },
       getFreezeDelay: (visible) => {
         if (!this.#options.isTaskLinked?.())
           return null

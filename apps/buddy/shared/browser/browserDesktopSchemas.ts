@@ -1,6 +1,6 @@
 import type { DesktopBrowserAttachGuestInput, DesktopBrowserEnsureSessionInput, DesktopBrowserGuestDescriptor, DesktopBrowserNavigateInput, DesktopBrowserOpenArtifactInput, DesktopBrowserSecurityState, DesktopBrowserSessionInput, DesktopBrowserSetProfileModeInput, DesktopBrowserSetSurfaceInput, DesktopBrowserState } from './browserDesktopApi'
 import { z } from 'zod'
-import { DESKTOP_BROWSER_ERROR_CODES, DESKTOP_BROWSER_PROFILE_MODES, DESKTOP_BROWSER_SECURITY_KINDS } from './browserDesktopApi'
+import { DESKTOP_BROWSER_BLOCKED_ACTIONS, DESKTOP_BROWSER_ERROR_CODES, DESKTOP_BROWSER_PROFILE_MODES, DESKTOP_BROWSER_SECURITY_KINDS } from './browserDesktopApi'
 import { browserZoomFactorSchema } from './browserPreferences'
 import { BROWSER_FAILURE_REASONS } from './primitives'
 
@@ -76,6 +76,17 @@ export const browserSessionInputSchema: z.ZodType<DesktopBrowserSessionInput> = 
   sessionId: browserSessionIdSchema,
 }).strict()
 
+export const browserViewportSchema = z.object({
+  width: z.number().int().min(240).max(3_840),
+  height: z.number().int().min(240).max(2_160),
+  scale: z.number().min(0.1).max(2),
+}).strict()
+
+export const browserSetViewportInputSchema = z.object({
+  sessionId: browserSessionIdSchema,
+  viewport: browserViewportSchema.nullable(),
+}).strict()
+
 export const browserSetZoomFactorInputSchema = z.object({
   sessionId: browserSessionIdSchema,
   zoomFactor: browserZoomFactorSchema.nullable(),
@@ -100,6 +111,9 @@ const desktopBrowserSecurityStateSchema: z.ZodType<DesktopBrowserSecurityState>
   ])
 
 export const desktopBrowserStateSchema: z.ZodType<DesktopBrowserState> = z.object({
+  favicon: browserUrlSchema.nullable().optional(),
+  viewport: browserViewportSchema.nullable().optional(),
+  openedFrom: z.object({ sessionId: z.uuid(), tabId: z.uuid() }).strict().optional(),
   documentVersion: z.number().int().nonnegative().optional(),
   zoomFactor: browserZoomFactorSchema,
   canGoBack: z.boolean(),
@@ -108,10 +122,20 @@ export const desktopBrowserStateSchema: z.ZodType<DesktopBrowserState> = z.objec
   controlEpoch: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
   conversationId: browserConversationIdSchema.nullable(),
   error: z.object({
+    noticeId: z.string().max(128).optional(),
+    origin: z.string().max(512).optional(),
+    detail: z.enum(['fresh-click', 'unavailable', 'target-changed', 'selection-failed', 'invalid-target', 'dialog-suppressed']).optional(),
+    action: z.enum(DESKTOP_BROWSER_BLOCKED_ACTIONS).optional(),
     code: z.enum(DESKTOP_BROWSER_ERROR_CODES),
     message: z.string().max(1_024),
     reason: z.enum(BROWSER_FAILURE_REASONS).optional(),
   }).strict().nullable(),
+  download: z.object({
+    id: z.string().max(128).optional(),
+    fileName: z.string().min(1).max(512),
+    path: z.string().min(1).max(4_096).nullable(),
+    state: z.enum(['canceled', 'completed', 'failed', 'started']),
+  }).strict().nullable().optional(),
   pageId: z.uuid(),
   profileMode: z.enum(DESKTOP_BROWSER_PROFILE_MODES),
   security: desktopBrowserSecurityStateSchema,

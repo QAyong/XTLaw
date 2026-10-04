@@ -49,6 +49,10 @@ const BROWSER_WAIT_STATE_INTERVAL_MS = 50
 const BROWSER_WAIT_PROBE_INTERVAL_MS = 150
 
 interface BrowserHostOptions {
+  guestPreloadPath?: string
+  showDialog?: (input: { type: 'alert' | 'confirm', message: string, origin: string }) => Promise<boolean>
+  openExternal?: (url: string) => Promise<void>
+  selectFiles?: (input: import('./browserHumanActions').BrowserFileSelectionOptions) => Promise<string[] | null>
   getFreezeDelay?: (visible: boolean) => number | null
   onActivityError?: () => void
   getDefaultZoomFactor?: () => number
@@ -88,6 +92,10 @@ export class BrowserHost {
   readonly #changes = new Emitter<BrowserHostChange>(() => console.error('BROWSER_OBSERVER_FAILED'))
   readonly onDidChange = this.#changes.event
   #revision = 0
+  readonly #openExternal: ((url: string) => Promise<void>) | undefined
+  readonly #guestPreloadPath: string | undefined
+  readonly #showDialog: BrowserHostOptions['showDialog']
+  readonly #selectFiles: BrowserHostOptions['selectFiles']
   readonly #getFreezeDelay: (visible: boolean) => number | null
   readonly #onActivityError: () => void
   readonly #getDefaultZoomFactor: () => number
@@ -109,6 +117,10 @@ export class BrowserHost {
   #disposed = false
   #drained: Promise<void> = Promise.resolve()
   constructor(options: BrowserHostOptions) {
+    this.#guestPreloadPath = options.guestPreloadPath
+    this.#showDialog = options.showDialog
+    this.#openExternal = options.openExternal
+    this.#selectFiles = options.selectFiles
     this.#getFreezeDelay = options.getFreezeDelay ?? (() => null)
     this.#onActivityError = options.onActivityError ?? (() => {})
     this.#operations = options.operations ?? new BrowserOperationGuard()
@@ -193,6 +205,7 @@ export class BrowserHost {
     conversationId: string | null,
     profileMode: DesktopBrowserProfileMode,
     tabId?: string,
+    popup?: { openedFrom: NonNullable<DesktopBrowserState['openedFrom']>, partition: string },
   ): DesktopBrowserState {
     this.#operations.assertCanMutate()
     this.#assertActive()
@@ -200,7 +213,7 @@ export class BrowserHost {
     try {
       const session = this.#sessions.ensure(conversationId, ({ sessionId }) => {
         wasCreated = true
-        const session = this.#createSession(conversationId, sessionId, profileMode)
+        const session = this.#createSession(conversationId, sessionId, profileMode, popup)
         return {
           session,
           teardown: reason => this.#teardownSession(session, reason),
@@ -271,6 +284,24 @@ export class BrowserHost {
 
   getGuestDescriptor(sessionId: string): DesktopBrowserGuestDescriptor {
     return { ...this.#requireSession(sessionId).descriptor }
+  }
+
+  handlePageDialog(webContentsId: number, request: { type: 'alert' | 'confirm', message: string }, show: (origin: string) => boolean): boolean {
+    const session = this.#sessions.values().find(session => session.page?.id === webContentsId)
+    return session?.handlePageDialog(request, show) ?? false
+  }
+
+  hasActiveDownloads(sessionId: string): boolean {
+    return this.#requireSession(sessionId).hasActiveDownloads
+  }
+
+  setViewport(sessionId: string, viewport: import('../../../shared/browser/browserDesktopApi').DesktopBrowserViewport | null): Promise<DesktopBrowserState> {
+    return this.#requireSession(sessionId).setViewport(viewport)
+  }
+
+  openDevTools(sessionId: string): boolean {
+    this.#assertActive()
+    return this.#requireSession(sessionId).openDevTools()
   }
 
   acquireControl(input: BrowserAcquireControlParams): BrowserControlLease {
@@ -980,11 +1011,12 @@ export class BrowserHost {
     conversationId: string | null,
     sessionId: string,
     profileMode: DesktopBrowserProfileMode,
+    popup?: { openedFrom: NonNullable<DesktopBrowserState['openedFrom']>, partition: string },
   ): BrowserPageSession {
     const descriptor: DesktopBrowserGuestDescriptor = {
-      partition: profileMode === 'default'
+      partition: popup?.partition ?? (profileMode === 'default'
         ? BROWSER_DEFAULT_PARTITION
-        : `buddy-browser-incognito:${sessionId}`,
+        : `buddy-browser-incognito:${sessionId}`),
       sessionId,
     }
     const session: BrowserPageSession = new BrowserPageSession({
@@ -997,8 +1029,22 @@ export class BrowserHost {
       onStateChanged: state => this.#emit({ kind: 'state', state }),
       onGuestChanged: status => this.#emit({ kind: 'guest', status, sessionId, pageId: session.state.pageId }),
       onHumanInput: () => this.#acceptHumanPageInput(session),
+      onWindowOpen: (url, external) => {
+        void this.#openPopup(session, url, external).catch((error) => {
+          if (this.#sessions.get(sessionId) !== session)
+            return
+          session.state.error = {
+            code: error instanceof BrowserHostError && error.code === 'BROWSER_SESSION_LIMIT_REACHED' ? error.code : 'BROWSER_NAVIGATION_BLOCKED',
+            message: 'Unable to open this link',
+          }
+          this.#publish(session)
+        })
+      },
+      ...(this.#showDialog ? { showDialog: this.#showDialog } : {}),
+      ...(this.#selectFiles ? { selectFiles: this.#selectFiles } : {}),
       isCurrent: () => this.#sessions.get(sessionId) === session,
       state: {
+        ...(popup ? { openedFrom: popup.openedFrom } : {}),
         zoomFactor: this.#getDefaultZoomFactor(),
         canGoBack: false,
         canGoForward: false,
@@ -1016,6 +1062,25 @@ export class BrowserHost {
       },
     })
     return session
+  }
+
+  async #openPopup(source: BrowserPageSession, url: string, external: boolean): Promise<void> {
+    this.#operations.assertCanMutate()
+    if (this.#sessions.get(source.state.sessionId) !== source || source.state.controller !== 'human')
+      return
+    if (external) {
+      // Do not silently transfer private browsing into the system browser's normal profile.
+      if (source.state.profileMode === 'incognito' || !this.#openExternal)
+        throw new Error('External browser unavailable for this profile')
+      await this.#openExternal(url)
+      return
+    }
+    const tabId = this.#createId()
+    const state = this.#ensureSession(source.state.conversationId, source.state.profileMode, tabId, {
+      openedFrom: { sessionId: source.state.sessionId, tabId },
+      partition: source.descriptor.partition,
+    })
+    await this.navigate(state.sessionId, url)
   }
 
   #teardownSession(
@@ -1160,13 +1225,17 @@ export class BrowserHost {
       return
     }
 
-    delete params.allowpopups
+    // The renderer sets allowpopups on the <webview> element; without that attribute Electron
+    // blocks new-window requests before they reach the deny-and-route handler below.
+    params.allowpopups = 'true'
     delete params.preload
     delete webPreferences.preload
+    if (this.#guestPreloadPath)
+      webPreferences.preload = this.#guestPreloadPath
     Object.assign(webPreferences, {
       allowRunningInsecureContent: false,
       contextIsolation: true,
-      devTools: false,
+      devTools: true,
       nodeIntegration: false,
       nodeIntegrationInSubFrames: false,
       nodeIntegrationInWorker: false,

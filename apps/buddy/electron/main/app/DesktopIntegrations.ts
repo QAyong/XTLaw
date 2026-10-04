@@ -192,6 +192,7 @@ export class DesktopIntegrations {
     })
     this.#subscriptions.push(() => configNotifications.dispose())
     this.#subscriptions.push(registerBrowserDesktopIpc({
+      getLanguage: () => runtime.language,
       data: this.#browser.data,
       screenshots: this.#browser.screenshots,
       getHost: () => this.#browser.host,

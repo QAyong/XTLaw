@@ -1,8 +1,9 @@
-import type { BrowserWindow, IpcMainInvokeEvent } from 'electron'
+import type { BrowserWindow, IpcMainEvent, IpcMainInvokeEvent } from 'electron'
 import type { BrowserHost } from '../BrowserHost'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { BROWSER_PAGE_DIALOG_CHANNEL } from '../../../../shared/browser/browserDialogs'
 import { DEFAULT_BROWSER_PREFERENCES } from '../../../../shared/browser/browserPreferences'
 import { DESKTOP_IPC_CHANNELS } from '../../../shared/desktopApi'
 import { BrowserScreenshotService } from '../BrowserScreenshotService'
@@ -12,6 +13,8 @@ const electron = vi.hoisted(() => ({
   fromId: vi.fn(),
   fromPartition: vi.fn(),
   handlers: new Map<string, (event: IpcMainInvokeEvent, input: unknown) => unknown>(),
+  listeners: new Map<string, (event: IpcMainEvent, input: unknown) => void>(),
+  showMessageBoxSync: vi.fn(),
   openExternal: vi.fn(),
   openPath: vi.fn(),
   removeHandler: vi.fn((channel: string) => electron.handlers.delete(channel)),
@@ -27,10 +30,13 @@ vi.mock('electron', () => ({
   app: { getVersion: () => '0.1.0' },
   clipboard: { writeText: vi.fn() },
   dialog: {
+    showMessageBoxSync: electron.showMessageBoxSync,
     showOpenDialog: electron.showOpenDialog,
     showSaveDialog: electron.showSaveDialog,
   },
   ipcMain: {
+    on: vi.fn((channel, listener) => electron.listeners.set(channel, listener)),
+    removeListener: vi.fn(),
     handle: vi.fn((channel, handler) => electron.handlers.set(channel, handler)),
     removeHandler: electron.removeHandler,
   },
@@ -45,6 +51,8 @@ vi.mock('electron', () => ({
 
 beforeEach(() => {
   electron.handlers.clear()
+  electron.listeners.clear()
+  electron.showMessageBoxSync.mockReset()
   electron.showOpenDialog.mockReset()
   electron.showSaveDialog.mockReset()
   electron.fromId.mockReset()
@@ -56,6 +64,34 @@ beforeEach(() => {
 })
 
 describe('registerBrowserDesktopIpc', () => {
+  it.each([1, 0])('replies only once, after the guest confirm choice %s', (response) => {
+    const mainFrame = {}
+    const desktop = {}
+    const window = { webContents: desktop } as BrowserWindow
+    const host = { handlePageDialog: vi.fn((_id, _request, show: (origin: string) => boolean) => show('https://example.com')) } as unknown as BrowserHost
+    registerBrowserDesktopIpc({
+      data: { getSummary: async () => ({ cacheBytes: 0, cookieSiteCount: 0 }), clear: async () => ({ ok: true }) },
+      screenshots: new BrowserScreenshotService(() => DEFAULT_BROWSER_PREFERENCES),
+      getHost: () => host,
+      getWindow: () => window,
+      resolveArtifactEntry: async () => { throw new Error('unused') },
+    })
+    const replies: unknown[] = []
+    const event = { sender: { id: 17, mainFrame, hostWebContents: desktop, getType: () => 'webview', isDestroyed: () => false }, senderFrame: mainFrame } as unknown as IpcMainEvent
+    Object.defineProperty(event, 'returnValue', { get: () => replies.at(-1), set: value => replies.push(value) })
+    electron.showMessageBoxSync.mockImplementation(() => {
+      expect(replies).toEqual([])
+      return response
+    })
+    const listener = electron.listeners.get(BROWSER_PAGE_DIALOG_CHANNEL)!
+    listener(event, { type: 'confirm', message: 'Fixture question' })
+    expect(replies).toEqual([{ handled: true, value: response === 1 }])
+    expect(electron.showMessageBoxSync).toHaveBeenCalledWith(window, expect.objectContaining({ message: 'https://example.com', cancelId: 0 }))
+    listener({ ...event, senderFrame: {} } as IpcMainEvent, { type: 'confirm', message: 'subframe' })
+    listener(event, { type: 'confirm', message: 'spoof', origin: 'https://trusted.example' })
+    expect(host.handlePageDialog).toHaveBeenCalledOnce()
+  })
+
   it('validates trusted Renderer requests before forwarding them to BrowserHost', async () => {
     const sessionId = 'd86be868-6a84-45da-90aa-ff61f3c88f85'
     const state = {
@@ -77,6 +113,7 @@ describe('registerBrowserDesktopIpc', () => {
     } as const
     const getState = vi.fn().mockReturnValue(state)
     const host = {
+      hasActiveDownloads: vi.fn(() => false),
       close: vi.fn(),
       captureScreenshot: vi.fn().mockResolvedValue({
         bytes: Uint8Array.from([137, 80, 78, 71]),
@@ -91,6 +128,7 @@ describe('registerBrowserDesktopIpc', () => {
       goForward: vi.fn(),
       getState,
       navigate: vi.fn().mockResolvedValue({ ...state, url: 'https://example.com/' }),
+      openDevTools: vi.fn().mockReturnValue(true),
       reload: vi.fn(),
       setSurface: vi.fn(),
       stop: vi.fn(),
@@ -351,6 +389,7 @@ describe('registerBrowserDesktopIpc', () => {
         title: state.title,
       }),
       getState,
+      openDevTools: vi.fn().mockReturnValue(true),
     } as unknown as BrowserHost
     const webContents = { mainFrame: {} }
     const window = { webContents } as unknown as BrowserWindow
@@ -397,6 +436,11 @@ describe('registerBrowserDesktopIpc', () => {
       resolve('/picked/space/site/index.html'),
     )
 
+    await expect(invoke(DESKTOP_IPC_CHANNELS.browserOpenDevTools, trustedEvent, {
+      sessionId,
+    })).resolves.toBe(true)
+    expect(host.openDevTools).toHaveBeenCalledExactlyOnceWith(sessionId)
+
     getState.mockReturnValue({
       ...state,
       security: { kind: 'secure', origin: 'https://example.com' },
@@ -410,6 +454,23 @@ describe('registerBrowserDesktopIpc', () => {
       sessionId,
     })).resolves.toBe(false)
     expect(electron.showItemInFolder).toHaveBeenCalledOnce()
+
+    await expect(invoke(DESKTOP_IPC_CHANNELS.browserRevealDownload, trustedEvent, {
+      sessionId,
+    })).resolves.toBe(false)
+
+    getState.mockReturnValue({
+      ...state,
+      download: {
+        fileName: 'report.csv',
+        path: resolve('/downloads/report.csv'),
+        state: 'completed',
+      },
+    })
+    await expect(invoke(DESKTOP_IPC_CHANNELS.browserRevealDownload, trustedEvent, {
+      sessionId,
+    })).resolves.toBe(true)
+    expect(electron.showItemInFolder).toHaveBeenLastCalledWith(resolve('/downloads/report.csv'))
   })
 
   it('resolves an HTML artifact with its local resource root', async () => {

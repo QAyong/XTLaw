@@ -124,6 +124,9 @@ function close() {
           <NCheckbox v-model:checked="cache" :disabled="busy" aria-labelledby="browser-clear-cache" @click.stop />
         </div>
       </div>
+      <NAlert v-if="siteData" type="warning" :show-icon="false">
+        {{ t('desktop.browser.signOutNotice') }}
+      </NAlert>
       <p v-if="summaryFailed" class="browser-clear__summary-error">
         {{ t('desktop.browser.summaryFailed') }}
       </p>

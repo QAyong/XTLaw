@@ -51,6 +51,7 @@ export interface TaskViewContextTab extends ContextTabSource {
 }
 
 export interface ContextPanelTab {
+  favicon?: string | null
   id: string
   title: string
   icon: 'file' | 'folder' | 'changes' | 'browser'

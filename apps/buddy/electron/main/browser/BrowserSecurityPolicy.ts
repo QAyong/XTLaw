@@ -7,6 +7,9 @@ import { containsCanonicalPath } from '../../../platform/filesystem/filePaths'
 import { resolveFilePath } from '../../../platform/filesystem/resolveFilePath'
 import { BrowserDebugger } from './BrowserDebugger'
 
+const CDP_FILE_CHOOSER_OPENED = 'Page.fileChooserOpened'
+const MAX_FILE_CHOOSER_PATH_LENGTH = 4_096
+
 export interface BrowserSecurityPage {
   id: number
   debugger: {
@@ -17,10 +20,13 @@ export interface BrowserSecurityPage {
       method: string,
       commandParams?: Record<string, unknown>,
     ) => Promise<unknown>
+    off?: (event: 'message', listener: (event: unknown, method: string, params: unknown) => void) => unknown
+    on?: (event: 'message', listener: (event: unknown, method: string, params: unknown) => void) => unknown
   }
   getURL: () => string
   loadURL: (url: string) => Promise<unknown>
-  setWindowOpenHandler: (handler: () => { action: 'deny' }) => void
+  openDevTools: (options: { mode: 'detach' }) => void
+  setWindowOpenHandler: (handler: (details: { url: string, disposition: string, postBody?: unknown }) => { action: 'deny' }) => void
   on: (event: 'certificate-error', listener: CertificateErrorListener) => unknown
   off: (event: 'certificate-error', listener: CertificateErrorListener) => unknown
 }
@@ -47,10 +53,16 @@ export interface BrowserSecuritySession {
 }
 
 interface BrowserSecurityPolicyOptions {
+  allowDownload?: () => boolean
   connection?: BrowserDebugger
   onCertificateError?: (details: BrowserCertificateErrorDetails) => void
+  onDownloadBlocked?: () => void
+  onDownloadStarted?: (item: BrowserDownloadItem) => void
+  onFileChooser?: (request: BrowserFileChooserRequest) => void
   onPermissionDenied?: () => void
   onRequestBlocked?: (details: BrowserRequestDetails) => void
+  onWindowOpenBlocked?: () => void
+  onWindowOpen?: (url: string, disposition: string) => void
   page: BrowserSecurityPage
   session: BrowserSecuritySession
 }
@@ -66,13 +78,33 @@ interface BrowserCertificateErrorDetails {
   url: string
 }
 
+/** Minimal structural view of an Electron download item, kept small for test doubles. */
+export interface BrowserDownloadItem {
+  on?: (event: 'updated', listener: (event: unknown, state: 'interrupted' | 'progressing') => void) => unknown
+  off?: (event: 'updated', listener: (event: unknown, state: 'interrupted' | 'progressing') => void) => unknown
+  cancel: () => void
+  getFilename: () => string
+  getSavePath: () => string
+  once: (
+    event: 'done',
+    listener: (event: unknown, state: 'cancelled' | 'completed' | 'interrupted') => void,
+  ) => unknown
+}
+
+/** A file chooser request intercepted from the managed page, before any native dialog. */
+export interface BrowserFileChooserRequest {
+  backendNodeId: number
+  frameId: string
+  mode: 'selectMultiple' | 'selectSingle'
+}
+
 interface DownloadEvent {
   preventDefault: () => void
 }
 
 type DownloadListener = (
   event: DownloadEvent,
-  item: unknown,
+  item: BrowserDownloadItem,
   webContents: unknown,
 ) => void
 
@@ -91,7 +123,10 @@ type BeforeRequestListener = (
 ) => void
 
 interface BrowserSecurityRoute {
+  allowDownload: () => boolean
   isRequestAllowed: (details: BrowserRequestDetails) => Promise<boolean>
+  onDownloadBlocked: () => void
+  onDownloadStarted: (item: BrowserDownloadItem) => void
   onPermissionDenied: () => void
   onRequestBlocked: (details: BrowserRequestDetails) => void
 }
@@ -124,7 +159,16 @@ class BrowserSecuritySessionCoordinator {
         callback({ cancel: true })
       })
     }
-    this.#downloadListener = event => event.preventDefault()
+    this.#downloadListener = (event, item, webContents) => {
+      const route = this.#routes.get(readWebContentsId(webContents))
+      if (!route || !route.allowDownload()) {
+        // Human downloads keep Electron's own save dialog; everything else stays blocked.
+        event.preventDefault()
+        route?.onDownloadBlocked()
+        return
+      }
+      route.onDownloadStarted(item)
+    }
     this.#session.setPermissionCheckHandler(() => false)
     this.#session.setPermissionRequestHandler((webContents, _permission, callback) => {
       callback(false)
@@ -181,6 +225,28 @@ function readWebContentsId(value: unknown): number {
   return -1
 }
 
+function parseFileChooserRequest(params: unknown): BrowserFileChooserRequest | null {
+  if (typeof params !== 'object' || params === null)
+    return null
+  const { backendNodeId, frameId, mode } = params as Record<string, unknown>
+  if (typeof backendNodeId !== 'number' || !Number.isSafeInteger(backendNodeId) || backendNodeId <= 0)
+    return null
+  if (typeof frameId !== 'string' || !frameId || frameId.length > 128)
+    return null
+  return {
+    backendNodeId,
+    frameId,
+    mode: mode === 'selectMultiple' ? 'selectMultiple' : 'selectSingle',
+  }
+}
+
+export function isValidSelectedFilePath(value: unknown): value is string {
+  return typeof value === 'string'
+    && value.length > 0
+    && value.length <= MAX_FILE_CHOOSER_PATH_LENGTH
+    && !value.includes('\u0000')
+}
+
 export class BrowserSecurityPolicyError extends Error {
   readonly code: DesktopBrowserErrorCode = 'BROWSER_NAVIGATION_BLOCKED'
   readonly reason: BrowserFailureReason
@@ -193,21 +259,30 @@ export class BrowserSecurityPolicyError extends Error {
 }
 
 export class BrowserSecurityPolicy {
+  readonly #allowDownload: () => boolean
   readonly #certificateErrorListener: CertificateErrorListener
   readonly #onCertificateError: (details: BrowserCertificateErrorDetails) => void
+  readonly #onDownloadBlocked: () => void
+  readonly #onDownloadStarted: (item: BrowserDownloadItem) => void
+  readonly #onFileChooser: (request: BrowserFileChooserRequest) => void
   readonly #onPermissionDenied: () => void
   readonly #onRequestBlocked: (details: BrowserRequestDetails) => void
   readonly #page: BrowserSecurityPage
   readonly #releaseSessionPolicy: () => void
   readonly #session: BrowserSecuritySession
   #disposed = false
+  #fileChooserSubscription: (() => void) | null = null
   #fileChooserGuardPromise: Promise<void> | null = null
   #localFileRoot: string | null = null
   readonly #connection: BrowserDebugger
   readonly #ownsConnection: boolean
 
   constructor(options: BrowserSecurityPolicyOptions) {
+    this.#allowDownload = options.allowDownload ?? (() => false)
     this.#onCertificateError = options.onCertificateError ?? (() => {})
+    this.#onDownloadBlocked = options.onDownloadBlocked ?? (() => {})
+    this.#onDownloadStarted = options.onDownloadStarted ?? (() => {})
+    this.#onFileChooser = options.onFileChooser ?? (() => {})
     this.#onPermissionDenied = options.onPermissionDenied ?? (() => {})
     this.#onRequestBlocked = options.onRequestBlocked ?? (() => {})
     this.#page = options.page
@@ -218,7 +293,10 @@ export class BrowserSecurityPolicy {
       this.#session,
       this.#page.id,
       {
+        allowDownload: () => !this.#disposed && this.#allowDownload(),
         isRequestAllowed: details => this.#isRequestAllowed(details),
+        onDownloadBlocked: () => this.#onDownloadBlocked(),
+        onDownloadStarted: item => this.#onDownloadStarted(item),
         onPermissionDenied: () => this.#onPermissionDenied(),
         onRequestBlocked: details => this.#onRequestBlocked(details),
       },
@@ -229,7 +307,15 @@ export class BrowserSecurityPolicy {
         this.#onCertificateError({ error: error.slice(0, 1_024), url })
     }
     this.#page.on('certificate-error', this.#certificateErrorListener)
-    this.#page.setWindowOpenHandler(() => ({ action: 'deny' }))
+    this.#page.setWindowOpenHandler((details) => {
+      const url = parseBrowserUrl(details.url)
+      if (!this.#disposed && url && !url.username && !url.password && details.url.length <= 4_096 && !details.postBody)
+        options.onWindowOpen?.(url.toString(), details.disposition)
+      else if (!this.#disposed)
+        (options.onWindowOpenBlocked ?? this.#onPermissionDenied)()
+      // Never let Electron create an unmanaged native window.
+      return { action: 'deny' }
+    })
   }
 
   async authorizeNavigation(rawUrl: string): Promise<string> {
@@ -283,6 +369,8 @@ export class BrowserSecurityPolicy {
     if (this.#disposed)
       return
     this.#disposed = true
+    this.#fileChooserSubscription?.()
+    this.#fileChooserSubscription = null
     this.#releaseSessionPolicy()
     this.#page.off('certificate-error', this.#certificateErrorListener)
     if (this.#ownsConnection)
@@ -318,8 +406,45 @@ export class BrowserSecurityPolicy {
     await this.#connection.sendCommand('Page.enable')
     await this.#connection.sendCommand(
       'Page.setInterceptFileChooserDialog',
-      { cancel: true, enabled: true },
+      { enabled: true },
     )
+    this.#fileChooserSubscription ??= this.#connection.onEvent(
+      CDP_FILE_CHOOSER_OPENED,
+      (params) => {
+        if (this.#disposed)
+          return
+        const request = parseFileChooserRequest(params)
+        if (request)
+          this.#onFileChooser(request)
+      },
+    )
+  }
+
+  async fileChooserAccept(request: BrowserFileChooserRequest): Promise<string> {
+    this.#assertActive()
+    const result = await this.#connection.sendCommand('DOM.describeNode', { backendNodeId: request.backendNodeId }) as { node?: { nodeName?: string, attributes?: string[] } }
+    if (result.node?.nodeName !== 'INPUT')
+      throw new Error('File chooser target is not an input')
+    const attributes = result.node.attributes ?? []
+    for (let index = 0; index < attributes.length; index += 2) {
+      if (attributes[index] === 'accept')
+        return attributes[index + 1]?.slice(0, 2_048) ?? ''
+    }
+    return ''
+  }
+
+  /** Delivers user-selected files to the intercepted chooser of the current page document. */
+  async deliverFileSelection(request: BrowserFileChooserRequest, files: string[]): Promise<void> {
+    this.#assertActive()
+    if (!files.length)
+      return
+    if (!files.every(isValidSelectedFilePath))
+      throw new Error('Invalid selected file path')
+    this.#connection.ensureAttached()
+    await this.#connection.sendCommand('DOM.setFileInputFiles', {
+      backendNodeId: request.backendNodeId,
+      files,
+    })
   }
 
   async #isRequestAllowed(details: BrowserRequestDetails): Promise<boolean> {

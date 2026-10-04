@@ -25,8 +25,22 @@ export function useTaskResourcePanel(options: TaskResourcePanelOptions) {
   }
   const stopBrowserState = options.browser.onStateChanged((state) => {
     const entry = Object.entries(browserStates.value).find(([, previous]) => previous.sessionId === state.sessionId)
-    if (entry)
+    if (entry) {
       browserStates.value = { ...browserStates.value, [entry[0]]: state }
+      return
+    }
+    if (!state.openedFrom)
+      return
+    const sourceEntry = Object.entries(browserStates.value).find(([, previous]) => previous.sessionId === state.openedFrom!.sessionId)
+    const source = taskContext.allTabs.value.find(tab => tab.id === sourceEntry?.[0])
+    if (!source || source.kind !== 'browser' || source.conversationId !== state.conversationId)
+      return
+    const id = browserTabId(state.conversationId, state.openedFrom.tabId)
+    const foreground = taskContext.activeTab.value?.id === source.id
+    taskContext.restoreTab({ id, kind: 'browser', scope: source.scope, conversationId: state.conversationId, browserKey: state.openedFrom.tabId, source: source.source })
+    browserStates.value = { ...browserStates.value, [id]: state }
+    if (foreground)
+      taskContext.selectTab(id)
   })
   let operation = 0
   let disposed = false

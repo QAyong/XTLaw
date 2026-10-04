@@ -4,7 +4,7 @@ import type { TaskBrowserContextTab } from '../../model/context-panel/taskContex
 import type { BrowserToolbarBusyAction, BrowserToolbarMenuActionKey } from './browserToolbarMenu'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import type { DesktopBrowserGuestSurfaceHost } from '@/platform/browser/browserGuestSurface'
-import { Pause16Regular } from '@vicons/fluent'
+import { Dismiss16Regular, Pause16Regular } from '@vicons/fluent'
 import { useMessage } from 'naive-ui'
 import { computed, shallowRef, toRef, useTemplateRef, watch } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
@@ -12,10 +12,14 @@ import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import ResourceSelectionQuoteMenu from '@/shared/ui/selection/ResourceSelectionQuoteMenu.vue'
 import { useSelectionReferences } from '@/shared/ui/selection/workbenchSelectionReferences'
 import WorkbenchPanelContent from '@/workbench/browser/WorkbenchPanelContent.vue'
+import { browserErrorNotice, browserNoticeKey, downloadNotice } from './browserNotice'
+import DesktopBrowserResponsiveViewport from './DesktopBrowserResponsiveViewport.vue'
 import DesktopBrowserToolbar from './DesktopBrowserToolbar.vue'
+import DesktopBrowserViewportControls from './DesktopBrowserViewportControls.vue'
 import { useBrowserAddress } from './useBrowserAddress'
 import { useBrowserContextSurface } from './useBrowserContextSurface'
 import { browserElementPickMenuPosition, useBrowserElementReference } from './useBrowserElementReference'
+import { useBrowserResponsiveViewport } from './useBrowserResponsiveViewport'
 
 const props = defineProps<{
   tab: TaskBrowserContextTab | null
@@ -74,6 +78,44 @@ const picker = useBrowserElementReference({
 })
 watch(() => selectionReferences?.captureScope(browserViewId.value)?.sourceIdentity, () => picker.cancel(), { flush: 'sync' })
 const browserBlank = computed(() => browserState.value?.url === 'about:blank' && browserState.value.status !== 'loading')
+// Identity is host-issued: dismissing one event must not hide a later retry or another tab.
+const dismissedNotices = shallowRef<ReadonlySet<string>>(new Set())
+const notices = computed(() => {
+  const state = browserState.value
+  if (!state)
+    return []
+  const result = []
+  if (state.error) {
+    const key = browserNoticeKey(state.sessionId, state.error, null)!
+    if (!dismissedNotices.value.has(key))
+      result.push({ key, retry: state.error.action === undefined, reveal: false, text: browserErrorNotice(state.error, t) })
+  }
+  if (state.download) {
+    const key = browserNoticeKey(state.sessionId, null, state.download)!
+    if (!dismissedNotices.value.has(key))
+      result.push({ key, retry: false, reveal: state.download.state === 'completed' && Boolean(state.download.path), text: downloadNotice(state.download, t) })
+  }
+  return result
+})
+const canvasSize = shallowRef({ width: 0, height: 0 })
+const responsive = useBrowserResponsiveViewport({
+  api: props.api,
+  state: browserState,
+  visible: toRef(() => props.visible),
+  canvas: canvasSize,
+  updateState: state => props.updateState(state),
+  onError: () => message.error(t('desktop.context.browserViewportFailed')),
+})
+watch(() => browserState.value?.sessionId, () => {
+  dismissedNotices.value = new Set()
+})
+watch(responsive.viewport, () => props.guestHost.layout?.(), { flush: 'post' })
+function dismissNotice(key: string): void {
+  dismissedNotices.value = new Set([...dismissedNotices.value, key].slice(-64))
+}
+function revealDownload(): void {
+  void browserView.revealDownload()
+}
 const controlAnnouncement = shallowRef('')
 watch(() => browserState.value?.controller, (controller, previous) => {
   if (controller === 'agent')
@@ -102,6 +144,10 @@ async function setZoom(factor: number | null) {
 function browserMenu(action: BrowserToolbarMenuActionKey) {
   if (action === 'capture-screenshot')
     void captureScreenshot()
+  else if (action === 'open-devtools')
+    void browserView.openDevTools()
+  else if (action === 'responsive-viewport')
+    responsive.toggle()
   else if (action === 'enter-incognito')
     void browserView.setProfileMode('incognito')
   else if (action === 'exit-incognito')
@@ -116,13 +162,44 @@ function browserMenu(action: BrowserToolbarMenuActionKey) {
 <template>
   <WorkbenchPanelContent v-if="browserTab">
     <template #toolbar>
-      <DesktopBrowserToolbar :picking="picker.picking.value" :pick-label="t('desktop.context.browserPickElement')" :pick-disabled="!selectionReferences || browserState?.status !== 'ready' || browserState?.controller === 'agent' || busyAction !== null" :address="address" :busy-action="busyAction" :language="language" :state="browserState" @back="browserView.goBack" @forward="browserView.goForward" @navigate="openAddress" @reload="browserView.reload" @stop="browserView.stop" @update:address="updateAddress" @menu="browserMenu" @zoom="setZoom" @pick="picker.toggle" />
+      <DesktopBrowserToolbar :responsive="responsive.active.value" :responsive-busy="responsive.busy.value" :picking="picker.picking.value" :pick-label="t('desktop.context.browserPickElement')" :pick-disabled="!selectionReferences || browserState?.status !== 'ready' || browserState?.controller === 'agent' || busyAction !== null" :address="address" :busy-action="busyAction" :language="language" :state="browserState" @back="browserView.goBack" @forward="browserView.goForward" @navigate="openAddress" @reload="browserView.reload" @stop="browserView.stop" @update:address="updateAddress" @menu="browserMenu" @zoom="setZoom" @pick="picker.toggle" />
     </template>
     <ResourceSelectionQuoteMenu ref="quoteMenu" :view-id="browserViewId" :owner-key="pickerOwner" :language="language" :visible="visible" />
     <div v-if="browserView.failed.value" class="context-resource-state" role="alert">
       {{ t('desktop.context.browserLoadFailed') }}
     </div>
     <section v-else class="desktop-browser-context-surface" data-testid="browser-context-surface">
+      <DesktopBrowserViewportControls v-if="responsive.viewport.value" :language="language" :viewport="responsive.viewport.value" :zoom="responsive.zoom.value" :disabled="responsive.disabled.value" @resize="responsive.resize" @device="responsive.selectDevice" @zoom="responsive.setZoom" />
+      <div v-for="notice in notices" :key="notice.key" class="desktop-browser-notice" data-testid="browser-notice">
+        <span class="desktop-browser-notice__text" role="status" aria-live="polite">{{ notice.text }}</span>
+        <button
+          v-if="notice.retry"
+          class="desktop-browser-notice__action"
+          data-testid="browser-notice-retry"
+          type="button"
+          @click="browserView.reload"
+        >
+          {{ t('desktop.context.browserNoticeRetry') }}
+        </button>
+        <button
+          v-if="notice.reveal"
+          class="desktop-browser-notice__action"
+          data-testid="browser-notice-reveal"
+          type="button"
+          @click="revealDownload"
+        >
+          {{ t('desktop.context.browserNoticeReveal') }}
+        </button>
+        <button
+          class="desktop-browser-notice__action"
+          data-testid="browser-notice-dismiss"
+          type="button"
+          :aria-label="t('desktop.context.browserNoticeDismiss')"
+          @click="dismissNotice(notice.key)"
+        >
+          <DesktopIcon aria-hidden="true" :component="Dismiss16Regular" />
+        </button>
+      </div>
       <div
         v-if="browserState?.controller === 'agent'"
         class="desktop-browser-context-surface__control"
@@ -160,23 +237,60 @@ function browserMenu(action: BrowserToolbarMenuActionKey) {
       >
         {{ controlAnnouncement }}
       </span>
-      <div
-        ref="surfaceElement"
-        class="desktop-browser-context-surface__viewport"
-        data-testid="browser-guest-surface"
-        role="group"
-        :aria-label="t('desktop.context.browserViewport')"
-      >
-        <div v-if="browserBlank" class="desktop-browser-context-surface__empty">
-          <p>{{ t('desktop.context.browserStartBrowsing') }}</p>
+      <DesktopBrowserResponsiveViewport :viewport="responsive.viewport.value" :disabled="responsive.disabled.value" :visible="visible" :language="language" @resize="responsive.resize" @canvas="canvasSize = $event">
+        <div
+          ref="surfaceElement"
+          class="desktop-browser-context-surface__viewport"
+          data-testid="browser-guest-surface"
+          :data-browser-viewport-width="responsive.viewport.value?.width"
+          :data-browser-viewport-height="responsive.viewport.value?.height"
+          role="group"
+          :aria-label="t('desktop.context.browserViewport')"
+        >
+          <div v-if="browserBlank" class="desktop-browser-context-surface__empty">
+            <p>{{ t('desktop.context.browserStartBrowsing') }}</p>
+          </div>
         </div>
-      </div>
+      </DesktopBrowserResponsiveViewport>
     </section>
   </WorkbenchPanelContent>
 </template>
 
 <style scoped>
 .context-resource-state { display: grid; flex: 1; min-width: 0; min-height: 0; place-content: center; padding: 20px; font-size: 12px; color: var(--buddy-text-muted); }
+.desktop-browser-notice {
+  display: flex;
+  min-width: 0;
+  flex: none;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--buddy-border-subtle);
+  background: var(--buddy-surface-raised, var(--buddy-surface-base));
+  padding: 0.375rem 0.5rem 0.375rem 0.75rem;
+}
+
+.desktop-browser-notice__text {
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+  font-size: 0.75rem;
+  color: var(--buddy-text-secondary, var(--buddy-text-muted));
+}
+
+.desktop-browser-notice__action {
+  flex: none;
+  border: 1px solid var(--buddy-border-subtle);
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font-size: 0.75rem;
+  padding: 0.125rem 0.375rem;
+}
+
+.desktop-browser-notice__action:focus-visible {
+  outline: 2px solid var(--buddy-accent-solid);
+  outline-offset: 1px;
+}
 .desktop-browser-context-surface {
   display: flex;
   min-width: 0;
@@ -267,9 +381,10 @@ function browserMenu(action: BrowserToolbarMenuActionKey) {
 
 .desktop-browser-context-surface__viewport {
   position: relative;
+  width: 100%;
+  height: 100%;
   min-width: 0;
   min-height: 0;
-  flex: 1;
   background: var(--buddy-surface-base);
 }
 

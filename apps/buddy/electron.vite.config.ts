@@ -61,6 +61,7 @@ export default defineConfig({
         input: {
           index: fileURLToPath(new URL('./electron/preload/index.ts', import.meta.url)),
           extensionHost: fileURLToPath(new URL('./electron/preload/extensionHost.ts', import.meta.url)),
+          browserGuest: fileURLToPath(new URL('./electron/preload/browserGuest.ts', import.meta.url)),
         },
         output: {
           format: 'cjs',

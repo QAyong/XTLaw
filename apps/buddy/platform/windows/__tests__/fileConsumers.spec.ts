@@ -154,6 +154,7 @@ function createPolicy() {
       debugger: { attach: () => {}, detach: () => {}, isAttached: () => true, sendCommand: async () => ({}) },
       getURL: () => 'about:blank',
       loadURL: async () => {},
+      openDevTools: () => {},
       setWindowOpenHandler: () => {},
     },
     session,

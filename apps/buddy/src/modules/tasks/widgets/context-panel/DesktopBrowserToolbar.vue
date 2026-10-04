@@ -15,12 +15,14 @@ import {
   ArrowLeft16Regular,
   ArrowRight16Regular,
   Camera20Regular,
+  Code20Regular,
   CursorHover20Regular,
   FolderOpen20Regular,
   Globe16Regular,
   LockClosed16Regular,
   MoreHorizontal20Regular,
   Open20Regular,
+  PhoneDesktop20Regular,
   Stop16Regular,
   TabInPrivate20Regular,
   Warning16Regular,
@@ -34,6 +36,8 @@ import DesktopBrowserZoomControls from './DesktopBrowserZoomControls.vue'
 
 const props = defineProps<{
   picking?: boolean
+  responsive?: boolean
+  responsiveBusy?: boolean
   pickLabel?: string
   pickDisabled?: boolean
   busyAction: BrowserToolbarBusyAction | null
@@ -83,6 +87,8 @@ const menuIconByAction: Record<BrowserToolbarMenuActionKey, Component> = {
   'capture-screenshot': Camera20Regular,
   'enter-incognito': TabInPrivate20Regular,
   'exit-incognito': TabInPrivate20Regular,
+  'responsive-viewport': PhoneDesktop20Regular,
+  'open-devtools': Code20Regular,
   'open-external': Open20Regular,
   'show-file-in-folder': FolderOpen20Regular,
 }
@@ -91,6 +97,8 @@ const menuOptions = computed<DropdownOption[]>(() => {
     busyAction: props.busyAction,
     controller: props.state?.controller ?? 'human',
     profileMode: props.state?.profileMode ?? 'default',
+    responsive: props.responsive,
+    responsiveBusy: props.responsiveBusy,
     url: props.state?.url ?? 'about:blank',
   })
   return [{
@@ -120,6 +128,8 @@ function handleMenuAction(value: string | number): void {
     busyAction: props.busyAction,
     controller: props.state?.controller ?? 'human',
     profileMode: props.state?.profileMode ?? 'default',
+    responsive: props.responsive,
+    responsiveBusy: props.responsiveBusy,
     url: props.state?.url ?? 'about:blank',
   }).find(action => action.key === value)
   if (action && !action.disabled)

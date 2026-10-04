@@ -66,7 +66,7 @@ function add(kind: 'changes' | 'files' | 'browser') {
     <template #headerActions>
       <DesktopResourceOpenMenu :target="openTarget" :context="context" :language="language" />
     </template>
-    <DesktopFilesContextSurface :tab="activeTab?.kind === 'files' ? activeTab : null" :files="context.files" :has-tab="panel.hasTab" :language="language" @select="panel.selectFile">
+    <DesktopFilesContextSurface :tab="activeTab?.kind === 'files' ? activeTab : null" :files="context.files" :has-tab="panel.hasTab" :language="language" :write-clipboard-text="clipboard.writeText" @select="panel.selectFile">
       <template #file-toolbar="bindings">
         <slot name="file-toolbar" v-bind="bindings" />
       </template>

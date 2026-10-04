@@ -106,8 +106,8 @@ watch([container, attempt, viewId, identity], async ([element, , viewId, key], _
     release = lease.release
     ownedEditor = lease.monaco.editor.create(element, {
       model: lease.model,
-      readOnly: mode.value !== 'edit',
-      domReadOnly: mode.value !== 'edit',
+      readOnly: mode.value !== 'edit' || !!copy.value?.blocked,
+      domReadOnly: mode.value !== 'edit' || !!copy.value?.blocked,
       automaticLayout: true,
       fontSize: 13,
       lineHeight: 21,
@@ -141,7 +141,7 @@ watch([container, attempt, viewId, identity], async ([element, , viewId, key], _
       failed.value = true
   }
 }, { immediate: true })
-watch(mode, value => editor?.updateOptions({ readOnly: value !== 'edit', domReadOnly: value !== 'edit' }))
+watch([mode, () => copy.value?.blocked], ([value, blocked]) => editor?.updateOptions({ readOnly: value !== 'edit' || !!blocked, domReadOnly: value !== 'edit' || !!blocked }), { flush: 'sync' })
 watch(() => props.view.state.quoteSelection, applyQuoteSelection, { flush: 'post' })
 function applyQuoteSelection() {
   failedQuote.value = false
@@ -181,11 +181,14 @@ onScopeDispose(controller.configuration.subscribe(() => editor?.updateOptions({ 
 
 <template>
   <div class="file-editor" :data-dirty="copy?.dirty">
+    <p v-if="copy?.blocked" role="status">
+      {{ t('desktop.context.fileAction.mutationBlocked') }}
+    </p>
     <Teleport v-if="visible" :to="toolbarTarget ?? 'body'" :disabled="!toolbarTarget">
       <DesktopDocumentToolbar v-model="mode" :name="String(view.resource.data.path)" :modes="modes" :language="language" :embedded="!!toolbarTarget">
         <template #actions>
           <WorkbenchMenu target="resource.actions" :values="{ 'resource.scheme': view.resource.scheme }" :capture="() => ({ resource: spaceFileTargetSchema.parse(view.resource.data) })" />
-          <NButton v-if="mode === 'edit' || copy?.dirty" size="tiny" secondary :loading="copy?.saving" :disabled="!copy || copy.loading || copy.saving || !!copy.conflict || !copy.dirty" @click="copies.save(view.resource)">
+          <NButton v-if="mode === 'edit' || copy?.dirty" size="tiny" secondary :loading="copy?.saving" :disabled="!copy || copy.loading || copy.saving || copy.blocked || !!copy.conflict || !copy.dirty" @click="copies.save(view.resource)">
             {{ labels.save }}
           </NButton>
         </template>

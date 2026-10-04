@@ -15,6 +15,7 @@ export function createRunEventLog(options: CreateRunEventLogOptions): RunEventLo
   return new RunEventLog({
     onObserverError: options.onObserverError,
     onFatalFailure: options.onFatalFailure,
+    onRecovery: options.onRecovery,
     projector: new RunEventProjector(options.database),
     queries,
     store: new RunEventStore({

@@ -8,6 +8,7 @@ import {
   open,
   readdir,
   readFile,
+  stat,
   unlink,
 } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
@@ -94,8 +95,22 @@ export class RunEventStore {
     }
   }
 
-  async readAndRepair(runId: string): Promise<BuddyRunEvent[]> {
-    const path = this.#eventPath(runId)
+  async fingerprint(runId: string, conversationId?: string): Promise<string | null> {
+    try {
+      const metadata = await stat(this.#eventPath(runId, conversationId), { bigint: true })
+      if (!metadata.isFile())
+        throw new Error('Lexora Buddy event path is not a regular file')
+      return [metadata.dev, metadata.ino, metadata.size, metadata.mtimeNs, metadata.ctimeNs, metadata.birthtimeNs].join(':')
+    }
+    catch (cause) {
+      if (isFileNotFound(cause))
+        return null
+      throw new RunEventStorageError(runEventFailureScope(runId), 'read', 'stat', 'not_applicable', { cause })
+    }
+  }
+
+  async readAndRepair(runId: string, conversationId?: string): Promise<BuddyRunEvent[]> {
+    const path = this.#eventPath(runId, conversationId)
     const readScope = runEventFailureScope(runId)
     let content: string
     try {
@@ -192,12 +207,12 @@ export class RunEventStore {
     }
   }
 
-  async listPersistedRunIds(runIds: readonly string[]): Promise<string[]> {
+  async listPersistedRunIds(runIds: readonly string[], conversations?: ReadonlyMap<string, string>): Promise<string[]> {
     const entriesByDirectory = new Map<string, Set<string>>()
     const persistedRunIds: string[] = []
     for (const runId of runIds) {
       const scope = runEventFailureScope(runId)
-      const directory = this.#eventDirectory(runId)
+      const directory = this.#eventDirectory(runId, conversations?.get(runId))
       let entries = entriesByDirectory.get(directory)
       if (!entries) {
         let names: string[]
@@ -243,12 +258,12 @@ export class RunEventStore {
     return persistedRunIds
   }
 
-  #eventPath(runId: string): string {
-    return join(this.#eventDirectory(runId), `${buddyRunIdSchema.parse(runId)}.jsonl`)
+  #eventPath(runId: string, conversationId?: string): string {
+    return join(this.#eventDirectory(runId, conversationId), `${buddyRunIdSchema.parse(runId)}.jsonl`)
   }
 
-  #eventDirectory(runId: string): string {
-    const conversationId = this.#resolveConversationId(runId)
+  #eventDirectory(runId: string, knownConversationId?: string): string {
+    const conversationId = knownConversationId ?? this.#resolveConversationId(runId)
     if (conversationId === null)
       throw new Error(`Lexora Buddy run was not found: ${runId}`)
     return join(

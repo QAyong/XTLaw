@@ -14,6 +14,14 @@ import {
 const executeFile = promisify(execFile)
 
 describe('buddyServiceEnvironment', () => {
+  it.each(['linux', 'win32'] as const)('passes only the explicit full-recovery diagnostic switch on %s', (platform) => {
+    const name = platform === 'win32' ? 'lexora_buddy_event_recovery' : 'LEXORA_BUDDY_EVENT_RECOVERY'
+    const source = { [name]: 'full', UNRELATED_SECRET: 'secret' }
+    const buddyHome = platform === 'win32' ? 'C:\\fixture\\buddy' : '/fixture/buddy'
+    expect(createBuddyServiceEnvironment(source, buddyHome, platform).LEXORA_BUDDY_EVENT_RECOVERY).toBe('full')
+    expect(createBuddyServiceEnvironment({ [name]: 'arbitrary' }, buddyHome, platform).LEXORA_BUDDY_EVENT_RECOVERY).toBeUndefined()
+    expect(createBuddyServiceEnvironment(source, buddyHome, platform).UNRELATED_SECRET).toBeUndefined()
+  })
   it('replaces all inherited proxy and bypass settings with the application gateway', () => {
     const gateway = 'http://lexora:fixture@127.0.0.1:3128'
     const env = createBuddyServiceEnvironment({ http_proxy: 'http://old.invalid:1', HTTPS_PROXY: 'http://old.invalid:2', NO_PROXY: '*' }, '/tmp/buddy', 'linux', gateway)

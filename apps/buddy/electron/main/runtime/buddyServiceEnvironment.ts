@@ -35,11 +35,15 @@ export function createBuddyServiceEnvironment(
   const environmentSource = !isWindows(targetPlatform.id) && !source.HOME
     ? { ...source, HOME: homedir() }
     : source
+  const recoveryMode = Object.entries(environmentSource).find(([name]) => (
+    (targetPlatform.environment.caseSensitive ? name : name.toUpperCase()) === 'LEXORA_BUDDY_EVENT_RECOVERY'
+  ))?.[1]
   const environment = createChildProcessEnvironment({
     source: environmentSource,
     platform: targetPlatform,
     additions: {
       LEXORA_BUDDY_HOME: buddyHome,
+      LEXORA_BUDDY_EVENT_RECOVERY: recoveryMode === 'full' ? 'full' : undefined,
       NODE_USE_ENV_PROXY: '1',
       PI_CODING_AGENT_DIR: filePathAdapters[targetPlatform.id].resolveInput('agent', buddyHome),
     },

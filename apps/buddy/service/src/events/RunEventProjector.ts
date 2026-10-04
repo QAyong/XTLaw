@@ -1,5 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite'
 import type { BuddyRunEvent } from './BuddyRunEvent'
+import type { RunEventCheckpoint } from './RunEventRecovery'
 import { z } from 'zod'
 import { BUDDY_ATTACHMENT_COUNT_LIMIT } from '../../../shared/conversation/attachmentPolicy'
 import { MAX_BUDDY_MESSAGE_TEXT_LENGTH } from '../../../shared/conversation/buddyMessageContent'
@@ -111,8 +112,13 @@ export class RunEventProjector {
     ))
   }
 
-  rebuild(runId: string, events: readonly BuddyRunEvent[]): number {
+  invalidateCheckpoint(runId: string): void {
+    this.#database.prepare('DELETE FROM run_event_checkpoints WHERE run_id = ?').run(runId)
+  }
+
+  rebuild(runId: string, events: readonly BuddyRunEvent[], checkpoint?: RunEventCheckpoint): number {
     return withTransaction(this.#database, () => {
+      this.invalidateCheckpoint(runId)
       const messageIds = new Set<string>()
       for (const event of events) {
         if (event.runId !== runId)
@@ -138,6 +144,13 @@ export class RunEventProjector {
       for (const message of projected) {
         if (!messageIds.has(message.id))
           remove.run(message.id, runId)
+      }
+      if (checkpoint) {
+        this.#database.prepare(`
+          INSERT INTO run_event_checkpoints (run_id, last_sequence, projection_version, file_fingerprint)
+          SELECT ?, ?, ?, ? FROM runs
+          WHERE id = ? AND status IN ('completed', 'failed', 'cancelled')
+        `).run(runId, checkpoint.lastSequence, checkpoint.projectionVersion, checkpoint.fileFingerprint, runId)
       }
       return count
     })

@@ -18,7 +18,7 @@ import { EXTENSION_REVIEW_REQUEST } from '../../../shared/extensions/extensionAu
 import { extensionConditionSnapshotRpc } from '../../../shared/extensions/extensionConditionContext'
 import { providerNotifications } from '../../../shared/providers/providerApi'
 import { runNotifications } from '../../../shared/runs/runApi'
-import { spaceTextDocumentSchema } from '../../../shared/spaces/spaceFileApi'
+import { spaceFilesRpc, spaceTextDocumentSchema } from '../../../shared/spaces/spaceFileApi'
 import { DESKTOP_IPC_CHANNELS } from '../../shared/desktopApi'
 import { registerBrowserDesktopIpc } from '../browser/registerBrowserDesktopIpc'
 import { registerContextPanelIpc } from '../context-panel/registerContextPanelIpc'
@@ -96,6 +96,8 @@ export class DesktopIntegrations {
       agentChanged: catalog => service.notify(extensionAgentRpc.changed, catalog),
       agentRequest: async (input, signal) => extensionJsonSchema.parse(await service.request(extensionAgentRpc.request, input, { signal, timeoutMs: 120000 })),
       readText: async (target, signal) => spaceTextDocumentSchema.parse(await service.request('spaceFiles.readDocument', target, { signal })).text,
+      readBytes: async (input, signal) => spaceFilesRpc.readBytes.response.parse(await service.request(spaceFilesRpc.readBytes.method, input, { signal })),
+      saveBytes: async (input, signal) => spaceFilesRpc.saveBytes.response.parse(await service.request(spaceFilesRpc.saveBytes.method, input, { signal, timeoutMs: 60000 })),
     })
     this.#subscriptions.push(extensions.dispose)
     this.#subscriptions.push(service.onStateChange(() => extensions.conditions.invalidate({ inputs: ['runtime.models', 'runtime.task'] })))

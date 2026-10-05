@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url'
 import { zipSync } from 'fflate'
 import { build } from 'vite'
 import { compileExtensionSource } from '../platform/extensions/compileExtensionSource.ts'
+import { EXTENSION_FILE_LIMIT, EXTENSION_PACKAGE_LIMIT, validateExtensionFiles } from '../platform/extensions/extensionFiles.ts'
 import { extensionCompatible, extensionManifestSchema, extensionPathSchema } from '../shared/extensions/extensionManifest.ts'
 
 async function run() {
@@ -51,10 +52,10 @@ async function run() {
         names.add(name.toLowerCase())
         assert(names.size <= 512, 'Too many files')
         const stat = await fs.stat(absolute)
-        assert(stat.size <= 4 * 1024 * 1024, 'File exceeds 4 MiB')
+        assert(stat.size <= EXTENSION_FILE_LIMIT, 'File exceeds 16 MiB')
         const bytes = await fs.readFile(absolute)
         total += bytes.length
-        assert(total <= 16 * 1024 * 1024, 'Package exceeds 16 MiB')
+        assert(total <= EXTENSION_PACKAGE_LIMIT, 'Package exceeds 64 MiB')
         files[name] = bytes
       }
     }
@@ -89,7 +90,9 @@ async function run() {
         }
       }
       await collect(source)
+      validateExtensionFiles(files)
       const compiled = compileExtensionSource(files, manifest, message => process.stdout.write(`${message}\n`))
+      validateExtensionFiles(compiled)
       await fs.rm(destination, { recursive: true, force: true })
       for (const [name, bytes] of compiled) {
         await fs.mkdir(path.dirname(path.join(destination, name)), { recursive: true })

@@ -8,7 +8,7 @@ import { extensionConditionDefinitionSchema } from './extensionConditions'
 import { extensionAuthorSchema } from './extensionIdentity'
 import { extensionSettingsGroups, extensionSettingsModules, extensionSettingsSchema, validateExtensionSetting } from './extensionSettings'
 
-export const EXTENSION_API_VERSION = 3
+export const EXTENSION_API_VERSION = 4
 export const EXTENSION_PROTOCOL = 'lexora-extension'
 export const EXTENSION_ICON_LIMIT = 64 * 1024
 export const extensionIconUrlSchema = z.string().max(Math.ceil(EXTENSION_ICON_LIMIT / 3) * 4 + 40).regex(/^data:image\/(?:svg\+xml|png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/)
@@ -65,6 +65,8 @@ export const extensionPermissionsSchema = z.object({
   notifications: z.boolean().default(false),
   schedules: z.boolean().default(false),
   selectedResource: z.enum(['none', 'read']).default('none'),
+  selectedResourceWrite: z.boolean().default(false),
+  composerReference: z.boolean().default(false),
   selectedContent: z.boolean().default(false),
   localResources: z.boolean().default(false),
   resourceExport: z.boolean().default(false),
@@ -84,7 +86,7 @@ export const extensionManifestSchema = z.object({
   categories: z.array(z.string().min(1).max(40)).max(8).default([]),
   tags: z.array(z.string().min(1).max(40)).max(16).default([]),
   version: extensionVersionSchema,
-  apiVersion: z.union([z.literal(1), z.literal(2), z.literal(EXTENSION_API_VERSION)]),
+  apiVersion: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(EXTENSION_API_VERSION)]),
   engines: z.object({ lexora: z.string().max(100).refine(value => validRange(value) !== null) }).strict(),
   entry: extensionPathSchema.optional(),
   dataVersion: z.number().int().min(1).max(10000).default(1),
@@ -96,7 +98,7 @@ export const extensionManifestSchema = z.object({
     settings: extensionSettingsSchema.prefault({}),
     commands: z.array(z.object({ id: contributionId, title: z.string().min(1).max(100), hidden: z.boolean().default(false), slash: workbenchSlashSchema.optional(), when: workbenchConditionSchema.optional() }).strict()).max(64).default([]),
     menus: z.array(z.object({ id: contributionId, command: contributionId, target: workbenchMenuSchema, order: z.number().int().min(-1000).max(1000).default(0), when: workbenchConditionSchema.optional() }).strict()).max(32).default([]),
-    views: z.array(z.object({ id: contributionId, title: z.string().min(1).max(100), entry: extensionPathSchema, stateVersion: z.number().int().min(1).max(10000).default(1), resource: z.enum(['selected-file', 'none']).default('selected-file'), location: z.enum(['context', 'page', 'window-overlay']).default('context'), when: workbenchConditionSchema.optional() }).strict()).max(16).default([]),
+    views: z.array(z.object({ id: contributionId, title: z.string().min(1).max(100), entry: extensionPathSchema, stateVersion: z.number().int().min(1).max(10000).default(1), resource: z.enum(['selected-file', 'none']).default('selected-file'), accepts: z.object({ extensions: z.array(z.string().regex(/^[a-z0-9]{1,16}$/)).min(1).max(16) }).strict().optional(), location: z.enum(['context', 'page', 'window-overlay']).default('context'), when: workbenchConditionSchema.optional() }).strict()).max(16).default([]),
     placements: z.array(extensionPlacementSchema).max(16).default([]),
     navigation: z.object({ title: z.string().min(1).max(40), view: contributionId, when: workbenchConditionSchema.optional() }).strict().optional(),
   }).strict(),
@@ -110,6 +112,12 @@ export const extensionManifestSchema = z.object({
     ids.add(contribution.id)
   }
   const issue = (message: string) => context.addIssue({ code: 'custom', message })
+  if (manifest.permissions.selectedResourceWrite && (manifest.apiVersion < 4 || manifest.permissions.selectedResource !== 'read'))
+    issue('Writing the selected file requires API 4 and selected-resource read permission')
+  if (manifest.permissions.composerReference && (manifest.apiVersion < 4 || manifest.permissions.selectedResource !== 'read'))
+    issue('Adding file references requires API 4 and selected-resource read permission')
+  if (manifest.contributes.views.some(view => view.accepts && (manifest.apiVersion < 4 || view.resource !== 'selected-file' || view.location !== 'context')))
+    issue('File handlers require API 4 and a selected-file context view')
   if (manifest.apiVersion < 3 && (manifest.contributes.conditions.length || agent || settings.modules.length || settings.groups.length || settings.items.length || manifest.permissions.agent || manifest.permissions.models || manifest.permissions.taskMessages || manifest.permissions.tasks !== 'none'))
     issue('Agent capabilities and settings require API 3')
   if (agent && (!manifest.entry || !manifest.permissions.agent))
@@ -207,6 +215,8 @@ export function addedExtensionPermissions(previous: ExtensionPermissions | undef
     ...(next.notifications && !previous?.notifications ? ['notifications'] : []),
     ...(next.schedules && !previous?.schedules ? ['schedules'] : []),
     ...(next.selectedResource === 'read' && previous?.selectedResource !== 'read' ? ['selectedResource:read'] : []),
+    ...(next.selectedResourceWrite && !previous?.selectedResourceWrite ? ['selectedResourceWrite'] : []),
+    ...(next.composerReference && !previous?.composerReference ? ['composerReference'] : []),
     ...(next.selectedContent && !previous?.selectedContent ? ['selectedContent'] : []),
     ...(next.localResources && !previous?.localResources ? ['localResources'] : []),
     ...(next.resourceExport && !previous?.resourceExport ? ['resourceExport'] : []),

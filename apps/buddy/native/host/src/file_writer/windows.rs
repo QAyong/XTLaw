@@ -11,7 +11,7 @@ use windows_sys::Win32::Storage::FileSystem::{
     FILE_SHARE_WRITE, GetFinalPathNameByHandleW, ReplaceFileW,
 };
 
-pub fn write(request: &WriteRequest) -> Result<(), WriteError> {
+pub fn write(request: &WriteRequest<&[u8]>) -> Result<(), WriteError> {
     if !crate::windows_path::valid(&request.root) || !crate::windows_path::valid(&request.path) {
         return Err(WriteError::Failed);
     }
@@ -45,7 +45,7 @@ pub fn write(request: &WriteRequest) -> Result<(), WriteError> {
     if final_path(&original)? != request.path.trim_end_matches('\\') {
         return Err(WriteError::Failed);
     }
-    check_content(&original, &request.expected)?;
+    check_content(&original, request.expected)?;
     drop(original);
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -63,7 +63,7 @@ pub fn write(request: &WriteRequest) -> Result<(), WriteError> {
             .open(&temporary)
             .map_err(|_| WriteError::Failed)?;
         output
-            .write_all(request.content.as_bytes())
+            .write_all(request.content)
             .map_err(|_| WriteError::Failed)?;
         output.sync_all().map_err(|_| WriteError::Failed)?;
         drop(output);
@@ -76,7 +76,7 @@ pub fn write(request: &WriteRequest) -> Result<(), WriteError> {
         if final_path(&current)? != request.path.trim_end_matches('\\') {
             return Err(WriteError::Failed);
         }
-        check_content(&current, &request.expected)?;
+        check_content(&current, request.expected)?;
         drop(current);
         let wide = |path: &Path| {
             path.as_os_str()

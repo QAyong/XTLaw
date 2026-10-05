@@ -1,4 +1,4 @@
-use std::io::{Read, Write};
+use std::io::{Read, Seek, SeekFrom, Write};
 
 use serde::Deserialize;
 
@@ -28,6 +28,14 @@ pub struct ReadRequest {
     pub root: String,
     pub path: String,
     pub max_bytes: u64,
+    pub range: Option<ReadRange>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReadRange {
+    pub offset: u64,
+    pub length: u64,
 }
 
 pub fn read_request(input: impl Read) -> Result<ReadRequest, ReadError> {
@@ -56,6 +64,11 @@ pub fn read_bounded_file(request: &ReadRequest) -> Result<Vec<u8>, ReadError> {
     if request.max_bytes > MAX_FILE_BYTES {
         return Err(ReadError::OutputLimit);
     }
+    if let Some(range) = &request.range {
+        if range.offset > request.max_bytes || range.length == 0 || range.length > 128 * 1024 {
+            return Err(ReadError::OutputLimit);
+        }
+    }
     #[cfg(windows)]
     return windows::read(request);
     #[cfg(target_os = "linux")]
@@ -64,4 +77,32 @@ pub fn read_bounded_file(request: &ReadRequest) -> Result<Vec<u8>, ReadError> {
     return macos::read(request);
     #[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
     Err(ReadError::Unavailable)
+}
+
+fn read_contents(mut file: impl Read + Seek, metadata: std::fs::Metadata, request: &ReadRequest) -> Result<Vec<u8>, ReadError> {
+    if !metadata.is_file() {
+        return Err(ReadError::ReadFailed);
+    }
+    if metadata.len() > request.max_bytes {
+        return Err(ReadError::OutputLimit);
+    }
+    let mut bytes = Vec::new();
+    if let Some(range) = &request.range {
+        if range.offset > metadata.len() {
+            return Err(ReadError::ReadFailed);
+        }
+        file.seek(SeekFrom::Start(range.offset)).map_err(|_| ReadError::ReadFailed)?;
+        bytes.extend_from_slice(&metadata.len().to_le_bytes());
+        let length = range.length.min(metadata.len() - range.offset);
+        file.take(length).read_to_end(&mut bytes).map_err(|_| ReadError::ReadFailed)?;
+        if bytes.len() as u64 != length + 8 {
+            return Err(ReadError::ReadFailed);
+        }
+    } else {
+        file.take(request.max_bytes + 1).read_to_end(&mut bytes).map_err(|_| ReadError::ReadFailed)?;
+        if bytes.len() as u64 > request.max_bytes {
+            return Err(ReadError::OutputLimit);
+        }
+    }
+    Ok(bytes)
 }

@@ -1,5 +1,7 @@
 import type { ExtensionApi, ExtensionStatus, ExtensionWorkbenchEvent } from '@buddy-shared/extensions/extensionApi'
 import type { Ref } from 'vue'
+import type { JsonValue } from '@buddy-shared/workbench/workbenchState'
+import type { SelectionReferenceRequest, SelectionReferenceResult, WorkbenchSelectionReferences } from '@/shared/ui/selection/workbenchSelectionReferences'
 import type { ExtensionUiContributions, ExtensionViews } from '@/modules/extensions'
 import type { ViewRendererRegistry } from '@/workbench/browser/ViewRendererRegistry'
 import type { ViewLocation } from '@/workbench/common/workbench'
@@ -13,7 +15,7 @@ import { parseWorkbenchUiSelection, workbenchUiSelectionKey, workbenchUiTargetCa
 import { nextTick, onScopeDispose, watch } from 'vue'
 import { DesktopExtensionView } from '@/modules/extensions/ui'
 
-export function useExtensionContributions(options: { controller: WorkbenchController, renderers: ViewRendererRegistry, persistence: WorkbenchPersistence, installed: Readonly<Ref<ExtensionStatus[]>>, api: ExtensionApi, views: ExtensionViews, ui: ExtensionUiContributions, ready: () => boolean }) {
+export function useExtensionContributions(options: { controller: WorkbenchController, renderers: ViewRendererRegistry, persistence: WorkbenchPersistence, installed: Readonly<Ref<ExtensionStatus[]>>, api: ExtensionApi, views: ExtensionViews, ui: ExtensionUiContributions, ready: () => boolean, selectionReferences?: WorkbenchSelectionReferences, onQuoteResult?: (result: SelectionReferenceResult, targetLabel: string) => void }) {
   const { controller, renderers, persistence, installed, api, views, ui } = options
   onScopeDispose(renderers.register('extensions.view', DesktopExtensionView))
   const owners = new Map<string, { revision: string, dispose: () => void }>()
@@ -70,6 +72,7 @@ export function useExtensionContributions(options: { controller: WorkbenchContro
   }
   type RequestEvent = Exclude<ExtensionWorkbenchEvent, { kind: 'cancel' }>
   const requests = new Map<string, { event: RequestEvent, abort: AbortController, started: boolean }>()
+  const quoteCaptures = new Map<string, { request: SelectionReferenceRequest, generation: string, token: string, expires: number }>()
   function drain() {
     if (!options.ready())
       return
@@ -109,6 +112,8 @@ export function useExtensionContributions(options: { controller: WorkbenchContro
   }, { flush: 'sync' })
   async function handle(event: RequestEvent, signal: AbortSignal) {
     let viewId: string | null = null
+    let replyData: JsonValue | undefined
+    let quoteTargetLabel: string | undefined
     try {
       if (signal.aborted)
         return
@@ -192,7 +197,14 @@ export function useExtensionContributions(options: { controller: WorkbenchContro
         const descriptor = installed.value.find(item => item.manifest.id === event.extensionId)?.manifest.contributes.views.find(view => view.id === event.viewType)
         if (!descriptor)
           return
-        viewId = await controller.open({ scheme: 'extension', id: `${event.extensionId}:${event.viewType}:${event.resource?.id ?? crypto.randomUUID()}`, data: { extensionId: event.extensionId, viewType: event.viewType, resource: event.resource } }, event.resource?.name ?? descriptor.title, { signal, viewType: event.viewType, duplicate: true, state: { version: event.stateVersion, value: event.state } })
+        const existing = event.fileTarget && Object.values(controller.layout.views).find(view => view.type === event.viewType && view.resource.scheme === 'extension' && JSON.stringify(view.resource.data.fileTarget) === JSON.stringify(event.fileTarget))
+        if (existing) {
+          controller.focus(existing.id)
+          viewId = existing.id
+        }
+        else {
+          viewId = await controller.open({ scheme: 'extension', id: `${event.extensionId}:${event.viewType}:${event.resource?.id ?? crypto.randomUUID()}`, data: { extensionId: event.extensionId, viewType: event.viewType, resource: event.resource, ...(event.fileTarget ? { fileTarget: { ...event.fileTarget } } : {}) } }, event.resource?.name ?? descriptor.title, { signal, viewType: event.viewType, duplicate: true, state: { version: event.stateVersion, value: event.state } })
+        }
         if (viewId)
           await persistence.flush()
       }
@@ -201,6 +213,41 @@ export function useExtensionContributions(options: { controller: WorkbenchContro
         const session = views.surfaces.get(event.viewId)?.session
         if (!view || view.resource.scheme !== 'extension' || session?.generation !== event.generation || session.token !== event.token)
           return
+        if (event.kind === 'quote-capture' || event.kind === 'quote-add') {
+          const surface = views.surfaces.get(event.viewId)
+          const references = options.selectionReferences
+          if (!surface?.visible || !surface.ready || !references)
+            return
+          if (event.kind === 'quote-add')
+            quoteTargetLabel = ''
+          for (const [captureId, capture] of quoteCaptures) {
+            if (capture.expires < Date.now())
+              quoteCaptures.delete(captureId)
+          }
+          if (event.kind === 'quote-capture') {
+            const file = spaceFileTargetSchema.parse(view.resource.data.fileTarget)
+            const quotedFile = event.quote.source.file
+            if (file.spaceId !== quotedFile.spaceId || file.directoryId !== quotedFile.directoryId || file.revision !== quotedFile.revision || file.path !== quotedFile.path)
+              return
+            const request = references.capture(view.id, event.quote)
+            if (!request)
+              return
+            if (quoteCaptures.size >= 64)
+              quoteCaptures.delete(quoteCaptures.keys().next().value!)
+            quoteCaptures.set(event.captureId, { request, generation: event.generation, token: event.token, expires: Date.now() + 120000 })
+            replyData = { id: event.captureId, defaultId: request.defaultId, targets: request.targets.map(({ id, label }) => ({ id, label })) }
+          }
+          else {
+            const capture = quoteCaptures.get(event.captureId)
+            if (!capture || capture.request.viewId !== view.id || capture.generation !== event.generation || capture.token !== event.token)
+              return
+            quoteCaptures.delete(event.captureId)
+            quoteTargetLabel = capture.request.targets.find(target => target.id === event.targetId)?.label ?? ''
+            replyData = references.add(capture.request, event.targetId)
+          }
+          viewId = view.id
+          return
+        }
         if (event.kind === 'presentation') {
           const placement = view.placement ? controller.registry.placements.get(view.placement) : null
           if (!placement || placement.viewType !== view.type)
@@ -221,8 +268,11 @@ export function useExtensionContributions(options: { controller: WorkbenchContro
     }
     finally {
       requests.delete(event.requestId)
-      if (!signal.aborted)
-        api.replyWorkbench(event.requestId, viewId)
+      if (!signal.aborted) {
+        api.replyWorkbench(event.requestId, viewId, replyData)
+        if (quoteTargetLabel !== undefined)
+          options.onQuoteResult?.(replyData === 'added' || replyData === 'duplicate' || replyData === 'limit' ? replyData : 'unavailable', quoteTargetLabel)
+      }
     }
   }
   onScopeDispose(() => {
@@ -231,6 +281,7 @@ export function useExtensionContributions(options: { controller: WorkbenchContro
       api.replyWorkbench(event.requestId, null)
     }
     requests.clear()
+    quoteCaptures.clear()
     for (const owner of owners.values()) owner.dispose()
     owners.clear()
   })

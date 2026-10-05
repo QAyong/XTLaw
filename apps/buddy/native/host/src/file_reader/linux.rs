@@ -2,7 +2,6 @@ use super::{ReadError, ReadRequest};
 use rustix::fs::{CWD, Mode, OFlags, ResolveFlags, openat2};
 use std::{
     fs::{self, File},
-    io::Read,
     os::fd::AsRawFd,
     path::{Component, Path, PathBuf},
 };
@@ -57,13 +56,7 @@ pub fn read(request: &ReadRequest) -> Result<Vec<u8>, ReadError> {
     }
     // Reopen the pinned ordinary file, never the caller's replaceable pathname.
     let file = File::open(descriptor_path(&target)).map_err(|_| ReadError::ReadFailed)?;
-    let mut bytes = Vec::new();
-    file.take(request.max_bytes + 1)
-        .read_to_end(&mut bytes)
-        .map_err(|_| ReadError::ReadFailed)?;
-    if bytes.len() as u64 > request.max_bytes {
-        return Err(ReadError::OutputLimit);
-    }
+    let bytes = super::read_contents(file, metadata, request)?;
     if fs::read_link(descriptor_path(&root)).map_err(|_| ReadError::ReadFailed)? != root_path
         || !fs::read_link(descriptor_path(&target))
             .map_err(|_| ReadError::ReadFailed)?

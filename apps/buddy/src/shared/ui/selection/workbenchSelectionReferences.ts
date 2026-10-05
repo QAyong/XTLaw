@@ -1,6 +1,8 @@
 import type { DesktopSelectionEditCommand } from '@buddy-electron/shared/desktopApi'
 import type { BuddyResourceQuote, BuddyUserContentV1 } from '@buddy-shared/conversation/buddyUserContent'
+import type { MessageApi } from 'naive-ui'
 import type { InjectionKey } from 'vue'
+import type { BuddyTranslate } from '@/i18n/buddyI18n'
 import { appendBuddyResourceQuote, buddyResourceQuoteSchema } from '@buddy-shared/conversation/buddyUserContent'
 import { inject } from 'vue'
 
@@ -27,6 +29,15 @@ export interface SelectionReferenceRequest {
   isSplit: boolean
 }
 export type SelectionReferenceResult = 'added' | 'duplicate' | 'limit' | 'unavailable'
+
+export function showSelectionReferenceResult(message: Pick<MessageApi, 'success' | 'info' | 'warning'>, t: BuddyTranslate, result: SelectionReferenceResult, targetLabel = '') {
+  if (result === 'added')
+    message.success(t('desktop.chat.quoteAddedToTarget', { title: targetLabel }))
+  else if (result === 'duplicate')
+    message.info(t('desktop.chat.quoteDuplicate'))
+  else
+    message.warning(t(result === 'limit' ? 'desktop.chat.quoteLimit' : 'desktop.chat.quoteTargetChanged'))
+}
 
 /** Capture identities, never a global active input or stale draft body. */
 export class WorkbenchSelectionReferences {

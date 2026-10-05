@@ -21,7 +21,7 @@ function request(method, params = null) {
     const timer = setTimeout(() => {
       pending.delete(id)
       reject(new Error('EXTENSION_REQUEST_TIMEOUT'))
-    }, ['resources.pickFiles', 'resources.pickDirectory', 'resources.beginSave'].includes(method) ? 125000 : 15000)
+    }, ['resources.pickFiles', 'resources.pickDirectory', 'resources.beginSave'].includes(method) ? 125000 : method === 'resources.commitSave' ? 65000 : 15000)
     pending.set(id, { resolve, reject, timer })
     parent.postMessage({ channel: 'lexora-extension', token, id, method, params }, '*')
   })
@@ -136,9 +136,9 @@ async function initialize() {
         listDirectories: () => request('resources.listDirectories'),
         scanDirectory: (directory, options = {}) => request('resources.scanDirectory', { id: directory.id, ...options }),
         revokeDirectory: directory => request('resources.revokeDirectory', { id: directory.id }),
-        saveFile: async ({ name, data }) => {
+        saveFile: async ({ name, data, resource }) => {
           const blob = data instanceof Blob ? data : new Blob([data])
-          const id = await request('resources.beginSave', { name, size: blob.size })
+          const id = await request('resources.beginSave', { name, size: blob.size, ...(resource ? { resourceId: resource.id } : {}) })
           if (!id)
             return false
           try {
@@ -158,6 +158,10 @@ async function initialize() {
       },
       network: { get: url => request('network.get', { url }) },
       commands: { execute: (command, args = null) => request('commands.execute', { command, arguments: args }) },
+      composer: {
+        captureQuote: (resource, selection) => request('composer.captureQuote', { resourceId: resource.id, ...selection }),
+        addQuote: (id, targetId) => request('composer.addQuote', { id, targetId }),
+      },
     })
     if (typeof entry.render !== 'function')
       throw new Error('EXTENSION_VIEW_ENTRY_INVALID')

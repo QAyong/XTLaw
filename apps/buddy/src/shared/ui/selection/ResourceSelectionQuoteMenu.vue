@@ -9,7 +9,7 @@ import { useEventListener } from '@vueuse/core'
 import { NDropdown, useMessage } from 'naive-ui'
 import { computed, h, nextTick, onBeforeUnmount, shallowRef, watch } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
-import { useSelectionReferences } from './workbenchSelectionReferences'
+import { showSelectionReferenceResult, useSelectionReferences } from './workbenchSelectionReferences'
 
 const props = defineProps<{ viewId: string, ownerKey: string, language: BuddyLocale, visible: boolean }>()
 const references = useSelectionReferences()
@@ -144,15 +144,7 @@ async function select(targetId: string) {
     return
   }
   const result = references.add(request, targetId)
-  if (result === 'added') {
-    message.success(t('desktop.chat.quoteAddedToTarget', { title: request.targets.find(target => target.id === targetId)?.label ?? '' }))
-  }
-  else if (result === 'duplicate') {
-    message.info(t('desktop.chat.quoteDuplicate'))
-  }
-  else {
-    message.warning(t(result === 'limit' ? 'desktop.chat.quoteLimit' : 'desktop.chat.quoteTargetChanged'))
-  }
+  showSelectionReferenceResult(message, t, result, request.targets.find(target => target.id === targetId)?.label ?? '')
 }
 function openRequest(request: SelectionReferenceRequest, x: number, y: number) {
   close()

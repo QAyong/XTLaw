@@ -30,9 +30,17 @@ const selectedFile = computed(() => {
   void revision.value
   return fileTab.value ? props.bindings.workbench.fileView(fileTab.value.target, fileTab.value.id) : null
 })
+const docxSelections = new Map<string, unknown>()
 watch(() => fileTab.value?.target, (target) => {
-  if (target?.path && fileTab.value)
+  if (target?.path && fileTab.value) {
+    if (/\.docx$/i.test(target.path)) {
+      // Returning to the file-manager tab must not jump back to the editor.
+      if (docxSelections.get(fileTab.value.id) === target)
+        return
+      docxSelections.set(fileTab.value.id, target)
+    }
     void props.bindings.workbench.openFile({ ...target }, fileTab.value.id)
+  }
 }, { immediate: true })
 watch(() => selectedFile.value?.id, (id) => {
   if (id && props.bindings.workbench.controller.context.values['focus.area'] === 'context')

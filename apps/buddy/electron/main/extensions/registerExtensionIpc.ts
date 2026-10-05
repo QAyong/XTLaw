@@ -5,7 +5,7 @@ import type { ExtensionAgentCatalog, ExtensionAgentDescriptor, ExtensionAgentInv
 import type { ExtensionWorkbenchEvent } from '../../../shared/extensions/extensionApi'
 import type { ExtensionInspection } from '../../../shared/extensions/extensionAuthoring'
 import type { ExtensionConditionRuntime } from '../../../shared/extensions/extensionConditionContext'
-import type { SpaceFileTarget } from '../../../shared/spaces/spaceFileApi'
+import type { SpaceFileByteChunk, SpaceFileByteRequest, SpaceFileTarget, SpaceSaveBytes, SpaceSaveBytesResult } from '../../../shared/spaces/spaceFileApi'
 import type { JsonValue } from '../../../shared/workbench/workbenchState'
 import { join } from 'node:path'
 import { dialog, ipcMain, Notification, powerMonitor, session } from 'electron'
@@ -13,7 +13,7 @@ import { z } from 'zod'
 import { ExtensionPackageStore } from '../../../platform/extensions/ExtensionPackageStore'
 import { ExtensionService } from '../../../platform/extensions/ExtensionService'
 import { observeExtensionDiagnostics } from '../../../platform/extensions/observeExtensionDiagnostics'
-import { EXTENSION_IPC, extensionError, extensionManagementSchema } from '../../../shared/extensions/extensionApi'
+import { EXTENSION_IPC, extensionError, extensionJsonSchema, extensionManagementSchema } from '../../../shared/extensions/extensionApi'
 import { assertTrustedSender } from '../ipc'
 import { compileExtension } from './compileExtension'
 import { ExtensionProtocol } from './ExtensionProtocol'
@@ -24,6 +24,8 @@ export function registerExtensionIpc(options: {
   version: string
   getWindow: () => BrowserWindow | null
   readText: (target: SpaceFileTarget, signal: AbortSignal) => Promise<string>
+  readBytes: (input: SpaceFileByteRequest, signal: AbortSignal) => Promise<SpaceFileByteChunk>
+  saveBytes: (input: SpaceSaveBytes, signal: AbortSignal) => Promise<SpaceSaveBytesResult>
   get: (url: string, init: { signal: AbortSignal }) => Promise<Response>
   developmentDirectory?: string
   notificationsEnabled?: () => boolean
@@ -38,7 +40,7 @@ export function registerExtensionIpc(options: {
   const protocol = new ExtensionProtocol(store)
   const stopProtocol = protocol.install(session.defaultSession, 'view')
   const hosts = new Set<SandboxedExtensionHost>()
-  const replies = new Map<string, (value: string | null) => void>()
+  const replies = new Map<string, (value: string | null, data?: JsonValue) => void>()
   const bound = new Set<BrowserWindow>()
   let resourcePickerOpen = false
   const guardNavigation = (event: Electron.Event<Electron.WebContentsWillFrameNavigateEventParams>) => {
@@ -56,6 +58,8 @@ export function registerExtensionIpc(options: {
     },
     createView: pkg => protocol.register(pkg, 'view'),
     readText: options.readText,
+    readBytes: options.readBytes,
+    saveBytes: options.saveBytes,
     agentRequest: options.agentRequest,
     conditionRuntime: options.conditionRuntime,
     get: options.get,
@@ -113,14 +117,14 @@ export function registerExtensionIpc(options: {
         finish(null)
       }
       const timer = setTimeout(cancel, 10000)
-      function finish(value: string | null) {
+      function finish(value: string | null, data?: JsonValue) {
         if (settled)
           return
         settled = true
         clearTimeout(timer)
         signal.removeEventListener('abort', cancel)
         replies.delete(event.requestId)
-        resolve(value)
+        resolve((event.kind === 'quote-capture' || event.kind === 'quote-add') && data !== undefined ? JSON.stringify(data) : value)
       }
       replies.set(event.requestId, finish)
       signal.addEventListener('abort', cancel, { once: true })
@@ -182,6 +186,7 @@ export function registerExtensionIpc(options: {
       await prepared
       await service.initialize()
       switch (input.action) {
+        case 'openFile': return await service.openFile(input.resource)
         case 'taskActions': return await options.taskActions()
         case 'invokeTaskAction': return await options.invokeTaskAction(input.input)
         case 'list': return await service.list()
@@ -225,9 +230,9 @@ export function registerExtensionIpc(options: {
     const current = window()
     if (!current || current.isDestroyed() || event.sender !== current.webContents || event.senderFrame !== current.webContents.mainFrame)
       return
-    const input = z.object({ requestId: z.string().uuid(), viewId: z.string().uuid().nullable() }).strict().safeParse(raw)
+    const input = z.object({ requestId: z.string().uuid(), viewId: z.string().uuid().nullable(), data: extensionJsonSchema.optional() }).strict().safeParse(raw)
     if (input.success)
-      replies.get(input.data.requestId)?.(input.data.viewId)
+      replies.get(input.data.requestId)?.(input.data.viewId, input.data.data)
   }
   ipcMain.on(EXTENSION_IPC.workbenchReply, onWorkbenchReply)
   ipcMain.handle(EXTENSION_IPC.hostRequest, async (event, method: unknown, params: unknown) => {

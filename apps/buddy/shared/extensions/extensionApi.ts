@@ -8,6 +8,8 @@ import type { ExtensionInstallation } from './extensionInstallation'
 import type { ExtensionManifest } from './extensionManifest'
 import type { ExtensionConfiguration, ExtensionConfigurationSnapshot } from './extensionSettings'
 import { z } from 'zod'
+import type { BuddyFileQuote } from '../conversation/buddyUserContent'
+import { BUDDY_QUOTE_TEXT_LIMIT } from '../conversation/buddyUserContent'
 import { spaceFileTargetSchema } from '../spaces/spaceFileApi'
 import { workbenchPanesSchema } from '../workbench/workbenchInteraction'
 import { workbenchMenuSchema } from '../workbench/workbenchUi'
@@ -40,6 +42,18 @@ export const extensionViewInputSchema = z.object({
   stateVersion: z.number().int().min(0).max(10000),
 }).strict()
 export type ExtensionResource = z.infer<typeof extensionResourceSchema>
+export const extensionQuoteInputSchema = z.object({
+  resourceId: z.string().uuid(),
+  text: z.string().min(1).max(BUDDY_QUOTE_TEXT_LIMIT).refine(text => text.trim().length > 0),
+  indexes: z.array(z.number().int().min(0).max(1000000)).max(64),
+  from: z.number().int().min(0).max(100000000),
+  to: z.number().int().min(0).max(100000000),
+}).strict().refine(value => value.to > value.from)
+export const extensionQuoteCaptureSchema = z.object({
+  id: z.string().uuid(),
+  targets: z.array(z.object({ id: z.string().uuid(), label: z.string().max(2048) }).strict()).max(64),
+  defaultId: z.string().uuid().nullable(),
+}).strict()
 export type ExtensionViewInput = z.infer<typeof extensionViewInputSchema>
 export const extensionMenuInvocationSchema = z.object({
   target: workbenchMenuSchema,
@@ -90,8 +104,10 @@ export interface ExtensionReview {
 export type ExtensionWorkbenchEvent
   = | { kind: 'cancel', requestId: string }
     | { kind: 'clear-data', requestId: string, extensionId: string }
-    | { kind: 'open', requestId: string, extensionId: string, generation: string, viewType: string, resource: ExtensionResource | null, state: JsonValue, stateVersion: number }
+    | { kind: 'open', requestId: string, extensionId: string, generation: string, viewType: string, resource: ExtensionResource | null, fileTarget?: import('../spaces/spaceFileApi').SpaceFileTarget, state: JsonValue, stateVersion: number }
     | { kind: 'state', requestId: string, viewId: string, generation: string, token: string, state: JsonValue, stateVersion: number }
+    | { kind: 'quote-capture', requestId: string, viewId: string, generation: string, token: string, captureId: string, quote: BuddyFileQuote }
+    | { kind: 'quote-add', requestId: string, viewId: string, generation: string, token: string, captureId: string, targetId: string }
     | { kind: 'interaction', requestId: string, extensionId: string, generation: string, interactionId: string, title: string | null }
     | { kind: 'message', requestId: string, extensionId: string, generation: string, message: JsonValue }
     | { kind: 'regions', requestId: string, viewId: string, generation: string, token: string, regions: WorkbenchHitRegion[] }
@@ -101,6 +117,7 @@ export type ExtensionWorkbenchEvent
     | { kind: 'presentation', requestId: string, viewId: string, generation: string, token: string, presentation: WorkbenchPresentation }
 
 export const extensionManagementSchema = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('openFile'), resource: spaceFileTargetSchema }).strict(),
   z.object({ action: z.literal('list') }).strict(),
   z.object({ action: z.literal('configuration'), id: extensionIdSchema }).strict(),
   z.object({ action: z.literal('configurationSnapshot'), id: extensionIdSchema }).strict(),
@@ -131,6 +148,7 @@ export const extensionManagementSchema = z.discriminatedUnion('action', [
 ])
 export type ExtensionManagementRequest = z.infer<typeof extensionManagementSchema>
 export interface ExtensionApi {
+  openFile: (resource: import('../spaces/spaceFileApi').SpaceFileTarget) => Promise<string | null>
   settingConditions: (id: string, items: string[], form?: ExtensionConfiguration) => Promise<Record<string, ExtensionConditionState>>
   onConditionsChanged: (listener: (event: ExtensionConditionsChanged) => void) => () => void
   taskActions: () => Promise<ExtensionTaskAction[]>
@@ -162,7 +180,7 @@ export interface ExtensionApi {
   onChanged: (listener: () => void) => () => void
   onReview: (listener: (review: ExtensionReview) => void) => () => void
   onWorkbench: (listener: (event: ExtensionWorkbenchEvent) => void) => () => void
-  replyWorkbench: (requestId: string, viewId: string | null) => void
+  replyWorkbench: (requestId: string, viewId: string | null, data?: JsonValue) => void
 }
 
 export function extensionError(error: unknown): string {

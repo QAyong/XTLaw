@@ -59,7 +59,13 @@ const buddyFileQuoteSourceSchema = z.object({
   kind: z.literal('file'),
   title: z.string().trim().min(1).max(512),
   file: spaceFileTargetSchema.readonly(),
-  format: z.enum(['source', 'markdown']),
+  format: z.enum(['source', 'markdown', 'docx']),
+  docx: z.object({
+    hash: z.string().regex(/^[a-f0-9]{64}$/),
+    indexes: z.array(z.number().int().nonnegative()).max(64).readonly(),
+    from: z.number().int().nonnegative(),
+    to: z.number().int().nonnegative(),
+  }).strict().refine(value => value.to > value.from).readonly().optional(),
 }).strict().readonly()
 const buddyArtifactQuoteSourceSchema = z.object({
   kind: z.literal('artifact'),
@@ -272,6 +278,7 @@ function sameResourceQuote(a: BuddyResourceQuote, b: BuddyResourceQuote): boolea
       && a.source.file.spaceId === b.source.file.spaceId && a.source.file.directoryId === b.source.file.directoryId
       && a.source.file.revision === b.source.file.revision && a.source.file.path === b.source.file.path
   return sameSource && a.source.format === b.source.format
+    && JSON.stringify(a.source.kind === 'file' ? a.source.docx : undefined) === JSON.stringify(b.source.kind === 'file' ? b.source.docx : undefined)
     && a.text === b.text && a.textOffset === b.textOffset && JSON.stringify(a.range) === JSON.stringify(b.range)
 }
 

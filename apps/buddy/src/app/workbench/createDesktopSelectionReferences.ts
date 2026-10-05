@@ -12,6 +12,7 @@ import { isTextArtifactMimeType } from '@buddy-shared/artifacts/artifactApi'
 import { buddyUserContentToText } from '@buddy-shared/conversation/buddyUserContent'
 import { translateBuddy } from '@/i18n/buddyI18n'
 import { chatComposerDocumentToUserContent, userContentToChatComposerDocument } from '@/modules/prompt-input'
+import { spaceFileTargetSchema } from '@buddy-shared/spaces/spaceFileApi'
 import { isMarkdownFile } from '@/shared/ui/files/fileDocumentPresentation'
 import { WorkbenchSelectionReferences } from '@/shared/ui/selection/workbenchSelectionReferences'
 import { panes } from '@/workbench/common/workbench'
@@ -76,7 +77,9 @@ export function createDesktopSelectionReferences(options: {
         return { identity: JSON.stringify([tab.id, tab.scope, state.sessionId, state.pageId, state.documentVersion, state.url, options.independent()]), owner: !options.independent() && /^(?:task|draft):/.test(tab.scope) ? tab.scope : null }
       }
       const view = options.controller.layout.views[viewId]
-      if (!view || !['file', 'file-preview'].includes(view.resource.scheme))
+      if (!view || !['file', 'file-preview', 'extension'].includes(view.resource.scheme))
+        return null
+      if (view.resource.scheme === 'extension' && (!spaceFileTargetSchema.safeParse(view.resource.data.fileTarget).success || !/\.docx$/i.test(String((view.resource.data.fileTarget as { path?: string })?.path))))
         return null
       const tabId = typeof view.state.contextTabId === 'string' ? view.state.contextTabId : view.id
       const tab = options.resources().allTabs.value.find(tab => tab.id === tabId)
@@ -116,6 +119,8 @@ export function createDesktopSelectionReferences(options: {
         const view = options.controller.layout.views[id]
         if (!view)
           return false
+        if (quote.source.format === 'docx')
+          return view.resource.scheme === 'extension'
         options.controller.updateView(id, { state: {
           ...view.state,
           mode: quote.source.format === 'markdown' ? 'preview' : 'source',

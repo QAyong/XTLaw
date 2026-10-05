@@ -20,6 +20,23 @@ export const spaceTextDocumentSchema = z.object({
   etag: z.string().length(64),
 }).strict()
 export type SpaceTextDocument = z.infer<typeof spaceTextDocumentSchema>
+export const spaceFileByteRequestSchema = spaceFileTargetSchema.extend({
+  offset: z.number().int().min(0).max(64 * 1024 * 1024),
+  length: z.number().int().min(1).max(128 * 1024),
+  etag: z.string().length(64).optional(),
+}).strict()
+export const spaceFileByteChunkSchema = z.object({
+  base64: z.string().max(174764),
+  size: z.number().int().min(0).max(64 * 1024 * 1024),
+  eof: z.boolean(),
+  etag: z.string().length(64),
+}).strict()
+export type SpaceFileByteRequest = z.infer<typeof spaceFileByteRequestSchema>
+export type SpaceFileByteChunk = z.infer<typeof spaceFileByteChunkSchema>
+export const spaceSaveBytesSchema = spaceFileTargetSchema.extend({ etag: z.string().length(64), expectedHash: z.string().length(64), base64: z.string().max(89478488) }).strict()
+export const spaceSaveBytesResultSchema = z.object({ status: z.enum(['saved', 'conflict']), etag: z.string().length(64).optional() }).strict()
+export type SpaceSaveBytes = z.infer<typeof spaceSaveBytesSchema>
+export type SpaceSaveBytesResult = z.infer<typeof spaceSaveBytesResultSchema>
 export const spaceSaveDocumentSchema = spaceFileTargetSchema.extend({
   text: z.string().max(1024 * 1024),
   etag: z.string().length(64),
@@ -60,6 +77,8 @@ export type SpaceFileMutationResult = z.infer<typeof spaceFileMutationResultSche
 export type SpaceFileMutationError = z.infer<typeof spaceFileMutationErrorSchema>
 
 export const spaceFilesRpc = {
+  saveBytes: { method: 'spaceFiles.saveBytes', input: spaceSaveBytesSchema, response: spaceSaveBytesResultSchema },
+  readBytes: { method: 'spaceFiles.readBytes', input: spaceFileByteRequestSchema, response: spaceFileByteChunkSchema },
   mutate: { method: 'spaceFiles.mutate', input: spaceFileMutationSchema, response: spaceFileMutationResultSchema },
   readDocument: { method: 'spaceFiles.readDocument', input: spaceFileTargetSchema, response: spaceTextDocumentSchema },
   saveDocument: { method: 'spaceFiles.saveDocument', input: spaceSaveDocumentSchema, response: spaceSaveResultSchema },

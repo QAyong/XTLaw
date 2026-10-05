@@ -429,31 +429,53 @@ export function useDesktopWorkbench(options: { api: LexoraDesktopApi, events: Ap
     return opening
   }
   async function createFile(target: SpaceFileTarget, tabId?: string) {
+    const docx = /\.docx$/i.test(target.path)
+    const openDocument = async (fallback: string | null) => {
+      if (!docx || !fallback)
+        return fallback
+      const existing = Object.values(controller.layout.views).find(view => view.resource.scheme === 'extension' && controller.registry.views.has(view.type)
+        && JSON.stringify(view.resource.data.fileTarget) === JSON.stringify(target))
+      if (existing) {
+        controller.focus(existing.id)
+        return existing.id
+      }
+      try { return await api.extensions.openFile(target) ?? fallback }
+      catch (error) {
+        options.onError(error)
+        return fallback
+      }
+    }
     const previous = fileView(target, tabId)
     if (previous) {
       if (!tabId)
         controller.focus(previous.id)
-      return previous.id
+      return openDocument(previous.id)
     }
     let resource: ResourceRef = { scheme: 'file', id: JSON.stringify([target.directoryId, target.revision, target.path]), data: { ...target } }
     const release = resourceLifetime.acquire(resource)
     try {
-      const copy = await copies.open(resource)
-      if (!copy.etag && copy.error) {
-        copies.release(resource)
+      if (docx) {
         resource = { ...resource, scheme: 'file-preview' }
+      }
+      else {
+        const copy = await copies.open(resource)
+        if (!copy.etag && copy.error) {
+          copies.release(resource)
+          resource = { ...resource, scheme: 'file-preview' }
+        }
       }
       if (tabId && !options.resources().hasTab(tabId)) {
         copies.release(resource)
         return null
       }
       if (tabId)
-        return await controller.open(resource, target.path.split('/').at(-1) ?? target.path, { duplicate: true, focus: false, state: { contextTabId: tabId } })
+        return await openDocument(await controller.open(resource, target.path.split('/').at(-1) ?? target.path, { duplicate: true, focus: false, state: { contextTabId: tabId } }))
       const existing = options.resources().tabs.value.find(tab => tab.kind === 'view' && resourceKey(controller.layout.views[tab.viewId]?.resource ?? { scheme: '', id: '', data: {} }) === resourceKey(resource))
-      if (existing?.kind === 'view')
+      if (existing?.kind === 'view') {
         controller.focus(existing.viewId)
-      else
-        return await controller.open(resource, target.path.split('/').at(-1) ?? target.path, { duplicate: true })
+        return await openDocument(existing.viewId)
+      }
+      return await openDocument(await controller.open(resource, target.path.split('/').at(-1) ?? target.path, { duplicate: true }))
     }
     finally { release() }
   }

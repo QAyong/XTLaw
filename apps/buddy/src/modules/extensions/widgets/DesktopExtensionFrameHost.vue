@@ -5,7 +5,10 @@ import type { AnchorGeometry, MountGeometry } from '@buddy-shared/workbench/work
 import type { ExtensionSurface } from './useExtensionViews'
 import type { SurfaceLayout, SurfaceLayoutLease } from '@/shared/ui/surfaces/surfaceLayout'
 import { extensionJsonSchema } from '@buddy-shared/extensions/extensionApi'
+import { useMessage } from 'naive-ui'
 import { onMounted, onScopeDispose, useTemplateRef, watch } from 'vue'
+import { useBuddyI18n } from '@/i18n/buddyI18n'
+import { showSelectionReferenceResult } from '@/shared/ui/selection/workbenchSelectionReferences'
 import { SurfaceHitRegions } from '@/workbench/browser/surfaces/SurfaceHitRegions'
 import { useExtensionContext } from '../extensionContext'
 import { extensionErrorCode } from '../state/useExtensionState'
@@ -27,6 +30,8 @@ interface Frame {
 const props = defineProps<{ layout: SurfaceLayout }>()
 const context = useExtensionContext()
 const { state, views, endInteraction, focusView, language, isDark, workbench } = context
+const message = useMessage()
+const { t } = useBuddyI18n(language)
 const root = useTemplateRef<HTMLElement>('root')
 const frames = new Map<string, Frame>()
 function isOverlay(surface: ExtensionSurface) {
@@ -164,6 +169,8 @@ async function receive(event: MessageEvent) {
   try {
     if (['resources.pickFiles', 'resources.pickDirectory', 'resources.beginSave'].includes(data.method) && (!frame.visible || document.visibilityState !== 'visible' || !document.hasFocus()))
       throw new Error('EXTENSION_RESOURCE_PICKER_UNAVAILABLE')
+    if (data.method.startsWith('composer.') && (!frame.visible || !frame.surface.ready || document.visibilityState !== 'visible' || !document.hasFocus()))
+      throw new Error('EXTENSION_VIEW_UNAVAILABLE')
     if (data.method === 'events.snapshot') {
       projections.refresh(frame)
       value = frame.projection.synchronization
@@ -190,6 +197,8 @@ async function receive(event: MessageEvent) {
   }
   catch (error) {
     value = extensionErrorCode(error)
+    if (data.method === 'composer.addQuote' && frames.get(data.token) === frame && frame.surface.session === session && frame.visible && frame.surface.ready && document.visibilityState === 'visible' && document.hasFocus())
+      showSelectionReferenceResult(message, t, 'unavailable')
   }
   if (frames.get(data.token) === frame && frame.surface.session === session)
     send(session.token, frame, { id: data.id, ok, value })

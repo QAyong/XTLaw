@@ -5,21 +5,25 @@ import { OPERATING_SYSTEM } from '../../shared/platform/identifiers'
 import { BoundedFileReadError } from './boundedFileError'
 import { filePaths } from './filePaths'
 
-export async function readNativeBoundedFile(root: string, path: string, maxBytes: number, signal?: AbortSignal, executable = process.env.LEXORA_BUDDY_FILE_READER): Promise<Buffer> {
+export async function readNativeBoundedFile(root: string, path: string, maxBytes: number, signal?: AbortSignal, executable = process.env.LEXORA_BUDDY_FILE_READER, range?: { offset: number, length: number }): Promise<Buffer> {
   if (!executable)
     throw new BoundedFileReadError('BOUNDED_FILE_READER_UNAVAILABLE')
   if (!Number.isSafeInteger(maxBytes) || maxBytes < 0 || maxBytes > 64 * 1024 * 1024)
     throw new BoundedFileReadError('BOUNDED_FILE_OUTPUT_LIMIT')
+  if (range && (!Number.isSafeInteger(range.offset) || range.offset < 0 || range.offset > maxBytes || !Number.isSafeInteger(range.length) || range.length < 1 || range.length > 128 * 1024))
+    throw new BoundedFileReadError('BOUNDED_FILE_OUTPUT_LIMIT')
+  const outputLimit = range ? range.length + 8 : maxBytes
   const request = JSON.stringify({
     root: filePaths.resolveInput(root),
     path: filePaths.resolveInput(path),
     maxBytes,
+    ...(range ? { range } : {}),
   })
   return new Promise((resolve, reject) => {
     const child = execFile(filePaths.resolveInput(executable), [], {
       encoding: 'buffer',
       env: process.platform === OPERATING_SYSTEM.Windows ? { SystemRoot: process.env.SystemRoot } : {},
-      maxBuffer: maxBytes + 4096,
+      maxBuffer: outputLimit + 4096,
       timeout: 30_000,
       killSignal: 'SIGKILL',
       signal,
@@ -36,7 +40,7 @@ export async function readNativeBoundedFile(root: string, path: string, maxBytes
           { cause: error },
         ))
       }
-      else if (stdout.length > maxBytes || stderr.length > 0) {
+      else if (stdout.length > outputLimit || stderr.length > 0) {
         reject(new BoundedFileReadError('BOUNDED_FILE_READ_FAILED'))
       }
       else {

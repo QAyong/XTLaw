@@ -2,4 +2,5 @@ export { compileExtensionSource } from '../../platform/extensions/compileExtensi
 export { extensionIconUrl } from '../../platform/extensions/extensionIcon'
 export { createExtensionId, extensionAuthorSchema } from '../../shared/extensions/extensionIdentity'
 export { extensionManifestSchema, extensionPathSchema } from '../../shared/extensions/extensionManifest'
+export { EXTENSION_FILE_LIMIT, EXTENSION_PACKAGE_LIMIT } from '../../shared/extensions/extensionPackageLimits'
 export { queryWorkbenchCapabilities, workbenchCapabilityQuerySchema } from '../../shared/workbench/workbenchUi'

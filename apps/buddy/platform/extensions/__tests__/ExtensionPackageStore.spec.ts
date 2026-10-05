@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { extensionJsonSchema } from '../../../shared/extensions/extensionApi'
 import { addedExtensionPermissions, extensionManifestSchema } from '../../../shared/extensions/extensionManifest'
 import { compileExtensionSource } from '../compileExtensionSource'
-import { readExtensionDirectory, unpackExtension } from '../extensionFiles'
+import { EXTENSION_FILE_LIMIT, readExtensionDirectory, unpackExtension } from '../extensionFiles'
 import { extensionActivationOrder, ExtensionPackageStore } from '../ExtensionPackageStore'
 import { createStore, manifest, reviewPackage } from './fixtures'
 
@@ -40,7 +40,7 @@ describe('extension package contract', () => {
   })
   it('rejects case collisions and compressed files exceeding the expanded limit', () => {
     expect(() => unpackExtension(zipSync({ 'a.js': strToU8('a'), 'A.js': strToU8('b') }))).toThrow(/EXTENSION_/)
-    expect(() => unpackExtension(zipSync({ 'large.js': new Uint8Array(4 * 1024 * 1024 + 1) }))).toThrow(/EXTENSION_/)
+    expect(() => unpackExtension(zipSync({ 'large.js': new Uint8Array(EXTENSION_FILE_LIMIT + 1) }))).toThrow(/EXTENSION_/)
     expect(() => unpackExtension(new Uint8Array([1, 2, 3]))).toThrow(/EXTENSION_/)
   })
   it('pins reviewed bytes and stages updates without changing the running package', async () => {

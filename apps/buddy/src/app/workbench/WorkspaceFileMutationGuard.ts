@@ -3,6 +3,9 @@ import type { ResourceRef } from '@/workbench/common/workbench'
 import { pathInFileScope } from '@buddy-shared/spaces/spaceFileNames'
 
 export function resourceInFileScope(resource: ResourceRef, target: SpaceFileTarget): boolean {
+  const selectedFile = resource.scheme === 'extension' ? resource.data.fileTarget : null
+  if (selectedFile && typeof selectedFile === 'object' && !Array.isArray(selectedFile))
+    return resourceInFileScope({ scheme: 'file', id: '', data: selectedFile as ResourceRef['data'] }, target)
   if (resource.scheme !== 'file' && resource.scheme !== 'file-preview')
     return false
   const data = resource.data

@@ -23,7 +23,7 @@ import { runtimeAvailabilityKey } from '@/platform/runtime/runtimeAvailability'
 import { useProvideWorkbenchCommands } from '@/shared/ui/contributions/workbenchCommands'
 import { useProvideWorkbenchUi } from '@/shared/ui/contributions/workbenchUiContext'
 import { useProvideDesktopUi } from '@/shared/ui/desktopUiContext'
-import { workbenchSelectionReferencesKey } from '@/shared/ui/selection/workbenchSelectionReferences'
+import { showSelectionReferenceResult, workbenchSelectionReferencesKey } from '@/shared/ui/selection/workbenchSelectionReferences'
 import { SemanticAnchorRegistry } from '@/workbench/browser/surfaces/SemanticAnchorRegistry'
 import { WorkbenchPaneRegistry } from '@/workbench/browser/surfaces/WorkbenchPaneRegistry'
 import WorkbenchSurfaceHost from '@/workbench/browser/surfaces/WorkbenchSurfaceHost.vue'
@@ -101,7 +101,7 @@ const anchors = new SemanticAnchorRegistry()
 onScopeDispose(() => anchors.dispose())
 useProvideWorkbenchUi({ anchors, panes: paneRegistry, controlRenderer: DesktopExtensionControl, slotRenderer: DesktopExtensionSlot, menuRenderer: DesktopExtensionMenu })
 const ui = useExtensionUiContributions(extensions.installed, workbench.controller.configuration)
-useExtensionContributions({ controller: workbench.controller, renderers: workbench.renderers, persistence: workbench.persistence, installed: extensions.installed, api: api.extensions, views: extensionViews, ui, ready: () => workbench.initialized })
+useExtensionContributions({ controller: workbench.controller, renderers: workbench.renderers, persistence: workbench.persistence, installed: extensions.installed, api: api.extensions, views: extensionViews, ui, ready: () => workbench.initialized, selectionReferences: workbench.selectionReferences, onQuoteResult: (result, targetLabel) => showSelectionReferenceResult(message, (key, params) => translateBuddy(stores.applicationSettings.language.value, key, params), result, targetLabel) })
 useProvideExtensionContext({ settingsLocation: settingsRegistry.extensionLocation, authoring: { author: computed(() => stores.applicationSettings.config.value?.desktop.pluginAuthor ?? ''), save: author => stores.applicationSettings.updateSettings({ desktop: { pluginAuthor: author } }) }, state: extensions, views: extensionViews, anchors, ui, workbench: pages.context, language: stores.applicationSettings.language, isDark: toRef(() => props.isDark), startCreation: prompt => workbench.startTaskWithSkill('plugin-creator', prompt), endInteraction: id => workbench.controller.interactions.end(id), focusView: (id) => {
   workbench.controller.focus(id)
 } })

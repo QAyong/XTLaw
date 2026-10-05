@@ -2,7 +2,6 @@ use super::{ReadError, ReadRequest};
 use rustix::fs::{CWD, Mode, OFlags, getpath, openat};
 use std::{
     fs::File,
-    io::Read,
     os::unix::ffi::OsStrExt,
     path::{Component, Path},
 };
@@ -60,14 +59,7 @@ pub fn read(request: &ReadRequest) -> Result<Vec<u8>, ReadError> {
         return Err(ReadError::OutputLimit);
     }
     verify_path(&target, path)?;
-    let mut bytes = Vec::new();
-    (&target)
-        .take(request.max_bytes + 1)
-        .read_to_end(&mut bytes)
-        .map_err(|_| ReadError::ReadFailed)?;
-    if bytes.len() as u64 > request.max_bytes {
-        return Err(ReadError::OutputLimit);
-    }
+    let bytes = super::read_contents(&target, metadata, request)?;
     verify_path(&root, root_path)?;
     verify_path(&target, path)?;
     Ok(bytes)

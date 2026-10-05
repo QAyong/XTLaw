@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { zipSync } from 'fflate'
-import { compileExtensionSource, extensionIconUrl, extensionManifestSchema, extensionPathSchema } from './authoring.mjs'
+import { compileExtensionSource, EXTENSION_FILE_LIMIT, EXTENSION_PACKAGE_LIMIT, extensionIconUrl, extensionManifestSchema, extensionPathSchema } from './authoring.mjs'
 
 export async function readPlugin(source) {
   const files = new Map()
@@ -21,11 +21,11 @@ export async function readPlugin(source) {
       }
       assert(item.isFile() && !names.has(name.toLowerCase()), `Invalid file: ${name}`)
       const stat = await fs.stat(absolute)
-      assert(stat.size <= 4 * 1024 * 1024, `File too large: ${name}`)
+      assert(stat.size <= EXTENSION_FILE_LIMIT, `File too large: ${name}`)
       const bytes = await fs.readFile(absolute)
       total += bytes.length
       names.add(name.toLowerCase())
-      assert(total <= 16 * 1024 * 1024 && names.size <= 512, 'Plugin package exceeds limits')
+      assert(total <= EXTENSION_PACKAGE_LIMIT && names.size <= 512, 'Plugin package exceeds limits')
       files.set(name, bytes)
     }
   }

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "format": "compiled",
+  "id": "pd2ec0b9018e6402d8ada6873f7fa8721.office",
+  "name": "Office DOCX",
+  "author": "",
+  "description": "点击文件管理器中的 DOCX 即可预览和编辑，通过编辑器原有保存按钮保存当前文件，不包含 PDF。",
+  "version": "0.1.0",
+  "apiVersion": 4,
+  "engines": { "lexora": ">=0.9.0 <1.0.0" },
+  "entry": "extension.js",
+  "permissions": { "selectedResource": "read", "selectedResourceWrite": true, "composerReference": true, "localResources": true, "resourceExport": true },
+  "contributes": {
+    "views": [
+      { "id": "pd2ec0b9018e6402d8ada6873f7fa8721.office.editor", "title": "Office DOCX", "entry": "view.js", "resource": "none", "location": "context" },
+      { "id": "pd2ec0b9018e6402d8ada6873f7fa8721.office.document", "title": "Office DOCX", "entry": "view.js", "resource": "selected-file", "accepts": { "extensions": ["docx"] }, "location": "context" }
+    ]
+  }
+}

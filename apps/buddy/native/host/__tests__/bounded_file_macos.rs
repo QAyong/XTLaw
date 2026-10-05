@@ -8,6 +8,7 @@ fn read(root: &Path, path: &Path, max_bytes: u64) -> Result<Vec<u8>, ReadError> 
         root: root.to_str().unwrap().to_owned(),
         path: path.to_str().unwrap().to_owned(),
         max_bytes,
+        range: None,
     })
 }
 

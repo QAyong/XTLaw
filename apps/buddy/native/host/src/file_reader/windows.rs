@@ -1,6 +1,5 @@
 use std::{
     fs::{File, OpenOptions},
-    io::Read,
     os::windows::{fs::OpenOptionsExt, io::AsRawHandle},
 };
 
@@ -49,13 +48,7 @@ pub fn read(request: &ReadRequest) -> Result<Vec<u8>, ReadError> {
     if metadata.len() > request.max_bytes {
         return Err(ReadError::OutputLimit);
     }
-    let mut bytes = Vec::new();
-    file.take(request.max_bytes + 1)
-        .read_to_end(&mut bytes)
-        .map_err(|_| ReadError::ReadFailed)?;
-    if bytes.len() as u64 > request.max_bytes {
-        return Err(ReadError::OutputLimit);
-    }
+    let bytes = super::read_contents(file, metadata, request)?;
     // Keep the root's delete-denying handle alive until all bytes have been read.
     drop(root);
     Ok(bytes)

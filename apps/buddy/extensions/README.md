@@ -30,6 +30,8 @@ node extensions/tools.mjs pack .output/extensions/my-plugin .output/extensions/m
 
 API 3 还支持原生设置模块、分组和单项，以及带权限的 Agent 指令、工具、模型请求和当前任务标题更新。先通过能力目录确认宿主支持，再声明最低应用版本；接口与示例见 [Agent 与设置](../service/resources/skills/plugin-creator/references/agent-settings.md)。
 
+API 4 普通文件视图可通过 `accepts.extensions` 声明 DOCX 匹配，从文件管理器直接打开并使用受控二进制读取。`selectedResourceWrite` 单独授权保存当前文件，基于已读版本检查冲突；`composerReference` 将 DOCX 选区接入工作台公共聊天引用，不读取草稿正文或自动发送。接口见 [插件协议](../service/resources/skills/plugin-creator/references/protocol.md)，开发版能力与未完成边界见 [Office DOCX 插件](../../../plugins/office/README.md)。插件包最多 512 个文件、单文件 16 MiB、总量 64 MiB。
+
 `format: "source"` 支持自包含 TS/JS 源码。Lexora 使用固定编译器，不执行 npm 安装、脚本或第三方构建配置。只能导入包内相对路径；含运行时 npm 依赖的插件需要作者预先打包为 `format: "compiled"`。已编译包直接安装，源码包确认权限后编译，失败不会替换已安装版本。
 
 宿主入口导出 `activate(context)`，可选 `deactivate()`。通过 `context.commands.register` 注册清单中声明的命令；订阅资源使用 `context.subscriptions` 清理。`permissions.notifications` 开放系统通知，`permissions.schedules` 开放 Lexora 运行期间的定时命令。定时配置跨重启保存，休眠或退出期间错过的提醒不会补发，卸载会删除定时任务。

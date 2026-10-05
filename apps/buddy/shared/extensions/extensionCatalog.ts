@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { extensionIconUrlSchema, extensionManifestSchema } from './extensionManifest'
+import { EXTENSION_PACKAGE_LIMIT } from './extensionPackageLimits'
 
 export const EXTENSION_CATALOG_URL = 'https://raw.githubusercontent.com/useLexora/plugins/main/catalog/v1/index.json'
 const httpsUrl = z.string().url().max(2048).refine((value) => {
@@ -10,7 +11,7 @@ export const extensionCatalogEntrySchema = z.object({
   manifest: extensionManifestSchema,
   iconUrl: extensionIconUrlSchema.optional(),
   repository: httpsUrl,
-  artifact: z.object({ url: httpsUrl, sha256: z.string().regex(/^[a-f0-9]{64}$/), size: z.number().int().positive().max(16 * 1024 * 1024) }).strict(),
+  artifact: z.object({ url: httpsUrl, sha256: z.string().regex(/^[a-f0-9]{64}$/), size: z.number().int().positive().max(EXTENSION_PACKAGE_LIMIT) }).strict(),
 }).strict()
 export const extensionCatalogSchema = z.object({ schemaVersion: z.literal(1), plugins: z.array(extensionCatalogEntrySchema).max(2000) }).strict().superRefine((catalog, context) => {
   const ids = new Set<string>()

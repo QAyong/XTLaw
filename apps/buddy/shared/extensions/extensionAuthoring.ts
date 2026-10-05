@@ -3,6 +3,7 @@ import { workbenchCapabilityKinds } from '../workbench/workbenchContributionCata
 import { workbenchCapabilityQuerySchema } from '../workbench/workbenchUi'
 import { extensionAuthorSchema, extensionSlugSchema } from './extensionIdentity'
 import { extensionIdSchema, extensionVersionSchema } from './extensionManifest'
+import { EXTENSION_ARCHIVE_BASE64_LIMIT } from './extensionPackageLimits'
 
 export const EXTENSION_BUILD_RPC = 'extensions.build'
 export const EXTENSION_REVIEW_REQUEST = 'extensions.reviewPackage'
@@ -40,7 +41,7 @@ export const extensionInspectionSchema = z.object({
   logs: z.array(z.object({ time: z.string(), event: z.string(), code: z.string().optional(), durationMs: z.number().optional() }).strict()).max(50),
 }).strict()
 export type ExtensionInspection = z.infer<typeof extensionInspectionSchema>
-export const extensionArchiveSchema = z.string().max(24 * 1024 * 1024).regex(/^[A-Z0-9+/]+={0,2}$/i)
+export const extensionArchiveSchema = z.string().max(EXTENSION_ARCHIVE_BASE64_LIMIT).regex(/^[A-Z0-9+/]+={0,2}$/i)
 export const extensionBuildRequestSchema = z.object({ archive: extensionArchiveSchema }).strict()
 export const extensionBuildResultSchema = z.discriminatedUnion('ok', [
   z.object({ ok: z.literal(true), archive: extensionArchiveSchema, id: extensionIdSchema, name: z.string().min(1).max(100), author: extensionAuthorSchema, version: extensionVersionSchema, diagnostics: z.array(z.string().max(600)).max(30) }).strict(),

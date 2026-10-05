@@ -1,13 +1,14 @@
 import type { BoundedEntryMutation, BoundedEntryMutationResult } from '../../../platform/filesystem/mutateBoundedEntry'
-import type { LocalSpaceDirectoryPage, LocalSpaceFileEntry, LocalSpaceFilePreview, SpaceDirectoryRequest, SpaceFileMutation, SpaceFileMutationResult, SpaceFileTarget, SpaceSaveDocument, SpaceSaveResult, SpaceTextDocument } from '../../../shared/spaces/spaceFileApi'
+import type { LocalSpaceDirectoryPage, LocalSpaceFileEntry, LocalSpaceFilePreview, SpaceDirectoryRequest, SpaceFileByteChunk, SpaceFileByteRequest, SpaceFileMutation, SpaceFileMutationResult, SpaceFileTarget, SpaceSaveBytes, SpaceSaveBytesResult, SpaceSaveDocument, SpaceSaveResult, SpaceTextDocument } from '../../../shared/spaces/spaceFileApi'
 import type { SpaceRepository } from '../storage/spaceRepository'
+import { Buffer } from 'node:buffer'
 import { createHash, randomUUID } from 'node:crypto'
 import { readdir, stat } from 'node:fs/promises'
 import { isAbsolute, resolve } from 'node:path'
 import process from 'node:process'
-import { readBoundedFile } from '../../../platform/filesystem/boundedFile'
+import { readBoundedFile, readBoundedFileChunk } from '../../../platform/filesystem/boundedFile'
 import { mutateBoundedEntry } from '../../../platform/filesystem/mutateBoundedEntry'
-import { saveBoundedTextFile } from '../../../platform/filesystem/saveBoundedTextFile'
+import { saveBoundedBinaryFile, saveBoundedTextFile } from '../../../platform/filesystem/saveBoundedTextFile'
 import { Emitter } from '../../../shared/events/Emitter'
 import { validSpaceFileName } from '../../../shared/spaces/spaceFileNames'
 import { resolveGrantedPath } from '../directories/resolveGrantedPath'
@@ -31,6 +32,7 @@ export class SpaceFileService {
   #revision = 0
   #disposed = false
   readonly #saves = new Map<string, Promise<SpaceSaveResult>>()
+  readonly #binarySaves = new Map<string, Promise<SpaceSaveBytesResult>>()
   readonly #mutations = new Map<string, Promise<SpaceFileMutationResult>>()
 
   readonly #mutateEntry: (input: BoundedEntryMutation, beforeCommit: () => void) => Promise<BoundedEntryMutationResult>
@@ -43,7 +45,7 @@ export class SpaceFileService {
   mutate(input: SpaceFileMutation): Promise<SpaceFileMutationResult> {
     input = { ...input }
     const directory = this.requireDirectory(input)
-    if (this.#disposed || this.#mutations.has(directory.id) || [...this.#saves.keys()].some(key => JSON.parse(key)[0] === directory.id))
+    if (this.#disposed || this.#mutations.has(directory.id) || [...this.#saves.keys(), ...this.#binarySaves.keys()].some(key => JSON.parse(key)[0] === directory.id))
       return Promise.resolve({ status: 'failed', reason: 'busy' })
     const creating = input.operation === 'create-file' || input.operation === 'create-directory'
     if (isAbsolute(input.path) || input.path.includes('\\') || input.path.split('/').some(part => part === '.' || part === '..' || (!part && input.path !== '')) || (!creating && !input.path))
@@ -131,6 +133,62 @@ export class SpaceFileService {
     return { text, etag: createHash('sha256').update(bytes).digest('hex') }
   }
 
+  async readBytes(input: SpaceFileByteRequest, signal?: AbortSignal): Promise<SpaceFileByteChunk> {
+    signal?.throwIfAborted()
+    if (this.#disposed || this.#mutations.has(input.directoryId))
+      throw new BuddyServiceError('VALIDATION_FAILED')
+    const target = await this.resolve(input)
+    const before = await this.byteVersion(target.path)
+    if (input.etag && input.etag !== before.etag)
+      throw new Error('EXTENSION_RESOURCE_CHANGED')
+    const chunk = await readBoundedFileChunk(target.root, target.path, input.offset, input.length, signal)
+    const after = await this.byteVersion(target.path)
+    signal?.throwIfAborted()
+    this.requireDirectory(input)
+    if (before.etag !== after.etag || chunk.size !== before.size)
+      throw new Error('EXTENSION_RESOURCE_CHANGED')
+    return { ...chunk, etag: before.etag }
+  }
+
+  saveBytes(input: SpaceSaveBytes, signal?: AbortSignal): Promise<SpaceSaveBytesResult> {
+    if (this.#disposed || this.#mutations.has(input.directoryId))
+      return Promise.reject(new Error('SPACE_FILES_STOPPED'))
+    input = { ...input }
+    const key = JSON.stringify([input.directoryId, input.revision, input.path])
+    const previous = this.#binarySaves.get(key) ?? Promise.resolve()
+    const save = previous.catch(() => {}).then(async (): Promise<SpaceSaveBytesResult> => {
+      signal?.throwIfAborted()
+      const target = await this.resolve(input)
+      const before = await this.byteVersion(target.path)
+      if (before.etag !== input.etag)
+        return { status: 'conflict' }
+      const expected = await readBoundedFile(target.root, target.path, 64 * 1024 * 1024, signal)
+      if ((await this.byteVersion(target.path)).etag !== before.etag || createHash('sha256').update(expected).digest('hex') !== input.expectedHash)
+        return { status: 'conflict' }
+      const content = Buffer.from(input.base64, 'base64')
+      if (content.length > 64 * 1024 * 1024 || content.toString('base64') !== input.base64)
+        throw new BuddyServiceError('VALIDATION_FAILED')
+      this.requireDirectory(input)
+      signal?.throwIfAborted()
+      const status = await saveBoundedBinaryFile({ ...target, expected, content }, signal)
+      this.#changes.fire(Object.freeze({ revision: ++this.#revision, operationId: randomUUID(), spaceId: input.spaceId, directoryId: input.directoryId, directoryRevision: input.revision, kind: status }))
+      this.requireDirectory(input)
+      if (status === 'conflict')
+        return { status }
+      const saved = await this.byteVersion(target.path)
+      const bytes = await readBoundedFile(target.root, target.path, 64 * 1024 * 1024, signal)
+      this.requireDirectory(input)
+      if (!bytes.equals(content) || (await this.byteVersion(target.path)).etag !== saved.etag)
+        return { status: 'conflict' }
+      return { status, etag: saved.etag }
+    }).finally(() => {
+      if (this.#binarySaves.get(key) === save)
+        this.#binarySaves.delete(key)
+    })
+    this.#binarySaves.set(key, save)
+    return save
+  }
+
   saveDocument(input: SpaceSaveDocument): Promise<SpaceSaveResult> {
     if (this.#disposed || this.#mutations.has(input.directoryId))
       return Promise.reject(new Error('SPACE_FILES_STOPPED'))
@@ -169,7 +227,7 @@ export class SpaceFileService {
 
   async dispose(): Promise<void> {
     this.#disposed = true
-    await Promise.allSettled([...this.#saves.values(), ...this.#mutations.values()])
+    await Promise.allSettled([...this.#saves.values(), ...this.#binarySaves.values(), ...this.#mutations.values()])
     this.#changes.dispose()
   }
 
@@ -179,6 +237,11 @@ export class SpaceFileService {
     if (!directory || directory.id !== input.directoryId || directory.revision !== input.revision || directory.revokedAt)
       throw new BuddyServiceError('VALIDATION_FAILED')
     return directory
+  }
+
+  private async byteVersion(path: string) {
+    const metadata = await stat(path, { bigint: true })
+    return { size: Number(metadata.size), etag: createHash('sha256').update([metadata.dev, metadata.ino, metadata.size, metadata.mtimeNs, metadata.ctimeNs].join(':')).digest('hex') }
   }
 
   private async resolve(input: SpaceFileTarget): Promise<{ path: string, root: string }> {

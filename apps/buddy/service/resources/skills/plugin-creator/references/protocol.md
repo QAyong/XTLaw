@@ -24,7 +24,7 @@
 
 `<plugin-id>` 是占位符，填写时必须替换为新插件身份工具返回的 ID，或正在维护的源码清单中的既有 ID；后续声明中的占位符同样替换。宿主代码通过 `context.extension.id` 引用当前插件，不复制示例身份。作者署名 `author` 可选，支持 Unicode，最多 80 个用户可见字符，不含换行或控制字符；留空表示未署名。不符合规则时说明原因，给出候选并通过对话确定，不静默截断或替换。作者与显示名可变，ID 和末尾的调用名保持稳定。使用作者字段的包要求 Lexora 0.9.0 或更新版本。
 
-可选字段：`author`、`icon`（包内 SVG/PNG/JPEG/WebP，≤64 KiB）、`categories`、`tags`、宿主 `entry`、`dataVersion`。不要添加未定义的字段。命令、视图和挂载声明的 ID 以插件 ID 加 `.` 开头且不重复。文件路径相对包根，不能包含 `..` 或符号链接；512 文件、单文件 4 MiB、合计 16 MiB 上限。
+可选字段：`author`、`icon`（包内 SVG/PNG/JPEG/WebP，≤64 KiB）、`categories`、`tags`、宿主 `entry`、`dataVersion`。不要添加未定义的字段。命令、视图和挂载声明的 ID 以插件 ID 加 `.` 开头且不重复。文件路径相对包根，不能包含 `..` 或符号链接；512 文件、单文件 16 MiB、合计 64 MiB 上限；压缩输入与实际解压后的总字节数均受限。
 
 `contributes` 内的声明结构如下。省略不用的项；每项权限和运行方式见后文，无需查找应用实现或复制某个示例清单。
 
@@ -69,6 +69,8 @@
 | `notifications: true` | 宿主 `context.notifications.show({title,body})` |
 | `schedules: true` | 宿主持久间隔任务，需要宿主入口与已声明命令 |
 | `selectedResource: "read"` | 读取用户选择并明确分配的文件资源 |
+| `selectedResourceWrite: true` | API 4；独立授权普通文件视图保存当前已读文件，需 selectedResource 读取权限，宿主检查授权与版本冲突 |
+| `composerReference: true` | API 4；将当前 DOCX 的选区快照加入用户选择的聊天草稿，不读取草稿正文或发送消息，需要 selectedResource 读取权限 |
 | `selectedContent: true` | API 3；用户点击插件操作时获取当前草稿或该条消息文本，不订阅输入或读取对话历史 |
 | `localResources: true` | 用户通过系统窗口选择文件或目录，视图读取文本、二进制或受控 URL |
 | `resourceExport: true` | 用户通过系统另存为窗口确认目标后，保存插件提供的字节 |
@@ -189,7 +191,13 @@ context.subscriptions.add(context.commands.register(`${context.extension.id}.ope
 }))
 ```
 
-该视图声明 `resource: "selected-file"`，插件声明 `selectedResource: "read"`；视图从 `context.resource` 取得同一资源，通过 `resources.readText` 读取。句柄不是文件路径。只声明视图不会自动增加文件菜单或命令入口。
+该视图声明 `resource: "selected-file"`，插件声明 `selectedResource: "read"`；视图从 `context.resource` 取得同一资源，通过 `resources.readText` 读取。句柄不是文件路径。
+
+API 4 的 `selected-file`、`context` 视图可声明 `accepts: { "extensions": ["docx"] }`。文件管理器点击 DOCX 时，宿主在已启用且兼容的插件中选择唯一匹配视图，并将当前文件的只读句柄作为 `context.resource` 传入；没有匹配或存在多个匹配时保留普通预览。此句柄可通过 `resources.readBytes(context.resource,{offset,length})` 分段读取，单次最多 128 KiB、文件最多 64 MiB。每次读取重新检查目录授权，读取期间文件变化则失败；句柄仅供本视图读取，不能用来写回原文件。API 1–3 的选中文件接口仍只支持文本。使用系统选择器取得的本地文件句柄仍沿用 `localResources` 权限。
+
+API 4 插件另外声明 `selectedResourceWrite: true` 后，该普通文件视图可用 `resources.saveFile({name,data,resource:context.resource})` 保存当前文件（最多 64 MiB）。宿主使用同一视图的已读文件版本检查冲突、逐次检查目录授权，并通过原生文件写入组件替换文件；文件在外部变化时拒绝保存。句柄不能用于保存其他文件或其他视图的文件。省略 `resource` 则仍要求 `resourceExport` 权限，并弹出系统另存为窗口。
+
+API 4 的 selected-file 普通 DOCX 视图声明 `composerReference: true` 后，可调用 `context.composer.captureQuote(context.resource,{text,indexes,from,to})`。`indexes` 是最多 64 个 DOCX 正文块索引，`from/to` 是编辑器位置；文字最多 32768 个 UTF-16 字符。宿主绑定当前文件、已读内容哈希及版本，返回 `{id,defaultId,targets:[{id,label}]}`；不会返回聊天草稿内容。用户选择目标后调用 `context.composer.addQuote(id,targetId)`，返回 added / duplicate / limit / unavailable。捕获有效期为 2 分钟；加入前重新检查文件授权、文件版本、源视图和目标草稿身份。引用为文字快照，不写入文档、不替换草稿正文或发送消息。引用结果由主程序使用公共资源引用提示显示，成功文案带目标名称；插件保留自己的采集和菜单交互，不再额外弹出结果提示。
 
 后台提醒使用 `context.schedules.set({ id, command, enabled, intervalMinutes })`，间隔最少 1 分钟；不要用页面 setInterval 代替跨页面提醒。Lexora 退出后暂停，重启继续，错过的提醒不会补发。
 

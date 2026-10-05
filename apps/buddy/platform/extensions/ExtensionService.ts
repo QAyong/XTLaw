@@ -4,20 +4,21 @@ import type { ExtensionInspection } from '../../shared/extensions/extensionAutho
 import type { ExtensionConditionRuntime } from '../../shared/extensions/extensionConditionContext'
 import type { ExtensionResourceSelection } from '../../shared/extensions/extensionResources'
 import type { ExtensionConfiguration, ExtensionConfigurationSnapshot } from '../../shared/extensions/extensionSettings'
-import type { SpaceFileTarget } from '../../shared/spaces/spaceFileApi'
+import type { SpaceFileByteChunk, SpaceFileByteRequest, SpaceFileTarget } from '../../shared/spaces/spaceFileApi'
 import type { WorkbenchPaneSnapshot } from '../../shared/workbench/workbenchInteraction'
 import type { JsonValue } from '../../shared/workbench/workbenchState'
 import type { ExtensionCompiler } from './compileExtensionSource'
 import type { ExtensionPackage, ExtensionPackageStore } from './ExtensionPackageStore'
 import type { ExtensionConfigurationApplication, ExtensionServiceChange, ExtensionServiceFact, ExtensionServiceSnapshot } from './ExtensionServiceEvents'
-import { randomUUID } from 'node:crypto'
+import { Buffer } from 'node:buffer'
+import { createHash, randomUUID } from 'node:crypto'
 import { basename } from 'node:path'
 import { z } from 'zod'
 import { Emitter } from '../../shared/events/Emitter'
 import { copyEventSnapshot } from '../../shared/events/eventSnapshot'
 import { extensionAgentInvocationLimits, extensionAgentRequestSchema } from '../../shared/extensions/extensionAgent'
 import { extensionAgentCapabilities } from '../../shared/extensions/extensionAgentCapabilities'
-import { extensionError, extensionJsonSchema, extensionResourceSchema } from '../../shared/extensions/extensionApi'
+import { extensionError, extensionJsonSchema, extensionQuoteCaptureSchema, extensionQuoteInputSchema, extensionResourceSchema } from '../../shared/extensions/extensionApi'
 import { EXTENSION_CATALOG_URL } from '../../shared/extensions/extensionCatalog'
 import { extensionConditionInvalidationSchema } from '../../shared/extensions/extensionConditions'
 import { extensionCompatible, extensionManifestSchema } from '../../shared/extensions/extensionManifest'
@@ -34,6 +35,7 @@ import { ExtensionInstallations } from './ExtensionInstallations'
 import { extensionActivationOrder } from './ExtensionPackageStore'
 import { ExtensionResourceWriter } from './ExtensionResourceWriter'
 import { ExtensionScheduler } from './ExtensionScheduler'
+import { ExtensionSelectedFileWriter } from './ExtensionSelectedFileWriter'
 
 export interface ExtensionHost {
   call: (method: string, params: JsonValue) => Promise<JsonValue>
@@ -45,6 +47,8 @@ export interface ExtensionServicePorts {
   createView: (pkg: ExtensionPackage) => { token: string, url: string, dispose: () => void }
   workbench: (event: ExtensionWorkbenchEvent, signal: AbortSignal) => Promise<string | null>
   readText: (target: SpaceFileTarget, signal: AbortSignal) => Promise<string>
+  readBytes?: (input: SpaceFileByteRequest, signal: AbortSignal) => Promise<SpaceFileByteChunk>
+  saveBytes?: (input: import('../../shared/spaces/spaceFileApi').SpaceSaveBytes, signal: AbortSignal) => Promise<import('../../shared/spaces/spaceFileApi').SpaceSaveBytesResult>
   get: (url: string, init: { signal: AbortSignal }) => Promise<Response>
   changed?: () => void
   agentChanged?: () => void
@@ -67,6 +71,10 @@ interface RunningExtension {
   panesPending?: boolean
 }
 interface RunningView {
+  quotes?: Map<string, { hash: string, expires: number, targets: string[] }>
+  readVersion?: string
+  readHash?: string
+  reading?: { offset: number, size: number, hash: ReturnType<typeof createHash> }
   input: ExtensionViewInput
   session: ExtensionViewSession
   running: RunningExtension
@@ -74,7 +82,7 @@ interface RunningView {
   abort: AbortController
   ready: boolean
   error: string | null
-  writers: Map<string, ExtensionResourceWriter>
+  writers: Map<string, ExtensionResourceWriter | ExtensionSelectedFileWriter>
 }
 
 export class ExtensionService {
@@ -544,6 +552,28 @@ export class ExtensionService {
     await this.#executeCommand(running, command, target)
   }
 
+  async openFile(target: SpaceFileTarget): Promise<string | null> {
+    await this.initialize()
+    await this.#mutating
+    const suffix = target.path.split('.').at(-1)?.toLowerCase()
+    const handlers = Object.values(this.store.installed).filter(record => record.enabled && extensionCompatible(record.current.manifest, this.store.appVersion)).flatMap(record =>
+      record.current.manifest.contributes.views.filter(view => suffix && view.accepts?.extensions.includes(suffix)).map(view => ({ id: record.current.manifest.id, view })),
+    )
+    // Ambiguous handlers leave the file in the built-in preview.
+    if (handlers.length !== 1 || !this.#ports.readBytes)
+      return null
+    const handler = handlers[0]!
+    const running = await this.#activate(handler.id)
+    await this.#ports.readBytes({ ...target, offset: 0, length: 1 }, running.abort.signal)
+    this.#assertCurrent(running)
+    const resource = await this.store.grant(handler.id, target, () => this.#assertCurrent(running))
+    const result = await this.#ports.workbench({ kind: 'open', requestId: randomUUID(), extensionId: handler.id, generation: running.generation, viewType: handler.view.id, resource, fileTarget: target, state: {}, stateVersion: handler.view.stateVersion }, running.abort.signal)
+    this.#assertCurrent(running)
+    if (!result)
+      throw new Error('EXTENSION_VIEW_UNAVAILABLE')
+    return result
+  }
+
   updatePanes(panes: WorkbenchPaneSnapshot[]): void {
     const changed = JSON.stringify(this.#panes.map(({ id, active, visible }) => ({ id, active, visible }))) !== JSON.stringify(panes.map(({ id, active, visible }) => ({ id, active, visible })))
     this.#panes = structuredClone(panes)
@@ -652,7 +682,7 @@ export class ExtensionService {
         this.#closeView(old)
       const endpoint = this.#ports.createView(running.package)
       const abort = new AbortController()
-      const writers = new Map<string, ExtensionResourceWriter>()
+      const writers = new Map<string, ExtensionResourceWriter | ExtensionSelectedFileWriter>()
       const session = { id: input.viewId, extensionId: input.extensionId, generation: running.generation, token: endpoint.token, url: endpoint.url }
       this.#views.set(input.viewId, { input: structuredClone(input), session: structuredClone(session), running, abort, ready: false, error: null, writers, dispose: () => endpoint.dispose() })
       this.#publish({ kind: 'view', extensionId: input.extensionId, generation: running.generation, viewId: input.viewId, status: 'opened' })
@@ -687,6 +717,54 @@ export class ExtensionService {
     let result: JsonValue
     if (method === 'bootstrap') {
       result = { apiVersion: view.running.package.manifest.apiVersion, instanceId: view.input.instanceId ?? null, interactionId: view.input.interactionId ?? null, interactionMode: placement?.kind === 'view' ? placement.interaction ?? null : null, entry: contribution.entry, location: placement?.kind === 'view' ? 'mount' : contribution.location, presentation: placement?.kind ?? (contribution.location === 'window-overlay' ? 'decoration' : 'view'), resource: view.input.resource, state: view.input.state, stateVersion: view.input.stateVersion, expectedStateVersion: contribution.stateVersion }
+    }
+    else if (method === 'composer.captureQuote' || method === 'composer.addQuote') {
+      if (view.running.package.manifest.apiVersion < 4 || !view.running.package.manifest.permissions.composerReference || contribution.resource !== 'selected-file' || contribution.location !== 'context' || placement || !view.input.resource || !/\.docx$/i.test(view.input.resource.name) || !view.readVersion || !view.readHash || !this.#ports.readBytes)
+        throw new Error('EXTENSION_REFERENCE_DENIED')
+      const target = await this.#resource(view.running, view.input.resource.id)
+      const hash = view.readHash
+      const etag = view.readVersion
+      const signal = AbortSignal.any([view.abort.signal, view.running.abort.signal])
+      await this.#ports.readBytes({ ...target, offset: 0, length: 1, etag }, signal)
+      const assertQuoteCurrent = () => {
+        this.#assertCurrent(view.running)
+        signal.throwIfAborted()
+        if (this.#views.get(id) !== view || view.readHash !== hash || view.readVersion !== etag)
+          throw new Error('EXTENSION_RESOURCE_CHANGED')
+      }
+      assertQuoteCurrent()
+      const quotes = view.quotes ??= new Map()
+      for (const [captureId, capture] of quotes) {
+        if (capture.expires < Date.now())
+          quotes.delete(captureId)
+      }
+      if (method === 'composer.captureQuote') {
+        const input = extensionQuoteInputSchema.parse(params)
+        if (input.resourceId !== view.input.resource.id)
+          throw new Error('EXTENSION_REFERENCE_DENIED')
+        if (quotes.size >= 8)
+          quotes.delete(quotes.keys().next().value!)
+        const captureId = randomUUID()
+        const reply = await this.#ports.workbench({ kind: 'quote-capture', requestId: randomUUID(), viewId: id, generation, token, captureId, quote: { id: randomUUID(), text: input.text, source: { kind: 'file', title: view.input.resource.name, file: target, format: 'docx', docx: { hash, indexes: input.indexes, from: input.from, to: input.to } } } }, signal)
+        assertQuoteCurrent()
+        if (!reply)
+          throw new Error('EXTENSION_REFERENCE_UNAVAILABLE')
+        const capture = extensionQuoteCaptureSchema.parse(JSON.parse(reply))
+        if (capture.id !== captureId)
+          throw new Error('EXTENSION_REFERENCE_UNAVAILABLE')
+        quotes.set(captureId, { hash, expires: Date.now() + 120000, targets: capture.targets.map(target => target.id) })
+        result = capture
+      }
+      else {
+        const input = z.object({ id: z.string().uuid(), targetId: z.string().uuid() }).strict().parse(params)
+        const capture = quotes.get(input.id)
+        if (!capture || capture.hash !== hash || !capture.targets.includes(input.targetId))
+          throw new Error('EXTENSION_REFERENCE_UNAVAILABLE')
+        const reply = await this.#ports.workbench({ kind: 'quote-add', requestId: randomUUID(), viewId: id, generation, token, captureId: input.id, targetId: input.targetId }, signal)
+        assertQuoteCurrent()
+        quotes.delete(input.id)
+        result = reply ? z.enum(['added', 'duplicate', 'limit', 'unavailable']).parse(JSON.parse(reply)) : 'unavailable'
+      }
     }
     else if (method === 'view.setActive') {
       if (placement?.kind !== 'slot' && placement?.kind !== 'control')
@@ -742,7 +820,7 @@ export class ExtensionService {
       result = null
     }
     else if (['resources.beginSave', 'resources.writeChunk', 'resources.commitSave', 'resources.cancelSave'].includes(method)) {
-      if (!view.running.package.manifest.permissions.resourceExport || placement?.kind === 'decoration' || contribution.location === 'window-overlay')
+      if ((!view.running.package.manifest.permissions.resourceExport && !view.running.package.manifest.permissions.selectedResourceWrite) || placement?.kind === 'decoration' || contribution.location === 'window-overlay')
         throw new Error('EXTENSION_RESOURCE_EXPORT_DENIED')
       const assertView = () => {
         this.#assertCurrent(view.running)
@@ -750,26 +828,48 @@ export class ExtensionService {
           throw new Error('EXTENSION_VIEW_EXPIRED')
       }
       if (method === 'resources.beginSave') {
-        if (!this.#ports.selectSavePath || view.writers.size >= 2)
+        if (view.writers.size >= 2)
           throw new Error('EXTENSION_RESOURCE_SAVE_UNAVAILABLE')
-        const input = z.object({ name: z.string().min(1).max(255).regex(/^[^/\\\0]+$/), size: z.number().int().min(0).max(2 * 1024 ** 3) }).strict().parse(params)
+        const input = z.object({ name: z.string().min(1).max(255).regex(/^[^/\\\0]+$/), size: z.number().int().min(0).max(2 * 1024 ** 3), resourceId: z.string().uuid().optional() }).strict().parse(params)
         const signal = AbortSignal.any([view.abort.signal, view.running.abort.signal, AbortSignal.timeout(120000)])
-        const path = await this.#ports.selectSavePath(view.running.package.manifest.name, input.name, signal)
-        signal.throwIfAborted()
-        assertView()
-        if (path) {
-          const writer = await ExtensionResourceWriter.create(path, input.size, assertView)
-          try {
+        if (input.resourceId) {
+          if (view.running.package.manifest.apiVersion < 4 || !view.running.package.manifest.permissions.selectedResourceWrite || contribution.resource !== 'selected-file' || view.input.placementId || input.resourceId !== view.input.resource?.id || !view.readVersion || !view.readHash || !this.#ports.saveBytes)
+            throw new Error('EXTENSION_RESOURCE_WRITE_DENIED')
+          const target = await this.#resource(view.running, input.resourceId)
+          const etag = view.readVersion
+          const expectedHash = view.readHash
+          const writer = new ExtensionSelectedFileWriter(input.size, async (bytes, writeSignal) => {
             assertView()
-          }
-          catch (error) {
-            await writer.dispose()
-            throw error
-          }
+            await this.#resource(view.running, input.resourceId!)
+            const saved = await this.#ports.saveBytes!({ ...target, etag, expectedHash, base64: bytes.toString('base64') }, AbortSignal.any([signal, writeSignal]))
+            assertView()
+            if (saved.status !== 'saved' || !saved.etag)
+              throw new Error('EXTENSION_RESOURCE_CHANGED')
+            view.readVersion = saved.etag
+            view.readHash = createHash('sha256').update(bytes).digest('hex')
+          }, assertView)
+          assertView()
           view.writers.set(writer.id, writer)
           result = writer.id
         }
-        else { result = null }
+        else {
+          if (!view.running.package.manifest.permissions.resourceExport || !this.#ports.selectSavePath)
+            throw new Error('EXTENSION_RESOURCE_EXPORT_DENIED')
+          const path = await this.#ports.selectSavePath(view.running.package.manifest.name, input.name, signal)
+          signal.throwIfAborted()
+          assertView()
+          if (path) {
+            const writer = await ExtensionResourceWriter.create(path, input.size, assertView)
+            try { assertView() }
+            catch (error) {
+              await writer.dispose()
+              throw error
+            }
+            view.writers.set(writer.id, writer)
+            result = writer.id
+          }
+          else { result = null }
+        }
       }
       else {
         const input = z.object({ id: z.string().uuid(), offset: z.number().int().min(0).optional(), base64: z.string().max(128 * 1024).regex(/^(?:[A-Z0-9+/]{4})*(?:[A-Z0-9+/]{2}==|[A-Z0-9+/]{3}=)?$/i).optional() }).strict().parse(params)
@@ -793,6 +893,30 @@ export class ExtensionService {
         }
         result = null
       }
+    }
+    else if (method === 'resources.readBytes' && view.input.resource && params && typeof params === 'object' && !Array.isArray(params) && params.id === view.input.resource.id) {
+      if (view.running.package.manifest.apiVersion < 4 || contribution.resource !== 'selected-file' || view.input.placementId || !this.#ports.readBytes)
+        throw new Error('EXTENSION_RESOURCE_DENIED')
+      const input = z.object({ id: z.string().uuid(), offset: z.number().int().min(0).max(64 * 1024 * 1024), length: z.number().int().min(1).max(128 * 1024) }).strict().parse(params)
+      const target = await this.#resource(view.running, input.id)
+      const chunk = await this.#ports.readBytes({ ...target, offset: input.offset, length: input.length, ...(view.readVersion ? { etag: view.readVersion } : {}) }, AbortSignal.any([view.abort.signal, view.running.abort.signal]))
+      if (view.readVersion && view.readVersion !== chunk.etag)
+        throw new Error('EXTENSION_RESOURCE_CHANGED')
+      view.readVersion = chunk.etag
+      if (input.offset === 0)
+        view.reading = { offset: 0, size: chunk.size, hash: createHash('sha256') }
+      const reading = view.reading
+      const data = Buffer.from(chunk.base64, 'base64')
+      if (reading && reading.offset === input.offset && reading.size === chunk.size) {
+        reading.hash.update(data)
+        reading.offset += data.length
+        if (chunk.eof && reading.offset === reading.size) {
+          view.readHash = reading.hash.digest('hex')
+          view.reading = undefined
+        }
+      }
+      else { view.reading = undefined }
+      result = { base64: chunk.base64, size: chunk.size, eof: chunk.eof }
     }
     else if (method.startsWith('resources.') && (method !== 'resources.readText' || !view.input.resource || !params || typeof params !== 'object' || Array.isArray(params) || params.id !== view.input.resource.id)) {
       if (!view.running.package.manifest.permissions.localResources || placement?.kind === 'decoration' || contribution.location === 'window-overlay')

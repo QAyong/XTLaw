@@ -6,6 +6,7 @@ import { subscribe } from './subscribe'
 export function createExtensionApi(): ExtensionApi {
   const request = (input: ExtensionManagementRequest) => ipcRenderer.invoke(EXTENSION_IPC.request, input)
   return Object.freeze({
+    openFile: resource => request({ action: 'openFile', resource }),
     taskActions: () => request({ action: 'taskActions' }),
     invokeTaskAction: input => request({ action: 'invokeTaskAction', input }),
     list: () => request({ action: 'list' }),
@@ -37,6 +38,6 @@ export function createExtensionApi(): ExtensionApi {
     onChanged: listener => subscribe(EXTENSION_IPC.changed, listener),
     onReview: listener => subscribe(EXTENSION_IPC.review, listener),
     onWorkbench: listener => subscribe(EXTENSION_IPC.workbench, listener),
-    replyWorkbench: (requestId, viewId) => ipcRenderer.send(EXTENSION_IPC.workbenchReply, { requestId, viewId }),
+    replyWorkbench: (requestId, viewId, data) => ipcRenderer.send(EXTENSION_IPC.workbenchReply, { requestId, viewId, ...(data === undefined ? {} : { data }) }),
   } satisfies ExtensionApi)
 }

@@ -33,7 +33,7 @@ export interface LocalResourceApi extends ResourceApi {
   listDirectories: () => Promise<LocalDirectory[]>
   scanDirectory: (directory: Pick<LocalDirectory, 'id'>, options?: { extensions?: string[], recursive?: boolean }) => Promise<LocalFile[]>
   revokeDirectory: (directory: Pick<LocalDirectory, 'id'>) => Promise<void>
-  saveFile: (options: { name: string, data: Blob | ArrayBuffer | Uint8Array }) => Promise<boolean>
+  saveFile: (options: { name: string, data: Blob | ArrayBuffer | Uint8Array, resource?: Resource }) => Promise<boolean>
 }
 export interface NetworkApi { get: (url: string) => Promise<{ status: number, text: string }> }
 export interface ScheduleInput { id: string, command: string, enabled: boolean, intervalMinutes: number }
@@ -110,7 +110,7 @@ export interface ConditionApi {
   invalidate: (input?: { condition?: string, scopeKey?: string }) => Promise<void>
 }
 export interface ExtensionContext {
-  readonly extension: { readonly id: string, readonly version: string, readonly apiVersion: 1 | 2 | 3 }
+  readonly extension: { readonly id: string, readonly version: string, readonly apiVersion: 1 | 2 | 3 | 4 }
   readonly events: EventSubscriber<ExtensionEvents>
   readonly configuration: {
     get: () => Promise<Record<string, SettingValue>>
@@ -197,7 +197,7 @@ export interface ViewContext {
   } | null
   readonly environment: ViewEnvironment
   onEnvironmentChange: (listener: (environment: ViewContext['environment']) => void) => Disposable
-  readonly apiVersion: 1 | 2 | 3
+  readonly apiVersion: 1 | 2 | 3 | 4
   readonly resource: Resource | null
   readonly state: Json
   readonly stateVersion: number
@@ -207,6 +207,10 @@ export interface ViewContext {
   readonly resources: LocalResourceApi
   readonly network: NetworkApi
   readonly commands: { execute: (command: string, args?: Json) => Promise<Json> }
+  readonly composer: {
+    captureQuote: (resource: Resource, selection: { text: string, indexes: number[], from: number, to: number }) => Promise<{ id: string, defaultId: string | null, targets: { id: string, label: string }[] }>
+    addQuote: (id: string, targetId: string) => Promise<'added' | 'duplicate' | 'limit' | 'unavailable'>
+  }
   setPresentation: (presentation: ViewPresentation) => Promise<void>
   setState: (state: Json) => Promise<void>
   setActive: (active: boolean) => Promise<void>

@@ -9,6 +9,8 @@
 - `brand/lexora-avatar-closeup.png`：原项目保留的未使用参考资源，不作为 XTLaw 运行时资源。
 - `brand/app-icon.png`：XTLaw 应用图标的品牌真源。
 - `brand/app-icon-light.png`：白底、黑色 XT 的浅色应用图标真源；与深色版本并行保留。
+- `brand/xtlaw-wordmark-light.svg`：透明底浅色横向字标，用于浅色界面；由 `sources/xtlaw/xtlaw-black-on-white.svg` 派生，保留黑色字形与蓝色点缀。
+- `brand/xtlaw-wordmark-dark.svg`：透明底深色横向字标，用于深色界面；由 `sources/xtlaw/xtlaw-white-on-black.svg` 派生，保留白色字形与蓝色点缀。
 - `sources/xtlaw/`：用户提供的 XTLaw 深浅色完整字标与 XT 简化标志 SVG 源文件。
 - `sources/default-reference.png`：默认 Buddy 的初始参考原图，带粉色背景，不是运行时资源。
 - `buddy/pets/default/pet.png`：透明静态角色图，用于桌宠预览和动画身份参考；它是派生物，不是 native 桌宠运行时入口。

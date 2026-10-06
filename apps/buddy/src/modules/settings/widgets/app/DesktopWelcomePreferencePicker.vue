@@ -6,6 +6,7 @@ import { ChevronDown16Regular } from '@vicons/fluent'
 import { NPopover } from 'naive-ui'
 import { computed, shallowRef } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
+import { BRAND_ASSET_URLS } from '@/shared/branding/brandAssets'
 import { DESKTOP_CHAT_WELCOME_VARIANTS } from '@/shared/branding/welcome/desktopChatWelcomeVariants'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 
@@ -104,8 +105,14 @@ function selectPreference(preference: DesktopChatWelcomePreference) {
             @click="selectPreference(variant.id)"
           >
             <img
-              class="desktop-welcome-preference-picker__illustration"
-              :src="variant.illustrationUrl"
+              class="desktop-welcome-preference-picker__wordmark desktop-welcome-preference-picker__wordmark--light"
+              :src="BRAND_ASSET_URLS.chatWelcomeWordmark.light"
+              alt=""
+              draggable="false"
+            >
+            <img
+              class="desktop-welcome-preference-picker__wordmark desktop-welcome-preference-picker__wordmark--dark"
+              :src="BRAND_ASSET_URLS.chatWelcomeWordmark.dark"
               alt=""
               draggable="false"
             >
@@ -264,6 +271,7 @@ function selectPreference(preference: DesktopChatWelcomePreference) {
   border-radius: 0.5rem;
   background: var(--buddy-surface-base);
   color: var(--buddy-text-primary);
+  font-family: var(--buddy-font-ui);
   padding: 0.35rem 0.5rem 0.55rem;
   scroll-snap-align: start;
   text-align: center;
@@ -294,19 +302,29 @@ function selectPreference(preference: DesktopChatWelcomePreference) {
 
   > span {
     overflow-wrap: anywhere;
-    font-family: "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", STSong, SimSun, serif;
     font-size: 0.78rem;
     font-weight: 600;
-    letter-spacing: 0.01em;
     line-height: 1.45;
   }
 }
 
-.desktop-welcome-preference-picker__illustration {
-  width: 7.4rem;
-  height: 7.4rem;
+.desktop-welcome-preference-picker__wordmark {
+  width: min(100%, 9rem);
+  max-height: 3rem;
   place-self: center;
   object-fit: contain;
   user-select: none;
+}
+
+.desktop-welcome-preference-picker__wordmark--dark {
+  display: none;
+}
+
+:global(:root[data-buddy-theme='dark'] .desktop-welcome-preference-picker__wordmark--light) {
+  display: none;
+}
+
+:global(:root[data-buddy-theme='dark'] .desktop-welcome-preference-picker__wordmark--dark) {
+  display: block;
 }
 </style>

@@ -444,7 +444,7 @@ export class ArtifactError extends Error {
   readonly code: string
 
   constructor(code: string) {
-    super('Lexora Buddy artifact operation failed')
+    super('XTLaw artifact operation failed')
     this.name = 'ArtifactError'
     this.code = code
   }

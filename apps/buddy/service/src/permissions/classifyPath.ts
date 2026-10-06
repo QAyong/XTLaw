@@ -24,7 +24,7 @@ export class PathClassificationError extends Error {
   readonly code: PathClassificationErrorCode
 
   constructor(code: PathClassificationErrorCode, options?: ErrorOptions) {
-    super('Lexora Buddy cannot resolve the requested path', options)
+    super('XTLaw cannot resolve the requested path', options)
     this.name = 'PathClassificationError'
     this.code = code
   }

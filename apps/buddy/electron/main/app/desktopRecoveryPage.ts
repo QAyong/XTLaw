@@ -28,7 +28,7 @@ export function recoveryPage(options: RecoveryPresentation, status = ''): string
   const dropdown = moreActions ? `<button type="button" class="more-actions-trigger" popovertarget="more-actions">${escapeHtml(recovery.moreActionsLabel)}<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><div id="more-actions" popover>${moreActions}</div>` : ''
   const buttons = `${renderActions(['export_diagnostics', 'retry'])}${dropdown}${renderActions(['quit'])}`
   const fields = recovery.fields.map(field => `<div><dt>${escapeHtml(field.label)}</dt><dd>${escapeHtml(field.value)}</dd></div>`).join('')
-  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><title>${escapeHtml(options.title ?? 'Lexora Buddy')}</title><style>
+  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><title>${escapeHtml(options.title ?? 'XTLaw')}</title><style>
     :root { color-scheme: light dark; font: 14px/1.65 system-ui, sans-serif; color: #242424; background: #fafafa; }
     * { box-sizing: border-box; } body { margin: 0; padding: 30px; } main { max-width: 680px; margin: auto; }
     .brand { font-size: 12px; color: #747474; letter-spacing: .08em; } h1 { font-size: 23px; font-weight: 600; line-height: 1.4; margin: 12px 0 20px; }

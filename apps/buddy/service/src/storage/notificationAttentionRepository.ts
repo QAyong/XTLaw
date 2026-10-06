@@ -143,7 +143,7 @@ export function createNotificationAttentionRepository(
 function requireRecord(value: unknown, notificationId: string): NotificationAttentionRecord {
   const row = value as NotificationAttentionRow | undefined
   if (!row)
-    throw new Error(`Lexora Buddy notification attention was not persisted: ${notificationId}`)
+    throw new Error(`XTLaw notification attention was not persisted: ${notificationId}`)
   return toRecord(row)
 }
 

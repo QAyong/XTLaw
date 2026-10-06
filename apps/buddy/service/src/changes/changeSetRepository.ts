@@ -206,7 +206,7 @@ export function createChangeSetRepository(database: DatabaseSync): ChangeSetRepo
         deleted_at: string | null
       } | undefined
       if (run?.conversation_id !== record.conversationId || run.deleted_at !== null)
-        throw new Error('Lexora Buddy change-set ownership is invalid')
+        throw new Error('XTLaw change-set ownership is invalid')
       const result = ensureSet.run(
         record.id,
         record.runId,
@@ -263,7 +263,7 @@ export function createChangeSetRepository(database: DatabaseSync): ChangeSetRepo
 function requireChangeSet(value: unknown, id: string): ChangeSetRecord {
   const row = value as ChangeSetRow | undefined
   if (!row)
-    throw new Error(`Lexora Buddy change set was not persisted: ${id}`)
+    throw new Error(`XTLaw change set was not persisted: ${id}`)
   return toChangeSet(row)
 }
 

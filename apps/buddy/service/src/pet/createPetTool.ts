@@ -28,12 +28,12 @@ export interface CreatePetToolOptions {
 
 export function createPetTool(options: CreatePetToolOptions): ToolDefinition {
   return defineTool<TSchema, PetToolDetails>({
-    description: 'Express a simple Lexora Buddy desktop companion action',
+    description: 'Express a simple XTLaw desktop companion action',
     execute: async (toolCallId, parameters) => {
       const parsed = petToolInputSchema.safeParse(parameters)
       if (!parsed.success) {
         return {
-          content: [{ type: 'text', text: 'Lexora Buddy pet action input is invalid' }],
+          content: [{ type: 'text', text: 'XTLaw pet action input is invalid' }],
           details: { code: 'VALIDATION_FAILED', macro: 'invalid', status: 'failed' },
           isError: false,
         }
@@ -47,8 +47,8 @@ export function createPetTool(options: CreatePetToolOptions): ToolDefinition {
         content: [{
           type: 'text',
           text: result.status === 'completed'
-            ? `Lexora Buddy pet action completed: ${parsed.data.macro}`
-            : `Lexora Buddy pet action was not completed: ${parsed.data.macro}`,
+            ? `XTLaw pet action completed: ${parsed.data.macro}`
+            : `XTLaw pet action was not completed: ${parsed.data.macro}`,
         }],
         details: {
           ...('code' in result ? { code: result.code } : {}),
@@ -58,7 +58,7 @@ export function createPetTool(options: CreatePetToolOptions): ToolDefinition {
         isError: false,
       }
     },
-    label: 'Lexora Buddy pet',
+    label: 'XTLaw pet',
     name: PET_TOOL_NAME,
     parameters: petToolParameters,
   })

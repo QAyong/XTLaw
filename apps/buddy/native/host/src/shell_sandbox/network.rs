@@ -65,7 +65,7 @@ impl Network {
 
     pub(super) fn install(&self) -> io::Result<()> {
         let mut provider_key = PROVIDER;
-        let mut name = wide("Lexora Buddy Sandbox");
+        let mut name = wide("XTLaw Sandbox");
         let provider = FWPM_PROVIDER0 {
             providerKey: PROVIDER,
             flags: FWPM_PROVIDER_FLAG_PERSISTENT,
@@ -148,7 +148,7 @@ impl Network {
             ]);
         }
         let mut provider = PROVIDER;
-        let mut name = wide("Lexora Buddy command boundary");
+        let mut name = wide("XTLaw command boundary");
         let mut weight = if port.is_some() { 100u64 } else { 1 };
         let filter = FWPM_FILTER0 {
             flags: FWPM_FILTER_FLAG_PERSISTENT,

@@ -690,7 +690,7 @@ export class ChangeCaptureError extends Error {
   readonly code: string
 
   constructor(code: string) {
-    super('Lexora Buddy change capture failed')
+    super('XTLaw change capture failed')
     this.name = 'ChangeCaptureError'
     this.code = code
   }

@@ -32,7 +32,7 @@ export class BuddyAgentRunError extends Error {
   readonly code: BuddyAgentRunErrorCode
 
   constructor(code: BuddyAgentRunErrorCode) {
-    super('Lexora Buddy could not complete the requested run')
+    super('XTLaw could not complete the requested run')
     this.name = 'BuddyAgentRunError'
     this.code = code
   }

@@ -102,7 +102,7 @@ function requireIdentity(value: string): string {
 
 export class BuddyDataPathError extends Error {
   constructor(identity: string) {
-    super(`Invalid Lexora Buddy data identity: ${identity}`)
+    super(`Invalid XTLaw data identity: ${identity}`)
     this.name = 'BuddyDataPathError'
   }
 }

@@ -112,7 +112,7 @@ export class ConversationLifecycleError extends Error {
   readonly code = 'VALIDATION_FAILED'
 
   constructor() {
-    super('Lexora Buddy conversation identity is invalid')
+    super('XTLaw conversation identity is invalid')
     this.name = 'ConversationLifecycleError'
   }
 }
@@ -121,7 +121,7 @@ class ConversationCleanupError extends Error {
   readonly code: 'CONVERSATION_CLEANUP_FAILED' | 'CONVERSATION_CLEANUP_PENDING'
 
   constructor(code: 'CONVERSATION_CLEANUP_FAILED' | 'CONVERSATION_CLEANUP_PENDING') {
-    super('Lexora Buddy conversation cleanup is incomplete')
+    super('XTLaw conversation cleanup is incomplete')
     this.name = 'ConversationCleanupError'
     this.code = code
   }

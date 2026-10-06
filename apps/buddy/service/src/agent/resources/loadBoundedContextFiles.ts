@@ -45,7 +45,7 @@ export async function loadBoundedContextFiles(
       agentsFiles: [],
       diagnostics: [{
         code: 'CONTEXT_DEPTH_EXCEEDED',
-        message: 'Lexora Buddy directory context is too deeply nested',
+        message: 'XTLaw directory context is too deeply nested',
       }],
     }
   }
@@ -69,7 +69,7 @@ export async function loadBoundedContextFiles(
       if (metadata.size > MAX_CONTEXT_FILE_BYTES || totalBytes + metadata.size > MAX_CONTEXT_TOTAL_BYTES) {
         diagnostics.push({
           code: 'CONTEXT_FILE_TOO_LARGE',
-          message: 'A Lexora Buddy directory context file exceeds the allowed size',
+          message: 'A XTLaw directory context file exceeds the allowed size',
         })
         continue
       }
@@ -85,7 +85,7 @@ export async function loadBoundedContextFiles(
         continue
       diagnostics.push({
         code: 'CONTEXT_FILE_UNREADABLE',
-        message: 'Lexora Buddy could not read a directory context file',
+        message: 'XTLaw could not read a directory context file',
       })
     }
   }

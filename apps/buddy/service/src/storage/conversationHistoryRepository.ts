@@ -179,18 +179,18 @@ export function createConversationHistoryStore(database: DatabaseSync): Conversa
     visited = new Set<string>(),
   ): MessageRecord[] => {
     if (visited.has(branchId))
-      throw new Error('Lexora Buddy conversation branch ancestry is invalid')
+      throw new Error('XTLaw conversation branch ancestry is invalid')
     visited.add(branchId)
     const branch = findBranch.get(branchId) as BranchRow | undefined
     if (!branch || branch.conversation_id !== conversationId)
-      throw new Error('Lexora Buddy conversation branch was not found')
+      throw new Error('XTLaw conversation branch was not found')
 
     let ancestors: MessageRecord[] = []
     if (branch.parent_branch_id) {
       ancestors = collectBranchMessages(conversationId, branch.parent_branch_id, visited)
       const forkIndex = ancestors.findIndex(message => message.id === branch.forked_from_message_id)
       if (forkIndex < 0)
-        throw new Error('Lexora Buddy conversation fork point was not found')
+        throw new Error('XTLaw conversation fork point was not found')
       ancestors = ancestors.slice(0, forkIndex + 1)
     }
     const current = (listAllMessagesForBranch.all(
@@ -205,11 +205,11 @@ export function createConversationHistoryStore(database: DatabaseSync): Conversa
     visited = new Set<string>(),
   ): VisibleConversationBranchSegment[] => {
     if (visited.has(branchId))
-      throw new Error('Lexora Buddy conversation branch ancestry is invalid')
+      throw new Error('XTLaw conversation branch ancestry is invalid')
     visited.add(branchId)
     const branch = findBranch.get(branchId) as BranchRow | undefined
     if (!branch || branch.conversation_id !== conversationId)
-      throw new Error('Lexora Buddy conversation branch was not found')
+      throw new Error('XTLaw conversation branch was not found')
     if (!branch.parent_branch_id)
       return [{ branchId, throughMessage: null }]
 
@@ -232,7 +232,7 @@ export function createConversationHistoryStore(database: DatabaseSync): Conversa
         segment.throughMessage,
       ) > 0)
     ) {
-      throw new Error('Lexora Buddy conversation fork point was not found')
+      throw new Error('XTLaw conversation fork point was not found')
     }
     return [
       ...segments.slice(0, segmentIndex),
@@ -272,7 +272,7 @@ export function createConversationHistoryStore(database: DatabaseSync): Conversa
       createBranch(input) {
         return withTransaction(database, () => {
           if ((input.parentBranchId === null) !== (input.forkedFromMessageId === null))
-            throw new Error('Lexora Buddy conversation fork binding is invalid')
+            throw new Error('XTLaw conversation fork binding is invalid')
           if (input.parentBranchId && input.forkedFromMessageId) {
             const parent = findBranch.get(input.parentBranchId) as BranchRow | undefined
             if (
@@ -281,7 +281,7 @@ export function createConversationHistoryStore(database: DatabaseSync): Conversa
               || !collectBranchMessages(input.conversationId, input.parentBranchId)
                 .some(message => message.id === input.forkedFromMessageId)
             ) {
-              throw new Error('Lexora Buddy conversation fork binding is invalid')
+              throw new Error('XTLaw conversation fork binding is invalid')
             }
           }
           insertBranch.run(
@@ -399,14 +399,14 @@ class ConversationHistoryError extends Error {
   readonly code = 'VALIDATION_FAILED'
 
   constructor(reason: string) {
-    super(`Lexora Buddy conversation ${reason}`)
+    super(`XTLaw conversation ${reason}`)
     this.name = 'ConversationHistoryError'
   }
 }
 
 function requireRow<T>(value: unknown, id: string): T {
   if (!value)
-    throw new Error(`Lexora Buddy storage row was not persisted: ${id}`)
+    throw new Error(`XTLaw storage row was not persisted: ${id}`)
   return value as T
 }
 

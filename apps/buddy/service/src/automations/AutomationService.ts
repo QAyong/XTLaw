@@ -54,7 +54,7 @@ export class AutomationServiceError extends Error {
   readonly code: AutomationErrorCode
 
   constructor(code: AutomationErrorCode) {
-    super(`Lexora Buddy automation operation failed: ${code}`)
+    super(`XTLaw automation operation failed: ${code}`)
     this.name = 'AutomationServiceError'
     this.code = code
   }

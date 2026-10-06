@@ -27,7 +27,7 @@ export class RunEventCorruptionError extends RunEventLogFatalError {
 
   constructor(runId: string, options?: ErrorOptions) {
     super(
-      'Lexora Buddy run event log is corrupted',
+      'XTLaw run event log is corrupted',
       runEventFailureScope(runId),
       options,
     )
@@ -40,7 +40,7 @@ export class RunEventCheckpointError extends RunEventLogFatalError {
   readonly commitState = 'not_applicable'
 
   constructor(runId: string, options?: ErrorOptions) {
-    super('Lexora Buddy run event checkpoint invalidation failed', runEventFailureScope(runId), options)
+    super('XTLaw run event checkpoint invalidation failed', runEventFailureScope(runId), options)
     this.name = 'RunEventCheckpointError'
   }
 }
@@ -56,7 +56,7 @@ export class RunEventProjectionError extends RunEventLogFatalError {
     options?: ErrorOptions,
   ) {
     super(
-      'Lexora Buddy durable run event projection failed',
+      'XTLaw durable run event projection failed',
       runEventFailureScope(runId, events),
       options,
     )
@@ -77,7 +77,7 @@ export class RunEventStorageError extends RunEventLogFatalError {
     commitState: RunEventStorageError['commitState'],
     options?: ErrorOptions,
   ) {
-    super('Lexora Buddy run event storage failed', scope, options)
+    super('XTLaw run event storage failed', scope, options)
     this.name = 'RunEventStorageError'
     this.commitState = commitState
     this.operation = operation

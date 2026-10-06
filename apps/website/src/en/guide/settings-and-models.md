@@ -1,6 +1,6 @@
 # Models and tools
 
-Lexora is your workspace. You choose the models, working methods, and external tools.
+XTLaw is your workspace. You choose the models, working methods, and external tools.
 
 ## Model services
 

@@ -195,7 +195,7 @@ export class CommandRequestConflictError extends Error {
   readonly code = 'VALIDATION_FAILED'
 
   constructor() {
-    super('Lexora Buddy command request conflicts with the current conversation state')
+    super('XTLaw command request conflicts with the current conversation state')
     this.name = 'CommandRequestConflictError'
   }
 }

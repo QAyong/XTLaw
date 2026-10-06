@@ -338,7 +338,7 @@ impl Drop for PendingJournal {
 fn journal_directory() -> io::Result<PathBuf> {
     let directory =
         super::setup::known_folder(&windows_sys::Win32::UI::Shell::FOLDERID_LocalAppData)?
-            .join("Lexora Buddy Sandbox")
+            .join("XTLaw Sandbox")
             .join("leases");
     crate::private_directories::ensure(&[directory.to_string_lossy().into_owned()])
         .map_err(io::Error::other)?;

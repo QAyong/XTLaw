@@ -27,7 +27,9 @@ export function prepareDesktopEnvironment(): DesktopEnvironment {
   const desktopHost = desktopHosts[currentPlatform.id]
   const isSmokeTest = process.env.LEXORA_DESKTOP_SMOKE_TEST === '1'
   const paths = bootstrapStep('resolve_paths', () => resolveBuddyRuntimePaths({
-    defaultUserData: app.getPath('userData'),
+    // Keep the original Electron data directory so credentials encrypted by
+    // earlier Lexora builds remain readable after the visible XTLaw rebrand.
+    defaultUserData: join(app.getPath('appData'), 'Lexora Buddy'),
     desktopName: buddyPackage.desktopName,
     isPackaged: app.isPackaged,
     localAppData: process.env.LOCALAPPDATA,

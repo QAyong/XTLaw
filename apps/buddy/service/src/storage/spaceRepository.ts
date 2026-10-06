@@ -223,7 +223,7 @@ export function createSpaceRepository(database: DatabaseSync): SpaceRepository {
     delete(id, deletedAt, event) {
       return withTransaction(database, () => {
         if (Number(deleteSpace.run(deletedAt, deletedAt, id).changes) !== 1)
-          throw new Error(`Lexora Buddy space was not deleted: ${id}`)
+          throw new Error(`XTLaw space was not deleted: ${id}`)
         revokeSpaceDirectories.run(deletedAt, deletedAt, id)
         persistSpaceEvent(insertEvent, event)
         return requireSpace(readSpace(id), id)
@@ -260,7 +260,7 @@ export function createSpaceRepository(database: DatabaseSync): SpaceRepository {
             currentPrimary.id,
             input.id,
           ).changes) !== 1) {
-            throw new Error(`Lexora Buddy space directory was not updated: ${currentPrimary.id}`)
+            throw new Error(`XTLaw space directory was not updated: ${currentPrimary.id}`)
           }
           currentPrimary.is_primary = 0
           currentPrimary.resources_trusted_at = null
@@ -276,7 +276,7 @@ export function createSpaceRepository(database: DatabaseSync): SpaceRepository {
             || existing.canonical_root !== directory.canonicalRoot
             || existing.access_granted_at !== directory.accessGrantedAt
           ) {
-            throw new Error(`Lexora Buddy space directory identity changed: ${directory.id}`)
+            throw new Error(`XTLaw space directory identity changed: ${directory.id}`)
           }
           if (
             (existing.is_primary === 1) !== directory.isPrimary
@@ -289,7 +289,7 @@ export function createSpaceRepository(database: DatabaseSync): SpaceRepository {
               directory.id,
               input.id,
             ).changes) !== 1) {
-              throw new Error(`Lexora Buddy space directory was not updated: ${directory.id}`)
+              throw new Error(`XTLaw space directory was not updated: ${directory.id}`)
             }
           }
         }
@@ -301,7 +301,7 @@ export function createSpaceRepository(database: DatabaseSync): SpaceRepository {
           input.updatedAt,
           input.id,
         ).changes) !== 1) {
-          throw new Error(`Lexora Buddy space was not updated: ${input.id}`)
+          throw new Error(`XTLaw space was not updated: ${input.id}`)
         }
         persistSpaceEvent(insertEvent, input.event)
         return requireSpace(readSpace(input.id), input.id)
@@ -351,16 +351,16 @@ function validateDirectorySet(
     ...additionalDirectories,
   ]
   if (directories.length > 32)
-    throw new Error('Lexora Buddy space has too many directory bindings')
+    throw new Error('XTLaw space has too many directory bindings')
   if (new Set(directories.map(directory => directory.id)).size !== directories.length)
-    throw new Error('Lexora Buddy space has duplicate directory bindings')
+    throw new Error('XTLaw space has duplicate directory bindings')
   if (new Set(directories.map(directory => directory.canonicalRoot)).size !== directories.length)
-    throw new Error('Lexora Buddy space has duplicate directory roots')
+    throw new Error('XTLaw space has duplicate directory roots')
 }
 
 function requireSpace(value: SpaceRecord | null, id: string): SpaceRecord {
   if (!value)
-    throw new Error(`Lexora Buddy space was not persisted: ${id}`)
+    throw new Error(`XTLaw space was not persisted: ${id}`)
   return value
 }
 
@@ -423,7 +423,7 @@ function toSpaceAdditionalDirectoryBinding(
 
 function requirePrimaryDirectoryTrust(row: SpaceDirectoryBindingRow): string {
   if (!row.resources_trusted_at)
-    throw new Error(`Lexora Buddy primary directory resources are not trusted: ${row.id}`)
+    throw new Error(`XTLaw primary directory resources are not trusted: ${row.id}`)
   return row.resources_trusted_at
 }
 

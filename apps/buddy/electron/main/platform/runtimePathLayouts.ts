@@ -37,9 +37,14 @@ function resolveWindowsDirectories(identity: BuddyRuntimeIdentity, lexoraHome: s
     options.localAppData ?? win32.join(options.userHome, 'AppData', 'Local'),
     'LocalAppData',
   )
+  const runtimeName = identity.profile === 'stable'
+    ? 'Lexora Buddy'
+    : identity.profile === 'development'
+      ? 'Lexora Buddy Dev'
+      : identity.appName
   const runtimeRoot = identity.profile === 'test'
     ? win32.join(lexoraHome, '.runtime')
-    : win32.join(localAppData, identity.appName)
+    : win32.join(localAppData, runtimeName)
   const pipeId = createHash('sha256')
     .update(`${options.userHome.toLowerCase()}\0${lexoraHome.toLowerCase()}\0${identity.namespace}`)
     .digest('hex')

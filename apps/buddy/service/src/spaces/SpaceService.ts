@@ -595,7 +595,7 @@ export class SpaceDirectoryError extends Error {
   readonly code = 'DIRECTORY_NOT_AUTHORIZED'
 
   constructor() {
-    super('Lexora Buddy directory is not authorized')
+    super('XTLaw directory is not authorized')
     this.name = 'SpaceDirectoryError'
   }
 }
@@ -604,7 +604,7 @@ export class SpaceHasActiveRunsError extends Error {
   readonly code = 'SPACE_HAS_ACTIVE_RUNS'
 
   constructor() {
-    super('Lexora Buddy cannot change space directories or delete a space with active runs')
+    super('XTLaw cannot change space directories or delete a space with active runs')
     this.name = 'SpaceHasActiveRunsError'
   }
 }

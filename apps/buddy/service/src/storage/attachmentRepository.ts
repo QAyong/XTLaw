@@ -121,7 +121,7 @@ export function createAttachmentRepository(database: DatabaseSync): AttachmentRe
 function requireAttachment(value: unknown, id: string): AttachmentRecord {
   const row = value as AttachmentRow | undefined
   if (!row)
-    throw new Error(`Lexora Buddy attachment was not persisted: ${id}`)
+    throw new Error(`XTLaw attachment was not persisted: ${id}`)
   return toAttachment(row)
 }
 

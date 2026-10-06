@@ -689,7 +689,7 @@ export class TurnRequestConflictError extends Error {
   readonly code = 'VALIDATION_FAILED'
 
   constructor() {
-    super('Lexora Buddy turn request conflicts with an existing request')
+    super('XTLaw turn request conflicts with an existing request')
     this.name = 'TurnRequestConflictError'
   }
 }
@@ -698,7 +698,7 @@ export class TurnRequestAttachmentError extends Error {
   readonly code = 'ATTACHMENT_NOT_FOUND'
 
   constructor() {
-    super('Lexora Buddy turn request attachment is unavailable')
+    super('XTLaw turn request attachment is unavailable')
     this.name = 'TurnRequestAttachmentError'
   }
 }

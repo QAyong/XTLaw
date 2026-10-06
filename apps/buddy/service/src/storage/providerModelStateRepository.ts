@@ -184,7 +184,7 @@ export function createProviderModelStateRepository(
 function requireProviderModelState(value: unknown): ProviderModelStateRecord {
   const row = value as ProviderModelStateRow | undefined
   if (!row)
-    throw new Error('Lexora Buddy provider model state was not persisted')
+    throw new Error('XTLaw provider model state was not persisted')
   return toProviderModelState(row)
 }
 

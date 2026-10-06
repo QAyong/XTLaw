@@ -80,7 +80,7 @@ fn service_handle(handle: SC_HANDLE) -> io::Result<Service> {
 
 pub(super) fn installed_path() -> io::Result<PathBuf> {
     Ok(known_folder(&FOLDERID_ProgramFiles)?
-        .join("Lexora Buddy Sandbox")
+        .join("XTLaw Sandbox")
         .join(BINARY))
 }
 
@@ -188,7 +188,7 @@ pub(super) fn install() -> io::Result<i32> {
     })?;
     let command = wide(&format!("\"{}\" service", target.display()));
     let name = wide(SERVICE_NAME);
-    let display = wide("Lexora Buddy Sandbox");
+    let display = wide("XTLaw Sandbox");
     let dependencies = wide("BFE\0");
     // SAFETY: All service configuration is fixed; neither model input nor a user-provided program path reaches SCM.
     let handle = unsafe {
@@ -502,7 +502,7 @@ fn register_uninstaller(target: &std::path::Path) -> io::Result<()> {
     } as u32)?;
     let result = (|| {
         for (name, value) in [
-            ("DisplayName", "Lexora Buddy Sandbox".to_owned()),
+            ("DisplayName", "XTLaw Sandbox".to_owned()),
             ("DisplayVersion", env!("CARGO_PKG_VERSION").to_owned()),
             ("Publisher", "Lexora".to_owned()),
             (

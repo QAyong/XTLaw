@@ -96,7 +96,7 @@ export function runBuddyReleasePreflight(options = {}) {
     })
   }
 
-  writeOutput(`\nLexora Buddy ${stage} gate passed`)
+  writeOutput(`\nXTLaw ${stage} gate passed`)
 }
 
 function readStage(args) {

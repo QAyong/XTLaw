@@ -51,7 +51,7 @@ export class MessagePageCursorError extends Error {
   readonly code = 'VALIDATION_FAILED'
 
   constructor() {
-    super('Lexora Buddy message page cursor is invalid')
+    super('XTLaw message page cursor is invalid')
     this.name = 'MessagePageCursorError'
   }
 }

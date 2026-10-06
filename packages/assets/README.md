@@ -1,12 +1,15 @@
-# Lexora Assets
+# XTLaw Assets
 
-`packages/assets` 存放 Lexora 跨应用复用的品牌与产品资产。这里的文件是应用可直接消费的最终资产或可追溯参考源。
+`packages/assets` 存放 XTLaw 跨应用复用的品牌与产品资产。这里的文件是应用可直接消费的最终资产或可追溯参考源。
 
 ## 当前结构
 
-- `brand/lexora-avatar.png`：Lexora 的透明高清品牌头像，README 直接消费它。
-- `brand/lexora-avatar-closeup.png`：从高清品牌头像裁切、优化得到的近景变体，当前只保留，不作为运行时资源。
-- `brand/app-icon.png`：Buddy 应用图标的品牌真源。
+- `brand/lexora-avatar.png`：XTLaw 的高清品牌头像；为保持运行时引用兼容，第一阶段保留旧文件名。
+- `brand/lexora-avatar-light.png`：白底、黑色 XT 的浅色品牌头像。
+- `brand/lexora-avatar-closeup.png`：原项目保留的未使用参考资源，不作为 XTLaw 运行时资源。
+- `brand/app-icon.png`：XTLaw 应用图标的品牌真源。
+- `brand/app-icon-light.png`：白底、黑色 XT 的浅色应用图标真源；与深色版本并行保留。
+- `sources/xtlaw/`：用户提供的 XTLaw 深浅色完整字标与 XT 简化标志 SVG 源文件。
 - `sources/default-reference.png`：默认 Buddy 的初始参考原图，带粉色背景，不是运行时资源。
 - `buddy/pets/default/pet.png`：透明静态角色图，用于桌宠预览和动画身份参考；它是派生物，不是 native 桌宠运行时入口。
 - `buddy/pets/default/manifest.json`：Buddy 默认形象的帧尺寸、sheet 布局和语义动画契约；`animations` 是数组，每个动作条目包含 `name`、`description`、`row` 和自己的 `frames`。

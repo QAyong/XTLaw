@@ -9,7 +9,7 @@ export class BoundedFileReadError extends Error {
     options?: ErrorOptions,
     detail?: string,
   ) {
-    super(detail ? `Lexora Buddy could not read a bounded file: ${detail}` : 'Lexora Buddy could not read a bounded file', options)
+    super(detail ? `XTLaw could not read a bounded file: ${detail}` : 'XTLaw could not read a bounded file', options)
     this.name = 'BoundedFileReadError'
     this.code = code
   }

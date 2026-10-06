@@ -17,8 +17,8 @@ onMounted(() => {
 <template>
   <a class="skip-link" href="#main">{{ content.skip }}</a>
   <header class="site-nav site-container" @keydown.esc="expanded = false">
-    <a class="brand" :href="withBase(english ? '/en/' : '/')" aria-label="Lexora">
-      <LandingIcon /><span>Lexora<span class="brand-dot">.</span></span>
+    <a class="brand" :href="withBase(english ? '/en/' : '/')" aria-label="XTLaw">
+      <LandingIcon /><span>XTLaw<span class="brand-dot">.</span></span>
     </a>
     <nav class="nav-links" :aria-label="english ? 'Main navigation' : '主导航'">
       <a href="#playground">{{ content.product }}</a>

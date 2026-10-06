@@ -38,7 +38,7 @@ pub(super) fn spawn_native_pet_socket_control_reader(
     let listener = bind_native_pet_control_socket_listener()?;
     thread::spawn(move || {
         if let Err(error) = run_native_pet_socket_control_reader(listener, sender) {
-            eprintln!("Lexora Buddy native pet control socket failed: {error}");
+            eprintln!("XTLaw native pet control socket failed: {error}");
         }
     });
 
@@ -91,12 +91,12 @@ fn run_native_pet_socket_control_reader(
         let stream = match stream {
             Ok(stream) => stream,
             Err(error) => {
-                eprintln!("Lexora Buddy native pet control connection failed: {error}");
+                eprintln!("XTLaw native pet control connection failed: {error}");
                 continue;
             }
         };
         if let Err(error) = handle_native_pet_control_socket_stream(stream, &sender) {
-            eprintln!("Lexora Buddy native pet control command failed: {error}");
+            eprintln!("XTLaw native pet control command failed: {error}");
         }
     }
 

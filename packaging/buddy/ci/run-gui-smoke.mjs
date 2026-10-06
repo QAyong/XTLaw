@@ -16,7 +16,7 @@ async function main() {
   const desktopOnly = process.argv.includes('--desktop-only')
   const desktopPath = resolve(
     process.env.LEXORA_DESKTOP_EXECUTABLE_PATH
-    ?? resolve(outputPaths.package.desktop, 'linux-unpacked/lexora-buddy'),
+    ?? resolve(outputPaths.package.desktop, 'linux-unpacked/xtlaw'),
   )
   const binaryPath = resolve(
     process.env.LEXORA_BUDDY_PET_PATH
@@ -43,8 +43,8 @@ async function main() {
       })
     }
     writeOutput(desktopOnly
-      ? 'Lexora Buddy Desktop GUI smoke passed'
-      : 'Lexora Buddy Desktop and standalone pet GUI smoke passed')
+      ? 'XTLaw Desktop GUI smoke passed'
+      : 'XTLaw Desktop and standalone pet GUI smoke passed')
   }
   finally {
     await rm(smokeRoot, { force: true, recursive: true })

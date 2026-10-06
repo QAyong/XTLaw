@@ -9,10 +9,10 @@ import { readBuddyProductMetadata } from './release-metadata.mjs'
 import { requirePackageFormat, resolveBuildTarget } from './targets.mjs'
 
 const formats = {
-  deb: { directory: 'desktop', key: 'DEB', artifact: 'lexora-buddy-ubuntu', suffix: target => `linux-${target.architecture === CPU_ARCHITECTURE.X64 ? 'amd64' : 'arm64'}.deb` },
-  pacman: { directory: 'arch', key: 'ARCH', artifact: 'lexora-buddy-arch', suffix: () => 'arch-x86_64.pkg.tar.zst' },
-  nsis: { directory: 'windows', key: 'WINDOWS', artifact: 'lexora-buddy-windows', suffix: target => `windows-${target.architecture}.exe` },
-  dmg: { directory: 'macos', key: 'MACOS', artifact: 'lexora-buddy-macos', suffix: target => `macos-${target.architecture}.dmg` },
+  deb: { directory: 'desktop', key: 'DEB', artifact: 'xtlaw-ubuntu', suffix: target => `linux-${target.architecture === CPU_ARCHITECTURE.X64 ? 'amd64' : 'arm64'}.deb` },
+  pacman: { directory: 'arch', key: 'ARCH', artifact: 'xtlaw-arch', suffix: () => 'arch-x86_64.pkg.tar.zst' },
+  nsis: { directory: 'windows', key: 'WINDOWS', artifact: 'xtlaw-windows', suffix: target => `windows-${target.architecture}.exe` },
+  dmg: { directory: 'macos', key: 'MACOS', artifact: 'xtlaw-macos', suffix: target => `macos-${target.architecture}.dmg` },
 }
 
 export const releasePackages = [
@@ -26,7 +26,7 @@ export const releasePackages = [
 
 export function desktopArtifactName(target, format, version) {
   requirePackageFormat(target, format)
-  return `Lexora-Buddy-${version}-${formats[format].suffix(target)}`
+  return `XTLaw-${version}-${formats[format].suffix(target)}`
 }
 
 export function desktopArtifact(target, format, { cwd } = {}) {

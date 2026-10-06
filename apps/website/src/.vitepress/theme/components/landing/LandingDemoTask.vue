@@ -31,7 +31,7 @@ onBeforeUnmount(() => clearInterval(timer))
         <span class="user-mark" aria-hidden="true">↗</span><p>{{ scenario.prompt }}</p>
       </div>
       <div class="assistant-identity">
-        <span class="assistant-mark"><LandingIcon /></span><strong>Lexora</strong><span class="task-status" role="status">{{ running ? content.running : content.completed }}</span>
+        <span class="assistant-mark"><LandingIcon /></span><strong>XTLaw</strong><span class="task-status" role="status">{{ running ? content.running : content.completed }}</span>
       </div>
       <details class="demo-activity">
         <summary><LandingIcon name="check" /><span>{{ content.activity }} · {{ completedSteps }} / {{ scenario.steps.length }}</span><LandingIcon name="chevron" /></summary>

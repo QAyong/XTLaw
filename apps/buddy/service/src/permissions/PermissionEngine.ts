@@ -494,7 +494,7 @@ function summaryFor(access: AccessKind): string {
 
 class PermissionValidationError extends Error {
   constructor() {
-    super('Lexora Buddy tool input is invalid')
+    super('XTLaw tool input is invalid')
     this.name = 'PermissionValidationError'
   }
 }

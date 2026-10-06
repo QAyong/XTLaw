@@ -45,7 +45,7 @@ async function openLink(action: () => Promise<unknown>) {
     <div class="desktop-about-settings__identity">
       <img :src="BRAND_ASSET_URLS.appIcon" alt="" draggable="false">
       <div>
-        <h2>Lexora Buddy</h2>
+        <h2>XTLaw</h2>
         <div class="desktop-about-settings__version">
           <span>{{ t('desktop.about.version', { version: appInfo?.version ?? '—' }) }}</span>
           <NTag v-if="updateResult?.status === 'up_to_date'" size="small" type="success" :bordered="false" role="status">
@@ -77,6 +77,9 @@ async function openLink(action: () => Promise<unknown>) {
       <span>{{ t('desktop.about.chromium', { version: appInfo.chromiumVersion }) }}</span>
       <span>{{ t('desktop.about.node', { version: appInfo.nodeVersion }) }}</span>
     </div>
+    <p class="desktop-about-settings__attribution">
+      Based on Lexora · AGPL-3.0-only
+    </p>
   </section>
 </template>
 
@@ -118,6 +121,12 @@ async function openLink(action: () => Promise<unknown>) {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.6rem 1rem;
+}
+
+.desktop-about-settings__attribution {
+  margin: 0;
+  color: var(--buddy-text-muted);
+  font-size: 0.7rem;
 }
 
 .desktop-about-settings__update {

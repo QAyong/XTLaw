@@ -15,7 +15,7 @@ export class ImageTransformError extends Error {
   readonly code: ImageTransformErrorCode
 
   constructor(code: ImageTransformErrorCode, options?: ErrorOptions) {
-    super('Lexora Buddy image transformation failed', options)
+    super('XTLaw image transformation failed', options)
     this.name = 'ImageTransformError'
     this.code = code
   }

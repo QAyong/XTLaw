@@ -23,7 +23,7 @@ export class DesktopUpdateCheckError extends Error {
   readonly code = 'UPDATE_CHECK_FAILED'
 
   constructor(options?: ErrorOptions) {
-    super('Lexora Buddy update check failed', options)
+    super('XTLaw update check failed', options)
     this.name = 'DesktopUpdateCheckError'
   }
 }
@@ -37,7 +37,7 @@ export async function checkForDesktopUpdate(
       signal: options.signal ? AbortSignal.any([options.signal, timeout]) : timeout,
       headers: {
         'accept': 'application/vnd.github+json',
-        'user-agent': 'Lexora-Buddy',
+        'user-agent': 'XTLaw',
       },
     })
     if (!response.ok)

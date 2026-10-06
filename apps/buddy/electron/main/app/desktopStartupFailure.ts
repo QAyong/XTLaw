@@ -54,10 +54,10 @@ export function describeDesktopStartupFailure(error: unknown, language: LexoraCo
   const description = [t(reason), ...(!logsAvailable ? [t('startupLogsUnavailable')] : [])].join('\n')
   return {
     type: 'error',
-    title: 'Lexora Buddy',
+    title: 'XTLaw',
     message: translateDesktopNative(language, 'startupFailed'),
     detail: [description, t('startupRecoveryIsolation'), ...fields.map(field => `${field.label}: ${field.value}`), t('startupDiagnosticPrivacy')].join('\n\n'),
-    recovery: { reason: description, notice: t('startupRecoveryIsolation'), privacy: t('startupDiagnosticPrivacy'), fields, actions, moreActionsLabel: t('moreActions'), copyDetails: ['Lexora Buddy', ...fields.filter(field => !field.localOnly).map(field => `${field.label}: ${field.value}`)].join('\n') },
+    recovery: { reason: description, notice: t('startupRecoveryIsolation'), privacy: t('startupDiagnosticPrivacy'), fields, actions, moreActionsLabel: t('moreActions'), copyDetails: ['XTLaw', ...fields.filter(field => !field.localOnly).map(field => `${field.label}: ${field.value}`)].join('\n') },
     buttons: actions.map(item => item.label),
     defaultId: 0,
     cancelId: actions.findIndex(item => item.action === 'quit'),

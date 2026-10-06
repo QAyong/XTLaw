@@ -17,7 +17,7 @@ afterEach(async () => {
 })
 
 function release(version = '1.1.0'): DesktopUpdateCheckResult {
-  return { currentVersion: '1.0.0', latestVersion: version, status: 'update_available', releaseUrl: `https://github.com/useLexora/Lexora/releases/tag/v${version}`, releaseNotes: '- Restore tasks safely' }
+  return { currentVersion: '1.0.0', latestVersion: version, status: 'update_available', releaseUrl: `https://github.com/QAyong/XTLaw/releases/tag/v${version}`, releaseNotes: '- Restore tasks safely' }
 }
 
 async function fixture(options: Partial<DesktopUpdatesOptions> = {}, initial = emptyUpdateRecord()) {

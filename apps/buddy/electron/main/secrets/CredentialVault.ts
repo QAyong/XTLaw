@@ -49,7 +49,7 @@ export class CredentialStoreUnavailableError extends Error {
   readonly code = 'CREDENTIAL_STORE_UNAVAILABLE'
 
   constructor() {
-    super('Lexora Buddy credential encryption is unavailable')
+    super('XTLaw credential encryption is unavailable')
     this.name = 'CredentialStoreUnavailableError'
   }
 }
@@ -91,7 +91,7 @@ export function createCredentialVault(
           const envelope = decryptEnvelope(cipher, await readFile(join(directory, file)))
           const type = readCredentialType(envelope.value)
           if (!type)
-            throw new Error('Lexora Buddy provider credential is invalid')
+            throw new Error('XTLaw provider credential is invalid')
           return { providerId: envelope.id, type }
         }))
       return providers.sort((left, right) => left.providerId.localeCompare(right.providerId))
@@ -102,7 +102,7 @@ export function createCredentialVault(
         const encrypted = await readFile(resolveSecretPath(root, namespace, id))
         const envelope = decryptEnvelope(cipher, encrypted)
         if (envelope.id !== id)
-          throw new Error('Lexora Buddy credential identifier does not match its vault entry')
+          throw new Error('XTLaw credential identifier does not match its vault entry')
         return envelope.value
       }
       catch (error) {
@@ -184,11 +184,11 @@ function resolveSecretPath(root: string, namespace: CredentialNamespace, id: str
 function decryptEnvelope(cipher: SecretCipher, encrypted: Buffer): VaultEnvelope {
   const value: unknown = JSON.parse(cipher.decrypt(encrypted))
   if (!value || typeof value !== 'object' || Array.isArray(value))
-    throw new Error('Lexora Buddy credential envelope is invalid')
+    throw new Error('XTLaw credential envelope is invalid')
 
   const envelope = value as Partial<VaultEnvelope>
   if (envelope.version !== 1 || typeof envelope.id !== 'string' || !('value' in envelope))
-    throw new Error('Lexora Buddy credential envelope is invalid')
+    throw new Error('XTLaw credential envelope is invalid')
   return envelope as VaultEnvelope
 }
 

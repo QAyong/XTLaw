@@ -61,7 +61,7 @@ export interface RunEventLogOptions extends RunEventLogCallbacks {
 
 export class RunEventLogClosedError extends Error {
   constructor() {
-    super('Lexora Buddy run event log is closed')
+    super('XTLaw run event log is closed')
     this.name = 'RunEventLogClosedError'
   }
 }
@@ -110,7 +110,7 @@ export class RunEventLog implements RunEventLogPort {
       return Promise.resolve([])
     const runId = inputs[0]!.runId
     if (inputs.some(input => input.runId !== runId))
-      return Promise.reject(new Error('Lexora Buddy event batch must belong to one run'))
+      return Promise.reject(new Error('XTLaw event batch must belong to one run'))
     return this.#enqueueMutation(runId, async () => {
       let nextSequence = this.#nextSequences.get(runId)
       if (nextSequence === undefined) {

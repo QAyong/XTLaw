@@ -1,25 +1,25 @@
 {
   "name": "@uselexora/lexora-buddy",
-  "productName": "Lexora Buddy",
+  "productName": "XTLaw",
   "type": "module",
   "version": "0.9.4",
   "private": true,
   "packageManager": "pnpm@12.5.1",
   "description": "Sovereign, self-evolved personal desktop AI agent",
-  "desktopName": "site.haohaoxue.LexoraBuddy",
+  "desktopName": "io.github.qayong.XTLaw",
   "author": {
-    "name": "shanyuhai123",
-    "email": "864299347@qq.com"
+    "name": "QAyong",
+    "email": "QAyong@outlook.com"
   },
   "license": "AGPL-3.0-only",
-  "homepage": "https://uselexora.app/",
+  "homepage": "https://qayong.github.io/XTLaw/",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/useLexora/Lexora.git",
+    "url": "git+https://github.com/QAyong/XTLaw.git",
     "directory": "apps/buddy"
   },
   "bugs": {
-    "url": "https://github.com/useLexora/Lexora/issues"
+    "url": "https://github.com/QAyong/XTLaw/issues"
   },
   "main": "./.output/build/electron/main/index.js",
   "scripts": {

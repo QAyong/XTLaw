@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="packages/assets/brand/lexora-avatar.png" width="128" alt="Lexora" />
+  <img src="packages/assets/brand/lexora-avatar.png" width="128" alt="XTLaw" />
 </p>
 
-<h1 align="center">Lexora</h1>
+<h1 align="center">XTLaw</h1>
 
 <p align="center">Think alongside you. Act on your intent.</p>
 
@@ -11,31 +11,33 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/useLexora/Lexora/actions/workflows/ci.yml"><img alt="CI status" src="https://img.shields.io/github/actions/workflow/status/useLexora/Lexora/ci.yml?branch=master&amp;style=flat&amp;label=CI&amp;labelColor=232b35" /></a>
+  <a href="https://github.com/QAyong/XTLaw/actions/workflows/ci.yml"><img alt="CI status" src="https://img.shields.io/github/actions/workflow/status/QAyong/XTLaw/ci.yml?branch=master&amp;style=flat&amp;label=CI&amp;labelColor=232b35" /></a>
   <a href="./LICENSE"><img alt="License: AGPL-3.0-only" src="https://img.shields.io/badge/license-AGPL--3.0--only-927442?style=flat&amp;labelColor=232b35" /></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/useLexora/Lexora/releases"><img alt="Release asset downloads" src="https://img.shields.io/github/downloads/useLexora/Lexora/total?style=flat&amp;label=downloads&amp;labelColor=232b35&amp;color=4f8a78" /></a>
-  <a href="https://github.com/useLexora/Lexora/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/useLexora/Lexora?style=flat&amp;logo=github&amp;label=release&amp;labelColor=232b35&amp;color=927442" /></a>
-  <a href="https://github.com/useLexora/Lexora/releases/latest"><img alt="Desktop: Windows, Linux and macOS" src="https://img.shields.io/badge/desktop-Windows%20%7C%20Linux%20%7C%20macOS-607fa5?style=flat&amp;labelColor=232b35" /></a>
+  <a href="https://github.com/QAyong/XTLaw/releases"><img alt="Release asset downloads" src="https://img.shields.io/github/downloads/QAyong/XTLaw/total?style=flat&amp;label=downloads&amp;labelColor=232b35&amp;color=4f8a78" /></a>
+  <a href="https://github.com/QAyong/XTLaw/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/QAyong/XTLaw?style=flat&amp;logo=github&amp;label=release&amp;labelColor=232b35&amp;color=927442" /></a>
+  <a href="https://github.com/QAyong/XTLaw/releases/latest"><img alt="Desktop: Windows, Linux and macOS" src="https://img.shields.io/badge/desktop-Windows%20%7C%20Linux%20%7C%20macOS-607fa5?style=flat&amp;labelColor=232b35" /></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/useLexora/Lexora/releases/latest">Get Lexora</a>
+  <a href="https://github.com/QAyong/XTLaw/releases/latest">Get XTLaw</a>
   ·
-  <a href="https://uselexora.app/en/">Website</a>
+  <a href="https://qayong.github.io/XTLaw/en/">Website</a>
   ·
-  <a href="https://uselexora.app/en/guide/quick-start">Guide</a>
+  <a href="https://qayong.github.io/XTLaw/en/guide/quick-start">Guide</a>
 </p>
 
-Lexora is a self-evolved, sovereign personal desktop AI agent crafted through real-world practice. Beyond model wrappers and coding copilots, it features an independent local execution runtime and security sandbox—running tools, editing files, and automating tasks within your authorized boundaries to turn ideas into action, making words the starting point for work, creativity, and everyday life.
+XTLaw is a self-evolved, sovereign personal desktop AI agent crafted through real-world practice. Beyond model wrappers and coding copilots, it features an independent local execution runtime and security sandbox—running tools, editing files, and automating tasks within your authorized boundaries to turn ideas into action, making words the starting point for work, creativity, and everyday life.
+
+> XTLaw is based on [Lexora](https://github.com/useLexora/Lexora) and continues under the original AGPL-3.0-only license with its contribution history preserved.
 
 ## Your desktop agent
 
-Lexora integrates task conversations, local context, sandboxed tool execution, and artifact delivery into a cohesive desktop workflow. From inspecting files and running commands to refining code and generating deliverables, every step of the execution and its outcomes remain visible and verifiable.
+XTLaw integrates task conversations, local context, sandboxed tool execution, and artifact delivery into a cohesive desktop workflow. From inspecting files and running commands to refining code and generating deliverables, every step of the execution and its outcomes remain visible and verifiable.
 
-Bring your preferred models and grant access with fine-grained permissions. Whether advancing a complex project or exploring a spark of curiosity, Lexora turns intent into tangible action.
+Bring your preferred models and grant access with fine-grained permissions. Whether advancing a complex project or exploring a spark of curiosity, XTLaw turns intent into tangible action.
 
 <table>
   <tr>
@@ -55,21 +57,21 @@ Bring your preferred models and grant access with fine-grained permissions. Whet
 
 ## Get started
 
-1. [Download the app](https://github.com/useLexora/Lexora/releases/latest) for Windows or Ubuntu / Debian on x64 and ARM64, Arch Linux on x64, or macOS 15+ on Apple Silicon.
+1. [Download the app](https://github.com/QAyong/XTLaw/releases/latest) for Windows or Ubuntu / Debian on x64 and ARM64, Arch Linux on x64, or macOS 15+ on Apple Silicon.
 2. Connect a model service in settings using its API key or account authorization.
-3. Start a task and give Lexora a goal. Choose a working directory when you want to work with files.
+3. Start a task and give XTLaw a goal. Choose a working directory when you want to work with files.
 
-No Lexora account is required. Model services have their own terms and charges. Automations need the app to stay running on your computer. Back up important files and review AI-generated results.
+No XTLaw account is required. Model services have their own terms and charges. Automations need the app to stay running on your computer. Back up important files and review AI-generated results.
 
-See the [guide](https://uselexora.app/en/guide/quick-start) for a walkthrough. The first macOS installation requires the `xattr` command shown in the guide.
+See the [guide](https://qayong.github.io/XTLaw/en/guide/quick-start) for a walkthrough. The first macOS installation requires the `xattr` command shown in the guide.
 
 ## Under the hood
 
-Vue and Electron power the desktop experience; a separate TypeScript runtime hosts the local agent. Lexora manages tasks, context, authorization, and artifacts. Pi provides the agent loop, while Rust handles native capabilities.
+Vue and Electron power the desktop experience; a separate TypeScript runtime hosts the local agent. XTLaw manages tasks, context, authorization, and artifacts. Pi provides the agent loop, while Rust handles native capabilities.
 
-[![Lexora architecture: Renderer, Electron Main, independent Agent Runtime, Pi agent loop, authorization, storage, and Rust native components](apps/website/src/public/landing/architecture-en.svg)](apps/website/src/public/landing/architecture-en.svg)
+[![XTLaw architecture: Renderer, Electron Main, independent Agent Runtime, Pi agent loop, authorization, storage, and Rust native components](apps/website/src/public/landing/architecture-en.svg)](apps/website/src/public/landing/architecture-en.svg)
 
-Switch models, add tools, and decide what Lexora can access. Product data stays on your computer; online models and external tools receive relevant content when you use them.
+Switch models, add tools, and decide what XTLaw can access. Product data stays on your computer; online models and external tools receive relevant content when you use them.
 
 ## Local development
 
@@ -85,7 +87,7 @@ pnpm dev:website
 
 ## Contributing
 
-Found a rough edge? [Open an issue](https://github.com/useLexora/Lexora/issues). If you have already turned an idea into an implementation, follow the [contribution guide](CONTRIBUTING.md) and send a PR to share your approach with the community.
+Found a rough edge? [Open an issue](https://github.com/QAyong/XTLaw/issues). If you have already turned an idea into an implementation, follow the [contribution guide](CONTRIBUTING.md) and send a PR to share your approach with the community.
 
 ## License
 

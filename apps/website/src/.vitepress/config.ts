@@ -6,16 +6,16 @@ const websiteBasePath = (process.env.WEBSITE_BASE_PATH ?? '').replace(/^\/+|\/+$
 const websiteBase = websiteBasePath ? `/${websiteBasePath}/` : '/'
 
 const guides = [
-  { slug: 'what-is-lexora', zh: '认识 Lexora', en: 'Meet Lexora' },
+  { slug: 'what-is-xtlaw', zh: '认识 XTLaw', en: 'Meet XTLaw' },
   { slug: 'quick-start', zh: '第一个任务', en: 'Your first task' },
-  { slug: 'ai-chat', zh: '与 Lexora 一起做事', en: 'Working with Lexora' },
+  { slug: 'ai-chat', zh: '与 XTLaw 一起做事', en: 'Working with XTLaw' },
   { slug: 'files-and-spaces', zh: '文件与空间', en: 'Files and spaces' },
   { slug: 'automations', zh: '自动化', en: 'Automations' },
   { slug: 'settings-and-models', zh: '模型与工具', en: 'Models and tools' },
 ]
 
 export default defineConfig({
-  title: 'Lexora',
+  title: 'XTLaw',
   description: '想你所想，行你所行。在真实桌面实践中自我演化的个人 AI Agent，调度本地工具与文件，让文字成为工作、创作与生活的起点。',
   base: websiteBase,
   cleanUrls: true,
@@ -25,7 +25,7 @@ export default defineConfig({
   head: [
     ['link', { rel: 'icon', type: 'image/png', sizes: '512x512', href: `${websiteBase}favicon.png` }],
     ['meta', { name: 'theme-color', content: '#111724' }],
-    ['meta', { property: 'og:site_name', content: 'Lexora' }],
+    ['meta', { property: 'og:site_name', content: 'XTLaw' }],
     ['meta', { property: 'og:type', content: 'website' }],
   ],
   locales: {
@@ -36,10 +36,10 @@ export default defineConfig({
         nav: [
           { text: '探索', link: '/#playground' },
           { text: '使用指南', link: '/guide/quick-start' },
-          { text: '下载 Lexora', link: downloadUrl },
+          { text: '下载 XTLaw', link: downloadUrl },
         ],
         sidebar: [{
-          text: '你的 Lexora 工作台',
+          text: '你的 XTLaw 工作台',
           items: guides.map(guide => ({ text: guide.zh, link: `/guide/${guide.slug}` })),
         }],
         outline: { label: '本页内容' },
@@ -59,10 +59,10 @@ export default defineConfig({
         nav: [
           { text: 'Explore', link: '/en/#playground' },
           { text: 'Guide', link: '/en/guide/quick-start' },
-          { text: 'Get Lexora', link: downloadUrl },
+          { text: 'Get XTLaw', link: downloadUrl },
         ],
         sidebar: [{
-          text: 'Your Lexora workspace',
+          text: 'Your XTLaw workspace',
           items: guides.map(guide => ({ text: guide.en, link: `/en/guide/${guide.slug}` })),
         }],
       },

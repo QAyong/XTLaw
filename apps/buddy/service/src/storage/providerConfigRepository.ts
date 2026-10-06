@@ -87,14 +87,14 @@ export function createProviderConfigRepository(
 function requireProviderConfig(value: unknown, id: string): ProviderConfigRecord {
   const row = value as ProviderConfigRow | undefined
   if (!row)
-    throw new Error(`Lexora Buddy provider was not persisted: ${id}`)
+    throw new Error(`XTLaw provider was not persisted: ${id}`)
   return toProviderConfig(row)
 }
 
 function toProviderConfig(row: ProviderConfigRow): ProviderConfigRecord {
   const models: unknown = JSON.parse(row.models_json)
   if (!Array.isArray(models))
-    throw new Error(`Lexora Buddy provider models are invalid: ${row.id}`)
+    throw new Error(`XTLaw provider models are invalid: ${row.id}`)
 
   return {
     id: row.id,

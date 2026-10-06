@@ -227,7 +227,7 @@ class ConversationRepositoryError extends Error {
   readonly code = 'VALIDATION_FAILED'
 
   constructor(reason: string) {
-    super(`Lexora Buddy conversation ${reason}`)
+    super(`XTLaw conversation ${reason}`)
     this.name = 'ConversationRepositoryError'
   }
 }

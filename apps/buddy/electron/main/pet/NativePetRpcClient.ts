@@ -90,7 +90,7 @@ export interface NativePetRpcClientOptions {
 export class NativePetUnavailableError extends Error {
   readonly code = 'PET_UNAVAILABLE'
 
-  constructor(message = 'Lexora Buddy pet is unavailable') {
+  constructor(message = 'XTLaw pet is unavailable') {
     super(message)
     this.name = 'NativePetUnavailableError'
   }
@@ -100,7 +100,7 @@ export class NativePetProtocolError extends Error {
   readonly code = 'PET_PROTOCOL_ERROR'
 
   constructor() {
-    super('Lexora Buddy pet protocol failed')
+    super('XTLaw pet protocol failed')
     this.name = 'NativePetProtocolError'
   }
 }
@@ -154,7 +154,7 @@ export class NativePetRpcClient {
         resolve,
         timeout: setTimeout(() => {
           this.#readyWaiters.delete(waiter)
-          reject(new NativePetUnavailableError('Lexora Buddy pet did not become ready'))
+          reject(new NativePetUnavailableError('XTLaw pet did not become ready'))
         }, timeoutMs),
       }
       this.#readyWaiters.add(waiter)
@@ -179,7 +179,7 @@ export class NativePetRpcClient {
       const timeout = setTimeout(() => {
         if (!this.#pending.delete(messageId))
           return
-        reject(new NativePetUnavailableError('Lexora Buddy pet step timed out'))
+        reject(new NativePetUnavailableError('XTLaw pet step timed out'))
       }, timeoutMs)
       this.#pending.set(messageId, { reject, resolve, stepId, timeout })
       try {

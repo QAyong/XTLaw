@@ -189,7 +189,7 @@ export class ProviderLoginCancelledError extends Error {
   readonly code = 'PROVIDER_LOGIN_CANCELLED'
 
   constructor() {
-    super('Lexora Buddy provider login was cancelled')
+    super('XTLaw provider login was cancelled')
     this.name = 'ProviderLoginCancelledError'
   }
 }
@@ -198,7 +198,7 @@ export class UnknownAuthChallengeError extends Error {
   readonly code = 'AUTH_CHALLENGE_NOT_FOUND'
 
   constructor() {
-    super('Lexora Buddy provider authentication challenge was not found')
+    super('XTLaw provider authentication challenge was not found')
     this.name = 'UnknownAuthChallengeError'
   }
 }
@@ -207,7 +207,7 @@ export class InvalidAuthChallengeResponseError extends Error {
   readonly code = 'VALIDATION_FAILED'
 
   constructor() {
-    super('Lexora Buddy provider authentication response is invalid')
+    super('XTLaw provider authentication response is invalid')
     this.name = 'InvalidAuthChallengeResponseError'
   }
 }

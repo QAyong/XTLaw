@@ -65,7 +65,7 @@ async function copyCodeBlock(event: MouseEvent) {
     showCopiedState(button)
   }
   catch (error) {
-    console.error('[Lexora Buddy] Failed to copy code block.', error)
+    console.error('[XTLaw] Failed to copy code block.', error)
   }
 }
 

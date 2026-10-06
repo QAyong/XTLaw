@@ -8,8 +8,8 @@ import { isLocalNamedPipe as isWindowsPipe } from '../../../shared/platform/loca
 import { resolveBuddyRuntimePaths } from '../paths'
 
 const BASE_OPTIONS = {
-  defaultUserData: '/home/lexora/.config/Lexora Buddy',
-  desktopName: 'site.haohaoxue.LexoraBuddy',
+  defaultUserData: '/home/lexora/.config/XTLaw',
+  desktopName: 'io.github.qayong.XTLaw',
   isPackaged: false,
   platform: 'linux',
   temporaryDirectory: '/tmp',
@@ -23,7 +23,7 @@ const BASE_OPTIONS = {
 
 describe('resolveBuddyRuntimePaths', () => {
   it('isolates macOS profiles and bounds Unix socket paths independently of long temporary paths', () => {
-    const options = { ...BASE_OPTIONS, platform: 'darwin', userHome: '/Users/lexora', defaultUserData: '/Users/lexora/Library/Application Support/Lexora Buddy', temporaryDirectory: `/private/var/folders/${'a'.repeat(120)}` } as const
+    const options = { ...BASE_OPTIONS, platform: 'darwin', userHome: '/Users/lexora', defaultUserData: '/Users/lexora/Library/Application Support/XTLaw', temporaryDirectory: `/private/var/folders/${'a'.repeat(120)}` } as const
     const stable = resolveBuddyRuntimePaths({ ...options, isPackaged: true })
     const development = resolveBuddyRuntimePaths(options)
     const firstTest = resolveBuddyRuntimePaths({ ...options, smokeTest: true, lexoraHomeOverride: '/private/tmp/first' })
@@ -43,12 +43,12 @@ describe('resolveBuddyRuntimePaths', () => {
   it('isolates interactive development from the installed application', () => {
     expect(resolveBuddyRuntimePaths(BASE_OPTIONS)).toEqual({
       agentDirectory: '/home/lexora/.lexora-dev/buddy/agent',
-      appName: 'Lexora Buddy Dev',
+      appName: 'XTLaw Dev',
       browserAdapterSocket: '/run/user/1000/lexora-buddy-dev/browser-adapter.sock',
       buddyHome: '/home/lexora/.lexora-dev/buddy',
       configPath: '/home/lexora/.lexora-dev/config.toml',
       crashDumps: '/var/state/user/lexora-buddy-dev/crashes',
-      desktopName: 'site.haohaoxue.LexoraBuddy.Development',
+      desktopName: 'io.github.qayong.XTLaw.Development',
       lexoraHome: '/home/lexora/.lexora-dev',
       logs: '/var/state/user/lexora-buddy-dev/logs',
       namespace: 'lexora-buddy-dev',
@@ -67,12 +67,12 @@ describe('resolveBuddyRuntimePaths', () => {
       isPackaged: true,
     })).toEqual({
       agentDirectory: '/home/lexora/.lexora/buddy/agent',
-      appName: 'Lexora Buddy',
+      appName: 'XTLaw',
       browserAdapterSocket: '/run/user/1000/lexora-buddy/browser-adapter.sock',
       buddyHome: '/home/lexora/.lexora/buddy',
       configPath: '/home/lexora/.lexora/config.toml',
       crashDumps: '/var/state/user/lexora-buddy/crashes',
-      desktopName: 'site.haohaoxue.LexoraBuddy',
+      desktopName: 'io.github.qayong.XTLaw',
       lexoraHome: '/home/lexora/.lexora',
       logs: '/var/state/user/lexora-buddy/logs',
       namespace: 'lexora-buddy',
@@ -80,7 +80,7 @@ describe('resolveBuddyRuntimePaths', () => {
       nativePetState: '/var/state/user/lexora-buddy/pet-state.json',
       profile: 'stable',
       sessionData: '/var/cache/user/lexora-buddy/chromium',
-      userData: '/home/lexora/.config/Lexora Buddy',
+      userData: '/home/lexora/.config/XTLaw',
       windowState: '/var/state/user/lexora-buddy/window-state.json',
     })
   })
@@ -110,12 +110,12 @@ describe('resolveBuddyRuntimePaths', () => {
       smokeTest: true,
     })).toEqual({
       agentDirectory: '/tmp/lexora-smoke/home/buddy/agent',
-      appName: 'Lexora Buddy Test',
+      appName: 'XTLaw Test',
       browserAdapterSocket: '/tmp/lexora-smoke/home/.runtime/browser-adapter.sock',
       buddyHome: '/tmp/lexora-smoke/home/buddy',
       configPath: '/tmp/lexora-smoke/home/config.toml',
       crashDumps: '/tmp/lexora-smoke/home/.runtime/state/crashes',
-      desktopName: 'site.haohaoxue.LexoraBuddy.Test',
+      desktopName: 'io.github.qayong.XTLaw.Test',
       lexoraHome: '/tmp/lexora-smoke/home',
       logs: '/tmp/lexora-smoke/home/.runtime/state/logs',
       namespace: 'lexora-buddy-test',
@@ -225,6 +225,7 @@ describe('resolveBuddyRuntimePaths', () => {
     expect(stable.agentDirectory).toBe('C:\\Users\\测试 User\\.lexora\\buddy\\agent')
     expect(stable.logs).toBe('C:\\Users\\测试 User\\AppData\\Local\\Lexora Buddy\\state\\logs')
     expect(development.buddyHome).toBe('C:\\Users\\测试 User\\.lexora-dev\\buddy')
+    expect(development.userData).toBe('C:\\Users\\测试 User\\AppData\\Local\\Lexora Buddy Dev\\electron')
     expect(test.userData).toBe('C:\\Temp\\隔离 Test\\.runtime\\electron')
     expect(new Set([stable.browserAdapterSocket, development.browserAdapterSocket, test.browserAdapterSocket]).size).toBe(3)
     for (const paths of [stable, development, test]) {

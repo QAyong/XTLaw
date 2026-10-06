@@ -175,7 +175,7 @@ const automationToolInputSchema = z.union([
 export function createAutomationTool(options: CreateAutomationToolOptions) {
   return defineTool<TSchema, AutomationToolDetails>({
     description: [
-      'List, inspect, create, update, pause, resume, delete, or immediately queue Lexora Buddy automations.',
+      'List, inspect, create, update, pause, resume, delete, or immediately queue XTLaw automations.',
       'Use list/get before mutating an existing automation so expectedRevision is current.',
       'For upsert, omit automationId and expectedRevision to create; provide both to update.',
       'executionProfile defaults to workspace_write; use read_only for inspection-only automations and full_access only when the user explicitly requests unrestricted local access.',
@@ -201,7 +201,7 @@ export function createAutomationTool(options: CreateAutomationToolOptions) {
         return failure(parsed.data.operation, readAutomationErrorCode(error))
       }
     },
-    label: 'Manage Lexora Buddy automations',
+    label: 'Manage XTLaw automations',
     name: AUTOMATION_TOOL_NAME,
     parameters: automationToolParameters,
   })

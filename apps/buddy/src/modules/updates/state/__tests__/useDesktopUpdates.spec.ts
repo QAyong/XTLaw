@@ -3,7 +3,7 @@ import { deferred } from '@buddy-tests/deferred'
 import { expect, it, vi } from 'vitest'
 import { useDesktopUpdates } from '../useDesktopUpdates'
 
-const result: DesktopUpdateCheckResult = { currentVersion: '1.0.0', latestVersion: '1.1.0', status: 'update_available', releaseUrl: 'https://github.com/useLexora/Lexora/releases/tag/v1.1.0', releaseNotes: 'Update' }
+const result: DesktopUpdateCheckResult = { currentVersion: '1.0.0', latestVersion: '1.1.0', status: 'update_available', releaseUrl: 'https://github.com/QAyong/XTLaw/releases/tag/v1.1.0', releaseNotes: 'Update' }
 const empty: DesktopUpdateState = { revision: 0, checking: false, enabled: true, result: null, notification: null, reminderDueAt: null }
 
 it('does not let a late startup snapshot overwrite newer availability or re-enable disabled notifications', async () => {

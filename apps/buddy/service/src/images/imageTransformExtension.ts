@@ -102,7 +102,7 @@ export function createImageTransformExtension(
 function imageTransformFailure(code: string) {
   return {
     content: [{
-      text: `Lexora Buddy image transformation failed: ${code}`,
+      text: `XTLaw image transformation failed: ${code}`,
       type: 'text' as const,
     }],
     details: { artifactIds: [], code },

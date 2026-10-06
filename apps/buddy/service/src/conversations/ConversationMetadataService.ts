@@ -162,7 +162,7 @@ class ConversationSettingsApplicationError extends Error {
   readonly code: 'CONVERSATION_SETTINGS_FAILED' | 'CONVERSATION_SETTINGS_PENDING'
 
   constructor(code: ConversationSettingsApplicationError['code']) {
-    super('Lexora Buddy conversation settings are committed but session invalidation is incomplete')
+    super('XTLaw conversation settings are committed but session invalidation is incomplete')
     this.name = 'ConversationSettingsApplicationError'
     this.code = code
   }

@@ -31,7 +31,7 @@ export class BuddyServiceError extends Error {
   readonly code: BuddyServiceErrorCode
 
   constructor(code: BuddyServiceErrorCode) {
-    super('Lexora Buddy runtime request failed')
+    super('XTLaw runtime request failed')
     this.name = 'BuddyServiceError'
     this.code = code
   }

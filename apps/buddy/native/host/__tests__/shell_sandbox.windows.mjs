@@ -10,7 +10,7 @@ import { dirname, isAbsolute, join } from 'node:path'
 import process from 'node:process'
 import * as nativeTest from 'node:test'
 
-const executable = join(process.env.ProgramFiles ?? 'C:\\Program Files', 'Lexora Buddy Sandbox', 'lexora-buddy-sandbox.exe')
+const executable = join(process.env.ProgramFiles ?? 'C:\\Program Files', 'XTLaw Sandbox', 'lexora-buddy-sandbox.exe')
 const quote = value => `'${value.replaceAll('\'', '\'\'')}'`
 
 async function listener() {
@@ -203,7 +203,7 @@ try { Remove-Item -LiteralPath ${quote(join(workspace, 'result.txt'))}; $r.remov
       assert.equal(recovered.output, 'RECOVERED_AFTER_EXIT')
       const metadataDirectory = join(dirname(executable), 'metadata-leases')
       assert.deepEqual(await readdir(metadataDirectory), [])
-      assert.deepEqual(await readdir(join(process.env.LOCALAPPDATA, 'Lexora Buddy Sandbox', 'leases')), [])
+      assert.deepEqual(await readdir(join(process.env.LOCALAPPDATA, 'XTLaw Sandbox', 'leases')), [])
     })
     await t.test('cancels preparation before resuming any task command', async () => {
       const large = join(root, 'preparation')
@@ -230,7 +230,7 @@ try { Remove-Item -LiteralPath ${quote(join(workspace, 'result.txt'))}; $r.remov
       t.diagnostic(`3200-file workspace command and cleanup completed in ${Math.round(performance.now() - completed)} ms`)
     })
     await t.test('recovers an interrupted journal publication before the next command', async () => {
-      const journalDirectory = join(process.env.LOCALAPPDATA, 'Lexora Buddy Sandbox', 'leases')
+      const journalDirectory = join(process.env.LOCALAPPDATA, 'XTLaw Sandbox', 'leases')
       const pending = join(journalDirectory, `Lexora.Buddy.Sandbox.${randomUUID().replaceAll('-', '')}.pending`)
       await mkdir(journalDirectory, { recursive: true })
       await writeFile(pending, '{"profile":', { flag: 'wx' })

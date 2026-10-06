@@ -23,7 +23,7 @@ async function main() {
     throw new Error('Install the NSIS package before running installed smoke')
 
   const { executablePath } = verifyDesktopResources(directory, resolveBuildTarget().id)
-  if (!existsSync(join(directory, 'Uninstall Lexora Buddy.exe')))
+  if (!existsSync(join(directory, 'Uninstall XTLaw.exe')))
     throw new Error('NSIS uninstall entry is missing from the installed directory')
   const smokeRoot = await mkdtemp(join(tmpdir(), 'lexora-windows-smoke-'))
   try {

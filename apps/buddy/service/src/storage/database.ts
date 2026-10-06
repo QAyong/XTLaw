@@ -197,7 +197,7 @@ function hasApplicationTables(database: DatabaseSync): boolean {
 
 export class BuddyDatabaseVersionError extends Error {
   constructor(reason: string) {
-    super(`Lexora Buddy database uses an ${reason}`)
+    super(`XTLaw database uses an ${reason}`)
     this.name = 'BuddyDatabaseVersionError'
   }
 }

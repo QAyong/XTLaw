@@ -35,7 +35,7 @@ const emit = defineEmits<{
 const activeMenu = shallowRef<DesktopCommandMenu | null>(null)
 const { t } = useBuddyI18n(() => props.language)
 const menuTriggers = computed(() => [
-  { id: 'application' as const, label: 'Lexora Buddy' },
+  { id: 'application' as const, label: 'XTLaw' },
   { id: 'window' as const, label: t('desktop.menu.window') },
   { id: 'help' as const, label: t('desktop.menu.help') },
 ])

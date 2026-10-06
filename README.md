@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="packages/assets/brand/lexora-avatar.png" width="128" alt="Lexora" />
+  <img src="packages/assets/brand/lexora-avatar.png" width="128" alt="XTLaw" />
 </p>
 
-<h1 align="center">Lexora</h1>
+<h1 align="center">XTLaw</h1>
 
 <p align="center">想你所想，行你所行。</p>
 
@@ -11,29 +11,31 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/useLexora/Lexora/actions/workflows/ci.yml"><img alt="CI status" src="https://img.shields.io/github/actions/workflow/status/useLexora/Lexora/ci.yml?branch=master&amp;style=flat&amp;label=CI&amp;labelColor=232b35" /></a>
+  <a href="https://github.com/QAyong/XTLaw/actions/workflows/ci.yml"><img alt="CI status" src="https://img.shields.io/github/actions/workflow/status/QAyong/XTLaw/ci.yml?branch=master&amp;style=flat&amp;label=CI&amp;labelColor=232b35" /></a>
   <a href="./LICENSE"><img alt="License: AGPL-3.0-only" src="https://img.shields.io/badge/license-AGPL--3.0--only-927442?style=flat&amp;labelColor=232b35" /></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/useLexora/Lexora/releases"><img alt="Release asset downloads" src="https://img.shields.io/github/downloads/useLexora/Lexora/total?style=flat&amp;label=downloads&amp;labelColor=232b35&amp;color=4f8a78" /></a>
-  <a href="https://github.com/useLexora/Lexora/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/useLexora/Lexora?style=flat&amp;logo=github&amp;label=release&amp;labelColor=232b35&amp;color=927442" /></a>
-  <a href="https://github.com/useLexora/Lexora/releases/latest"><img alt="Desktop: Windows, Linux and macOS" src="https://img.shields.io/badge/desktop-Windows%20%7C%20Linux%20%7C%20macOS-607fa5?style=flat&amp;labelColor=232b35" /></a>
+  <a href="https://github.com/QAyong/XTLaw/releases"><img alt="Release asset downloads" src="https://img.shields.io/github/downloads/QAyong/XTLaw/total?style=flat&amp;label=downloads&amp;labelColor=232b35&amp;color=4f8a78" /></a>
+  <a href="https://github.com/QAyong/XTLaw/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/QAyong/XTLaw?style=flat&amp;logo=github&amp;label=release&amp;labelColor=232b35&amp;color=927442" /></a>
+  <a href="https://github.com/QAyong/XTLaw/releases/latest"><img alt="Desktop: Windows, Linux and macOS" src="https://img.shields.io/badge/desktop-Windows%20%7C%20Linux%20%7C%20macOS-607fa5?style=flat&amp;labelColor=232b35" /></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/useLexora/Lexora/releases/latest">下载 Lexora</a>
+  <a href="https://github.com/QAyong/XTLaw/releases/latest">下载 XTLaw</a>
   ·
-  <a href="https://uselexora.app/">官网</a>
+  <a href="https://qayong.github.io/XTLaw/">官网</a>
   ·
-  <a href="https://uselexora.app/guide/quick-start">使用指南</a>
+  <a href="https://qayong.github.io/XTLaw/guide/quick-start">使用指南</a>
 </p>
 
-Lexora 是在真实桌面实践中自我演化的个人 AI Agent。不依附单一模型，不局限于代码助手；依托独立的本地执行运行时与安全沙箱，在你授权的范围内调度工具、处理文件与自动化任务，让文字成为工作、创作与生活的起点。
+XTLaw 是在真实桌面实践中自我演化的个人 AI Agent。不依附单一模型，不局限于代码助手；依托独立的本地执行运行时与安全沙箱，在你授权的范围内调度工具、处理文件与自动化任务，让文字成为工作、创作与生活的起点。
+
+> XTLaw 基于 [Lexora](https://github.com/useLexora/Lexora) 修改和持续开发，保留原项目的 AGPL-3.0-only 许可及贡献历史。
 
 ## 你的桌面 Agent
 
-Lexora 将任务对话、本地上下文、沙箱工具执行与产物交付整合在同一套桌面工作流中。从读取资料、运行命令到直接修改代码与生成成果，任务的执行过程与产物都清晰可见。
+XTLaw 将任务对话、本地上下文、沙箱工具执行与产物交付整合在同一套桌面工作流中。从读取资料、运行命令到直接修改代码与生成成果，任务的执行过程与产物都清晰可见。
 
 模型自由接入，文件与工具的访问由你严格授权。无论是推进复杂的日常项目，还是验证一个突发奇想，它都能替你把对话中的想法落为现实。
 
@@ -55,19 +57,19 @@ Lexora 将任务对话、本地上下文、沙箱工具执行与产物交付整�
 
 ## 开始使用
 
-1. [下载安装包](https://github.com/useLexora/Lexora/releases/latest)：支持 Windows、Ubuntu / Debian 的 x64 与 ARM64，Arch Linux x64，以及 macOS 15+ 的 Apple Silicon。
+1. [下载安装包](https://github.com/QAyong/XTLaw/releases/latest)：支持 Windows、Ubuntu / Debian 的 x64 与 ARM64，Arch Linux x64，以及 macOS 15+ 的 Apple Silicon。
 2. 在设置中连接模型服务，按服务商要求配置 API Key 或账号授权。
-3. 新建任务，给 Lexora 一个目标；需要处理文件时，再选择工作目录。
+3. 新建任务，给 XTLaw 一个目标；需要处理文件时，再选择工作目录。
 
-无需注册 Lexora 账号。模型服务的使用条件与费用以服务商为准；自动化需要应用在本机保持运行。重要文件记得备份，AI 生成的结果也请核对。
+无需注册 XTLaw 账号。模型服务的使用条件与费用以服务商为准；自动化需要应用在本机保持运行。重要文件记得备份，AI 生成的结果也请核对。
 
-详细步骤见[使用指南](https://uselexora.app/guide/quick-start)。macOS 首次安装需要按指南执行一次 `xattr` 命令。
+详细步骤见[使用指南](https://qayong.github.io/XTLaw/guide/quick-start)。macOS 首次安装需要按指南执行一次 `xattr` 命令。
 
 ## 桌面之下
 
-Vue + Electron 承载桌面体验，独立的 TypeScript Runtime 承载本地 Agent。Lexora 管理任务、上下文、授权与产物；Pi 提供 Agent Loop，Rust 处理原生能力。
+Vue + Electron 承载桌面体验，独立的 TypeScript Runtime 承载本地 Agent。XTLaw 管理任务、上下文、授权与产物；Pi 提供 Agent Loop，Rust 处理原生能力。
 
-[![Lexora 底层架构：Renderer、Electron Main、独立 Agent Runtime、Pi 执行循环、权限审批、存储与 Rust 原生组件](apps/website/src/public/landing/architecture-zh.svg)](apps/website/src/public/landing/architecture-zh.svg)
+[![XTLaw 底层架构：Renderer、Electron Main、独立 Agent Runtime、Pi 执行循环、权限审批、存储与 Rust 原生组件](apps/website/src/public/landing/architecture-zh.svg)](apps/website/src/public/landing/architecture-zh.svg)
 
 模型可以换，工具可以扩展，文件与工具的访问权限由你决定。产品数据保存在本机；使用在线模型或外部工具时，相关内容会发送给你选择的服务。
 
@@ -85,7 +87,7 @@ pnpm dev:website
 
 ### 使用真实数据预览 Buddy UI
 
-Buddy 未打包开发模式默认使用独立的数据目录 `~/.lexora-dev`。如果需要让最新代码继承已安装 Lexora 的真实配置、会话和授权，可在启动前使用 `stable` profile：
+Buddy 未打包开发模式默认使用独立的数据目录 `~/.lexora-dev`。如果需要让最新代码继承已安装 XTLaw 的真实配置、会话和授权，可在启动前使用 `stable` profile：
 
 ```powershell
 $env:LEXORA_BUDDY_PROFILE = "stable"
@@ -96,7 +98,7 @@ pnpm dev:buddy
 
 ## 参与贡献
 
-发现问题，欢迎[提个 Issue](https://github.com/useLexora/Lexora/issues)。若你已经动手实现了自己的想法，欢迎按[贡献说明](CONTRIBUTING.md)提交 PR，和大家分享你的方案。
+发现问题，欢迎[提个 Issue](https://github.com/QAyong/XTLaw/issues)。若你已经动手实现了自己的想法，欢迎按[贡献说明](CONTRIBUTING.md)提交 PR，和大家分享你的方案。
 
 ## 许可证
 

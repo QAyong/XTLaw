@@ -20,7 +20,7 @@ export class GrantedPathError extends Error {
   readonly code: 'INVALID_PATH' | 'PATH_NOT_FOUND' | 'PATH_OUTSIDE_GRANTED_DIRECTORY'
 
   constructor(code: GrantedPathError['code'], options?: ErrorOptions) {
-    super('Lexora Buddy cannot access the requested path', options)
+    super('XTLaw cannot access the requested path', options)
     this.name = 'GrantedPathError'
     this.code = code
   }

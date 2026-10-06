@@ -59,7 +59,7 @@ export default {
   'desktop.approval.currentWorkspace': 'Runs from the current workspace',
   'desktop.approval.processing': 'Processing…',
   'desktop.approval.processStartedAt': 'Process started at',
-  'desktop.approval.request': 'Lexora Buddy requests permission to {operation}',
+  'desktop.approval.request': 'XTLaw requests permission to {operation}',
   'desktop.approval.runCommand': 'run a command',
   'desktop.approval.reason': 'Reason',
   'desktop.approval.scopeAuthorized': 'The target is inside an authorized directory',

@@ -91,7 +91,7 @@ describe('openAiImageGenerationService', () => {
     await expect(streamedService(response).generate({ inputImages: [], model: codexModel(), prompt: 'fixture', signal: new AbortController().signal })).rejects.toMatchObject({
       code: 'IMAGE_GENERATION_FAILED',
       diagnostic: { providerCode: 'provider_failure', requestId: 'req_image_fixture' },
-      message: 'Lexora Buddy image generation failed',
+      message: 'XTLaw image generation failed',
     })
     expect(cancelled).toBe(true)
     expect(response.body?.locked).toBe(false)
@@ -136,7 +136,7 @@ describe('openAiImageGenerationService', () => {
     await expect(streamedService(response).generate({ inputImages: [], model: openAiModel(), prompt: 'fixture', signal: new AbortController().signal })).rejects.toMatchObject({
       code: 'IMAGE_GENERATION_INCOMPLETE',
       diagnostic: { requestId: 'req_image_fixture' },
-      message: 'Lexora Buddy image generation failed',
+      message: 'XTLaw image generation failed',
     })
     expect(response.body?.locked).toBe(false)
   })
@@ -354,7 +354,7 @@ describe('openAiImageGenerationService', () => {
         providerParameter: 'tools[0].background',
         requestId: 'req_image_1',
       },
-      message: 'Lexora Buddy image generation failed',
+      message: 'XTLaw image generation failed',
     })
   })
 

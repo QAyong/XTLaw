@@ -30,7 +30,7 @@ export class McpOAuthProvider implements OAuthClientProvider {
   get credential(): OAuthConnectorCredential { return structuredClone(this.#credential) }
   get redirectUrl(): string { return this.#credential.redirectUrl }
   get clientMetadata() {
-    return { client_name: 'Lexora Buddy', redirect_uris: [this.redirectUrl], grant_types: ['authorization_code', 'refresh_token'], response_types: ['code'], token_endpoint_auth_method: 'none' }
+    return { client_name: 'XTLaw', redirect_uris: [this.redirectUrl], grant_types: ['authorization_code', 'refresh_token'], response_types: ['code'], token_endpoint_auth_method: 'none' }
   }
 
   state(): string { return this.#state }

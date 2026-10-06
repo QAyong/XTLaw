@@ -187,7 +187,7 @@ export class RuntimeRpcPeer implements RuntimeRpcPeerContract {
     }
     const handler = this.#handlers.get(method)
     if (!handler) {
-      this.#postFailure(id, -32_601, 'Lexora Buddy runtime method is unavailable', {
+      this.#postFailure(id, -32_601, 'XTLaw runtime method is unavailable', {
         code: 'BUDDY_RUNTIME_METHOD_NOT_FOUND',
         retryable: false,
       })
@@ -203,7 +203,7 @@ export class RuntimeRpcPeer implements RuntimeRpcPeerContract {
     }
     catch (error) {
       if (!running.signal.aborted) {
-        this.#postFailure(id, -32_000, 'Lexora Buddy runtime request failed', {
+        this.#postFailure(id, -32_000, 'XTLaw runtime request failed', {
           code: readStableErrorCode(error),
           retryable: false,
         })

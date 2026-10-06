@@ -416,7 +416,7 @@ describe('buddy in-process Pi extensions', () => {
           code: 'SYSTEM_ACTION_EXPIRED',
           recoverable: true,
           recovery: {
-            instruction: 'Retry lexora_system_action so Lexora Buddy can resolve and approve the current target again.',
+            instruction: 'Retry lexora_system_action so XTLaw can resolve and approve the current target again.',
             toolName: 'lexora_system_action',
           },
         },

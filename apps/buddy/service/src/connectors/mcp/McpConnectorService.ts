@@ -536,7 +536,7 @@ export class McpConnectorError extends Error {
   readonly code: string
 
   constructor(code: string) {
-    super('Lexora Buddy connector configuration is invalid')
+    super('XTLaw connector configuration is invalid')
     this.name = 'McpConnectorError'
     this.code = code
   }

@@ -13,7 +13,7 @@ const { t } = useBuddyI18n(() => props.language)
   <div class="desktop-startup" :class="{ 'is-failed': failed }" :role="failed ? 'alert' : 'status'" :aria-busy="!failed">
     <DesktopStartupArtwork :still="failed" />
     <div class="desktop-startup__identity">
-      <h1>Lexora Buddy</h1>
+      <h1>XTLaw</h1>
       <p>{{ t(failed ? 'desktop.loading.failed' : 'desktop.loading.app') }}</p>
       <div v-if="failed" class="desktop-startup__actions">
         <NButton size="small" secondary @click="emit('retry')">

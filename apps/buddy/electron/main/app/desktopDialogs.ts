@@ -154,7 +154,7 @@ export function showLegacyPowerShellNotice(
     const language = getLanguage()
     void dialog.showMessageBox(window, {
       type: 'warning',
-      title: 'Lexora Buddy',
+      title: 'XTLaw',
       message: translateDesktopNative(language, 'powerShellLegacyNotice'),
       buttons: [
         translateDesktopNative(language, 'continueWithLegacyPowerShell'),

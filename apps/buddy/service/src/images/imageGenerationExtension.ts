@@ -56,7 +56,7 @@ function createImageGenerationTool(options: CreateImageGenerationExtensionOption
     description: [
       'Generate or edit an image with the active model.',
       'Use reference.mode=resources for exact attachment or artifact ids, or reference.mode=latest for the latest image in this conversation.',
-      'Generated images are saved and shown in the Lexora Buddy conversation immediately.',
+      'Generated images are saved and shown in the XTLaw conversation immediately.',
     ].join(' '),
     execute: async (toolCallId, parameters, signal, _onUpdate, context) => {
       if (!Check(imageGenerationParameters, parameters) || !options.getRunId())
@@ -108,7 +108,7 @@ function imageToolFailure(
     : ''
   return {
     content: [{
-      text: `Lexora Buddy image generation failed: ${code}${diagnosticText ? ` (${diagnosticText})` : ''}${recovery}`,
+      text: `XTLaw image generation failed: ${code}${diagnosticText ? ` (${diagnosticText})` : ''}${recovery}`,
       type: 'text' as const,
     }],
     details: {

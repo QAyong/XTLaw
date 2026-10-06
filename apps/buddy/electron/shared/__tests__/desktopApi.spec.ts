@@ -11,7 +11,7 @@ describe('desktop Preload API contract', () => {
   })
 
   it('accepts release pages from the canonical repository', () => {
-    const url = 'https://github.com/useLexora/Lexora/releases/tag/v0.6.6'
+    const url = 'https://github.com/QAyong/XTLaw/releases/tag/v0.6.6'
     expect(releasePageInputSchema.parse({ url })).toEqual({ url })
   })
 

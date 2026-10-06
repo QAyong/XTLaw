@@ -337,7 +337,7 @@ export class SystemCapabilityError extends Error {
   readonly code: SystemCapabilityErrorCode
 
   constructor(code: SystemCapabilityErrorCode) {
-    super('Lexora Buddy system capability could not complete the request')
+    super('XTLaw system capability could not complete the request')
     this.name = 'SystemCapabilityError'
     this.code = code
   }

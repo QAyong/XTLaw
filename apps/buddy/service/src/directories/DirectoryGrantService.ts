@@ -151,7 +151,7 @@ export class DirectoryGrantError extends Error {
   readonly code: 'DIRECTORY_GRANT_INVALID' | 'DIRECTORY_GRANT_OWNER_INVALID'
 
   constructor(code: DirectoryGrantError['code']) {
-    super('Lexora Buddy cannot grant the requested directory')
+    super('XTLaw cannot grant the requested directory')
     this.name = 'DirectoryGrantError'
     this.code = code
   }

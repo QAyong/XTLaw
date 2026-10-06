@@ -23,7 +23,7 @@ async function main() {
   const artifact = desktopArtifact(target, 'dmg')
   const directory = realpathSync(mkdtempSync(join(tmpdir(), 'lexora-macos-install-')))
   const mount = join(directory, 'volume')
-  const installed = join(directory, 'Applications', 'lexora-buddy.app')
+  const installed = join(directory, 'Applications', 'xtlaw.app')
   let mounted = false
   try {
     mkdirSync(join(directory, 'Applications'))
@@ -34,7 +34,7 @@ async function main() {
     }
     execFileSync('hdiutil', ['attach', '-readonly', '-nobrowse', '-mountpoint', mount, artifact.path], { stdio: 'inherit', timeout: 120_000 })
     mounted = true
-    execFileSync('ditto', [join(mount, 'lexora-buddy.app'), installed], { stdio: 'inherit', timeout: 120_000 })
+    execFileSync('ditto', [join(mount, 'xtlaw.app'), installed], { stdio: 'inherit', timeout: 120_000 })
     execFileSync('hdiutil', ['detach', mount], { stdio: 'inherit', timeout: 30_000 })
     mounted = false
     verifyBundleCompatibility(installed, target)

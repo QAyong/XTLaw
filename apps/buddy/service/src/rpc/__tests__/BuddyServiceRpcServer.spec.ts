@@ -65,7 +65,7 @@ describe('runtimeRpcServer', () => {
       id: 'login-1',
       error: {
         code: -32_000,
-        message: 'Lexora Buddy runtime request failed',
+        message: 'XTLaw runtime request failed',
         data: { code: wireCode, retryable: false },
       },
     }])

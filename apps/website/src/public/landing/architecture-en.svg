@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1150" viewBox="0 0 1200 1150" role="img" aria-labelledby="title desc">
-  <title id="title">Lexora Desktop architecture</title>
-  <desc id="desc">Vue Renderer connects to Electron Main through Preload IPC. Main connects to an independent Agent Runtime over MessagePort JSON-RPC. Lexora Harness owns product state and execution; Pi owns the agent loop. Tool calls pass through authorization. Runtime connects to models, storage, and Rust Host and Image helpers. Main supervises Rust Pet.</desc>
+  <title id="title">XTLaw Desktop architecture</title>
+  <desc id="desc">Vue Renderer connects to Electron Main through Preload IPC. Main connects to an independent Agent Runtime over MessagePort JSON-RPC. XTLaw Harness owns product state and execution; Pi owns the agent loop. Tool calls pass through authorization. Runtime connects to models, storage, and Rust Host and Image helpers. Main supervises Rust Pet.</desc>
   <defs>
     <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".8" fill="#7e94b1" opacity=".12"/></pattern>
     <linearGradient id="runtime" x2="1" y2="1"><stop stop-color="#1d2939"/><stop offset="1" stop-color="#141e2d"/></linearGradient>
@@ -55,7 +55,7 @@
     <text x="1136" y="381" class="mono" text-anchor="end">ELECTRON UTILITY PROCESS / TYPESCRIPT</text>
     <g id="harness">
       <rect x="64" y="406" width="1072" height="151" rx="12" fill="#1d2a3b" stroke="#40516a"/>
-      <text x="86" y="438" class="heading gold">Lexora Harness Core</text>
+      <text x="86" y="438" class="heading gold">XTLaw Harness Core</text>
       <text x="1114" y="437" class="small" text-anchor="end">Product state &amp; execution lifecycle</text>
       <path d="M416 463V535M776 463V535" stroke="#40516a"/>
       <text x="86" y="485" class="heading">Conversation / Run</text>
@@ -89,7 +89,7 @@
     </g>
     <path d="M998 710V741H208V716" class="flow"/>
     <text x="600" y="769" class="mono gold" text-anchor="middle">tool results → session → next model turn</text>
-    <text x="64" y="795" class="small">Pi owns the tool registry; Lexora owns authorization, lifecycle, and artifact projection.</text>
+    <text x="64" y="795" class="small">Pi owns the tool registry; XTLaw owns authorization, lifecycle, and artifact projection.</text>
   </g>
 
   <path d="M212 814V871" class="edge" marker-start="url(#arrow)"/>

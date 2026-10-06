@@ -56,7 +56,7 @@ export function createDefaultModelRepository(database: DatabaseSync): DefaultMod
 function requireDefaultModel(value: unknown): DefaultModelRecord {
   const row = value as DefaultModelRow | undefined
   if (!row)
-    throw new Error('Lexora Buddy default model was not persisted')
+    throw new Error('XTLaw default model was not persisted')
   return toDefaultModel(row)
 }
 

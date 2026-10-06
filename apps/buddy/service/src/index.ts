@@ -146,7 +146,7 @@ async function runBuddyService(): Promise<void> {
             ? error.runId
             : `${error.runId}#${error.firstSequence}-${error.lastSequence}`
           process.stderr.write(
-            `Lexora Buddy event log fatal failure: ${error.code} ${error.commitState}${operation}${stage} ${range}\n`,
+            `XTLaw event log fatal failure: ${error.code} ${error.commitState}${operation}${stage} ${range}\n`,
           )
           void shutdown(1)
         },

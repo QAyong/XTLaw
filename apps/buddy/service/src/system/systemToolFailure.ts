@@ -55,7 +55,7 @@ export function createSystemToolFailure(code: SystemToolFailureCode): SystemTool
         ? {
             recovery: {
               instruction: retryAction
-                ? 'Retry lexora_system_action so Lexora Buddy can resolve and approve the current target again.'
+                ? 'Retry lexora_system_action so XTLaw can resolve and approve the current target again.'
                 : 'Use the active shell to identify one exact process or service, then retry lexora_system_action with a more precise selector.',
               toolName: SYSTEM_ACTION_TOOL_NAME,
             },

@@ -45,7 +45,7 @@ export function requireAutomationOccurrenceRecord(
 ): AutomationOccurrenceRecord {
   const row = value as AutomationOccurrenceRow | undefined
   if (!row)
-    throw new Error(`Lexora Buddy automation occurrence was not persisted: ${id}`)
+    throw new Error(`XTLaw automation occurrence was not persisted: ${id}`)
   return toAutomationOccurrenceRecord(row)
 }
 

@@ -149,7 +149,7 @@ function boundedSystemPreview(value: unknown): ReturnType<typeof boundedToolPrev
     return boundedToolPreview(redactSensitiveText(JSON.stringify(detail, null, 2)))
   }
   catch {
-    return boundedToolPreview('Lexora Buddy system capability returned an unreadable result')
+    return boundedToolPreview('XTLaw system capability returned an unreadable result')
   }
 }
 

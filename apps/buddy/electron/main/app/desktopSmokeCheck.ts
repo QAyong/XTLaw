@@ -6,17 +6,17 @@ export async function checkDesktopSmokeBridge(window: BrowserWindow): Promise<vo
     true,
   )
   if (bridgeAvailable !== true)
-    throw new Error('Lexora Buddy Desktop Preload bridge is unavailable')
+    throw new Error('XTLaw Desktop Preload bridge is unavailable')
   const providers = await window.webContents.executeJavaScript(
     'globalThis.lexoraDesktop.localChat.providers.list()',
     true,
   )
   if (!Array.isArray(providers))
-    throw new Error('Lexora Buddy Desktop Local Service provider registry is unavailable')
+    throw new Error('XTLaw Desktop Local Service provider registry is unavailable')
   const status = await window.webContents.executeJavaScript(
     'globalThis.lexoraDesktop.localChat.runtime.getStatus()',
     true,
   )
   if (!status || typeof status !== 'object' || status.status !== 'ready')
-    throw new Error('Lexora Buddy Desktop Preload local chat IPC is unavailable')
+    throw new Error('XTLaw Desktop Preload local chat IPC is unavailable')
 }

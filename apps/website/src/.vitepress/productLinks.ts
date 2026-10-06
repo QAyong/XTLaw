@@ -1,2 +1,2 @@
-export const repositoryUrl = 'https://github.com/useLexora/Lexora'
+export const repositoryUrl = 'https://github.com/QAyong/XTLaw'
 export const downloadUrl = `${repositoryUrl}/releases/latest`

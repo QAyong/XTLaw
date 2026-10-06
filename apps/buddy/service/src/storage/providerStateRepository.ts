@@ -68,7 +68,7 @@ export function createProviderStateRepository(database: DatabaseSync): ProviderS
 function requireProviderState(value: unknown): ProviderStateRecord {
   const row = value as ProviderStateRow | undefined
   if (!row)
-    throw new Error('Lexora Buddy provider state was not persisted')
+    throw new Error('XTLaw provider state was not persisted')
   return toProviderState(row)
 }
 

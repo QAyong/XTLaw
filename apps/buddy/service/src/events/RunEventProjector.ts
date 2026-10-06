@@ -169,7 +169,7 @@ export class RunEventProjector {
   validateNewFacts(events: readonly BuddyRunEvent[]): void {
     const runId = events[0]!.runId
     if (!this.#runExists(runId))
-      throw new Error(`Lexora Buddy run event conflicts with storage: ${runId}`)
+      throw new Error(`XTLaw run event conflicts with storage: ${runId}`)
 
     const messageIds = new Set<string>()
     const approvalStates = new Map<string, ApprovalFactState>()
@@ -188,7 +188,7 @@ export class RunEventProjector {
       const message = parseProductMessage(event)
       if (message && (messageIds.has(message.messageId) || findMessage.get(message.messageId))) {
         throw new Error(
-          `Lexora Buddy ${message.conflictKind} message conflicts with storage: ${message.messageId}`,
+          `XTLaw ${message.conflictKind} message conflicts with storage: ${message.messageId}`,
         )
       }
       if (message)
@@ -296,7 +296,7 @@ function projectProductMessage(database: DatabaseSync, event: BuddyRunEvent, mod
   if (Number(result.changes) === 1)
     return
   throw new Error(
-    `Lexora Buddy ${message.conflictKind} message conflicts with storage: ${message.messageId}`,
+    `XTLaw ${message.conflictKind} message conflicts with storage: ${message.messageId}`,
   )
 }
 
@@ -321,7 +321,7 @@ function parseApprovalRequest(event: BuddyRunEvent): ApprovalRequestProjection |
     return null
   const approval = approvalRequestPayloadSchema.parse(event.payload)
   if (approval.runId !== event.runId)
-    throw new Error(`Lexora Buddy approval event is invalid: ${event.runId}`)
+    throw new Error(`XTLaw approval event is invalid: ${event.runId}`)
   return approval
 }
 
@@ -338,11 +338,11 @@ function parseUsage(event: BuddyRunEvent): UsageProjection | null {
 }
 
 function approvalConflict(id: string): Error {
-  return new Error(`Lexora Buddy approval event conflicts with storage: ${id}`)
+  return new Error(`XTLaw approval event conflicts with storage: ${id}`)
 }
 
 function usageConflict(id: string): Error {
-  return new Error(`Lexora Buddy usage event conflicts with storage: ${id}`)
+  return new Error(`XTLaw usage event conflicts with storage: ${id}`)
 }
 
 function projectApprovalResolution(database: DatabaseSync, event: BuddyRunEvent): void {
@@ -364,7 +364,7 @@ function projectApprovalRequest(database: DatabaseSync, event: BuddyRunEvent): v
     return
   const payloadJson = JSON.stringify(approval.payload)
   if (payloadJson === undefined)
-    throw new Error(`Lexora Buddy approval event is invalid: ${event.runId}`)
+    throw new Error(`XTLaw approval event is invalid: ${event.runId}`)
   const result = database.prepare(`
     INSERT INTO approvals (
       id, run_id, tool_call_id, kind, status, summary, payload_json, created_at, resolved_at

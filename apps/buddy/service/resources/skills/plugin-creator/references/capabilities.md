@@ -21,7 +21,7 @@
 | 将编辑结果或生成内容保存到本机 | `resourceExport: true`；交互视图调用 `resources.saveFile({name,data})` | 每次弹出系统另存为窗口，用户决定目标；取消返回 false。文本先编码为 Blob 或字节。读取授权不授予原文件覆写权限；保存成功后才报告完成 |
 | 局部装饰、输入位置附近的短暂动画 | `windowEffects: true`；`kind: "decoration"` 与正式 `anchor` | 使用 `anchor/onAnchorChange` 的局部尺寸；输入活动经 `onActivity` 提供，可带局部 caret。不获取字符或全局键盘，不接收指针或焦点 |
 | 在输入所在的整个分屏内绘制装饰 | `windowEffects: true`；`kind: "decoration"`、`anchor: "workbench.pane"` | 每个分屏独立实例，画布覆盖该分屏；只接收该分屏内的对话输入活动，caret 相对分屏。绘制位置由插件决定，不受输入框边界限制；不接收指针或焦点 |
-| 整个 Lexora 窗口上的透明效果 | `windowEffects: true`；`resource: "none"`、`location: "window-overlay"` | API 1 和 API 2 均可用，每插件一个全窗口实例；收到无坐标的对话输入活动，不区分分屏。插件按窗口尺寸绘制，不接收指针或焦点 |
+| 整个 XTLaw 窗口上的透明效果 | `windowEffects: true`；`resource: "none"`、`location: "window-overlay"` | API 1 和 API 2 均可用，每插件一个全窗口实例；收到无坐标的对话输入活动，不区分分屏。插件按窗口尺寸绘制，不接收指针或焦点 |
 | 改变宿主控件的操作方式 | `controls: ["model.reasoning"]`；`kind: "control"`、`target: "model.reasoning"` | 安装后由用户选择样式。读取 `control.snapshot/onChange`，以当前快照 revision 提交 `propose`；值和允许选项归宿主管理，不能自建一份业务真源 |
 | 读取远端公开信息 | 声明实际需要的 HTTPS origins，以宿主或视图的 `network.get` 获取 | 只有 GET，不携带浏览器登录态；直接 fetch、远程图片或媒体不替代网络代理。需要其他方法、凭据或实时连接时先说明能力缺口 |
 | 关闭页面后仍定期执行插件动作 | `schedules: true`、宿主入口与已声明命令；`schedules.get/set/remove` | 定时任务归应用，最短一分钟；应用退出时暂停，错过的不补发。页面计时器只适合页面自身交互，不承担后台任务 |

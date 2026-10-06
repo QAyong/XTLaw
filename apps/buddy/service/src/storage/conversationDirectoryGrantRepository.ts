@@ -131,14 +131,14 @@ function containsDirectory(root: string, candidate: string): boolean {
 }
 
 function impassableDirectoryGrant(): never {
-  throw new Error('Lexora Buddy conversation directory grant could not be persisted')
+  throw new Error('XTLaw conversation directory grant could not be persisted')
 }
 
 class ConversationDirectoryGrantOwnerError extends Error {
   readonly code = 'DIRECTORY_GRANT_OWNER_INVALID'
 
   constructor() {
-    super('Lexora Buddy directory grant owner is unavailable')
+    super('XTLaw directory grant owner is unavailable')
     this.name = 'ConversationDirectoryGrantOwnerError'
   }
 }

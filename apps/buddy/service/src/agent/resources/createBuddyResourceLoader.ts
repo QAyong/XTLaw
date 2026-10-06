@@ -107,7 +107,7 @@ export class BuddyResourceLoadError extends Error {
   readonly code: 'BUDDY_EXTENSION_LOAD_FAILED' | 'UNTRUSTED_EXTENSION_LOADED'
 
   constructor(code: BuddyResourceLoadError['code']) {
-    super('Lexora Buddy could not load its runtime resources')
+    super('XTLaw could not load its runtime resources')
     this.name = 'BuddyResourceLoadError'
     this.code = code
   }

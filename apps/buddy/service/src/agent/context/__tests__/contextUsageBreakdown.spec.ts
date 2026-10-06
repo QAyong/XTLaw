@@ -15,7 +15,7 @@ describe('createContextUsageBreakdown', () => {
         timestamp: Date.now(),
       }],
       systemPrompt: [
-        'You are Lexora Buddy.',
+        'You are XTLaw.',
         '',
         'The following skills provide specialized instructions for specific tasks.',
         '<available_skills>',

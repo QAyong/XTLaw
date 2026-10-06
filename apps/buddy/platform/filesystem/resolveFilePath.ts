@@ -12,7 +12,7 @@ export class FilePathResolutionError extends Error {
   readonly code: 'INVALID_PATH' | 'PATH_NOT_FOUND'
 
   constructor(code: FilePathResolutionError['code'], options?: ErrorOptions) {
-    super('Lexora Buddy cannot resolve the requested file path', options)
+    super('XTLaw cannot resolve the requested file path', options)
     this.name = 'FilePathResolutionError'
     this.code = code
   }

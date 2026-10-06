@@ -116,7 +116,7 @@ export function createArtifactRepository(database: DatabaseSync): ArtifactReposi
             record.conversationId,
           )
           if (Number(result.changes) !== 1)
-            throw new Error('Lexora Buddy artifact update is invalid')
+            throw new Error('XTLaw artifact update is invalid')
         }
         else {
           insert.run(
@@ -156,14 +156,14 @@ function validateOwnership(
     conversation?.deleted_at !== null
     || (record.sourceArtifactId !== null && source?.conversation_id !== record.conversationId)
   ) {
-    throw new Error('Lexora Buddy artifact ownership is invalid')
+    throw new Error('XTLaw artifact ownership is invalid')
   }
 }
 
 function requireArtifact(value: unknown, id: string): ArtifactRecord {
   const row = value as ArtifactRow | undefined
   if (!row)
-    throw new Error(`Lexora Buddy artifact was not persisted: ${id}`)
+    throw new Error(`XTLaw artifact was not persisted: ${id}`)
   return toArtifact(row)
 }
 

@@ -29,7 +29,7 @@ defineProps<{ content: LandingContent['final'], english: boolean }>()
     </p>
   </section>
   <footer class="site-footer site-container">
-    <div><a class="footer-brand" :href="withBase(english ? '/en/' : '/')"><LandingIcon />Lexora.</a><p>{{ content.footer }}</p></div>
+    <div><a class="footer-brand" :href="withBase(english ? '/en/' : '/')"><LandingIcon />XTLaw.</a><p>{{ content.footer }}</p></div>
     <div class="footer-links">
       <a :href="repositoryUrl" target="_blank" rel="noreferrer">{{ content.source }}<LandingIcon name="external" /></a><a :href="`${repositoryUrl}/blob/master/LICENSE`" target="_blank" rel="noreferrer">{{ content.license }}</a><a href="#top" :aria-label="content.back">↑</a>
     </div>

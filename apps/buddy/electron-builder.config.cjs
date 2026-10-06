@@ -26,7 +26,7 @@ const signedMacos = macosSigningMode() === 'developer-id'
 
 module.exports = {
   appId: desktopName,
-  productName: 'lexora-buddy',
+  productName: 'xtlaw',
   asar: true,
   asarUnpack: ['node_modules/@anthropic-ai/sandbox-runtime/vendor/**'],
   electronFuses: {
@@ -93,15 +93,15 @@ module.exports = {
         Name: displayName,
       },
     },
-    executableName: 'lexora-buddy',
+    executableName: 'xtlaw',
     icon: 'resources/icons/app-icon.png',
-    synopsis: 'Lexora Buddy local personal AI companion and native desktop pet',
+    synopsis: 'XTLaw local personal AI agent and native desktop companion',
     syncDesktopName: true,
     target: ['deb'],
   },
   deb: {
     appArmorProfile: '../../packaging/buddy/linux/apparmor-profile.tpl',
-    packageName: 'lexora-buddy',
+    packageName: 'xtlaw',
     depends: [
       'libcap2',
       'socat',
@@ -121,9 +121,9 @@ module.exports = {
   },
   pacman: {
     appArmorProfile: '../../packaging/buddy/linux/apparmor-profile.tpl',
-    artifactName: `Lexora-Buddy-${macro('version')}-arch-x86_64.pkg.tar.zst`,
+    artifactName: `XTLaw-${macro('version')}-arch-x86_64.pkg.tar.zst`,
     compression: 'zstd',
-    packageName: 'lexora-buddy',
+    packageName: 'xtlaw',
     depends: [
       'alsa-lib',
       'at-spi2-core',

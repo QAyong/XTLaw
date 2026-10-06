@@ -503,14 +503,14 @@ export class BuddySessionBindingError extends Error {
   readonly code = 'SESSION_BINDING_MISMATCH'
 
   constructor() {
-    super('Lexora Buddy session binding does not match the conversation branch')
+    super('XTLaw session binding does not match the conversation branch')
     this.name = 'BuddySessionBindingError'
   }
 }
 
 class BuddySessionLifecycleAbortError extends Error {
   constructor() {
-    super('Lexora Buddy session lifecycle ended before startup completed')
+    super('XTLaw session lifecycle ended before startup completed')
     this.name = 'AbortError'
   }
 }

@@ -337,7 +337,7 @@ class ConversationTimelineRepositoryError extends Error {
   readonly code = 'VALIDATION_FAILED'
 
   constructor(reason = 'cursor is invalid') {
-    super(`Lexora Buddy conversation timeline ${reason}`)
+    super(`XTLaw conversation timeline ${reason}`)
     this.name = 'ConversationTimelineRepositoryError'
   }
 }
@@ -507,7 +507,7 @@ function toTimelineItem(row: ConversationTimelineRow): ConversationTimelineItemR
     return extensionActionTimelineSchema.parse(JSON.parse(row.action_json!))
   if (row.kind === 'message') {
     if (!row.role || row.content_json === null)
-      throw new Error(`Lexora Buddy timeline message is invalid: ${row.id}`)
+      throw new Error(`XTLaw timeline message is invalid: ${row.id}`)
     return {
       branchId: row.branch_id,
       content: JSON.parse(row.content_json),
@@ -520,7 +520,7 @@ function toTimelineItem(row: ConversationTimelineRow): ConversationTimelineItemR
     }
   }
   if (!row.status)
-    throw new Error(`Lexora Buddy timeline compaction is invalid: ${row.id}`)
+    throw new Error(`XTLaw timeline compaction is invalid: ${row.id}`)
   const payload = parseCompactionPayload(row.compaction_payload_json)
   return {
     branchId: row.branch_id,

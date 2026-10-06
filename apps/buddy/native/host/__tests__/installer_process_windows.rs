@@ -18,7 +18,7 @@ impl Drop for Running {
 
 fn executable(directory: &Path) -> PathBuf {
     std::fs::create_dir_all(directory).unwrap();
-    let executable = directory.join("Lexora Buddy.exe");
+    let executable = directory.join("XTLaw.exe");
     std::fs::copy(HELPER, &executable).unwrap();
     executable
 }
@@ -45,7 +45,7 @@ fn start(executable: &Path) -> Running {
 #[test]
 fn fresh_installation_without_an_executable_is_ready() {
     let root = tempfile::tempdir().unwrap();
-    let output = probe(&root.path().join("未安装\\Lexora Buddy.exe"));
+    let output = probe(&root.path().join("未安装\\XTLaw.exe"));
     assert!(output.status.success(), "{output:?}");
     let diagnostic: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
     assert_eq!(diagnostic["status"], "ready");

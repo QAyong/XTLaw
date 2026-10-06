@@ -6,13 +6,13 @@ describe('checkForDesktopUpdate', () => {
     const fetchRelease = async () => new Response(JSON.stringify([
       {
         draft: false,
-        html_url: 'https://github.com/useLexora/Lexora/releases/tag/web-v1.0.0',
+        html_url: 'https://github.com/QAyong/XTLaw/releases/tag/web-v1.0.0',
         prerelease: false,
         tag_name: 'web-v1.0.0',
       },
       {
         draft: false,
-        html_url: 'https://github.com/useLexora/Lexora/releases/tag/v0.2.0',
+        html_url: 'https://github.com/QAyong/XTLaw/releases/tag/v0.2.0',
         prerelease: false,
         tag_name: 'v0.2.0',
       },
@@ -24,7 +24,7 @@ describe('checkForDesktopUpdate', () => {
     })).resolves.toEqual({
       currentVersion: '0.1.0',
       latestVersion: '0.2.0',
-      releaseUrl: 'https://github.com/useLexora/Lexora/releases/tag/v0.2.0',
+      releaseUrl: 'https://github.com/QAyong/XTLaw/releases/tag/v0.2.0',
       releaseNotes: '',
       status: 'update_available',
     })
@@ -33,7 +33,7 @@ describe('checkForDesktopUpdate', () => {
   it('reports the current version only after a valid release response', async () => {
     const fetchRelease = async () => new Response(JSON.stringify([{
       draft: false,
-      html_url: 'https://github.com/useLexora/Lexora/releases/tag/v0.1.0',
+      html_url: 'https://github.com/QAyong/XTLaw/releases/tag/v0.1.0',
       prerelease: false,
       tag_name: 'v0.1.0',
     }]), { status: 200 })
@@ -48,7 +48,7 @@ describe('checkForDesktopUpdate', () => {
   })
 
   it('selects the highest trusted stable version and bounds the untrusted release notes', async () => {
-    const release = (version: string, fields = {}) => ({ draft: false, prerelease: false, tag_name: `v${version}`, html_url: `https://github.com/useLexora/Lexora/releases/tag/v${version}`, ...fields })
+    const release = (version: string, fields = {}) => ({ draft: false, prerelease: false, tag_name: `v${version}`, html_url: `https://github.com/QAyong/XTLaw/releases/tag/v${version}`, ...fields })
     const result = await checkForDesktopUpdate({
       currentVersion: '1.2.0',
       fetchRelease: async () => new Response(JSON.stringify([

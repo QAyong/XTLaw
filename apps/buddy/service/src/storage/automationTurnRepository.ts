@@ -66,7 +66,7 @@ export interface AutomationTurnRepository {
 
 export class AutomationTurnBindingError extends Error {
   constructor() {
-    super('Lexora Buddy automation occurrence lease cannot be bound')
+    super('XTLaw automation occurrence lease cannot be bound')
     this.name = 'AutomationTurnBindingError'
   }
 }

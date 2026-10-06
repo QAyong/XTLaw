@@ -99,7 +99,7 @@ export class RunEventStore {
     try {
       const metadata = await stat(this.#eventPath(runId, conversationId), { bigint: true })
       if (!metadata.isFile())
-        throw new Error('Lexora Buddy event path is not a regular file')
+        throw new Error('XTLaw event path is not a regular file')
       return [metadata.dev, metadata.ino, metadata.size, metadata.mtimeNs, metadata.ctimeNs, metadata.birthtimeNs].join(':')
     }
     catch (cause) {
@@ -265,7 +265,7 @@ export class RunEventStore {
   #eventDirectory(runId: string, knownConversationId?: string): string {
     const conversationId = knownConversationId ?? this.#resolveConversationId(runId)
     if (conversationId === null)
-      throw new Error(`Lexora Buddy run was not found: ${runId}`)
+      throw new Error(`XTLaw run was not found: ${runId}`)
     return join(
       this.#conversationsDirectory,
       buddyRunIdSchema.parse(conversationId),
@@ -386,7 +386,7 @@ function parseEventLines(
       throw error
     }
     if (event.runId !== runId || event.sequence <= (events.at(-1)?.sequence ?? 0))
-      throw new Error(`Lexora Buddy run event sequence is invalid: ${runId}`)
+      throw new Error(`XTLaw run event sequence is invalid: ${runId}`)
     events.push(event)
   }
   return { events, repairBytes: null }

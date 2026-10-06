@@ -2,9 +2,9 @@
 
 Start small and specific. For example: “Turn these meeting notes into an action plan.”
 
-## 1. Install Lexora
+## 1. Install XTLaw
 
-Visit [GitHub Releases](https://github.com/useLexora/Lexora/releases/latest) and choose the package for your system:
+Visit [GitHub Releases](https://github.com/QAyong/XTLaw/releases/latest) and choose the package for your system:
 
 | System | Package |
 | --- | --- |
@@ -23,13 +23,13 @@ Open the DMG and drag `lexora-buddy.app` into Applications. The app uses an ad-h
 xattr -r -d com.apple.quarantine "/Applications/lexora-buddy.app"
 ```
 
-Then open Lexora from Applications. This command removes the quarantine attribute only from this app. Repeat it after an update if macOS blocks the app again.
+Then open XTLaw from Applications. This command removes the quarantine attribute only from this app. Repeat it after an update if macOS blocks the app again.
 
 ## 2. Connect a model
 
 Open settings, add your model service, and enter its API key or complete account authorization as required. Then choose an available model.
 
-Lexora does not include a free model allowance. Availability and costs depend on your chosen provider.
+XTLaw does not include a free model allowance. Availability and costs depend on your chosen provider.
 
 [About models and tools →](./settings-and-models)
 
@@ -45,7 +45,7 @@ You can also start with a simple conversation that needs no files.
 
 ## 4. Follow along and review
 
-Lexora shows its work as it progresses. When asked for permission, check what a tool will access or do before approving.
+XTLaw shows its work as it progresses. When asked for permission, check what a tool will access or do before approving.
 
 Open the resulting file or artifact preview and check the facts, format, and location. Then add a follow-up, such as “Sort the actions by priority.”
 

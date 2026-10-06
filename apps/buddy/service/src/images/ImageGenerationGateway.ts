@@ -44,7 +44,7 @@ export class ImageGenerationError extends Error {
     code: ImageGenerationErrorCode,
     options?: ErrorOptions & { diagnostic?: ImageGenerationErrorDiagnostic },
   ) {
-    super('Lexora Buddy image generation failed', { cause: options?.cause })
+    super('XTLaw image generation failed', { cause: options?.cause })
     this.name = 'ImageGenerationError'
     this.code = code
     this.diagnostic = options?.diagnostic ?? null

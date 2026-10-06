@@ -134,7 +134,7 @@ function resolveBuddyRuntimeIdentity(
   const profile = resolveBuddyRuntimeProfile(options)
   if (profile === 'stable') {
     return {
-      appName: 'Lexora Buddy',
+      appName: 'XTLaw',
       desktopName: options.desktopName,
       namespace: 'lexora-buddy',
       profile,
@@ -142,14 +142,14 @@ function resolveBuddyRuntimeIdentity(
   }
   if (profile === 'development') {
     return {
-      appName: 'Lexora Buddy Dev',
+      appName: 'XTLaw Dev',
       desktopName: `${options.desktopName}.Development`,
       namespace: 'lexora-buddy-dev',
       profile,
     }
   }
   return {
-    appName: 'Lexora Buddy Test',
+    appName: 'XTLaw Test',
     desktopName: `${options.desktopName}.Test`,
     namespace: 'lexora-buddy-test',
     profile,

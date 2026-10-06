@@ -18,8 +18,8 @@ Check schedules, run history, task status, and outputs. A scheduled trigger does
 
 Automations run on your computer:
 
-- Schedules can trigger while Lexora is running, including in the system tray.
+- Schedules can trigger while XTLaw is running, including in the system tray.
 - They do not continue after you fully quit the app or shut down the computer.
-- This is not a cloud-hosted task service provided by Lexora.
+- This is not a cloud-hosted task service provided by XTLaw.
 
 Keep appropriate approval checks and human review for important files or external actions.

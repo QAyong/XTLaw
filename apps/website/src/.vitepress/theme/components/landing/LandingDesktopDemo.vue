@@ -19,7 +19,7 @@ function openArtifact() {
   <div class="desktop-demo">
     <aside class="demo-sidebar" :aria-label="content.task">
       <div class="demo-brand">
-        <LandingIcon /><strong>Lexora</strong>
+        <LandingIcon /><strong>XTLaw</strong>
       </div>
       <span class="sidebar-heading">{{ content.task }}</span>
       <button v-for="(item, index) in content.scenarios" :key="item.id" :aria-pressed="item.id === scenario.id" @click="$emit('select', index)">

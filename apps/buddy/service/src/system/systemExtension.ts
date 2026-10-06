@@ -55,7 +55,7 @@ export function createSystemExtension(
         description: [
           'Request one supported host state change using a structured process or service selector.',
           'Use an exact PID, exact process executable name, or serviceId with its scope. Linux supports user-scope systemd service IDs; Windows supports system-scope SCM service names, not display names. Use the active Pi shell first when diagnosis or target discovery is needed.',
-          'Lexora Buddy resolves one concrete target before approval and verifies the same target identity again after approval.',
+          'XTLaw resolves one concrete target before approval and verifies the same target identity again after approval.',
           'Call this tool when the user asks for the change so Buddy can show the product approval card; do not replace it with conversational confirmation.',
           'Graceful process termination never escalates to force termination automatically.',
         ].join(' '),

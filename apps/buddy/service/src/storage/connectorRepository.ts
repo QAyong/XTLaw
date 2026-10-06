@@ -113,7 +113,7 @@ export function createConnectorRepository(database: DatabaseSync): ConnectorRepo
 function requireMcpServer(value: unknown, id: string): McpServerRecord {
   const row = value as McpServerRow | undefined
   if (!row)
-    throw new Error(`Lexora Buddy MCP server was not persisted: ${id}`)
+    throw new Error(`XTLaw MCP server was not persisted: ${id}`)
   return toMcpServer(row)
 }
 
@@ -139,6 +139,6 @@ function parseStringArray(value: string | null, id: string): string[] | null {
     return null
   const parsed: unknown = JSON.parse(value)
   if (!Array.isArray(parsed) || !parsed.every(item => typeof item === 'string'))
-    throw new Error(`Lexora Buddy MCP args are invalid: ${id}`)
+    throw new Error(`XTLaw MCP args are invalid: ${id}`)
   return parsed
 }

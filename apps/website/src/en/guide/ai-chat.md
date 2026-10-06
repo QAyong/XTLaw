@@ -1,4 +1,4 @@
-# Working with Lexora
+# Working with XTLaw
 
 A task can include several turns of conversation, local context, tool execution, and finished work. You do not need every detail figured out at the start.
 

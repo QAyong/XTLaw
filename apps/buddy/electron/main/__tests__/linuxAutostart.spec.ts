@@ -15,23 +15,23 @@ describe('linuxAutostart', () => {
       .toBe('/home/lexora/.config')
   })
 
-  it('writes and removes the Lexora Buddy background autostart entry', async () => {
+  it('writes and removes the XTLaw background autostart entry', async () => {
     const configDirectory = await createTemporaryDirectory('lexora-autostart-test-')
-    const entryPath = join(configDirectory, 'autostart', 'site.haohaoxue.LexoraBuddy.desktop')
+    const entryPath = join(configDirectory, 'autostart', 'io.github.qayong.XTLaw.desktop')
 
     await syncLinuxAutostart({
       configDirectory,
       enabled: true,
-      executablePath: '/opt/Lexora Buddy/lexora-buddy',
+      executablePath: '/opt/XTLaw/lexora-buddy',
     })
 
     expect(await readFile(entryPath, 'utf8')).toBe([
       '[Desktop Entry]',
       'Type=Application',
       'Version=1.0',
-      'Name=Lexora Buddy',
-      'TryExec=/opt/Lexora Buddy/lexora-buddy',
-      'Exec="/opt/Lexora Buddy/lexora-buddy" --background',
+      'Name=XTLaw',
+      'TryExec=/opt/XTLaw/lexora-buddy',
+      'Exec="/opt/XTLaw/lexora-buddy" --background',
       'Terminal=false',
       'X-GNOME-Autostart-enabled=true',
       '',
@@ -40,7 +40,7 @@ describe('linuxAutostart', () => {
     await syncLinuxAutostart({
       configDirectory,
       enabled: false,
-      executablePath: '/opt/Lexora Buddy/lexora-buddy',
+      executablePath: '/opt/XTLaw/lexora-buddy',
     })
 
     await expect(readFile(entryPath, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' })

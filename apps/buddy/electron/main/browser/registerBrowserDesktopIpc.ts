@@ -58,7 +58,7 @@ export function registerBrowserDesktopIpc(
       const chinese = options.getLanguage?.() === 'zh-CN'
       const response = dialog.showMessageBoxSync(window, {
         type: request.type === 'confirm' ? 'question' : 'info',
-        title: chinese ? 'Lexora — 网页对话框' : 'Lexora — Web page',
+        title: chinese ? 'XTLaw — 网页对话框' : 'XTLaw — Web page',
         message: origin,
         detail: request.message as string,
         buttons: request.type === 'confirm' ? (chinese ? ['取消', '确定'] : ['Cancel', 'OK']) : [chinese ? '确定' : 'OK'],
@@ -242,7 +242,7 @@ export function registerBrowserDesktopIpc(
       const result = await dialog.showMessageBox(window, {
         type: 'warning',
         message: chinese ? '取消下载并关闭标签页？' : 'Cancel downloads and close this tab?',
-        detail: chinese ? '此标签页仍有下载进行中。关闭会停止下载；Lexora 不会删除已有文件。' : 'Downloads from this tab are still in progress. Closing it will stop them. Existing files will not be deleted by Lexora.',
+        detail: chinese ? '此标签页仍有下载进行中。关闭会停止下载；XTLaw 不会删除已有文件。' : 'Downloads from this tab are still in progress. Closing it will stop them. Existing files will not be deleted by XTLaw.',
         buttons: chinese ? ['保留标签页', '取消下载并关闭'] : ['Keep tab open', 'Cancel downloads and close'],
         defaultId: 0,
         cancelId: 0,

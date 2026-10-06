@@ -59,7 +59,7 @@ export async function extractSkillArchive(data: Uint8Array, root: string) {
 
 async function download(url: string, limit: number): Promise<Buffer> {
   const response = await fetch(url, {
-    headers: { 'User-Agent': 'Lexora-Buddy', 'Accept': 'application/vnd.github+json' },
+    headers: { 'User-Agent': 'XTLaw', 'Accept': 'application/vnd.github+json' },
     signal: AbortSignal.timeout(60_000),
     redirect: 'error',
   })

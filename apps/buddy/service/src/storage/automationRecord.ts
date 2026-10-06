@@ -53,7 +53,7 @@ export function createAutomationExecutionSnapshot(
 export function requireAutomationRecord(value: unknown, id: string): Automation {
   const row = value as AutomationRow | undefined
   if (!row)
-    throw new Error(`Lexora Buddy automation was not persisted: ${id}`)
+    throw new Error(`XTLaw automation was not persisted: ${id}`)
   return toAutomationRecord(row)
 }
 

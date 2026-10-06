@@ -50,7 +50,7 @@ export class DesktopWindowManager {
 
   async load(): Promise<BrowserWindow> {
     if (this.#disposed || this.#recoveryExhausted)
-      throw new Error('Lexora Buddy Desktop renderer recovery is unavailable')
+      throw new Error('XTLaw Desktop renderer recovery is unavailable')
     let managedWindow = this.#managedWindow
     if (!managedWindow || managedWindow.handle.window.isDestroyed()) {
       managedWindow = this.#replaceWindow()
@@ -67,7 +67,7 @@ export class DesktopWindowManager {
       })
     }
     if (!managedWindow.loadPromise)
-      throw new Error('Lexora Buddy Desktop renderer is recovering')
+      throw new Error('XTLaw Desktop renderer is recovering')
     await managedWindow.loadPromise
 
     if (
@@ -77,7 +77,7 @@ export class DesktopWindowManager {
       || !managedWindow.rendererAvailable
       || managedWindow.handle.window.isDestroyed()
     ) {
-      throw new Error('Lexora Buddy Desktop renderer exited while loading')
+      throw new Error('XTLaw Desktop renderer exited while loading')
     }
     this.#initialLoadCompleted = true
     return managedWindow.handle.window

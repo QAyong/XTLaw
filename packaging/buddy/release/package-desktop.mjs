@@ -56,7 +56,7 @@ if (target === 'dmg')
 if (target === 'nsis')
   verifyDesktopDirectory(join(paths.package.desktop, platform.architecture === CPU_ARCHITECTURE.X64 ? 'win-unpacked' : `win-${platform.architecture}-unpacked`), platform.id)
 else if (target === 'dmg')
-  verifyDesktopDirectory(join(paths.package.desktop, `mac-${platform.architecture}/lexora-buddy.app`), platform.id)
+  verifyDesktopDirectory(join(paths.package.desktop, `mac-${platform.architecture}/xtlaw.app`), platform.id)
 else
   verifyLinuxPackage(target, packagePath, repoRoot, platform.id)
 renameSync(packagePath, artifact.path)

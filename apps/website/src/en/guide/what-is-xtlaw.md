@@ -1,8 +1,8 @@
-# Meet Lexora
+# Meet XTLaw
 
 Big ideas. A little company.
 
-Lexora is a self-evolved, sovereign personal desktop AI agent crafted through real-world practice. Beyond model wrappers and coding copilots, it runs on your computer to turn ideas into tangible results using local files and tools, making words the starting point for work, creativity, and everyday life.
+XTLaw is a self-evolved, sovereign personal desktop AI agent crafted through real-world practice. Beyond model wrappers and coding copilots, it runs on your computer to turn ideas into tangible results using local files and tools, making words the starting point for work, creativity, and everyday life.
 
 ## Start with something you want to do
 
@@ -16,9 +16,9 @@ These are examples, not fixed templates. Results depend on the context you provi
 
 ## Your workspace, your choices
 
-Tasks bring conversations, execution, and results together. Spaces organize related tasks and can connect them to local working directories. Lexora accesses files and tools within the permissions you grant.
+Tasks bring conversations, execution, and results together. Spaces organize related tasks and can connect them to local working directories. XTLaw accesses files and tools within the permissions you grant.
 
-Choose your model service, bring reusable methods through Skills, and connect external tools through MCP. No Lexora account is required.
+Choose your model service, bring reusable methods through Skills, and connect external tools through MCP. No XTLaw account is required.
 
 Local execution does not mean fully offline: online models and external services receive the content needed for their work.
 

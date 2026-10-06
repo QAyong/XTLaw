@@ -38,7 +38,7 @@ export const publicRunEventSchema = z.object({
     return
   context.addIssue({
     code: 'custom',
-    message: 'Lexora Buddy public run event contains unsupported payload fields',
+    message: 'XTLaw public run event contains unsupported payload fields',
     path: ['payload'],
   })
 })

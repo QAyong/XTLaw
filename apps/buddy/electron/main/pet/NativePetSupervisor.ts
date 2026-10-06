@@ -511,7 +511,7 @@ export function createNativePetProcessFactory(
   ))
   return () => {
     if (!exists(executable))
-      throw new Error(`Lexora Buddy pet executable not found: ${executable}`)
+      throw new Error(`XTLaw pet executable not found: ${executable}`)
     return spawnPet(executable, ['--native-pet'], {
       env: {
         ...createNativePetEnvironment(options.env),

@@ -62,7 +62,7 @@ export class ConversationTimelineCursorError extends Error {
   readonly code = 'VALIDATION_FAILED'
 
   constructor() {
-    super('Lexora Buddy conversation timeline cursor is invalid')
+    super('XTLaw conversation timeline cursor is invalid')
     this.name = 'ConversationTimelineCursorError'
   }
 }

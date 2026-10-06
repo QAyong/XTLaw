@@ -178,7 +178,7 @@ export async function createApplicationDiagnosticBundle(reader: Pick<Application
     privacy: { content: 'structured-application-metadata-only', omitted: ['messages', 'error-text-and-stacks', 'conversation-content', 'request-and-response-bodies', 'configuration', 'credentials', 'files', 'crash-dumps'] },
   }
   const summary = [
-    'Lexora diagnostic bundle',
+    'XTLaw diagnostic bundle',
     `Captured: ${capturedAt}`,
     `Errors: ${errors.length}; context events: ${context.length}; incidents: ${seeds.length}`,
     `Snapshot: ${records.length} of ${first.total} retained events; skipped: ${skippedRecords}; routine events omitted: ${manifest.snapshot.omittedRoutineRecords}`,

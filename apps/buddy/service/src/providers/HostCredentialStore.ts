@@ -20,7 +20,7 @@ export class HostCredentialStoreError extends Error {
   readonly code: string
 
   constructor(code: string) {
-    super('Lexora Buddy credential storage failed')
+    super('XTLaw credential storage failed')
     this.name = 'HostCredentialStoreError'
     this.code = code
   }

@@ -26,7 +26,7 @@ export class ComposerDraftCommitConflictError extends Error {
   readonly code = 'DRAFT_CONFLICT'
 
   constructor() {
-    super('Lexora Buddy Composer draft changed before the request was committed')
+    super('XTLaw Composer draft changed before the request was committed')
     this.name = 'ComposerDraftCommitConflictError'
   }
 }

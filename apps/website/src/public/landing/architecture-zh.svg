@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1150" viewBox="0 0 1200 1150" role="img" aria-labelledby="title desc">
-  <title id="title">Lexora Desktop 架构</title>
-  <desc id="desc">Vue Renderer 通过 Preload IPC 连接 Electron Main，Main 通过 MessagePort JSON-RPC 连接独立 Agent Runtime。Runtime 内 Lexora Harness 管理任务与状态，Pi 负责 Agent Loop，工具经过权限与审批后执行。Runtime 连接模型、存储与 Rust Host 和 Image；Rust Pet 由 Main 监督。</desc>
+  <title id="title">XTLaw Desktop 架构</title>
+  <desc id="desc">Vue Renderer 通过 Preload IPC 连接 Electron Main，Main 通过 MessagePort JSON-RPC 连接独立 Agent Runtime。Runtime 内 XTLaw Harness 管理任务与状态，Pi 负责 Agent Loop，工具经过权限与审批后执行。Runtime 连接模型、存储与 Rust Host 和 Image；Rust Pet 由 Main 监督。</desc>
   <defs>
     <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".8" fill="#7e94b1" opacity=".12"/></pattern>
     <linearGradient id="runtime" x2="1" y2="1"><stop stop-color="#1d2939"/><stop offset="1" stop-color="#141e2d"/></linearGradient>
@@ -55,7 +55,7 @@
     <text x="1136" y="381" class="mono" text-anchor="end">ELECTRON UTILITY PROCESS / TYPESCRIPT</text>
     <g id="harness">
       <rect x="64" y="406" width="1072" height="151" rx="12" fill="#1d2a3b" stroke="#40516a"/>
-      <text x="86" y="438" class="heading gold">Lexora Harness Core</text>
+      <text x="86" y="438" class="heading gold">XTLaw Harness Core</text>
       <text x="1114" y="437" class="small" text-anchor="end">产品状态与执行生命周期</text>
       <path d="M416 463V535M776 463V535" stroke="#40516a"/>
       <text x="86" y="485" class="heading">Conversation / Run</text>
@@ -89,7 +89,7 @@
     </g>
     <path d="M998 710V741H208V716" class="flow"/>
     <text x="600" y="769" class="mono gold" text-anchor="middle">tool results → session → next model turn</text>
-    <text x="64" y="795" class="small">Pi 持有工具注册表；Lexora 负责授权、生命周期与产物投影。</text>
+    <text x="64" y="795" class="small">Pi 持有工具注册表；XTLaw 负责授权、生命周期与产物投影。</text>
   </g>
 
   <path d="M212 814V871" class="edge" marker-start="url(#arrow)"/>

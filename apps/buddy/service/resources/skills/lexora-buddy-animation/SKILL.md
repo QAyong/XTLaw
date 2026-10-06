@@ -1,9 +1,9 @@
 ---
 name: lexora-buddy-animation
-description: Use when the user asks Lexora Buddy to move, emote, celebrate, rest, or perform a visible desktop-pet action.
+description: Use when the user asks XTLaw to move, emote, celebrate, rest, or perform a visible desktop-pet action.
 ---
 
-# Lexora Buddy Animation
+# XTLaw Animation
 
 Use the `lexora_buddy_pet` tool for visible desktop-pet actions. Choose exactly one of these semantic macros:
 

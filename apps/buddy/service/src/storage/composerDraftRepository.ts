@@ -37,7 +37,7 @@ export class ComposerDraftConflictError extends Error {
   readonly code = 'DRAFT_CONFLICT'
 
   constructor() {
-    super('Lexora Buddy Composer draft revision conflicts with the persisted draft')
+    super('XTLaw Composer draft revision conflicts with the persisted draft')
     this.name = 'ComposerDraftConflictError'
   }
 }

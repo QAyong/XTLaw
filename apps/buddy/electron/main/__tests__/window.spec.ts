@@ -77,7 +77,7 @@ describe('createDesktopWindow lifecycle', () => {
     const onCloseToQuit = vi.fn()
     const onHidden = vi.fn()
     createDesktopWindow({
-      appName: 'Lexora Buddy Dev',
+      appName: 'XTLaw Dev',
       iconPath: '/tmp/icon.png',
       isQuitting: () => false,
       minimizeToTrayOnClose: () => false,
@@ -100,7 +100,7 @@ describe('createDesktopWindow lifecycle', () => {
     let isQuitting = false
     const onHidden = vi.fn()
     createDesktopWindow({
-      appName: 'Lexora Buddy Dev',
+      appName: 'XTLaw Dev',
       iconPath: '/tmp/icon.png',
       isQuitting: () => isQuitting,
       minimizeToTrayOnClose: () => true,
@@ -109,11 +109,11 @@ describe('createDesktopWindow lifecycle', () => {
       rendererUrl: null,
     })
     const window = electron.FakeBrowserWindow.instances.at(-1)!
-    expect(window.options.title).toBe('Lexora Buddy Dev')
+    expect(window.options.title).toBe('XTLaw Dev')
     const pageTitleUpdate = { preventDefault: vi.fn() }
     window.emit('page-title-updated', pageTitleUpdate)
     expect(pageTitleUpdate.preventDefault).toHaveBeenCalledOnce()
-    expect(window.setTitle).toHaveBeenCalledWith('Lexora Buddy Dev')
+    expect(window.setTitle).toHaveBeenCalledWith('XTLaw Dev')
     const ordinaryClose = { preventDefault: vi.fn() }
 
     window.emit('close', ordinaryClose)

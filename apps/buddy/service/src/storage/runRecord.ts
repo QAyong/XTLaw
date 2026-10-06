@@ -49,7 +49,7 @@ export interface RunRow {
 export function requireRunRecord(value: unknown, id: string): RunRecord {
   const row = value as RunRow | undefined
   if (!row)
-    throw new Error(`Lexora Buddy run was not persisted: ${id}`)
+    throw new Error(`XTLaw run was not persisted: ${id}`)
   return toRunRecord(row)
 }
 

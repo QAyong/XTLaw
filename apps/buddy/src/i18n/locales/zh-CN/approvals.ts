@@ -53,7 +53,7 @@ export default {
   'desktop.approval.currentWorkspace': '将在当前工作区执行',
   'desktop.approval.processing': '处理中…',
   'desktop.approval.processStartedAt': '进程启动时间',
-  'desktop.approval.request': 'Lexora Buddy 请求{operation}',
+  'desktop.approval.request': 'XTLaw 请求{operation}',
   'desktop.approval.runCommand': '执行命令',
   'desktop.approval.reason': '操作原因',
   'desktop.approval.scopeAuthorized': '目标位于已授权目录内',

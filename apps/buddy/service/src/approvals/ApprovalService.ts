@@ -384,7 +384,7 @@ export class ApprovalService {
       this.#lifecycle.dispose()
     }
     if (failures.length)
-      throw new AggregateError(failures, 'Lexora Buddy approval shutdown could not persist every cancellation')
+      throw new AggregateError(failures, 'XTLaw approval shutdown could not persist every cancellation')
   }
 
   #releaseWaiter(approval: ApprovalRecord, reason: Extract<ApprovalLifecycleFact, { kind: 'waiter.released' }>['reason'], persistence: 'committed' | 'failed'): void {
@@ -489,7 +489,7 @@ export class ApprovalCancelledError extends Error implements ToolCallBlockingErr
   readonly toolCallBlockReason = this.code
 
   constructor() {
-    super('Lexora Buddy approval was cancelled')
+    super('XTLaw approval was cancelled')
     this.name = 'ApprovalCancelledError'
   }
 }
@@ -499,7 +499,7 @@ export class ApprovalExpiredError extends Error implements ToolCallBlockingError
   readonly toolCallBlockReason = this.code
 
   constructor() {
-    super('Lexora Buddy approval expired')
+    super('XTLaw approval expired')
     this.name = 'ApprovalExpiredError'
   }
 }
@@ -508,11 +508,11 @@ export class ApprovalResolutionError extends Error {
   readonly code = 'APPROVAL_NOT_PENDING'
 
   constructor() {
-    super('Lexora Buddy approval is not pending')
+    super('XTLaw approval is not pending')
     this.name = 'ApprovalResolutionError'
   }
 }
 
 function asError(error: unknown): Error {
-  return error instanceof Error ? error : new Error('Lexora Buddy approval failed')
+  return error instanceof Error ? error : new Error('XTLaw approval failed')
 }

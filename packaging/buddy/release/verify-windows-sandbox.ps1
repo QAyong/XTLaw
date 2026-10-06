@@ -44,10 +44,10 @@ try {
     $desktopAcceptance = @"
   `$installer = Start-Process -FilePath (Join-Path `$PWD 'payload\desktop-installer.exe') -ArgumentList '/S' -Wait -PassThru
   if (`$installer.ExitCode -ne 0) {
-    Get-Content -LiteralPath (Join-Path `$env:TEMP 'Lexora-Buddy-installer.log') -ErrorAction SilentlyContinue >> 'result.log'
+    Get-Content -LiteralPath (Join-Path `$env:TEMP 'XTLaw-installer.log') -ErrorAction SilentlyContinue >> 'result.log'
     throw "Standard user NSIS installation failed: `$(`$installer.ExitCode)"
   }
-  `$installed = Join-Path `$env:LOCALAPPDATA 'Programs\Lexora Buddy'
+  `$installed = Join-Path `$env:LOCALAPPDATA 'Programs\XTLaw'
   & (Join-Path `$PWD 'payload\node.exe') '$desktopVerifier' `$installed --require-sandbox >> 'result.log' 2>&1
   if (`$LASTEXITCODE -ne 0) { throw "Installed standard user Desktop verification failed: `$LASTEXITCODE" }
 "@

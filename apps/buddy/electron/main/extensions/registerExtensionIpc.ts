@@ -202,7 +202,7 @@ export function registerExtensionIpc(options: {
           const owner = window()
           if (!owner)
             throw new Error('EXTENSION_WINDOW_UNAVAILABLE')
-          const result = await dialog.showOpenDialog(owner, { properties: input.development ? ['openDirectory'] : ['openFile'], ...(input.development ? {} : { filters: [{ name: 'Lexora Extension', extensions: ['lexora-extension', 'zip'] }] }) })
+          const result = await dialog.showOpenDialog(owner, { properties: input.development ? ['openDirectory'] : ['openFile'], ...(input.development ? {} : { filters: [{ name: 'XTLaw Extension', extensions: ['lexora-extension', 'zip'] }] }) })
           return result.canceled || !result.filePaths[0] ? null : await service.review(result.filePaths[0], input.development)
         }
         case 'install': return await service.install(input.token)

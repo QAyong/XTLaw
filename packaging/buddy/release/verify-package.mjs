@@ -19,7 +19,7 @@ const repoRoot = resolve(import.meta.dirname, '../../..')
 export function verifyDesktopResources(directory, targetId) {
   const platform = resolveBuildTarget(targetId)
   const platformId = platform.platform
-  const executablePath = join(directory, platformId === OPERATING_SYSTEM.MacOS ? 'Contents/MacOS/lexora-buddy' : platformId === OPERATING_SYSTEM.Windows ? 'Lexora Buddy.exe' : 'lexora-buddy')
+  const executablePath = join(directory, platformId === OPERATING_SYSTEM.MacOS ? 'Contents/MacOS/xtlaw' : platformId === OPERATING_SYSTEM.Windows ? 'XTLaw.exe' : 'xtlaw')
   assertNativeExecutable(readFileSync(executablePath), platform, executablePath)
   const resources = join(directory, platformId === OPERATING_SYSTEM.MacOS ? 'Contents/Resources' : 'resources')
   for (const { to: path } of platformResources(platform)) {
@@ -96,14 +96,14 @@ export function verifyLinuxPackage(target, artifact, cwd = repoRoot, targetId = 
     }
     const { version } = readBuddyReleaseMetadata(cwd)
     verifyLinuxMetadata(target, metadata, version, resolveBuildTarget(targetId))
-    const result = verifyDesktopDirectory(join(directory, 'opt/lexora-buddy'), targetId, cwd)
+    const result = verifyDesktopDirectory(join(directory, 'opt/xtlaw'), targetId, cwd)
     const { desktopName, productName } = JSON.parse(readFileSync(join(cwd, 'apps/buddy/package.json'), 'utf8'))
     const desktop = readFileSync(join(directory, `usr/share/applications/${desktopName}.desktop`), 'utf8')
-    for (const entry of [`Name=${productName}`, 'Exec=/opt/lexora-buddy/lexora-buddy %U', 'Icon=lexora-buddy', `StartupWMClass=${desktopName}`]) {
+    for (const entry of [`Name=${productName}`, 'Exec=/opt/xtlaw/xtlaw %U', 'Icon=xtlaw', `StartupWMClass=${desktopName}`]) {
       if (!desktop.split(/\r?\n/).includes(entry))
         throw new Error(`Desktop entry is missing ${entry}`)
     }
-    if (!existsSync(join(directory, 'usr/share/icons/hicolor/512x512/apps/lexora-buddy.png')))
+    if (!existsSync(join(directory, 'usr/share/icons/hicolor/512x512/apps/xtlaw.png')))
       throw new Error('Desktop package icon is missing')
     return result
   }
@@ -121,8 +121,8 @@ export function verifyLinuxMetadata(target, content, version, buildTarget) {
       fields.set(match[1], [...fields.get(match[1]) ?? [], match[2].trim()])
   }
   const expected = deb
-    ? { Package: 'lexora-buddy', Version: version, Architecture: buildTarget.architecture === CPU_ARCHITECTURE.X64 ? 'amd64' : 'arm64' }
-    : { pkgname: 'lexora-buddy', pkgver: `${version}-1`, arch: 'x86_64' }
+    ? { Package: 'xtlaw', Version: version, Architecture: buildTarget.architecture === CPU_ARCHITECTURE.X64 ? 'amd64' : 'arm64' }
+    : { pkgname: 'xtlaw', pkgver: `${version}-1`, arch: 'x86_64' }
   for (const [key, value] of Object.entries(expected)) {
     if (fields.get(key)?.[0] !== value)
       throw new Error(`${target} ${key} must be ${value}`)

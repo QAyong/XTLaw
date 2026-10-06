@@ -132,7 +132,7 @@ onScopeDispose(cancel)
       </div>
     </template>
     <NAlert v-if="state.installations.value.some(job => job.status === 'running')" type="info">
-      {{ language === 'en-US' ? 'Installing plugin. You can continue using Lexora.' : '正在安装插件，你可以继续使用 Lexora。' }}
+      {{ language === 'en-US' ? 'Installing plugin. You can continue using XTLaw.' : '正在安装插件，你可以继续使用 XTLaw。' }}
       <NButton text @click="installationLog = true">
         {{ language === 'en-US' ? 'View progress' : '查看进度' }}
       </NButton>

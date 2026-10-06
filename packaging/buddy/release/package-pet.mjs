@@ -14,7 +14,7 @@ const buddyRoot = paths.buddyRoot
 const version = JSON.parse(
   readFileSync(join(buddyRoot, 'buddy.version.json'), 'utf8'),
 ).version
-const packageName = `Lexora-Buddy-Pet-${version}-linux-${resolveBuildTarget().architecture === CPU_ARCHITECTURE.X64 ? 'x86_64' : 'aarch64'}`
+const packageName = `XTLaw-Pet-${version}-linux-${resolveBuildTarget().architecture === CPU_ARCHITECTURE.X64 ? 'x86_64' : 'aarch64'}`
 const outputRoot = paths.artifacts.pet
 const stagingRoot = paths.package.pet
 const packageRoot = join(stagingRoot, packageName)
@@ -22,7 +22,7 @@ const petSource = join(paths.build.native, 'release/lexora-buddy-pet')
 const petTarget = join(packageRoot, 'bin/lexora-buddy-pet')
 
 if (resolveBuildTarget().platform !== OPERATING_SYSTEM.Linux)
-  throw new Error('Lexora Buddy standalone pet packaging requires Linux')
+  throw new Error('XTLaw standalone pet packaging requires Linux')
 
 rmSync(stagingRoot, { force: true, recursive: true })
 rmSync(outputRoot, { force: true, recursive: true })
@@ -35,17 +35,17 @@ cpSync(petSource, petTarget)
 chmodSync(petTarget, 0o755)
 cpSync(
   join(buddyRoot, 'resources/icons/app-icon.png'),
-  join(packageRoot, 'share/icons/hicolor/512x512/apps/lexora-buddy.png'),
+  join(packageRoot, 'share/icons/hicolor/512x512/apps/xtlaw.png'),
 )
 writeFileSync(
-  join(packageRoot, 'share/applications/lexora-buddy.desktop'),
+  join(packageRoot, 'share/applications/xtlaw.desktop'),
   [
     '[Desktop Entry]',
     'Type=Application',
-    'Name=Lexora Buddy',
-    'Comment=Lexora desktop pet',
+    'Name=XTLaw',
+    'Comment=XTLaw desktop companion',
     'Exec=lexora-buddy-pet --native-pet',
-    'Icon=lexora-buddy',
+    'Icon=xtlaw',
     'Terminal=false',
     'Categories=Utility;',
     '',
@@ -54,7 +54,7 @@ writeFileSync(
 writeFileSync(
   join(packageRoot, 'README.txt'),
   [
-    'Lexora Buddy standalone pet',
+    'XTLaw standalone desktop companion',
     '',
     'Copy bin/lexora-buddy-pet into PATH, then run:',
     '  lexora-buddy-pet --native-pet',

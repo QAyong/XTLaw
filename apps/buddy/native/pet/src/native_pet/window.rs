@@ -162,7 +162,7 @@ pub(super) fn run_native_pet_sidecar(config: NativePetLaunchConfig) -> BuddyResu
         match load_native_pet_position_state(&config.position_state_path) {
             Ok(position) => position,
             Err(error) => {
-                eprintln!("Lexora Buddy native pet position state ignored: {error}");
+                eprintln!("XTLaw native pet position state ignored: {error}");
                 None
             }
         }
@@ -1047,7 +1047,7 @@ pub(super) fn run_native_pet_sidecar(config: NativePetLaunchConfig) -> BuddyResu
                             position_state_path.as_ref(),
                             window_position.get(),
                         ) {
-                            eprintln!("Lexora Buddy native pet position save failed: {error}");
+                            eprintln!("XTLaw native pet position save failed: {error}");
                         }
                     }
                 }

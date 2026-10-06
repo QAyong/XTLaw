@@ -1,4 +1,4 @@
-# Lexora 插件协议
+# XTLaw 插件协议
 
 一个包包含根 `extension.json` 和包内文件。源码包支持自包含 `.ts`、`.mts`、`.js`、`.mjs`，以及静态 CSS、图片等资源；原始 HTML、Vue 单文件组件、npm 裸导入不属于当前编译协议。第三方库需作者预先打包。不要生成 `package.json`、锁文件、构建脚本、`node_modules` 或远程 CDN 依赖。
 
@@ -22,7 +22,7 @@
 }
 ```
 
-`<plugin-id>` 是占位符，填写时必须替换为新插件身份工具返回的 ID，或正在维护的源码清单中的既有 ID；后续声明中的占位符同样替换。宿主代码通过 `context.extension.id` 引用当前插件，不复制示例身份。作者署名 `author` 可选，支持 Unicode，最多 80 个用户可见字符，不含换行或控制字符；留空表示未署名。不符合规则时说明原因，给出候选并通过对话确定，不静默截断或替换。作者与显示名可变，ID 和末尾的调用名保持稳定。使用作者字段的包要求 Lexora 0.9.0 或更新版本。
+`<plugin-id>` 是占位符，填写时必须替换为新插件身份工具返回的 ID，或正在维护的源码清单中的既有 ID；后续声明中的占位符同样替换。宿主代码通过 `context.extension.id` 引用当前插件，不复制示例身份。作者署名 `author` 可选，支持 Unicode，最多 80 个用户可见字符，不含换行或控制字符；留空表示未署名。不符合规则时说明原因，给出候选并通过对话确定，不静默截断或替换。作者与显示名可变，ID 和末尾的调用名保持稳定。使用作者字段的包要求 XTLaw 0.9.0 或更新版本。
 
 可选字段：`author`、`icon`（包内 SVG/PNG/JPEG/WebP，≤64 KiB）、`categories`、`tags`、宿主 `entry`、`dataVersion`。不要添加未定义的字段。命令、视图和挂载声明的 ID 以插件 ID 加 `.` 开头且不重复。文件路径相对包根，不能包含 `..` 或符号链接；512 文件、单文件 16 MiB、合计 64 MiB 上限；压缩输入与实际解压后的总字节数均受限。
 
@@ -88,11 +88,11 @@
 | --- | --- | --- |
 | 输入框内部 | `kind: "decoration"`、`anchor: "composer.input"` | 只接收该输入框活动，caret 相对输入框，绘制裁剪在输入框内 |
 | 整个输入所在分屏 | `kind: "decoration"`、`anchor: "workbench.pane"` | 每个分屏独立实例，只接收自己内部的对话输入活动，caret 相对该分屏；可以覆盖对话区域，不能越过分屏边界 |
-| 整个 Lexora 窗口 | 视图 `location: "window-overlay"` | API 1、API 2 均只收到 `{type:"composer-input"}`，不含来源分屏与坐标；插件自行选择窗口内的位置 |
+| 整个 XTLaw 窗口 | 视图 `location: "window-overlay"` | API 1、API 2 均只收到 `{type:"composer-input"}`，不含来源分屏与坐标；插件自行选择窗口内的位置 |
 
 分屏装饰随分屏创建、改变尺寸和关闭；页面隐藏时保留实例并更新可见性。事件绑定输入发生的分屏，不随之后的焦点切换转交其他分屏；插件无需读取任务或分屏 ID。多个分屏及多个插件的实例各自隔离。此锚点提供透明装饰区域，不提供交互面板外壳。
 
-事件没有字符、按键、文本长度或任务 ID，最多约每秒 20 次，只来自前台 Lexora 对话输入框，包括输入法输入。宿主过滤程序性修改、其他输入框和减少动态效果模式。不要注册父窗口键盘事件。
+事件没有字符、按键、文本长度或任务 ID，最多约每秒 20 次，只来自前台 XTLaw 对话输入框，包括输入法输入。宿主过滤程序性修改、其他输入框和减少动态效果模式。不要注册父窗口键盘事件。
 
 宿主保持 iframe 透明且不拦截鼠标或焦点。插件使用 DOM、Canvas、Web Animations 或 requestAnimationFrame 绘制。保持 `html/body` 透明，不铺不透明全屏背景；无操作时不持续刷新。禁用、卸载和窗口销毁会关闭视图。通过 `context.signal` 清理事件、计时器与动画；粒子和同时运行的动画必须有上限。
 
@@ -199,7 +199,7 @@ API 4 插件另外声明 `selectedResourceWrite: true` 后，该普通文件视�
 
 API 4 的 selected-file 普通 DOCX 视图声明 `composerReference: true` 后，可调用 `context.composer.captureQuote(context.resource,{text,indexes,from,to})`。`indexes` 是最多 64 个 DOCX 正文块索引，`from/to` 是编辑器位置；文字最多 32768 个 UTF-16 字符。宿主绑定当前文件、已读内容哈希及版本，返回 `{id,defaultId,targets:[{id,label}]}`；不会返回聊天草稿内容。用户选择目标后调用 `context.composer.addQuote(id,targetId)`，返回 added / duplicate / limit / unavailable。捕获有效期为 2 分钟；加入前重新检查文件授权、文件版本、源视图和目标草稿身份。引用为文字快照，不写入文档、不替换草稿正文或发送消息。引用结果由主程序使用公共资源引用提示显示，成功文案带目标名称；插件保留自己的采集和菜单交互，不再额外弹出结果提示。
 
-后台提醒使用 `context.schedules.set({ id, command, enabled, intervalMinutes })`，间隔最少 1 分钟；不要用页面 setInterval 代替跨页面提醒。Lexora 退出后暂停，重启继续，错过的提醒不会补发。
+后台提醒使用 `context.schedules.set({ id, command, enabled, intervalMinutes })`，间隔最少 1 分钟；不要用页面 setInterval 代替跨页面提醒。XTLaw 退出后暂停，重启继续，错过的提醒不会补发。
 
 ## 主题与样式
 

@@ -40,7 +40,7 @@ export interface ConversationRow {
 export function requireConversationRecord(value: unknown, id: string): ConversationRecord {
   const row = value as ConversationRow | undefined
   if (!row)
-    throw new Error(`Lexora Buddy conversation was not persisted: ${id}`)
+    throw new Error(`XTLaw conversation was not persisted: ${id}`)
   return toConversationRecord(row)
 }
 

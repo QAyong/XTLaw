@@ -6,7 +6,7 @@ const snapshots = new WeakMap<LexoraDesktopApi, Promise<DesktopAppInfo>>()
 
 export function loadDesktopAppInfo(api = window.lexoraDesktop): Promise<DesktopAppInfo> {
   if (!api)
-    return Promise.reject(new Error('Lexora Buddy Desktop API is unavailable'))
+    return Promise.reject(new Error('XTLaw Desktop API is unavailable'))
   const cached = snapshots.get(api)
   if (cached)
     return cached

@@ -50,7 +50,7 @@ export class BuddyInputReferenceError extends Error {
   readonly code: 'INPUT_REFERENCE_INVALID' | 'INPUT_REFERENCE_MISMATCH'
 
   constructor(code: BuddyInputReferenceError['code']) {
-    super('Lexora Buddy input reference is invalid')
+    super('XTLaw input reference is invalid')
     this.name = 'BuddyInputReferenceError'
     this.code = code
   }

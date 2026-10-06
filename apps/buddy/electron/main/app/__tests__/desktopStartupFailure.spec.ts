@@ -17,7 +17,7 @@ describe('startup failure presentation', () => {
   it('keeps PowerShell recovery guidance and hides arbitrary error text', () => {
     expect(describeDesktopStartupFailure(new PowerShellUnavailableError(), 'en-US').detail).toContain('Install PowerShell 7')
     const options = describeDesktopStartupFailure(new Error('token=fixture-secret C:\\Users\\fixture'), 'en-US')
-    expect(options.message).toBe('Lexora Buddy could not start')
+    expect(options.message).toBe('XTLaw could not start')
     expect(options.detail).toContain('OPERATION_FAILED')
     expect(options.detail).not.toContain('fixture')
   })

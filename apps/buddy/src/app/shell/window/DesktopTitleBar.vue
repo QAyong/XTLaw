@@ -104,7 +104,7 @@ async function executeDesktopCommand(commandId: DesktopCommandId) {
     await handler()
   }
   catch (error) {
-    console.error(`Lexora Buddy Desktop command ${commandId} failed`, error)
+    console.error(`XTLaw Desktop command ${commandId} failed`, error)
     message.error(t('desktop.command.failed'))
   }
 }
@@ -127,7 +127,7 @@ async function checkForUpdates() {
     await updates.check()
   }
   catch (error) {
-    console.error('Lexora Buddy update check failed', error)
+    console.error('XTLaw update check failed', error)
     message.error(t('desktop.update.failed'))
   }
 }
@@ -138,7 +138,7 @@ async function openFeedbackIssue(feedback: string) {
     showFeedback.value = false
   }
   catch (error) {
-    console.error('Lexora Buddy feedback page is unavailable', error)
+    console.error('XTLaw feedback page is unavailable', error)
     message.error(t('desktop.command.failed'))
   }
 }

@@ -41,7 +41,7 @@ describe('buddyChatAgentIdentity', () => {
     await nextTick()
 
     expect(root.querySelector('img')?.getAttribute('src')).toBe(BRAND_ASSET_URLS.chatAvatar)
-    expect(root.querySelector('.buddy-chat-agent-identity__name')?.textContent.trim()).toBe('Lexora Buddy')
+    expect(root.querySelector('.buddy-chat-agent-identity__name')?.textContent.trim()).toBe('XTLaw')
 
     app.unmount()
   })

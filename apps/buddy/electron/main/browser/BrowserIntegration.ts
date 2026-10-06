@@ -56,7 +56,7 @@ export class BrowserIntegration {
         const chinese = this.#options.getLanguage?.() === 'zh-CN'
         const result = await dialog.showMessageBox(window, {
           type: type === 'confirm' ? 'question' : 'info',
-          title: chinese ? 'Lexora — 网页对话框' : 'Lexora — Web page',
+          title: chinese ? 'XTLaw — 网页对话框' : 'XTLaw — Web page',
           message: origin,
           detail: message,
           buttons: type === 'confirm' ? (chinese ? ['取消', '确定'] : ['Cancel', 'OK']) : [chinese ? '确定' : 'OK'],

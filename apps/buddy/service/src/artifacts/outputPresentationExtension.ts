@@ -94,7 +94,7 @@ export function createOutputPresentationExtension(
 function outputPresentFailure(code: string) {
   return {
     content: [{
-      text: `Lexora Buddy could not present the output: ${code}`,
+      text: `XTLaw could not present the output: ${code}`,
       type: 'text' as const,
     }],
     details: { artifactIds: [], code },

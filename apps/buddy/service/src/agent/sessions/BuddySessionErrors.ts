@@ -4,7 +4,7 @@ export class BuddySessionCreationError extends Error {
   readonly code = 'SESSION_BINDING_INVALID'
 
   constructor(options?: ErrorOptions) {
-    super('Lexora Buddy session binding is invalid', options)
+    super('XTLaw session binding is invalid', options)
     this.name = 'BuddySessionCreationError'
   }
 }
@@ -13,7 +13,7 @@ export class BuddySessionStorageError extends Error {
   readonly code = 'SESSION_STORAGE_UNAVAILABLE'
 
   constructor(options?: ErrorOptions) {
-    super('Lexora Buddy session storage is unavailable', options)
+    super('XTLaw session storage is unavailable', options)
     this.name = 'BuddySessionStorageError'
   }
 }

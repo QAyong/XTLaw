@@ -16,6 +16,8 @@ export function platformResources(target) {
   return [
     ...definitions.skills.map(name => ({ from: `service/resources/skills/${name}`, to: `service/resources/skills/${name}` })),
     ...nativeHostResources(target).map(({ from, to }) => ({ from, to })),
+    { from: '.output/resources/bundled-extensions/catalog.json', to: 'bundled-extensions/catalog.json' },
+    { from: '.output/resources/bundled-extensions/office.lexora-extension', to: 'bundled-extensions/office.lexora-extension' },
     { from: `${searchTools.resource.from}/${target.id}`, to: searchTools.resource.to },
     ...(target.platform === OPERATING_SYSTEM.Linux ? [{ from: `${shellSandbox.resource.from}/${target.id}`, to: shellSandbox.resource.to }] : []),
     ...target.features.flatMap(id => featureResources[id]),

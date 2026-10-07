@@ -142,7 +142,7 @@ impl LayerShellApi {
         unsafe {
             (self.init_for_window)(window);
             if let Some(set_namespace) = self.set_namespace {
-                if let Ok(namespace) = CString::new("lexora-buddy-pet") {
+                if let Ok(namespace) = CString::new("xtlaw-pet") {
                     set_namespace(window, namespace.as_ptr());
                 }
             }

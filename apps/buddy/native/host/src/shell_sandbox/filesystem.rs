@@ -186,6 +186,9 @@ impl AclLock {
         let descriptor =
             SecurityDescriptor::new(&format!("D:P(A;;GA;;;{user})(A;;GA;;;SY)(A;;GA;;;BA)"))?;
         let attributes = descriptor.attributes(false);
+        // Intentionally retain the shared ACL lock: both products may grant
+        // access to the same user-selected directory. Separate locks could
+        // race while rewriting its ACL; this lock shares no application data.
         // SAFETY: The mutex is scoped to the host user, with no AppContainer access or inherited handle.
         let handle = owned(unsafe {
             CreateMutexW(

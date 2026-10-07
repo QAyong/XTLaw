@@ -7,7 +7,7 @@ use serde::Deserialize;
 
 use crate::error::{BuddyError, BuddyResult};
 
-const LEXORA_HOME_ENV: &str = "LEXORA_HOME";
+const LEXORA_HOME_ENV: &str = "XTLAW_HOME";
 const HOME_ENV: &str = "HOME";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -41,7 +41,7 @@ pub(super) fn resolve_native_pet_config_path() -> BuddyResult<PathBuf> {
             let home = env::var_os(HOME_ENV)
                 .filter(|value| !value.is_empty())
                 .ok_or_else(|| BuddyError::Validation("HOME is required".to_owned()))?;
-            require_absolute_path(PathBuf::from(home), HOME_ENV)?.join(".lexora")
+            require_absolute_path(PathBuf::from(home), HOME_ENV)?.join(".xtlaw")
         }
     };
 

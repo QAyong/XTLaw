@@ -1,10 +1,12 @@
 import type { RuntimeRequestHandler, RuntimeRpcPeerContract } from '../../../../shared/runtime/rpcPeer'
 import type { NativePetChildProcess } from '../NativePetSupervisor'
 import { EventEmitter } from 'node:events'
+import { join } from 'node:path'
 import { PassThrough } from 'node:stream'
 import { describe, expect, it, vi } from 'vitest'
 
 import {
+  createNativePetEnvironment,
   createNativePetProcessFactory,
   NativePetSupervisor,
 } from '../NativePetSupervisor'
@@ -168,6 +170,17 @@ describe('nativePetSupervisor', () => {
     expect(supervisor.state).toEqual({ restartAttempt: 0, status: 'offline' })
   })
 
+  it('forwards XTLaw data and communication paths without provider credentials', () => {
+    const paths = {
+      XTLAW_HOME: '/tmp/xtlaw-home',
+      XTLAW_BUDDY_PET_SOCKET: '/tmp/xtlaw-pet.sock',
+      XTLAW_BUDDY_PET_STATE_PATH: '/tmp/xtlaw-pet-state.json',
+    }
+    const environment = createNativePetEnvironment({ ...paths, ANTHROPIC_API_KEY: 'secret' })
+    expect(environment).toMatchObject(paths)
+    expect(environment).not.toHaveProperty('ANTHROPIC_API_KEY')
+  })
+
   it('spawns the pet with desktop session variables but without provider credentials', () => {
     const process = new FakePetProcess(99)
     const spawnPet = vi.fn((
@@ -196,7 +209,7 @@ describe('nativePetSupervisor', () => {
 
     factory()
 
-    expect(spawnPet.mock.calls[0]![0]).toBe('/workspace/apps/buddy/.output/build/native/debug/lexora-buddy-pet')
+    expect(spawnPet.mock.calls[0]![0]).toBe(join('/workspace/apps/buddy', '.output', 'build', 'native', 'debug', 'lexora-buddy-pet'))
     const spawnedEnvironment = spawnPet.mock.calls[0]![2].env
     expect(spawnedEnvironment).toMatchObject({
       DBUS_SESSION_BUS_ADDRESS: 'unix:path=/run/user/1000/bus',

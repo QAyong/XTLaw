@@ -19,7 +19,7 @@ async function main() {
     ?? resolve(outputPaths.package.desktop, 'linux-unpacked/xtlaw'),
   )
   const binaryPath = resolve(
-    process.env.LEXORA_BUDDY_PET_PATH
+    process.env.XTLAW_BUDDY_PET_PATH
     ?? resolve(outputPaths.build.native, 'release/lexora-buddy-pet'),
   )
   const smokeRoot = mkdtempSync(join(tmpdir(), 'lexora-desktop-smoke-'))
@@ -29,8 +29,8 @@ async function main() {
     await writeFile(join(lexoraHome, 'config.toml'), '[pet]\nenabled = false\n', { mode: 0o600 })
     const smokeEnv = {
       ...process.env,
-      LEXORA_BUDDY_PET_SOCKET: join(smokeRoot, 'native-pet.sock'),
-      LEXORA_HOME: lexoraHome,
+      XTLAW_BUDDY_PET_SOCKET: join(smokeRoot, 'native-pet.sock'),
+      XTLAW_HOME: lexoraHome,
     }
 
     await runDesktopSmoke(desktopPath, smokeEnv)
@@ -38,8 +38,8 @@ async function main() {
       const petFixture = await prepareStandalonePetSmokeFixture(smokeRoot)
       await runNativePetSmoke(binaryPath, 12_000, {
         ...smokeEnv,
-        LEXORA_BUDDY_PET_SOCKET: petFixture.socketPath,
-        LEXORA_HOME: petFixture.lexoraHome,
+        XTLAW_BUDDY_PET_SOCKET: petFixture.socketPath,
+        XTLAW_HOME: petFixture.lexoraHome,
       })
     }
     writeOutput(desktopOnly

@@ -8,8 +8,10 @@ import type { ExtensionConditionRuntime } from '../../../shared/extensions/exten
 import type { SpaceFileByteChunk, SpaceFileByteRequest, SpaceFileTarget, SpaceSaveBytes, SpaceSaveBytesResult } from '../../../shared/spaces/spaceFileApi'
 import type { JsonValue } from '../../../shared/workbench/workbenchState'
 import { join } from 'node:path'
-import { dialog, ipcMain, Notification, powerMonitor, session } from 'electron'
+import process from 'node:process'
+import { app, dialog, ipcMain, Notification, powerMonitor, session } from 'electron'
 import { z } from 'zod'
+import { BundledExtensionCatalog } from '../../../platform/extensions/BundledExtensionCatalog'
 import { ExtensionPackageStore } from '../../../platform/extensions/ExtensionPackageStore'
 import { ExtensionService } from '../../../platform/extensions/ExtensionService'
 import { observeExtensionDiagnostics } from '../../../platform/extensions/observeExtensionDiagnostics'
@@ -63,6 +65,8 @@ export function registerExtensionIpc(options: {
     agentRequest: options.agentRequest,
     conditionRuntime: options.conditionRuntime,
     get: options.get,
+    bundled: new BundledExtensionCatalog(join(app.isPackaged ? process.resourcesPath : join(app.getAppPath(), '.output/resources'), 'bundled-extensions')),
+    catalogUrl: null,
     compile: compileExtension,
     selectResources: async (name, selection, signal) => {
       const owner = window()

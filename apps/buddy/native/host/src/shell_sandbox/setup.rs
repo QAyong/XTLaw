@@ -50,8 +50,7 @@ use super::{
 };
 use crate::windows_security::Sid;
 
-const UNINSTALL_KEY: &str =
-    r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\LexoraBuddySandbox";
+const UNINSTALL_KEY: &str = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\XTLawSandbox";
 const BINARY: &str = "lexora-buddy-sandbox.exe";
 
 pub(super) struct Service(pub(super) SC_HANDLE);
@@ -504,7 +503,7 @@ fn register_uninstaller(target: &std::path::Path) -> io::Result<()> {
         for (name, value) in [
             ("DisplayName", "XTLaw Sandbox".to_owned()),
             ("DisplayVersion", env!("CARGO_PKG_VERSION").to_owned()),
-            ("Publisher", "Lexora".to_owned()),
+            ("Publisher", "XTLaw".to_owned()),
             (
                 "UninstallString",
                 format!("\"{}\" remove", target.display()),

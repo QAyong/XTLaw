@@ -14,18 +14,18 @@ interface NativePetControlSocketPathOptions {
 export function resolveNativePetControlSocketPath(
   options: NativePetControlSocketPathOptions,
 ): string {
-  const override = options.env.LEXORA_BUDDY_PET_SOCKET
+  const override = options.env.XTLAW_BUDDY_PET_SOCKET
   if (override) {
     if (!isAbsolute(override))
-      throw new Error('LEXORA_BUDDY_PET_SOCKET must be an absolute path')
+      throw new Error('XTLAW_BUDDY_PET_SOCKET must be an absolute path')
     return override
   }
   if (options.env.XDG_RUNTIME_DIR) {
-    return join(options.env.XDG_RUNTIME_DIR, 'lexora-buddy', 'native-pet.sock')
+    return join(options.env.XDG_RUNTIME_DIR, 'xtlaw', 'native-pet.sock')
   }
   return join(
     options.temporaryDirectory,
-    `lexora-buddy-uid-${options.userId}`,
+    `xtlaw-uid-${options.userId}`,
     'native-pet.sock',
   )
 }

@@ -12,11 +12,11 @@ async function start() {
   const run = await mkdtemp(path.join(runs, 'office-dev-'))
   const home = await mkdtemp(path.join(tmpdir(), 'lexora-office-dev-'))
   await writeFile(path.join(home, 'config.toml'), '[desktop]\nlanguage="zh-CN"\nnotifications_enabled=false\nlaunch_at_login=false\n[pet]\nenabled=false\n[proxy]\nmode="direct"\nserver=""\n')
-  const environment = Object.fromEntries(Object.entries(process.env).filter(([key, value]) => value !== undefined && !/^(?:LEXORA_|ELECTRON_|PI_)/.test(key)))
+  const environment = Object.fromEntries(Object.entries(process.env).filter(([key, value]) => value !== undefined && !/^(?:XTLAW_|LEXORA_|ELECTRON_|PI_)/.test(key)))
   const args = ['--filter', '@uselexora/lexora-buddy', 'dev', '--remoteDebuggingPort', '9237', '--watch']
   const child = spawn(process.platform === 'win32' ? 'cmd.exe' : 'pnpm', process.platform === 'win32' ? ['/d', '/s', '/c', 'pnpm', ...args] : args, {
     cwd: root,
-    env: { ...environment, LEXORA_HOME: home, LEXORA_BUDDY_PROFILE: 'test', LEXORA_EXTENSION_DEVELOPMENT_PATH: path.join(root, 'plugins/office') },
+    env: { ...environment, XTLAW_HOME: home, XTLAW_BUDDY_PROFILE: 'test', LEXORA_EXTENSION_DEVELOPMENT_PATH: path.join(root, 'plugins/office') },
     stdio: 'inherit',
   })
   await writeFile(path.join(run, 'launch.json'), `${JSON.stringify({ run, home, pid: child.pid, supervisorPid: process.pid, cdpPort: 9237, plugin: path.join(root, 'plugins/office'), mode: 'pnpm dev, isolated test profile' }, null, 2)}\n`)

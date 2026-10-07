@@ -6,6 +6,8 @@
 
 **当前仓库：** `origin` 已由 `QAyong/Lexora` 更名为 `QAyong/XTLaw`；`upstream` 继续保留 `useLexora/Lexora`，用于同步原项目。
 
+> 后续策略变更（2026-10-07）：[Spec-024：XTLaw 独立应用隔离方案](feature-024-xtlaw-independent-application.md)替代本文的共享数据与运行身份策略。XTLaw 改用 `.xtlaw`、独立 Electron 存储、运行命名空间与 Windows 沙盒身份；不自动导入 `.lexora`，旧数据以后手动迁移。下文“继续读取旧数据”的内容保留为第一阶段历史方案，不再作为后续实施目标。品牌与许可证要求仍然有效。
+
 ## 1. 背景与目标
 
 当前项目是在 Lexora 基础上的二次开发版本，计划采用 **XTLaw** 作为对外品牌。仓库虽然已经更名，但桌面应用、安装包、官网、更新检查、反馈入口、图标和说明文档仍主要使用 Lexora 上游信息。

@@ -23,10 +23,10 @@
   },
   "main": "./.output/build/electron/main/index.js",
   "scripts": {
-    "predev": "install-electron --no && node ../../packaging/buddy/release/prepare-desktop-features.mjs",
+    "predev": "install-electron --no && node ../../packaging/buddy/release/prepare-desktop-features.mjs && node ../../packaging/buddy/release/prepare-bundled-extensions.mjs",
     "dev": "electron-vite dev",
     "build": "pnpm build:desktop",
-    "build:electron": "vue-tsc -b --pretty false && electron-vite build",
+    "build:electron": "node ../../packaging/buddy/release/prepare-bundled-extensions.mjs && vue-tsc -b --pretty false && electron-vite build",
     "build:desktop": "node ../../packaging/buddy/release/prepare-desktop-features.mjs --release && pnpm build:electron",
     "build:native-pet": "cargo build --locked --target-dir .output/build/native --manifest-path native/Cargo.toml --package lexora-buddy-pet --bin lexora-buddy-pet",
     "build:native-pet:release": "cargo build --locked --release --target-dir .output/build/native --manifest-path native/Cargo.toml --package lexora-buddy-pet --bin lexora-buddy-pet",

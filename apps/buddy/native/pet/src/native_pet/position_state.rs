@@ -14,7 +14,7 @@ use crate::error::{BuddyError, BuddyResult};
 use super::coordinates::NativePetPosition;
 
 const NATIVE_PET_POSITION_STATE_VERSION: u8 = 1;
-const NATIVE_PET_POSITION_STATE_PATH_ENV: &str = "LEXORA_BUDDY_PET_STATE_PATH";
+const NATIVE_PET_POSITION_STATE_PATH_ENV: &str = "XTLAW_BUDDY_PET_STATE_PATH";
 const XDG_STATE_HOME_ENV: &str = "XDG_STATE_HOME";
 const HOME_ENV: &str = "HOME";
 
@@ -49,7 +49,7 @@ pub(super) fn resolve_native_pet_position_state_path() -> BuddyResult<PathBuf> {
         }
     };
 
-    Ok(state_home.join("lexora-buddy/pet-state.json"))
+    Ok(state_home.join("xtlaw/pet-state.json"))
 }
 
 pub(super) fn load_native_pet_position_state(

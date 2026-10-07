@@ -27,12 +27,12 @@ const sample = zipSync({
   'word/document.xml': strToU8('<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>Office migration smoke</w:t></w:r></w:p><w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr></w:body></w:document>'),
 })
 await writeFile(input, sample)
-const environment = Object.fromEntries(Object.entries(process.env).filter(([key, value]) => value !== undefined && !/^(?:LEXORA_|ELECTRON_|PI_)/.test(key)))
+const environment = Object.fromEntries(Object.entries(process.env).filter(([key, value]) => value !== undefined && !/^(?:XTLAW_|LEXORA_|ELECTRON_|PI_)/.test(key)))
 const app = await electron.launch({
   executablePath: require('electron'),
   args: ['--disable-gpu', '--remote-debugging-port=9237', buddy],
   cwd: root,
-  env: { ...environment, LEXORA_HOME: home, LEXORA_BUDDY_PROFILE: 'test', LEXORA_EXTENSION_DEVELOPMENT_PATH: path.join(root, 'plugins/office') },
+  env: { ...environment, XTLAW_HOME: home, XTLAW_BUDDY_PROFILE: 'test', LEXORA_EXTENSION_DEVELOPMENT_PATH: path.join(root, 'plugins/office') },
   timeout: 45000,
 })
 const report = { profile: 'isolated test', nativeDialogs: 'stubbed to bounded test files; requires manual native-dialog acceptance', errors: [], steps: [] }

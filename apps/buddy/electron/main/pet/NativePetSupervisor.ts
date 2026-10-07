@@ -529,6 +529,8 @@ export function createNativePetEnvironment(source: NodeJS.ProcessEnv): NodeJS.Pr
     && (
       NATIVE_PET_ENVIRONMENT_KEYS.has(key)
       || key.startsWith('LC_')
+      || key === 'XTLAW_HOME'
+      || key.startsWith('XTLAW_BUDDY_PET_')
       || key === 'LEXORA_HOME'
       || key.startsWith('LEXORA_BUDDY_PET_')
       || key.startsWith('LEXORA_BUDDY_NATIVE_PET_')

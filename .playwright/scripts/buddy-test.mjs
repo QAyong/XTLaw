@@ -183,8 +183,8 @@ export async function createBuddyTestRun({ runId = process.env.LEXORA_TEST_RUN_I
 
 function createTestEnvironment(home) {
   const environment = Object.fromEntries(Object.entries(process.env).filter(([key, value]) => value !== undefined
-    && !/^(?:LEXORA_|ELECTRON_|PI_|XDG_|WAYLAND_DISPLAY$)/.test(key)))
-  return { ...environment, LEXORA_BUDDY_PROFILE: 'test', LEXORA_HOME: home }
+    && !/^(?:XTLAW_|LEXORA_|ELECTRON_|PI_|XDG_|WAYLAND_DISPLAY$)/.test(key)))
+  return { ...environment, XTLAW_BUDDY_PROFILE: 'test', XTLAW_HOME: home }
 }
 
 function contains(root, candidate) {

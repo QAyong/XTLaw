@@ -13,7 +13,7 @@ import { OPERATING_SYSTEM } from '../../../shared/platform/identifiers'
 import { attachmentSchemePrivileges } from '../attachmentProtocol'
 import { DesktopDiagnosticLogger } from '../desktopDiagnostics'
 import { extensionSchemePrivileges } from '../extensions/ExtensionProtocol'
-import { resolveBuddyRuntimePaths } from '../paths'
+import { resolveBuddyLaunchOverrides, resolveBuddyRuntimePaths } from '../paths'
 import { desktopHosts } from '../platform/desktopHost'
 import { rendererSchemePrivileges } from '../rendererProtocol'
 import { resolveDesktopLaunchIntent } from '../startupIntent'
@@ -27,16 +27,11 @@ export function prepareDesktopEnvironment(): DesktopEnvironment {
   const desktopHost = desktopHosts[currentPlatform.id]
   const isSmokeTest = process.env.LEXORA_DESKTOP_SMOKE_TEST === '1'
   const paths = bootstrapStep('resolve_paths', () => resolveBuddyRuntimePaths({
-    // Keep the original Electron data directory so credentials encrypted by
-    // earlier Lexora builds remain readable after the visible XTLaw rebrand.
-    defaultUserData: join(app.getPath('appData'), 'Lexora Buddy'),
+    defaultUserData: join(app.getPath('appData'), 'XTLaw'),
     desktopName: buddyPackage.desktopName,
     isPackaged: app.isPackaged,
     localAppData: process.env.LOCALAPPDATA,
-    lexoraHomeOverride: process.env.LEXORA_HOME,
-    nativePetSocketOverride: process.env.LEXORA_BUDDY_PET_SOCKET,
-    nativePetStateOverride: process.env.LEXORA_BUDDY_PET_STATE_PATH,
-    profileOverride: process.env.LEXORA_BUDDY_PROFILE,
+    ...resolveBuddyLaunchOverrides(process.env),
     smokeTest: isSmokeTest,
     temporaryDirectory: tmpdir(),
     userDataOverride: app.commandLine.hasSwitch('user-data-dir')
@@ -139,7 +134,7 @@ export async function prepareDesktopReady(environment: DesktopEnvironment): Prom
     try {
       // The installer supplies this registration for packaged builds. Keep the
       // development activator stable so its shortcut matches across restarts.
-      app.setToastActivatorCLSID('{74C2AE92-485D-4BF5-9E30-68A2C2C3B79E}')
+      app.setToastActivatorCLSID('{BCD0DA45-94A9-4EC9-BDE3-A94B823B116D}')
       const programs = join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs')
       mkdirSync(programs, { recursive: true })
       const registered = shell.writeShortcutLink(join(programs, `${paths.appName}.lnk`), 'create', {

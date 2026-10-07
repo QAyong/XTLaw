@@ -1,8 +1,8 @@
 # 架构概览
 
-**最后更新：** 2026-10-02
+**最后更新：** 2026-10-07
 
-**适用范围：** `apps/buddy/`（Lexora Buddy 桌面应用）
+**适用范围：** `apps/buddy/`（基于 Lexora 二次开发的 XTLaw 桌面应用）
 
 **查看图形：** 本文的 Mermaid 代码块在 Codex / Cursor 对话里可直接渲染；用 VS Code 打开本文件后按 `Ctrl+Shift+V` 预览也可以看图。
 
@@ -10,7 +10,7 @@
 
 ## 1. 一句话
 
-Lexora Buddy 是**纯本地桌面软件，没有远程服务器**。它由三个进程组成，全部跑在用户自己的电脑上；数据存在两个地方 —— 一个配置文件和一个 SQLite 数据库。
+XTLaw 桌面应用是**纯本地桌面软件，没有远程服务器**。它由三个进程组成，全部跑在用户自己的电脑上；数据存在两个地方 —— 一个配置文件和一个 SQLite 数据库。
 
 除了调用模型服务商那一步，其他功能断网也能用。
 
@@ -22,8 +22,8 @@ graph TD
     B["② 主进程<br/>apps/buddy/electron/main/<br/>桌面程序总控：窗口、托盘、配置文件"]
     C["③ 本地服务<br/>apps/buddy/service/<br/>对话、模型调用、审批、命令执行"]
     D[("buddy.sqlite3<br/>本机 SQLite 数据库")]
-    E["~/.lexora/buddy/<br/>会话文件、附件、事件日志"]
-    F["~/.lexora/config.toml<br/>用户偏好设置"]
+    E["~/.xtlaw/buddy/<br/>会话文件、附件、事件日志"]
+    F["~/.xtlaw/config.toml<br/>用户偏好设置"]
     S["apps/buddy/shared/<br/>三边共享的类型与常量"]
 
     A -->|"Electron IPC<br/>ipcRenderer.invoke"| B
@@ -49,11 +49,11 @@ graph TD
 
 | 位置 | 存什么 | 归谁管 | 代码入口 |
 |---|---|---|---|
-| `~/.lexora/config.toml` | 用户偏好：语言、主题、窗口行为、聊天偏好、快捷键 | 主进程 | `electron/main/config/LexoraConfigStore.ts` |
-| `~/.lexora/buddy/buddy.sqlite3` | 对话、草稿、任务、运行记录、用量 | 本地服务 | `service/src/storage/database.ts` |
-| `~/.lexora/buddy/conversations/`、`spaces/`、`drafts/` | 会话文件、附件、事件日志（`.jsonl`） | 本地服务 | `service/src/storage/BuddyDataPaths.ts` |
+| `~/.xtlaw/config.toml` | 用户偏好：语言、主题、窗口行为、聊天偏好、快捷键 | 主进程 | `electron/main/config/LexoraConfigStore.ts` |
+| `~/.xtlaw/buddy/buddy.sqlite3` | 对话、草稿、任务、运行记录、用量 | 本地服务 | `service/src/storage/database.ts` |
+| `~/.xtlaw/buddy/conversations/`、`spaces/`、`drafts/` | 会话文件、附件、事件日志（`.jsonl`） | 本地服务 | `service/src/storage/BuddyDataPaths.ts` |
 
-数据根目录由 `electron/main/paths.ts` 决定：正式版是 `~/.lexora`，开发版是 `~/.lexora-dev`。
+数据根目录由 `electron/main/paths.ts` 决定：正式版是 `~/.xtlaw`，开发版是 `~/.xtlaw-dev`。通过 `XTLAW_HOME` 指定自定义目录，通过 `XTLAW_BUDDY_PROFILE` 指定档位；不自动导入 Lexora 数据。独立应用隔离详见 [Spec-024](../specs/feature-024-xtlaw-independent-application.md)。
 
 ### 为什么这件事很重要
 
@@ -99,7 +99,7 @@ sequenceDiagram
 sequenceDiagram
     participant UI as ① 界面层
     participant Main as ② 主进程
-    participant Toml as ~/.lexora/config.toml
+    participant Toml as ~/.xtlaw/config.toml
     participant Svc as ③ 本地服务
     participant DB as buddy.sqlite3
 
@@ -165,6 +165,8 @@ flowchart LR
 用户界面统一使用“插件”：它是可安装、启用、禁用、更新和卸载的功能包。内部代码使用 `Extension`（工作台扩展）作为这套机制的技术名称，不代表另一类可安装产品。`apps/buddy/platform/extensions/ExtensionService.ts`（插件运行管理服务）管理其生命周期，`apps/buddy/electron/main/extensions/SandboxedExtensionHost.ts`（隔离插件宿主）负责隔离执行。
 
 插件可以提供插件视图、命令、AI 工具和任务动作等。资源面板只是插件视图的一种展示容器，插件本身不属于资源面板；关闭标签页不等于禁用整个插件。
+
+XTLaw 当前市场使用随应用提供的本地目录，不连接上游市场。`packaging/buddy/release/prepare-bundled-extensions.mjs`（预装资源生成脚本）将 `plugins/office/`（Office 插件源码目录）打包，发行资源包含目录文件与插件包；`BundledExtensionCatalog`（本地目录与包校验服务）负责读取、校验和首次预装。Office 是真实的已安装插件，保留正常隔离与文件授权。`preinstalled.json`（已处理的预装插件登记）使禁用、卸载、既有版本及配置跨启动保持原样；卸载后可从市场正常确认并离线重装。2026-10-07，用户确认本轮预装展示及官方署名需求验收通过；发行级验证边界见 [Spec-024 第 14–15 节](../specs/feature-024-xtlaw-independent-application.md)。
 
 `apps/buddy/service/src/agent/extensions/BuddyInProcessExtension.ts`（Agent 进程内扩展类型）则用于应用向底层 AI 运行时注入工具、策略和事件处理逻辑。`apps/buddy/service/src/agent/resources/createBuddyResourceLoader.ts`（Agent 资源加载器）关闭自动发现外部扩展，使用应用注入的内部扩展。用户安装的插件通过宿主受限接口贡献 AI 能力，不直接成为进程内扩展。
 

@@ -3,6 +3,7 @@ import { Buffer } from 'node:buffer'
 import { EventEmitter } from 'node:events'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { join } from 'node:path'
+import process from 'node:process'
 import { createTemporaryDirectory } from '@buddy-tests/temporaryDirectories'
 
 import { describe, expect, it, vi } from 'vitest'
@@ -21,7 +22,7 @@ const reversibleCipher: SecretCipher = {
 }
 
 describe('credentialVault', () => {
-  it('atomically persists encrypted provider credentials with private permissions', async () => {
+  it('atomically persists encrypted provider credentials', async () => {
     const buddyHome = await createTemporaryDirectory('lexora-buddy-vault-')
     const vault = createCredentialVault({ buddyHome, cipher: reversibleCipher })
 
@@ -43,6 +44,20 @@ describe('credentialVault', () => {
     expect(files).toHaveLength(1)
     const persisted = await readFile(join(providerDirectory, files[0]!))
     expect(persisted.includes(Buffer.from('sk-test-secret'))).toBe(false)
+  })
+
+  // Windows mode bits do not represent its ACL. Keep encryption checks above
+  // on every platform and verify Unix permissions only where they apply.
+  it.skipIf(process.platform === 'win32')('uses private directory and file permissions on Unix', async () => {
+    const buddyHome = await createTemporaryDirectory('lexora-buddy-vault-')
+    const vault = createCredentialVault({ buddyHome, cipher: reversibleCipher })
+    await vault.write('providers', 'openai-codex', { type: 'api_key', key: 'sk-test-secret' })
+
+    const root = join(buddyHome, 'secrets')
+    const providerDirectory = join(root, 'providers')
+    const files = await readdir(providerDirectory)
+    expect(files).toHaveLength(1)
+    expect((await stat(root)).mode & 0o777).toBe(0o700)
     expect((await stat(providerDirectory)).mode & 0o777).toBe(0o700)
     expect((await stat(join(providerDirectory, files[0]!))).mode & 0o777).toBe(0o600)
   })

@@ -87,14 +87,14 @@ pnpm dev:website
 
 ### 使用真实数据预览 Buddy UI
 
-Buddy 未打包开发模式默认使用独立的数据目录 `~/.lexora-dev`。如果需要让最新代码继承已安装 XTLaw 的真实配置、会话和授权，可在启动前使用 `stable` profile：
+XTLaw 未打包开发模式默认使用独立的数据目录 `~/.xtlaw-dev`，不会读取 Lexora 的旧数据。如果需要让最新代码继承已安装 XTLaw 的真实配置、会话和授权，可在启动前使用 `stable` profile：
 
 ```powershell
-$env:LEXORA_BUDDY_PROFILE = "stable"
+$env:XTLAW_BUDDY_PROFILE = "stable"
 pnpm dev:buddy
 ```
 
-开发预览地址为 <http://localhost:1420/>。`stable` profile 会直接使用正式数据目录 `~/.lexora`；Windows 下通常对应 `C:\Users\<用户名>\.lexora`。它不会复制或迁移数据，因此开发版产生的配置、会话或授权写入也可能影响正式版。该方式适合 UI 预览，执行会修改数据的功能测试前应先备份真实数据，或改用默认的开发目录。
+开发预览地址为 <http://localhost:1420/>。`stable` profile 会直接使用 XTLaw 正式数据目录 `~/.xtlaw`；Windows 下通常对应 `C:\Users\<用户名>\.xtlaw`。它不会复制或迁移数据，因此开发版产生的配置、会话或授权写入也可能影响正式版。该方式适合 UI 预览，执行会修改数据的功能测试前应先备份真实数据，或改用默认的开发目录。
 
 ## 参与贡献
 

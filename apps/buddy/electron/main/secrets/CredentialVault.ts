@@ -57,7 +57,7 @@ export class CredentialStoreUnavailableError extends Error {
 export function createCredentialVault(
   options: CreateCredentialVaultOptions = {},
 ): CredentialVault {
-  const root = join(options.buddyHome ?? join(homedir(), '.lexora', 'buddy'), 'secrets')
+  const root = join(options.buddyHome ?? join(homedir(), '.xtlaw', 'buddy'), 'secrets')
   const cipher = options.cipher ?? createSafeStorageCipher()
 
   return {

@@ -65,7 +65,7 @@ async function main() {
     if (transformed.toString('hex', 0, 8) !== '89504e470d0a1a0a')
       throw new Error('Installed macOS image transformer failed')
     const lexoraHome = join(directory, '用户 Data')
-    const environment = { ...process.env, LEXORA_HOME: lexoraHome }
+    const environment = { ...process.env, XTLAW_HOME: lexoraHome }
     delete environment.ELECTRON_RUN_AS_NODE
     await runDesktopSmoke(executablePath, environment, 60_000)
     const database = new DatabaseSync(join(lexoraHome, 'buddy/buddy.sqlite3'), { readOnly: true })

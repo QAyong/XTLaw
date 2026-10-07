@@ -29,6 +29,17 @@ export interface BuddyRuntimePathOptions {
   xdgStateHome?: string
 }
 
+// Public launch overrides belong to XTLaw. LEXORA_* remains an internal
+// child-process interface, never a fallback for the desktop's data identity.
+export function resolveBuddyLaunchOverrides(env: NodeJS.ProcessEnv) {
+  return {
+    lexoraHomeOverride: env.XTLAW_HOME,
+    nativePetSocketOverride: env.XTLAW_BUDDY_PET_SOCKET,
+    nativePetStateOverride: env.XTLAW_BUDDY_PET_STATE_PATH,
+    profileOverride: env.XTLAW_BUDDY_PROFILE,
+  }
+}
+
 export interface BuddyRuntimePaths {
   agentDirectory: string
   appName: string
@@ -68,14 +79,14 @@ export function resolveBuddyRuntimePaths(
   const nativePetSocket = supportsBuddyFeature(platform, 'nativePet')
     ? resolveAbsoluteOverride(
       options.nativePetSocketOverride,
-      'LEXORA_BUDDY_PET_SOCKET',
+      'XTLAW_BUDDY_PET_SOCKET',
       path,
     ) ?? runtimeDirectories.nativePetSocket
     : null
   const nativePetState = supportsBuddyFeature(platform, 'nativePet')
     ? resolveAbsoluteOverride(
       options.nativePetStateOverride,
-      'LEXORA_BUDDY_PET_STATE_PATH',
+      'XTLAW_BUDDY_PET_STATE_PATH',
       path,
     ) ?? joinPath(runtimeDirectories.stateRoot, 'pet-state.json')
     : null
@@ -87,13 +98,41 @@ export function resolveBuddyRuntimePaths(
   const buddyHome = joinPath(lexoraHome, 'buddy')
   const configPath = joinPath(lexoraHome, 'config.toml')
 
+  // Guard known Lexora roots even for explicit overrides. This is not an
+  // import/migration path and must never silently reopen the original app's data.
+  const canonicalLegacy = (value: string) => canonicalTestPath(value, path, platform.id === process.platform)
+  const legacyRoots = (['stable', 'development'] as const).flatMap((profile) => {
+    const legacyIdentity = {
+      ...identity,
+      appName: profile === 'stable' ? 'Lexora Buddy' : 'Lexora Buddy Dev',
+      namespace: profile === 'stable' ? 'lexora-buddy' : 'lexora-buddy-dev',
+      profile,
+    }
+    const home = joinPath(options.userHome, profile === 'stable' ? '.lexora' : '.lexora-dev')
+    return [options, { ...options, xdgCacheHome: undefined, xdgConfigHome: undefined, xdgStateHome: undefined }].flatMap((directoryOptions) => {
+      const directories = layout.resolveDirectories(legacyIdentity, home, {
+        ...directoryOptions,
+        defaultUserData: joinPath(path.dirname(options.defaultUserData), 'Lexora Buddy'),
+      })
+      const sockets = platform.id === 'win32' ? [] : [directories.nativePetSocket, directories.browserAdapterSocket]
+      const windowsRuntimeRoot = platform.id === 'win32' ? [path.dirname(directories.stateRoot)] : []
+      return [home, directories.userData, directories.sessionData, directories.stateRoot, ...windowsRuntimeRoot, ...sockets].filter(value => value !== null).map(canonicalLegacy)
+    })
+  })
+  const writablePaths = [lexoraHome, userData, runtimeDirectories.sessionData, runtimeDirectories.stateRoot, nativePetState, ...(platform.id === 'win32' ? [] : [nativePetSocket, runtimeDirectories.browserAdapterSocket])].filter(value => value !== null)
+  for (const candidate of writablePaths) {
+    const target = canonicalLegacy(candidate)
+    if (legacyRoots.some(root => containsPath(root, target, path) || containsPath(target, root, path)))
+      throw new Error('XTLaw paths must not overlap Lexora data or runtime directories')
+  }
+
   if (identity.profile === 'test') {
     const canonical = (value: string) => canonicalTestPath(value, path, platform.id === process.platform)
     const statePaths = [buddyHome, configPath, userData, runtimeDirectories.sessionData, runtimeDirectories.stateRoot, nativePetState].filter(value => value !== null)
     const socketPaths = platform.id === 'win32' ? [] : [nativePetSocket, runtimeDirectories.browserAdapterSocket].filter(value => value !== null)
     const protectedRoots = (['stable', 'development'] as const).flatMap((profile) => {
       const protectedIdentity = resolveBuddyRuntimeIdentity({ ...options, smokeTest: false, profileOverride: profile })
-      const home = joinPath(options.userHome, profile === 'stable' ? '.lexora' : '.lexora-dev')
+      const home = joinPath(options.userHome, profile === 'stable' ? '.xtlaw' : '.xtlaw-dev')
       return [options, { ...options, xdgCacheHome: undefined, xdgConfigHome: undefined, xdgStateHome: undefined }].flatMap((directoryOptions) => {
         const directories = layout.resolveDirectories(protectedIdentity, home, directoryOptions)
         const sockets = platform.id === 'win32' ? [] : [directories.nativePetSocket, directories.browserAdapterSocket]
@@ -107,7 +146,7 @@ export function resolveBuddyRuntimePaths(
     }
     for (const candidate of statePaths) {
       if (!containsPath(canonical(lexoraHome), canonical(candidate), path))
-        throw new Error('Test profile state must stay inside LEXORA_HOME')
+        throw new Error('Test profile state must stay inside XTLAW_HOME')
     }
   }
 
@@ -136,7 +175,7 @@ function resolveBuddyRuntimeIdentity(
     return {
       appName: 'XTLaw',
       desktopName: options.desktopName,
-      namespace: 'lexora-buddy',
+      namespace: 'xtlaw',
       profile,
     }
   }
@@ -144,14 +183,14 @@ function resolveBuddyRuntimeIdentity(
     return {
       appName: 'XTLaw Dev',
       desktopName: `${options.desktopName}.Development`,
-      namespace: 'lexora-buddy-dev',
+      namespace: 'xtlaw-dev',
       profile,
     }
   }
   return {
     appName: 'XTLaw Test',
     desktopName: `${options.desktopName}.Test`,
-    namespace: 'lexora-buddy-test',
+    namespace: 'xtlaw-test',
     profile,
   }
 }
@@ -167,7 +206,7 @@ function resolveBuddyRuntimeProfile(
   if (options.profileOverride === undefined)
     return options.isPackaged ? 'stable' : 'development'
   if (!BUDDY_RUNTIME_PROFILES.includes(options.profileOverride as BuddyRuntimeProfile))
-    throw new Error('LEXORA_BUDDY_PROFILE must be stable, development, or test')
+    throw new Error('XTLAW_BUDDY_PROFILE must be stable, development, or test')
   return options.profileOverride as BuddyRuntimeProfile
 }
 
@@ -199,12 +238,12 @@ function resolveLexoraHome(
   options: BuddyRuntimePathOptions,
   path: PlatformPath,
 ): string {
-  const override = resolveAbsoluteOverride(options.lexoraHomeOverride, 'LEXORA_HOME', path)
+  const override = resolveAbsoluteOverride(options.lexoraHomeOverride, 'XTLAW_HOME', path)
   if (override)
     return override
   if (profile === 'test')
-    throw new Error('LEXORA_HOME is required for the test profile')
-  return path.join(options.userHome, profile === 'stable' ? '.lexora' : '.lexora-dev')
+    throw new Error('XTLAW_HOME is required for the test profile')
+  return path.join(options.userHome, profile === 'stable' ? '.xtlaw' : '.xtlaw-dev')
 }
 
 function resolveAbsoluteOverride(value: string | undefined, name: string, path: PlatformPath): string | undefined {

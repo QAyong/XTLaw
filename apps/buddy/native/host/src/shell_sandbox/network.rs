@@ -18,8 +18,9 @@ use windows_sys::{
 use super::security::{check, derive_sid, wide};
 use crate::windows_security::Sid;
 
-const PROVIDER: GUID = GUID::from_u128(0x56b83290_4c62_4a13_9920_248a5301ec0d);
-const SUBLAYER: GUID = GUID::from_u128(0xbd1ce7af_258b_49a1_871e_f20169b605ce);
+// Product-owned WFP identifiers: never recover or remove Lexora's filters.
+const PROVIDER: GUID = GUID::from_u128(0x7ba2d206_373e_4a54_a6ad_7c840ca9f602);
+const SUBLAYER: GUID = GUID::from_u128(0xb270a892_c572_413d_99a9_ee3d0eac705a);
 const LAYERS: [GUID; 6] = [
     FWPM_LAYER_ALE_AUTH_CONNECT_V4,
     FWPM_LAYER_ALE_AUTH_CONNECT_V6,
@@ -293,6 +294,29 @@ fn condition(field: GUID, kind: i32, value: FWP_CONDITION_VALUE0_0) -> FWPM_FILT
 pub(super) fn valid_profile(name: &str) -> bool {
     name.strip_prefix(super::PROFILE_PREFIX)
         .is_some_and(|id| id.len() == 32 && id.bytes().all(|b| b.is_ascii_hexdigit()))
+}
+
+#[cfg(test)]
+mod isolation_tests {
+    #[test]
+    fn profiles_and_filter_keys_belong_only_to_xtlaw() {
+        let id = "0123456789abcdef0123456789abcdef";
+        assert!(super::valid_profile(&format!("XTLaw.Sandbox.{id}")));
+        assert!(!super::valid_profile(&format!("Lexora.Buddy.Sandbox.{id}")));
+        let key = |guid: windows_sys::core::GUID| (guid.data1, guid.data2, guid.data3, guid.data4);
+        assert_ne!(
+            key(super::PROVIDER),
+            key(windows_sys::core::GUID::from_u128(
+                0x56b83290_4c62_4a13_9920_248a5301ec0d
+            ))
+        );
+        assert_ne!(
+            key(super::SUBLAYER),
+            key(windows_sys::core::GUID::from_u128(
+                0xbd1ce7af_258b_49a1_871e_f20169b605ce
+            ))
+        );
+    }
 }
 
 fn existing(code: u32) -> io::Result<()> {

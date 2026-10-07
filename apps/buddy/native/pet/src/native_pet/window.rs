@@ -134,7 +134,7 @@ pub(super) fn run_native_pet_sidecar(config: NativePetLaunchConfig) -> BuddyResu
     let window_width = window_size.width;
     let window_height = window_size.height;
     let gtk_window = gtk::Window::new(gtk::WindowType::Toplevel);
-    gtk_window.set_title("Lexora");
+    gtk_window.set_title("XTLaw");
     let app_icon = load_default_app_icon()?;
     gtk_window.set_icon(Some(&app_icon));
     gtk_window.set_default_size(window_width, window_height);

@@ -37,11 +37,7 @@ function resolveWindowsDirectories(identity: BuddyRuntimeIdentity, lexoraHome: s
     options.localAppData ?? win32.join(options.userHome, 'AppData', 'Local'),
     'LocalAppData',
   )
-  const runtimeName = identity.profile === 'stable'
-    ? 'Lexora Buddy'
-    : identity.profile === 'development'
-      ? 'Lexora Buddy Dev'
-      : identity.appName
+  const runtimeName = identity.appName
   const runtimeRoot = identity.profile === 'test'
     ? win32.join(lexoraHome, '.runtime')
     : win32.join(localAppData, runtimeName)
@@ -56,7 +52,9 @@ function resolveWindowsDirectories(identity: BuddyRuntimeIdentity, lexoraHome: s
     stateRoot: win32.join(runtimeRoot, 'state'),
     userData: identity.profile === 'stable'
       ? requireWindowsPath(options.defaultUserData, 'Electron userData')
-      : win32.join(runtimeRoot, 'electron'),
+      : identity.profile === 'development'
+        ? win32.join(win32.dirname(options.defaultUserData), identity.appName)
+        : win32.join(runtimeRoot, 'electron'),
   }
 }
 

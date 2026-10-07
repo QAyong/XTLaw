@@ -116,7 +116,7 @@ async function run() {
       process.stdout.write(`Development profile: ${home}\nPermissions: ${JSON.stringify(manifest.permissions)}\nClose the development window to stop. This profile is retained for inspection.` + '\n')
       const { ELECTRON_RUN_AS_NODE: _node, ...environment } = process.env
       const executable = (await import('electron')).default
-      const child = spawn(executable, [...(process.platform === 'linux' ? ['--disable-setuid-sandbox'] : []), buddy], { cwd: buddy, stdio: 'inherit', env: { ...environment, LEXORA_HOME: home, LEXORA_BUDDY_PROFILE: 'test', LEXORA_EXTENSION_DEVELOPMENT_PATH: destination } })
+      const child = spawn(executable, [...(process.platform === 'linux' ? ['--disable-setuid-sandbox'] : []), buddy], { cwd: buddy, stdio: 'inherit', env: { ...environment, XTLAW_HOME: home, XTLAW_BUDDY_PROFILE: 'test', LEXORA_EXTENSION_DEVELOPMENT_PATH: destination } })
       process.on('SIGINT', () => child.kill('SIGINT'))
       process.on('SIGTERM', () => child.kill('SIGTERM'))
       child.once('exit', (code) => {

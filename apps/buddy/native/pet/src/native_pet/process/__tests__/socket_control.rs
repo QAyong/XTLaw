@@ -62,7 +62,7 @@ fn defaults_native_pet_control_socket_to_xdg_runtime_dir() {
 
     assert_eq!(
         socket_path,
-        runtime_dir.join("lexora-buddy").join("native-pet.sock"),
+        runtime_dir.join("xtlaw").join("native-pet.sock"),
     );
     assert_eq!(
         socket_path.file_name().and_then(|value| value.to_str()),
@@ -91,7 +91,7 @@ fn falls_back_native_pet_control_socket_to_private_uid_temp_path_without_xdg_run
     assert!(socket_path.starts_with(std::env::temp_dir()));
     assert_eq!(
         parent_name,
-        format!("lexora-buddy-uid-{}", super::native_pet_effective_uid()),
+        format!("xtlaw-uid-{}", super::native_pet_effective_uid()),
     );
     assert_eq!(
         socket_path.file_name().and_then(|value| value.to_str()),

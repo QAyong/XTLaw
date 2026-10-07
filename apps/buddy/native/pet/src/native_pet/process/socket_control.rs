@@ -21,11 +21,11 @@ use super::{
 };
 
 #[cfg(unix)]
-const NATIVE_PET_CONTROL_SOCKET_ENV: &str = "LEXORA_BUDDY_PET_SOCKET";
+const NATIVE_PET_CONTROL_SOCKET_ENV: &str = "XTLAW_BUDDY_PET_SOCKET";
 #[cfg(unix)]
 const XDG_RUNTIME_DIR_ENV: &str = "XDG_RUNTIME_DIR";
 #[cfg(unix)]
-const NATIVE_PET_RUNTIME_DIR_NAME: &str = "lexora-buddy";
+const NATIVE_PET_RUNTIME_DIR_NAME: &str = "xtlaw";
 #[cfg(unix)]
 const NATIVE_PET_CONTROL_SOCKET_FILE_NAME: &str = "native-pet.sock";
 #[cfg(unix)]
@@ -134,7 +134,7 @@ fn default_native_pet_control_socket_path() -> PathBuf {
     }
 
     std::env::temp_dir()
-        .join(format!("lexora-buddy-uid-{}", native_pet_effective_uid()))
+        .join(format!("xtlaw-uid-{}", native_pet_effective_uid()))
         .join(NATIVE_PET_CONTROL_SOCKET_FILE_NAME)
 }
 

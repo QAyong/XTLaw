@@ -117,6 +117,7 @@ fn core_windows_and_buddy_services_never_offer_actions() {
         "lexora_buddy",
         "Lexora.Buddy",
         "XTLaw",
+        "XTLawSandboxNetwork",
     ] {
         for state in [State::Running, State::Stopped] {
             let target = serde_json::to_value(Target::new(name, name, state, true)).unwrap();

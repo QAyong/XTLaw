@@ -58,6 +58,7 @@ pub(super) fn is_protected(service_id: &str) -> bool {
     let name = service_id.to_ascii_lowercase();
     matches!(name.as_str(), "rpcss" | "dcomlaunch" | "samss" | "winmgmt")
         || [
+            "xtlaw",
             "lexorabuddy",
             "lexora-buddy",
             "lexora_buddy",

@@ -52,9 +52,9 @@ function createNativePetFeature(context: DesktopFeatureContext): DesktopFeature 
     mkdirSync(dirname(path), { recursive: true, mode: 0o700 })
   const environment = {
     ...process.env,
-    LEXORA_BUDDY_PET_SOCKET: context.paths.nativePetSocket,
-    LEXORA_BUDDY_PET_STATE_PATH: context.paths.nativePetState,
-    LEXORA_HOME: context.paths.lexoraHome,
+    XTLAW_BUDDY_PET_SOCKET: context.paths.nativePetSocket,
+    XTLAW_BUDDY_PET_STATE_PATH: context.paths.nativePetState,
+    XTLAW_HOME: context.paths.lexoraHome,
   }
   const supervisor = new NativePetSupervisor({
     diagnosticOutput: context.diagnostics.createWritable('native-pet', { event: 'pet.supervisor', level: 'error' }),
@@ -64,7 +64,7 @@ function createNativePetFeature(context: DesktopFeatureContext): DesktopFeature 
       appPath: context.appPath,
       env: environment,
       isPackaged: context.isPackaged,
-      petPathOverride: process.env.LEXORA_BUDDY_PET_PATH,
+      petPathOverride: process.env.XTLAW_BUDDY_PET_PATH,
       resourcesPath: context.resourcesPath,
     }),
   })

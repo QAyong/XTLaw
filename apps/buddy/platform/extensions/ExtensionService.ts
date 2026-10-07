@@ -7,6 +7,7 @@ import type { ExtensionConfiguration, ExtensionConfigurationSnapshot } from '../
 import type { SpaceFileByteChunk, SpaceFileByteRequest, SpaceFileTarget } from '../../shared/spaces/spaceFileApi'
 import type { WorkbenchPaneSnapshot } from '../../shared/workbench/workbenchInteraction'
 import type { JsonValue } from '../../shared/workbench/workbenchState'
+import type { BundledExtensionProvider } from './BundledExtensionCatalog'
 import type { ExtensionCompiler } from './compileExtensionSource'
 import type { ExtensionPackage, ExtensionPackageStore } from './ExtensionPackageStore'
 import type { ExtensionConfigurationApplication, ExtensionServiceChange, ExtensionServiceFact, ExtensionServiceSnapshot } from './ExtensionServiceEvents'
@@ -19,7 +20,6 @@ import { copyEventSnapshot } from '../../shared/events/eventSnapshot'
 import { extensionAgentInvocationLimits, extensionAgentRequestSchema } from '../../shared/extensions/extensionAgent'
 import { extensionAgentCapabilities } from '../../shared/extensions/extensionAgentCapabilities'
 import { extensionError, extensionJsonSchema, extensionQuoteCaptureSchema, extensionQuoteInputSchema, extensionResourceSchema } from '../../shared/extensions/extensionApi'
-import { EXTENSION_CATALOG_URL } from '../../shared/extensions/extensionCatalog'
 import { extensionConditionInvalidationSchema } from '../../shared/extensions/extensionConditions'
 import { extensionCompatible, extensionManifestSchema } from '../../shared/extensions/extensionManifest'
 import { extensionDirectoryScanSchema, extensionResourceSelectionSchema } from '../../shared/extensions/extensionResources'
@@ -28,6 +28,7 @@ import { extensionConfigurationAppliedSchema, resolveExtensionConfiguration, val
 import { workbenchHitRegionsSchema } from '../../shared/workbench/workbenchInteraction'
 import { controlProposalSchema, extensionPresentationRequestSchema } from '../../shared/workbench/workbenchUi'
 import { publicWebUrl, readResponseBytes } from '../network/publicWebTransport'
+import { preinstallBundledExtensions } from './BundledExtensionCatalog'
 import { ExtensionCatalogService } from './ExtensionCatalogService'
 import { ExtensionConditions } from './ExtensionConditions'
 import { sha256, unpackExtension } from './extensionFiles'
@@ -50,6 +51,8 @@ export interface ExtensionServicePorts {
   readBytes?: (input: SpaceFileByteRequest, signal: AbortSignal) => Promise<SpaceFileByteChunk>
   saveBytes?: (input: import('../../shared/spaces/spaceFileApi').SpaceSaveBytes, signal: AbortSignal) => Promise<import('../../shared/spaces/spaceFileApi').SpaceSaveBytesResult>
   get: (url: string, init: { signal: AbortSignal }) => Promise<Response>
+  bundled?: BundledExtensionProvider
+  catalogUrl?: string | null
   changed?: () => void
   agentChanged?: () => void
   conditionRuntime?: (input: { models: boolean, task: boolean, taskId: string | null, runId: string | null }, signal: AbortSignal) => Promise<ExtensionConditionRuntime>
@@ -145,7 +148,7 @@ export class ExtensionService {
         ports.agentChanged?.()
     })
     this.installations = new ExtensionInstallations(store.root, () => this.#publish({ kind: 'installation-progress' }))
-    this.catalog = new ExtensionCatalogService(store.root, store.appVersion, ports.get)
+    this.catalog = new ExtensionCatalogService(store.root, store.appVersion, ports.get, { bundled: ports.bundled, catalogUrl: ports.catalogUrl })
     this.scheduler = new ExtensionScheduler(store.root, {
       available: (id, command) => {
         if (this.#disposed || this.#diagnostics.get(id)?.error)
@@ -184,6 +187,8 @@ export class ExtensionService {
 
   async initialize(): Promise<void> {
     await (this.#loading ??= this.store.load().then(async () => {
+      if (this.#ports.bundled)
+        await preinstallBundledExtensions(this.store, this.#ports.bundled)
       await this.installations.load()
       await this.scheduler.load()
       await this.#refreshAgentContributions(false)
@@ -432,7 +437,7 @@ export class ExtensionService {
       if (JSON.stringify(manifest) !== JSON.stringify(entry.manifest))
         throw new Error('EXTENSION_CATALOG_MANIFEST_MISMATCH')
       job.signal.throwIfAborted()
-      const source = { catalog: EXTENSION_CATALOG_URL, artifact: entry.artifact.url, sha256: entry.artifact.sha256 }
+      const source = this.catalog.source(entry)
       const review = await this.store.reviewFiles(files, false, source)
       this.installations.identify(job.id, review.manifest.id, review.manifest.version)
       this.#reviews.set(review.token, job.id)

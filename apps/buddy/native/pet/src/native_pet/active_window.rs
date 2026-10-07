@@ -15,7 +15,7 @@ use super::{
 const NATIVE_PET_KWIN_ACTIVE_WINDOW_OUTPUT_PREFIX: &str = "lexora-buddy-active-window:";
 const NATIVE_PET_KWIN_ACTIVE_WINDOW_QUERY_TIMEOUT: Duration = Duration::from_millis(650);
 const NATIVE_PET_KWIN_ACTIVE_WINDOW_POLL_INTERVAL: Duration = Duration::from_millis(50);
-const NATIVE_PET_KWIN_SELF_WINDOW_MARKERS_JSON: &str = r#"["lexora-buddy","lexora buddy"]"#;
+const NATIVE_PET_KWIN_SELF_WINDOW_MARKERS_JSON: &str = r#"["io.github.qayong.xtlaw","xtlaw"]"#;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum NativePetActiveWindowProvider {

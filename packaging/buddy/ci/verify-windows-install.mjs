@@ -30,7 +30,7 @@ async function main() {
     const lexoraHome = join(smokeRoot, '用户 Data')
     const environment = {
       ...process.env,
-      LEXORA_HOME: lexoraHome,
+      XTLAW_HOME: lexoraHome,
       LEXORA_DESKTOP_SMOKE_REQUIRE_SANDBOX: requireSandbox ? '1' : '0',
     }
     delete environment.ELECTRON_RUN_AS_NODE

@@ -494,7 +494,7 @@ export default {
   'transcript.elapsed.failed': '处理失败 {duration}',
   'transcript.elapsed.running': '正在处理 {duration}',
   'desktop.chat.activity': '正在处理',
-  'desktop.chat.agentName': 'XTLaw',
+  'desktop.chat.agentName': '晓晓',
   'desktop.chat.buddyReady': 'XTLaw 已就绪',
   'desktop.chat.compactionEvent': '上下文整理',
   'desktop.chat.compactionCancelled': '上下文整理已取消',

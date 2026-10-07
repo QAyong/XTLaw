@@ -2,9 +2,9 @@
 import type { BuddyThinkingLevel } from '@buddy-shared/conversation/modelSelection'
 import type { ReasoningSelectorOption } from './typing'
 import { computed, shallowRef } from 'vue'
-import DesktopReasoningFieldCanvas from '@/modules/models/widgets/model-selector/DesktopReasoningFieldCanvas.vue'
 
 const props = defineProps<{
+  fast?: boolean
   label: string
   options: ReadonlyArray<ReasoningSelectorOption>
   selectedEffort: BuddyThinkingLevel | null
@@ -75,19 +75,30 @@ function readSliderIndex(event: Event): number {
   >
     <div class="desktop-reasoning-meter__stage" aria-hidden="true">
       <span class="desktop-reasoning-meter__track">
-        <DesktopReasoningFieldCanvas
-          :dragging="isDragging"
-          :progress="progressRatio"
-        />
+        <span
+          class="desktop-reasoning-meter__fill"
+          :style="{ width: `calc(0.75rem + (100% - 1.5rem) * ${progressRatio})` }"
+        >
+          <span v-if="fast" class="desktop-reasoning-meter__particles">
+            <i
+              v-for="index in 16"
+              :key="index"
+              class="desktop-reasoning-meter__particle"
+              :style="{
+                top: `${15 + (index * 37 % 70)}%`,
+                width: `${2 + (index % 3)}px`,
+                animationDuration: `${0.35 + (index % 5) * 0.07}s`,
+                animationDelay: `${-index * 0.13}s`,
+              }"
+            />
+          </span>
+        </span>
         <span class="desktop-reasoning-meter__nodes">
           <i
             v-for="(option, index) in options"
             :key="option.value"
             class="desktop-reasoning-meter__node"
-            :class="{
-              'is-active': index <= visualIndex,
-              'is-selected': index === visualIndex,
-            }"
+            :class="{ 'is-active': index <= visualIndex }"
           />
         </span>
       </span>
@@ -112,29 +123,8 @@ function readSliderIndex(event: Event): number {
 
 <style scoped>
 .desktop-reasoning-meter {
-  --reasoning-node-active-background: #fffaf0;
-  --reasoning-node-active-border: rgb(214 176 109 / 62%);
-  --reasoning-node-active-shadow:
-    0 0 0.14rem rgb(255 248 229 / 66%),
-    0 0 0.3rem rgb(190 137 59 / 26%);
-  --reasoning-node-background: rgb(226 230 238 / 68%);
-  --reasoning-node-border: rgb(116 128 149 / 36%);
-  --reasoning-track-background:
-    linear-gradient(180deg, rgb(255 255 255 / 72%), rgb(236 241 249 / 28%)),
-    rgb(250 252 255 / 26%);
-  --reasoning-track-border: rgb(91 104 127 / 22%);
-  --reasoning-track-drag-border: rgb(190 148 78 / 52%);
-  --reasoning-track-drag-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 94%),
-    inset 0 -1px 0 rgb(91 104 127 / 12%),
-    0 0 0.72rem rgb(213 165 87 / 22%),
-    0 0.28rem 0.68rem rgb(40 49 65 / 12%);
-  --reasoning-track-hover-border: rgb(91 104 127 / 34%);
-  --reasoning-track-inset: 0.75rem;
-  --reasoning-track-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 94%),
-    inset 0 -1px 0 rgb(91 104 127 / 12%),
-    0 0.12rem 0.3rem rgb(40 49 65 / 9%);
+  --reasoning-track-background: #e7e7e7;
+  --reasoning-node-background: #b6b6b6;
 
   position: relative;
   height: 2rem;
@@ -143,27 +133,8 @@ function readSliderIndex(event: Event): number {
 }
 
 :global(:root[data-buddy-theme='dark'] .desktop-reasoning-meter) {
-  --reasoning-node-active-background: #f3f4f7;
-  --reasoning-node-active-border: rgb(255 247 225 / 88%);
-  --reasoning-node-active-shadow:
-    0 0 0.2rem rgb(255 245 217 / 78%),
-    0 0 0.5rem rgb(203 153 73 / 48%);
-  --reasoning-node-background: rgb(176 183 199 / 38%);
-  --reasoning-node-border: rgb(226 231 242 / 28%);
-  --reasoning-track-background:
-    linear-gradient(180deg, #242831 0%, #1a1d26 56%, #14171f 100%);
-  --reasoning-track-border: rgb(213 220 236 / 24%);
-  --reasoning-track-drag-border: rgb(219 178 103 / 54%);
-  --reasoning-track-drag-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 9%),
-    inset 0 -1px 0 rgb(0 0 0 / 38%),
-    0 0 0.86rem rgb(57 84 181 / 38%),
-    0 0.3rem 0.76rem rgb(0 0 0 / 32%);
-  --reasoning-track-hover-border: rgb(213 220 236 / 36%);
-  --reasoning-track-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 8%),
-    inset 0 -1px 0 rgb(0 0 0 / 34%),
-    0 0.25rem 0.62rem rgb(0 0 0 / 24%);
+  --reasoning-track-background: #363940;
+  --reasoning-node-background: #80858e;
 }
 
 .desktop-reasoning-meter__stage {
@@ -176,36 +147,65 @@ function readSliderIndex(event: Event): number {
   top: 50%;
   right: 0;
   left: 0;
-  height: 1.75rem;
+  height: 1.5rem;
   overflow: hidden;
-  border: 1px solid var(--reasoning-track-border);
   border-radius: 999px;
   background: var(--reasoning-track-background);
-  box-shadow: var(--reasoning-track-shadow);
-  isolation: isolate;
   transform: translateY(-50%);
-  transition:
-    border-color 140ms ease,
-    box-shadow 180ms ease;
 }
 
-.desktop-reasoning-meter__track::after {
+.desktop-reasoning-meter__fill {
   position: absolute;
-  inset: 1px 0 auto;
-  z-index: 4;
-  height: 34%;
-  border-radius: 999px 999px 46% 46%;
-  background: linear-gradient(180deg, rgb(255 255 255 / 12%), transparent);
-  content: '';
+  inset: 0 auto 0 0;
+  overflow: hidden;
+  background: #3b82f6;
+}
+
+.desktop-reasoning-meter__particles {
+  position: absolute;
+  inset: 0;
   pointer-events: none;
+}
+
+.desktop-reasoning-meter__particle {
+  position: absolute;
+  left: 0;
+  height: 1.5px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 75%);
+  animation: reasoning-fast-flow 0.5s linear infinite;
+}
+
+@keyframes reasoning-fast-flow {
+  from {
+    left: 0;
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+
+  15%,
+  80% {
+    opacity: 0.7;
+  }
+
+  to {
+    left: 100%;
+    opacity: 0;
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .desktop-reasoning-meter__particles {
+    display: none;
+  }
 }
 
 .desktop-reasoning-meter__nodes {
   position: absolute;
   top: 50%;
-  right: var(--reasoning-track-inset);
-  left: var(--reasoning-track-inset);
-  z-index: 5;
+  right: 0.75rem;
+  left: 0.75rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -215,24 +215,14 @@ function readSliderIndex(event: Event): number {
 
 .desktop-reasoning-meter__node {
   display: block;
-  width: 0.27rem;
-  height: 0.27rem;
-  border: 1px solid var(--reasoning-node-border);
-  border-radius: 0.07rem;
+  width: 0.25rem;
+  height: 0.25rem;
+  border-radius: 50%;
   background: var(--reasoning-node-background);
-  transform: rotate(45deg);
-  transition:
-    background-color 140ms ease,
-    border-color 140ms ease,
-    box-shadow 180ms ease,
-    filter 180ms ease,
-    transform 180ms ease;
 }
 
 .desktop-reasoning-meter__node.is-active {
-  border-color: var(--reasoning-node-active-border);
-  background: var(--reasoning-node-active-background);
-  box-shadow: var(--reasoning-node-active-shadow);
+  background: rgb(255 255 255 / 40%);
 }
 
 .desktop-reasoning-meter__control {
@@ -245,7 +235,6 @@ function readSliderIndex(event: Event): number {
   appearance: none;
   background: transparent;
   cursor: grab;
-  opacity: 0;
   touch-action: none;
 }
 
@@ -261,30 +250,18 @@ function readSliderIndex(event: Event): number {
   margin-top: 0.125rem;
   appearance: none;
   border: 0;
-  background: transparent;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 12%);
+}
+
+.desktop-reasoning-meter__control:focus-visible {
+  outline: 2px solid var(--buddy-focus-ring);
+  outline-offset: 2px;
+  border-radius: 999px;
 }
 
 .desktop-reasoning-meter__control:active {
   cursor: grabbing;
-}
-
-.desktop-reasoning-meter:hover .desktop-reasoning-meter__track {
-  border-color: var(--reasoning-track-hover-border);
-}
-
-.desktop-reasoning-meter:has(.desktop-reasoning-meter__control:focus-visible) .desktop-reasoning-meter__track {
-  outline: 2px solid var(--buddy-focus-ring);
-  outline-offset: 2px;
-}
-
-.desktop-reasoning-meter.is-dragging .desktop-reasoning-meter__track {
-  border-color: var(--reasoning-track-drag-border);
-  box-shadow: var(--reasoning-track-drag-shadow);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .desktop-reasoning-meter__node {
-    transition: none;
-  }
 }
 </style>

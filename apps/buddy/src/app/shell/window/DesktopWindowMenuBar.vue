@@ -18,7 +18,6 @@ import {
 import { NDropdown, NTooltip } from 'naive-ui'
 import { computed, h, shallowRef } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
-import { BRAND_ASSET_URLS } from '@/shared/branding/brandAssets'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 
 const props = defineProps<{
@@ -148,7 +147,6 @@ const nodeProps: DropdownNodeProps = () => ({
         aria-haspopup="menu"
         @mouseenter="switchOpenMenu(menu.id)"
       >
-        <img v-if="menu.id === 'application'" :src="BRAND_ASSET_URLS.appIcon" alt="" draggable="false">
         <span>{{ menu.label }}</span>
       </button>
     </NDropdown>
@@ -224,13 +222,6 @@ const nodeProps: DropdownNodeProps = () => ({
 
   &.is-active:focus-visible {
     outline: 0;
-  }
-
-  img {
-    width: 1rem;
-    height: 1rem;
-    flex: none;
-    border-radius: 0.25rem;
   }
 
   span {

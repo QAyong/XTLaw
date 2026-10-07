@@ -36,12 +36,12 @@ function identity(overrides: Partial<AgentIdentityInput> = {}): AgentIdentityInp
 }
 
 describe('buddyChatAgentIdentity', () => {
-  it('falls back to the brand avatar and default name', async () => {
+  it('falls back to the Xiaoxiao avatar and default name', async () => {
     const { app, root } = render(shallowRef(identity()))
     await nextTick()
 
     expect(root.querySelector('img')?.getAttribute('src')).toBe(BRAND_ASSET_URLS.chatAvatar)
-    expect(root.querySelector('.buddy-chat-agent-identity__name')?.textContent.trim()).toBe('XTLaw')
+    expect(root.querySelector('.buddy-chat-agent-identity__name')?.textContent.trim()).toBe('晓晓')
 
     app.unmount()
   })

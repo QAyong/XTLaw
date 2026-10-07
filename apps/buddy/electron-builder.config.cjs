@@ -71,7 +71,7 @@ module.exports = {
   win: {
     extraResources: (target.platform === OPERATING_SYSTEM.Windows ? resources : []),
     executableName: displayName,
-    icon: 'resources/icons/app-icon.png',
+    icon: 'resources/icons/app-icon-windows.png',
     target: [{ target: 'nsis', arch: [target.architecture] }],
   },
   nsis: {

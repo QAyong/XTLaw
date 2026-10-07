@@ -11,9 +11,12 @@ const { t } = useBuddyI18n(() => props.language)
 
 <template>
   <div class="desktop-startup" :class="{ 'is-failed': failed }" :role="failed ? 'alert' : 'status'" :aria-busy="!failed">
-    <DesktopStartupArtwork :still="failed" />
+    <DesktopStartupArtwork />
     <div class="desktop-startup__identity">
       <h1>XTLaw</h1>
+      <div v-if="!failed" class="desktop-startup__loading-line" aria-hidden="true">
+        <span />
+      </div>
       <p>{{ t(failed ? 'desktop.loading.failed' : 'desktop.loading.app') }}</p>
       <div v-if="failed" class="desktop-startup__actions">
         <NButton size="small" secondary @click="emit('retry')">
@@ -29,7 +32,8 @@ const { t } = useBuddyI18n(() => props.language)
 
 <style scoped>
 .desktop-startup {
-  --startup-avatar-size: clamp(10rem, 26vmin, 15rem);
+  --startup-wordmark-width: clamp(14rem, 40vw, 26rem);
+  --startup-wordmark-height: calc(var(--startup-wordmark-width) * 460 / 2048);
   position: absolute;
   z-index: 20;
   inset: 0;
@@ -40,7 +44,7 @@ const { t } = useBuddyI18n(() => props.language)
 
 .desktop-startup__identity {
   position: absolute;
-  top: calc(50% + var(--startup-avatar-size) / 2 + 1rem);
+  top: calc(50% + var(--startup-wordmark-height) / 2 + 1.5rem);
   left: 50%;
   display: grid;
   width: min(28rem, calc(100% - 3rem));
@@ -52,17 +56,47 @@ const { t } = useBuddyI18n(() => props.language)
 }
 
 .desktop-startup h1 {
-  margin: 0;
-  color: var(--buddy-text-primary);
-  font-size: 1.25rem;
-  font-weight: 500;
-  letter-spacing: 0.09em;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .desktop-startup p {
   margin: 0;
   color: var(--buddy-text-secondary);
   font-size: 0.75rem;
+}
+
+.desktop-startup__loading-line {
+  width: min(9rem, 100%);
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: light-dark(#e5e7eb, #343840);
+}
+
+.desktop-startup__loading-line span {
+  display: block;
+  width: 30%;
+  height: 100%;
+  border-radius: inherit;
+  background: #3b82f6;
+  animation: startup-loading-slide 1.4s linear infinite;
+}
+
+@keyframes startup-loading-slide {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(333.333%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .desktop-startup__loading-line span {
+    animation: none;
+    transform: translateX(116.667%);
+  }
 }
 
 .desktop-startup__actions {

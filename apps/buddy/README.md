@@ -15,6 +15,14 @@ XTLaw 自带 Office DOCX 插件，首次启动真实预装，并在插件市场�
 
 关闭窗口只会隐藏 Desktop，退出由托盘控制；双击桌宠可重新打开 Desktop。
 
+## 品牌与默认助手
+
+- 默认 AI 助手为“晓晓”，使用黑框眼镜长发少女头像；用户自定义身份和资料同步仍优先。
+- 应用图标使用原版浅色 XT 标志，Windows 使用移除外围透明边距的专用版本。
+- 启动页使用随深浅主题切换的横向 XTLaw 字标与细蓝色加载线，不再显示星轨和品牌头像。
+
+设计细节、资源维护和验收步骤见 [Feature-025](../../docs/specs/feature-025-brand-ui-and-startup.md)，资源目录见 [`packages/assets/README.md`](../../packages/assets/README.md)。
+
 ## 开发
 
 ```bash

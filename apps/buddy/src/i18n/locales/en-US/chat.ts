@@ -496,7 +496,7 @@ export default {
   'transcript.elapsed.failed': 'Failed after {duration}',
   'transcript.elapsed.running': 'Processing {duration}',
   'desktop.chat.activity': 'Working',
-  'desktop.chat.agentName': 'XTLaw',
+  'desktop.chat.agentName': '晓晓',
   'desktop.chat.buddyReady': 'XTLaw is ready',
   'desktop.chat.compactionEvent': 'Context compaction',
   'desktop.chat.compactionCancelled': 'Context compaction cancelled',

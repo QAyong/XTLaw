@@ -77,9 +77,6 @@ async function openLink(action: () => Promise<unknown>) {
       <span>{{ t('desktop.about.chromium', { version: appInfo.chromiumVersion }) }}</span>
       <span>{{ t('desktop.about.node', { version: appInfo.nodeVersion }) }}</span>
     </div>
-    <p class="desktop-about-settings__attribution">
-      Based on Lexora · AGPL-3.0-only
-    </p>
   </section>
 </template>
 
@@ -121,12 +118,6 @@ async function openLink(action: () => Promise<unknown>) {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.6rem 1rem;
-}
-
-.desktop-about-settings__attribution {
-  margin: 0;
-  color: var(--buddy-text-muted);
-  font-size: 0.7rem;
 }
 
 .desktop-about-settings__update {

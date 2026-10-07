@@ -43,9 +43,11 @@ const { t } = useBuddyI18n(() => props.language)
         <DesktopIcon v-if="viewMode === 'canvas'" :component="Chat20Regular" />
         <DesktopIcon v-else>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M3 21V9.6c0-3.2 2.7-6.4 5.7-7 1.7-.4 2.4 9.6-5.7 18.4Z" />
-            <path d="M3 21C7.7 13.3 9.4 8.2 14.7 6c5.9-2.4 6 3.2 2.1 6.9C13.5 16.1 8.3 18.2 3 21Z" fill="currentColor" fill-opacity="0.1" />
-            <path d="M3 21c7.5-4.7 13.1-7.9 18.1-7 2.4.3-.9 7-5.9 7Z" />
+            <rect x="2" y="9" width="6" height="6" rx="1.5" />
+            <path d="M8 12h4M12 5v14M12 5h4M12 12h4M12 19h4" />
+            <rect x="16" y="3" width="6" height="4" rx="1" />
+            <rect x="16" y="10" width="6" height="4" rx="1" />
+            <rect x="16" y="17" width="6" height="4" rx="1" />
           </svg>
         </DesktopIcon>
       </button>

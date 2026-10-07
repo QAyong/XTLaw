@@ -56,10 +56,10 @@ export function createReasoningFieldRenderer(waveMaskCanvas: HTMLCanvasElement) 
       field.addColorStop(1, '#2d4a96')
     }
     else {
-      field.addColorStop(0, '#f3e5ca')
-      field.addColorStop(0.18, '#e7c487')
-      field.addColorStop(0.4, '#cf9953')
-      field.addColorStop(0.57, '#8d685e')
+      field.addColorStop(0, '#3b82f6')
+      field.addColorStop(0.18, '#3b82f6')
+      field.addColorStop(0.4, '#3579e8')
+      field.addColorStop(0.57, '#326bd0')
       field.addColorStop(0.72, '#485783')
       field.addColorStop(0.86, '#1e3d7b')
       field.addColorStop(1, '#0b285f')
@@ -73,7 +73,7 @@ export function createReasoningFieldRenderer(waveMaskCanvas: HTMLCanvasElement) 
     const sheen = context.createLinearGradient(0, 0, 0, height)
     sheen.addColorStop(0, dark ? 'rgb(255 255 255 / 9%)' : 'rgb(255 255 255 / 34%)')
     sheen.addColorStop(0.38, 'transparent')
-    sheen.addColorStop(1, dark ? 'rgb(0 0 0 / 18%)' : 'rgb(77 63 54 / 8%)')
+    sheen.addColorStop(1, dark ? 'rgb(0 0 0 / 18%)' : 'rgb(30 64 138 / 8%)')
     context.globalAlpha = 1
     context.fillStyle = sheen
     context.fillRect(0, 0, width, height)
@@ -94,8 +94,8 @@ export function createReasoningFieldRenderer(waveMaskCanvas: HTMLCanvasElement) 
       drawCloud(context, width * 0.86, height * 0.62, width * 0.24, height * 0.7, `rgb(93 116 224 / ${0.06 + intensity * 0.12})`)
     }
     else {
-      drawCloud(context, width * 0.13, height * 0.36, width * 0.24, height * 0.72, `rgb(255 246 222 / ${0.1 + intensity * 0.1})`)
-      drawCloud(context, width * 0.4, height * 0.7, width * 0.27, height * 0.74, `rgb(232 181 99 / ${0.1 + intensity * 0.12})`)
+      drawCloud(context, width * 0.13, height * 0.36, width * 0.24, height * 0.72, `rgb(219 234 254 / ${0.1 + intensity * 0.1})`)
+      drawCloud(context, width * 0.4, height * 0.7, width * 0.27, height * 0.74, `rgb(96 165 250 / ${0.1 + intensity * 0.12})`)
       drawCloud(context, width * 0.76, height * 0.34, width * 0.28, height * 0.76, `rgb(51 87 174 / ${0.06 + intensity * 0.11})`)
     }
     context.restore()
@@ -116,9 +116,9 @@ export function createReasoningFieldRenderer(waveMaskCanvas: HTMLCanvasElement) 
     context.save()
     context.lineCap = 'round'
     context.lineWidth = 0.38
-    context.strokeStyle = dark ? '#c99754' : '#a87a52'
+    context.strokeStyle = dark ? '#60a5fa' : '#2563eb'
     context.shadowBlur = progress * 1.8
-    context.shadowColor = dark ? '#dbaf69' : '#d4a05e'
+    context.shadowColor = dark ? '#93c5fd' : '#3b82f6'
     for (const thread of threads) {
       if (thread.threshold > visibility)
         continue
@@ -155,8 +155,8 @@ export function createReasoningFieldRenderer(waveMaskCanvas: HTMLCanvasElement) 
   ) {
     const density = 0.38 + progress * 0.62
     const palette = dark
-      ? ['#d4a35b', '#efc978', '#c4d3ff', '#eef2ff', '#fff4d5']
-      : ['#8f6538', '#b9823e', '#d8a65e', '#fff4d5', '#ccd9f5']
+      ? ['#60a5fa', '#93c5fd', '#c4d3ff', '#eef2ff', '#dbeafe']
+      : ['#1d4ed8', '#2563eb', '#60a5fa', '#dbeafe', '#ccd9f5']
 
     context.save()
     context.globalCompositeOperation = dark ? 'lighter' : 'source-over'
@@ -271,8 +271,8 @@ export function createReasoningFieldRenderer(waveMaskCanvas: HTMLCanvasElement) 
     const span = Math.max(1, endX - startX)
     const amplitude = height * (0.07 + progress * 0.035 + Math.abs(momentum) * 0.025)
     const colors = dark
-      ? ['224 181 103', '132 151 229', '239 207 151']
-      : ['169 122 61', '104 120 168', '197 151 78']
+      ? ['96 165 250', '132 151 229', '147 197 253']
+      : ['59 130 246', '104 120 168', '96 165 250']
 
     context.save()
     context.globalCompositeOperation = dark ? 'screen' : 'source-over'

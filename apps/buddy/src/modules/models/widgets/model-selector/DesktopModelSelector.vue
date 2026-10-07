@@ -232,6 +232,7 @@ defineExpose({
               />
               <DesktopReasoningMeter
                 v-else
+                :fast="isFastMode"
                 :label="t('desktop.chat.effort')"
                 :options="reasoningLevelOptions"
                 :selected-effort="selectedEffortValue"
@@ -411,7 +412,7 @@ defineExpose({
 
 .desktop-model-selector__flash {
   flex: none;
-  color: var(--buddy-brand-gold);
+  color: #3b82f6;
 }
 
 .desktop-model-selector__clear {
@@ -470,17 +471,17 @@ defineExpose({
 
 .desktop-model-selector__panel--spell {
   --desktop-model-spell-glow:
-    radial-gradient(ellipse at 42% 50%, rgb(217 166 83 / 18%), transparent 43%),
+    radial-gradient(ellipse at 42% 50%, rgb(59 130 246 / 18%), transparent 43%),
     radial-gradient(ellipse at 70% 50%, rgb(53 83 165 / 14%), transparent 46%);
 
   position: relative;
-  background: linear-gradient(145deg, #fff, color-mix(in srgb, var(--buddy-surface-raised) 94%, #f8f6f0));
+  background: linear-gradient(145deg, #fff, color-mix(in srgb, var(--buddy-surface-raised) 94%, #f0f6ff));
   padding: 0.375rem 0.5rem 0.5rem;
 }
 
 :global(:root[data-buddy-theme='dark'] .desktop-model-selector__panel--spell) {
   --desktop-model-spell-glow:
-    radial-gradient(ellipse at 42% 50%, rgb(218 164 78 / 20%), transparent 43%),
+    radial-gradient(ellipse at 42% 50%, rgb(59 130 246 / 20%), transparent 43%),
     radial-gradient(ellipse at 72% 50%, rgb(51 80 174 / 24%), transparent 48%);
 
   border-color: rgb(255 255 255 / 13%);
@@ -643,9 +644,9 @@ defineExpose({
 }
 
 .desktop-model-selector__fast-toggle.is-active {
-  background: color-mix(in srgb, var(--buddy-brand-gold) 14%, transparent);
-  color: var(--buddy-brand-gold);
-  filter: drop-shadow(0 0 0.35rem color-mix(in srgb, var(--buddy-brand-gold) 44%, transparent));
+  background: color-mix(in srgb, #3b82f6 14%, transparent);
+  color: #3b82f6;
+  filter: drop-shadow(0 0 0.35rem color-mix(in srgb, #3b82f6 44%, transparent));
 }
 
 .desktop-model-selector__spell {
@@ -720,7 +721,7 @@ defineExpose({
   }
 
   &.is-fast > :deep(.n-icon) {
-    color: var(--buddy-brand-gold);
+    color: #3b82f6;
   }
 }
 

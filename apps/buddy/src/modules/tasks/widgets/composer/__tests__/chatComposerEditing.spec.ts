@@ -128,6 +128,21 @@ async function mountComposer(options: {
 }
 
 describe('chat composer editing', () => {
+  it('opens slash command suggestions with the Chinese ideographic comma and replaces the trigger on selection', async () => {
+    const flow = await mountComposer()
+    flow.editor.view.dom.focus()
+    flow.editor.commands.insertContent('、rev')
+
+    await expect.poll(() => flow.composer.activeTrigger.value).toEqual({ kind: 'slash', query: 'rev' })
+    const review = flow.composer.suggestions.value.find(({ option }) => option.value === '/review')?.option
+    expect(review).toBeDefined()
+    flow.composer.selectSuggestion(review)
+
+    const content = chatComposerDocumentToUserContent(flow.editor.getJSON())
+    expect(content.body[0]?.content[0]).toMatchObject({ type: 'prompt_directive', directive: 'slash_command', commandMode: 'prompt', value: '/review' })
+    expect(JSON.stringify(content)).not.toContain('、')
+  })
+
   it.each(['select', 'submit'] as const)('submits a run action with its arguments through %s', async (source) => {
     const flow = await mountComposer()
     const prefix = source === 'select' ? '/com' : '/compact'

@@ -5,6 +5,7 @@ import type {
   BuddyRunEvent,
   ListBuddyRunEventsOptions,
 } from './BuddyRunEvent'
+import type { RunEventRecoverySummary } from './RunEventRecovery'
 
 export interface RunEventWriter {
   append: (input: AppendBuddyRunEventInput) => Promise<BuddyRunEvent>
@@ -28,6 +29,7 @@ export interface RunEventMaintenance {
   close: () => Promise<void>
   compactTerminalRun: (runId: string) => Promise<number>
   compactTerminalRuns: () => Promise<number>
+  recoverAll: (options?: { force?: boolean }) => Promise<Readonly<RunEventRecoverySummary>>
   replay: (runId: string) => Promise<number>
   replayAll: () => Promise<number>
 }

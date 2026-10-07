@@ -202,7 +202,8 @@ describe('runEventLog', () => {
       commitState: 'unknown',
       operation: 'append',
       runId: 'run-1',
-      stage: 'open',
+      // Windows can open a directory and reject the write rather than the open.
+      stage: expect.stringMatching(/^(?:open|write)$/),
     })
     expect(failures).toEqual([failure])
   })

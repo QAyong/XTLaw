@@ -1,5 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite'
 import type { BuddyRunEvent, ListBuddyRunEventsOptions } from './BuddyRunEvent'
+import type { RunEventCheckpoint, RunEventRecoveryRun } from './RunEventRecovery'
 import { buddyRunEventSchema } from './BuddyRunEvent'
 
 interface RunEventRow {
@@ -81,6 +82,42 @@ export class RunEventQueries {
       ORDER BY runs.started_at, runs.id
     `).all() as unknown as Array<{ id: string }>
     return rows.map(row => row.id)
+  }
+
+  listRecoveryRuns(): RunEventRecoveryRun[] {
+    const rows = this.#database.prepare(`
+      SELECT runs.id AS runId, runs.conversation_id AS conversationId, runs.status,
+        checkpoints.last_sequence AS lastSequence,
+        checkpoints.projection_version AS projectionVersion,
+        checkpoints.file_fingerprint AS fileFingerprint,
+        COALESCE((SELECT MAX(sequence) FROM run_events WHERE run_id = runs.id), 0) AS projectedLastSequence
+      FROM runs LEFT JOIN run_event_checkpoints AS checkpoints ON checkpoints.run_id = runs.id
+      ORDER BY CASE WHEN runs.status IN ('queued', 'running') THEN 0 ELSE 1 END, runs.started_at, runs.id
+    `).all() as unknown as Array<{
+      conversationId: string
+      fileFingerprint: string | null
+      lastSequence: number | null
+      projectedLastSequence: number
+      projectionVersion: number | null
+      runId: string
+      status: string
+    }>
+    return rows.map(row => ({
+      conversationId: row.conversationId,
+      runId: row.runId,
+      status: row.status,
+      projectedLastSequence: row.projectedLastSequence,
+      checkpoint: row.lastSequence === null || row.projectionVersion === null || row.fileFingerprint === null
+        ? null
+        : { lastSequence: row.lastSequence, projectionVersion: row.projectionVersion, fileFingerprint: row.fileFingerprint },
+    }))
+  }
+
+  hasCheckpoint(runId: string, checkpoint: RunEventCheckpoint): boolean {
+    return this.#database.prepare(`
+      SELECT 1 FROM run_event_checkpoints
+      WHERE run_id = ? AND file_fingerprint = ? AND projection_version = ? AND last_sequence = ?
+    `).get(runId, checkpoint.fileFingerprint, checkpoint.projectionVersion, checkpoint.lastSequence) !== undefined
   }
 
   listRunIds(): string[] {

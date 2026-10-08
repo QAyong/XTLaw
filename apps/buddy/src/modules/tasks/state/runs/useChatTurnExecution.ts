@@ -68,10 +68,12 @@ export function useChatTurnExecution(options: UseChatTurnExecutionOptions) {
   const isSending = shallowRef(false)
   const requestIds = createRequestIdRegistry()
   const pendingCancellationWatches = new Set<() => void>()
-  const pendingCancellationIds = shallowReactive(new Set<string>())
+  const pendingCancellations = shallowReactive(new Map<string, LocalRun>())
   const stoppingRunId = computed(() => {
-    const run = options.activeRun.value
-    return run && pendingCancellationIds.has(run.id) ? run.id : null
+    const run = [...pendingCancellations.values()].find(run =>
+      run.conversationId === options.session.activeConversationId.value
+      && run.branchId === options.session.activeBranchId.value)
+    return run?.id ?? null
   })
   let isDisposed = false
   onScopeDispose(() => {
@@ -79,7 +81,7 @@ export function useChatTurnExecution(options: UseChatTurnExecutionOptions) {
     for (const stop of pendingCancellationWatches)
       stop()
     pendingCancellationWatches.clear()
-    pendingCancellationIds.clear()
+    pendingCancellations.clear()
   }, true)
   const canSend = computed(() =>
     options.runtimeSupervisor.runtimeState.value.status === 'ready'
@@ -110,7 +112,7 @@ export function useChatTurnExecution(options: UseChatTurnExecutionOptions) {
       options.setErrorMessage(options.unavailableCommandMessage())
       return false
     }
-    if (isRunCommand && options.activeRun.value)
+    if (isRunCommand && (options.activeRun.value || stoppingRunId.value))
       return false
     if (isRunCommand && command)
       return executeActionCommand(command, contextItems)
@@ -133,7 +135,7 @@ export function useChatTurnExecution(options: UseChatTurnExecutionOptions) {
       const expectedRevision = confirmedDraft.revision!
       const operationKey = `turn:${confirmedDraft.draftId}:${expectedRevision}`
       const requestId = requestIds.resolve(operationKey)
-      if (options.activeRun.value || queue.queuedMessages.value.length) {
+      if (stoppingRunId.value || options.activeRun.value || queue.queuedMessages.value.length) {
         const result = await options.api.chat.enqueue({ draftId: confirmedDraft.draftId, expectedRevision, requestId })
         requestIds.release(operationKey)
         options.composerTarget.complete(result.draftReceipt, sourceScopeKey, sourceScopeKey)
@@ -264,9 +266,9 @@ export function useChatTurnExecution(options: UseChatTurnExecutionOptions) {
 
   async function cancelActiveRun() {
     const run = options.activeRun.value
-    if (!run || isDisposed || pendingCancellationIds.has(run.id))
+    if (!run || isDisposed || pendingCancellations.has(run.id))
       return
-    pendingCancellationIds.add(run.id)
+    pendingCancellations.set(run.id, run)
     const navigationVersion = options.session.generation()
     let sourceViewChanged = false
     const stopWatchingView = watch(
@@ -293,7 +295,7 @@ export function useChatTurnExecution(options: UseChatTurnExecutionOptions) {
     finally {
       stopWatchingView()
       pendingCancellationWatches.delete(stopWatchingView)
-      pendingCancellationIds.delete(run.id)
+      pendingCancellations.delete(run.id)
     }
   }
 

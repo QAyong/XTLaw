@@ -317,18 +317,27 @@ function captureDraft(): WorkbenchMenuSelection {
         </template>
         {{ modelInputIssueMessage || t('desktop.chat.queueAdd') }}
       </NTooltip>
-      <NButton
-        v-if="isRunning"
-        class="buddy-icon-button desktop-chat-composer__send-action"
-        secondary
-        type="error"
-        :aria-label="t('desktop.chat.stop')"
-        @click="emit('stop')"
-      >
-        <template #icon>
-          <DesktopIcon :component="Stop20Filled" />
+      <NTooltip v-if="isRunning">
+        <template #trigger>
+          <span class="desktop-chat-composer__send-trigger">
+            <NButton
+              class="buddy-icon-button desktop-chat-composer__send-action"
+              secondary
+              type="error"
+              :aria-label="isStopping ? t('desktop.chat.progressStopping') : t('desktop.chat.stop')"
+              :aria-busy="isStopping"
+              :disabled="isStopping"
+              :loading="isStopping"
+              @click="emit('stop')"
+            >
+              <template #icon>
+                <DesktopIcon :component="Stop20Filled" />
+              </template>
+            </NButton>
+          </span>
         </template>
-      </NButton>
+        {{ isStopping ? t('desktop.chat.progressStopping') : t('desktop.chat.stop') }}
+      </NTooltip>
       <NTooltip v-if="!queuesSubmission">
         <template #trigger>
           <span class="desktop-chat-composer__send-trigger">
@@ -454,6 +463,20 @@ function captureDraft(): WorkbenchMenuSelection {
     width: var(--buddy-composer-control-height);
     min-width: var(--buddy-composer-control-height);
     height: var(--buddy-composer-control-height);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &__send-action :deep(.n-base-loading__container) {
+      box-sizing: border-box;
+      width: 1em;
+      height: 1em;
+      border: 2px solid currentColor;
+      border-right-color: transparent;
+      border-radius: 50%;
+      animation: none;
+    }
+
+    &__send-action :deep(.n-base-loading__icon) { display: none; }
   }
 
   &__manage-skills {

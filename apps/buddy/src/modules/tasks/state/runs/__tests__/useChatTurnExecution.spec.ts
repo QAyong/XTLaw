@@ -15,6 +15,37 @@ const scopes: ReturnType<typeof effectScope>[] = []
 afterEach(() => scopes.splice(0).forEach(scope => scope.stop()))
 
 describe('useChatTurnExecution cancellation ownership', () => {
+  it('retains cancellation feedback and queues input until cleanup finishes after the terminal event', async () => {
+    const f = createFixture()
+    f.selectedModel.value = { modelId: 'model-a', providerId: 'provider-a' } as LocalRuntimeModelOption
+    const snapshot = f.drafts.snapshot('conversation:conversation-a:branch-a')
+    f.drafts.confirmOpen(snapshot, {
+      content: snapshot.content,
+      draftId: snapshot.draftId,
+      executionConfig: { approvalPolicy: snapshot.approvalPolicy, executionProfile: snapshot.executionProfile },
+      modelSelection: null,
+      revision: 1,
+      scope: { kind: 'conversation_branch', conversationId: 'conversation-a', branchId: 'branch-a' },
+      updatedAt: '2026-09-08T00:00:00.000Z',
+    })
+    f.api.chat.enqueue.mockResolvedValue({ id: 'queued-after-stop', conversationId: 'conversation-a', branchId: 'branch-a', draftReceipt: { draftId: snapshot.draftId, sourceRevision: 1, committedRevision: 2 } })
+    const cancelling = f.execution.cancelActiveRun()
+    const terminal = { ...f.run, status: 'cancelled' as const }
+    f.projectedRuns.value = [terminal]
+    expect(f.execution.stoppingRunId.value).toBe(f.run.id)
+    expect(await f.execution.send('pending input')).toBe(true)
+    expect(f.drafts.draft.value).toBe('')
+    expect(f.api.chat.enqueue).toHaveBeenCalledOnce()
+    expect(f.api.chat.startTurn).not.toHaveBeenCalled()
+    f.drafts.updateComposerContent('next draft', null)
+    f.pending.resolve(terminal)
+    await cancelling
+    expect(f.execution.stoppingRunId.value).toBeNull()
+    expect(f.projectedRuns.value).toEqual([terminal])
+    expect(f.drafts.draft.value).toBe('next draft')
+    expect(f.api.chat.steerQueued).not.toHaveBeenCalled()
+  })
+
   it('applies cancellation to the current projection and preserves its Draft', async () => {
     const fixture = createFixture()
     const cancelling = fixture.execution.cancelActiveRun()
@@ -67,7 +98,7 @@ describe('useChatTurnExecution cancellation ownership', () => {
       const fixture = createFixture()
       const cancelling = fixture.execution.cancelActiveRun()
       fixture.navigate(navigation)
-      expect(fixture.execution.stoppingRunId.value).toBeNull()
+      expect(fixture.execution.stoppingRunId.value).toBe(navigation.startsWith('return-to-') ? fixture.run.id : null)
       fixture.pending.resolve({ ...fixture.run, status: 'cancelled' })
       await cancelling
 

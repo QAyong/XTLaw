@@ -19,7 +19,7 @@ export function userContentToChatComposerDocument(content: BuddyUserContentV1): 
   if (missingReferences.length)
     body[0]!.content.unshift(...missingReferences.map(reference => inlineNodeToEditorNode({ sessionId: reference.id, type: 'session_ref' }, content.sessionReferences ?? [])))
   return {
-    attrs: { panelResourceIds: [...content.panelResourceIds], ...(content.quotes?.length ? { quotes: content.quotes } : {}), ...(content.sessionReferences?.length ? { sessionReferences: content.sessionReferences } : {}) },
+    attrs: { panelResourceIds: [...content.panelResourceIds], ...(content.quotes?.length ? { quotes: content.quotes } : {}), ...(content.resourceQuotes?.length ? { resourceQuotes: content.resourceQuotes } : {}), ...(content.sessionReferences?.length ? { sessionReferences: content.sessionReferences } : {}) },
     content: body,
     type: 'doc',
   }
@@ -42,6 +42,7 @@ export function chatComposerDocumentToUserContent(document: JSONContent): BuddyU
     }),
     panelResourceIds: document.attrs?.panelResourceIds ?? [],
     ...(document.attrs?.quotes?.length ? { quotes: document.attrs.quotes } : {}),
+    ...(document.attrs?.resourceQuotes?.length ? { resourceQuotes: document.attrs.resourceQuotes } : {}),
     ...(document.attrs?.sessionReferences?.length ? { sessionReferences: document.attrs.sessionReferences } : {}),
     version: 1,
   })

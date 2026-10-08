@@ -134,6 +134,7 @@ export function useChatComposerEditor(options: ChatComposerEditorOptions) {
         const panelChanged = panelResourceIds.length !== nextPanelResourceIds.length
           || panelResourceIds.some((id, index) => id !== nextPanelResourceIds[index])
         const quotesChanged = JSON.stringify(current.state.doc.attrs.quotes) !== JSON.stringify(document.attrs.quotes)
+          || JSON.stringify(current.state.doc.attrs.resourceQuotes) !== JSON.stringify(document.attrs.resourceQuotes)
         const sessionReferencesChanged = JSON.stringify(current.state.doc.attrs.sessionReferences) !== JSON.stringify(document.attrs.sessionReferences)
         if (!bodyChanged && !panelChanged && !quotesChanged && !sessionReferencesChanged)
           return
@@ -151,6 +152,7 @@ export function useChatComposerEditor(options: ChatComposerEditorOptions) {
           current.view.dispatch(transaction
             .setDocAttribute('panelResourceIds', document.attrs.panelResourceIds)
             .setDocAttribute('quotes', document.attrs.quotes)
+            .setDocAttribute('resourceQuotes', document.attrs.resourceQuotes)
             .setDocAttribute('sessionReferences', document.attrs.sessionReferences)
             .setMeta('addToHistory', false))
         }

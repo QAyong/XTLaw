@@ -12,6 +12,7 @@ interface ChatToolRegistration {
 }
 
 const cards = {
+  'session': { category: 'read', icon: 'file', label: 'desktop.chat.processToolSessionRead' },
   'read': { category: 'read', icon: 'file', label: 'desktop.chat.processToolRead' },
   'search': { category: 'search', icon: 'search', label: 'desktop.chat.processToolSearch' },
   'terminal': { category: 'command', icon: 'terminal', label: 'desktop.chat.processToolCommand' },
@@ -69,6 +70,8 @@ const builtins: Readonly<Record<string, ChatToolRegistration>> = {
   lexora_plugin_build: { category: 'other', icon: 'artifact', label: 'desktop.chat.processToolBuildPlugin' },
   lexora_output_present: { category: 'other', icon: 'artifact', label: 'desktop.chat.processToolPresent' },
   lexora_tool_search: { ...cards.search, label: 'desktop.chat.processToolDiscover' },
+  lexora_session_search: { ...cards.search, label: 'desktop.chat.processToolSessionSearch' },
+  lexora_session_read: cards.session,
 }
 
 export function getChatToolRegistration(node: ChatAgentToolNode): ChatToolRegistration {

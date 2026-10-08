@@ -1,6 +1,6 @@
 import type { LocalChatApi } from '@buddy-electron/shared/localChatApi'
 import type { Ref } from 'vue'
-import type { ChatComposerContextOptions } from '@/modules/prompt-input'
+import type { ChatComposerContextOptions, ChatComposerSessionScope, ChatPromptContextOption } from '@/modules/prompt-input'
 import { isSkillAvailable } from '@buddy-shared/skills/skillApi'
 import { onScopeDispose, watch } from 'vue'
 
@@ -9,6 +9,7 @@ interface ComposerContextOptions {
   activeConversationId: Readonly<Ref<string | null>>
   draftId: Readonly<Ref<string>>
   spaceId: Readonly<Ref<string | null>>
+  sessionOptions?: (query: string, scope?: ChatComposerSessionScope) => Promise<readonly ChatPromptContextOption[]>
   listSources: LocalChatApi['composerResources']['listSources']
   listSkills: LocalChatApi['skills']['list']
 }
@@ -21,7 +22,7 @@ export function useComposerContextOptions(options: ComposerContextOptions) {
   onScopeDispose(() => {
     scopeVersion += 1
   })
-  async function listContextOptions(fileQuery: string | null, deepSearch = false): Promise<ChatComposerContextOptions> {
+  async function listContextOptions(fileQuery: string | null, deepSearch = false, sessionScope?: ChatComposerSessionScope): Promise<ChatComposerContextOptions> {
     const current = scopeVersion
     const spaceId = options.spaceId.value
     const request = {
@@ -33,11 +34,14 @@ export function useComposerContextOptions(options: ComposerContextOptions) {
       spaceId,
     }
     const catalog = fileQuery === null ? await options.listSkills(spaceId, true) : null
-    const sources = fileQuery === null ? null : await options.listSources(request)
+    const sources = fileQuery === null || sessionScope ? null : await options.listSources(request)
+    const sessions = fileQuery === null ? [] : await options.sessionOptions?.(fileQuery, sessionScope) ?? []
     if (current !== scopeVersion)
       return { files: [], skills: [] }
     return {
       directory: sources?.directory,
+      sessions: sessions.slice(0, 100),
+      hasMoreSessions: sessions.length > 100,
       files: (sources?.files ?? []).map(file => ({
         category: file.category,
         description: null,

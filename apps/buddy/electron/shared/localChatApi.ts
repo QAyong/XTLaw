@@ -18,7 +18,7 @@ import type {
   BuddyComposerSpaceFileSelect,
 } from '../../shared/conversation/composerResource'
 import type { LocalContextUsageSnapshot, LocalContextUsageSnapshotRequest } from '../../shared/conversation/contextApi'
-import type { ConversationTimelineChangeNotice, LocalConversation, LocalConversationBranch, LocalConversationSummary, LocalConversationTimelinePage, LocalMessagePage } from '../../shared/conversation/conversationApi'
+import type { ConversationListFilter, ConversationTimelineChangeNotice, LocalConversation, LocalConversationBranch, LocalConversationSummary, LocalConversationTimelinePage, LocalMessagePage } from '../../shared/conversation/conversationApi'
 import type { ConversationNodeDetailRequest, LocalConversationTree } from '../../shared/conversation/conversationTree'
 import type { LocalTaskMark, LocalTaskMarkState, TaskMarkClearInput, TaskMarkInput, TaskMarkReadInput } from '../../shared/conversation/taskMarkApi'
 import type { LocalWorkspaceSetting, LocalWorkspaceStateValue } from '../../shared/conversation/workspaceApi'
@@ -386,7 +386,7 @@ export interface LocalChatApi {
     onTimelineChanged: (listener: (event: ConversationTimelineChangeNotice) => void) => () => void
     getNodeDetail: (input: ConversationNodeDetailRequest) => Promise<LocalConversationTimelinePage>
     getTree: (conversationId: string) => Promise<LocalConversationTree>
-    list: (limit?: number) => Promise<ReadonlyArray<LocalConversationSummary>>
+    list: (limit?: number, filter?: ConversationListFilter) => Promise<ReadonlyArray<LocalConversationSummary>>
     get: (conversationId: string) => Promise<LocalConversation>
     delete: (conversationId: string) => Promise<boolean>
     activateBranch: (input: {

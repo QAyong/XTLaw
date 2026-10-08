@@ -72,6 +72,7 @@ function splitDisplayPath(value: string): { name: string, directory: string } {
 function toolTarget(node: ChatAgentToolNode, t: BuddyTranslate): string {
   const p = node.presentation
   switch (p.card) {
+    case 'session': return p.target ?? p.title ?? ''
     case 'terminal': return p.command
     case 'read':
     case 'diff': return p.path

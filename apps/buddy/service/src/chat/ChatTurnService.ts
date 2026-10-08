@@ -71,6 +71,7 @@ import { requireActiveSpace } from '../spaces/requireActiveSpace'
 import { BUDDY_REVIEW_PROMPT, buildBuddyReviewPrompt } from './buddyReviewPrompt'
 import { createConversationTitle } from './conversationTitle'
 import { combinePreparedAttachments, persistPreparedTurn } from './persistPreparedTurn'
+import { resolveAuthorizedSessionReferences } from './sessionReferenceAuthorization'
 
 const MAX_CONTEXT_FILE_BYTES = 1024 * 1024
 const MAX_MODEL_INPUT_BYTES = 4 * 1024 * 1024
@@ -191,6 +192,7 @@ export class ChatTurnService {
     const space = spaceId
       ? requireActiveSpace(this.#options.spaces.findById(spaceId))
       : null
+    const sessionReferences = resolveAuthorizedSessionReferences(draft.content.sessionReferences ?? [], this.#options.conversations)
     const conversationId = scope.conversationId ?? randomUUID()
     if (
       existingConversation
@@ -232,7 +234,7 @@ export class ChatTurnService {
     let stagedAttachments: PreparedTurnAttachments | null = null
     try {
       const resourceInputs = materialized.inputs
-      if (!content && resourceInputs.length === 0 && !draft.content.quotes?.length)
+      if ((!content && draft.content.sessionReferences?.length) || (!content && resourceInputs.length === 0 && !draft.content.quotes?.length))
         throw new BuddyServiceError('VALIDATION_FAILED')
       const attachmentIds = getResourceAttachmentIds(resourceInputs)
 
@@ -246,7 +248,7 @@ export class ChatTurnService {
       } = await this.#prepareTurnMaterialization({
         attachmentIds,
         composer: {
-          content: draft.content,
+          content: { ...draft.content, sessionReferences },
           resourceIds: resourceInputs.map(resource => resource.resourceId),
           resources: resourceInputs,
         },
@@ -299,7 +301,7 @@ export class ChatTurnService {
         runId,
         title: createConversationTitle(draft.content, attachmentPrompt.records),
         userMessageContent: createPersistedUserMessageContent(
-          draft.content,
+          { ...draft.content, ...(sessionReferences.length ? { sessionReferences } : { sessionReferences: undefined }) },
           bindResourceAttachments(resourceInputs, persistedAttachmentIds),
         ),
         userMessageId,
@@ -365,6 +367,9 @@ export class ChatTurnService {
     }
     const forkedFromMessageId = sourceIndex > 0 ? history[sourceIndex - 1]?.id ?? null : null
     const space = this.#resolveConversationSpace(conversation)
+    const sessionReferences = draft
+      ? resolveAuthorizedSessionReferences(draft.content.sessionReferences ?? [], this.#options.conversations)
+      : []
     const content = draft ? buddyUserContentToText(draft.content).trim() : ''
     const selectedModel = draft ? await this.#resolveSelection(null, null, draft.modelSelection) : undefined
     const materialized = draft && !replay
@@ -380,7 +385,7 @@ export class ChatTurnService {
     let prepared: TurnRequestRecord
     try {
       const resourceInputs = materialized?.inputs ?? []
-      if (!replay && !content && resourceInputs.length === 0 && !draft?.content.quotes?.length)
+      if (!replay && ((!content && draft?.content.sessionReferences?.length) || (!content && resourceInputs.length === 0 && !draft?.content.quotes?.length)))
         throw new BuddyServiceError('VALIDATION_FAILED')
       const attachmentIds = getResourceAttachmentIds(resourceInputs)
       const {
@@ -393,7 +398,7 @@ export class ChatTurnService {
       } = await this.#prepareTurnMaterialization({
         attachmentIds,
         composer: draft
-          ? { content: draft.content, resourceIds: resourceInputs.map(resource => resource.resourceId), resources: resourceInputs }
+          ? { content: { ...draft.content, sessionReferences }, resourceIds: resourceInputs.map(resource => resource.resourceId), resources: resourceInputs }
           : undefined,
         content: '',
         contextItems: [],
@@ -457,7 +462,7 @@ export class ChatTurnService {
               sourceUserMessageId: input.userMessageId,
               title: null,
               userMessageContent: createPersistedUserMessageContent(
-                draft!.content,
+                { ...draft!.content, ...(sessionReferences.length ? { sessionReferences } : { sessionReferences: undefined }) },
                 persistedResourceSnapshots,
               ),
               userMessageId,

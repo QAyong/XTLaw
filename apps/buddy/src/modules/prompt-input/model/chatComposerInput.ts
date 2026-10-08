@@ -1,6 +1,6 @@
 import type { BuddyChatCommandDescriptionKey } from '@buddy-shared/conversation/buddyChatCommands'
 
-import type { BuddyUserContentV1 } from '@buddy-shared/conversation/buddyUserContent'
+import type { BuddySessionReference, BuddyUserContentV1 } from '@buddy-shared/conversation/buddyUserContent'
 import type { LocalPromptContextItem } from '@buddy-shared/conversation/chatApi'
 import type { BuddyComposerDirectory, BuddyComposerSource } from '@buddy-shared/conversation/composerResource'
 import type { JSONContent } from '@tiptap/core'
@@ -8,9 +8,17 @@ import { BUDDY_CHAT_COMMANDS } from '@buddy-shared/conversation/buddyChatCommand
 import { buddyUserContentToText } from '@buddy-shared/conversation/buddyUserContent'
 import { chatComposerDocumentToUserContent } from './chatComposerDocument'
 
-export interface ChatPromptContextOption extends LocalPromptContextItem {
+export interface ChatComposerSessionScope {
+  spaceId: string | null
+  title: string
+}
+
+export interface ChatPromptContextOption extends Omit<LocalPromptContextItem, 'kind'> {
+  kind: LocalPromptContextItem['kind'] | 'sessionGroup' | 'sessionReference'
+  sessionScope?: ChatComposerSessionScope
+  sessionReference?: BuddySessionReference
   description: string | null
-  category?: 'artifact' | 'current' | 'history' | 'space' | 'external'
+  category?: 'artifact' | 'current' | 'history' | 'space' | 'external' | 'sessions'
   commandId?: string
   resourceId?: string
   entryKind?: 'file' | 'directory'
@@ -33,6 +41,8 @@ export interface ChatComposerContextOptions {
   files: ReadonlyArray<ChatPromptContextOption>
   skills: ReadonlyArray<ChatPromptContextOption>
   commands?: ReadonlyArray<ChatPromptContextOption>
+  sessions?: ReadonlyArray<ChatPromptContextOption>
+  hasMoreSessions?: boolean
 }
 
 export function createChatComposerSourceOptions(
@@ -123,7 +133,7 @@ export function createChatComposerSuggestions(
         path: null,
         value: `/${command.name}`,
       })), ...options.commands ?? []]
-    : trigger.kind === 'skill' ? options.skills : createChatComposerSourceOptions(options.files)
+    : trigger.kind === 'skill' ? options.skills : [...createChatComposerSourceOptions(options.files), ...options.sessions ?? []]
   if (trigger.kind === 'slash') {
     const exact = candidates.filter(option => option.value.slice(1) === trigger.query)
     if (trigger.exactCommand || exact.length > 1)

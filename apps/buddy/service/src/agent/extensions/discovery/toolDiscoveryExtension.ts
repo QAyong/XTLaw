@@ -75,7 +75,13 @@ export function createToolDiscoveryCapability(policies: readonly BuddyToolDisclo
           sync(context, 'request')
         })
         pi.on('turn_end', (_event, context) => sync(context, 'request'))
-        pi.on('context', (_event, context) => sync(context, 'context'))
+        pi.on('context_with_system', (event, context) => {
+          sync(context, 'context')
+          const active = new Set(pi.getActiveTools())
+          return { messages: event.messages.map(message => message.role === 'system' && message.toolsAdded
+            ? { ...message, toolsAdded: message.toolsAdded.filter(tool => active.has(tool.name)) }
+            : message) }
+        })
         pi.on('model_select', (_event, context) => sync(context, 'model'))
         pi.on('session_tree', (_event, context) => restore(context, 'tree'))
         pi.on('session_shutdown', () => state.dispose())

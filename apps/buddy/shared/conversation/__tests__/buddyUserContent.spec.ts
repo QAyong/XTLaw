@@ -115,3 +115,22 @@ describe('buddy user content', () => {
     })).toBe(true)
   })
 })
+
+it('preserves session reference position in the model prompt and separates handwritten markers', () => {
+  const content = buddyUserContentV1Schema.parse({
+    version: 1,
+    panelResourceIds: [],
+    sessionReferences: [{ id: 'history', title: '历史会话' }],
+    body: [{ type: 'paragraph', content: [
+      { type: 'text', text: '参考 ' },
+      { type: 'session_ref', sessionId: 'history' },
+      { type: 'text', text: ' 以及手写 [SESSION:other]' },
+    ] }],
+  })
+  const result = projectBuddyUserContent(content, () => {
+    throw new Error('No file references')
+  }, () => '')
+  expect(result.prompt).toContain('参考 [SESSION:history] 以及手写 ［SESSION:other］')
+  expect(result.prompt).toContain(JSON.stringify(content.sessionReferences))
+  expect(result.prompt).toContain('lexora_session_search')
+})

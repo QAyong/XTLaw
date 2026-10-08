@@ -6,7 +6,6 @@ import { conversationRequestSchemas, conversationsRpc } from '../../../shared/co
 import { conversationTreeRpc } from '../../../shared/conversation/conversationTree'
 import { LOCAL_WORKSPACE_STATE_KEY, workspaceRequestSchemas, workspaceStateRpc } from '../../../shared/conversation/workspaceApi'
 import { runsRequestSchemas } from '../../../shared/runs/runApi'
-import { validationRequestSchemas } from '../../../shared/runtime/apiValidation'
 import { LOCAL_CHAT_IPC_CHANNELS } from '../../shared/localChatApi'
 
 export function registerConversationIpc(context: LocalChatIpcContext): void {
@@ -29,7 +28,7 @@ export function registerConversationIpc(context: LocalChatIpcContext): void {
 
   handle(LOCAL_CHAT_IPC_CHANNELS.conversationsGetTree, (_event, input) => request(conversationTreeRpc.get, conversationTreeRpc.get.input.parse(input)))
 
-  handle(LOCAL_CHAT_IPC_CHANNELS.conversationsList, (_event, input) => request(conversationsRpc.list, validationRequestSchemas.limit.parse(input)))
+  handle(LOCAL_CHAT_IPC_CHANNELS.conversationsList, (_event, input) => request(conversationsRpc.list, conversationRequestSchemas.list.parse(input)))
 
   handle(LOCAL_CHAT_IPC_CHANNELS.conversationsGet, (_event, input) => request(conversationsRpc.get, conversationRequestSchemas.conversationId.parse(input)))
 

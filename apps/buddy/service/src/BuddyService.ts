@@ -808,6 +808,8 @@ export async function startBuddyService(
         imageGenerationGateway,
         imageTransformService,
         webService,
+        conversations,
+        eventLog: options.eventLog,
       }, petActions),
     }
     const sessionBlueprints = new BuddySessionBlueprintService({

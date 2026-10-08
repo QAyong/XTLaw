@@ -83,7 +83,7 @@ export const ChatComposerDocument = Node.create({
   content: 'paragraph+',
 
   addAttributes() {
-    return { panelResourceIds: { default: [], rendered: false }, quotes: { default: null, rendered: false } }
+    return { panelResourceIds: { default: [], rendered: false }, quotes: { default: null, rendered: false }, sessionReferences: { default: null, rendered: false } }
   },
 
   addProseMirrorPlugins() {
@@ -223,7 +223,7 @@ export function insertChatComposerResources(
     transaction.replaceSelection(new Slice(fragment, 0, 0))
   }
 
-  return dispatchResourceEdit(editor, transaction)
+  return dispatchComposerEdit(editor, transaction)
 }
 
 export async function insertResolvedChatComposerResource(
@@ -269,7 +269,7 @@ export function removeChatComposerPanelResource(editor: Editor, resourceId: stri
   const current: string[] = editor.state.doc.attrs.panelResourceIds
   if (!current.includes(resourceId))
     return false
-  return dispatchResourceEdit(editor, editor.state.tr.setDocAttribute(
+  return dispatchComposerEdit(editor, editor.state.tr.setDocAttribute(
     'panelResourceIds',
     current.filter(id => id !== resourceId),
   ))
@@ -293,27 +293,28 @@ export function removeChatComposerResource(editor: Editor, resourceId: string): 
       current.filter(id => id !== resourceId),
     )
   }
-  return dispatchResourceEdit(editor, transaction)
+  return dispatchComposerEdit(editor, transaction)
 }
 
 export function setChatComposerPanelResources(editor: Editor, resourceIds: readonly string[]): boolean {
   const current: string[] = editor.state.doc.attrs.panelResourceIds
   if (current.length === resourceIds.length && current.every((id, index) => id === resourceIds[index]))
     return false
-  return dispatchResourceEdit(editor, editor.state.tr.setDocAttribute('panelResourceIds', [...resourceIds]))
+  return dispatchComposerEdit(editor, editor.state.tr.setDocAttribute('panelResourceIds', [...resourceIds]))
 }
 
 export function replaceChatComposerDocument(editor: Editor, content: BuddyUserContentV1): boolean {
   if (editor.isDestroyed || !editor.isEditable)
     return false
   const document = editor.schema.nodeFromJSON(userContentToChatComposerDocument(content))
-  return dispatchResourceEdit(editor, editor.state.tr
+  return dispatchComposerEdit(editor, editor.state.tr
     .replaceWith(0, editor.state.doc.content.size, document.content)
     .setDocAttribute('panelResourceIds', document.attrs.panelResourceIds)
-    .setDocAttribute('quotes', document.attrs.quotes))
+    .setDocAttribute('quotes', document.attrs.quotes)
+    .setDocAttribute('sessionReferences', document.attrs.sessionReferences))
 }
 
-function dispatchResourceEdit(editor: Editor, transaction: Transaction): boolean {
+export function dispatchComposerEdit(editor: Editor, transaction: Transaction): boolean {
   if (!transaction.docChanged)
     return false
   editor.view.dispatch(closeHistory(transaction).setMeta(RESOURCE_EDIT_META, true))

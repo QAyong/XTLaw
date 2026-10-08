@@ -24,6 +24,7 @@ import WorkbenchMenu from '@/shared/ui/contributions/WorkbenchMenu.vue'
 import WorkbenchSlot from '@/shared/ui/contributions/WorkbenchSlot.vue'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import ChatQuoteStrip from '../quotes/ChatQuoteStrip.vue'
+import ChatSessionReferenceStrip from '../references/ChatSessionReferenceStrip.vue'
 import ChatComposerSourceMenu from './ChatComposerSourceMenu.vue'
 import ChatComposerSourcePicker from './ChatComposerSourcePicker.vue'
 import ComposerResourceStrip from './ComposerResourceStrip.vue'
@@ -62,12 +63,16 @@ const {
   deepSearch,
   setDeepSearch,
   navigateDirectory,
+  leaveSessions,
+  sessionScope,
   loadContextOptions,
   modelInputIssue,
   resourceStripResources,
   quotes,
+  sessionReferences,
   addQuote,
   removeQuote,
+  removeSessionReference,
   removeResource,
   selectPanelSource: selectPanelResource,
   selectSuggestion,
@@ -87,7 +92,7 @@ const {
   isRunning: toRef(props, 'isRunning'),
   isSending: toRef(props, 'isSending'),
   language: toRef(props, 'language'),
-  loadContextOptions: (query, deepSearch) => props.loadContextOptions(query, deepSearch),
+  loadContextOptions: (query, deepSearch, scope) => props.loadContextOptions(query, deepSearch, scope),
   beginImport: (files, origin) => props.beginImport(files, origin),
   selectSource: source => props.selectSource(source),
   onSend: payload => emit('send', payload),
@@ -179,6 +184,7 @@ function captureDraft(): WorkbenchMenuSelection {
   >
     <template #attachments>
       <WorkbenchSlot target="composer.accessory" class="desktop-chat-composer__accessory" />
+      <ChatSessionReferenceStrip :references="sessionReferences" :language="language" :disabled="isSending" removable @remove="removeSessionReference" />
       <ChatQuoteStrip :quotes="quotes" :language="language" :disabled="isSending" removable @remove="removeQuote" />
       <ComposerResourceStrip
         ref="resourceStrip"
@@ -209,6 +215,9 @@ function captureDraft(): WorkbenchMenuSelection {
             :options="suggestionOptions"
             :directory="activeTrigger?.kind === 'mention' ? contextOptions.directory : undefined"
             :deep-search="deepSearch"
+            :session-scope="sessionScope"
+            :has-more-sessions="contextOptions.hasMoreSessions"
+            @leave-sessions="leaveSessions"
             @deep-search-change="setDeepSearch"
             @navigate="navigateDirectory"
             @highlight="activeSuggestionIndex = $event"

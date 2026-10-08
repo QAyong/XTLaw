@@ -1,5 +1,5 @@
 import type { UseChatComposerOptions } from './typing'
-import type { ChatComposerContextOptions, ChatComposerTrigger, ChatPromptContextOption } from '@/modules/prompt-input'
+import type { ChatComposerContextOptions, ChatComposerSessionScope, ChatComposerTrigger, ChatPromptContextOption } from '@/modules/prompt-input'
 import { computed, onScopeDispose, shallowRef, watch } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import { createChatComposerSourceOptions, createChatComposerSuggestions, getChatComposerResourceIds, shouldSubmitChatComposerKey } from '@/modules/prompt-input'
@@ -18,6 +18,7 @@ export function useChatComposerSuggestions(
   const isLoadingContext = shallowRef(false)
   const contextLoadFailed = shallowRef(false)
   const deepSearch = shallowRef(false)
+  const sessionScope = shallowRef<ChatComposerSessionScope>()
   let contextRequestId = 0
   let loadedSkillDraftId: string | null = null
 
@@ -42,7 +43,7 @@ export function useChatComposerSuggestions(
         : []
     })
   })
-  const sourceOptions = computed(() => [...createChatComposerSourceOptions(currentOptions.value, fileQuery.value), ...createChatComposerSourceOptions(contextOptions.value.files)])
+  const sourceOptions = computed(() => sessionScope.value ? [] : [...createChatComposerSourceOptions(currentOptions.value, fileQuery.value), ...createChatComposerSourceOptions(contextOptions.value.files)])
   const commandOptions = computed<ChatPromptContextOption[]>(() => (commands?.entries.value ?? []).map((command) => {
     const origin = command.origin
     const repeated = origin && commands?.entries.value.some(other => other.id !== command.id && other.name === command.name && other.origin?.name === origin.name && (other.origin.author || '') === (origin.author || ''))
@@ -59,6 +60,8 @@ export function useChatComposerSuggestions(
 
   watch(activeTrigger, (trigger) => {
     activeSuggestionIndex.value = needsCommandChoice.value ? -1 : 0
+    if (trigger?.kind !== 'mention')
+      sessionScope.value = undefined
     if (!trigger || trigger.kind === 'slash') {
       deepSearch.value = false
       loadedSkillDraftId = null
@@ -94,7 +97,7 @@ export function useChatComposerSuggestions(
     contextLoadFailed.value = false
     contextOptions.value = { files: [], skills: [], directory }
     try {
-      const context = await options.loadContextOptions(query, deepSearch.value)
+      const context = await options.loadContextOptions(query, deepSearch.value, sessionScope.value)
       if (requestId === contextRequestId)
         contextOptions.value = context
     }
@@ -156,6 +159,7 @@ export function useChatComposerSuggestions(
     activeTrigger,
     closeSuggestions: () => { activeTrigger.value = null },
     contextOptions,
+    sessionScope,
     contextLoadFailed,
     deepSearch,
     setDeepSearch,

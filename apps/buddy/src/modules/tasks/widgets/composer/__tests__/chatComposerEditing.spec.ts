@@ -4,7 +4,7 @@ import type { BuddyServiceTier, BuddyThinkingLevel } from '@buddy-shared/convers
 import type { LocalRuntimeModelOption } from '@buddy-shared/providers/providerApi'
 import type { JSONContent } from '@tiptap/core'
 import type { ComposerResourceView } from '../../../state/composer/typing'
-import type { ChatComposerContextOptions, ChatComposerSubmitPayload, ChatPromptContextOption } from '@/modules/prompt-input'
+import type { ChatComposerContextOptions, ChatComposerSessionScope, ChatComposerSubmitPayload, ChatPromptContextOption } from '@/modules/prompt-input'
 import type { WorkbenchCommandPort } from '@/shared/ui/contributions/workbenchCommands'
 import { deferred } from '@buddy-tests/deferred'
 import { EditorContent } from '@tiptap/vue-3'
@@ -12,7 +12,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { createApp, defineComponent, h, nextTick, shallowRef } from 'vue'
 import { chatComposerDocumentToUserContent, createChatComposerContentFromText, getChatComposerResourceIds } from '@/modules/prompt-input'
 import { replaceChatComposerDocument } from '@/modules/prompt-input/editor/chatComposerResourceEditing'
-import { insertChatComposerResources } from '@/modules/prompt-input/ui'
+import { insertChatComposerResources, insertChatComposerSessionReferences } from '@/modules/prompt-input/ui'
 import { useProvideWorkbenchCommands } from '@/shared/ui/contributions/workbenchCommands'
 import { CONVERSATION_STATUS_PANEL_KEY } from '../../../state/runs/conversationStatusPanel'
 import { useChatComposer } from '../useChatComposer'
@@ -43,7 +43,7 @@ function skillOption(name: string, description: string): ChatPromptContextOption
 }
 
 async function mountComposer(options: {
-  loadContextOptions?: (query: string | null, deepSearch?: boolean) => Promise<ChatComposerContextOptions>
+  loadContextOptions?: (query: string | null, deepSearch?: boolean, scope?: ChatComposerSessionScope) => Promise<ChatComposerContextOptions>
   selectSource?: (source: BuddyComposerSource) => Promise<string | null>
   model?: LocalRuntimeModelOption
   statusPanel?: boolean
@@ -128,6 +128,25 @@ async function mountComposer(options: {
 }
 
 describe('chat composer editing', () => {
+  it('keeps a referenced session unsendable until the body contains non-whitespace text', async () => {
+    const flow = await mountComposer()
+    insertChatComposerSessionReferences(flow.editor, [{ id: 'session-1', title: 'History' }])
+    await nextTick()
+
+    expect(flow.composer.canSubmit.value).toBe(false)
+    flow.editor.commands.insertContent('   ')
+    await nextTick()
+    expect(flow.composer.canSubmit.value).toBe(false)
+    flow.composer.submit()
+    expect(flow.sentPayloads).toEqual([])
+
+    flow.editor.commands.insertContent('question')
+    await nextTick()
+    expect(flow.composer.canSubmit.value).toBe(true)
+    flow.composer.submit()
+    expect(flow.sentPayloads).toHaveLength(1)
+  })
+
   it.each(['select', 'submit'] as const)('submits a run action with its arguments through %s', async (source) => {
     const flow = await mountComposer()
     const prefix = source === 'select' ? '/com' : '/compact'
@@ -256,7 +275,7 @@ describe('chat composer editing', () => {
     expect(flow.editor.getText()).toBe('@apps/')
     expect(flow.composer.deepSearch.value).toBe(true)
     expect(getChatComposerResourceIds(flow.editor.getJSON())).toEqual([])
-    flow.keydown('Tab', { shiftKey: true })
+    flow.keydown('ArrowLeft', { altKey: true })
     await nextTick()
     expect(flow.editor.getText()).toBe('@')
     flow.composer.navigateDirectory('/downloads/media folder')
@@ -785,4 +804,36 @@ it('does not retarget a selected command when its plugin is removed', async () =
   expect(executions).toEqual([])
   expect(flow.editor.getJSON()).toEqual(before)
   expect(commands.errors).toEqual(['failed'])
+})
+
+it('browses session groups with Tab, returns with Alt Left, and inserts a reference into the original sentence', async () => {
+  const group: ChatPromptContextOption = { kind: 'sessionGroup', category: 'sessions', label: '独立任务', description: null, path: null, value: 'sessions:', sessionScope: { spaceId: null, title: '独立任务' } }
+  const reference: ChatPromptContextOption = { kind: 'sessionReference', category: 'sessions', label: '订单讨论', description: null, path: null, value: 'order', sessionReference: { id: 'order', title: '订单讨论' } }
+  const flow = await mountComposer({ loadContextOptions: async (_query, _deep, scope) => ({ files: [], skills: [], sessions: scope ? [reference] : [group] }) })
+  flow.editor.view.dom.focus()
+  flow.editor.commands.insertContent('参考 @')
+  await nextTick()
+  await nextTick()
+  expect(flow.composer.suggestions.value[0]?.option.kind).toBe('sessionGroup')
+  flow.keydown('Tab')
+  await nextTick()
+  await nextTick()
+  expect(flow.composer.sessionScope.value?.spaceId).toBeNull()
+  expect(flow.composer.suggestions.value[0]?.option.kind).toBe('sessionReference')
+  flow.keydown('Tab', { shiftKey: true })
+  expect(flow.composer.sessionScope.value?.spaceId).toBeNull()
+  flow.keydown('ArrowLeft', { altKey: true, isComposing: true })
+  expect(flow.composer.sessionScope.value?.spaceId).toBeNull()
+  flow.keydown('ArrowLeft', { altKey: true })
+  await nextTick()
+  await nextTick()
+  expect(flow.composer.sessionScope.value).toBeUndefined()
+  flow.keydown('Tab')
+  await nextTick()
+  await nextTick()
+  flow.keydown('Enter')
+  flow.editor.commands.insertContent(' 的决定继续。')
+  expect(flow.editor.getText()).toBe('参考 @订单讨论 的决定继续。')
+  expect(chatComposerDocumentToUserContent(flow.editor.getJSON()).sessionReferences).toEqual([reference.sessionReference])
+  expect(flow.sentPayloads).toEqual([])
 })

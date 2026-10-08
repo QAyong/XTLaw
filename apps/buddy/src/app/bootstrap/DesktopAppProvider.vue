@@ -11,7 +11,7 @@ import { useExtensionState, useExtensionUiContributions, useExtensionViews, useP
 import { DesktopExtensionControl, DesktopExtensionFrameHost, DesktopExtensionMenu, DesktopExtensionOverlays, DesktopExtensionReviewHost, DesktopExtensionSlot } from '@/modules/extensions/ui'
 import { usePluginSettings, useProvideSettingsContext, useSettingsRegistry } from '@/modules/settings'
 import { useProvideSkillsContext } from '@/modules/skills'
-import { useProvideTaskEnvironment, useTaskIndex, useTaskResourcePanel } from '@/modules/tasks'
+import { sessionReferenceNavigationKey, useProvideTaskEnvironment, useTaskIndex, useTaskResourcePanel } from '@/modules/tasks'
 import { useProvideDesktopUpdates } from '@/modules/updates'
 import { DesktopUpdateHost } from '@/modules/updates/ui'
 import DesktopBrowserGuestHost from '@/platform/browser/DesktopBrowserGuestHost.vue'
@@ -65,6 +65,7 @@ onScopeDispose(() => {
   void workbench.dispose().finally(() => diagnostics.dispose()).catch(() => {})
 })
 provide(desktopWorkbenchKey, workbench)
+provide(sessionReferenceNavigationKey, id => workbench.openTask(id, { direction: 'right' }))
 const extensions = useExtensionState(api.extensions)
 const settingsRegistry = useSettingsRegistry(extensions.installed)
 const pages = useDesktopPages(router, extensions.installed, stores.applicationSettings.language)
@@ -188,7 +189,7 @@ const navigation = useDesktopNavigation({
     activeTaskId: workbench.activeTaskId,
     spaceId: computed(() => selectedTask.value?.session.spaceId.value ?? null),
     navigationVersion: () => workbench.navigationVersion,
-    openTask: (id, signal) => workbench.openTask(id, signal),
+    openTask: (id, signal) => workbench.openTask(id, { signal }),
     startTask: spaceId => workbench.newTask(spaceId),
   },
   notifications: stores.notifications,

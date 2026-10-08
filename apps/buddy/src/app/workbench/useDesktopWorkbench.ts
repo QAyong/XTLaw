@@ -92,8 +92,8 @@ export function useDesktopWorkbench(options: { api: LexoraDesktopApi, events: Ap
   function center(): string {
     return controller.pane(controller.layout.activePane)?.id ?? panes(controller.layout.root)[0]!.id
   }
-  function openTask(id: string, signal?: AbortSignal): Promise<void> {
-    return activateTask({ scheme: 'task', id, data: {} }, options.taskIndex.index.tasks.value.find(task => task.id === id)?.title ?? labels().tasks, { signal })
+  function openTask(id: string, destination: { signal?: AbortSignal, direction?: SplitDirection } = {}): Promise<void> {
+    return activateTask({ scheme: 'task', id, data: {} }, options.taskIndex.index.tasks.value.find(task => task.id === id)?.title ?? labels().tasks, destination)
   }
   function newTask(spaceId?: string | null, paneId = center(), direction?: SplitDirection): Promise<void> {
     return activateTask({ scheme: 'draft', id: crypto.randomUUID(), data: { spaceId: spaceId ?? null } }, labels().newTask, { paneId, direction })
@@ -120,7 +120,8 @@ export function useDesktopWorkbench(options: { api: LexoraDesktopApi, events: Ap
       const text = task.workspace.composer.draft.value.trim()
       const resources = task.workspace.composer.resources.value.length
       const quotes = ((task.workspace.composer.composerContent.value?.attrs as { quotes?: unknown[] } | undefined)?.quotes?.length ?? 0) > 0
-      return Boolean(text || resources || quotes)
+      const sessionReferences = ((task.workspace.composer.composerContent.value?.attrs as { sessionReferences?: unknown[] } | undefined)?.sessionReferences?.length ?? 0) > 0
+      return Boolean(text || resources || quotes || sessionReferences)
     }
     try {
       const draft = await api.localChat.composerDrafts.get(view.resource.id)

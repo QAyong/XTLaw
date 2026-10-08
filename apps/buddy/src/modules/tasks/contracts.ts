@@ -22,7 +22,7 @@ import type { ChatComposerInteraction, ComposerResourceView } from './state/comp
 import type { DraftRestorationConflict, DraftRestorationState } from './state/drafts/typing'
 import type { TaskSpaceInput } from './state/task-index/typing'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
-import type { ChatComposerContextOptions, ChatComposerSubmitPayload } from '@/modules/prompt-input'
+import type { ChatComposerContextOptions, ChatComposerSessionScope, ChatComposerSubmitPayload } from '@/modules/prompt-input'
 
 type State<T> = Readonly<Ref<DeepReadonly<T>>>
 
@@ -115,7 +115,7 @@ export interface TaskComposer {
   permissionMode: State<BuddyPermissionMode>
   beginImport: (files: readonly File[], origin?: 'file' | 'clipboard') => readonly string[]
   dismissInteraction: (id: string) => void
-  listContextOptions: (fileQuery: string | null, deepSearch?: boolean) => Promise<ChatComposerContextOptions>
+  listContextOptions: (fileQuery: string | null, deepSearch?: boolean, sessionScope?: ChatComposerSessionScope) => Promise<ChatComposerContextOptions>
   retryResource: (resourceId: string) => Promise<void>
   selectAttachments: () => Promise<void>
   selectModel: (modelId: string) => Promise<void>

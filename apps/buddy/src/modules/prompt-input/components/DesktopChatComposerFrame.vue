@@ -128,6 +128,15 @@ withDefaults(defineProps<{
   }
 }
 
+:deep(.desktop-chat-composer__prosemirror [data-type='chat-session-reference']) {
+  display: inline-block;
+  max-width: min(24rem, calc(100% - 0.24rem));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+  white-space: nowrap;
+}
+
 :deep(.chat-prompt-token-node.ProseMirror-selectednode),
 :deep([data-type='chat-resource-reference'].ProseMirror-selectednode) {
   --inline-wave-highlight-active: 1;

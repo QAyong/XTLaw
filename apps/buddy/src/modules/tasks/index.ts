@@ -9,3 +9,5 @@ export { useTaskCapability } from './state/useTaskCapability'
 
 export type { TaskContext } from './taskContext'
 export { useProvideTaskContext, useProvideTaskEnvironment, useTaskContext, useTaskEnvironment } from './taskContext'
+
+export { sessionReferenceNavigationKey } from './widgets/references/sessionReferenceNavigation'

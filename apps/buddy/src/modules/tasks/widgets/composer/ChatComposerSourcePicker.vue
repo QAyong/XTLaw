@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import type { BuddyComposerDirectory } from '@buddy-shared/conversation/composerResource'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
-import type { ChatPromptContextOption } from '@/modules/prompt-input'
+import type { ChatComposerSessionScope, ChatPromptContextOption } from '@/modules/prompt-input'
 import { composerReferencePath } from '@buddy-shared/conversation/composerReferencePath'
+import { ArrowLeft20Regular, Chat20Regular, ChatMultiple20Regular } from '@vicons/fluent'
 import { NButton, NSwitch } from 'naive-ui'
 import { computed, useId, useTemplateRef, watch } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
@@ -10,7 +11,7 @@ import { FileIcon, FolderIcon } from '@/shared/ui/file-icon'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import SkillIcon from '@/shared/ui/icon/SkillIcon.vue'
 import ChatComposerDirectoryHeader from './ChatComposerDirectoryHeader.vue'
-import { describeChatComposerSource, getChatComposerSourceRoot } from './chatComposerSourcePresentation'
+import { composerParentDirectory, describeChatComposerSource, getChatComposerSourceRoot } from './chatComposerSourcePresentation'
 
 const props = withDefaults(defineProps<{
   activeIndex?: number
@@ -24,6 +25,8 @@ const props = withDefaults(defineProps<{
   options: ReadonlyArray<ChatPromptContextOption>
   directory?: BuddyComposerDirectory
   deepSearch?: boolean
+  sessionScope?: ChatComposerSessionScope
+  hasMoreSessions?: boolean
 }>(), {
   activeIndex: -1,
   keyboardNavigation: undefined,
@@ -37,6 +40,7 @@ const emit = defineEmits<{
   enterDirectory: [option: ChatPromptContextOption]
   highlight: [index: number]
   navigate: [path: string]
+  leaveSessions: []
   deepSearchChange: [value: boolean]
 }>()
 
@@ -63,11 +67,15 @@ const visibleOptions = computed(() => props.options.filter(option => (
   (!props.filesOnly || option.kind === 'file') && (!props.filesOnly || option.source || option.resourceId)
 )))
 const keyboardNavigation = computed(() => props.keyboardNavigation ?? props.activeIndex >= 0)
+const canGoBack = computed(() => Boolean(props.sessionScope || (props.directory && composerParentDirectory(props.directory))))
+const activeOption = computed(() => props.options[props.activeIndex])
+const canEnter = computed(() => activeOption.value?.kind === 'sessionGroup' || (activeOption.value?.entryKind === 'directory' && activeOption.value.path))
+const showShortcuts = computed(() => keyboardNavigation.value && (visibleOptions.value.length > 0 || props.directory || props.sessionScope))
 const selectionLabel = computed(() => t(visibleOptions.value.every(option => option.kind === 'file')
   ? 'desktop.chat.sourcePickerReference'
   : 'desktop.chat.sourcePickerChoose'))
 const directoryCategory = computed(() => props.directory && composerReferencePath(props.directory.path, props.directory.workingDirectory) === props.directory.path ? 'external' : 'space')
-const groupedOptions = computed(() => ['current', 'space', 'external', 'history', 'artifact', ''].flatMap((category) => {
+const groupedOptions = computed(() => ['current', 'space', 'external', 'history', 'artifact', 'sessions', ''].flatMap((category) => {
   const options = visibleOptions.value.filter(option => (option.category ?? '') === category)
   const directory = category === directoryCategory.value ? props.directory : undefined
   if (!options.length && !directory)
@@ -101,6 +109,8 @@ function skillScopeLabel(scope?: 'directory' | 'space' | 'global'): string {
 }
 
 function groupLabel(category: string): string {
+  if (category === 'sessions')
+    return t('desktop.chat.sessionReferences')
   if (category === 'current')
     return t('desktop.chat.sourcePickerCurrent')
   if (category === 'space')
@@ -124,6 +134,14 @@ function highlight(index: number) {
 
 <template>
   <div class="chat-composer-source-picker" :class="{ 'has-keyboard': keyboardNavigation }">
+    <div v-if="sessionScope" class="chat-composer-source-picker__group">
+      <NButton quaternary size="tiny" :aria-label="t('desktop.chat.sourcePickerBack')" @mousedown.prevent @click="emit('leaveSessions')">
+        <template #icon>
+          <DesktopIcon :component="ArrowLeft20Regular" />
+        </template>
+        {{ sessionScope.title }}
+      </NButton>
+    </div>
     <div ref="list" class="chat-composer-source-picker__list" role="listbox" :aria-label="accessibleLabel">
       <span v-if="loading && !visibleOptions.length" class="chat-composer-source-picker__empty">
         {{ loadingLabel }}
@@ -166,11 +184,14 @@ function highlight(index: number) {
               :class="{
                 'is-file': option.kind === 'file',
                 'is-skill': option.kind === 'skill',
+                'is-session': option.kind === 'sessionGroup' || option.kind === 'sessionReference',
               }"
             >
-              <FolderIcon v-if="option.entryKind === 'directory'" />
+              <DesktopIcon v-if="option.kind === 'sessionGroup' && option.sessionScope?.spaceId === null" :component="ChatMultiple20Regular" :size="18" />
+              <FolderIcon v-else-if="option.entryKind === 'directory' || option.kind === 'sessionGroup'" />
               <FileIcon v-else-if="option.kind === 'file'" :name="option.fileName ?? option.label" />
               <DesktopIcon v-else-if="option.kind === 'skill'" :component="SkillIcon" :size="14" />
+              <DesktopIcon v-else-if="option.kind === 'sessionReference'" :component="Chat20Regular" :size="18" />
               <template v-else>{{ kindLabel(option) }}</template>
             </span>
             <span class="chat-composer-source-picker__copy">
@@ -189,7 +210,7 @@ function highlight(index: number) {
           </button>
           <div v-if="keyboardNavigation" class="chat-composer-source-picker__actions">
             <NButton
-              v-if="option.entryKind === 'directory' && option.path"
+              v-if="(option.entryKind === 'directory' && option.path) || option.kind === 'sessionGroup'"
               class="chat-composer-source-picker__enter"
               quaternary
               size="tiny"
@@ -201,7 +222,7 @@ function highlight(index: number) {
             <span class="chat-composer-source-picker__confirm"><kbd>↵</kbd><span>{{ selectionLabel }}</span></span>
           </div>
         </div>
-        <span v-if="group.directory?.hasMore" class="chat-composer-source-picker__empty">
+        <span v-if="group.directory?.hasMore || (group.category === 'sessions' && hasMoreSessions)" class="chat-composer-source-picker__empty">
           {{ t('desktop.chat.sourcePickerMoreResults') }}
         </span>
       </template>
@@ -209,10 +230,12 @@ function highlight(index: number) {
         {{ emptyLabel }}
       </span>
     </div>
-    <div v-if="(keyboardNavigation && (visibleOptions.length || directory)) || $slots.extra" class="chat-composer-source-picker__footer" @mousedown.prevent>
-      <div v-if="keyboardNavigation && (visibleOptions.length || directory)" class="chat-composer-source-picker__shortcuts">
+    <div v-if="showShortcuts || $slots.extra" class="chat-composer-source-picker__footer" @mousedown.prevent>
+      <div v-if="showShortcuts" class="chat-composer-source-picker__shortcuts">
         <span><kbd>↑</kbd><kbd>↓</kbd>{{ t('desktop.chat.sourcePickerNavigate') }}</span>
         <span><kbd>Enter</kbd>{{ selectionLabel }}</span>
+        <span v-if="canEnter"><kbd>Tab</kbd>{{ t('desktop.chat.sourcePickerEnterDirectory') }}</span>
+        <span v-if="canGoBack"><kbd>Alt</kbd><kbd>←</kbd>{{ t('desktop.chat.sourcePickerBack') }}</span>
         <span><kbd>Esc</kbd>{{ t('desktop.chat.sourcePickerClose') }}</span>
       </div>
       <div v-if="directory || $slots.extra" class="chat-composer-source-picker__footer-aside">
@@ -324,7 +347,8 @@ function highlight(index: number) {
   font-size: 0.75rem;
   font-weight: 700;
 
-  &.is-file {
+  &.is-file,
+  &.is-session {
     background: transparent;
   }
 
@@ -334,8 +358,8 @@ function highlight(index: number) {
     border: 1px solid var(--buddy-accent-border);
   }
 
-  &.is-file :deep(.buddy-file-icon),
-  &.is-file :deep(.buddy-folder-icon) {
+  :deep(.buddy-file-icon),
+  :deep(.buddy-folder-icon) {
     width: 1.2rem;
     height: 1.2rem;
   }

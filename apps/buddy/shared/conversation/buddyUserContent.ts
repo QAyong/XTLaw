@@ -6,6 +6,16 @@ export const buddyResourceIdSchema = z.string().regex(/^[A-Z0-9][\w-]{0,127}$/i)
 
 export const BUDDY_QUOTE_COUNT_LIMIT = 16
 export const BUDDY_QUOTE_TEXT_LIMIT = 32_768
+export const BUDDY_SESSION_REFERENCE_TITLE_LIMIT = 80
+export const buddySessionReferenceSchema = z.object({
+  id: buddyResourceIdSchema,
+  title: z.string().trim().min(1).max(BUDDY_SESSION_REFERENCE_TITLE_LIMIT),
+}).strict().readonly()
+export const buddySessionReferencesSchema = z.array(buddySessionReferenceSchema)
+  .max(16)
+  .refine(references => new Set(references.map(reference => reference.id)).size === references.length, 'Duplicate session reference')
+  .readonly()
+export type BuddySessionReference = z.infer<typeof buddySessionReferenceSchema>
 
 export const buddyMessageQuoteSchema = z.object({
   id: buddyResourceIdSchema,
@@ -51,6 +61,7 @@ export const buddyInlineNodeV1Schema = z.union([
   z.object({ text: z.string().min(1), type: z.literal('text') }).strict().readonly(),
   z.object({ type: z.literal('hard_break') }).strict().readonly(),
   z.object({ resourceId: buddyResourceIdSchema, type: z.literal('resource_ref') }).strict().readonly(),
+  z.object({ sessionId: buddyResourceIdSchema, type: z.literal('session_ref') }).strict().readonly(),
   buddyPromptDirectiveSchema,
 ])
 
@@ -64,8 +75,11 @@ export const buddyUserContentV1Schema = z.object({
     'Duplicate panel resource',
   ).readonly(),
   quotes: buddyMessageQuotesSchema.optional(),
+  sessionReferences: buddySessionReferencesSchema.optional(),
   version: z.literal(1),
-}).strict().readonly()
+}).strict().refine(content => content.body.every(paragraph => paragraph.content.every(node =>
+  node.type !== 'session_ref' || content.sessionReferences?.some(reference => reference.id === node.sessionId),
+)), 'Missing session reference metadata').readonly()
 
 export type BuddyUserContentV1 = z.infer<typeof buddyUserContentV1Schema>
 export type BuddyInlineNodeV1 = z.infer<typeof buddyInlineNodeV1Schema>
@@ -163,7 +177,8 @@ export function hasBuddyUserContent(content: BuddyUserContentV1 | null | undefin
   return Boolean(
     buddyUserContentToText(content).trim()
     || getBuddyUserContentResourceIds(content).length
-    || content.quotes?.length,
+    || content.quotes?.length
+    || content.sessionReferences?.length,
   )
 }
 
@@ -176,6 +191,7 @@ export function buddyUserContentToText(
       case 'text': return node.text
       case 'hard_break': return '\n'
       case 'resource_ref': return resourceLabel(node.resourceId)
+      case 'session_ref': return ''
       case 'prompt_directive': return buddyPromptDirectiveToText(node)
       default: throw new Error('Unsupported Composer inline node')
     }

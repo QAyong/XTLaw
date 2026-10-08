@@ -8,7 +8,7 @@ import { getBuddyChatCommandDefinition, isBuddyRunChatCommand, parseBuddyChatCom
 import { composerReferencePath } from '@buddy-shared/conversation/composerReferencePath'
 import { computed, onScopeDispose, watch } from 'vue'
 import { CHAT_PROMPT_DIRECTIVE_NODE_NAME, getChatComposerResourceIds, serializeChatComposerContent } from '@/modules/prompt-input'
-import { insertChatComposerResources, insertResolvedChatComposerResource, removeChatComposerPanelResource, removeChatComposerResource } from '@/modules/prompt-input/ui'
+import { insertChatComposerResources, insertChatComposerSessionReferences, insertResolvedChatComposerResource, removeChatComposerPanelResource, removeChatComposerResource, removeChatComposerSessionReference } from '@/modules/prompt-input/ui'
 import { useConversationStatusPanel } from '@/modules/tasks/state/runs/conversationStatusPanel'
 import { resolveComposerResourcePreviewUrl } from '../../model/attachments/chatAttachmentView'
 import { resolveChatComposerModelInputIssue } from '../../model/composer/chatComposerModelCapability'
@@ -42,9 +42,14 @@ export function useChatComposer(options: UseChatComposerOptions) {
     onUpdateContent: options.onUpdateContent,
     onTrigger: (trigger) => { query.activeTrigger.value = trigger },
     onSuggestionKeydown: (event) => {
-      const directory = query.contextOptions.value.directory
-      if (!event.isComposing && event.keyCode !== 229 && event.key === 'Tab' && event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey && query.activeTrigger.value?.kind === 'mention' && directory) {
-        const parent = composerParentDirectory(directory)
+      if (!event.isComposing && event.keyCode !== 229 && event.key === 'ArrowLeft' && event.altKey && !event.shiftKey && !event.ctrlKey && !event.metaKey && query.activeTrigger.value?.kind === 'mention') {
+        if (query.sessionScope.value) {
+          event.preventDefault()
+          leaveSessions()
+          return true
+        }
+        const directory = query.contextOptions.value.directory
+        const parent = directory && composerParentDirectory(directory)
         if (parent) {
           event.preventDefault()
           navigateDirectory(parent)
@@ -54,11 +59,20 @@ export function useChatComposer(options: UseChatComposerOptions) {
       return query.handleKeydown(event)
     },
     onPasteFiles: files => attachFiles(files, 'both', 'clipboard'),
+    onPasteSessionReferences: (references, text) => {
+      const current = editor.value
+      if (!current?.isEditable)
+        return
+      insertChatComposerSessionReferences(current, references)
+      if (text)
+        current.chain().focus().insertContent({ type: 'text', text }).run()
+    },
     onSubmit: submit,
     onLocateResource: options.onLocateResource,
   })
   const resourceIds = computed(() => getChatComposerResourceIds(contentJSON.value))
   const quotes = computed(() => serializedContent.value.userContent?.quotes ?? [])
+  const sessionReferences = computed(() => serializedContent.value.userContent?.sessionReferences ?? [])
   const modelInputIssue = computed(() => resolveChatComposerModelInputIssue({
     model: options.selectedModel.value,
     modelSelection: {
@@ -72,7 +86,9 @@ export function useChatComposer(options: UseChatComposerOptions) {
   const canSubmit = computed(() => isLocalCommand.value
     ? !localCommands.pending.value && !options.isSending.value
     : options.canSend.value && modelInputIssue.value === null && (
-      serializedContent.value.content.length > 0 || resourceIds.value.length > 0 || quotes.value.length > 0
+      (serializedContent.value.userContent?.sessionReferences?.length
+        ? serializedContent.value.content.trim().length > 0
+        : serializedContent.value.content.length > 0 || resourceIds.value.length > 0 || quotes.value.length > 0)
     ) && resourceIds.value.every(id => resourceById.value.get(id)?.resource.state === 'ready'))
   const panelResources = computed(() => (contentJSON.value.attrs?.panelResourceIds as string[] ?? [])
     .flatMap(id => resourceById.value.get(id) ?? []))
@@ -136,7 +152,9 @@ export function useChatComposer(options: UseChatComposerOptions) {
   ): boolean {
     return options.canSend.value
       && modelInputIssue.value === null
-      && Boolean(serialized.content.length || submittedResourceIds.length || serialized.userContent?.quotes?.length)
+      && Boolean(serialized.userContent?.sessionReferences?.length
+        ? serialized.content.trim().length
+        : serialized.content.length || submittedResourceIds.length || serialized.userContent?.quotes?.length)
       && submittedResourceIds.every(id => resourceById.value.get(id)?.resource.state === 'ready')
   }
 
@@ -221,6 +239,18 @@ export function useChatComposer(options: UseChatComposerOptions) {
 
     const to = currentEditor.state.selection.from
     const from = Math.max(1, to - (trigger.rawQuery ?? trigger.query).length - 1)
+    if (option.kind === 'sessionGroup' && option.sessionScope) {
+      query.sessionScope.value = option.sessionScope
+      currentEditor.chain().focus().insertContentAt({ from, to }, { type: 'text', text: '@' }).run()
+      void query.loadContextOptions('')
+      return
+    }
+    if (option.kind === 'sessionReference' && option.sessionReference) {
+      insertChatComposerSessionReferences(currentEditor, [option.sessionReference], { from, to })
+      query.closeSuggestions()
+      currentEditor.commands.focus()
+      return
+    }
     if (action === 'complete' && option.entryKind === 'directory' && option.path) {
       navigateDirectory(option.path)
       return
@@ -261,6 +291,18 @@ export function useChatComposer(options: UseChatComposerOptions) {
       .run()
   }
 
+  function leaveSessions() {
+    const current = editor.value
+    const trigger = query.activeTrigger.value
+    if (!current || trigger?.kind !== 'mention')
+      return
+    query.sessionScope.value = undefined
+    const to = current.state.selection.from
+    const from = Math.max(1, to - (trigger.rawQuery ?? trigger.query).length - 1)
+    current.chain().focus().insertContentAt({ from, to }, { type: 'text', text: '@' }).run()
+    void query.loadContextOptions('')
+  }
+
   function navigateDirectory(path: string) {
     const currentEditor = editor.value
     const trigger = query.activeTrigger.value
@@ -299,11 +341,20 @@ export function useChatComposer(options: UseChatComposerOptions) {
     deepSearch: query.deepSearch,
     setDeepSearch: query.setDeepSearch,
     navigateDirectory,
+    leaveSessions,
+    sessionScope: query.sessionScope,
     modelInputIssue,
     panelResources,
     quotes,
+    sessionReferences,
     addQuote: (quote: BuddyMessageQuote) => addChatQuote(editor.value, quote),
     removeQuote: (id: string) => removeChatQuote(editor.value, id),
+    removeSessionReference(id: string) {
+      const current = editor.value
+      if (!current)
+        return false
+      return removeChatComposerSessionReference(current, id)
+    },
     removeResource,
     removePanelResource: (id: string) => editor.value && removeChatComposerPanelResource(editor.value, id),
     resourceStripResources,

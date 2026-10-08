@@ -123,6 +123,45 @@ describe('buddy schema', { timeout: MIGRATION_TEST_TIMEOUT }, () => {
     expect(reopened.prepare('PRAGMA foreign_key_check').all()).toEqual([])
   })
 
+  it.each([22, 23])('upgrades v%i with checkpoints and a message index without changing historical data', (version) => {
+    const root = mkdtempSync(join(tmpdir(), 'buddy-checkpoint-migration-'))
+    directories.push(root)
+    const databasePath = join(root, 'buddy.sqlite3')
+    const legacy = openMigrationFixtureDatabase(databasePath)
+    for (const migration of BUDDY_SCHEMA_MIGRATIONS.filter(migration => migration.version <= version)) {
+      legacy.exec(migration.sql)
+      legacy.exec(`PRAGMA user_version = ${migration.version}`)
+    }
+    seedRun(legacy)
+    const before = {
+      runs: legacy.prepare('SELECT * FROM runs').all(),
+      messages: legacy.prepare('SELECT rowid, * FROM messages').all(),
+      conversations: legacy.prepare('SELECT * FROM conversations').all(),
+    }
+    legacy.close()
+    const migrated = openBuddyDatabase({ databasePath })
+    databases.push(migrated)
+    expect(migrated.prepare('SELECT * FROM run_event_checkpoints').all()).toEqual([])
+    expect(migrated.prepare('SELECT * FROM runs').all()).toEqual(before.runs)
+    expect(migrated.prepare('SELECT rowid, * FROM messages').all()).toEqual(before.messages)
+    expect(migrated.prepare('SELECT * FROM conversations').all()).toEqual(before.conversations)
+    const plan = migrated.prepare(`EXPLAIN QUERY PLAN
+      SELECT id FROM messages WHERE run_id = ? AND role IN ('assistant', 'tool')
+    `).all('run-1')
+    expect(plan).toEqual([expect.objectContaining({ detail: expect.stringContaining('USING INDEX idx_messages_run') })])
+    expect(migrated.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+    expect(migrated.prepare('PRAGMA user_version').get()).toEqual({ user_version: BUDDY_SCHEMA_VERSION })
+  })
+
+  it('rejects a current database missing checkpoint invalidation triggers', () => {
+    const root = mkdtempSync(join(tmpdir(), 'buddy-checkpoint-schema-'))
+    directories.push(root)
+    const databasePath = join(root, 'buddy.sqlite3')
+    const database = openBuddyDatabase({ databasePath })
+    database.exec('DROP TRIGGER invalidate_run_checkpoint_messages_delete')
+    database.close()
+    expect(() => openBuddyDatabase({ databasePath })).toThrow(/incomplete checkpoint invalidation schema/i)
+  })
   it('preserves v21 usage and attributes independent actions without modifying completed runs', () => {
     const directory = mkdtempSync(join(tmpdir(), 'buddy-action-migration-'))
     directories.push(directory)

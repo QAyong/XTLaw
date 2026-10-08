@@ -35,6 +35,16 @@ export class RunEventCorruptionError extends RunEventLogFatalError {
   }
 }
 
+export class RunEventCheckpointError extends RunEventLogFatalError {
+  readonly code = 'EVENT_PROJECTION_FAILED'
+  readonly commitState = 'not_applicable'
+
+  constructor(runId: string, options?: ErrorOptions) {
+    super('Lexora Buddy run event checkpoint invalidation failed', runEventFailureScope(runId), options)
+    this.name = 'RunEventCheckpointError'
+  }
+}
+
 export class RunEventProjectionError extends RunEventLogFatalError {
   readonly code = 'EVENT_PROJECTION_FAILED'
   readonly commitState = 'committed'
@@ -58,7 +68,7 @@ export class RunEventStorageError extends RunEventLogFatalError {
   readonly code = 'EVENT_STORAGE_FAILED'
   readonly commitState: 'committed' | 'not_applicable' | 'unknown'
   readonly operation: 'append' | 'compact' | 'read' | 'repair' | 'scan'
-  readonly stage: 'close' | 'directory' | 'mkdir' | 'open' | 'read' | 'readdir' | 'rename' | 'sync' | 'truncate' | 'unlink' | 'write'
+  readonly stage: 'close' | 'directory' | 'mkdir' | 'open' | 'read' | 'readdir' | 'rename' | 'stat' | 'sync' | 'truncate' | 'unlink' | 'write'
 
   constructor(
     scope: RunEventFailureScope,

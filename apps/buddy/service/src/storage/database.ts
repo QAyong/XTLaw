@@ -4,6 +4,7 @@ import { mkdirSync } from 'node:fs'
 import { dirname, isAbsolute, join } from 'node:path'
 import { DatabaseSync as NodeDatabaseSync } from 'node:sqlite'
 import { BUDDY_V15_CAPABILITY_OVERRIDES_SCHEMA_SQL, BUDDY_V15_CATALOG_MODEL_ID_SCHEMA_SQL, BUDDY_V15_CATALOG_SELECTION_SCHEMA_SQL, BUDDY_V15_PROVIDER_INSTANCES_SCHEMA_SQL, BUDDY_V15_REQUEST_HEADERS_SCHEMA_SQL } from './migrations/v15ModelServices'
+import { BUDDY_RUN_EVENT_CHECKPOINT_TRIGGER_NAMES } from './migrations/v24RunEventCheckpoints'
 
 import {
   BUDDY_SCHEMA_MIGRATIONS,
@@ -17,6 +18,7 @@ export interface OpenBuddyDatabaseOptions {
 }
 
 const BUDDY_CURRENT_SCHEMA_COLUMNS = {
+  run_event_checkpoints: ['run_id', 'last_sequence', 'projection_version', 'file_fingerprint'],
   extension_invocations: ['id', 'extension_id', 'action_id', 'conversation_id', 'trigger', 'status', 'branch_id', 'source_message_id', 'extension_name', 'action_title', 'result_message'],
   usage_records: ['run_id', 'invocation_id'],
   conversations: ['title_source', 'title_revision'],
@@ -144,6 +146,9 @@ function assertCurrentSchema(database: DatabaseSync): void {
     if (requiredColumns.some(column => !columns.has(column)))
       throw new BuddyDatabaseVersionError('incomplete schema version')
   }
+  const triggers = new Set((database.prepare('SELECT name FROM sqlite_master WHERE type = \'trigger\'').all() as Array<{ name: string }>).map(row => row.name))
+  if (BUDDY_RUN_EVENT_CHECKPOINT_TRIGGER_NAMES.some(name => !triggers.has(name)))
+    throw new BuddyDatabaseVersionError('incomplete checkpoint invalidation schema')
 }
 
 function applyMigration(database: DatabaseSync, migration: BuddySchemaMigration): void {

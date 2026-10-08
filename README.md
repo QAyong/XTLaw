@@ -1,106 +1,112 @@
 <p align="center">
-  <img src="packages/assets/brand/lexora-avatar.png" width="112" alt="XTLaw" />
+  <img src="docs/assets/xtlaw-avatar.png" width="104" height="104" alt="XTLaw 黑框眼镜少女" />
 </p>
 
 <h1 align="center">XTLaw</h1>
 
 <p align="center"><strong>想法即指令，执行交给我。</strong></p>
 
+<p align="center">你的桌面 AI Agent，让文档、对话与工具一起工作。</p>
+
 <p align="center">
   <a href="https://xtlaw.qayong.site/">官网</a> ·
   <a href="https://xtlaw.qayong.site/guide.html">使用指南</a> ·
   <a href="https://github.com/QAyong/XTLaw/releases">版本发布</a> ·
-  <a href="https://github.com/QAyong/XTLaw/issues">问题反馈</a>
+  <a href="https://github.com/QAyong/XTLaw/issues">反馈问题</a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/QAyong/XTLaw/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/QAyong/XTLaw/ci.yml?branch=master&amp;style=flat&amp;label=CI" /></a>
   <a href="./LICENSE"><img alt="AGPL-3.0-only" src="https://img.shields.io/badge/license-AGPL--3.0--only-blue" /></a>
+  <a href="https://github.com/QAyong/XTLaw/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/QAyong/XTLaw/ci.yml?branch=master&amp;style=flat&amp;label=CI" /></a>
 </p>
 
-XTLaw 是基于 [Lexora](https://github.com/useLexora/Lexora) 二次开发的桌面 AI Agent，由 [QAyong](https://github.com/QAyong) 持续开发。它连接你选择的模型与工具，在授权范围内读取资料、编辑文件和执行任务，让对话与实际工作衔接起来。
+XTLaw 把任务对话、文档编辑、资源面板和工具执行放进同一个桌面工作台。连接你选择的模型与工具，在授权范围内读取资料、处理文件、执行任务，并查看过程与成果。
 
-**本项目是个人维护的二次开发版本。** 桌面运行时、任务系统、模型接入、工具与插件机制等基础能力来自 Lexora；XTLaw 在此基础上继续调整桌面工作流，并推进文档编辑、面板与聊天联动等能力。感谢上游作者和贡献者，项目保留原有贡献历史与 AGPL-3.0-only 许可。
+由 [QAyong](https://github.com/QAyong) 持续开发，面向需要边看材料、边讨论、边动手处理文件的日常工作。
 
-## 文档与对话，同一个工作台
+## 不只是对话，也是你的工作台
 
-官网重点展示三个使用场景：
+### 文档编辑，就在工作台
 
-| 特性 | 能做什么 |
+通过 Office DOCX 插件打开、编辑并保存文档。文档与聊天并排显示，阅读材料、调整内容和继续提问可以在同一个界面中完成。
+
+[![XTLaw 文档工作台](https://xtlaw.qayong.site/assets/docx-workbench-light.png)](https://xtlaw.qayong.site/assets/docx-workbench-light.png)
+
+### 对话有分支，思路可展开
+
+在画布中查看问答节点与关联，从历史回答继续追问或重新生成，沿不同方向展开讨论，查看相关执行状态与产物。
+
+[![XTLaw 对话分支画布](https://xtlaw.qayong.site/assets/conversation-canvas-light.png)](https://xtlaw.qayong.site/assets/conversation-canvas-light.png)
+
+### 面板与聊天，连起来用
+
+查看材料时，把支持引用的选中内容送入聊天输入区，围绕当前材料继续提问。引用由你确认，消息由你决定何时发送；工作台也支持调整资源面板与聊天的左右位置。
+
+[![XTLaw 面板与聊天联动](https://xtlaw.qayong.site/assets/panel-quote-light.png)](https://xtlaw.qayong.site/assets/panel-quote-light.png)
+
+## 更多能力
+
+| 能力 | 使用方式 |
 | --- | --- |
-| 文档编辑 | 通过 Office DOCX 插件打开、编辑和保存文档，文档与聊天并排显示。 |
-| 对话分支画布 | 查看问答之间的关联，从历史回答继续追问或重新生成，保留不同思路的上下文。 |
-| 面板与聊天联动 | 查看材料时，将支持引用的选中内容加入聊天输入区，围绕当前材料继续提问，由你决定何时发送。 |
-
-[![XTLaw 文档工作台：聊天与 DOCX 编辑器并排显示](https://xtlaw.qayong.site/assets/docx-workbench-light.png)](https://xtlaw.qayong.site/)
-
-### 二次开发与当前状态
-
-以上场景对应官网展示和当前本地开发版。**GitHub 默认分支尚未包含全部本地开发改动，当前也没有发布 XTLaw 安装包。** 尤其是 Office DOCX 插件及其预装、保存和选区引用改动，仍需与远端源码同步；不能仅凭官网截图判断当前克隆版本已经具备全部能力。
-
-当前二次开发重点包括：
-
-- **DOCX 文档工作流：** 在本地开发版中接入文档编辑、保存及选区引用，减少编辑器与聊天窗口之间的切换。
-- **工作台布局：** 调整资源面板与聊天的左右位置、展开状态和会话切换体验。
-- **对话与引用：** 继续完善对话分支、会话引用及执行过程展示。
-- **XTLaw 品牌与官网：** 提供独立官网、使用说明、真实产品截图和捐赠入口。
-
-Office 接入仍有边界：不承诺完整 Office 兼容或复杂文档格式保真；关闭文档前请确认已保存。开发版支持情况与未来发行版验收结果应分别核对。
-
-## 基础能力
-
-XTLaw 延续 Lexora 的桌面 Agent 基础：
-
-- **执行与产物：** 读取资料、编写文件、运行工具，在工作台中查看执行过程与生成结果。
-- **模型与工具：** 按需要连接模型服务，通过 Skills 和 MCP 扩展工作方法与工具。
-- **文件与授权：** 选择工作目录，在授权范围内访问本地文件和工具。
-- **自动化：** 安排定时任务；应用需在本机保持运行。
-- **桌面体验：** 任务、资源面板与桌宠等桌面交互。
-
-产品数据保存在本机。使用在线模型或外部工具时，相关内容可能发送给所选服务。处理重要文件前保留备份，并核对 AI 生成的事实与结果。
+| 模型接入 | 连接自己的模型服务，按服务商要求配置 API Key 或账号授权。 |
+| 文件与工具 | 选择工作目录，在授权范围内读取资料、编写文件和运行工具。 |
+| Skills 与 MCP | 扩展常用工作方法，接入需要的工具与服务。 |
+| 任务与产物 | 在工作台查看任务执行过程、生成文件和相关结果。 |
+| 自动化 | 安排定时任务，让重复工作按计划执行；应用需在本机保持运行。 |
 
 ## 开始使用
 
-1. 先阅读 [官网使用指南](https://xtlaw.qayong.site/guide.html)，了解模型配置与基本工作流。
-2. 查看 [XTLaw Releases](https://github.com/QAyong/XTLaw/releases)。当前尚无公开安装包，后续以本仓库实际发布的版本为准。
-3. 开发者可以按下方步骤运行源码；源码功能以所检出的提交为准。
+先阅读 [使用指南](https://xtlaw.qayong.site/guide.html)，再查看 [版本发布页](https://github.com/QAyong/XTLaw/releases)。
 
-上游构建配置涉及 Windows、Linux 和 macOS，实际安装条件、架构与平台支持以 XTLaw 后续发布包为准。
+**当前处于开发阶段，尚未发布 XTLaw 安装包。** 上面的真实截图展示本地开发版；GitHub 默认分支尚未同步全部开发改动，包括 Office DOCX 插件。实际能力以检出的源码或后续发行版为准。
 
-无需注册 XTLaw 账号，但需自行连接模型服务，按服务商要求配置 API Key 或账号授权。项目不提供内置免费模型额度，费用由所选服务决定。
+后续安装包发布后，基本使用流程为：
 
-## 官网
+1. 选择适合电脑系统与架构的安装包。
+2. 在设置中连接模型服务。
+3. 新建任务，说明目标、参考材料和期望结果。
+4. 需要处理文件时选择工作目录，确认授权后执行，再打开成果核对。
 
-访问 **[xtlaw.qayong.site](https://xtlaw.qayong.site/)**，查看文档编辑、对话分支、面板联动的产品介绍与真实截图。
+无需注册 XTLaw 账号。模型服务的条件与费用由服务商决定，项目不提供内置免费模型额度。产品数据保存在本机；使用在线模型或外部工具时，相关内容可能发送给所选服务。
 
-官网提供浅色 / 深色主题、手机适配、三项产品标签切换及常见问题说明。首屏截图支持滚动和悬停动画，小桌宠带表情互动；开启“减少动态效果”时会减少动画。右上角爱心按钮可打开支付宝捐赠二维码。
+重要文件先备份，AI 生成的事实与结果需要核对。DOCX 插件仍在完善，不承诺完整 Office 兼容；关闭文档前请确认已经保存。
 
-官网的演示图片与交互用于介绍产品，桌面端能力仍以实际源码和发布版本为准。
+## 官网与支持
+
+**[xtlaw.qayong.site](https://xtlaw.qayong.site/)** 提供产品截图、功能介绍、使用指南与常见问题，支持浅深色主题和手机浏览。
+
+如果 XTLaw 帮到了你，欢迎通过官网右上角的爱心按钮捐赠支持，也欢迎通过 [Issues](https://github.com/QAyong/XTLaw/issues) 提出反馈。
 
 ## 本地开发
 
-需要 Node.js 26+、pnpm 12.5.1+ 和 Rust 工具链。平台依赖与打包方法见 [构建说明](packaging/buddy/README.md)。在仓库根目录运行：
+需要 Node.js 26+、pnpm 12.5.1+ 与 Rust 工具链。平台依赖及打包方式见 [构建说明](packaging/buddy/README.md)。
+
+在仓库根目录运行：
 
 ```bash
 pnpm --filter @uselexora/lexora --filter '@uselexora/lexora-buddy...' --filter @uselexora/lexora-website install --frozen-lockfile
 pnpm dev
 
-# 运行仓库内的网站开发服务
+# 启动仓库内的网站开发服务
 pnpm dev:website
 ```
 
-仓库中的 `apps/website` 与当前独立部署的官网不是同一份站点实现；上述网站命令运行仓库内的网站源码。
+桌面界面使用 Vue 与 Electron，本地 Agent Runtime 使用 TypeScript，原生能力由 Rust 提供。部分包名和内部标识保留既有命名。`pnpm dev:website` 运行仓库内的网站源码，与当前独立部署的官网不同。
 
-项目的底层使用 Vue、Electron、TypeScript Runtime、Pi 与 Rust。部分包名和内部标识仍沿用 Lexora，属于二次开发的兼容保留。
+贡献方式见 [CONTRIBUTING.md](CONTRIBUTING.md)。反馈时请说明系统、版本、复现步骤和期望结果。
 
-## 反馈与贡献
+## 开源参考
 
-XTLaw 的问题请提交到 [本仓库 Issues](https://github.com/QAyong/XTLaw/issues)，并说明版本、系统、复现步骤和期望结果。贡献方式见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+XTLaw 的开发参考并沿用了以下开源项目与技术：
 
-上游项目：[useLexora/Lexora](https://github.com/useLexora/Lexora)。如需了解上游能力与演进，可阅读其 [项目介绍](https://github.com/useLexora/Lexora#readme)。
+- **[Lexora](https://github.com/useLexora/Lexora)**：XTLaw 是其二次开发版本，桌面运行时、任务系统、模型接入和工具与插件机制等基础能力来自该项目。保留上游贡献历史与许可声明，感谢原作者及所有贡献者。
+- **[Pi](https://github.com/earendil-works/pi)**：项目使用的 Agent 执行循环与相关能力。
+- **[Vue](https://github.com/vuejs/core)**、**[Electron](https://github.com/electron/electron)**：桌面界面与应用运行环境。
 
-## 许可证与致谢
+第三方组件的来源和许可按各自声明保留。
 
-本项目沿用 [AGPL-3.0-only](LICENSE)。感谢 Lexora 作者与所有上游贡献者；第三方组件的来源与许可按各自声明保留。
+## 许可证
+
+[AGPL-3.0-only](LICENSE)
 
 友情链接：[LINUX DO](https://linux.do/)

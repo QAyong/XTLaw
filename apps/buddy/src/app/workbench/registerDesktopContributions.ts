@@ -14,7 +14,7 @@ export function registerDesktopContributions(controller: WorkbenchController, re
   const labels = () => presentation.value
   controller.registry.register('lexora.tasks', (scope) => {
     scope.cleanup(renderers.register('tasks.editor', DesktopTaskContribution))
-    scope.view({ id: 'tasks.editor', renderer: 'tasks.editor', locations: ['main'], label: 'Task', supports: resource => ['task', 'draft'].includes(resource.scheme), multiple: false, prepareBeforeOpen: true })
+    scope.view({ id: 'tasks.editor', renderer: 'tasks.editor', locations: ['main'], label: 'Task', supports: resource => ['task', 'draft'].includes(resource.scheme), multiple: false, prepareBeforeOpen: false })
   })
   controller.registry.register('lexora.files', (scope) => {
     scope.cleanup(renderers.register('files.view', DesktopFileContribution))

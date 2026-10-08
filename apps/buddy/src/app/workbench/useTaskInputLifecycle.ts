@@ -19,7 +19,10 @@ export function useTaskInputLifecycle(options: {
   const cleanup = new TaskInputCleanup(controller, persistence, api.localChat.composerDrafts, id => options.resources().allTabs.value.some(tab => tab.scope === `draft:${id}`))
 
   async function prepareClose(view: WorkbenchView): Promise<ViewCloseDecision> {
-    const task = await options.pool.open(view.resource)
+    const loaded = options.pool.peek(view.resource)
+    if (view.resource.scheme === 'task' && !loaded)
+      return true
+    const task = loaded ?? await options.pool.open(view.resource)
     const releaseWorkspace = options.pool.acquire(view.resource)
     const cancel = () => {
       try {

@@ -70,6 +70,7 @@ export default {
   'desktop.tasks.editSpaceTitle': '编辑空间',
   'desktop.tasks.moreActions': '更多操作',
   'desktop.tasks.renameTask': '重命名',
+  'desktop.tasks.copySessionReference': '复制会话引用',
   'desktop.tasks.untitled': '未命名任务',
   'desktop.tasks.tasksSection': '任务',
   'desktop.tasks.unpin': '取消置顶',

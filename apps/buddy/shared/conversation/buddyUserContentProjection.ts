@@ -80,6 +80,9 @@ export function projectBuddyUserContent(
           literal = ''
           break
         }
+        case 'session_ref': {
+          break
+        }
       }
     }
     return projected + escapeLiteralMarkers(literal)

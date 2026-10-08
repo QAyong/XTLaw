@@ -16,6 +16,7 @@ import BuddyImagePreview from '@/shared/ui/media/BuddyImagePreview.vue'
 import { resolveBuddyAttachmentPreviewUrl } from '../../model/attachments/chatAttachmentView'
 import { getChatMessageDisplayText, getChatMessageImageLabels, getChatMessageUserContent } from '../../model/transcript/chatMessageContent'
 import { useResourceHighlight } from '../attachments/useResourceHighlight'
+import ChatSessionReferenceStrip from '../composer/ChatSessionReferenceStrip.vue'
 import ChatQuoteStrip from '../quotes/ChatQuoteStrip.vue'
 import BuddyChatResourceReference from './BuddyChatResourceReference.vue'
 import { tryUseChatContent } from './chatContentContext'
@@ -101,6 +102,10 @@ function directiveText(directive: BuddyPromptDirective): string {
   return buddyPromptDirectiveToText(directive)
 }
 
+function sessionReferenceTitle(sessionId: string): string {
+  return structuredUserContent.value?.userContent.sessionReferences?.find(reference => reference.id === sessionId)?.title ?? sessionId
+}
+
 function isRetiredDirective(directive: BuddyPromptDirective): boolean {
   return directive.directive === 'slash_command' && isRetiredBuddyPromptCommand(directive.value)
 }
@@ -140,6 +145,7 @@ function handleMarkdownLink(href: string) {
       @update:show="updatePreviewOpen"
     />
     <ChatQuoteStrip :quotes="structuredUserContent?.userContent.quotes ?? []" :language="language" />
+    <ChatSessionReferenceStrip :references="structuredUserContent?.userContent.sessionReferences ?? []" :language="language" />
     <NScrollbar
       v-if="attachmentViews.length"
       class="buddy-chat-message-content__attachment-scrollbar"
@@ -213,6 +219,11 @@ function handleMarkdownLink(href: string) {
             v-else-if="node.type === 'prompt_directive'"
             class="buddy-chat-message-content__directive"
           >{{ directiveText(node) }}</span>
+          <span
+            v-else-if="node.type === 'session_ref'"
+            class="buddy-chat-message-content__session-reference"
+            :title="sessionReferenceTitle(node.sessionId)"
+          >@{{ sessionReferenceTitle(node.sessionId) }}</span>
           <BuddyChatResourceReference
             v-else-if="attachmentByResourceId.get(node.resourceId)"
             :attachment="attachmentByResourceId.get(node.resourceId)!"
@@ -443,6 +454,10 @@ function handleMarkdownLink(href: string) {
 }
 
 .buddy-chat-message-content__directive {
+  @include highlight.inline-highlight-token;
+}
+
+.buddy-chat-message-content__session-reference {
   @include highlight.inline-highlight-token;
 }
 

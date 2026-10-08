@@ -122,6 +122,7 @@ export default {
   'desktop.chat.quoteFromAssistant': 'Quote · Lexora’s answer',
   'desktop.chat.quoteFromUser': 'Quote · Your message',
   'desktop.chat.removeQuote': 'Remove quote',
+  'desktop.chat.removeSessionReference': 'Remove session reference',
   'desktop.chat.quoteSourceUnavailable': 'The source could not be located. The saved quote can still be sent.',
   'desktop.chat.quoteTextUnavailable': 'The source message was located, but the quoted passage could not be uniquely matched.',
   'desktop.chat.quoteDuplicate': 'This excerpt is already quoted in the current input',

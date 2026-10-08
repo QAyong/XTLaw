@@ -72,6 +72,7 @@ export default {
   'desktop.tasks.editSpaceTitle': 'Edit space',
   'desktop.tasks.moreActions': 'More actions',
   'desktop.tasks.renameTask': 'Rename',
+  'desktop.tasks.copySessionReference': 'Copy session reference',
   'desktop.tasks.untitled': 'Untitled task',
   'desktop.tasks.tasksSection': 'Tasks',
   'desktop.tasks.unpin': 'Unpin',

@@ -119,7 +119,8 @@ export function useDesktopWorkbench(options: { api: LexoraDesktopApi, events: Ap
       const text = task.workspace.composer.draft.value.trim()
       const resources = task.workspace.composer.resources.value.length
       const quotes = ((task.workspace.composer.composerContent.value?.attrs as { quotes?: unknown[] } | undefined)?.quotes?.length ?? 0) > 0
-      return Boolean(text || resources || quotes)
+      const sessionReferences = ((task.workspace.composer.composerContent.value?.attrs as { sessionReferences?: unknown[] } | undefined)?.sessionReferences?.length ?? 0) > 0
+      return Boolean(text || resources || quotes || sessionReferences)
     }
     try {
       const draft = await api.localChat.composerDrafts.get(view.resource.id)

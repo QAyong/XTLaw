@@ -511,6 +511,20 @@ describe('projectStreamingAssistantMessage', () => {
     ])
   })
 
+  it('finalizes an awaiting tool when its run is cancelled before the approval event catches up', () => {
+    const [turn] = projectChatAgentTurns([
+      event(1, 'approval.requested', {
+        id: 'approval-1',
+        kind: 'shell',
+        review: { card: 'shell', command: 'echo fixture', toolName: 'bash' },
+        status: 'pending',
+        summary: 'Run a command',
+        toolCallId: 'tool-1',
+      }),
+    ], [run('cancelled')])
+    expect(turn?.nodes).toEqual([expect.objectContaining({ kind: 'tool', status: 'interrupted', toolCallId: 'tool-1' })])
+  })
+
   it('does not let a late tool start overwrite a pending approval', () => {
     const turns = projectChatRunProcessesForTest([
       event(1, 'approval.requested', {

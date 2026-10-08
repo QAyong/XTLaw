@@ -7,7 +7,9 @@ export const BUDDY_RUN_EVENT_CHECKPOINT_TRIGGER_NAMES = [
   'invalidate_run_checkpoint_runs_update',
 ]
 
-export const BUDDY_V23_RUN_EVENT_CHECKPOINTS_SCHEMA_SQL = `
+export const BUDDY_V24_RUN_EVENT_CHECKPOINTS_SCHEMA_SQL = `
+CREATE INDEX idx_messages_run ON messages(run_id);
+
 CREATE TABLE run_event_checkpoints (
   run_id TEXT PRIMARY KEY REFERENCES runs(id) ON DELETE CASCADE,
   last_sequence INTEGER NOT NULL CHECK (last_sequence >= 0),

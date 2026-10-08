@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { usageAnalyticsSchema, usagePeriodSchema, usageTopTasksRequestSchema, usageTrendRequestSchema, usageTrendSchema } from '../../../../shared/usage/usageAnalyticsApi'
 import { openBuddyDatabase } from '../database'
-import { BUDDY_RUN_EVENT_CHECKPOINT_TRIGGER_NAMES } from '../migrations/v23RunEventCheckpoints'
+import { BUDDY_RUN_EVENT_CHECKPOINT_TRIGGER_NAMES } from '../migrations/v24RunEventCheckpoints'
 import { createUsageAnalyticsRepository } from '../usageAnalyticsRepository'
 
 const databases: DatabaseSync[] = []
@@ -127,6 +127,7 @@ describe('usage analytics', () => {
         DROP TABLE skill_file_cleanup;
         DROP TABLE skill_space_exclusions;
         DROP TABLE skill_installations;
+        DROP INDEX idx_messages_run;
         DROP INDEX idx_usage_created_at;
         DROP TABLE builtin_provider_configs;
         ALTER TABLE provider_states DROP COLUMN request_headers_json;

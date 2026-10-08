@@ -65,6 +65,7 @@ export interface DesktopChatComposerProps {
   beginImport: (files: readonly File[], origin?: 'file' | 'clipboard') => readonly string[]
   selectSource: (source: BuddyComposerSource) => Promise<string | null>
   isRunning: boolean
+  isStopping: boolean
   isSelectingFiles: boolean
   isSending: boolean
   isUpdatingPermissionSettings: boolean

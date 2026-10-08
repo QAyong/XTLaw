@@ -53,6 +53,7 @@ async function mountComposer() {
     beginImport: () => ['old-resource'],
     selectSource: async () => null,
     isRunning: false,
+    isStopping: false,
     isSelectingFiles: false,
     isSending: false,
     isUpdatingPermissionSettings: false,

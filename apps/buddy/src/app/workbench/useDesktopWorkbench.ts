@@ -71,6 +71,7 @@ export function useDesktopWorkbench(options: { api: LexoraDesktopApi, events: Ap
   const initialized = shallowRef(false)
   const activity = new ActiveTaskProjection(controller, pool)
   const activeTask = activity.current
+  const activeTaskId = activity.taskId
   const contextTabs = new ContextTabProjection(controller, options.resources, () => initialized.value)
   const resourceLifetime = new WorkbenchResourceLifetime(controller, pool, copies, () => initialized.value)
   const projections = { reconcile: () => {
@@ -543,7 +544,7 @@ export function useDesktopWorkbench(options: { api: LexoraDesktopApi, events: Ap
     await inputs.flush().catch(options.onError)
     return saved
   }
-  return { api, renderers, fileToolbarTargets, fileView, closeContextFiles, readingPositions, discardTask, prepareTaskDeletion, activeTask, backupError, controller, copies, models, pool, persistence, initialize, flush, dispose, openTask, newTask, startTaskWithSkill, openFile, dropResource, language, get initialized() {
+  return { api, renderers, fileToolbarTargets, fileView, closeContextFiles, readingPositions, discardTask, prepareTaskDeletion, activeTask, activeTaskId, backupError, controller, copies, models, pool, persistence, initialize, flush, dispose, openTask, newTask, startTaskWithSkill, openFile, dropResource, language, get initialized() {
     return initialized.value
   }, get navigationVersion() {
     return navigationVersion

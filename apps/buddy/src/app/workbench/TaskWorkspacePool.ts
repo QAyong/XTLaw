@@ -17,7 +17,7 @@ export class TaskWorkspacePool {
   readonly #changes = new Emitter<TaskWorkspaceChange>(() => console.error('TASK_WORKSPACE_OBSERVER_FAILED'))
   readonly onDidChange = this.#changes.event
   readonly #options: Omit<UseTaskCapabilityOptions, 'initialTarget'>
-  readonly #entries = new Map<string, { task: TaskCapability, scope: EffectScope }>()
+  readonly #entries = new Map<string, { task: TaskCapability, scope: EffectScope, ready: boolean }>()
   readonly #leases = new Map<TaskCapability, number>()
   readonly #loading = new Map<string, Promise<TaskCapability>>()
   readonly #adopt: (previous: ResourceRef, task: TaskCapability, id: string) => void
@@ -30,7 +30,8 @@ export class TaskWorkspacePool {
   }
 
   peek(resource: ResourceRef): TaskCapability | undefined {
-    return this.#entries.get(resourceKey(resource))?.task
+    const entry = this.#entries.get(resourceKey(resource))
+    return entry?.ready ? entry.task : undefined
   }
 
   open(resource: ResourceRef): Promise<TaskCapability> {
@@ -77,17 +78,19 @@ export class TaskWorkspacePool {
         const previous = currentResource
         currentResource = { scheme: 'task', id, data: {} }
         this.#entries.delete(resourceKey(previous))
-        this.#entries.set(resourceKey(currentResource), { task, scope })
+        this.#entries.set(resourceKey(currentResource), { task, scope, ready: true })
         this.#options.onDraftCommitted?.(draftId, id)
         this.#adopt(previous, task, id)
         this.#changes.fire(Object.freeze({ kind: 'adopted', resource: currentResource, previous }))
       },
     }))!
-    this.#entries.set(resourceKey(resource), { task, scope })
+    const entry = { task, scope, ready: false }
+    this.#entries.set(resourceKey(resource), entry)
     try {
       await task.initialize()
       if (this.#disposed || this.#entries.get(resourceKey(currentResource))?.task !== task || task.workspace.restoration.state.value !== 'ready')
         throw new Error('TASK_RESTORATION_FAILED')
+      entry.ready = true
       this.#changes.fire(Object.freeze({ kind: 'ready', resource: currentResource }))
       return task
     }

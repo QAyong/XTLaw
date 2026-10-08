@@ -47,8 +47,15 @@ export function useTaskLifecycle(options: TaskLifecycleOptions) {
     const modelSelection = JSON.stringify(options.taskModels.currentSelection())
     try {
       const navigationReady = options.taskIndex.initialize()
-      if (await options.workspacePersistence.restore(navigationReady))
-        await refreshActiveConversation(navigation, modelSelection)
+      const [restored] = await Promise.all([
+        options.workspacePersistence.restore(navigationReady),
+        navigationReady.then(() => refreshConversationContent(navigation)).catch((error) => {
+          if (!isDisposed)
+            options.onError(error)
+        }),
+      ])
+      if (restored)
+        restoreConversationModel(navigation, modelSelection)
     }
     catch (error) {
       if (!isDisposed)
@@ -77,8 +84,10 @@ export function useTaskLifecycle(options: TaskLifecycleOptions) {
     const modelSelection = JSON.stringify(options.taskModels.currentSelection())
     try {
       const restored = options.workspacePersistence.restore()
-      if (await restored)
-        await refreshActiveConversation(navigation, modelSelection)
+      if (await restored) {
+        restoreConversationModel(navigation, modelSelection)
+        await refreshConversationContent(navigation)
+      }
     }
     catch (error) {
       if (!isDisposed)
@@ -86,13 +95,17 @@ export function useTaskLifecycle(options: TaskLifecycleOptions) {
     }
   }
 
-  async function refreshActiveConversation(navigation: number, modelSelection: string) {
+  function restoreConversationModel(navigation: number, modelSelection: string) {
+    if (!isDisposed && options.session.isCurrent(navigation) && options.session.activeConversationId.value
+      && JSON.stringify(options.taskModels.currentSelection()) === modelSelection) {
+      options.restoreScopeModel(options.activeConversation.value?.modelSelection ?? null)
+    }
+  }
+
+  async function refreshConversationContent(navigation: number) {
     if (isDisposed || !options.session.isCurrent(navigation) || !options.session.activeConversationId.value)
       return
-    const conversation = options.activeConversation.value
-    options.session.setActiveBranch(conversation?.activeBranchId ?? null)
-    if (JSON.stringify(options.taskModels.currentSelection()) === modelSelection)
-      options.restoreScopeModel(conversation?.modelSelection ?? null)
+    options.session.setActiveBranch(options.activeConversation.value?.activeBranchId ?? null)
     await Promise.all([
       options.refreshBranches(),
       options.runSync.refreshActiveConversation(),

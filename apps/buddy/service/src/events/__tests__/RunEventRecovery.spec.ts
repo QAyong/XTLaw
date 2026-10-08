@@ -40,8 +40,15 @@ describe('startup run event recovery', () => {
       const events: BuddyRunEvent[] = Array.from({ length: eventsPerRun }, (_, position) => ({
         runId,
         sequence: position + 1,
-        type: position === eventsPerRun - 1 ? 'run.completed' : 'audit.sample',
-        payload: position === eventsPerRun - 1 ? {} : { text: 'fixture'.repeat(128) },
+        type: position === eventsPerRun - 1 ? 'run.completed' : 'message.completed',
+        payload: position === eventsPerRun - 1
+          ? {}
+          : {
+              messageId: `${runId}-message-${position}`,
+              role: 'assistant',
+              content: { text: 'fixture'.repeat(128) },
+              stopReason: 'completed',
+            },
         createdAt: NOW,
       }))
       await eventStore.append(events)

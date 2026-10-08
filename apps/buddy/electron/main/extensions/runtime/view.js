@@ -165,7 +165,7 @@ async function initialize() {
     await request('view.ready')
   }
   catch (error) {
-    document.querySelector('main').textContent = overlay ? '' : 'This extension view could not be loaded.'
+    document.querySelector('main').textContent = overlay ? '' : 'This plugin view could not be loaded.'
     void request('view.failed', { code: /^EXTENSION_[A-Z_]+$/.test(error?.message) ? error.message : 'EXTENSION_VIEW_FAILED' }).catch(() => {})
   }
 }

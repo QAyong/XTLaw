@@ -1,5 +1,6 @@
 import type { LocalChatQueueReceipt, LocalChatQueueScope, LocalChatQueueTarget } from '../../../shared/conversation/chatQueueApi'
 import type { EventSnapshot } from '../../../shared/events/eventTypes'
+import type { LocalRun } from '../../../shared/runs/runApi'
 import type { BuddyAgentRunner } from '../agent/execution/BuddyAgentRunner'
 import type { BuddyTurnLauncher } from '../agent/execution/BuddyTurnLauncher'
 import type { BuddyStartTurnInput } from '../BuddyRuntime'
@@ -21,7 +22,7 @@ import { resolveTurnExecutionProfile } from '../storage/turnRequestRepository'
 
 export interface ChatQueueServiceOptions {
   queue: ChatQueueRepository
-  turns: Pick<ChatTurnService, 'prepareStart' | 'validatePreparedInput'>
+  turns: Pick<ChatTurnService, 'cancel' | 'prepareStart' | 'validatePreparedInput'>
   requests: Pick<TurnRequestRepository, 'prepare'>
   launcher: Pick<BuddyTurnLauncher, 'launch'>
   runner: Pick<BuddyAgentRunner, 'steer' | 'followUp' | 'hasActiveExecution' | 'hasDegradedCleanup' | 'isStopping'>
@@ -41,6 +42,7 @@ export class ChatQueueService {
   readonly #options: ChatQueueServiceOptions
   readonly #operations = new Map<string, Promise<void>>()
   readonly #enqueues = new Set<Promise<unknown>>()
+  readonly #cancellations = new Map<string, { conversationId: string, completion: Promise<LocalRun> }>()
   readonly #changes: Emitter<ChatQueueChange>
   readonly #stopping = new AbortController()
   readonly onDidChange: Emitter<ChatQueueChange>['event']
@@ -61,7 +63,7 @@ export class ChatQueueService {
   }
 
   async drain(): Promise<void> {
-    await Promise.allSettled([...this.#operations.values(), ...this.#enqueues])
+    await Promise.allSettled([...this.#operations.values(), ...this.#enqueues, ...[...this.#cancellations.values()].map(cancellation => cancellation.completion)])
   }
 
   continuationScopes(): LocalChatQueueScope[] {
@@ -77,6 +79,37 @@ export class ChatQueueService {
 
   list(scope: LocalChatQueueScope) {
     return this.#options.queue.list(scope)
+  }
+
+  cancelRun(runId: string): Promise<LocalRun> {
+    const pending = this.#cancellations.get(runId)
+    if (pending)
+      return pending.completion
+    const run = this.#options.runs.findById(runId)
+    if (!run)
+      return this.#options.turns.cancel(runId)
+    const active = this.#options.queue.activeRun(run)
+    if (active ? active.id !== runId : this.#options.queue.latestRun(run)?.id !== runId || !this.#options.runner.hasActiveExecution(run.conversationId))
+      return this.#options.turns.cancel(runId)
+    const cancellation = Promise.withResolvers<LocalRun>()
+    this.#cancellations.set(runId, { conversationId: run.conversationId, completion: cancellation.promise })
+    void this.#cancelRun(run).then(cancellation.resolve, cancellation.reject)
+    return cancellation.promise
+  }
+
+  async #cancelRun(run: RunRecord): Promise<LocalRun> {
+    try {
+      this.pause(run)
+      return await this.#options.turns.cancel(run.id)
+    }
+    finally {
+      try {
+        this.pause(run)
+      }
+      finally {
+        this.#cancellations.delete(run.id)
+      }
+    }
   }
 
   enqueue(input: BuddyStartTurnInput): Promise<LocalChatQueueReceipt> {
@@ -116,6 +149,9 @@ export class ChatQueueService {
       await stagedAttachments.rollback()
       throw error
     }
+    const latest = this.#options.queue.latestRun(result)
+    if (this.#isCancelling(result) || latest?.status === 'cancelled' || latest?.status === 'failed')
+      this.pause(result)
     this.#changed('enqueued', result, { commitId: randomUUID(), requestId: input.requestId, queueId: result.id, draftReceipt: result.draftReceipt, ...(prepared.attachmentBindings.length ? { attachmentOwnership: { kind: 'queue', attachmentIds: prepared.attachmentBindings.map(binding => binding.id) } } : {}) })
     await stagedAttachments.commit().catch(() => undefined)
     return result
@@ -133,6 +169,8 @@ export class ChatQueueService {
   steer(target: LocalChatQueueTarget) {
     const active = this.#options.queue.activeRun(target)
     return this.#serialize(target, async () => {
+      if (this.#isCancelling(target))
+        return false
       if (!active)
         return this.#dispatch(target, true)
       const input = this.#options.queue.pending(target)
@@ -144,7 +182,7 @@ export class ChatQueueService {
       if (!run || run.approvalPolicy !== input.approvalPolicy || run.executionProfile !== resolveTurnExecutionProfile(input))
         return false
       await this.#options.turns.validatePreparedInput(input, false)
-      if (this.#disposed || this.#options.eventLog.state !== 'open' || !this.#options.queue.pending(target) || this.#options.queue.activeRun(target)?.id !== active.id)
+      if (this.#disposed || this.#isCancelling(target) || this.#options.eventLog.state !== 'open' || !this.#options.queue.pending(target) || this.#options.queue.activeRun(target)?.id !== active.id)
         return false
       return this.#deliver(input, active.id, 'steer')
     })
@@ -156,7 +194,7 @@ export class ChatQueueService {
       return false
     try {
       return await this.#serialize(run, async () => {
-        if (signal.aborted || this.#options.queue.activeRun(run)?.id !== runId)
+        if (signal.aborted || this.#isCancelling(run) || this.#options.queue.activeRun(run)?.id !== runId)
           return false
         const next = this.#options.queue.list(run)[0]
         if (next?.state !== 'waiting')
@@ -165,7 +203,7 @@ export class ChatQueueService {
         if (!input || !this.#canFollowUp(run, input))
           return false
         await this.#options.turns.validatePreparedInput(input)
-        if (this.#disposed || this.#options.eventLog.state !== 'open' || signal.aborted)
+        if (this.#disposed || this.#isCancelling(run) || this.#options.eventLog.state !== 'open' || signal.aborted)
           return false
         const head = this.#options.queue.list(run)[0]
         if (this.#options.queue.activeRun(run)?.id !== runId
@@ -250,9 +288,13 @@ export class ChatQueueService {
   }
 
   #canDispatch(scope: LocalChatQueueScope): boolean {
-    return !this.#disposed && !this.#options.runner.isStopping && this.#options.eventLog.state === 'open'
+    return !this.#disposed && !this.#isCancelling(scope) && !this.#options.runner.isStopping && this.#options.eventLog.state === 'open'
       && !this.#options.queue.activeRun(scope)
       && !this.#options.runner.hasActiveExecution(scope.conversationId)
+  }
+
+  #isCancelling(scope: LocalChatQueueScope): boolean {
+    return [...this.#cancellations.values()].some(cancellation => cancellation.conversationId === scope.conversationId)
   }
 
   #changed(kind: ChatQueueChange['kind'], scope: LocalChatQueueScope, committed?: ChatQueueChange['committed']): void {

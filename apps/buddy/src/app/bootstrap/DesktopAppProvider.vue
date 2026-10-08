@@ -32,6 +32,7 @@ import { desktopWorkbenchKey } from '../workbench/desktopWorkbenchContext'
 import { useDesktopKeybindings } from '../workbench/useDesktopKeybindings'
 import { useDesktopWorkbench } from '../workbench/useDesktopWorkbench'
 import { useExtensionContributions } from '../workbench/useExtensionContributions'
+import { useTaskResourceSpaces } from '../workbench/useTaskResourceSpaces'
 import { createDesktopCapabilities } from './desktopCapabilities'
 import { useDesktopAppState } from './useDesktopAppState'
 import { useDesktopLifecycle } from './useDesktopLifecycle'
@@ -105,7 +106,8 @@ useProvideExtensionContext({ settingsLocation: settingsRegistry.extensionLocatio
 onScopeDispose(workbench.controller.subscribe(() => void nextTick(extensionViews.layout)))
 const selectedTask = workbench.activeTask
 const resources = useTaskResourcePanel({
-  activeConversationId: computed(() => selectedTask.value?.workspace.session.activeConversationId.value ?? null),
+  scopeSpaceIds: useTaskResourceSpaces({ controller: workbench.controller, pool: workbench.pool, tasks: taskIndex.index.tasks }),
+  activeConversationId: workbench.activeTaskId,
   activeDraftId: computed(() => selectedTask.value?.workspace.composer.draftId.value ?? null),
   activeBranchId: computed(() => selectedTask.value?.workspace.session.activeBranchId.value ?? null),
   activeRunId: computed(() => selectedTask.value?.workspace.execution.activeRun.value?.id
@@ -183,7 +185,7 @@ const navigation = useDesktopNavigation({
   router,
   ready,
   session: {
-    activeTaskId: computed(() => selectedTask.value?.session.activeTaskId.value ?? null),
+    activeTaskId: workbench.activeTaskId,
     spaceId: computed(() => selectedTask.value?.session.spaceId.value ?? null),
     navigationVersion: () => workbench.navigationVersion,
     openTask: (id, signal) => workbench.openTask(id, signal),

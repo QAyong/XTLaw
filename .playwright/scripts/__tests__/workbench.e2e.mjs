@@ -72,3 +72,118 @@ test('builtin working copies back up continued edits, veto closure and recover a
   await page.screenshot({ path: path.join(instance.artifactDirectory, 'recovered-and-saved.png'), animations: 'disabled' })
   expect(diagnostics.console.filter(item => item.type === 'pageerror')).toEqual([])
 })
+
+test('task switching stays responsive during loading, failure and notification navigation', async ({ buddy }, testInfo) => {
+  const instance = await buddy.createInstance('task-switch')
+  const { app, page, diagnostics } = await instance.launch()
+  await app.evaluate((_electron, databasePath) => {
+    const { DatabaseSync } = process.getBuiltinModule('node:sqlite')
+    const db = new DatabaseSync(databasePath)
+    try {
+      const now = new Date().toISOString()
+      for (const id of ['a', 'b', 'c']) {
+        db.prepare('INSERT INTO conversations (id, title, active_branch_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?)').run(id, `Task ${id.toUpperCase()}`, `branch-${id}`, now, now)
+        db.prepare('INSERT INTO conversation_branches (id, conversation_id, created_at) VALUES (?, ?, ?)').run(`branch-${id}`, id, now)
+        db.prepare('INSERT INTO messages (id, conversation_id, branch_id, role, content_json, created_at) VALUES (?, ?, ?, ?, ?, ?)').run(`message-${id}`, id, `branch-${id}`, 'user', JSON.stringify({ text: `Content ${id.toUpperCase()}` }), now)
+      }
+      db.prepare('INSERT INTO conversation_branches (id, conversation_id, created_at) VALUES (?, ?, ?)').run('notified-branch', 'b', now)
+      db.prepare('INSERT INTO messages (id, conversation_id, branch_id, role, content_json, created_at) VALUES (?, ?, ?, ?, ?, ?)').run('notified-message', 'b', 'notified-branch', 'user', JSON.stringify({ text: 'Notification target content' }), now)
+      db.prepare('INSERT INTO runs (id, conversation_id, branch_id, triggering_message_id, provider, model, purpose, status, started_at, completed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run('notified-run', 'b', 'notified-branch', 'notified-message', 'fixture', 'fixture', 'chat', 'completed', now, now)
+    }
+    finally { db.close() }
+  }, path.join(instance.home, 'buddy/buddy.sqlite3'))
+  await page.reload()
+  const row = id => page.locator(`[data-task-id="${id}"] .desktop-task-sidebar__task`)
+  const editor = page.locator('.desktop-chat-composer__prosemirror:visible')
+  const title = page.locator('.workbench-pane-title:visible')
+  await row('a').click()
+  await expect(editor).toBeVisible()
+  await editor.fill('Saved while switching')
+  await app.evaluate(({ ipcMain }) => {
+    const probe = globalThis.taskSwitchProbe = { events: [], gates: new Map(), fail: null }
+    for (const [stage, channel] of [
+      ['get', 'lexora:buddy:conversations:get'],
+      ['draft', 'lexora:buddy:composer-drafts:open'],
+      ['branches', 'lexora:buddy:conversations:list-branches'],
+      ['timeline', 'lexora:buddy:conversations:list-timeline'],
+    ]) {
+      const handler = ipcMain._invokeHandlers.get(channel)
+      ipcMain.removeHandler(channel)
+      ipcMain.handle(channel, async (event, input) => {
+        const id = input.conversationId ?? input.scope?.conversationId
+        probe.events.push({ id, stage, phase: 'start', at: Date.now() })
+        await probe.gates.get(`${stage}:${id}`)?.promise
+        if (stage === 'get' && probe.fail === id)
+          throw new Error('Isolated task read failure')
+        const result = await handler(event, input)
+        probe.events.push({ id, stage, phase: 'end', at: Date.now() })
+        return result
+      })
+    }
+  })
+  const block = key => app.evaluate((_electron, key) => {
+    globalThis.taskSwitchProbe.gates.set(key, Promise.withResolvers())
+  }, key)
+  const release = key => app.evaluate((_electron, key) => {
+    const gates = globalThis.taskSwitchProbe.gates
+    gates.get(key)?.resolve()
+    gates.delete(key)
+  }, key)
+  await block('draft:b')
+  const clickedAt = Date.now()
+  await row('b').click()
+  await expect(title).toHaveText('Task B')
+  await expect(row('b')).toHaveClass(/is-active/)
+  await expect(page.getByTestId('task-loading')).toHaveAttribute('aria-busy', 'true')
+  const loadingVisibleMs = Date.now() - clickedAt
+  await expect.poll(() => app.evaluate(() => globalThis.taskSwitchProbe.events.some(event => event.id === 'b' && event.stage === 'timeline' && event.phase === 'end'))).toBe(true)
+  expect(await app.evaluate(() => globalThis.taskSwitchProbe.events.some(event => event.id === 'b' && event.stage === 'draft' && event.phase === 'end'))).toBe(false)
+  await page.screenshot({ path: path.join(instance.artifactDirectory, 'task-loading-light.png'), animations: 'disabled' })
+  await page.evaluate(() => window.lexoraDesktop.settings.update({ desktop: { theme: 'dark' } }))
+  await page.screenshot({ path: path.join(instance.artifactDirectory, 'task-loading-dark.png'), animations: 'disabled' })
+  await page.evaluate(() => window.lexoraDesktop.settings.update({ desktop: { theme: 'light' } }))
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(980, 640))
+  await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(980)
+  expect(await page.getByTestId('task-loading').evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
+  await page.screenshot({ path: path.join(instance.artifactDirectory, 'task-loading-narrow.png'), animations: 'disabled' })
+  await row('c').click()
+  await expect(title).toHaveText('Task C')
+  await expect(editor).toBeVisible()
+  await release('draft:b')
+  await expect.poll(() => app.evaluate(() => globalThis.taskSwitchProbe.events.some(event => event.id === 'b' && event.stage === 'draft' && event.phase === 'end'))).toBe(true)
+  await expect(title).toHaveText('Task C')
+  await row('a').click()
+  await expect(editor).toHaveText('Saved while switching')
+
+  await app.evaluate(() => {
+    globalThis.taskSwitchProbe.fail = 'b'
+  })
+  await row('b').click()
+  const failed = page.getByTestId('task-loading').getByRole('alert')
+  await expect(failed).toContainText('视图加载失败')
+  await row('a').click()
+  await expect(editor).toHaveText('Saved while switching')
+  await row('b').click()
+  await expect(failed).toBeVisible()
+  await app.evaluate(() => {
+    globalThis.taskSwitchProbe.fail = null
+  })
+  await failed.getByRole('button', { name: '重试', exact: true }).click()
+  await expect(editor).toBeVisible()
+  await expect(page.getByTestId('task-loading')).toHaveCount(0)
+
+  await row('a').click()
+  await expect(editor).toHaveText('Saved while switching')
+  await block('get:b')
+  await app.evaluate(({ BrowserWindow }) => {
+    BrowserWindow.getAllWindows()[0].webContents.send('lexora:app:open-target', { conversationId: 'b', runId: 'notified-run' })
+  })
+  await expect(title).toHaveText('Task B')
+  await expect(page.getByTestId('task-loading')).toBeVisible()
+  await release('get:b')
+  await expect.poll(() => page.evaluate(async () => (await window.lexoraDesktop.localChat.conversations.get('b')).activeBranchId)).toBe('notified-branch')
+  await expect(page.locator('.desktop-chat-page')).toContainText('Notification target content')
+  await page.screenshot({ path: path.join(instance.artifactDirectory, 'task-notification-target.png'), animations: 'disabled' })
+  await testInfo.attach('task-load-timing', { body: JSON.stringify({ loadingVisibleMs, requests: await app.evaluate(() => globalThis.taskSwitchProbe.events) }, null, 2), contentType: 'application/json' })
+  expect(diagnostics.console.filter(item => item.type === 'pageerror')).toEqual([])
+})

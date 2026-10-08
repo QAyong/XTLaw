@@ -17,7 +17,7 @@ export interface RegisterChatRpcOptions {
   runtime: BuddyRuntime
   turns: Pick<
     ChatTurnService,
-    'cancel' | 'editUserMessage' | 'regenerateAssistant'
+    'editUserMessage' | 'regenerateAssistant'
   >
 }
 
@@ -40,7 +40,7 @@ export function registerChatRpc(options: RegisterChatRpcOptions): () => void {
       options.turns.regenerateAssistant(params)
     )),
     registerRuntimeRequest(options.rpc, chatRpc.cancel, (input) => {
-      return options.turns.cancel(input.runId)
+      return options.queue.cancelRun(input.runId)
     }),
   ]
   return () => disposers.splice(0).forEach(dispose => dispose())

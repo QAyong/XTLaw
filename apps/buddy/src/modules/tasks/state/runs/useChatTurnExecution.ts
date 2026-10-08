@@ -2,7 +2,6 @@ import type { LocalChatApi } from '@buddy-electron/shared/localChatApi'
 import type { ParsedBuddyChatCommand } from '@buddy-shared/conversation/buddyChatCommands'
 import type { BuddyUserContentV1 } from '@buddy-shared/conversation/buddyUserContent'
 import type { LocalPromptContextItem } from '@buddy-shared/conversation/chatApi'
-import type { LocalChatQueueTarget } from '@buddy-shared/conversation/chatQueueApi'
 import type { BuddyApprovalPolicy } from '@buddy-shared/permissions/approvalPolicy'
 import type { BuddyExecutionProfile } from '@buddy-shared/permissions/executionProfile'
 import type { LocalRun } from '@buddy-shared/runs/runApi'
@@ -58,7 +57,7 @@ export interface UseChatTurnExecutionOptions {
   onActionCommandRunStarted: (runId: string) => void
   onDraftCommitted?: (draftId: string, conversationId: string) => void
   persistWorkspaceState: () => Promise<boolean>
-  runSync: Pick<ChatRunSync, 'applyRunStart' | 'upsertRuns' | 'refreshActiveConversation' | 'cancelRunPresentation' | 'restoreRunPresentation'>
+  runSync: Pick<ChatRunSync, 'applyRunStart' | 'upsertRuns' | 'refreshActiveConversation'>
   runtimeSupervisor: Pick<RuntimeSupervisorStore, 'runtimeState'>
   setErrorMessage: (message: string | null) => void
   unavailableCommandMessage: () => string
@@ -69,11 +68,12 @@ export function useChatTurnExecution(options: UseChatTurnExecutionOptions) {
   const isSending = shallowRef(false)
   const requestIds = createRequestIdRegistry()
   const pendingCancellationWatches = new Set<() => void>()
-  const pendingCancellationIds = shallowReactive(new Set<string>())
-  const cancellationCompletions = new Map<string, { run: LocalRun, completion: Promise<boolean> }>()
+  const pendingCancellations = shallowReactive(new Map<string, LocalRun>())
   const stoppingRunId = computed(() => {
-    const run = options.activeRun.value
-    return run && pendingCancellationIds.has(run.id) ? run.id : null
+    const run = [...pendingCancellations.values()].find(run =>
+      run.conversationId === options.session.activeConversationId.value
+      && run.branchId === options.session.activeBranchId.value)
+    return run?.id ?? null
   })
   let isDisposed = false
   onScopeDispose(() => {
@@ -81,8 +81,7 @@ export function useChatTurnExecution(options: UseChatTurnExecutionOptions) {
     for (const stop of pendingCancellationWatches)
       stop()
     pendingCancellationWatches.clear()
-    pendingCancellationIds.clear()
-    cancellationCompletions.clear()
+    pendingCancellations.clear()
   }, true)
   const canSend = computed(() =>
     options.runtimeSupervisor.runtimeState.value.status === 'ready'
@@ -113,15 +112,12 @@ export function useChatTurnExecution(options: UseChatTurnExecutionOptions) {
       options.setErrorMessage(options.unavailableCommandMessage())
       return false
     }
-    if (isRunCommand && options.activeRun.value)
+    if (isRunCommand && (options.activeRun.value || stoppingRunId.value))
       return false
     if (isRunCommand && command)
       return executeActionCommand(command, contextItems)
 
     const sourceScopeKey = options.draftScopeKey.value
-    const cancellation = [...cancellationCompletions.values()].find(({ run }) =>
-      run.conversationId === options.session.activeConversationId.value
-      && run.branchId === options.session.activeBranchId.value)
     const navigationVersion = options.session.generation()
     const isSourceViewCurrent = () => options.session.isCurrent(navigationVersion)
       && options.draftScopeKey.value === sourceScopeKey
@@ -139,12 +135,10 @@ export function useChatTurnExecution(options: UseChatTurnExecutionOptions) {
       const expectedRevision = confirmedDraft.revision!
       const operationKey = `turn:${confirmedDraft.draftId}:${expectedRevision}`
       const requestId = requestIds.resolve(operationKey)
-      if (cancellation || options.activeRun.value || queue.queuedMessages.value.length) {
+      if (stoppingRunId.value || options.activeRun.value || queue.queuedMessages.value.length) {
         const result = await options.api.chat.enqueue({ draftId: confirmedDraft.draftId, expectedRevision, requestId })
         requestIds.release(operationKey)
         options.composerTarget.complete(result.draftReceipt, sourceScopeKey, sourceScopeKey)
-        if (cancellation)
-          void dispatchAfterCancellation(result, cancellation.completion)
         await queue.refreshQueue()
         return true
       }
@@ -272,12 +266,9 @@ export function useChatTurnExecution(options: UseChatTurnExecutionOptions) {
 
   async function cancelActiveRun() {
     const run = options.activeRun.value
-    if (!run || isDisposed || pendingCancellationIds.has(run.id))
+    if (!run || isDisposed || pendingCancellations.has(run.id))
       return
-    pendingCancellationIds.add(run.id)
-    const cancellation = Promise.withResolvers<boolean>()
-    cancellationCompletions.set(run.id, { run, completion: cancellation.promise })
-    options.runSync.cancelRunPresentation(run.id)
+    pendingCancellations.set(run.id, run)
     const navigationVersion = options.session.generation()
     let sourceViewChanged = false
     const stopWatchingView = watch(
@@ -296,35 +287,15 @@ export function useChatTurnExecution(options: UseChatTurnExecutionOptions) {
       const cancelled = await options.api.chat.cancel(run.id)
       if (isSourceViewCurrent())
         options.runSync.upsertRuns([cancelled])
-      cancellation.resolve(cancelled.status === 'cancelled')
     }
     catch (error) {
-      options.runSync.restoreRunPresentation(run.id)
-      cancellation.resolve(false)
       if (isSourceViewCurrent())
         setNormalizedError(error)
     }
     finally {
       stopWatchingView()
       pendingCancellationWatches.delete(stopWatchingView)
-      pendingCancellationIds.delete(run.id)
-      cancellationCompletions.delete(run.id)
-    }
-  }
-
-  async function dispatchAfterCancellation(target: LocalChatQueueTarget, completion: Promise<boolean>) {
-    if (!await completion || isDisposed)
-      return
-    try {
-      // Only the message explicitly sent after Stop resumes; older paused inputs stay paused.
-      await options.api.chat.steerQueued({ id: target.id, conversationId: target.conversationId, branchId: target.branchId })
-      await queue.refreshQueue()
-    }
-    catch (error) {
-      if (!isDisposed && options.session.activeConversationId.value === target.conversationId
-        && options.session.activeBranchId.value === target.branchId) {
-        setNormalizedError(error)
-      }
+      pendingCancellations.delete(run.id)
     }
   }
 

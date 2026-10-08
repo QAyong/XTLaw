@@ -9,6 +9,7 @@ import type { TurnRequestCommit } from '../TurnRequestService'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createBuddyUserContent } from '../../../../shared/conversation/buddyUserContent'
 import { Emitter } from '../../../../shared/events/Emitter'
+import { toPublicRun } from '../../runs/publicRun'
 import { createAttachmentRepository } from '../../storage/attachmentRepository'
 import { createChatQueueRepository } from '../../storage/chatQueueRepository'
 import { createComposerDraftRepository } from '../../storage/composerDraftRepository'
@@ -32,6 +33,94 @@ afterEach(async () => {
 })
 
 describe('persistent chat queue scheduling', () => {
+  it('pauses old and new inputs before cancellation settles and requires explicit continuation', async () => {
+    const f = fixture()
+    f.queue.enqueue(f.input('A'))
+    const cleanup = Promise.withResolvers<void>()
+    f.turns.cancel = async (runId) => {
+      expect(f.queue.list(f.scope).map(item => item.state)).toEqual(['paused'])
+      f.database.prepare('UPDATE runs SET status = ? WHERE id = ?').run('cancelled', runId)
+      await cleanup.promise
+      return toPublicRun(f.runs.findById(runId)!, null)
+    }
+    const cancelling = f.service.cancelRun('run-initial')
+    expect(f.service.cancelRun('run-initial')).toBe(cancelling)
+    try {
+      for (const id of ['B', 'C']) {
+        const prepared = f.input(id)
+        f.turns.prepareStart = async () => ({ prepared, stagedAttachments: { validate: () => {}, bindings: [], commit: async () => {}, rollback: async () => {} } })
+        await f.service.enqueue({ draftId: 'draft', expectedRevision: prepared.draft.expectedRevision, requestId: prepared.requestId })
+      }
+      f.releaseSlot()
+      expect(await f.service.steer(f.target('B'))).toBe(false)
+      expect(await f.service.reconcile(f.scope)).toBe(false)
+      expect(f.queue.list(f.scope).map(item => [item.id, item.state])).toEqual([['A', 'paused'], ['B', 'paused'], ['C', 'paused']])
+      expect(f.launched).toEqual([])
+      expect(f.delivered).toEqual([])
+    }
+    finally {
+      cleanup.resolve()
+      await cancelling
+    }
+    await f.continuation.start()
+    expect(f.launched).toEqual([])
+    expect(await f.service.steer(f.target('B'))).toBe(true)
+    f.database.prepare('UPDATE runs SET status = ? WHERE id = ?').run('running', 'run-B')
+    expect(await f.service.followUp('run-B', f.controller.signal)).toBe(false)
+    expect(f.launched).toEqual(['run-B'])
+    expect(f.queue.list(f.scope).map(item => [item.id, item.state])).toEqual([['A', 'paused'], ['C', 'paused']])
+    expect(f.database.prepare('SELECT id FROM messages ORDER BY rowid').all()).toEqual([{ id: 'initial' }, { id: 'B' }])
+  })
+
+  it('does not pause a newer run queue when a stale stop arrives during its cleanup', async () => {
+    const f = fixture()
+    f.database.exec('UPDATE runs SET status = \'completed\'')
+    f.requests.prepare(f.input('new'))
+    f.database.exec('UPDATE runs SET status = \'completed\'')
+    f.queue.enqueue(f.input('A'))
+    await f.service.cancelRun('run-initial')
+    expect(f.queue.list(f.scope).map(item => [item.id, item.state])).toEqual([['A', 'waiting']])
+  })
+
+  it('withdraws a steering input whose validation crosses the stop request', async () => {
+    const f = fixture()
+    f.queue.enqueue(f.input('A'))
+    const validation = Promise.withResolvers<void>()
+    const cleanup = Promise.withResolvers<void>()
+    f.validate.mockImplementationOnce(() => validation.promise)
+    f.turns.cancel = async (runId) => {
+      await cleanup.promise
+      return toPublicRun(f.runs.findById(runId)!, null)
+    }
+    const steering = f.service.steer(f.target('A'))
+    await vi.waitFor(() => expect(f.validate).toHaveBeenCalledOnce())
+    const cancelling = f.service.cancelRun('run-initial')
+    try {
+      validation.resolve()
+      expect(await steering).toBe(false)
+      expect(f.delivered).toEqual([])
+      expect(f.queue.list(f.scope)[0]?.state).toBe('paused')
+    }
+    finally {
+      validation.resolve()
+      cleanup.resolve()
+      await cancelling
+    }
+  })
+
+  it('preserves inputs after a cancellation failure and releases the continuation guard', async () => {
+    const f = fixture()
+    f.queue.enqueue(f.input('A'))
+    f.turns.cancel = async () => {
+      throw new Error('Cancellation failed')
+    }
+    await expect(f.service.cancelRun('run-initial')).rejects.toThrow('Cancellation failed')
+    expect(f.queue.list(f.scope)[0]?.state).toBe('paused')
+    expect(await f.service.followUp('run-initial', f.controller.signal)).toBe(false)
+    expect(await f.service.steer(f.target('A'))).toBe(true)
+    expect(f.delivered).toEqual(['steer:A'])
+  })
+
   it('commits queue and message ownership separately and consumes a queued draft only once', async () => {
     const f = fixture()
     const attachments = createAttachmentRepository(f.database)
@@ -392,6 +481,7 @@ function fixture(queuedOnStartup = false) {
   const committed = new Emitter<BuddyRunEvent>(() => {})
   const eventLog: { onDidCommit: RunEventObservation['onDidCommit'], state: RunEventObservation['state'] } = { onDidCommit: committed.event, state: 'open' }
   const turns: ChatQueueServiceOptions['turns'] = {
+    cancel: async runId => toPublicRun(runs.findById(runId)!, null),
     prepareStart: async () => {
       throw new Error('Use the persisted fixture')
     },

@@ -307,9 +307,6 @@ export function useChatRunSync(options: ChatRunSyncOptions): ChatRunSync {
 
   return {
     ...projection.state,
-    executionRuns: projection.executionRuns,
-    cancelRunPresentation: projection.cancelRunPresentation,
-    restoreRunPresentation: projection.restoreRunPresentation,
     applyEditedTurn: (turn, messageId) => applyReplacementTurn(turn, messageId, false),
     applyRegeneratedTurn: turn => applyReplacementTurn(turn, turn.run.triggeringMessageId, true),
     applyRunStart,

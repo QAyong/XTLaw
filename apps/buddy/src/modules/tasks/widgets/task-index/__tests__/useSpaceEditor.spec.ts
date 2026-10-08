@@ -24,6 +24,29 @@ function fixture() {
 }
 
 describe('space editing session', () => {
+  it('uses the selected folder name for a new space when the name is blank', async () => {
+    const f = fixture()
+    f.target.value = null
+    f.selectDirectory.mockResolvedValueOnce('C:\\work\\my-project\\')
+
+    await f.editor.selectPrimaryDirectory()
+
+    expect(f.editor.form.name).toBe('my-project')
+    expect(f.editor.form.primaryDirectory?.root).toBe('C:\\work\\my-project\\')
+    expect(f.editor.canSave.value).toBe(true)
+  })
+
+  it('keeps a manually entered new space name when selecting a folder', async () => {
+    const f = fixture()
+    f.target.value = null
+    f.editor.form.name = 'My workspace'
+    f.selectDirectory.mockResolvedValueOnce('/work/my-project')
+
+    await f.editor.selectPrimaryDirectory()
+
+    expect(f.editor.form.name).toBe('My workspace')
+  })
+
   it('preserves local input across a refresh of the same Space', () => {
     const f = fixture()
     f.editor.form.name = 'unsaved'

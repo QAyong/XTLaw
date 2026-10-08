@@ -56,6 +56,8 @@ export function useSpaceEditor(options: SpaceEditorOptions) {
         return
       const existing = options.space()?.additionalDirectories.find(directory => directory.root === selected)
       form.primaryDirectory = { id: existing?.id ?? null, root: selected }
+      if (!options.space() && !form.name.trim())
+        form.name = selected.replace(/[\\/]+$/, '').split(/[\\/]/).pop() ?? ''
     }
     catch {
       if (current === session)

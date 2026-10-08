@@ -75,7 +75,27 @@ XTLaw 把任务对话、文档编辑、资源面板和工具执行放进同一�
 
 **[xtlaw.qayong.site](https://xtlaw.qayong.site/)** 提供产品截图、功能介绍、使用指南与常见问题，支持浅深色主题和手机浏览。
 
-如果 XTLaw 帮到了你，欢迎通过官网右上角的爱心按钮捐赠支持，也欢迎通过 [Issues](https://github.com/QAyong/XTLaw/issues) 提出反馈。
+### QQ 交流群
+
+欢迎加入 **阿勇妙妙屋**，交流使用体验、分享工作方法和反馈建议。
+
+**群号：704919429** · [点击加入 QQ 群](https://qm.qq.com/q/QF9OHnzcAw)
+
+<p>
+  <a href="https://qm.qq.com/q/QF9OHnzcAw"><img src="docs/assets/xtlaw-qq-group.png" width="220" height="220" alt="阿勇妙妙屋 QQ 群二维码，群号 704919429" /></a>
+</p>
+
+也欢迎通过 [Issues](https://github.com/QAyong/XTLaw/issues) 提交问题；请附上系统、版本和复现步骤。
+
+### 捐赠支持
+
+如果 XTLaw 帮到了你，欢迎自愿捐赠，支持项目持续开发。
+
+<p>
+  <img src="docs/assets/xtlaw-donation-alipay.png" width="220" height="220" alt="支付宝捐赠二维码，金额 5 元" />
+</p>
+
+**支付宝扫码 · ¥5.00**。也可以通过 [官网](https://xtlaw.qayong.site/) 右上角的爱心按钮打开捐赠二维码。感谢你的支持！
 
 ## 本地开发
 

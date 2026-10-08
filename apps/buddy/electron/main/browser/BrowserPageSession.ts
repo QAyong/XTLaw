@@ -1,12 +1,15 @@
 import type { Input, MouseInputEvent, WebContents } from 'electron'
 import type { EventEmitter } from 'node:events'
 import type { BrowserErrorCode } from '../../../shared/browser'
-import type { DesktopBrowserError, DesktopBrowserGuestDescriptor, DesktopBrowserProfileMode, DesktopBrowserState } from '../../../shared/browser/browserDesktopApi'
+import type { DesktopBrowserBlockedAction, DesktopBrowserError, DesktopBrowserGuestDescriptor, DesktopBrowserProfileMode, DesktopBrowserState, DesktopBrowserViewport } from '../../../shared/browser/browserDesktopApi'
+import type { BrowserFileSelectionOptions } from './browserHumanActions'
 import type { BrowserOperationGuard } from './BrowserOperationGuard'
-import type { BrowserSecurityPage, BrowserSecuritySession } from './BrowserSecurityPolicy'
+import type { BrowserDownloadItem, BrowserFileChooserRequest, BrowserSecurityPage, BrowserSecuritySession } from './BrowserSecurityPolicy'
+import { browserViewportSchema } from '../../../shared/browser/browserDesktopSchemas'
 import { browserZoomFactorSchema, stepBrowserZoom } from '../../../shared/browser/browserPreferences'
 import { BrowserDebugger } from './BrowserDebugger'
 import { BrowserHostError } from './BrowserHostError'
+import { browserNoticeOrigin, fileChooserFilters } from './browserHumanActions'
 import { BrowserPageActivity } from './BrowserPageActivity'
 import { BrowserSecurityPolicy, isLoopbackBrowserUrl } from './BrowserSecurityPolicy'
 import { SemanticBrowserDriver } from './SemanticBrowserDriver'
@@ -45,6 +48,10 @@ export interface BrowserPage extends BrowserSecurityPage {
 }
 
 export interface BrowserSessionState {
+  favicon?: string | null
+  viewport?: DesktopBrowserViewport | null
+  openedFrom?: DesktopBrowserState['openedFrom']
+  download?: DesktopBrowserState['download']
   zoomFactor: number
   canGoBack: boolean
   canGoForward: boolean
@@ -75,11 +82,24 @@ interface BrowserPageSessionOptions {
   getDefaultZoomFactor: () => number
   onGuestChanged: (status: 'attached' | 'detached' | 'crashed') => void
   onHumanInput: () => void
+  onWindowOpen: (url: string, external: boolean) => void
   onStateChanged: (state: DesktopBrowserState) => void
   isCurrent: () => boolean
   operations: BrowserOperationGuard
+  showDialog?: (input: { type: 'alert' | 'confirm', message: string, origin: string }) => Promise<boolean>
+  selectFiles?: (input: BrowserFileSelectionOptions) => Promise<string[] | null>
   state: BrowserSessionState
 }
+
+interface BrowserHumanGesture {
+  epoch: number
+  expires: number
+  external: boolean
+  revision: number
+}
+
+const BLOCKED_NOTICE_DEDUPE_MS = 3_000
+const HUMAN_ACTION_TTL_MS = 1_000
 
 export class BrowserPageSession {
   actionTail = Promise.resolve()
@@ -88,6 +108,15 @@ export class BrowserPageSession {
   readonly descriptor: DesktopBrowserGuestDescriptor
   #listeners: Array<() => void> = []
   mainFrameCommitSequence: number | null = null
+  #activeDownloads = new Set<BrowserDownloadItem>()
+  #noticeSequence = 0
+  #downloadSequence = 0
+  #dialogPending = false
+  #dialogTimes: number[] = []
+  #fileChooserPending = false
+  #humanGesture: BrowserHumanGesture | null = null
+  #navigationDownloadGesture: { gesture: BrowserHumanGesture, revision: number } | null = null
+  #lastBlockedNotice: { action: DesktopBrowserBlockedAction, at: number, message: string } | null = null
   navigationSequence = 0
   page: BrowserPage | null = null
   #connection: BrowserDebugger | null = null
@@ -106,6 +135,21 @@ export class BrowserPageSession {
     this.descriptor = options.descriptor
   }
 
+    try {
+    }
+    finally {
+    }
+  }
+
+      return false
+  }
+
+  }
+
+    this.#humanGesture = null
+    this.#navigationDownloadGesture = null
+  }
+
   async setZoomFactor(factor: number | null): Promise<DesktopBrowserState> {
     this.#options.operations.assertCanMutate()
     const page = this.requirePage()
@@ -119,6 +163,79 @@ export class BrowserPageSession {
   publish(): void {
     void this.updateActivity().catch(this.#options.onActivityError)
     this.#options.onStateChanged(snapshot(this.state))
+  }
+
+  /** Opens detached developer tools for this page only, never for the desktop application. */
+  openDevTools(): boolean {
+    if (this.state.controller !== 'human') {
+      throw new BrowserHostError(
+        'BROWSER_CONTROL_REQUIRED',
+        'Page developer tools require human control',
+      )
+    }
+    const page = this.page
+    if (!page || page.isDestroyed())
+      return false
+    page.openDevTools({ mode: 'detach' })
+    return true
+  }
+
+  handlePageDialog(request: { type: 'alert' | 'confirm', message: string }, show: (origin: string) => boolean): boolean {
+    if (!['alert', 'confirm'].includes(request.type) || typeof request.message !== 'string' || request.message.length > 2_048)
+      return false
+    const page = this.page
+    const now = Date.now()
+    this.#dialogTimes = this.#dialogTimes.filter(time => now - time < 10_000)
+    if (!page || !this.#selectionCurrent(page, this.documentVersion, this.state.controlEpoch)
+      || this.#dialogPending || this.#dialogTimes.length >= 3) {
+      this.#reportBlocked('permission', 'Page dialog suppressed: take control or wait before retrying', 'dialog-suppressed')
+      return false
+    }
+    this.#dialogPending = true
+    this.#dialogTimes.push(now)
+    const revision = this.documentVersion
+    const epoch = this.state.controlEpoch
+    try {
+      return show(browserNoticeOrigin(page.getURL()) ?? 'This page') && this.#selectionCurrent(page, revision, epoch)
+    }
+    catch {
+      this.#reportBlocked('permission', 'The page dialog could not be displayed', 'unavailable')
+      return false
+    }
+    finally { this.#dialogPending = false }
+  }
+
+  get hasActiveDownloads(): boolean {
+    return this.#activeDownloads.size > 0
+  }
+
+  cancelDownloads(): void {
+    for (const item of this.#activeDownloads) {
+      try {
+        item.cancel()
+      }
+      catch {}
+    }
+    this.#activeDownloads.clear()
+  }
+
+  async setViewport(viewport: DesktopBrowserViewport | null): Promise<DesktopBrowserState> {
+    this.#options.operations.assertCanMutate()
+    if (this.state.controller !== 'human' || this.agentActionDepth > 0)
+      throw new BrowserHostError('BROWSER_CONTROL_REQUIRED', 'Take control before changing the viewport')
+    const value = viewport ? browserViewportSchema.parse(viewport) : null
+    const connection = this.#connection
+    if (!connection)
+      throw new BrowserHostError('BROWSER_PAGE_FAILED', 'Browser guest is unavailable')
+    await this.runWhileActive(async () => {
+      connection.ensureAttached()
+      await connection.sendCommand(value ? 'Emulation.setDeviceMetricsOverride' : 'Emulation.clearDeviceMetricsOverride', value ? { width: value.width, height: value.height, deviceScaleFactor: 0, mobile: false, dontSetVisibleSize: true } : undefined)
+    })
+    this.state.viewport = value
+    this.invalidateElementReferences()
+    this.semanticDriver?.invalidateDocument()
+    this.publish()
+    return snapshot(this.state)
   }
 
   updateActivity(): Promise<void> {
@@ -164,7 +281,24 @@ export class BrowserPageSession {
       page,
     })
     this.securityPolicy = new BrowserSecurityPolicy({
+      allowDownload: () => this.#consumeHumanGesture(true) !== null,
       connection: this.#connection,
+      onDownloadBlocked: () => this.#reportBlocked('download', 'Download blocked: start it with a fresh click while you control the page'),
+      onDownloadStarted: item => this.#trackDownload(item),
+      onFileChooser: (request) => {
+        void this.#handleFileChooser(request).catch(() => {})
+      },
+      onWindowOpenBlocked: () => this.#reportBlocked('popup', 'Popup target is not a safe web link', 'invalid-target'),
+      onWindowOpen: (url, disposition) => {
+        const gesture = this.#consumeHumanGesture()
+        if (!this.#options.isCurrent() || this.page !== page)
+          return
+        if (!gesture) {
+          this.#reportBlocked('popup', 'Popup blocked: a fresh manual click is required')
+          return
+        }
+        this.#options.onWindowOpen(url, gesture.external || disposition === 'background-tab')
+      },
       onCertificateError: ({ error, url }) => {
         this.state.error = {
           code: 'BROWSER_CERTIFICATE_ERROR',
@@ -174,13 +308,7 @@ export class BrowserPageSession {
         this.state.url = normalizeBrowserUrl(url) ?? this.state.url
         this.publish()
       },
-      onPermissionDenied: () => {
-        this.state.error = {
-          code: 'BROWSER_PERMISSION_DENIED',
-          message: 'Browser permission request was denied',
-        }
-        this.publish()
-      },
+      onPermissionDenied: () => this.#reportBlocked('permission', 'Browser permission request was denied'),
       onRequestBlocked: (details) => {
         if (details.resourceType !== 'mainFrame')
           return
@@ -195,11 +323,183 @@ export class BrowserPageSession {
       page,
       session: page.session,
     })
+    this.#connection.onEvent('Page.javascriptDialogOpening', (params) => {
+      void this.#handleJavaScriptDialog(params, page).catch(() => {})
+    })
     this.#configureSession(page)
     this.pageReady.resolve(page)
     this.refreshPageState()
     this.publish()
     this.#options.onGuestChanged('attached')
+  }
+
+  #rememberPopupGesture(external: boolean): void {
+    if (this.state.visible && this.state.controller === 'human' && this.agentActionDepth === 0) {
+      this.#humanGesture = {
+        epoch: this.state.controlEpoch,
+        expires: Date.now() + HUMAN_ACTION_TTL_MS,
+        external,
+        revision: this.documentVersion,
+      }
+    }
+  }
+
+  /**
+   * Returns the pending human gesture once, and only while it still describes the page the user
+   * acted on. Freshness, document revision, control epoch, visibility and agent activity are all
+   * required, so delayed requests or synthetic input cannot reuse an earlier click.
+   */
+  #consumeHumanGesture(download = false): BrowserHumanGesture | null {
+    const navigation = download ? this.#navigationDownloadGesture : null
+    const gesture = this.#humanGesture ?? navigation?.gesture
+    const revision = this.#humanGesture ? gesture?.revision : navigation?.revision
+    this.#humanGesture = null
+    this.#navigationDownloadGesture = null
+    if (!gesture || gesture.expires < Date.now() || revision !== this.documentVersion
+      || gesture.epoch !== this.state.controlEpoch || !this.state.visible
+      || this.state.controller !== 'human' || this.agentActionDepth > 0) {
+      return null
+    }
+    return gesture
+  }
+
+  async #handleFileChooser(request: BrowserFileChooserRequest): Promise<void> {
+    const page = this.page
+    const securityPolicy = this.securityPolicy
+    if (!page || !securityPolicy || !this.#options.isCurrent())
+      return
+    const gesture = this.#consumeHumanGesture()
+    if (!gesture) {
+      this.#reportBlocked('file-chooser', 'File selection blocked: a fresh manual click is required', 'fresh-click')
+      return
+    }
+    const selectFiles = this.#options.selectFiles
+    if (!selectFiles) {
+      this.#reportBlocked('file-chooser', 'File selection is unavailable in this build', 'unavailable')
+      return
+    }
+    // One dialog at a time: a page that repeats the request must not stack native dialogs.
+    if (this.#fileChooserPending)
+      return
+    this.#fileChooserPending = true
+    const documentVersion = this.documentVersion
+    try {
+      const accept = await securityPolicy.fileChooserAccept(request)
+      if (!this.#selectionCurrent(page, documentVersion, gesture.epoch)) {
+        this.#reportBlocked('file-chooser', 'Upload cancelled: the page or control changed', 'target-changed')
+        return
+      }
+      const filters = fileChooserFilters(accept)
+      const files = await selectFiles({ multiple: request.mode === 'selectMultiple', ...(filters ? { filters } : {}) })
+      // Cancelling a chooser is not a failure and must not touch the page.
+      if (!files?.length)
+        return
+      if (this.page !== page || !this.#options.isCurrent())
+        return
+      if (!this.#selectionCurrent(page, documentVersion, gesture.epoch)) {
+        this.#reportBlocked('file-chooser', 'Upload cancelled: the page or control changed while choosing a file', 'target-changed')
+        return
+      }
+      await securityPolicy.deliverFileSelection(request, files)
+    }
+    catch {
+      this.#reportBlocked('file-chooser', 'The selected file could not be attached to the page', 'selection-failed')
+    }
+    finally {
+      this.#fileChooserPending = false
+    }
+  }
+
+  #selectionCurrent(page: BrowserPage, revision: number, epoch: number): boolean {
+    return this.#options.isCurrent() && this.page === page && !page.isDestroyed()
+      && this.documentVersion === revision && this.state.controlEpoch === epoch
+      && this.state.controller === 'human' && this.state.visible && this.agentActionDepth === 0
+  }
+
+  async #handleJavaScriptDialog(params: unknown, page: BrowserPage): Promise<void> {
+    if (!params || typeof params !== 'object')
+      return
+    const request = params as { type?: string, message?: string, url?: string, hasBrowserHandler?: boolean }
+    // Keep working Electron-native prompt/beforeunload and native alert/confirm paths; never stack a second dialog.
+    if (request.hasBrowserHandler || !['alert', 'confirm'].includes(request.type ?? ''))
+      return
+    const connection = this.#connection
+    if (!connection)
+      return
+    const revision = this.documentVersion
+    const epoch = this.state.controlEpoch
+    const now = Date.now()
+    this.#dialogTimes = this.#dialogTimes.filter(time => now - time < 10_000)
+    let accepted = false
+    if (this.#selectionCurrent(page, revision, epoch) && !this.#dialogPending && this.#dialogTimes.length < 3 && this.#options.showDialog) {
+      this.#dialogPending = true
+      this.#dialogTimes.push(now)
+      try {
+        accepted = await this.#options.showDialog({ type: request.type as 'alert' | 'confirm', message: String(request.message ?? '').slice(0, 2_048), origin: browserNoticeOrigin(request.url ?? '') ?? browserNoticeOrigin(this.state.url) ?? 'This page' })
+        accepted = accepted && this.#selectionCurrent(page, revision, epoch)
+      }
+      catch {
+        this.#reportBlocked('permission', 'The page dialog could not be displayed', 'unavailable')
+      }
+      finally {
+        this.#dialogPending = false
+      }
+    }
+    else {
+      this.#reportBlocked('permission', 'Page dialog suppressed: take control or wait before retrying', 'dialog-suppressed')
+    }
+    if (this.page === page && this.#connection === connection && !page.isDestroyed())
+      await connection.sendCommand('Page.handleJavaScriptDialog', { accept: accepted })
+  }
+
+  #trackDownload(item: BrowserDownloadItem): void {
+    this.#activeDownloads.add(item)
+    const id = `${this.state.sessionId}:download:${++this.#downloadSequence}`
+    this.state.download = {
+      id,
+      fileName: readDownloadFileName(item),
+      path: null,
+      state: 'started',
+    }
+    this.publish()
+    const updated = (_event: unknown, result: 'interrupted' | 'progressing'): void => {
+      if (!this.#options.isCurrent() || this.state.download?.id !== id)
+        return
+      const state = result === 'interrupted' ? 'failed' : 'started'
+      if (this.state.download.state === state)
+        return
+      this.state.download = { ...this.state.download, path: null, state }
+      this.publish()
+    }
+    item.on?.('updated', updated)
+    item.once('done', (_event, result) => {
+      item.off?.('updated', updated)
+      this.#activeDownloads.delete(item)
+      if (!this.#options.isCurrent() || this.state.download?.id !== id)
+        return
+      const path = result === 'completed' ? item.getSavePath() : ''
+      this.state.download = {
+        id,
+        fileName: readDownloadFileName(item),
+        path: path || null,
+        state: result === 'completed' ? 'completed' : result === 'cancelled' ? 'canceled' : 'failed',
+      }
+      this.publish()
+    })
+  }
+
+  /** Surfaces at most one notice per blocked action description inside the dedupe window. */
+  #reportBlocked(action: DesktopBrowserBlockedAction, message: string, detail: DesktopBrowserError['detail'] = 'fresh-click'): void {
+    const now = Date.now()
+    if (this.#lastBlockedNotice
+      && this.#lastBlockedNotice.action === action
+      && this.#lastBlockedNotice.message === message
+      && now - this.#lastBlockedNotice.at < BLOCKED_NOTICE_DEDUPE_MS) {
+      return
+    }
+    this.#lastBlockedNotice = { action, at: now, message }
+    this.state.error = { action, code: 'BROWSER_PERMISSION_DENIED', message, detail, noticeId: `${this.state.sessionId}:notice:${++this.#noticeSequence}`, origin: browserNoticeOrigin(this.state.url) }
+    this.publish()
   }
 
   #onHumanInput(): void {
@@ -230,8 +530,11 @@ export class BrowserPageSession {
           void this.setZoomFactor(factor).catch(() => {})
           return
         }
-        if (input.type === 'keyDown' || input.type === 'rawKeyDown')
+        if (input.type === 'keyDown' || input.type === 'rawKeyDown') {
           this.#onHumanInput()
+          if (['Enter', ' '].includes(input.key) && !input.isAutoRepeat)
+            this.#rememberPopupGesture(Boolean(input.control || input.meta))
+        }
       },
     )
     this.#listen(
@@ -245,10 +548,19 @@ export class BrowserPageSession {
           && ['contextMenu', 'mouseDown', 'mouseWheel'].includes(input.type)
         ) {
           this.#onHumanInput()
+          if (input.type === 'mouseDown')
+            this.#rememberPopupGesture(input.modifiers?.includes('control') === true || input.modifiers?.includes('meta') === true || input.button === 'middle')
         }
       },
     )
     this.#listen(page, 'did-start-loading', () => {
+      // An attachment navigation starts loading before Electron emits will-download. Keep only
+      // this one transition's gesture for downloads; commit, further navigation or control changes invalidate it.
+      const gesture = this.#humanGesture
+      this.invalidateElementReferences()
+      if (gesture)
+        this.#navigationDownloadGesture = { gesture, revision: this.documentVersion }
+      this.state.favicon = null
       const isIndependentNavigation = this.activeNavigationSequence === null
       if (isIndependentNavigation) {
         this.navigationSequence += 1
@@ -278,6 +590,10 @@ export class BrowserPageSession {
       this.refreshPageState()
       this.publish()
     })
+    this.#listen(page, 'page-favicon-updated', (_event, favicons: string[]) => {
+      this.state.favicon = favicons.map(safeBrowserFavicon).find(Boolean) ?? null
+      this.publish()
+    })
     this.#listen(page, 'page-title-updated', (_event, title: string) => {
       this.state.title = title.slice(0, 512)
       this.publish()
@@ -286,6 +602,7 @@ export class BrowserPageSession {
       const normalizedUrl = normalizeBrowserUrl(url)
       if (!normalizedUrl)
         return
+      this.#navigationDownloadGesture = null
       this.mainFrameCommitSequence = this.navigationSequence
       this.refreshPageState()
       this.state.url = normalizedUrl
@@ -458,6 +775,10 @@ export class BrowserPageSession {
   }
 
   releasePage(): void {
+    this.cancelDownloads()
+    this.state.viewport = null
+    this.state.favicon = null
+    this.invalidateElementReferences()
     this.#activity?.dispose()
     this.#activity = null
     try {
@@ -497,6 +818,14 @@ export class BrowserPageSession {
   }
 }
 
+function safeBrowserFavicon(rawUrl: string): string | null {
+  try {
+    const url = new URL(rawUrl)
+    return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password && rawUrl.length <= 4_096 ? url.toString() : null
+  }
+  catch { return null }
+}
+
 function normalizeBrowserUrl(rawUrl: string): string | null {
   try {
     const url = new URL(rawUrl)
@@ -515,6 +844,22 @@ export function snapshot(state: BrowserSessionState): DesktopBrowserState {
     error: state.error ? { ...state.error } : null,
     security: projectSecurityState(state.url, state.error?.code),
   }
+}
+
+/** Download names come from the webpage, so they are only used as display text. */
+function readDownloadFileName(item: BrowserDownloadItem): string {
+  const raw = item.getFilename()
+  const name = typeof raw === 'string' ? sanitizeDownloadName(raw) : ''
+  return name || 'download'
+}
+
+function sanitizeDownloadName(value: string): string {
+  let name = ''
+  for (const character of value.trim().slice(0, 200)) {
+    const code = character.codePointAt(0) ?? 0
+    name += code < 32 || code === 127 || character === '/' || character === '\\' ? '_' : character
+  }
+  return name.trim()
 }
 
 function projectSecurityState(

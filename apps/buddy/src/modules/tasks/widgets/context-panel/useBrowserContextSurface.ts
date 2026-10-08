@@ -143,6 +143,18 @@ export function useBrowserContextSurface(options: UseBrowserContextSurfaceOption
     }
   }
 
+  async function openDevTools(): Promise<boolean> {
+    const sessionId = state.value?.sessionId
+    if (!sessionId)
+      return false
+    try {
+      return await options.api.openDevTools(sessionId)
+    }
+    catch {
+      return false
+    }
+  }
+
   async function openExternal(): Promise<boolean> {
     const sessionId = state.value?.sessionId
     if (!sessionId || isOpeningExternal.value)
@@ -201,6 +213,18 @@ export function useBrowserContextSurface(options: UseBrowserContextSurfaceOption
     finally {
       if (mounted && lifecycle === currentLifecycle)
         isShowingFileInFolder.value = false
+    }
+  }
+
+  async function revealDownload(): Promise<boolean> {
+    const sessionId = state.value?.sessionId
+    if (!sessionId || !state.value?.download?.path)
+      return false
+    try {
+      return await options.api.revealDownload(sessionId)
+    }
+    catch {
+      return false
     }
   }
 
@@ -283,8 +307,10 @@ export function useBrowserContextSurface(options: UseBrowserContextSurfaceOption
     isSwitchingProfile: readonly(isSwitchingProfile),
     isTakingControl: readonly(isTakingControl),
     navigate,
+    openDevTools,
     openExternal,
     reload,
+    revealDownload,
     setProfileMode,
     setZoomFactor,
     showFileInFolder,

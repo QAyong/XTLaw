@@ -44,6 +44,7 @@ class DesktopApplication {
     ]
     this.#windows = new DesktopWindowHost(environment)
     this.#browser = new BrowserIntegration({
+      getLanguage: () => this.#runtime.language,
       report: event => environment.events.publish(event),
       isTaskLinked: () => this.#runtime.config?.desktop.contextPanelMode === 'task',
       onActivityError: () => environment.events.publish({ level: 'warn', event: 'browser.activity.failed', errorCode: 'BROWSER_ACTIVITY_FAILED' }),

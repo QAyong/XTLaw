@@ -7,7 +7,7 @@ import { createTemporaryDirectory } from '@buddy-tests/temporaryDirectories'
 import { vi } from 'vitest'
 import { BrowserHost } from '../BrowserHost'
 
-export function createFixture(options: { operations?: BrowserOperationGuard, getDefaultZoomFactor?: () => number, getFreezeDelay?: (visible: boolean) => number | null } = {}) {
+export function createFixture(options: { showDialog?: (input: { type: 'alert' | 'confirm', message: string, origin: string }) => Promise<boolean>, operations?: BrowserOperationGuard, getDefaultZoomFactor?: () => number, getFreezeDelay?: (visible: boolean) => number | null, openExternal?: (url: string) => Promise<void>, selectFiles?: (input: { multiple: boolean }) => Promise<string[] | null> } = {}) {
   const ids = Array.from({ length: 16 }, (_, index) => (
     `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`
   ))
@@ -93,6 +93,7 @@ class FakeWebContents extends EventEmitter {
     toPNG: () => Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]),
   }))
 
+  readonly debuggerEvents = new EventEmitter()
   readonly debugger = {
     attach: vi.fn(() => {
       this.debuggerAttached = true
@@ -101,6 +102,12 @@ class FakeWebContents extends EventEmitter {
       this.debuggerAttached = false
     }),
     isAttached: vi.fn(() => this.debuggerAttached),
+    off: (event: string, listener: (...args: unknown[]) => void) => {
+      this.debuggerEvents.off(event, listener)
+    },
+    on: (event: string, listener: (...args: unknown[]) => void) => {
+      this.debuggerEvents.on(event, listener)
+    },
     sendCommand: vi.fn<(
       method: string,
       commandParams?: Record<string, unknown>,
@@ -112,6 +119,7 @@ class FakeWebContents extends EventEmitter {
   }
 
   readonly focus = vi.fn()
+  readonly openDevTools = vi.fn()
   readonly loadURL = vi.fn(async (url: string) => {
     this.currentUrl = url
   })
@@ -151,6 +159,8 @@ class FakeWebContents extends EventEmitter {
 
 export function configureSemanticObservation(webContents: FakeWebContents): void {
   webContents.debugger.sendCommand.mockImplementation(async (method) => {
+    if (method === 'DOM.describeNode')
+      return { node: { nodeName: 'INPUT', attributes: ['type', 'file'] } }
     if (method === 'Page.getFrameTree') {
       return {
         frameTree: {

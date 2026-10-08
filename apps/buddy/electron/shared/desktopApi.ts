@@ -12,7 +12,7 @@ import type { DesktopUpdateApi, DesktopUpdateCheckResult } from './desktopUpdate
 import type { LocalChatApi } from './localChatApi'
 import { BUDDY_DEFAULT_PERMISSION_MODE } from '../../shared/permissions/permissionMode'
 
-export { DESKTOP_BROWSER_ERROR_CODES, DESKTOP_BROWSER_PROFILE_MODES, DESKTOP_BROWSER_SECURITY_KINDS } from '../../shared/browser/browserDesktopApi'
+export { DESKTOP_BROWSER_BLOCKED_ACTIONS, DESKTOP_BROWSER_ERROR_CODES, DESKTOP_BROWSER_PROFILE_MODES, DESKTOP_BROWSER_SECURITY_KINDS } from '../../shared/browser/browserDesktopApi'
 
 export const DESKTOP_IPC_CHANNELS = {
   workbenchRead: 'lexora:workbench:read',
@@ -46,6 +46,7 @@ export const DESKTOP_IPC_CHANNELS = {
   browserCaptureScreenshot: 'lexora:browser:capture-screenshot',
   browserClearData: 'lexora:browser:clear-data',
   browserGetDataSummary: 'lexora:browser:get-data-summary',
+  browserSetViewport: 'lexora:browser:set-viewport',
   browserSetZoomFactor: 'lexora:browser:set-zoom-factor',
   browserClose: 'lexora:browser:close',
   browserEnsureSession: 'lexora:browser:ensure-session',
@@ -56,7 +57,9 @@ export const DESKTOP_IPC_CHANNELS = {
   browserNavigate: 'lexora:browser:navigate',
   browserOpenArtifact: 'lexora:browser:open-artifact',
   browserOpenExternal: 'lexora:browser:open-external',
+  browserOpenDevTools: 'lexora:browser:open-dev-tools',
   browserReload: 'lexora:browser:reload',
+  browserRevealDownload: 'lexora:browser:reveal-download',
   browserSetProfileMode: 'lexora:browser:set-profile-mode',
   browserSetSurface: 'lexora:browser:set-surface',
   browserShowFileInFolder: 'lexora:browser:show-file-in-folder',
@@ -249,6 +252,6 @@ export interface LexoraDesktopApi {
   localChat: LocalChatApi
 }
 
-export type { DesktopBrowserApi, DesktopBrowserAttachGuestInput, DesktopBrowserEnsureSessionInput, DesktopBrowserError, DesktopBrowserErrorCode, DesktopBrowserGuestDescriptor, DesktopBrowserNavigateInput, DesktopBrowserOpenArtifactInput, DesktopBrowserProfileMode, DesktopBrowserSecurityKind, DesktopBrowserSecurityState, DesktopBrowserSessionInput, DesktopBrowserSetProfileModeInput, DesktopBrowserSetSurfaceInput, DesktopBrowserState, DesktopBrowserStatus } from '../../shared/browser/browserDesktopApi'
+export type { DesktopBrowserApi, DesktopBrowserAttachGuestInput, DesktopBrowserBlockedAction, DesktopBrowserDownload, DesktopBrowserEnsureSessionInput, DesktopBrowserError, DesktopBrowserErrorCode, DesktopBrowserGuestDescriptor, DesktopBrowserNavigateInput, DesktopBrowserOpenArtifactInput, DesktopBrowserProfileMode, DesktopBrowserSecurityKind, DesktopBrowserSecurityState, DesktopBrowserSessionInput, DesktopBrowserSetProfileModeInput, DesktopBrowserSetSurfaceInput, DesktopBrowserState, DesktopBrowserStatus } from '../../shared/browser/browserDesktopApi'
 export type { DesktopCommandId, DesktopPlatform } from './desktopCommands'
 export type { DesktopUpdateCheckResult } from './desktopUpdates'

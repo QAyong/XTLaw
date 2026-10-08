@@ -88,7 +88,7 @@ describe('browserHost sessions and navigation', () => {
     expect(webPreferences).toMatchObject({
       allowRunningInsecureContent: false,
       contextIsolation: true,
-      devTools: false,
+      devTools: true,
       nodeIntegration: false,
       sandbox: true,
       webSecurity: true,

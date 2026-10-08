@@ -7,6 +7,8 @@ export type BrowserToolbarMenuActionKey
   = | 'capture-screenshot'
     | 'enter-incognito'
     | 'exit-incognito'
+    | 'responsive-viewport'
+    | 'open-devtools'
     | 'open-external'
     | 'show-file-in-folder'
 
@@ -20,6 +22,8 @@ interface BrowserToolbarMenuContext {
   busyAction: BrowserToolbarBusyAction | null
   controller: 'agent' | 'human'
   profileMode: DesktopBrowserProfileMode
+  responsive?: boolean
+  responsiveBusy?: boolean
   url: string
 }
 
@@ -34,6 +38,14 @@ export function getBrowserToolbarMenuActions(
     labelKey: context.profileMode === 'incognito'
       ? 'desktop.context.browserExitIncognito'
       : 'desktop.context.browserEnterIncognito',
+  }, {
+    disabled: isBusy || !hasPage || context.controller === 'agent',
+    key: 'open-devtools',
+    labelKey: 'desktop.context.browserOpenDevTools',
+  }, {
+    disabled: isBusy || Boolean(context.responsiveBusy) || (!hasPage && !context.responsive) || context.controller === 'agent',
+    key: 'responsive-viewport',
+    labelKey: context.responsive ? 'desktop.context.browserViewportExit' : 'desktop.context.browserResponsive',
   }, {
     disabled: isBusy || !hasPage,
     key: 'open-external',

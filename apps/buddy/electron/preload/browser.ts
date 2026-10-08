@@ -21,6 +21,10 @@ export function createBrowserApi(): Pick<LexoraDesktopApi, 'browser'> {
         { cache: input.cache, siteData: input.siteData },
       ),
       getDataSummary: () => ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.browserGetDataSummary),
+      setViewport: (sessionId: string, viewport: import('../../shared/browser/browserDesktopApi').DesktopBrowserViewport | null): Promise<DesktopBrowserState> => ipcRenderer.invoke(
+        DESKTOP_IPC_CHANNELS.browserSetViewport,
+        { sessionId, viewport },
+      ),
       setZoomFactor: (sessionId: string, zoomFactor: number | null) => ipcRenderer.invoke(
         DESKTOP_IPC_CHANNELS.browserSetZoomFactor,
         { sessionId, zoomFactor },
@@ -65,8 +69,16 @@ export function createBrowserApi(): Pick<LexoraDesktopApi, 'browser'> {
         DESKTOP_IPC_CHANNELS.browserOpenExternal,
         { sessionId },
       ),
+      openDevTools: (sessionId: string): Promise<boolean> => ipcRenderer.invoke(
+        DESKTOP_IPC_CHANNELS.browserOpenDevTools,
+        { sessionId },
+      ),
       reload: (sessionId: string) => ipcRenderer.invoke(
         DESKTOP_IPC_CHANNELS.browserReload,
+        { sessionId },
+      ),
+      revealDownload: (sessionId: string): Promise<boolean> => ipcRenderer.invoke(
+        DESKTOP_IPC_CHANNELS.browserRevealDownload,
         { sessionId },
       ),
       setProfileMode: (

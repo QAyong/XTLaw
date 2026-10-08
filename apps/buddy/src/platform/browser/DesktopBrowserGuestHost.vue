@@ -22,6 +22,7 @@ let stopGuestsChanged: (() => void) | null = null
 interface BrowserGuestEntry {
   descriptor: DesktopBrowserGuestDescriptor
   element: WebviewTag
+  frame: HTMLElement
   layout: SurfaceLayoutLease
   onDestroyed: () => void
   onReady: () => void
@@ -97,10 +98,15 @@ function createGuest(descriptor: DesktopBrowserGuestDescriptor): void {
     return
 
   const element = document.createElement('webview') as WebviewTag
+  const frame = document.createElement('div')
+  frame.className = 'desktop-browser-guest-host__frame'
+  Object.assign(frame.style, { overflow: 'hidden', pointerEvents: 'none' })
+  Object.assign(element.style, { position: 'absolute', inset: '0', pointerEvents: 'auto', transformOrigin: 'top left' })
   const entry: BrowserGuestEntry = {
     descriptor,
     element,
-    layout: props.layout.attach(element, { anchor: null, visible: false, interactive: true, layer: 'content' }),
+    frame,
+    layout: props.layout.attach(frame, { anchor: null, visible: false, interactive: true, childrenOnly: true, layer: 'content' }),
     onReady: () => {
       if (guests.get(descriptor.sessionId)?.element !== element)
         return
@@ -127,24 +133,44 @@ function createGuest(descriptor: DesktopBrowserGuestDescriptor): void {
   element.className = 'desktop-browser-guest-host__guest'
   element.dataset.browserSessionId = descriptor.sessionId
   element.setAttribute('partition', descriptor.partition)
+  element.setAttribute('allowpopups', 'true')
   element.setAttribute('src', 'about:blank')
   element.addEventListener('destroyed', entry.onDestroyed)
   element.addEventListener('dom-ready', entry.onReady)
   guests.set(descriptor.sessionId, entry)
-  host.append(element)
+  frame.append(element)
+  host.append(frame)
 }
 
 function removeGuest(entry: BrowserGuestEntry): void {
   entry.layout.dispose()
   entry.element.removeEventListener('destroyed', entry.onDestroyed)
   entry.element.removeEventListener('dom-ready', entry.onReady)
-  entry.element.remove()
+  entry.frame.remove()
 }
 
 function scheduleLayout(): void {
   for (const [sessionId, entry] of guests) {
     const surface = surfaces.get(sessionId)
-    entry.layout.update({ anchor: surface?.element ?? null, visible: !!surface, interactive: true, layer: 'content' })
+    entry.layout.update({
+      anchor: surface?.element ?? null,
+      visible: !!surface,
+      interactive: true,
+      childrenOnly: true,
+      layer: 'content',
+      onLayout: (geometry) => {
+        const width = Number(surface?.element.dataset.browserViewportWidth)
+        const height = Number(surface?.element.dataset.browserViewportHeight)
+        const responsive = geometry.visible && width >= 240 && width <= 3_840 && height >= 240 && height <= 2_160
+        // Keep the guest's logical bounds independent of the preview frame. Scaling only
+        // the composed surface preserves CSS breakpoints, input coordinates and screenshots.
+        Object.assign(entry.element.style, {
+          width: responsive ? `${width}px` : '100%',
+          height: responsive ? `${height}px` : '100%',
+          transform: responsive ? `scale(${geometry.width / width}, ${geometry.height / height})` : 'none',
+        })
+      },
+    })
   }
   props.layout.invalidate()
 }

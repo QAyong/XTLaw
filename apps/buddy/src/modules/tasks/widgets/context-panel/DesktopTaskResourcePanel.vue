@@ -36,7 +36,7 @@ const tabs = computed<ContextPanelTab[]>(() => props.panel.tabs.value.map((tab) 
   const title = !state || state.url === 'about:blank'
     ? t('desktop.context.browserNewTab')
     : state.title.trim() || t('desktop.context.browser')
-  return { id: tab.id, title, icon: 'browser' }
+  return { id: tab.id, title, icon: 'browser', favicon: state?.favicon ?? null }
 }))
 function add(kind: 'changes' | 'files' | 'browser') {
   if (kind === 'files') {

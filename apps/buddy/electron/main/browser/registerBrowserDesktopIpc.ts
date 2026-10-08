@@ -1,9 +1,9 @@
-import type { BrowserWindow, IpcMainInvokeEvent } from 'electron'
+import type { BrowserWindow, IpcMainEvent, IpcMainInvokeEvent } from 'electron'
 import type { BrowserDataService } from './BrowserDataService'
 import type { BrowserHost } from './BrowserHost'
 import type { BrowserScreenshotService } from './BrowserScreenshotService'
 import { fileURLToPath } from 'node:url'
-import { ipcMain, session, shell, webContents } from 'electron'
+import { dialog, ipcMain, session, shell, webContents } from 'electron'
 import { browserClearDataInputSchema, browserClearDataResultSchema, browserDataSummarySchema } from '../../../shared/browser/browserData'
 import {
   browserAttachGuestInputSchema,
@@ -13,14 +13,17 @@ import {
   browserSessionInputSchema,
   browserSetProfileModeInputSchema,
   browserSetSurfaceInputSchema,
+  browserSetViewportInputSchema,
   browserSetZoomFactorInputSchema,
   desktopBrowserGuestDescriptorsSchema,
   desktopBrowserStateSchema,
 } from '../../../shared/browser/browserDesktopSchemas'
+import { BROWSER_PAGE_DIALOG_CHANNEL } from '../../../shared/browser/browserDialogs'
 import { DESKTOP_IPC_CHANNELS } from '../../shared/desktopApi'
 import { assertTrustedSender } from '../ipc'
 
 export interface RegisterBrowserDesktopIpcOptions {
+  getLanguage?: () => string
   data: Pick<BrowserDataService, 'clear' | 'getSummary'>
   screenshots: Pick<BrowserScreenshotService, 'capture'>
   getHost: () => BrowserHost | null
@@ -34,6 +37,48 @@ export interface RegisterBrowserDesktopIpcOptions {
 export function registerBrowserDesktopIpc(
   options: RegisterBrowserDesktopIpcOptions,
 ): () => void {
+  const handlePageDialog = (event: IpcMainEvent, input: unknown): boolean => {
+    // Guest-only entry: page payloads cannot choose a tab, origin, file or host command.
+    const window = options.getWindow()
+    const sender = event.sender
+    if (!window || sender.isDestroyed() || sender.getType() !== 'webview'
+      || sender.hostWebContents !== window.webContents || event.senderFrame !== sender.mainFrame) {
+      return false
+    }
+    if (!input || typeof input !== 'object' || Object.keys(input).length !== 2)
+      return false
+    const request = input as { type?: unknown, message?: unknown }
+    if ((request.type !== 'alert' && request.type !== 'confirm') || typeof request.message !== 'string' || request.message.length > 2_048)
+      return false
+    const host = options.getHost()
+    if (!host)
+      return false
+    return host.handlePageDialog(sender.id, { type: request.type, message: request.message }, (origin) => {
+      const chinese = options.getLanguage?.() === 'zh-CN'
+      const response = dialog.showMessageBoxSync(window, {
+        type: request.type === 'confirm' ? 'question' : 'info',
+        title: chinese ? 'Lexora — 网页对话框' : 'Lexora — Web page',
+        message: origin,
+        detail: request.message as string,
+        buttons: request.type === 'confirm' ? (chinese ? ['取消', '确定'] : ['Cancel', 'OK']) : [chinese ? '确定' : 'OK'],
+        defaultId: 0,
+        cancelId: 0,
+        noLink: true,
+      })
+      return request.type === 'alert' || response === 1
+    })
+  }
+  const pageDialogListener = (event: IpcMainEvent, input: unknown): void => {
+    let value = false
+    try {
+      value = handlePageDialog(event, input)
+    }
+    catch {}
+    // Electron's setter sends the synchronous reply immediately. Reply exactly once, after
+    // the user choice, never with a provisional default before opening the dialog.
+    event.returnValue = { handled: true, value }
+  }
+  ipcMain.on(BROWSER_PAGE_DIALOG_CHANNEL, pageDialogListener)
   const registeredChannels: string[] = []
   const handle = (
     channel: string,
@@ -73,6 +118,10 @@ export function registerBrowserDesktopIpc(
   handle(DESKTOP_IPC_CHANNELS.browserClearData, async (_host, input) => (
     browserClearDataResultSchema.parse(await options.data.clear(browserClearDataInputSchema.parse(input)))
   ))
+  handle(DESKTOP_IPC_CHANNELS.browserSetViewport, async (host, input) => {
+    const { sessionId, viewport } = browserSetViewportInputSchema.parse(input)
+    return desktopBrowserStateSchema.parse(await host.setViewport(sessionId, viewport))
+  })
   handle(DESKTOP_IPC_CHANNELS.browserSetZoomFactor, async (host, input) => {
     const { sessionId, zoomFactor } = browserSetZoomFactorInputSchema.parse(input)
     takeHumanControl(host, sessionId)
@@ -108,6 +157,10 @@ export function registerBrowserDesktopIpc(
     const entry = await options.resolveArtifactEntry({ artifactId, conversationId })
     takeHumanControl(host, sessionId)
     return desktopBrowserStateSchema.parse(await host.openLocalFile(sessionId, entry))
+  })
+  handle(DESKTOP_IPC_CHANNELS.browserOpenDevTools, (host, input) => {
+    const { sessionId } = browserSessionInputSchema.parse(input)
+    return host.openDevTools(sessionId)
   })
   handle(DESKTOP_IPC_CHANNELS.browserOpenExternal, async (host, input) => {
     const { sessionId } = browserSessionInputSchema.parse(input)
@@ -149,16 +202,42 @@ export function registerBrowserDesktopIpc(
     shell.showItemInFolder(fileURLToPath(url))
     return true
   })
+  handle(DESKTOP_IPC_CHANNELS.browserRevealDownload, (host, input) => {
+    const { sessionId } = browserSessionInputSchema.parse(input)
+    const path = host.getState(sessionId).download?.path
+    if (!path)
+      return false
+    shell.showItemInFolder(path)
+    return true
+  })
   handle(DESKTOP_IPC_CHANNELS.browserTakeControl, (host, input) => {
     const { sessionId } = browserSessionInputSchema.parse(input)
     return desktopBrowserStateSchema.parse(host.takeControl(sessionId))
   })
-  handle(DESKTOP_IPC_CHANNELS.browserClose, (host, input) => {
+  handle(DESKTOP_IPC_CHANNELS.browserClose, async (host, input) => {
     const { sessionId } = browserSessionInputSchema.parse(input)
+    if (host.hasActiveDownloads(sessionId)) {
+      const window = options.getWindow()
+      if (!window)
+        throw new Error('Download cancellation requires confirmation')
+      const chinese = options.getLanguage?.() === 'zh-CN'
+      const result = await dialog.showMessageBox(window, {
+        type: 'warning',
+        message: chinese ? '取消下载并关闭标签页？' : 'Cancel downloads and close this tab?',
+        detail: chinese ? '此标签页仍有下载进行中。关闭会停止下载；Lexora 不会删除已有文件。' : 'Downloads from this tab are still in progress. Closing it will stop them. Existing files will not be deleted by Lexora.',
+        buttons: chinese ? ['保留标签页', '取消下载并关闭'] : ['Keep tab open', 'Cancel downloads and close'],
+        defaultId: 0,
+        cancelId: 0,
+        noLink: true,
+      })
+      if (result.response !== 1)
+        throw new Error('Download cancellation declined')
+    }
     host.close(sessionId)
   })
 
   return () => {
+    ipcMain.removeListener(BROWSER_PAGE_DIALOG_CHANNEL, pageDialogListener)
     for (const channel of registeredChannels)
       ipcMain.removeHandler(channel)
   }

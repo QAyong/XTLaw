@@ -6,8 +6,6 @@ A space organizes related tasks. A local working directory is where files are ac
 
 Create spaces for writing, research, or personal projects, and keep related tasks together. Select a suitable working directory when a task needs local files.
 
-When creating a space, if you select a working directory and leave the space name blank, Lexora uses the selected folder's name. You can also enter a different name.
-
 A space is not a file permission, and it does not mean files have been uploaded to a cloud service. Access still depends on the task context and permissions you grant.
 
 ## Prepare the right material

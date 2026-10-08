@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/xtlaw-avatar.png" width="104" height="104" alt="XTLaw 黑框眼镜少女" />
+  <img src="docs/assets/xtlaw-icon.svg" width="104" height="104" alt="XTLaw 官方应用图标" />
 </p>
 
 <h1 align="center">XTLaw</h1>

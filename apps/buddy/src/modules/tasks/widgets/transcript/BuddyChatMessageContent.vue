@@ -127,7 +127,9 @@ function previewLeaveTransition(): Promise<void> {
 function handleMarkdownLink(href: string) {
   if (!chatContent)
     return
-  if (chatContent.canPreviewFile(href))
+  if (/^https?:\/\//i.test(href))
+    chatContent.openWebLink(href)
+  else if (chatContent.canPreviewFile(href))
     chatContent.previewFile(href)
 }
 </script>
@@ -250,6 +252,7 @@ function handleMarkdownLink(href: string) {
       :final="final"
       :language="language"
       :write-clipboard-text="writeClipboardText"
+      external-link-mode="host"
       @open-link="handleMarkdownLink"
     />
   </div>

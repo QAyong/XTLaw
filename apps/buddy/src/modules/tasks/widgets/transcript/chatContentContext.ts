@@ -1,6 +1,7 @@
 import { createInjectionState } from '@vueuse/core'
 
 interface ChatContentContext {
+  openWebLink: (href: string) => void
   canPreviewFile: (path: string) => boolean
   previewFile: (path: string) => void
   writeClipboardText: (text: string) => Promise<void>

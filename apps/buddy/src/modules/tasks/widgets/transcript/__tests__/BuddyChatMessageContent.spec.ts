@@ -71,7 +71,8 @@ describe('buddyChatMessageContent', () => {
     expect(html).toContain('attachment-1')
   })
 
-  it('previews matching file link on click and opens external https link', async () => {
+  it('previews file links and routes HTTP/HTTPS links to the host', async () => {
+    const openWebLink = vi.fn()
     const previewFile = vi.fn()
     const canPreviewFile = vi.fn((path: string) => path.includes('hello1.md'))
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
@@ -89,6 +90,7 @@ describe('buddyChatMessageContent', () => {
           agentIdentity: shallowRef({ avatar: '', avatarColor: null, initials: null, name: '' }),
         })
         useProvideChatContent({
+          openWebLink,
           canPreviewFile,
           previewFile,
           writeClipboardText: async () => {},
@@ -98,7 +100,7 @@ describe('buddyChatMessageContent', () => {
           message: {
             attachments: [],
             branchId: 'branch-1',
-            content: '已将文件重命名为 [hello1.md](sandbox:/workspace/hello1.md)，请查看 [外部官网](https://example.com)',
+            content: '已将文件重命名为 [hello1.md](sandbox:/workspace/hello1.md)，请查看 [外部官网](https://example.com) 或 [本机预览](http://127.0.0.1:4173/)',
             conversationId: 'conversation-1',
             createdAt: '2026-08-28T00:00:00.000Z',
             id: 'assistant-message',
@@ -125,7 +127,11 @@ describe('buddyChatMessageContent', () => {
     const externalLink = [...links].find(a => a.textContent === '外部官网')
     expect(externalLink).toBeDefined()
     externalLink!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
-    expect(openSpy).toHaveBeenCalledWith('https://example.com', '_blank', 'noopener,noreferrer')
+    expect(openWebLink).toHaveBeenCalledWith('https://example.com')
+    const localLink = [...links].find(a => a.textContent === '本机预览')!
+    localLink.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    expect(openWebLink).toHaveBeenCalledWith('http://127.0.0.1:4173/')
+    expect(openSpy).not.toHaveBeenCalled()
 
     app.unmount()
     container.remove()

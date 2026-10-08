@@ -628,7 +628,7 @@ function mountTurn(nodes: ChatAgentTurnNode[], status: ChatAgentTurn['status'] =
         sidebarCollapsed: shallowRef(false),
         chat: shallowRef({ outlinePosition: 'top-right', permissionMode: 'policy_approval', welcome: 'random' }),
       })
-      useProvideChatContent({ canPreviewFile: () => false, previewFile: () => {}, writeClipboardText: async () => {} })
+      useProvideChatContent({ openWebLink: () => {}, canPreviewFile: () => false, previewFile: () => {}, writeClipboardText: async () => {} })
       return () => h(NMessageProvider, null, { default: () => [
         h(BuddyChatAgentTurn, { language: 'zh-CN', showIdentity, turn: turn.value }),
         h(BuddyChatRunActivity, { language: 'zh-CN', turn: turn.value, stopping: stopping.value }),

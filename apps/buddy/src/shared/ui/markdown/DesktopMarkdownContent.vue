@@ -11,11 +11,13 @@ import 'markstream-vue/index.css'
 const props = withDefaults(defineProps<{
   content: string
   codeOverflow?: 'wrap' | 'scroll'
+  externalLinkMode?: 'system' | 'host'
   final?: boolean
   language: BuddyLocale
   writeClipboardText: (text: string) => Promise<void>
 }>(), {
   final: true,
+  externalLinkMode: 'system',
 })
 
 const emit = defineEmits<{
@@ -84,7 +86,7 @@ function handleLinkClick(event: MouseEvent) {
   if (!href)
     return
 
-  if (/^https?:\/\//i.test(href)) {
+  if (props.externalLinkMode === 'system' && /^https?:\/\//i.test(href)) {
     window.open(href, '_blank', 'noopener,noreferrer')
     return
   }

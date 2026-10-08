@@ -11,7 +11,9 @@ defineProps<{
 const actions = useChatContent()
 
 function handleMarkdownLink(href: string) {
-  if (actions.canPreviewFile(href))
+  if (/^https?:\/\//i.test(href))
+    actions.openWebLink(href)
+  else if (actions.canPreviewFile(href))
     actions.previewFile(href)
 }
 </script>
@@ -22,6 +24,7 @@ function handleMarkdownLink(href: string) {
     :content="text"
     :language="language"
     :write-clipboard-text="actions.writeClipboardText"
+    external-link-mode="host"
     @open-link="handleMarkdownLink"
   />
 </template>

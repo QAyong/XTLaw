@@ -91,7 +91,7 @@ pub(super) fn prepare(request: MutationRequest) -> Result<PreparedMutation, Muta
             .custom_flags(FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT)
             .open(path)
             .map_err(io_error)?;
-        if final_path(&handle)? != request.path.trim_end_matches('\\') {
+        if !same_path(&final_path(&handle)?, request.path.trim_end_matches('\\')) {
             return Err(MutationError::UnsafePath);
         }
         inspect(&handle)?;
@@ -168,7 +168,10 @@ fn pin_directory(directory: &Path) -> Result<File, MutationError> {
         .open(directory)
         .map_err(io_error)?;
     if !matches!(inspect(&handle)?, EntryKind::Directory)
-        || final_path(&handle)? != directory.to_string_lossy().trim_end_matches('\\')
+        || !same_path(
+            &final_path(&handle)?,
+            directory.to_string_lossy().trim_end_matches('\\'),
+        )
     {
         return Err(MutationError::UnsafePath);
     }
@@ -199,6 +202,17 @@ fn inspect(file: &File) -> Result<EntryKind, MutationError> {
             EntryKind::File
         },
     )
+}
+
+// Windows resolves paths case-insensitively while NTFS keeps the casing a directory was created
+// with: the Recycle Bin root is `$Recycle.Bin` on most volumes but `$RECYCLE.BIN` on others, and
+// both names address the same directory. Compare the opened handle against the requested path
+// without ASCII case. This cannot accept a substituted entry: the handle is always opened from the
+// compared request string, `create`/`rename`/`trash` reject reparse points while pinning, and
+// lexical containment (`starts_with`) stays case-sensitive. Non-ASCII case differences keep
+// failing closed.
+fn same_path(actual: &str, expected: &str) -> bool {
+    actual.eq_ignore_ascii_case(expected)
 }
 
 fn final_path(file: &File) -> Result<String, MutationError> {

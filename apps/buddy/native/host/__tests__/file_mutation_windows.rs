@@ -326,3 +326,73 @@ fn dropping_preparation_and_canceling_protocol_do_not_write() {
     assert_eq!(output, b"ready\n");
     assert!(!root.join("not-created").exists());
 }
+
+#[test]
+fn path_casing_differences_resolve_to_the_same_entry() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = root(temp.path());
+    let stored = root.join("Case-Folder");
+    fs::create_dir(&stored).unwrap();
+    // NTFS resolves one directory whether the caller writes `Case-Folder`, `CASE-FOLDER` or
+    // anything between; preparation must follow the filesystem instead of byte comparison.
+    prepare(request(
+        &root,
+        &root.join("CASE-FOLDER"),
+        Operation::CreateFile,
+        Some("note.md"),
+    ))
+    .unwrap()
+    .commit()
+    .unwrap();
+    assert_eq!(fs::read(stored.join("note.md")).unwrap(), b"");
+    fs::write(stored.join("old.md"), "original").unwrap();
+    prepare(request(
+        &root,
+        &root.join("cASE-fOLDER").join("OLD.MD"),
+        Operation::Rename,
+        Some("new.md"),
+    ))
+    .unwrap()
+    .commit()
+    .unwrap();
+    assert_eq!(
+        fs::read_to_string(stored.join("new.md")).unwrap(),
+        "original"
+    );
+    assert!(!stored.join("old.md").exists());
+}
+
+#[test]
+fn recycle_destination_pins_a_differently_cased_bin_directory() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = root(temp.path());
+    let stored = root.join("fixture-bin");
+    fs::create_dir(&stored).unwrap();
+    // Volumes whose Recycle Bin root is stored as `$RECYCLE.BIN` pin the bin through a spelling
+    // that differs from the stored name; the destination must still be that same directory.
+    let destination = recycle::Destination::fixture(&root.join("FIXTURE-BIN")).unwrap();
+    let (record, payload) = destination.paths();
+    fs::write(record, "metadata").unwrap();
+    assert_eq!(
+        fs::read_to_string(stored.join(record.file_name().unwrap())).unwrap(),
+        "metadata"
+    );
+    assert!(
+        payload
+            .file_name()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .starts_with("$R")
+    );
+}
+
+#[test]
+fn path_comparison_folds_ascii_case_only() {
+    assert!(same_path(r"D:\$RECYCLE.BIN", r"D:\$Recycle.Bin"));
+    assert!(same_path(r"C:\Users\Mixed", r"c:\users\MIXED"));
+    assert!(!same_path(r"D:\one", r"D:\two"));
+    assert!(!same_path(r"D:\dir", r"D:\dir\child"));
+    // Non-ASCII casing is not folded: an unsupported case difference keeps failing closed.
+    assert!(!same_path(r"D:\Ä", r"D:\ä"));
+}

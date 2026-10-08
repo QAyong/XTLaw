@@ -17,6 +17,15 @@ describe('conversation tree projection', () => {
     expect(projectConversationTree(input).nodes.find(node => node.kind === 'answer')?.metadata?.modelId).toBe('replacement-model')
     expect(projectConversationTree({ ...input, messages: [input.messages[0]!, message('a1', 'main', 'assistant', 'r1', '3')] }).nodes.find(node => node.kind === 'answer')?.metadata?.modelId).toBe('test')
   })
+
+  it('keeps excerpt-only questions visible in the canvas while retaining the full file snapshot', () => {
+    const quote = { id: 'file-quote', text: 'frozen '.repeat(100), source: { kind: 'file' as const, title: 'notes.md', file: { spaceId: 'space', directoryId: 'directory', revision: 1, path: 'notes.md' }, format: 'markdown' as const } }
+    const record = { ...message('file-question', 'main', 'user', null, '0'), content: { userContent: { ...createBuddyUserContent(), resourceQuotes: [quote] }, resourceSnapshots: [] } }
+    const tree = conversationTreeSchema.parse(projectConversationTree({ conversationId: 'conversation', activeBranchId: 'main', branches: [], messages: [record], runs: [] }))
+    expect(tree.nodes[0]?.text).toContain('notes.md: frozen')
+    expect(tree.nodes[0]?.text.length).toBeLessThanOrEqual(640)
+    expect(record.content.userContent.resourceQuotes[0]).toEqual(quote)
+  })
   it('projects bounded quote cards separately from question text, retaining full snapshots in message content', () => {
     const quotes = Array.from({ length: 4 }, (_, index) => ({
       id: `quote-${index}`,

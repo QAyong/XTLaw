@@ -14,6 +14,7 @@ import {
 } from '../shared/desktopApi'
 import {
   clipboardWriteTextInputSchema,
+  desktopSelectionReferenceEditInputSchema,
   feedbackIssueInputSchema,
   lexoraConfigPatchSchema,
   releasePageInputSchema,
@@ -38,6 +39,11 @@ export interface RegisterDesktopIpcOptions {
 }
 
 export function registerDesktopIpc(options: RegisterDesktopIpcOptions): void {
+  ipcMain.handle(DESKTOP_IPC_CHANNELS.selectionReferenceEdit, (event, input: unknown) => {
+    const window = requireTrustedWindow(event, options.getWindow())
+    const { command } = desktopSelectionReferenceEditInputSchema.parse(input)
+    window.webContents[command]()
+  })
   ipcMain.handle(DESKTOP_IPC_CHANNELS.appSetupSandbox, async (event) => {
     assertTrustedSender(event, options.getWindow())
     return sandboxSetupResultSchema.parse(await options.setupSandbox())

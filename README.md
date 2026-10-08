@@ -82,7 +82,7 @@ XTLaw 把任务对话、文档编辑、资源面板和工具执行放进同一�
 **群号：704919429** · [点击加入 QQ 群](https://qm.qq.com/q/QF9OHnzcAw)
 
 <p>
-  <a href="https://qm.qq.com/q/QF9OHnzcAw"><img src="docs/assets/xtlaw-qq-group.png" width="220" height="220" alt="阿勇妙妙屋 QQ 群二维码，群号 704919429" /></a>
+  <a href="https://qm.qq.com/q/QF9OHnzcAw"><img src="docs/assets/xtlaw-qq-group.png" width="280" height="358" alt="阿勇妙妙屋 QQ 群二维码，群号 704919429" /></a>
 </p>
 
 也欢迎通过 [Issues](https://github.com/QAyong/XTLaw/issues) 提交问题；请附上系统、版本和复现步骤。
@@ -92,7 +92,7 @@ XTLaw 把任务对话、文档编辑、资源面板和工具执行放进同一�
 如果 XTLaw 帮到了你，欢迎自愿捐赠，支持项目持续开发。
 
 <p>
-  <img src="docs/assets/xtlaw-donation-alipay.png" width="220" height="220" alt="支付宝捐赠二维码，金额 5 元" />
+  <img src="docs/assets/xtlaw-donation-alipay.png" width="280" height="358" alt="支付宝捐赠二维码，金额 5 元" />
 </p>
 
 **支付宝扫码 · ¥5.00**。也可以通过 [官网](https://xtlaw.qayong.site/) 右上角的爱心按钮打开捐赠二维码。感谢你的支持！

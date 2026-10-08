@@ -53,8 +53,8 @@ export default {
   'desktop.shortcuts.scope.main': '任务面板',
   'desktop.shortcuts.scope.context': '上下文',
 
-  'desktop.settings.category.extensions': '工作台扩展',
-  'desktop.settings.categoryDescription.extensions': '安装和管理工作台的命令与视图扩展。',
+  'desktop.settings.category.extensions': '插件',
+  'desktop.settings.categoryDescription.extensions': '安装和管理插件，为工作台添加命令与视图。',
   'desktop.settings.category.browser': '浏览器',
   'desktop.settings.categoryDescription.browser': '配置内置浏览器的截图、缩放、节能模式与浏览数据。',
   'desktop.browser.preferences': '浏览偏好',

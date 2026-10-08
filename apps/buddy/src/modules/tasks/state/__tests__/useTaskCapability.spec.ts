@@ -9,7 +9,7 @@ import type { UseTaskCapabilityOptions } from '../useTaskCapability'
 import { ServiceHost } from '@buddy-shared/lifecycle/ServiceHost'
 import { deferred } from '@buddy-tests/deferred'
 import { describe, expect, it, vi } from 'vitest'
-import { computed } from 'vue'
+import { computed, effectScope } from 'vue'
 import { createBuddyUserContent } from '../../../../../shared/conversation/buddyUserContent'
 
 import { useDesktopAppState } from '../../../../app/bootstrap/useDesktopAppState'
@@ -17,6 +17,36 @@ import { useTaskIndex } from '../task-index/useTaskIndex'
 import { useTaskCapability } from '../useTaskCapability'
 
 describe('useTaskCapability', () => {
+  it.each([false, true])('loads conversation content while input restores, including branch failure: %s', async (branchFailure) => {
+    const api = createBranchingDesktopApi()
+    vi.stubGlobal('window', Object.assign(globalThis, { lexoraDesktop: api }))
+    const gate = deferred<void>()
+    const open = vi.mocked(api.localChat.composerDrafts.open).getMockImplementation()!
+    vi.mocked(api.localChat.composerDrafts.open).mockImplementation(async (input) => {
+      await gate.promise
+      return open(input)
+    })
+    if (branchFailure)
+      vi.mocked(api.localChat.conversations.listBranches).mockRejectedValue(new Error('BRANCH_READ_FAILED'))
+    const scope = effectScope()
+    const chat = scope.run(() => createTestTask(api, { conversationId: 'conversation-1', branchId: 'branch-root', spaceId: null }))!
+    let completed = false
+    const initialization = chat.initialize().then(() => {
+      completed = true
+    })
+    try {
+      await vi.waitFor(() => expect(chat.workspace.transcript.messages.value.map(message => message.id)).toEqual(['user-1', 'assistant-1', 'user-2', 'assistant-2']))
+      expect(chat.workspace.restoration.state.value).toBe('restoring')
+      expect(completed).toBe(false)
+    }
+    finally {
+      gate.resolve()
+      await initialization
+      chat.dispose()
+      scope.stop()
+    }
+  })
+
   it('refreshes committed content for the active task without inventing a run output', async () => {
     const api = createBranchingDesktopApi()
     vi.stubGlobal('window', Object.assign(globalThis, { lexoraDesktop: api }))

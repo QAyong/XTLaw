@@ -4,6 +4,8 @@ import type { WorkbenchController } from '@/workbench/services/WorkbenchControll
 import { computed, shallowRef } from 'vue'
 
 export class ActiveTaskProjection {
+  readonly #taskId = shallowRef<string | null>(null)
+  readonly taskId = computed(() => this.#taskId.value)
   readonly #active = shallowRef<TaskCapability | null>(null)
   readonly current = computed(() => this.#active.value)
   readonly #subscriptions: (() => void)[]
@@ -23,6 +25,7 @@ export class ActiveTaskProjection {
   reconcile(): void {
     const pane = this.controller.pane(this.controller.layout.activePane)
     const view = pane?.view ? this.controller.layout.views[pane.view] : null
+    this.#taskId.value = view?.resource.scheme === 'task' ? view.resource.id : null
     const task = view ? this.pool.peek(view.resource) : undefined
     this.#active.value = task?.workspace.restoration.state.value === 'ready' ? task : null
   }

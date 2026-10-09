@@ -1,4 +1,4 @@
-name: macOS package verification
+name: XTLaw macOS Package Verification
 
 on:
   workflow_call:
@@ -19,7 +19,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: macos-verification-${{ github.workflow }}-${{ github.ref }}-${{ inputs.signing }}
+  group: xtlaw-macos-verification-${{ github.workflow }}-${{ github.ref }}-${{ inputs.signing }}
   cancel-in-progress: true
 
 jobs:

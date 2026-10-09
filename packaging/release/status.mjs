@@ -9,7 +9,7 @@ const repoRoot = resolve(import.meta.dirname, '../..')
 
 export function formatLexoraReleaseStatus(state) {
   return [
-    `Lexora ${state.productVersion} 发布状态`,
+    `XTLaw ${state.productVersion} 发布状态`,
     `Buddy    ${state.applicationVersions.buddy}  可构建、可发布`,
     'Website  —      独立部署，不参与产品版本',
     'Web / API / Agent 暂停版本联动，等待重构',

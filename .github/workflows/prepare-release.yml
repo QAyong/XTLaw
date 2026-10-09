@@ -1,11 +1,11 @@
-name: Prepare Lexora Release
-run-name: Prepare Lexora v${{ inputs.version }}
+name: Prepare XTLaw Release
+run-name: Prepare XTLaw v${{ inputs.version }}
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: Next Lexora version (x.y.z)
+        description: 下一个 XTLaw 版本（必须高于 master 当前版本，例如 0.1.1）
         required: true
         type: string
 
@@ -13,13 +13,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: lexora-prepare-release
+  group: xtlaw-prepare-release
   cancel-in-progress: false
 
 jobs:
   prepare-release:
     name: Prepare release pull request
-    if: github.ref_name == 'master'
+    if: github.repository == 'QAyong/XTLaw' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -45,7 +45,7 @@ jobs:
         run: |
           node packaging/release/version.mjs --check-next "$VERSION"
 
-          release_branch="chore/release-v$VERSION"
+          release_branch="codex/release-v$VERSION"
           release_tag="v$VERSION"
 
           existing_release_pull_request="$(
@@ -54,7 +54,7 @@ jobs:
               --base master \
               --state open \
               --json headRefName,url \
-              --jq '[.[] | select(.headRefName | startswith("chore/release-v"))][0].url // ""'
+              --jq '[.[] | select(.headRefName | startswith("codex/release-v"))][0].url // ""'
           )"
           if [[ -n "$existing_release_pull_request" ]]; then
             echo "An open release pull request already exists: $existing_release_pull_request" >&2
@@ -85,7 +85,7 @@ jobs:
           VERSION: ${{ inputs.version }}
         run: |
           BASE_SHA="$(git rev-parse HEAD)"
-          release_branch="chore/release-v$VERSION"
+          release_branch="codex/release-v$VERSION"
 
           node packaging/release/version.mjs --set "$VERSION"
           node packaging/release/version.mjs --check
@@ -105,7 +105,7 @@ jobs:
             exit 1
           fi
 
-          git commit -m "chore(release): 发布 v$VERSION"
+          git commit -m "Prepare XTLaw v$VERSION release (准备 XTLaw v$VERSION 发布)"
           HEAD_SHA="$(git rev-parse HEAD)"
           node packaging/release/transition.mjs --check "$BASE_SHA" "$HEAD_SHA"
 
@@ -134,9 +134,8 @@ jobs:
               --repo "$GITHUB_REPOSITORY" \
               --base master \
               --head "$RELEASE_BRANCH" \
-              --title "chore(release): 准备 $RELEASE_TAG" \
-              --label "skip-changelog" \
-              --body "此 PR 仅同步 Lexora 产品族版本。合并后，发布流程会重新验证版本迁移、构建并验证 Buddy 安装包，再等待发布环境审批后创建 tag 与 GitHub Release。"
+              --title "Prepare XTLaw $RELEASE_TAG release (准备 XTLaw $RELEASE_TAG 发布)" \
+              --body "为什么要做：准备 XTLaw 独立产品的下一个版本，不跟随上游 Lexora 版本号。做了什么：仅同步产品、桌面应用及原生桌宠的版本和构建时间戳，并验证递增版本迁移。合并到 master 后不会自动发布；请手动运行 XTLaw Release，填写对应版本，由工作流构建、校验并发布安装包。"
           )"; then
             echo "Created $pull_request_url"
             exit 0

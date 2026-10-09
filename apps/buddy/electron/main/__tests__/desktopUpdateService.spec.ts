@@ -1,54 +1,52 @@
 import { describe, expect, it } from 'vitest'
 import { checkForDesktopUpdate } from '../desktopUpdateService'
 
-describe('checkForDesktopUpdate', () => {
-  it('reports a newer stable Lexora release without installing it', async () => {
-    const fetchRelease = async () => new Response(JSON.stringify([
-      {
-        draft: false,
-        html_url: 'https://github.com/QAyong/XTLaw/releases/tag/web-v1.0.0',
-        prerelease: false,
-        tag_name: 'web-v1.0.0',
-      },
-      {
-        draft: false,
-        html_url: 'https://github.com/QAyong/XTLaw/releases/tag/v0.2.0',
-        prerelease: false,
-        tag_name: 'v0.2.0',
-      },
-    ]), { status: 200 })
+function release(version: string, fields = {}) {
+  return { draft: false, prerelease: false, tag_name: `xtlaw-v${version}`, html_url: `https://github.com/QAyong/XTLaw/releases/tag/xtlaw-v${version}`, ...fields }
+}
 
+describe('checkForDesktopUpdate', () => {
+  it('reports a newer stable XTLaw release without installing it', async () => {
     await expect(checkForDesktopUpdate({
       currentVersion: '0.1.0',
-      fetchRelease,
+      fetchRelease: async () => new Response(JSON.stringify([
+        release('9.0.0', { tag_name: 'web-v9.0.0' }),
+        release('0.2.0'),
+      ])),
     })).resolves.toEqual({
       currentVersion: '0.1.0',
       latestVersion: '0.2.0',
-      releaseUrl: 'https://github.com/QAyong/XTLaw/releases/tag/v0.2.0',
+      releaseUrl: 'https://github.com/QAyong/XTLaw/releases/tag/xtlaw-v0.2.0',
       releaseNotes: '',
       status: 'update_available',
     })
   })
 
   it('reports the current version only after a valid release response', async () => {
-    const fetchRelease = async () => new Response(JSON.stringify([{
-      draft: false,
-      html_url: 'https://github.com/QAyong/XTLaw/releases/tag/v0.1.0',
-      prerelease: false,
-      tag_name: 'v0.1.0',
-    }]), { status: 200 })
-
     await expect(checkForDesktopUpdate({
       currentVersion: '0.1.0',
-      fetchRelease,
-    })).resolves.toMatchObject({
-      latestVersion: '0.1.0',
-      status: 'up_to_date',
-    })
+      fetchRelease: async () => new Response(JSON.stringify([release('0.1.0')])),
+    })).resolves.toMatchObject({ latestVersion: '0.1.0', status: 'up_to_date' })
+  })
+
+  it('ignores inherited upstream versions even if they are numerically higher', async () => {
+    await expect(checkForDesktopUpdate({
+      currentVersion: '0.1.0',
+      fetchRelease: async () => new Response(JSON.stringify([
+        release('0.9.4', { tag_name: 'v0.9.4', html_url: 'https://github.com/QAyong/XTLaw/releases/tag/v0.9.4' }),
+        release('0.1.1'),
+      ])),
+    })).resolves.toMatchObject({ latestVersion: '0.1.1', status: 'update_available' })
+  })
+
+  it('rejects a feed containing only inherited legacy releases', async () => {
+    await expect(checkForDesktopUpdate({
+      currentVersion: '0.1.0',
+      fetchRelease: async () => new Response(JSON.stringify([release('0.9.4', { tag_name: 'v0.9.4' })])),
+    })).rejects.toMatchObject({ code: 'UPDATE_CHECK_FAILED' })
   })
 
   it('selects the highest trusted stable version and bounds the untrusted release notes', async () => {
-    const release = (version: string, fields = {}) => ({ draft: false, prerelease: false, tag_name: `v${version}`, html_url: `https://github.com/QAyong/XTLaw/releases/tag/v${version}`, ...fields })
     const result = await checkForDesktopUpdate({
       currentVersion: '1.2.0',
       fetchRelease: async () => new Response(JSON.stringify([
@@ -82,17 +80,11 @@ describe('checkForDesktopUpdate', () => {
   it('returns a stable failure for unavailable or invalid release data', async () => {
     await expect(checkForDesktopUpdate({
       currentVersion: '0.1.0',
-      fetchRelease: () => Promise.resolve(new Response('', { status: 503 })),
+      fetchRelease: async () => new Response('', { status: 503 }),
     })).rejects.toMatchObject({ code: 'UPDATE_CHECK_FAILED' })
-
     await expect(checkForDesktopUpdate({
       currentVersion: '0.1.0',
-      fetchRelease: () => Promise.resolve(new Response(JSON.stringify([{
-        draft: false,
-        html_url: 'https://example.com/release',
-        prerelease: false,
-        tag_name: 'next',
-      }]), { status: 200 })),
+      fetchRelease: async () => new Response(JSON.stringify([release('0.1.0', { html_url: 'https://example.com/release', tag_name: 'next' })])),
     })).rejects.toMatchObject({ code: 'UPDATE_CHECK_FAILED' })
   })
 })

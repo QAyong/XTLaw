@@ -17,10 +17,10 @@ Choose `x64` (`amd64` for .deb) for Intel / AMD computers, or `arm64` for ARM co
 
 ### First macOS installation
 
-Open the DMG and drag `lexora-buddy.app` into Applications. The app uses an ad-hoc signature and is not notarized by Apple. After confirming you downloaded it from the official Release above, run this in Terminal:
+Open the DMG and drag `xtlaw.app` into Applications. The app uses an ad-hoc signature and is not notarized by Apple. After confirming you downloaded it from the official Release above, run this in Terminal:
 
 ```bash
-xattr -r -d com.apple.quarantine "/Applications/lexora-buddy.app"
+xattr -r -d com.apple.quarantine "/Applications/xtlaw.app"
 ```
 
 Then open XTLaw from Applications. This command removes the quarantine attribute only from this app. Repeat it after an update if macOS blocks the app again.

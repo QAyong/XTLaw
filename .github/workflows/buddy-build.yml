@@ -1,8 +1,25 @@
-name: Package verification
+name: XTLaw Package Verification
 
 on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: 选择远端打包平台（失败时可仅重跑 Windows 或 Linux）
+        type: choice
+        options: [all, windows, linux]
+        default: all
+      upload-artifacts:
+        description: 上传验证后的安装包到 Actions（不创建 tag 或 Release）
+        required: false
+        type: boolean
+        default: true
   workflow_call:
     inputs:
+      platform:
+        description: Package all platforms, windows only, or linux only
+        required: false
+        type: string
+        default: all
       upload-artifacts:
         description: Upload verified packages for downstream release jobs
         required: false
@@ -14,6 +31,7 @@ permissions:
 
 jobs:
   build-ubuntu:
+    if: inputs.platform != 'windows'
     name: Ubuntu package (${{ matrix.target }})
     strategy:
       fail-fast: false
@@ -84,8 +102,8 @@ jobs:
         id: smoke
         timeout-minutes: 2
         env:
-          LEXORA_BUDDY_PET_PATH: /opt/lexora-buddy/resources/native-pet/lexora-buddy-pet
-          LEXORA_DESKTOP_EXECUTABLE_PATH: /opt/lexora-buddy/lexora-buddy
+          XTLAW_BUDDY_PET_PATH: /opt/xtlaw/resources/native-pet/lexora-buddy-pet
+          LEXORA_DESKTOP_EXECUTABLE_PATH: /opt/xtlaw/xtlaw
         run: xvfb-run -a node packaging/buddy/ci/run-gui-smoke.mjs
 
       - name: Upload verified Ubuntu package
@@ -100,6 +118,7 @@ jobs:
           retention-days: 7
 
   build-arch:
+    if: inputs.platform != 'windows'
     name: Arch package
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -208,8 +227,8 @@ jobs:
             --env HOME=/home/buddy \
             --env XDG_RUNTIME_DIR=/home/buddy/runtime \
             --env LEXORA_GUI_SMOKE_NO_SANDBOX=1 \
-            --env LEXORA_BUDDY_PET_PATH=/opt/lexora-buddy/resources/native-pet/lexora-buddy-pet \
-            --env LEXORA_DESKTOP_EXECUTABLE_PATH=/opt/lexora-buddy/lexora-buddy \
+            --env XTLAW_BUDDY_PET_PATH=/opt/xtlaw/resources/native-pet/lexora-buddy-pet \
+            --env LEXORA_DESKTOP_EXECUTABLE_PATH=/opt/xtlaw/xtlaw \
             lexora-arch-install \
             xvfb-run -a dbus-run-session -- node packaging/buddy/ci/run-gui-smoke.mjs
 
@@ -235,6 +254,7 @@ jobs:
           retention-days: 7
 
   build-windows:
+    if: inputs.platform != 'linux'
     name: Windows package (${{ matrix.target }})
     strategy:
       fail-fast: false
@@ -287,21 +307,23 @@ jobs:
         run: pnpm --filter @uselexora/lexora-buddy package:windows
 
       - name: Test platform runtime
-        run: pnpm --filter @uselexora/lexora-buddy test:platform
+        # ACL fixtures launch PowerShell; serialize workers to avoid CPU-bound
+        # startup timeouts on hosted runners without weakening assertions.
+        run: pnpm --filter @uselexora/lexora-buddy exec vitest run --project=platform --maxWorkers=1
 
       - name: Install built NSIS package
         id: install
         timeout-minutes: 3
         run: |
-          $installer = Start-Process -FilePath '${{ steps.package.outputs.path }}' -ArgumentList '/S' -Wait -PassThru
+          $installer = Start-Process -FilePath '${{ steps.package.outputs.path }}' -ArgumentList '/S' -WindowStyle Hidden -Wait -PassThru
           if ($installer.ExitCode -ne 0) {
-            Get-Content -LiteralPath (Join-Path $env:TEMP 'Lexora-Buddy-installer.log') -ErrorAction SilentlyContinue
+            Get-Content -LiteralPath (Join-Path $env:TEMP 'XTLaw-installer.log') -ErrorAction SilentlyContinue
             throw "NSIS installation failed: $($installer.ExitCode)"
           }
-          $directory = Join-Path $env:LOCALAPPDATA 'Programs\Lexora Buddy'
-          if (!(Test-Path -LiteralPath (Join-Path $directory 'Lexora Buddy.exe'))) {
+          $directory = Join-Path $env:LOCALAPPDATA 'Programs\XTLaw'
+          if (!(Test-Path -LiteralPath (Join-Path $directory 'XTLaw.exe'))) {
             Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*' -ErrorAction SilentlyContinue |
-              Where-Object DisplayName -Like '*Lexora*' |
+              Where-Object DisplayName -Like '*XTLaw*' |
               Select-Object DisplayName, InstallLocation, UninstallString | Format-List
             Get-ChildItem -LiteralPath $directory -ErrorAction SilentlyContinue | Select-Object Name, Length
             throw "Installed Desktop is missing at $directory; NSIS exit code: $($installer.ExitCode)"

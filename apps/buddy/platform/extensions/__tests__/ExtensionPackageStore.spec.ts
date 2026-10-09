@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { strToU8, zipSync } from 'fflate'
 import { afterEach, describe, expect, it } from 'vitest'
 import { extensionJsonSchema } from '../../../shared/extensions/extensionApi'
-import { addedExtensionPermissions, extensionManifestSchema } from '../../../shared/extensions/extensionManifest'
+import { addedExtensionPermissions, EXTENSION_API_VERSION, extensionManifestSchema } from '../../../shared/extensions/extensionManifest'
 import { compileExtensionSource } from '../compileExtensionSource'
 import { EXTENSION_FILE_LIMIT, readExtensionDirectory, unpackExtension } from '../extensionFiles'
 import { extensionActivationOrder, ExtensionPackageStore } from '../ExtensionPackageStore'
@@ -31,7 +31,7 @@ describe('extension package contract', () => {
   })
   it('rejects foreign contribution ownership, duplicate IDs, and unsupported API versions', () => {
     const value = manifest()
-    expect(extensionManifestSchema.safeParse({ ...value, apiVersion: 4 }).success).toBe(false)
+    expect(extensionManifestSchema.safeParse({ ...value, apiVersion: EXTENSION_API_VERSION + 1 }).success).toBe(false)
     expect(extensionManifestSchema.safeParse({ ...value, contributes: { ...value.contributes, commands: [{ id: 'another.reader.open', title: 'Open' }] } }).success).toBe(false)
     expect(extensionManifestSchema.safeParse({ ...value, contributes: { ...value.contributes, commands: [value.contributes.commands[0], value.contributes.commands[0]] } }).success).toBe(false)
   })

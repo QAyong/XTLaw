@@ -8,7 +8,7 @@ import { writeError, writeOutput } from '../shared/cli-output.mjs'
 
 const repoRoot = resolve(import.meta.dirname, '../..')
 const versionPattern = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/
-const releaseTagPattern = /^v((?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))$/
+const releaseTagPattern = /^xtlaw-v((?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))$/
 const applicationPackagePaths = {
   buddy: 'apps/buddy/package.json',
 }
@@ -108,9 +108,9 @@ export function validateLexoraVersionState(state) {
 export function validateLexoraReleaseTag(tag, productVersion) {
   const version = releaseTagPattern.exec(tag)?.[1]
   if (!version)
-    throw new Error(`Lexora release tag must use vX.Y.Z format: ${tag}`)
+    throw new Error(`XTLaw release tag must use xtlaw-vX.Y.Z format: ${tag}`)
   if (version !== productVersion)
-    throw new Error(`Lexora release tag ${tag} does not match product version ${productVersion}`)
+    throw new Error(`XTLaw release tag ${tag} does not match product version ${productVersion}`)
   return { tag, version }
 }
 
@@ -312,12 +312,12 @@ function main() {
   if (command === '--set') {
     const result = setLexoraVersion(repoRoot, value ?? '')
     checkVersionState()
-    writeOutput(`Lexora version synchronized: ${result.version}`)
+    writeOutput(`XTLaw version synchronized: ${result.version}`)
     return
   }
   if (command === '--check') {
     const state = checkVersionState()
-    writeOutput(`Lexora version check passed: ${state.productVersion}`)
+    writeOutput(`XTLaw version check passed: ${state.productVersion}`)
     return
   }
   if (command === '--check-next') {
@@ -330,17 +330,17 @@ function main() {
         `version ${version} must be greater than current product version ${state.productVersion}`,
       )
     }
-    writeOutput(`Lexora next version check passed: ${version}`)
+    writeOutput(`XTLaw next version check passed: ${version}`)
     return
   }
   if (command === '--check-tag') {
     const state = checkVersionState()
     const release = validateLexoraReleaseTag(value ?? '', state.productVersion)
-    writeOutput(`Lexora release tag check passed: ${release.tag}`)
+    writeOutput(`XTLaw release tag check passed: ${release.tag}`)
     return
   }
   throw new Error(
-    'usage: version.mjs --set <x.y.z> | --check | --check-next <x.y.z> | --check-tag <vX.Y.Z>',
+    'usage: version.mjs --set <x.y.z> | --check | --check-next <x.y.z> | --check-tag <xtlaw-vX.Y.Z>',
   )
 }
 

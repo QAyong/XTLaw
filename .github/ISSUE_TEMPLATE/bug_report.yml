@@ -6,9 +6,9 @@ body:
   - type: markdown
     attributes:
       value: |
-        请先搜索已有 Issue。疑似安全漏洞请通过[私密漏洞报告](https://github.com/useLexora/Lexora/security/advisories)提交。填写时可使用中文或 English；日志和截图请先移除 API Key、个人文件路径及其他敏感信息。
+        请先搜索已有 Issue。疑似安全漏洞请通过[私密漏洞报告](https://github.com/QAyong/XTLaw/security/advisories)提交。填写时可使用中文或 English；日志和截图请先移除 API Key、个人文件路径及其他敏感信息。
 
-        Please search existing issues first. Report suspected security vulnerabilities through [private vulnerability reporting](https://github.com/useLexora/Lexora/security/advisories). You may write in Chinese or English. Remove API keys, personal file paths, and other sensitive details from logs and screenshots.
+        Please search existing issues first. Report suspected security vulnerabilities through [private vulnerability reporting](https://github.com/QAyong/XTLaw/security/advisories). You may write in Chinese or English. Remove API keys, personal file paths, and other sensitive details from logs and screenshots.
   - type: checkboxes
     id: existing-issues
     attributes:

@@ -11,5 +11,5 @@ export function readBuddyProductMetadata(cwd = repoRoot) {
     throw new Error('Buddy release requires a stable version')
   if (!/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+$/.test(repositoryUrl))
     throw new Error('Buddy repository URL must identify its GitHub repository')
-  return { version, releaseTag: `v${version}`, releaseRepo: new URL(repositoryUrl).pathname.slice(1) }
+  return { version, releaseTag: `xtlaw-v${version}`, releaseRepo: new URL(repositoryUrl).pathname.slice(1) }
 }

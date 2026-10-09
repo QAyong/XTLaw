@@ -17,10 +17,10 @@ Intel / AMD 电脑选择 `x64`（.deb 标为 `amd64`），ARM 电脑选择 `arm6
 
 ### macOS 首次安装
 
-打开 DMG，将 `lexora-buddy.app` 拖入「应用程序」。当前安装包使用 ad-hoc 签名，尚未经过 Apple 公证；确认来自上方官方 Release 后，在终端执行：
+打开 DMG，将 `xtlaw.app` 拖入「应用程序」。当前安装包使用 ad-hoc 签名，尚未经过 Apple 公证；确认来自上方官方 Release 后，在终端执行：
 
 ```bash
-xattr -r -d com.apple.quarantine "/Applications/lexora-buddy.app"
+xattr -r -d com.apple.quarantine "/Applications/xtlaw.app"
 ```
 
 然后从「应用程序」打开 XTLaw。命令只移除这个应用的隔离属性；更新后如再次被系统阻止，重新执行即可。

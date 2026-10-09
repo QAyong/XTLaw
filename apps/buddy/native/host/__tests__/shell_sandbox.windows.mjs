@@ -231,7 +231,7 @@ try { Remove-Item -LiteralPath ${quote(join(workspace, 'result.txt'))}; $r.remov
     })
     await t.test('recovers an interrupted journal publication before the next command', async () => {
       const journalDirectory = join(process.env.LOCALAPPDATA, 'XTLaw Sandbox', 'leases')
-      const pending = join(journalDirectory, `Lexora.Buddy.Sandbox.${randomUUID().replaceAll('-', '')}.pending`)
+      const pending = join(journalDirectory, `XTLaw.Sandbox.${randomUUID().replaceAll('-', '')}.pending`)
       await mkdir(journalDirectory, { recursive: true })
       await writeFile(pending, '{"profile":', { flag: 'wx' })
       try {

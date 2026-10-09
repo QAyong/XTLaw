@@ -41,6 +41,23 @@ export function spaceConversationGroupKey(spaceId: string): string {
   return `space:${spaceId}`
 }
 
+export function resolveSpaceActivities(
+  tasks: ReadonlyArray<LocalConversationSummary>,
+): ReadonlyMap<string, LocalConversationSummary['activity']> {
+  const activities = new Map<string, LocalConversationSummary['activity']>()
+  for (const task of tasks) {
+    if (!task.spaceId || task.activity === 'idle')
+      continue
+    const current = activities.get(task.spaceId)
+    // Waiting for approval needs the user, so it outranks running.
+    if (current === 'awaiting_approval')
+      continue
+    if (current === undefined || task.activity === 'awaiting_approval')
+      activities.set(task.spaceId, task.activity)
+  }
+  return activities
+}
+
 export function resolveTaskIndexProjection(input: {
   conversationLimit?: number
   expandedConversationGroups?: ReadonlySet<string>

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import {
   DESKTOP_TASK_SIDEBAR_CONVERSATION_LIMIT,
   DESKTOP_TASK_SIDEBAR_TASKS_GROUP_KEY,
+  resolveSpaceActivities,
   resolveTaskIndexProjection,
   spaceConversationGroupKey,
 } from '../taskPinnedItems'
@@ -131,5 +132,26 @@ describe('taskIndexProjection conversation limit', () => {
 
     expect(projection.taskRows).toHaveLength(DESKTOP_TASK_SIDEBAR_CONVERSATION_LIMIT)
     expect(projection.taskRows.some(row => row.kind === 'expand')).toBe(false)
+  })
+})
+
+describe('resolveSpaceActivities', () => {
+  it('summarizes each Space with its most urgent activity', () => {
+    const tasks = [
+      { ...createTask('task-a1', 'space-a'), activity: 'running' },
+      { ...createTask('task-a2', 'space-a'), activity: 'awaiting_approval' },
+      { ...createTask('task-b1', 'space-b'), activity: 'running' },
+      { ...createTask('task-b2', 'space-b'), activity: 'running' },
+      { ...createTask('task-c1', 'space-c'), activity: 'awaiting_approval' },
+      { ...createTask('task-c2', 'space-c'), activity: 'running' },
+      createTask('task-d1', 'space-d'),
+      { ...createTask('task-global', null), activity: 'awaiting_approval' },
+    ] as LocalConversationSummary[]
+
+    expect(Object.fromEntries(resolveSpaceActivities(tasks))).toEqual({
+      'space-a': 'awaiting_approval',
+      'space-b': 'running',
+      'space-c': 'awaiting_approval',
+    })
   })
 })

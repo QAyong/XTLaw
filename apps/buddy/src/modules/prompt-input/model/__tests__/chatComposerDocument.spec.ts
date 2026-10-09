@@ -9,11 +9,11 @@ import {
   ChatComposerDocument,
   ChatComposerPromptDirective,
   ChatComposerResourceReference,
-  ChatComposerSessionReference,
   insertChatComposerResources,
   insertResolvedChatComposerResource,
   replaceChatComposerDocument,
 } from '../../editor/chatComposerResourceEditing'
+import { ChatComposerSessionReference, insertChatComposerSessionReferences, removeChatComposerSessionReference } from '../../editor/chatComposerSessionEditing'
 import {
   chatComposerDocumentToUserContent,
   userContentToChatComposerDocument,
@@ -162,3 +162,42 @@ function createEditor() {
   editors.push(editor)
   return editor
 }
+
+describe('session reference document integrity', () => {
+  it('preserves inline placement through persistence and repeated references through undo and redo', () => {
+    const editor = createEditor()
+    editor.commands.insertContent('参考  的决定继续。')
+    editor.commands.setTextSelection(4)
+    const reference = { id: 'session-one', title: '订单延期讨论' }
+    insertChatComposerSessionReferences(editor, [reference])
+    const saved = chatComposerDocumentToUserContent(editor.getJSON())
+    expect(saved.body[0]!.content).toEqual([
+      { type: 'text', text: '参考 ' },
+      { type: 'session_ref', sessionId: reference.id },
+      { type: 'text', text: ' 的决定继续。' },
+    ])
+    const restored = createEditor()
+    replaceChatComposerDocument(restored, saved)
+    expect(restored.getText()).toBe('参考 @订单延期讨论 的决定继续。')
+    expect(chatComposerDocumentToUserContent(restored.getJSON())).toEqual(saved)
+    restored.commands.setTextSelection(restored.state.doc.content.size - 1)
+    insertChatComposerSessionReferences(restored, [reference])
+    expect(chatComposerDocumentToUserContent(restored.getJSON()).sessionReferences).toEqual([reference])
+    removeChatComposerSessionReference(restored, reference.id)
+    expect(chatComposerDocumentToUserContent(restored.getJSON()).sessionReferences).toBeUndefined()
+    restored.commands.undo()
+    expect(chatComposerDocumentToUserContent(restored.getJSON()).sessionReferences).toEqual([reference])
+    restored.commands.redo()
+    expect(restored.getText()).not.toContain('@')
+  })
+
+  it('limits unique sessions while allowing repeated mentions and refusing forged inline identities', () => {
+    const editor = createEditor()
+    const references = Array.from({ length: 17 }, (_, index) => ({ id: `session-${index}`, title: `Session ${index}` }))
+    insertChatComposerSessionReferences(editor, references)
+    expect(chatComposerDocumentToUserContent(editor.getJSON()).sessionReferences).toHaveLength(16)
+    insertChatComposerSessionReferences(editor, [references[0]!])
+    expect(chatComposerDocumentToUserContent(editor.getJSON()).body[0]!.content).toHaveLength(17)
+    expect(buddyUserContentV1Schema.safeParse({ ...createBuddyUserContent(), body: [{ type: 'paragraph', content: [{ type: 'session_ref', sessionId: 'unknown' }] }] }).success).toBe(false)
+  })
+})

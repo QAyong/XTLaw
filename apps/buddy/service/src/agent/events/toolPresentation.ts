@@ -7,6 +7,7 @@ import { createOutputPresentRunOutput } from '../../artifacts/artifactToolContra
 import { createAutomationToolPresentation } from '../../automations/automationToolContract'
 import { createBrowserToolPresentation } from '../../browser/browserToolPresentation'
 import { createMcpRunOutput, createMcpToolPresentation } from '../../connectors/mcp/mcpToolContract'
+import { createSessionReferenceToolPresentation } from '../../conversations/sessionReferenceToolContract'
 import {
   argumentNames,
   boundedToolPreview,
@@ -46,6 +47,7 @@ export function createBuddyToolPresentation(
   input: CreateBuddyToolPresentationInput,
 ): BuddyToolPresentation {
   return createPiToolPresentation(input)
+    ?? createSessionReferenceToolPresentation(input)
     ?? createWebToolPresentation(input)
     ?? createPetToolPresentation(input)
     ?? createImageGenerationToolPresentation(input)

@@ -30,6 +30,7 @@ import { notificationsChanged } from '../../shared/notifications/notificationApi
 import { ApplicationEvents as EventPublisher } from '../../shared/observability/ApplicationEvents'
 import { observeLifecycleDiagnostics } from '../../shared/observability/lifecycleDiagnostics'
 import { openExternalResultSchema } from '../../shared/runtime/credentialProtocol'
+import { runtimePreferencesRpc, runtimePreferencesSchema } from '../../shared/runtime/runtimePreferences'
 import { spaceChanged } from '../../shared/spaces/spaceApi'
 import { PiEventBridge } from './agent/events/PiEventBridge'
 import { BuddyAgentRunner } from './agent/execution/BuddyAgentRunner'
@@ -809,6 +810,7 @@ export async function startBuddyService(
         webService,
         conversations,
         runInputs,
+        eventLog: options.eventLog,
       }, petActions),
     }
     const sessionBlueprints = new BuddySessionBlueprintService({
@@ -1105,6 +1107,9 @@ export async function startBuddyService(
       startTurn: input => chatTurnService.start(input),
     }
     const contextUsageService = new ContextUsageSnapshotService({
+      getRuntimePreferences: async () => {
+        return runtimePreferencesSchema.parse(await options.rpc.request(runtimePreferencesRpc.get, {}))
+      },
       drafts: composerDrafts,
       tree: conversationTree,
       agentDirectory,

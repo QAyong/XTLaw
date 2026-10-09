@@ -11,11 +11,12 @@ import { resolveChatToolFileTarget } from '../../model/transcript/chatToolFileTa
 import { useContextPanelTabs } from './useContextPanelTabs'
 
 export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
-  const store = useContextPanelTabs({ mode: options.mode, conversationId: options.activeConversationId, draftId: options.activeDraftId })
+  const store = useContextPanelTabs({ mode: options.mode, scopeSpaceIds: options.scopeSpaceIds, conversationId: options.activeConversationId, draftId: options.activeDraftId })
+  const linked = computed(() => options.mode.value !== 'independent')
   const control = useContextPanelControl({
     api: options.control,
     getSource: () => contextTabSource(store.activeTab.value)
-      ?? (options.mode.value === 'task' && options.taskVisible.value ? currentSource() ?? null : null),
+      ?? (linked.value && options.taskVisible.value ? currentSource() ?? null : null),
     onError: options.onError,
     onTarget: (target) => {
       const tab = spaceTaskBrowserTab(target.source.conversationId)
@@ -41,10 +42,10 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
     clearExpectedOpenState()
     void control.open()
   }
-  watch([control.initialized, store.scope, options.mode], ([initialized, scope, mode], [wasInitialized, previousScope, previousMode]) => {
+  watch([control.initialized, store.selectionScope, options.mode], ([initialized, scope, mode], [wasInitialized, previousScope, previousMode]) => {
     if (!initialized)
       return
-    if (wasInitialized && previousMode === 'task' && (previousScope !== scope || previousMode !== mode)) {
+    if (wasInitialized && previousMode !== 'independent' && (previousScope !== scope || previousMode !== mode)) {
       store.setOpen(previousScope, expectedOpenState ?? control.isOpen.value)
     }
     if (wasInitialized && previousMode === 'independent' && previousMode !== mode) {
@@ -52,10 +53,10 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
     }
 
     let nextOpenState: boolean | undefined
-    if (wasInitialized && mode === 'task' && (previousScope !== scope || previousMode !== mode)) {
+    if (wasInitialized && mode !== 'independent' && (previousScope !== scope || previousMode !== mode)) {
       nextOpenState = store.getOpen(scope) ?? false
     }
-    else if (wasInitialized && mode === 'independent' && previousMode === 'task') {
+    else if (wasInitialized && mode === 'independent' && previousMode !== 'independent') {
       nextOpenState = store.getOpen('independent') ?? control.isOpen.value
       store.setOpen('independent', nextOpenState)
     }
@@ -67,19 +68,19 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
     // Intermediate IPC states belong to an earlier scope, not the current user's saved preference.
     if (expectedOpenState !== null)
       return
-    store.setOpen(options.mode.value === 'task' ? store.scope.value : 'independent', open)
+    store.setOpen(store.selectionScope.value, open)
   }, { flush: 'sync' })
   const fileSpaces = computed(() => options.spaces.value.filter(space => space.revokedAt === null
     && space.primaryDirectory && space.primaryDirectory.revokedAt === null))
   const currentFileSpace = computed(() => fileSpaces.value.find(space => space.id === options.activeSpace?.value?.id) ?? null)
   const fileEntry = computed(() => {
-    if (options.mode.value === 'independent')
+    if (!linked.value)
       return { kind: 'space-picker' as const }
     return options.taskVisible.value && currentFileSpace.value
       ? { kind: 'directory' as const, spaceId: currentFileSpace.value.id }
       : null
   })
-  const canAddChanges = computed(() => options.mode.value === 'task' && options.taskVisible.value
+  const canAddChanges = computed(() => linked.value && options.taskVisible.value
     && Boolean(options.activeConversationId.value)
     && !store.tabs.value.some(tab => tab.kind === 'changes' && tab.conversationId === options.activeConversationId.value))
   const changeRevision = computed(() => options.changeSets.value.filter(set => set.conversationId === options.activeConversationId.value)
@@ -92,7 +93,7 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
       if (tab.kind !== 'changes' || tab.conversationId !== options.activeConversationId.value)
         return tab
       if (tab.branchId !== branchId)
-        return options.mode.value === 'task' ? { ...tab, branchId, revision, changeSet: null, source: currentSource() } : tab
+        return linked.value ? { ...tab, branchId, revision, changeSet: null, source: currentSource() } : tab
       return tab.revision !== revision ? { ...tab, revision } : tab
     })
   })
@@ -166,7 +167,7 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
       kind: 'files',
       rootName: directory.root.split(/[\\/]/).filter(Boolean).at(-1) ?? directory.root,
       target: { spaceId: space.id, directoryId: directory.id, revision: directory.revision, path: '' },
-      source: options.mode.value === 'task' ? currentSource() : undefined,
+      source: linked.value ? currentSource() : undefined,
     })
   }
 
@@ -250,11 +251,11 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
       if (Array.isArray(snapshot.tabs))
         snapshot.tabs.slice(0, 512).forEach(restoreTab)
       if (Array.isArray(snapshot.openStates)) {
-        store.restoreOpenStates(snapshot.openStates.filter((entry): entry is [typeof store.scope.value, boolean] =>
+        store.restoreOpenStates(snapshot.openStates.filter((entry): entry is [typeof store.selectionScope.value, boolean] =>
           Array.isArray(entry) && typeof entry[0] === 'string' && typeof entry[1] === 'boolean'))
       }
-      if (options.mode.value === 'task') {
-        restoreOpenState(store.getOpen(store.scope.value) ?? false)
+      if (options.mode.value !== 'independent') {
+        restoreOpenState(store.getOpen(store.selectionScope.value) ?? false)
       }
       if (Array.isArray(snapshot.selections)) {
         for (const selection of snapshot.selections) {

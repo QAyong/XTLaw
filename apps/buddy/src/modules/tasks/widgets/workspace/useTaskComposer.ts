@@ -20,6 +20,7 @@ export function useTaskComposer(props: Readonly<TaskComposerHostProps>) {
       beginImport: composer.beginImport,
       selectSource: composer.selectSource,
       isRunning: Boolean(execution.activeRun.value),
+      isStopping: Boolean(execution.stoppingRunId.value),
       isSelectingFiles: composer.isSelectingFiles.value,
       isSending: execution.isSending.value || execution.isMutatingBranch.value,
       isUpdatingPermissionSettings: composer.isUpdatingPermissionSettings.value,

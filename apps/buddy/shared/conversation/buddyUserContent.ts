@@ -20,6 +20,7 @@ export const buddySessionReferenceSchema = z.object({
 }).strict().readonly()
 export const buddySessionReferencesSchema = z.array(buddySessionReferenceSchema)
   .max(16)
+  .refine(references => new Set(references.map(reference => reference.id)).size === references.length, 'Duplicate session reference')
   .readonly()
 export type BuddySessionReference = z.infer<typeof buddySessionReferenceSchema>
 
@@ -140,7 +141,9 @@ export const buddyUserContentV1Schema = z.object({
   sessionReferences: buddySessionReferencesSchema.optional(),
   version: z.literal(1),
 }).strict().refine(content => (content.quotes?.length ?? 0) + (content.resourceQuotes?.length ?? 0) <= BUDDY_QUOTE_COUNT_LIMIT, 'Too many quotes').refine(content => !content.resourceQuotes?.length || [...content.quotes ?? [], ...content.resourceQuotes ?? []]
-  .reduce((total, quote) => total + buddyQuoteSnapshotLength(quote), 0) <= BUDDY_QUOTE_TOTAL_TEXT_LIMIT, 'Quoted text exceeds total limit').readonly()
+  .reduce((total, quote) => total + buddyQuoteSnapshotLength(quote), 0) <= BUDDY_QUOTE_TOTAL_TEXT_LIMIT, 'Quoted text exceeds total limit').refine(content => content.body.every(paragraph => paragraph.content.every(node =>
+  node.type !== 'session_ref' || content.sessionReferences?.some(reference => reference.id === node.sessionId),
+)), 'Missing session reference metadata').readonly()
 
 export type BuddyUserContentV1 = z.infer<typeof buddyUserContentV1Schema>
 export type BuddyInlineNodeV1 = z.infer<typeof buddyInlineNodeV1Schema>

@@ -35,7 +35,6 @@ export function chatComposerDocumentToUserContent(document: JSONContent): BuddyU
         throw new Error(`Unsupported Composer paragraph: ${paragraph.type}`)
       return {
         content: (paragraph.content ?? [])
-          .filter(node => node.type !== CHAT_SESSION_REFERENCE_NODE_NAME)
           .map(editorNodeToInlineNode),
         type: 'paragraph',
       }

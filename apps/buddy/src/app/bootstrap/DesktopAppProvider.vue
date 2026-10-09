@@ -12,7 +12,7 @@ import { useExtensionState, useExtensionUiContributions, useExtensionViews, useP
 import { DesktopExtensionControl, DesktopExtensionFrameHost, DesktopExtensionMenu, DesktopExtensionOverlays, DesktopExtensionReviewHost, DesktopExtensionSlot } from '@/modules/extensions/ui'
 import { resolveUserProfile, usePluginSettings, useProvideSettingsContext, useSettingsRegistry } from '@/modules/settings'
 import { useProvideSkillsContext } from '@/modules/skills'
-import { useProvideTaskEnvironment, useTaskIndex, useTaskResourcePanel } from '@/modules/tasks'
+import { sessionReferenceNavigationKey, useProvideTaskEnvironment, useTaskIndex, useTaskResourcePanel } from '@/modules/tasks'
 import { useProvideDesktopUpdates } from '@/modules/updates'
 import { DesktopUpdateHost } from '@/modules/updates/ui'
 import DesktopBrowserGuestHost from '@/platform/browser/DesktopBrowserGuestHost.vue'
@@ -34,6 +34,7 @@ import { desktopWorkbenchKey } from '../workbench/desktopWorkbenchContext'
 import { useDesktopKeybindings } from '../workbench/useDesktopKeybindings'
 import { useDesktopWorkbench } from '../workbench/useDesktopWorkbench'
 import { useExtensionContributions } from '../workbench/useExtensionContributions'
+import { useTaskResourceSpaces } from '../workbench/useTaskResourceSpaces'
 import { createDesktopCapabilities } from './desktopCapabilities'
 import { useDesktopAppState } from './useDesktopAppState'
 import { useDesktopLifecycle } from './useDesktopLifecycle'
@@ -67,6 +68,7 @@ onScopeDispose(() => {
 })
 provide(desktopWorkbenchKey, workbench)
 provide(workbenchSelectionReferencesKey, workbench.selectionReferences)
+provide(sessionReferenceNavigationKey, id => workbench.openTask(id, { direction: 'right' }))
 const extensions = useExtensionState(api.extensions)
 const settingsRegistry = useSettingsRegistry(extensions.installed)
 const pages = useDesktopPages(router, extensions.installed, stores.applicationSettings.language)
@@ -108,7 +110,8 @@ useProvideExtensionContext({ settingsLocation: settingsRegistry.extensionLocatio
 onScopeDispose(workbench.controller.subscribe(() => void nextTick(extensionViews.layout)))
 const selectedTask = workbench.activeTask
 const resources = useTaskResourcePanel({
-  activeConversationId: computed(() => selectedTask.value?.workspace.session.activeConversationId.value ?? null),
+  scopeSpaceIds: useTaskResourceSpaces({ controller: workbench.controller, pool: workbench.pool, tasks: taskIndex.index.tasks }),
+  activeConversationId: workbench.activeTaskId,
   activeDraftId: computed(() => selectedTask.value?.workspace.composer.draftId.value ?? null),
   activeBranchId: computed(() => selectedTask.value?.workspace.session.activeBranchId.value ?? null),
   activeRunId: computed(() => selectedTask.value?.workspace.execution.activeRun.value?.id
@@ -187,10 +190,10 @@ const navigation = useDesktopNavigation({
   ready,
   isReady: () => lifecycle.dataReady.value,
   session: {
-    activeTaskId: computed(() => workbench.activeResource.value?.scheme === 'task' ? workbench.activeResource.value.id : null),
+    activeTaskId: workbench.activeTaskId,
     spaceId: computed(() => selectedTask.value?.session.spaceId.value ?? (workbench.activeResource.value?.data.spaceId as string | null | undefined) ?? null),
     navigationVersion: () => workbench.navigationVersion,
-    openTask: (id, signal) => workbench.openTask(id, signal),
+    openTask: (id, signal) => workbench.openTask(id, { signal }),
     startTask: spaceId => workbench.newTask(spaceId),
   },
   notifications: stores.notifications,

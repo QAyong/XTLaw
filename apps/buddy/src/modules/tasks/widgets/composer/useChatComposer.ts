@@ -10,6 +10,7 @@ import { closeHistory } from '@tiptap/pm/history'
 import { computed, onScopeDispose, watch } from 'vue'
 import { CHAT_PROMPT_DIRECTIVE_NODE_NAME, getChatComposerResourceIds, serializeChatComposerContent } from '@/modules/prompt-input'
 import { insertChatComposerResources, insertChatComposerSessionReferences, insertResolvedChatComposerResource, removeChatComposerPanelResource, removeChatComposerResource, removeChatComposerSessionReference } from '@/modules/prompt-input/ui'
+import { useConversationMcpPanel } from '@/modules/tasks/state/runs/conversationMcpPanel'
 import { useConversationStatusPanel } from '@/modules/tasks/state/runs/conversationStatusPanel'
 import { resolveComposerResourcePreviewUrl } from '../../model/attachments/chatAttachmentView'
 import { resolveChatComposerModelInputIssue } from '../../model/composer/chatComposerModelCapability'
@@ -22,6 +23,7 @@ import { useComposerCommands } from './useComposerCommands'
 export function useChatComposer(options: UseChatComposerOptions) {
   const localCommands = useComposerCommands(options.draftId, chooseCommand)
   const conversationStatusPanel = useConversationStatusPanel()
+  const conversationMcpPanel = useConversationMcpPanel()
   let editingSession = 0
   watch(options.draftId, () => {
     editingSession += 1
@@ -43,9 +45,14 @@ export function useChatComposer(options: UseChatComposerOptions) {
     onUpdateContent: options.onUpdateContent,
     onTrigger: (trigger) => { query.activeTrigger.value = trigger },
     onSuggestionKeydown: (event) => {
-      const directory = query.contextOptions.value.directory
-      if (!event.isComposing && event.keyCode !== 229 && event.key === 'Tab' && event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey && query.activeTrigger.value?.kind === 'mention' && directory) {
-        const parent = composerParentDirectory(directory)
+      if (!event.isComposing && event.keyCode !== 229 && event.key === 'ArrowLeft' && event.altKey && !event.shiftKey && !event.ctrlKey && !event.metaKey && query.activeTrigger.value?.kind === 'mention') {
+        if (query.sessionScope.value) {
+          event.preventDefault()
+          leaveSessions()
+          return true
+        }
+        const directory = query.contextOptions.value.directory
+        const parent = directory && composerParentDirectory(directory)
         if (parent) {
           event.preventDefault()
           navigateDirectory(parent)
@@ -61,7 +68,7 @@ export function useChatComposer(options: UseChatComposerOptions) {
         return
       insertChatComposerSessionReferences(current, references)
       if (text)
-        current.chain().focus().insertContent(text).run()
+        current.chain().focus().insertContent({ type: 'text', text }).run()
     },
     onSubmit: submit,
     onLocateResource: options.onLocateResource,
@@ -159,12 +166,13 @@ export function useChatComposer(options: UseChatComposerOptions) {
     query.closeSuggestions()
     const definition = getBuddyChatCommandDefinition(name)
     if (definition.kind === 'action' && definition.action === 'view') {
-      if (!conversationStatusPanel)
+      const panel = name === 'mcp' ? conversationMcpPanel : conversationStatusPanel
+      if (!panel)
         return false
       const applied = editor.value?.chain().focus().deleteRange(range).run() ?? false
       if (!applied)
         return false
-      conversationStatusPanel.open()
+      panel.open()
       return true
     }
     const content: JSONContent[] = definition.kind === 'action' && definition.action === 'input'
@@ -236,6 +244,18 @@ export function useChatComposer(options: UseChatComposerOptions) {
 
     const to = currentEditor.state.selection.from
     const from = Math.max(1, to - (trigger.rawQuery ?? trigger.query).length - 1)
+    if (option.kind === 'sessionGroup' && option.sessionScope) {
+      query.sessionScope.value = option.sessionScope
+      currentEditor.chain().focus().insertContentAt({ from, to }, { type: 'text', text: '@' }).run()
+      void query.loadContextOptions('')
+      return
+    }
+    if (option.kind === 'sessionReference' && option.sessionReference) {
+      insertChatComposerSessionReferences(currentEditor, [option.sessionReference], { from, to })
+      query.closeSuggestions()
+      currentEditor.commands.focus()
+      return
+    }
     if (action === 'complete' && option.entryKind === 'directory' && option.path) {
       navigateDirectory(option.path)
       return
@@ -276,6 +296,18 @@ export function useChatComposer(options: UseChatComposerOptions) {
       .run()
   }
 
+  function leaveSessions() {
+    const current = editor.value
+    const trigger = query.activeTrigger.value
+    if (!current || trigger?.kind !== 'mention')
+      return
+    query.sessionScope.value = undefined
+    const to = current.state.selection.from
+    const from = Math.max(1, to - (trigger.rawQuery ?? trigger.query).length - 1)
+    current.chain().focus().insertContentAt({ from, to }, { type: 'text', text: '@' }).run()
+    void query.loadContextOptions('')
+  }
+
   function navigateDirectory(path: string) {
     const currentEditor = editor.value
     const trigger = query.activeTrigger.value
@@ -314,6 +346,8 @@ export function useChatComposer(options: UseChatComposerOptions) {
     deepSearch: query.deepSearch,
     setDeepSearch: query.setDeepSearch,
     navigateDirectory,
+    leaveSessions,
+    sessionScope: query.sessionScope,
     modelInputIssue,
     panelResources,
     quotes,

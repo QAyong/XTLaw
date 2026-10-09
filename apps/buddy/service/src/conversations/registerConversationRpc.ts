@@ -56,7 +56,9 @@ export function registerConversationRpc(options: RegisterConversationRpcOptions)
   const disposers: Array<() => void> = []
 
   disposers.push(registerRuntimeRequest(options.rpc, conversationsRpc.list, (input) => {
-    return options.conversations.listRecent(input.limit ?? 100)
+    return input.filter
+      ? options.conversations.listRecent(input.limit ?? 100, input.filter)
+      : options.conversations.listRecent(input.limit ?? 100)
   }))
   disposers.push(registerRuntimeRequest(options.rpc, conversationsRpc.get, (input) => {
     return requireActiveConversation(options, input.conversationId)

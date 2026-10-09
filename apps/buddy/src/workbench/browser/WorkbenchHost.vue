@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { WorkbenchMountTarget } from '@buddy-shared/workbench/workbenchUi'
-import type { DragEndEvent } from '@dnd-kit/vue'
+import type { DragEndEvent, DragStartEvent } from '@dnd-kit/vue'
 import type { DropPosition, ResourceRef, WorkbenchView } from '../common/workbench'
 import type { WorkbenchController } from '../services/WorkbenchController'
 import type { WorkingCopyService } from '../services/WorkingCopyService'
@@ -20,8 +20,8 @@ import { createWorkbenchDragPlugins } from './workbenchDragPlugins'
 import WorkbenchInteractionControls from './WorkbenchInteractionControls.vue'
 import WorkbenchViewPortals from './WorkbenchViewPortals.vue'
 
-const props = defineProps<{ controller: WorkbenchController, copies: WorkingCopyService, language: string, backupError: boolean, active: boolean, keybindings: Readonly<Record<string, readonly string[]>>, platform: string }>()
-const emit = defineEmits<{ retryBackup: [], dropResource: [resource: ResourceRef, paneId: string, position: DropPosition] }>()
+const props = withDefaults(defineProps<{ controller: WorkbenchController, copies: WorkingCopyService, language: string, backupError: boolean, active: boolean, mainVisible?: boolean, keybindings: Readonly<Record<string, readonly string[]>>, platform: string }>(), { mainVisible: true })
+const emit = defineEmits<{ retryBackup: [], dropResource: [resource: ResourceRef, paneId: string, position: DropPosition], taskDragStart: [], taskDragEnd: [dropped: boolean] }>()
 defineSlots<{ default: () => unknown, view: (props: { view: WorkbenchView, visible: boolean }) => unknown }>()
 const ui = useOptionalWorkbenchUi()
 const plugins = createWorkbenchDragPlugins()
@@ -73,7 +73,7 @@ const commands = computed(() => {
 const dropPosition = shallowRef<{ paneId: string, position: DropPosition } | null>(null)
 function viewVisible(id: string): boolean {
   const view = props.controller.layout.views[id]
-  return !!view && mounts.value.has(id) && (props.active || view.location !== 'main') && props.controller.matchesViewContext(view)
+  return !!view && mounts.value.has(id) && ((props.active && props.mainVisible) || view.location !== 'main') && props.controller.matchesViewContext(view)
 }
 function viewTarget(id: string): HTMLElement | null {
   return mounts.value.get(id) ?? null
@@ -88,13 +88,19 @@ async function execute(id: string, source: 'palette' | 'shortcut' = 'palette') {
     commandFailed.value = true
   }
 }
+function dragStart(event: DragStartEvent) {
+  dragging.value = true
+  if (event.operation.source?.type === 'workbench-task')
+    emit('taskDragStart')
+}
 function dragEnd(event: DragEndEvent) {
   dragging.value = false
   const destination = dropPosition.value
+  const source = event.operation.source
+  emit('taskDragEnd', !event.canceled && !!destination && !!source?.data.resource)
   dropPosition.value = null
   if (event.canceled || !destination)
     return
-  const source = event.operation.source
   if (source?.data.resource)
     emit('dropResource', source.data.resource as ResourceRef, destination.paneId, destination.position)
 }
@@ -142,7 +148,7 @@ provide(workbenchKey, { resize, controller: props.controller, copies: props.copi
 </script>
 
 <template>
-  <DragDropProvider :sensors="sensors" :plugins="plugins" @drag-start="dragging = true" @drag-end="dragEnd">
+  <DragDropProvider :sensors="sensors" :plugins="plugins" @drag-start="dragStart" @drag-end="dragEnd">
     <main class="workbench" :class="{ 'is-dragging': dragging, 'is-resizing': resize.active.value.length > 0 }" :style="{ '--workbench-resize-cursor': resize.cursor.value }" data-testid="workbench">
       <div v-if="backupError" class="workbench__error" role="alert">
         {{ labels.backupFailed }} <button type="button" @click="emit('retryBackup')">

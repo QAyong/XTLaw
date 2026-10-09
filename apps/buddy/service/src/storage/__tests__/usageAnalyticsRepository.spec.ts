@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { usageAnalyticsSchema, usagePeriodSchema, usageTopTasksRequestSchema, usageTrendRequestSchema, usageTrendSchema } from '../../../../shared/usage/usageAnalyticsApi'
 import { openBuddyDatabase } from '../database'
+import { BUDDY_RUN_EVENT_CHECKPOINT_TRIGGER_NAMES } from '../migrations/v23RunEventCheckpoints'
 import { createUsageAnalyticsRepository } from '../usageAnalyticsRepository'
 
 const databases: DatabaseSync[] = []
@@ -119,11 +120,17 @@ describe('usage analytics', () => {
       f.usage('retained')
       const before = f.repository.analytics(period)
       f.database.exec(`
+        ${BUDDY_RUN_EVENT_CHECKPOINT_TRIGGER_NAMES.map(name => `DROP TRIGGER ${name};`).join('\n        ')}
+        DROP TABLE run_event_checkpoints;
         DROP TABLE extension_invocations;
         DROP TABLE connector_tool_catalogs;
+        DROP INDEX idx_mcp_tool_namespace;
+        ALTER TABLE mcp_servers DROP COLUMN tool_namespace;
+        ALTER TABLE mcp_servers DROP COLUMN tool_exposure;
         DROP TABLE skill_file_cleanup;
         DROP TABLE skill_space_exclusions;
         DROP TABLE skill_installations;
+        DROP INDEX idx_messages_run;
         DROP INDEX idx_usage_created_at;
         DROP TABLE builtin_provider_configs;
         ALTER TABLE provider_states DROP COLUMN request_headers_json;

@@ -67,7 +67,7 @@ function navigate(id: string) {
   <WorkbenchLayout v-model:sidebar-collapsed="collapsed" v-model:sidebar-width="width" :language="language" :context-visible="(tasksVisible || bindings.contextPanelGlobal.value) && bindings.resources.isOpen.value" :context-on-left="tasksVisible && contextOnLeft" :workspace-visible="!chatPaneHidden" :sidebar-collapsible="tasksVisible" :sidebar-resizable="tasksVisible">
     <template v-if="tasksVisible" #sidebar>
       <WorkbenchMountPoint target="workbench.sidebar">
-        <DesktopTaskIndexView :pending-task-ids="pendingTaskIds" :index="bindings.taskIndex" :active-task-id="bindings.workbench.activeTask.value?.session.activeTaskId.value ?? null" @open-task="bindings.workbench.openTask" @new-task="bindings.workbench.newTask">
+        <DesktopTaskIndexView :pending-task-ids="pendingTaskIds" :index="bindings.taskIndex" :active-task-id="bindings.workbench.activeTaskId.value" @open-task="bindings.workbench.openTask" @new-task="bindings.workbench.newTask">
           <template #footer>
             <DesktopSidebarFooter
               :language="language"

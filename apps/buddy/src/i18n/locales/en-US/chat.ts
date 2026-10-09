@@ -1,6 +1,7 @@
 import type zhCN from '../zh-CN/chat'
 
 export default {
+  'desktop.chat.command.mcp': 'Check MCP status, toggle connections and reconnect.',
   'desktop.chat.attachmentImportFailed': 'Could not import the file. Retry or select the file again.',
   'desktop.chat.attachmentUnsupported': 'This file format is not supported. Choose a supported document, image, audio, or video file.',
   'desktop.chat.attachmentTooLarge': 'The file exceeds the size limit. Compress or split it and try again. Audio and video files are limited to 10 MiB.',
@@ -122,6 +123,8 @@ export default {
   'desktop.chat.quoteFromAssistant': 'Quote · XTLaw’s answer',
   'desktop.chat.quoteFromUser': 'Quote · Your message',
   'desktop.chat.removeQuote': 'Remove quote',
+  'desktop.chat.sessionReferences': 'Session reference',
+  'desktop.chat.sessionReferencesNoSpace': 'Standalone tasks',
   'desktop.chat.removeSessionReference': 'Remove session reference',
   'desktop.chat.quoteSourceUnavailable': 'The source could not be located. The saved quote can still be sent.',
   'desktop.chat.quoteTextUnavailable': 'The source message was located, but the quoted passage could not be uniquely matched.',
@@ -320,6 +323,9 @@ export default {
   'desktop.chat.processToolFind': 'Find files',
   'desktop.chat.processToolList': 'List directory',
   'desktop.chat.processToolDiscover': 'Find available tools',
+  'desktop.chat.processToolSessionSearch': 'Search task materials',
+  'desktop.chat.processToolSessionRead': 'Read task materials',
+  'desktop.chat.processToolSourceTask': 'Open source task',
   'desktop.chat.processToolBuildPlugin': 'Build plugin',
   'desktop.chat.processToolPresent': 'Present output',
   'desktop.chat.processToolImageTransform': 'Remove image background',

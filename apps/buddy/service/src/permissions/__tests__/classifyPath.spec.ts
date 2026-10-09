@@ -1,7 +1,9 @@
 import type { PermissionGrant } from '../permissionContract'
+import { execFile } from 'node:child_process'
 import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { promisify } from 'node:util'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { classifyPath, toGrantRoot } from '../classifyPath'
@@ -14,6 +16,25 @@ afterEach(async () => {
 })
 
 describe('classifyPath', () => {
+  it.skipIf(process.platform === 'win32')('rejects devices and pipes, including symlinks and create targets', async () => {
+    const root = await createRoot()
+    const pipe = join(root, 'pipe')
+    const link = join(root, 'linked-pipe')
+    await promisify(execFile)('mkfifo', [pipe])
+    await symlink(pipe, link)
+    for (const path of [pipe, link, '/dev/null']) {
+      for (const mode of ['existing', 'create'] as const) {
+        await expect(classifyPath({
+          cwd: root,
+          grants: [grant('workspace', root, 'workspace')],
+          mode,
+          path,
+          sensitive: createSensitivePathMatcher({ home: join(root, 'home') }),
+        })).rejects.toMatchObject({ code: 'INVALID_PATH' })
+      }
+    }
+  })
+
   it('classifies workspace, granted and outside paths after realpath resolution', async () => {
     const root = await createRoot()
     const workspace = await createDirectory(root, 'workspace')
@@ -48,7 +69,7 @@ describe('classifyPath', () => {
     })).resolves.toMatchObject({ isDirectory: true, zone: 'outside' })
   })
 
-  it('classifies a symlink by its real sensitive target', async () => {
+  it('classifies a symlink by its real sensitive target', async ({ skip }) => {
     const root = await createRoot()
     const home = await createDirectory(root, 'home')
     const ssh = await createDirectory(home, '.ssh')
@@ -56,7 +77,14 @@ describe('classifyPath', () => {
     const secret = join(ssh, 'id_ed25519')
     const link = join(workspace, 'notes.txt')
     await writeFile(secret, 'secret')
-    await symlink(secret, link)
+    try {
+      await symlink(secret, link)
+    }
+    catch (error) {
+      if (process.platform === 'win32' && error instanceof Error && 'code' in error && error.code === 'EPERM')
+        return skip('Windows file symlinks require Developer Mode or additional OS privileges')
+      throw error
+    }
 
     await expect(classifyPath({
       cwd: workspace,

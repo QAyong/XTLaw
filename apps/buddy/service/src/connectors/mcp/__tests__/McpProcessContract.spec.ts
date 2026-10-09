@@ -23,7 +23,7 @@ describe('mCP real stdio process contract', () => {
       LANG: 'zh_CN.UTF-8',
       XDG_CONFIG_HOME: '/fixture/config',
       https_proxy: 'http://127.0.0.1:18080',
-    }, '/fixture/buddy')
+    }, join(tmpdir(), 'buddy-service-fixture'))
     for (const [key, value] of Object.entries(environment))
       vi.stubEnv(key, value)
     vi.stubEnv('OPENAI_API_KEY', 'synthetic-ambient-secret')

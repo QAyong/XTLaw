@@ -2,7 +2,8 @@
 import type { Component } from 'vue'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import { Add20Regular, ArrowMaximize20Regular, ArrowMinimize20Regular, Dismiss16Regular } from '@vicons/fluent'
-import { NPopover } from 'naive-ui'
+import { useResizeObserver } from '@vueuse/core'
+import { NPopover, NTooltip } from 'naive-ui'
 import { nextTick, shallowRef, useId, useTemplateRef, watch } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
@@ -54,10 +55,12 @@ function handleTabsWheel(event: WheelEvent) {
   event.preventDefault()
   root.scrollBy({ left: event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? root.clientWidth : 1) })
 }
-watch(() => [props.activeTabId, props.tabs.length], async () => {
+async function revealActiveTab() {
   await nextTick()
   tabsScrollRoot.value?.querySelector('[aria-selected="true"]')?.closest('.desktop-task-context-panel__tab')?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
-})
+}
+watch(() => [props.activeTabId, props.tabs.length], revealActiveTab)
+useResizeObserver(tabsScrollRoot, revealActiveTab)
 </script>
 
 <template>
@@ -89,9 +92,14 @@ watch(() => [props.activeTabId, props.tabs.length], async () => {
         </div>
       </NPopover>
       <div v-if="maximized !== undefined || $slots.headerActions" class="desktop-task-context-panel__header-actions">
-        <button v-if="maximized !== undefined" class="desktop-task-context-panel__add desktop-task-context-panel__maximize" type="button" data-testid="context-panel-maximize" :title="t(maximized ? 'desktop.context.restore' : 'desktop.context.maximize')" :aria-label="t(maximized ? 'desktop.context.restore' : 'desktop.context.maximize')" :aria-pressed="maximized" @click="emit('toggleMaximize')">
-          <DesktopIcon :component="maximized ? ArrowMinimize20Regular : ArrowMaximize20Regular" />
-        </button>
+        <NTooltip v-if="maximized !== undefined" :delay="350">
+          <template #trigger>
+            <button class="desktop-task-context-panel__add desktop-task-context-panel__maximize" type="button" data-testid="context-panel-maximize" :aria-label="t(maximized ? 'desktop.context.restore' : 'desktop.context.maximize')" :aria-pressed="maximized" @click="emit('toggleMaximize')">
+              <DesktopIcon :component="maximized ? ArrowMinimize20Regular : ArrowMaximize20Regular" />
+            </button>
+          </template>
+          {{ t(maximized ? 'desktop.context.restore' : 'desktop.context.maximize') }}
+        </NTooltip>
         <slot name="headerActions" />
       </div>
     </header>

@@ -65,6 +65,7 @@ export class McpClientSession {
           this.#options.onToolsChanged?.()
       } } },
     })
+    let connectionError: ConnectorErrorCode | undefined
     client.onclose = () => {
       if (this.#client !== client)
         return
@@ -74,8 +75,13 @@ export class McpClientSession {
         this.#options.onUnavailable?.('MCP_SERVER_DISCONNECTED')
     }
     client.onerror = (error) => {
-      if (this.#client === client && !this.#lifetime.signal.aborted)
-        this.#options.onUnavailable?.(mcpErrorCode(error))
+      if (this.#client !== client || this.#lifetime.signal.aborted)
+        return
+      const code = mcpErrorCode(error)
+      // On Windows an ENOENT event can precede the SDK's generic connection-close rejection.
+      if (!this.#connected && code !== 'MCP_SERVER_UNAVAILABLE')
+        connectionError = code
+      this.#options.onUnavailable?.(code)
     }
     this.#client = client
     const transport = createMcpTransport(this.#options.config, this.#options.credential, this.#options.authProvider, {
@@ -97,7 +103,7 @@ export class McpClientSession {
       if (this.#client === client)
         this.#client = null
       await Promise.all([client.close(), transport.close()])
-      throw new McpClientError(mcpErrorCode(error), { cause: error })
+      throw new McpClientError(mcpErrorCode(error, connectionError), { cause: error })
     }
   }
 

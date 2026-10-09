@@ -96,7 +96,15 @@ export type LocalConversationTimelineItem = DeepReadonly<z.infer<typeof conversa
 
 export type LocalConversationTimelinePage = DeepReadonly<z.infer<typeof conversationResponseSchemas.timelinePage>>
 
+export const conversationListFilterSchema = z.object({
+  spaceId: idSchema.nullable().optional(),
+  query: z.string().max(512).optional(),
+  excludeConversationId: idSchema.optional(),
+}).strict()
+export type ConversationListFilter = z.infer<typeof conversationListFilterSchema>
+
 export const conversationRequestSchemas = {
+  list: validationRequestSchemas.limit.extend({ filter: conversationListFilterSchema.optional() }),
   conversationBranchActivation: z.object({
     branchId: idSchema,
     conversationId: idSchema,
@@ -148,7 +156,7 @@ export const conversationResponseSchemas = {
 } as const
 
 export const conversationsRpc = {
-  list: { method: 'conversations.list', input: validationRequestSchemas.limit, response: conversationResponseSchemas.conversations },
+  list: { method: 'conversations.list', input: conversationRequestSchemas.list, response: conversationResponseSchemas.conversations },
   get: { method: 'conversations.get', input: conversationRequestSchemas.conversationId, response: conversationResponseSchemas.conversation },
   delete: { method: 'conversations.delete', input: conversationRequestSchemas.conversationId, response: validationResponseSchemas.deleted },
   activateBranch: { method: 'conversations.activateBranch', input: conversationRequestSchemas.conversationBranchActivation, response: conversationResponseSchemas.conversation },

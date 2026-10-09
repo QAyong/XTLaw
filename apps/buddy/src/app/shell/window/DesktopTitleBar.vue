@@ -8,7 +8,7 @@ import type { BuddyLocale } from '@/i18n/buddyI18n'
 import { DESKTOP_COMMAND_REGISTRY, getDesktopCommand } from '@buddy-electron/shared/desktopCommands'
 import { ArrowSwap20Regular, PanelRightContract20Regular, PanelRightExpand20Regular } from '@vicons/fluent'
 import { NTooltip, useMessage } from 'naive-ui'
-import { computed, onBeforeUnmount, onMounted, onScopeDispose, shallowRef } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, onScopeDispose, shallowRef } from 'vue'
 import { useRouter } from 'vue-router'
 import DesktopFeedbackDialog from '@/app/shell/window/DesktopFeedbackDialog.vue'
 import DesktopWindowMenuBar from '@/app/shell/window/DesktopWindowMenuBar.vue'
@@ -152,6 +152,15 @@ async function runWindowAction(action: () => Promise<DesktopWindowState>) {
   }
 }
 
+async function toggleContextPosition(event: MouseEvent) {
+  const button = event.currentTarget as HTMLButtonElement
+  const restoreFocus = button.matches(':focus-visible')
+  emit('toggleContextPosition')
+  await nextTick()
+  if (restoreFocus)
+    button.focus({ preventScroll: true })
+}
+
 function applyWindowState(state: DesktopWindowState) {
   isMaximized.value = state.isMaximized
 }
@@ -183,7 +192,7 @@ function applyWindowState(state: DesktopWindowState) {
               class="desktop-title-bar__control"
               data-testid="context-panel-position-toggle"
               type="button"
-              @click="emit('toggleContextPosition')"
+              @click="toggleContextPosition"
             >
               <DesktopIcon :component="ArrowSwap20Regular" />
             </button>

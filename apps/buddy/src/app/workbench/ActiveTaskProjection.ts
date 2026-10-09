@@ -8,6 +8,7 @@ export class ActiveTaskProjection {
   readonly #active = shallowRef<TaskCapability | null>(null)
   readonly current = computed(() => this.#active.value)
   readonly resource = shallowRef<ResourceRef | null>(null)
+  readonly taskId = computed(() => this.resource.value?.scheme === 'task' ? this.resource.value.id : null)
   readonly #subscriptions: (() => void)[]
 
   constructor(readonly controller: WorkbenchController, readonly pool: TaskWorkspacePool) {

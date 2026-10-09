@@ -19,6 +19,12 @@ const pathSchema = z.string().min(1).max(4_096)
 
 export const buddyToolPresentationSchema = z.discriminatedUnion('card', [
   previewSchema.extend({
+    card: z.literal('session'),
+    sessionId: z.string().min(1).max(128).nullable(),
+    title: z.string().max(200).nullable(),
+    target: z.string().max(4096).nullable(),
+  }).strict(),
+  previewSchema.extend({
     card: z.literal('web'),
     operation: z.enum(['search', 'fetch']),
     target: z.string().max(4096),

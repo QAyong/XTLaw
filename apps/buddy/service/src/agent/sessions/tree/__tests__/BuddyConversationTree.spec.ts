@@ -5,6 +5,7 @@ import type { BuddyTreeCommit, BuddyTreeFailure } from '../BuddyTreeEvents'
 import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import process from 'node:process'
 import { InMemoryCredentialStore } from '@earendil-works/pi-ai'
 import { ModelRuntime, SessionManager } from '@earendil-works/pi-coding-agent'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -23,6 +24,14 @@ afterEach(async () => {
 })
 
 describe('native conversation tree', () => {
+  it('counts separate tool invocations when a provider reuses a call ID across steps', async () => {
+    const fixture = await createFixture()
+    const run = fixture.run('reused-tools', 'b0', 'q1')
+    for (let sequence = 1; sequence <= 2; sequence++)
+      fixture.toolEvent(run.id, sequence, 'provider-call')
+    expect(fixture.repository.listToolCounts('conversation').get(run.id)).toBe(2)
+  })
+
   it('retains a durable file commit when binding fails and reconciles without recreating the file', async () => {
     const fixture = await createFixture()
     const commits: BuddyTreeCommit[] = []
@@ -244,7 +253,8 @@ describe('native conversation tree', () => {
       .toMatchObject({ code: 'SESSION_STORAGE_UNAVAILABLE' })
   })
 
-  it('preserves an unreadable journal and rejects access instead of recovering from product history', async () => {
+  // chmod(000) cannot model a Windows ACL denial.
+  it.skipIf(process.platform === 'win32')('preserves an unreadable journal and rejects access instead of recovering from product history', async () => {
     const fixture = await createFixture()
     const first = fixture.run('first', 'b0', 'q1')
     const opened = await fixture.open(first)
@@ -365,6 +375,10 @@ async function createFixture(recovery?: BuddySessionRecoveryService['create']) {
       if (answerId) {
         conversations.createMessage({ id: answerId, branchId: run.branchId, conversationId: run.conversationId, content: { text: answerId }, role: 'assistant', runId: run.id, createdAt: now() })
       }
+    },
+    toolEvent(runId: string, sequence: number, toolCallId: string) {
+      database.prepare('INSERT INTO run_events (run_id, sequence, event_type, payload_json, created_at) VALUES (?, ?, ?, ?, ?)')
+        .run(runId, sequence, 'tool.started', JSON.stringify({ toolCallId, toolName: 'read' }), now())
     },
     source(runId: string, sourceRunId: string, position: string) {
       database.prepare('INSERT INTO run_tree_sources (run_id, source_run_id, position) VALUES (?, ?, ?)').run(runId, sourceRunId, position)

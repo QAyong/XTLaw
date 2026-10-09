@@ -73,6 +73,12 @@ Vue + Electron 承载桌面体验，独立的 TypeScript Runtime 承载本地 Ag
 
 模型可以换，工具可以扩展，文件与工具的访问权限由你决定。产品数据保存在本机；使用在线模型或外部工具时，相关内容会发送给你选择的服务。
 
+## 当前源码更新
+
+当前 `master` 已选择性接入上游桌面与运行时改进：即时任务切换、停止期间的暂停队列保护、按空间联动资源面板、新版会话引用、Pi 1.1.0 / Codemode，以及 MCP 工具命名空间和暴露策略。保留 XTLaw 品牌、独立数据目录、Office 和选区引用等定制；这不代表上述功能已随最新安装包发布。
+
+功能与验证记录见 [第一轮集成](docs/upstream-round-1-integration.md) 和 [后续集成](docs/upstream-remaining-integration.md)。数据库沿用本地 v23，并追加 v24/v25；首次用新源码启动正式数据前应备份，回滚旧程序需恢复升级前数据库。桌面可视/E2E 验收和安装包发布尚未完成。
+
 ## 本地开发
 
 需要 Node.js 26+、pnpm 12.5.1+ 与 Rust 工具链；平台依赖见[构建说明](packaging/buddy/README.md)。在仓库根目录运行：
@@ -94,7 +100,7 @@ $env:XTLAW_BUDDY_PROFILE = "stable"
 pnpm dev:buddy
 ```
 
-开发预览地址为 <http://localhost:1420/>。`stable` profile 会直接使用 XTLaw 正式数据目录 `~/.xtlaw`；Windows 下通常对应 `C:\Users\<用户名>\.xtlaw`。它不会复制或迁移数据，因此开发版产生的配置、会话或授权写入也可能影响正式版。该方式适合 UI 预览，执行会修改数据的功能测试前应先备份真实数据，或改用默认的开发目录。
+开发预览地址为 <http://localhost:1420/>。`stable` profile 会直接使用 XTLaw 正式数据目录 `~/.xtlaw`；Windows 下通常对应 `C:\Users\<用户名>\.xtlaw`。该档位不会复制数据，但启动时仍会执行必要的数据库结构迁移；开发版产生的配置、会话或授权写入也可能影响正式版。该方式适合 UI 预览，执行会修改数据的功能测试前应先备份真实数据，或改用默认的开发目录。
 
 ## 参与贡献
 

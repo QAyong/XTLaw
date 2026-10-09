@@ -73,9 +73,15 @@ Vue and Electron power the desktop experience; a separate TypeScript runtime hos
 
 Switch models, add tools, and decide what XTLaw can access. Product data stays on your computer; online models and external tools receive relevant content when you use them.
 
+## Current source updates
+
+The current `master` selectively integrates upstream improvements: instant task switching, paused queues during cancellation, space-linked resource panels, upgraded session references, Pi 1.1.0 / Codemode, and MCP tool namespaces and exposure policies. XTLaw branding, isolated data directories, Office, and selection references remain intact. These source changes are not a claim that the latest installer includes them.
+
+See the [first-round integration record](docs/upstream-round-1-integration.md) and [remaining integration record](docs/upstream-remaining-integration.md) (Chinese) for scope and verification. The database retains XTLaw v23 and adds v24/v25. Back up production data before running the new source; rolling back to an older binary requires restoring the pre-upgrade database. Desktop visual/E2E acceptance and installer publication are still pending.
+
 ## Local development
 
-Requires Node.js 26+, pnpm 11.5+, and Rust. See the [build instructions](packaging/buddy/README.md) for platform dependencies. From the repository root:
+Requires Node.js 26+, pnpm 12.5.1+, and Rust. See the [build instructions](packaging/buddy/README.md) for platform dependencies. From the repository root:
 
 ```bash
 pnpm --filter @uselexora/lexora --filter '@uselexora/lexora-buddy...' --filter @uselexora/lexora-website install --frozen-lockfile

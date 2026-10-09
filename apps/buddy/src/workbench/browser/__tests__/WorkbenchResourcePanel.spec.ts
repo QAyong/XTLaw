@@ -1,7 +1,33 @@
 // @vitest-environment jsdom
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
 import { createApp, defineComponent, h, nextTick, shallowRef } from 'vue'
 import WorkbenchResourcePanel from '../WorkbenchResourcePanel.vue'
+
+it('reveals the selected resource tab after the panel is resized', async () => {
+  let notify: ResizeObserverCallback | undefined
+  vi.stubGlobal('ResizeObserver', class {
+    constructor(callback: ResizeObserverCallback) { notify = callback }
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  })
+  Element.prototype.scrollIntoView = () => {}
+  const reveal = vi.spyOn(Element.prototype, 'scrollIntoView')
+  const element = document.createElement('div')
+  const app = createApp({ render: () => h(WorkbenchResourcePanel, { activeTabId: 'files', tabs: [{ id: 'files', title: 'Files' }], actions: [], language: 'en-US' }) })
+  app.mount(element)
+  try {
+    await nextTick()
+    reveal.mockClear()
+    expect(notify).toBeDefined()
+    notify!([], {} as ResizeObserver)
+    await nextTick()
+    expect(reveal).toHaveBeenCalledWith({ block: 'nearest', inline: 'nearest' })
+  }
+  finally {
+    app.unmount()
+  }
+})
 
 it('retains a resource surface while switching through an empty task scope', async () => {
   Element.prototype.scrollIntoView = () => {}

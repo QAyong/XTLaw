@@ -11,6 +11,7 @@ import WorkbenchHost from '@/workbench/browser/WorkbenchHost.vue'
 import DesktopWorkbenchArea from '../workbench/DesktopWorkbenchArea.vue'
 import DesktopWorkbenchView from '../workbench/DesktopWorkbenchView.vue'
 import { resolveContextPanePlacementOnChange } from './contextPanePlacement'
+import { useContextPanePresentation } from './useContextPanePresentation'
 
 const { bindings } = defineProps<{ bindings: DesktopShellBindings }>()
 const route = useRoute()
@@ -29,9 +30,14 @@ const activeTaskScope = computed(() => {
 })
 const contextOnLeft = shallowRef(false)
 const chatPaneHidden = shallowRef(false)
+const presentation = useContextPanePresentation({
+  chatPaneHidden,
+  tasksVisible: computed(() => activeView.value === 'lexora.tasks'),
+  scope: activeTaskScope,
+})
 const taskPaneStates = new Map<string, { contextOnLeft: boolean, chatPaneHidden: boolean }>()
 const rightRegionIsChat = computed(() => contextOnLeft.value && bindings.resources.isOpen.value)
-const rightRegionOpen = computed(() => rightRegionIsChat.value ? !chatPaneHidden.value : bindings.resources.isOpen.value)
+const rightRegionOpen = computed(() => rightRegionIsChat.value ? presentation.workspaceVisible.value : bindings.resources.isOpen.value)
 
 watch(bindings.resources.isOpen, (resourcePanelOpen) => {
   if (resourcePanelOpen)
@@ -108,10 +114,10 @@ function toggleContextPosition() {
       @toggle-sidebar="bindings.toggleSidebar"
     />
     <div class="desktop-shell__body">
-      <WorkbenchHost :keybindings="bindings.shortcuts.bindings.value" :platform="bindings.shortcuts.platform.value" :active="activeView === 'lexora.tasks'" :controller="bindings.workbench.controller" :copies="bindings.workbench.copies" :language="language" :backup-error="bindings.workbench.backupError.value" @drop-resource="bindings.workbench.dropResource" @retry-backup="bindings.workbench.persistence.flush()">
+      <WorkbenchHost :keybindings="bindings.shortcuts.bindings.value" :platform="bindings.shortcuts.platform.value" :active="activeView === 'lexora.tasks'" :main-visible="presentation.workspaceVisible.value" :controller="bindings.workbench.controller" :copies="bindings.workbench.copies" :language="language" :backup-error="bindings.workbench.backupError.value" @drop-resource="bindings.workbench.dropResource" @retry-backup="bindings.workbench.persistence.flush()" @task-drag-start="presentation.beginDrag" @task-drag-end="presentation.endDrag">
         <div class="desktop-shell__content" :class="{ 'is-starting': startupVisible }" :inert="startupVisible" :aria-hidden="startupVisible">
           <WorkbenchMountPoint target="workbench" class="desktop-shell__workbench">
-            <DesktopWorkbenchArea :bindings="bindings" :tasks-visible="activeView === 'lexora.tasks'" :context-on-left="contextOnLeft" :chat-pane-hidden="chatPaneHidden" @toggle-context-maximize="toggleContextMaximize" />
+            <DesktopWorkbenchArea :bindings="bindings" :tasks-visible="activeView === 'lexora.tasks'" :context-on-left="contextOnLeft" :chat-pane-hidden="presentation.contextMaximized.value" @toggle-context-maximize="toggleContextMaximize" />
           </WorkbenchMountPoint>
         </div>
         <template #view="{ view, visible }">

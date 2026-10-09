@@ -17,8 +17,8 @@ import ResourceQuoteStrip from '@/shared/ui/selection/ResourceQuoteStrip.vue'
 import { resolveBuddyAttachmentPreviewUrl } from '../../model/attachments/chatAttachmentView'
 import { getChatMessageDisplayText, getChatMessageImageLabels, getChatMessageUserContent } from '../../model/transcript/chatMessageContent'
 import { useResourceHighlight } from '../attachments/useResourceHighlight'
-import ChatSessionReferenceStrip from '../composer/ChatSessionReferenceStrip.vue'
 import ChatQuoteStrip from '../quotes/ChatQuoteStrip.vue'
+import ChatSessionReferenceStrip from '../references/ChatSessionReferenceStrip.vue'
 import BuddyChatResourceReference from './BuddyChatResourceReference.vue'
 import { tryUseChatContent } from './chatContentContext'
 
@@ -464,6 +464,12 @@ function handleMarkdownLink(href: string) {
 
 .buddy-chat-message-content__session-reference {
   @include highlight.inline-highlight-token;
+
+  display: inline-block;
+  max-width: min(24rem, 100%);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -117,7 +117,7 @@ const actions = computed<DropdownOption[]>(() => [
     label: pinLabel.value,
     show: props.pinMode !== undefined,
   },
-  { icon: () => hIcon(Copy20Regular), key: 'copy-session-reference', label: t('desktop.tasks.copySessionReference') },
+  { icon: () => hIcon(Copy20Regular), key: 'copy', label: t('desktop.tasks.copy'), children: [{ key: 'copy-session-reference', label: t('desktop.tasks.sessionReference') }] },
   { icon: () => hIcon(Edit20Regular), key: 'rename', label: t('desktop.tasks.renameTask') },
 ])
 

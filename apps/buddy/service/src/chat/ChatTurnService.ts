@@ -249,7 +249,7 @@ export class ChatTurnService {
       } = await this.#prepareTurnMaterialization({
         attachmentIds,
         composer: {
-          content: draft.content,
+          content: { ...draft.content, sessionReferences },
           resourceIds: resourceInputs.map(resource => resource.resourceId),
           resources: resourceInputs,
         },
@@ -400,7 +400,7 @@ export class ChatTurnService {
       } = await this.#prepareTurnMaterialization({
         attachmentIds,
         composer: draft
-          ? { content: draft.content, resourceIds: resourceInputs.map(resource => resource.resourceId), resources: resourceInputs }
+          ? { content: { ...draft.content, sessionReferences }, resourceIds: resourceInputs.map(resource => resource.resourceId), resources: resourceInputs }
           : undefined,
         content: '',
         contextItems: [],

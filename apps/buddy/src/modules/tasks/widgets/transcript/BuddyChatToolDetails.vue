@@ -3,8 +3,9 @@ import type { BuddyToolPresentation } from '@buddy-shared/runs/runEventPresentat
 import type { ToolFailureCode } from '@buddy-shared/runs/toolFailure'
 import type { ChatAgentToolNode } from '../../model/transcript/chatAgentTurn'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
-import { computed } from 'vue'
+import { computed, inject } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
+import { sessionReferenceNavigationKey } from '../references/sessionReferenceNavigation'
 import BuddyChatImageToolDetails from './BuddyChatImageToolDetails.vue'
 import BuddyChatToolDiff from './BuddyChatToolDiff.vue'
 import BuddyChatToolRead from './BuddyChatToolRead.vue'
@@ -23,6 +24,8 @@ const props = defineProps<{
 
 const { t } = useBuddyI18n(() => props.language)
 const actions = useChatContent()
+const navigateSession = inject(sessionReferenceNavigationKey, null)
+const session = computed(() => props.presentation.card === 'session' ? props.presentation : null)
 const filePath = computed(() => props.status !== 'denied' && !props.errorCode && (props.presentation.card === 'read' || props.presentation.card === 'diff')
   ? props.presentation.path
   : undefined)
@@ -69,6 +72,13 @@ const output = computed(() => {
 
 <template>
   <div class="buddy-chat-tool-details" :class="`is-${status}`">
+    <button
+      v-if="session?.sessionId && navigateSession && status !== 'denied'"
+      class="buddy-chat-tool-details__source" type="button"
+      :title="session.title ?? undefined" @click="navigateSession(session.sessionId)"
+    >
+      {{ t('desktop.chat.processToolSourceTask') }}{{ session.title ? ` · ${session.title}` : '' }}
+    </button>
     <BuddyChatImageToolDetails
       v-if="image"
       :language="language"
@@ -159,6 +169,22 @@ const output = computed(() => {
   min-width: 0;
   margin: 4px 0 8px;
   margin-inline-start: var(--buddy-chat-activity-indent);
+}
+
+.buddy-chat-tool-details__source {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: var(--buddy-accent-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: start;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--buddy-chat-caption-font-size);
 }
 
 .buddy-chat-terminal-card {

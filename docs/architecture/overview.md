@@ -1,6 +1,6 @@
 # 架构概览
 
-**最后更新：** 2026-10-07
+**最后更新：** 2026-10-09
 
 **适用范围：** `apps/buddy/`（基于 Lexora 二次开发的 XTLaw 桌面应用）
 
@@ -12,7 +12,7 @@
 
 XTLaw 桌面应用是**纯本地桌面软件，没有远程服务器**。它由三个进程组成，全部跑在用户自己的电脑上；数据存在两个地方 —— 一个配置文件和一个 SQLite 数据库。
 
-除了调用模型服务商那一步，其他功能断网也能用。
+本地存储、桌面工作台和本机工具不依赖产品远程服务器；模型服务、联网查询和远端 MCP 等外部能力仍需连接用户选择的服务。
 
 ## 2. 三个进程
 
@@ -54,6 +54,12 @@ graph TD
 | `~/.xtlaw/buddy/conversations/`、`spaces/`、`drafts/` | 会话文件、附件、事件日志（`.jsonl`） | 本地服务 | `service/src/storage/BuddyDataPaths.ts` |
 
 数据根目录由 `electron/main/paths.ts` 决定：正式版是 `~/.xtlaw`，开发版是 `~/.xtlaw-dev`。通过 `XTLAW_HOME` 指定自定义目录，通过 `XTLAW_BUDDY_PROFILE` 指定档位；不自动导入 Lexora 数据。独立应用隔离详见 [Spec-024](../specs/feature-024-xtlaw-independent-application.md)。
+
+### 3.1 数据库迁移与回滚
+
+当前 XTLaw schema 为 v25：保留已发布的 v23 运行事件检查点迁移，v24 增加 Azure Provider 来源转换及消息索引，v25 增加 MCP 工具命名空间和暴露策略。上游的 v23 是另一种迁移，不能按相同版本号覆盖本地历史。
+
+迁移入口为 `service/src/storage/database.ts` 和 `schema.ts`，已用临时旧库验证已有检查点、消息 rowid、MCP 配置与凭据引用的保留和重复打开。首次用新程序访问正式数据前应备份；旧程序不能直接打开升级后的数据库，回滚需恢复升级前备份。`stable` 开发档位也会执行迁移，并非只读预览。详见 [集成记录](../upstream-remaining-integration.md)。
 
 ### 为什么这件事很重要
 
@@ -145,6 +151,26 @@ flowchart LR
 
 当前只完成文件/Markdown 第一批接入。浏览器按钮式元素拾取、网页桥接和隔离插件接口仍待实现；完整设计及验证边界见 [Spec-013：工作台选区引用与多分屏目标](../specs/feature-013-workbench-selection-reference.md)。
 
+### 4.4 即时切换与停止队列
+
+`ActiveTaskProjection.taskId` 从活动资源立即派生归属，任务数据由 `TaskWorkspacePool` 异步初始化；`peek()` 只返回就绪任务，`DesktopTaskLoading.vue` 承载加载、失败与重试，过期结果不能覆盖新任务。
+
+点击停止先冻结当前展示，真实取消仍经 `ChatQueueService.cancelRun()` 等待中断和清理。取消待处理期间，派发、steer 和 follow-up 均受保护，新旧队列都暂停；取消完成后不自动继续，需明确队列操作。前端独立保存待处理取消，不能因 activeRun 已隐藏就误认为后台空闲。
+
+### 4.5 显式会话引用
+
+`sessionReferences` 保存 ID/title，`session_ref` 节点保存行内位置；冻结选区 `resourceQuotes` 与这些结构并存。`SessionReferenceService` 通过 `lexora_session_search` / `lexora_session_read` 按需搜索、分页读取消息及附件/交付物，`lexora_session_ask` 保留兼容。
+
+引用只限定本轮可检索的历史会话，不授予任意文件权限。附件读取仍经正常权限分类和执行前来源校验；历史内容是不可信数据，删除/变更/取消会阻断或撤销对应读取。renderer 和模型不直接访问数据库。
+
+### 4.6 Codemode、MCP 与资源空间联动
+
+Pi 1.1.0 承载 Agent loop；应用注入 Codemode 内部扩展，使模型可组合调用已授权工具。并发、计算预算、嵌套审批和清理仍在本地运行时约束内，不绕过授权。
+
+MCP 连接器维护连接、凭据、工具目录与命名空间，支持 deferred/direct/codemode/hidden 暴露策略；隐藏和发现策略不是新的访问授权。会话入口和设置共享 MCP 管理 UI。
+
+资源面板支持 task/space/independent 三种模式；`useTaskResourceSpaces` 提供成员映射，标签所有权仍属于原任务/草稿。空间模式共享标签、选择和开合，原任务布局记忆及 Office/选区引用逻辑保留。临时拖放/页面显示与保存的布局偏好分离。
+
 ## 5. 目录职责
 
 | 目录 | 职责 |
@@ -177,8 +203,9 @@ XTLaw 当前市场使用随应用提供的本地目录，不连接上游市场�
 | 依赖 | 用途 | 接入层 |
 |---|---|---|
 | 模型服务商 API | 对话推理 | 本地服务 `service/src/providers/` |
-| `@earendil-works/pi-coding-agent` | 编码代理运行时 | 本地服务 `service/src/agent/` |
-| MCP 连接器 | 外部工具接入 | 本地服务 `service/src/connectors/` |
+| `@earendil-works/pi-ai` / `pi-coding-agent` 1.1.0 | 模型适配与 Agent 运行时 | 本地服务 `service/src/agent/`、`service/src/providers/` |
+| `@earendil-works/pi-codemode` 1.1.0 | 受约束的工具组合执行 | 本地服务 `service/src/agent/extensions/codemodeExtension.ts` |
+| MCP 连接器 | 外部工具接入、命名空间与暴露策略 | 本地服务 `service/src/connectors/` |
 | 本机 SQLite（Node 内置 `node:sqlite`） | 数据持久化 | 本地服务 `service/src/storage/` |
 
 ## 7. 不变量（当前代码中已固化的约束）
@@ -188,7 +215,7 @@ XTLaw 当前市场使用随应用提供的本地目录，不连接上游市场�
 - **权限不能向上越级。** 子运行、子会话的权限不得超过所属会话的权限上限，由 `isExecutionProfileWithin()` 限制。见 `service/src/storage/turnRequestRepository.ts`、`service/src/chat/ChatTurnService.ts`、`service/src/agent/sessions/BuddySessionFactory.ts`。
 - **桌面窗口 IPC 校验发送方窗口和主框架。** `electron/main/ipc.ts` 使用 `assertTrustedSender()` 或 `requireTrustedWindow()` 校验；选区编辑入口另通过固定命令枚举与严格结构校验，不接受任意脚本或角色。
 - **新任务的出厂默认权限是"智能审批"。** 由 `BUDDY_DEFAULT_APPROVAL_POLICY = 'policy'` 和 `BUDDY_DEFAULT_EXECUTION_PROFILE = 'workspace_write'` 决定，经 `resolveBuddyPermissionMode()` 解析为 `policy_approval`。见 `apps/buddy/shared/permissions/permissionMode.ts`。
-- **配置文件权限为 `0o600`。** 只有当前用户可以读写 `config.toml`。见 `electron/main/config/LexoraConfigStore.ts`。
+- **配置文件以私有权限创建并原子替换。** `LexoraConfigStore.ts` 使用 `0o600` 创建配置；POSIX mode 位断言仅适用于相应平台，不能把 Windows 的 `stat.mode` 当成 ACL 或据此证明访问隔离。
 
 > 说明：本仓库当前**没有** `docs/adr/` 目录，因此以上不变量直接引用代码位置，而不是引用 ADR 编号。
 
@@ -198,3 +225,5 @@ XTLaw 当前市场使用随应用提供的本地目录，不连接上游市场�
 |---|---|---|
 | 功能规格 | `docs/specs/` | 个人功能规格、方案与决定记录 |
 | 架构概览 | `docs/architecture/overview.md` | 本文件 |
+| 首轮上游集成 | `docs/upstream-round-1-integration.md` | 切换、停止、工具历史与资源面板交互 |
+| 后续上游集成 | `docs/upstream-remaining-integration.md` | 空间/会话引用/Pi/MCP、迁移与验证边界 |

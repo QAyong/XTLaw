@@ -26,6 +26,7 @@ import { useChatExecution } from '@/modules/tasks/state/runs/useChatExecution'
 import { useChatRunSync } from '@/modules/tasks/state/runs/useChatRunSync'
 import { useTaskSpaces } from '@/modules/tasks/state/task-index/useTaskSpaces'
 import { resolveLocalChatErrorMessage } from '@/shared/lib/localChatError'
+import { createSessionContextOptions } from '../model/composer/sessionContextOptions'
 import { createDraftScopeKey } from '../model/drafts/draftScope'
 import { useChatConversations } from './conversations/useChatConversations'
 import { useChatSession } from './conversations/useChatSession'
@@ -217,6 +218,17 @@ export function useTaskCapability(options: UseTaskCapabilityOptions): TaskCapabi
     activeConversationId,
     draftId,
     spaceId,
+    sessionOptions: async (query, scope) => createSessionContextOptions({
+      conversations: scope
+        ? await api.localChat.conversations.list(101, { spaceId: scope.spaceId, query, excludeConversationId: activeConversationId.value ?? undefined })
+        : conversations.value,
+      spaces: taskIndexData.spaces.value,
+      activeConversationId: activeConversationId.value,
+      query,
+      scope,
+      noSpaceTitle: t('desktop.chat.sessionReferencesNoSpace'),
+      untitled: t('desktop.tasks.newTask'),
+    }),
     listSources: api.localChat.composerResources.listSources,
     listSkills: api.localChat.skills.list,
   })

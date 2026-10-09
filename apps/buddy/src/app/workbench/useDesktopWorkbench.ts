@@ -84,6 +84,7 @@ export function useDesktopWorkbench(options: { api: LexoraDesktopApi, events: Ap
   const initialized = shallowRef(false)
   const activity = new ActiveTaskProjection(controller, pool)
   const activeTask = activity.current
+  const activeTaskId = activity.taskId
   const contextTabs = new ContextTabProjection(controller, options.resources, () => initialized.value)
   const resourceLifetime = new WorkbenchResourceLifetime(controller, pool, copies, () => initialized.value)
   const projections = { reconcile: () => {
@@ -104,8 +105,8 @@ export function useDesktopWorkbench(options: { api: LexoraDesktopApi, events: Ap
   function center(): string {
     return controller.pane(controller.layout.activePane)?.id ?? panes(controller.layout.root)[0]!.id
   }
-  function openTask(id: string, signal?: AbortSignal): Promise<void> {
-    return activateTask({ scheme: 'task', id, data: {} }, options.taskIndex.index.tasks.value.find(task => task.id === id)?.title ?? labels().tasks, { signal })
+  function openTask(id: string, destination: { signal?: AbortSignal, direction?: SplitDirection } = {}): Promise<void> {
+    return activateTask({ scheme: 'task', id, data: {} }, options.taskIndex.index.tasks.value.find(task => task.id === id)?.title ?? labels().tasks, destination)
   }
   function newTask(spaceId?: string | null, paneId = center(), direction?: SplitDirection): Promise<void> {
     return activateTask({ scheme: 'draft', id: crypto.randomUUID(), data: { spaceId: spaceId ?? null } }, labels().newTask, { paneId, direction })
@@ -439,7 +440,9 @@ export function useDesktopWorkbench(options: { api: LexoraDesktopApi, events: Ap
         controller.focus(existing.id)
         return existing.id
       }
-      try { return await api.extensions.openFile(target) ?? fallback }
+      try {
+        return await api.extensions.openFile(target) ?? fallback
+      }
       catch (error) {
         options.onError(error)
         return fallback
@@ -694,7 +697,7 @@ export function useDesktopWorkbench(options: { api: LexoraDesktopApi, events: Ap
     return saved
   }
   const selectionReferences = createDesktopSelectionReferences({ controller, pool, language, openFile, browser: api.browser, resources: options.resources, ready: () => initialized.value, independent: () => stores.applicationSettings.config.value?.desktop.contextPanelMode === 'independent', locateFile: target => api.localChat.spaces.readFile(target), readArtifactText: api.localChat.artifacts.readText, editSelection: api.selectionReferenceMenu?.executeEdit })
-  return { workspaceFiles, selectionReferences, api, renderers, fileToolbarTargets, fileView, closeContextFiles, readingPositions, discardTask, prepareTaskDeletion, activeTask, activeResource: activity.resource, backupError, controller, copies, models, pool, persistence, initialize, flush, dispose, openTask, newTask, startTaskWithSkill, openFile, dropResource, language, get initialized() {
+  return { workspaceFiles, selectionReferences, api, renderers, fileToolbarTargets, fileView, closeContextFiles, readingPositions, discardTask, prepareTaskDeletion, activeTask, activeTaskId, activeResource: activity.resource, backupError, controller, copies, models, pool, persistence, initialize, flush, dispose, openTask, newTask, startTaskWithSkill, openFile, dropResource, language, get initialized() {
     return initialized.value
   }, get navigationVersion() {
     return navigationVersion

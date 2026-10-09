@@ -25,9 +25,9 @@ import WorkbenchSlot from '@/shared/ui/contributions/WorkbenchSlot.vue'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import ResourceQuoteStrip from '@/shared/ui/selection/ResourceQuoteStrip.vue'
 import ChatQuoteStrip from '../quotes/ChatQuoteStrip.vue'
+import ChatSessionReferenceStrip from '../references/ChatSessionReferenceStrip.vue'
 import ChatComposerSourceMenu from './ChatComposerSourceMenu.vue'
 import ChatComposerSourcePicker from './ChatComposerSourcePicker.vue'
-import ChatSessionReferenceStrip from './ChatSessionReferenceStrip.vue'
 import ComposerResourceStrip from './ComposerResourceStrip.vue'
 
 const props = defineProps<DesktopChatComposerProps>()
@@ -64,6 +64,8 @@ const {
   deepSearch,
   setDeepSearch,
   navigateDirectory,
+  leaveSessions,
+  sessionScope,
   loadContextOptions,
   modelInputIssue,
   resourceStripResources,
@@ -93,7 +95,7 @@ const {
   isRunning: toRef(props, 'isRunning'),
   isSending: toRef(props, 'isSending'),
   language: toRef(props, 'language'),
-  loadContextOptions: (query, deepSearch) => props.loadContextOptions(query, deepSearch),
+  loadContextOptions: (query, deepSearch, scope) => props.loadContextOptions(query, deepSearch, scope),
   beginImport: (files, origin) => props.beginImport(files, origin),
   selectSource: source => props.selectSource(source),
   onSend: payload => emit('send', payload),
@@ -217,6 +219,9 @@ function captureDraft(): WorkbenchMenuSelection {
             :options="suggestionOptions"
             :directory="activeTrigger?.kind === 'mention' ? contextOptions.directory : undefined"
             :deep-search="deepSearch"
+            :session-scope="sessionScope"
+            :has-more-sessions="contextOptions.hasMoreSessions"
+            @leave-sessions="leaveSessions"
             @deep-search-change="setDeepSearch"
             @navigate="navigateDirectory"
             @highlight="activeSuggestionIndex = $event"
@@ -325,18 +330,27 @@ function captureDraft(): WorkbenchMenuSelection {
         </template>
         {{ modelInputIssueMessage || t('desktop.chat.queueAdd') }}
       </NTooltip>
-      <NButton
-        v-if="isRunning"
-        class="buddy-icon-button desktop-chat-composer__send-action"
-        secondary
-        type="error"
-        :aria-label="t('desktop.chat.stop')"
-        @click="emit('stop')"
-      >
-        <template #icon>
-          <DesktopIcon :component="Stop20Filled" />
+      <NTooltip v-if="isRunning">
+        <template #trigger>
+          <span class="desktop-chat-composer__send-trigger">
+            <NButton
+              class="buddy-icon-button desktop-chat-composer__send-action"
+              secondary
+              type="error"
+              :aria-label="isStopping ? t('desktop.chat.progressStopping') : t('desktop.chat.stop')"
+              :aria-busy="isStopping"
+              :disabled="isStopping"
+              :loading="isStopping"
+              @click="emit('stop')"
+            >
+              <template #icon>
+                <DesktopIcon :component="Stop20Filled" />
+              </template>
+            </NButton>
+          </span>
         </template>
-      </NButton>
+        {{ isStopping ? t('desktop.chat.progressStopping') : t('desktop.chat.stop') }}
+      </NTooltip>
       <NTooltip v-if="!queuesSubmission">
         <template #trigger>
           <span class="desktop-chat-composer__send-trigger">
@@ -462,6 +476,20 @@ function captureDraft(): WorkbenchMenuSelection {
     width: var(--buddy-composer-control-height);
     min-width: var(--buddy-composer-control-height);
     height: var(--buddy-composer-control-height);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &__send-action :deep(.n-base-loading__container) {
+      box-sizing: border-box;
+      width: 1em;
+      height: 1em;
+      border: 2px solid currentColor;
+      border-right-color: transparent;
+      border-radius: 50%;
+      animation: none;
+    }
+
+    &__send-action :deep(.n-base-loading__icon) { display: none; }
   }
 
   &__manage-skills {

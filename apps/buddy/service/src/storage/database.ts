@@ -18,6 +18,7 @@ export interface OpenBuddyDatabaseOptions {
 }
 
 const BUDDY_CURRENT_SCHEMA_COLUMNS = {
+  mcp_servers: ['tool_namespace', 'tool_exposure'],
   run_event_checkpoints: ['run_id', 'last_sequence', 'projection_version', 'file_fingerprint'],
   extension_invocations: ['id', 'extension_id', 'action_id', 'conversation_id', 'trigger', 'status', 'branch_id', 'source_message_id', 'extension_name', 'action_title', 'result_message'],
   usage_records: ['run_id', 'invocation_id'],
@@ -104,13 +105,13 @@ function migrateBuddyDatabase(database: DatabaseSync): void {
   if (currentVersion === 0 && hasApplicationTables(database))
     throw new BuddyDatabaseVersionError('unversioned schema')
 
+  if (currentVersion === 15)
+    completeModelServicesMigration(database)
   for (const migration of BUDDY_SCHEMA_MIGRATIONS) {
     if (migration.version <= currentVersion)
       continue
     applyMigration(database, migration)
   }
-  if (currentVersion === 15)
-    completeModelServicesMigration(database)
   assertCurrentSchema(database)
 }
 
@@ -126,10 +127,6 @@ function completeModelServicesMigration(database: DatabaseSync): void {
     ['capability_overrides_json', BUDDY_V15_CAPABILITY_OVERRIDES_SCHEMA_SQL],
   ] as const
   const missing = additions.filter(([column]) => !columns.has(column))
-  assertCurrentSchema(database, [
-    ...(hasInstances ? [] : ['builtin_provider_configs']),
-    ...(hasHeaders ? [] : ['provider_states']),
-  ], missing.map(([column]) => column))
   if (hasInstances && hasHeaders && !missing.length)
     return
   withTransaction(database, () => {
@@ -142,14 +139,12 @@ function completeModelServicesMigration(database: DatabaseSync): void {
   })
 }
 
-function assertCurrentSchema(database: DatabaseSync, excludedTables: readonly string[] = [], excludedModelColumns: readonly string[] = []): void {
+function assertCurrentSchema(database: DatabaseSync): void {
   for (const [table, requiredColumns] of Object.entries(BUDDY_CURRENT_SCHEMA_COLUMNS)) {
-    if (excludedTables.includes(table))
-      continue
     const columns = new Set((database.prepare(`PRAGMA table_info(${table})`).all() as Array<{
       name: string
     }>).map(column => column.name))
-    if (requiredColumns.some(column => !columns.has(column) && !(table === 'provider_model_states' && excludedModelColumns.includes(column))))
+    if (requiredColumns.some(column => !columns.has(column)))
       throw new BuddyDatabaseVersionError('incomplete schema version')
   }
   const triggers = new Set((database.prepare('SELECT name FROM sqlite_master WHERE type = \'trigger\'').all() as Array<{ name: string }>).map(row => row.name))

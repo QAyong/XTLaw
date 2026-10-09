@@ -6,7 +6,7 @@ export function projectReadResult(
   message: ToolResultMessage,
   options?: { omitImages?: boolean },
 ): ToolResultMessage {
-  if (message.toolName !== 'read' || message.isError)
+  if (!['read', 'lexora_session_read'].includes(message.toolName) || message.isError)
     return message
   const hasBinaryText = message.content.some(block => block.type === 'text' && isHistoricalBinaryRead(block.text))
   const hasImage = options?.omitImages && message.content.some(block => block.type === 'image')

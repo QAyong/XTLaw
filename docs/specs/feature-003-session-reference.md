@@ -1,9 +1,24 @@
 # Spec-003：引用历史会话并按需检索
 
 **日期：** 2026-09-28
-**状态：** 桌面端已实现，用户预览验收通过（2026-09-29）
+**状态：** 首版用户预览验收通过（2026-09-29）；新版引用已集成并通过定向自动验证（2026-10-09），新增桌面交互待手动验收
 **修订：** 2026-09-29 用户预览验收通过；自动保存不再重置行内引用位置。任一 Space 中的会话均可被显式引用；目标会话仍需存在且未删除；“复制会话引用”位于侧栏“更多”菜单的“重命名”上方
 **参考：** XTLaw；Pi 社区包 [`pi-session-ask`](https://github.com/lajarre/pi-session-ask)
+
+## 0. 当前实现与首版差异（2026-10-09）
+
+本节是当前实现说明；第 1–11 节保留首版设计和当时验收记录，涉及旧菜单、token 持久化和检索范围时以本节为准。
+
+- 菜单入口为“更多 → 复制 → 会话引用”；输入候选增加按空间分组的会话引用入口。引用标签可点击打开来源任务。
+- 行内位置通过独立的 `session_ref` 正文节点持久化，`sessionReferences` 仍保存引用 ID/title；不伪装成附件节点。旧版仅保存元数据的草稿/消息仍兼容，恢复时补齐引用 token。
+- 模型输入投影使用 `[SESSION:id]` 标记引用位置，并把历史内容明确标为不可信上下文；用户输入的伪造字面量标记会被转义。
+- 新主入口为 `lexora_session_search` 和 `lexora_session_read`：只针对本轮显式引用的会话，按需搜索/分页读取消息、邻近上下文、附件和交付物。`lexora_session_ask` 保留为兼容入口，其最多 12 条关键词片段限制不代表新版工具整体能力。
+- 附件/交付物读取仍走正常文件权限分类与执行前路径校验；会话或来源删除、猜测来源、文件变化及请求取消会阻断或撤销读取。引用不增加文件访问授权。
+- 保留跨 Space 显式引用、非空问题要求、冻结选区/网页元素引用及草稿关闭保护。不默认展开整段会话，也不让 renderer 或模型直接访问数据库文件。
+
+实现入口为 `service/src/conversations/SessionReferenceService.ts`、`sessionReferenceExtension.ts`、`sessionReferenceToolContract.ts`，以及 `src/modules/prompt-input/editor/chatComposerSessionEditing.ts`、`src/modules/tasks/widgets/references/`（均相对于 `apps/buddy/`）。
+
+新版自动验证覆盖授权、搜索/分页读取、来源撤销、composer 和冻结引用共存；全部集成验证为 62 个测试文件、617 通过、4 跳过，详见 [集成记录](../upstream-remaining-integration.md)。这不沿用首版用户预览验收来声称新版桌面交互已验收。
 
 ## 1. 背景
 

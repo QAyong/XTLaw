@@ -47,7 +47,7 @@ describe('useChatTurnExecution cancellation ownership', () => {
     expect(fixture.execution.isSending.value).toBe(false)
   })
 
-  it('accepts a fresh message immediately and starts it only after cancellation finishes', async () => {
+  it('accepts a fresh message during cancellation but requires explicit continuation', async () => {
     const f = createFixture()
     f.selectedModel.value = { modelId: 'model-a', providerId: 'provider-a' } as LocalRuntimeModelOption
     const snapshot = f.drafts.snapshot('conversation:conversation-a:branch-a')
@@ -71,6 +71,9 @@ describe('useChatTurnExecution cancellation ownership', () => {
     const cancelling = f.execution.cancelActiveRun()
     await f.execution.cancelActiveRun()
     expect(f.api.chat.cancel).toHaveBeenCalledTimes(1)
+    // The immediate-stop projection can already hide the run before cleanup settles.
+    f.projectedRuns.value = []
+    expect(f.execution.stoppingRunId.value).toBe(f.run.id)
 
     expect(await f.execution.send('pending input')).toBe(true)
     expect(f.api.chat.enqueue).toHaveBeenCalledTimes(1)
@@ -80,7 +83,10 @@ describe('useChatTurnExecution cancellation ownership', () => {
 
     f.pending.resolve({ ...f.run, status: 'cancelled' })
     await cancelling
-    await vi.waitFor(() => expect(f.api.chat.steerQueued).toHaveBeenCalledWith({ id: receipt.id, conversationId: receipt.conversationId, branchId: receipt.branchId }))
+    expect(f.api.chat.steerQueued).not.toHaveBeenCalled()
+    expect(f.execution.stoppingRunId.value).toBeNull()
+    await f.execution.steerQueuedMessage(receipt.id)
+    expect(f.api.chat.steerQueued).toHaveBeenCalledWith({ id: receipt.id, conversationId: receipt.conversationId, branchId: receipt.branchId })
   })
 
   it.each(['success', 'error'] as const)('ignores a late cancellation %s after its owner is disposed', async (outcome) => {
@@ -106,7 +112,7 @@ describe('useChatTurnExecution cancellation ownership', () => {
       const fixture = createFixture()
       const cancelling = fixture.execution.cancelActiveRun()
       fixture.navigate(navigation)
-      expect(fixture.execution.stoppingRunId.value).toBeNull()
+      expect(fixture.execution.stoppingRunId.value).toBe(navigation.startsWith('return-') ? fixture.run.id : null)
       fixture.pending.resolve({ ...fixture.run, status: 'cancelled' })
       await cancelling
 

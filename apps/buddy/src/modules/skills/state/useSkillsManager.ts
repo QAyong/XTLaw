@@ -33,7 +33,7 @@ export function useSkillsManager(context: SkillsManagerOptions, scope: Readonly<
     loading.value = true
     try {
       await context.ready
-      const result = await context.api.list(spaceId)
+      const result = await context.api.list(spaceId, true)
       if (!disposed && current === loadVersion) {
         catalog.value = result
         error.value = null

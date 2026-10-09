@@ -316,6 +316,60 @@ describe('skillService', () => {
     expect(second.revision).toBe(first.revision)
   })
 
+  it('lists metadata without reading supporting resources', async () => {
+    const fixture = await createFixture()
+    await writeSkill(fixture.global, 'bundle', 'many resources')
+    await mkdir(join(fixture.global, 'bundle', 'assets'), { recursive: true })
+    await writeFile(join(fixture.global, 'bundle', 'assets', 'data.bin'), 'payload')
+    const read = vi.spyOn(boundedFile, 'readBoundedFile')
+
+    const catalog = await fixture.service.list(null, true)
+
+    expect(catalog.skills.map(skill => skill.name)).toEqual(['bundle'])
+    expect(read.mock.calls.every(([, path]) => path.endsWith('SKILL.md'))).toBe(true)
+    expect(fixture.repository.list()).toEqual([])
+  })
+
+  it('manages a skill from a metadata listing, including one that is not registered yet', async () => {
+    const fixture = await createFixture()
+    await writeSkill(fixture.global, 'fresh', 'newly discovered')
+    const listed = (await fixture.service.list(null, true)).skills[0]!
+
+    const detail = await fixture.service.get(null, listed.id)
+    expect(detail.skill.name).toBe('fresh')
+
+    const disabled = await fixture.service.setEnabled({ spaceId: null, id: listed.id, revision: listed.revision, enabled: false })
+    expect(disabled.skills[0]).toMatchObject({ id: listed.id, enabled: false, status: 'disabled' })
+    expect(fixture.repository.list().find(record => record.id === listed.id)?.enabled).toBe(false)
+
+    const relisted = (await fixture.service.list(null, true)).skills[0]!
+    await writeSkill(fixture.global, 'fresh', 'changed after listing')
+    await expect(fixture.service.setEnabled({ spaceId: null, id: relisted.id, revision: relisted.revision, enabled: true })).rejects.toMatchObject({ code: 'SKILL_CHANGED' })
+  })
+
+  it('materializes a skill selected from a metadata listing', async () => {
+    const fixture = await createFixture()
+    await writeSkill(fixture.global, 'picked', 'selected from a lightweight listing')
+    const listed = (await fixture.service.list(null, true)).skills[0]!
+
+    const [selected] = await fixture.service.materializeForSpace(null, [{ id: listed.id, name: listed.name, revision: listed.revision }])
+
+    expect(selected?.body).toBe('# picked')
+    expect(selected?.reference.revision).toBe(listed.revision)
+  })
+
+  it('accepts either the metadata or the package revision when changing a listed skill', async () => {
+    const fixture = await createFixture()
+    await writeSkill(fixture.global, 'either', 'dual revision')
+    const full = (await fixture.service.list(null)).skills[0]!
+    const light = (await fixture.service.list(null, true)).skills[0]!
+    expect(full.revision).not.toBe(light.revision)
+
+    await fixture.service.setEnabled({ spaceId: null, id: full.id, revision: light.revision, enabled: false })
+    await fixture.service.setEnabled({ spaceId: null, id: full.id, revision: full.revision, enabled: true })
+    await expect(fixture.service.setEnabled({ spaceId: null, id: full.id, revision: 'unknown', enabled: false })).rejects.toMatchObject({ code: 'SKILL_CHANGED' })
+  })
+
   it('rejects a pending resolution when the Space directory binding is cleared', async () => {
     const fixture = await createFixture()
     await writeSkill(join(fixture.trustedSpace, '.agents', 'skills'), 'trusted', 'trusted skill')

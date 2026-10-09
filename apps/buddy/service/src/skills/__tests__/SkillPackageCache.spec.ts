@@ -15,6 +15,49 @@ afterEach(async () => {
 })
 
 describe('skillPackageCache', () => {
+  it('reads package files concurrently within the limit and keeps contents, modes and revision stable', async () => {
+    const f = await fixture()
+    for (let index = 0; index < 40; index++)
+      await writeFile(join(f.root, 'references', `file-${String(index).padStart(2, '0')}.md`), `content ${index}`)
+    const sequential = await readSkill(f.path, f.root)
+    const read = boundedFile.readBoundedFile
+    let active = 0
+    let peak = 0
+    vi.spyOn(boundedFile, 'readBoundedFile').mockImplementation(async (...args) => {
+      active++
+      peak = Math.max(peak, active)
+      try {
+        await new Promise(resolve => setTimeout(resolve, 5))
+        return await read(...args)
+      }
+      finally { active-- }
+    })
+
+    const loaded = await readSkill(f.path, f.root)
+
+    expect(peak).toBeGreaterThan(1)
+    expect(peak).toBeLessThanOrEqual(10)
+    expect(loaded.revision).toBe(sequential.revision)
+    expect([...loaded.files.keys()]).toEqual([...sequential.files.keys()])
+    expect(loaded.files.get('references/file-17.md')?.toString()).toBe('content 17')
+  })
+
+  it('stops starting reads and rejects when a concurrent read fails', async () => {
+    const f = await fixture()
+    for (let index = 0; index < 40; index++)
+      await writeFile(join(f.root, 'references', `file-${String(index).padStart(2, '0')}.md`), `content ${index}`)
+    const read = boundedFile.readBoundedFile
+    let calls = 0
+    vi.spyOn(boundedFile, 'readBoundedFile').mockImplementation(async (...args) => {
+      if (++calls === 3)
+        throw new Error('read failed')
+      return read(...args)
+    })
+
+    await expect(readSkill(f.path, f.root)).rejects.toThrow('read failed')
+    expect(calls).toBeLessThan(20)
+  })
+
   it.each(['metadata', 'package'] as const)('does not accept a late %s read after cache invalidation', async (mode) => {
     const f = await fixture()
     const entered = Promise.withResolvers<void>()

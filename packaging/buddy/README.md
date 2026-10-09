@@ -49,7 +49,7 @@ macOS 默认采用 ad-hoc 签名，不需要 Apple 签名凭据，但仍有上�
 
 ### 仅远端打包（不发布）
 
-在 Actions → **XTLaw Package Verification** → Run workflow 中选择 `master`，保持 `upload-artifacts` 开启。工作流构建并验证 Windows、Ubuntu 和 Arch 安装包，成功后可从本次运行的 Artifacts 下载；不会创建 tag 或 Release。macOS 使用 **XTLaw macOS Package Verification** 的手动入口，选择 `ad-hoc`，产物同样上传到 Actions。
+在 Actions → **XTLaw Package Verification** → Run workflow 中选择 `master`，默认 `platform=all`，保持 `upload-artifacts` 开启。工作流构建并验证 Windows、Ubuntu 和 Arch 安装包，成功后可从本次运行的 Artifacts 下载；不会创建 tag 或 Release。失败时可选择 `platform=windows` 或 `platform=linux` 仅重跑相关平台；正式发布仍要求所有平台构建通过。Windows 平台测试采用单 worker，以减少 PowerShell ACL 测试夹具启动的资源竞争，不跳过安全断言。macOS 使用 **XTLaw macOS Package Verification** 的手动入口，选择 `ad-hoc`，产物同样上传到 Actions。
 
 这条入口不占用发布标签，适合正式发布前的安装验收，也适用于目标标签已经被历史版本占用时先构建当前源码。Artifacts 默认保留 7 天，不等于永久公开下载的 Release 附件。
 

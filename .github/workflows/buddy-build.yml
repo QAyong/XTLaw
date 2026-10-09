@@ -3,6 +3,11 @@ name: XTLaw Package Verification
 on:
   workflow_dispatch:
     inputs:
+      platform:
+        description: 选择远端打包平台（失败时可仅重跑 Windows 或 Linux）
+        type: choice
+        options: [all, windows, linux]
+        default: all
       upload-artifacts:
         description: 上传验证后的安装包到 Actions（不创建 tag 或 Release）
         required: false
@@ -10,6 +15,11 @@ on:
         default: true
   workflow_call:
     inputs:
+      platform:
+        description: Package all platforms, windows only, or linux only
+        required: false
+        type: string
+        default: all
       upload-artifacts:
         description: Upload verified packages for downstream release jobs
         required: false
@@ -21,6 +31,7 @@ permissions:
 
 jobs:
   build-ubuntu:
+    if: inputs.platform != 'windows'
     name: Ubuntu package (${{ matrix.target }})
     strategy:
       fail-fast: false
@@ -107,6 +118,7 @@ jobs:
           retention-days: 7
 
   build-arch:
+    if: inputs.platform != 'windows'
     name: Arch package
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -242,6 +254,7 @@ jobs:
           retention-days: 7
 
   build-windows:
+    if: inputs.platform != 'linux'
     name: Windows package (${{ matrix.target }})
     strategy:
       fail-fast: false
@@ -294,7 +307,9 @@ jobs:
         run: pnpm --filter @uselexora/lexora-buddy package:windows
 
       - name: Test platform runtime
-        run: pnpm --filter @uselexora/lexora-buddy test:platform
+        # ACL fixtures launch PowerShell; serialize workers to avoid CPU-bound
+        # startup timeouts on hosted runners without weakening assertions.
+        run: pnpm --filter @uselexora/lexora-buddy exec vitest run --project=platform --maxWorkers=1
 
       - name: Install built NSIS package
         id: install

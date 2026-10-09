@@ -8,6 +8,7 @@ import { readBoundedFile } from '../../../platform/filesystem/boundedFile'
 export const MAX_SKILL_BYTES = 256 * 1024
 export const MAX_SKILL_PACKAGE_BYTES = 64 * 1024 * 1024
 export const MAX_SKILL_FILES = 5000
+const SKILL_READ_CONCURRENCY = 10
 
 export class SkillError extends Error {
   readonly code: 'SKILL_NOT_FOUND' | 'SKILL_CHANGED' | 'SKILL_INVALID' | 'SKILL_TOO_LARGE' | 'SKILL_BUSY' | 'SKILL_READ_ONLY' | 'SKILL_INSTALL_FAILED' | 'SKILL_SOURCE_UNAVAILABLE' | 'SKILL_PREVIEW_EXPIRED' | 'SKILL_NAME_COLLISION'
@@ -77,8 +78,7 @@ export async function discoverSkillFiles(root: string, allowLooseFiles = false, 
 
 export async function readSkillFiles(root: string) {
   const canonical = await realpath(root)
-  const files = new Map<string, Buffer>()
-  const modes = new Map<string, number>()
+  const pending: Array<{ target: string, name: string, size: number, mode: number }> = []
   let bytes = 0
   let count = 0
   async function visit(path: string, depth: number) {
@@ -98,17 +98,38 @@ export async function readSkillFiles(root: string) {
       }
       const metadata = await lstat(target)
       bytes += metadata.size
-      if (bytes > MAX_SKILL_PACKAGE_BYTES || files.size >= MAX_SKILL_FILES)
+      if (bytes > MAX_SKILL_PACKAGE_BYTES || pending.length >= MAX_SKILL_FILES)
         throw new SkillError('SKILL_TOO_LARGE')
-      const content = await readBoundedFile(canonical, target, MAX_SKILL_PACKAGE_BYTES)
-      if (content.length !== metadata.size)
-        throw new SkillError('SKILL_CHANGED')
-      const name = relative(canonical, target).split(sep).join('/')
-      files.set(name, content)
-      modes.set(name, (metadata.mode & 0o111) ? 0o700 : 0o600)
+      pending.push({ target, name: relative(canonical, target).split(sep).join('/'), size: metadata.size, mode: (metadata.mode & 0o111) ? 0o700 : 0o600 })
     }
   }
   await visit(canonical, 0)
+  // Every file read is a separate bounded (native) read, so reads run concurrently once all limits have passed.
+  const contents: Buffer[] = Array.from({ length: pending.length })
+  let next = 0
+  let failed = false
+  await Promise.all(Array.from({ length: Math.min(SKILL_READ_CONCURRENCY, pending.length) }, async () => {
+    while (!failed && next < pending.length) {
+      const index = next++
+      const item = pending[index]!
+      try {
+        const content = await readBoundedFile(canonical, item.target, MAX_SKILL_PACKAGE_BYTES)
+        if (content.length !== item.size)
+          throw new SkillError('SKILL_CHANGED')
+        contents[index] = content
+      }
+      catch (error) {
+        failed = true
+        throw error
+      }
+    }
+  }))
+  const files = new Map<string, Buffer>()
+  const modes = new Map<string, number>()
+  pending.forEach((item, index) => {
+    files.set(item.name, contents[index]!)
+    modes.set(item.name, item.mode)
+  })
   return { files, modes }
 }
 

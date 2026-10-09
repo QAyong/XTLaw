@@ -12,6 +12,7 @@ import {
   prependDesktopTaskPinnedItem,
   removeDesktopTaskPinnedItem,
   reorderDesktopTaskPinnedItems,
+  resolveSpaceActivities,
   resolveTaskIndexProjection,
 } from '@/modules/tasks/widgets/task-index/taskPinnedItems'
 import { useTaskIndexManagement } from './useTaskIndexManagement'
@@ -49,6 +50,7 @@ export function useTaskIndexController(options: UseTaskIndexControllerOptions) {
   const pinnedRows = computed(() => projection.value.pinnedRows)
   const spaceRows = computed(() => projection.value.spaceRows)
   const globalTasks = computed(() => projection.value.globalTasks)
+  const spaceActivities = computed(() => resolveSpaceActivities(options.tasks.value))
 
   useIntervalFn(() => {
     relativeTimeNow.value = Date.now()
@@ -153,6 +155,7 @@ export function useTaskIndexController(options: UseTaskIndexControllerOptions) {
     recordScrollAnchor,
     scrollAnchors,
     setSectionExpanded,
+    spaceActivities,
     spaceRows,
     relativeTimeNow,
     toggleSpace,

@@ -204,33 +204,33 @@ export class SkillService {
   setEnabled(input: { spaceId: string | null, id: string, enabled: boolean, revision: string }) {
     input = copyEventSnapshot(input)
     return this.#mutate(async () => {
-      const skill = await this.#currentSkill(input.spaceId, input.id)
+      const skill = await this.#currentSkill(input.spaceId, input.id, input.revision)
       if (skill.managedBy === 'directory' || skill.spaceId !== input.spaceId)
         throw new SkillError('SKILL_READ_ONLY')
-      if (skill.revision !== input.revision)
+      if (!isCurrentRevision(skill, input.revision))
         throw new SkillError('SKILL_CHANGED')
       const record = this.#record(input.id)
       if (record.enabled === input.enabled)
-        return (await this.#resolve(input.spaceId)).catalog
+        return (await this.#resolve(input.spaceId, true)).catalog
       this.#options.repository.save({ ...record, enabled: input.enabled, updatedAt: new Date().toISOString() })
       this.#installationCommitted(input.spaceId, 'enabled', [record.id])
-      return this.#list(input.spaceId)
+      return this.#list(input.spaceId, true)
     })
   }
 
   remove(input: { spaceId: string | null, id: string, revision: string }) {
     input = copyEventSnapshot(input)
     return this.#mutate(async () => {
-      const skill = await this.#currentSkill(input.spaceId, input.id)
+      const skill = await this.#currentSkill(input.spaceId, input.id, input.revision)
       if (!skill.canRemove)
         throw new SkillError('SKILL_READ_ONLY')
-      if (skill.revision !== input.revision)
+      if (!isCurrentRevision(skill, input.revision))
         throw new SkillError('SKILL_CHANGED')
       this.#assertIdle(skill.spaceId)
       this.#options.repository.remove(input.id)
       this.#installationCommitted(input.spaceId, 'removed', [input.id])
       await this.#cleanup()
-      return this.#list(input.spaceId)
+      return this.#list(input.spaceId, true)
     })
   }
 
@@ -395,7 +395,7 @@ export class SkillService {
         this.#cleanupChanged({ path: dirname(dirname(record.path)), spaceId: scope, installationId: record.id }, 'cancelled')
       await this.#cleanup()
       await this.discard(input.previewId).catch(() => {})
-      return this.#list(scope)
+      return this.#list(scope, true)
     })
   }
 
@@ -698,10 +698,12 @@ export class SkillService {
     return { candidates, catalog }
   }
 
-  async #currentSkill(spaceId: string | null, id: string) {
+  async #currentSkill(spaceId: string | null, id: string, revision: string) {
     this.#invalidateResolutions(spaceId)
-    const { catalog } = await this.#resolve(spaceId)
-    const skill = catalog.skills.find(skill => skill.id === id)
+    let skill = (await this.#resolve(spaceId, true)).catalog.skills.find(skill => skill.id === id)
+    // A full resolution is needed to register a skill discovered on disk, or to match a package revision from a full listing.
+    if (skill && ((skill.managedBy !== 'directory' && !this.#options.repository.list().some(record => record.id === id)) || !isCurrentRevision(skill, revision)))
+      skill = (await this.#resolve(spaceId)).catalog.skills.find(skill => skill.id === id)
     if (!skill)
       throw new SkillError('SKILL_NOT_FOUND')
     return skill
@@ -824,6 +826,11 @@ export class SkillService {
   #event(spaceId: string | null, detail: SkillEventDetails): SkillEvent {
     return copyEventSnapshot({ ...detail, sourceId: this.sourceId, sequence: ++this.#sequence, generation: this.#currentGeneration(spaceId), spaceId })
   }
+}
+
+/** Lightweight listings expose the SKILL.md revision; full resolutions expose the package revision. Either identifies the listed skill. */
+function isCurrentRevision(skill: LocalSkill, revision: string): boolean {
+  return revision === skill.revision || revision === skill.referenceRevision
 }
 
 function reference(

@@ -106,7 +106,10 @@ export class SkillInspector {
   async #target(spaceId: string | null, id: string): Promise<InspectionTarget> {
     const scopeKey = this.#scopeKey(spaceId)
     let snapshot = this.#catalogs.get(spaceId)
-    if (!snapshot || snapshot.scopeKey !== scopeKey || !snapshot.catalog.skills.some(skill => skill.id === id)) {
+    const listed = snapshot?.catalog.skills.find(skill => skill.id === id)
+    // Lightweight listings can show a newly discovered skill before a full resolution registers it.
+    const unregistered = !!listed && listed.managedBy !== 'directory' && !this.#options.repository.list().some(record => record.id === id)
+    if (!snapshot || snapshot.scopeKey !== scopeKey || !listed || unregistered) {
       await this.#options.refresh(spaceId)
       snapshot = this.#catalogs.get(spaceId)
     }

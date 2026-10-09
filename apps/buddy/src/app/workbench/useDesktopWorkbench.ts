@@ -113,7 +113,7 @@ export function useDesktopWorkbench(options: { api: LexoraDesktopApi, events: Ap
   }
   async function startTaskWithSkill(name: string, prompt: string): Promise<void> {
     const version = navigationVersion
-    const catalog = await api.localChat.skills.list(null)
+    const catalog = await api.localChat.skills.list(null, true)
     if (version !== navigationVersion)
       return
     const skill = catalog.skills.find(skill => skill.name === name && isSkillAvailable(skill))

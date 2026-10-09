@@ -1,4 +1,4 @@
-name: Lexora CI
+name: XTLaw CI
 
 on:
   pull_request:

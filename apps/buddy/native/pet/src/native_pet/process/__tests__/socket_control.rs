@@ -115,7 +115,7 @@ fn rejects_relative_native_pet_control_socket_override() {
 
     assert!(error
         .to_string()
-        .contains("LEXORA_BUDDY_PET_SOCKET must be an absolute path"));
+        .contains("XTLAW_BUDDY_PET_SOCKET must be an absolute path"));
 
     match previous_socket_path {
         Some(value) => std::env::set_var(super::NATIVE_PET_CONTROL_SOCKET_ENV, value),

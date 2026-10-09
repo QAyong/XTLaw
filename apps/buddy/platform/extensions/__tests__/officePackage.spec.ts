@@ -14,7 +14,7 @@ it('builds the real DOCX migration plugin under the 64 MiB contract without exec
   const result = await buildExtensionPackage({ archive: input }, async () => {
     throw new Error('Compiled package must not execute a compiler')
   }, new AbortController().signal)
-  expect(result).toMatchObject({ ok: true, id: 'pd2ec0b9018e6402d8ada6873f7fa8721.office', name: 'Office DOCX', author: 'XTLaw官方', version: '0.1.1' })
+  expect(result).toMatchObject({ ok: true, id: 'pd2ec0b9018e6402d8ada6873f7fa8721.office', name: 'Office DOCX', author: 'XTLaw官方', version: '0.1.2' })
   if (!result.ok)
     throw new Error(result.code)
   const bytes = Buffer.from(result.archive, 'base64')

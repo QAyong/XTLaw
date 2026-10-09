@@ -11,7 +11,8 @@ fn main() -> ExitCode {
         };
     }
     if std::env::args().nth(1).as_deref() == Some("--mutate-entry") {
-        return match lexora_buddy_host::file_mutation::run(io::stdin().lock(), io::stdout().lock()) {
+        return match lexora_buddy_host::file_mutation::run(io::stdin().lock(), io::stdout().lock())
+        {
             Ok(()) => ExitCode::SUCCESS,
             Err(error) => {
                 eprintln!("{error}");

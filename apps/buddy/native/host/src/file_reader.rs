@@ -64,10 +64,10 @@ pub fn read_bounded_file(request: &ReadRequest) -> Result<Vec<u8>, ReadError> {
     if request.max_bytes > MAX_FILE_BYTES {
         return Err(ReadError::OutputLimit);
     }
-    if let Some(range) = &request.range {
-        if range.offset > request.max_bytes || range.length == 0 || range.length > 128 * 1024 {
-            return Err(ReadError::OutputLimit);
-        }
+    if let Some(range) = &request.range
+        && (range.offset > request.max_bytes || range.length == 0 || range.length > 128 * 1024)
+    {
+        return Err(ReadError::OutputLimit);
     }
     #[cfg(windows)]
     return windows::read(request);
@@ -79,7 +79,11 @@ pub fn read_bounded_file(request: &ReadRequest) -> Result<Vec<u8>, ReadError> {
     Err(ReadError::Unavailable)
 }
 
-fn read_contents(mut file: impl Read + Seek, metadata: std::fs::Metadata, request: &ReadRequest) -> Result<Vec<u8>, ReadError> {
+fn read_contents(
+    mut file: impl Read + Seek,
+    metadata: std::fs::Metadata,
+    request: &ReadRequest,
+) -> Result<Vec<u8>, ReadError> {
     if !metadata.is_file() {
         return Err(ReadError::ReadFailed);
     }
@@ -91,15 +95,20 @@ fn read_contents(mut file: impl Read + Seek, metadata: std::fs::Metadata, reques
         if range.offset > metadata.len() {
             return Err(ReadError::ReadFailed);
         }
-        file.seek(SeekFrom::Start(range.offset)).map_err(|_| ReadError::ReadFailed)?;
+        file.seek(SeekFrom::Start(range.offset))
+            .map_err(|_| ReadError::ReadFailed)?;
         bytes.extend_from_slice(&metadata.len().to_le_bytes());
         let length = range.length.min(metadata.len() - range.offset);
-        file.take(length).read_to_end(&mut bytes).map_err(|_| ReadError::ReadFailed)?;
+        file.take(length)
+            .read_to_end(&mut bytes)
+            .map_err(|_| ReadError::ReadFailed)?;
         if bytes.len() as u64 != length + 8 {
             return Err(ReadError::ReadFailed);
         }
     } else {
-        file.take(request.max_bytes + 1).read_to_end(&mut bytes).map_err(|_| ReadError::ReadFailed)?;
+        file.take(request.max_bytes + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|_| ReadError::ReadFailed)?;
         if bytes.len() as u64 > request.max_bytes {
             return Err(ReadError::OutputLimit);
         }

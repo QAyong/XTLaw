@@ -296,29 +296,6 @@ pub(super) fn valid_profile(name: &str) -> bool {
         .is_some_and(|id| id.len() == 32 && id.bytes().all(|b| b.is_ascii_hexdigit()))
 }
 
-#[cfg(test)]
-mod isolation_tests {
-    #[test]
-    fn profiles_and_filter_keys_belong_only_to_xtlaw() {
-        let id = "0123456789abcdef0123456789abcdef";
-        assert!(super::valid_profile(&format!("XTLaw.Sandbox.{id}")));
-        assert!(!super::valid_profile(&format!("Lexora.Buddy.Sandbox.{id}")));
-        let key = |guid: windows_sys::core::GUID| (guid.data1, guid.data2, guid.data3, guid.data4);
-        assert_ne!(
-            key(super::PROVIDER),
-            key(windows_sys::core::GUID::from_u128(
-                0x56b83290_4c62_4a13_9920_248a5301ec0d
-            ))
-        );
-        assert_ne!(
-            key(super::SUBLAYER),
-            key(windows_sys::core::GUID::from_u128(
-                0xbd1ce7af_258b_49a1_871e_f20169b605ce
-            ))
-        );
-    }
-}
-
 fn existing(code: u32) -> io::Result<()> {
     if code == FWP_E_ALREADY_EXISTS as u32 {
         Ok(())
@@ -381,5 +358,28 @@ impl Drop for LoopbackMemory {
                 HeapFree(heap, 0, self.entries.cast());
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod isolation_tests {
+    #[test]
+    fn profiles_and_filter_keys_belong_only_to_xtlaw() {
+        let id = "0123456789abcdef0123456789abcdef";
+        assert!(super::valid_profile(&format!("XTLaw.Sandbox.{id}")));
+        assert!(!super::valid_profile(&format!("Lexora.Buddy.Sandbox.{id}")));
+        let key = |guid: windows_sys::core::GUID| (guid.data1, guid.data2, guid.data3, guid.data4);
+        assert_ne!(
+            key(super::PROVIDER),
+            key(windows_sys::core::GUID::from_u128(
+                0x56b83290_4c62_4a13_9920_248a5301ec0d
+            ))
+        );
+        assert_ne!(
+            key(super::SUBLAYER),
+            key(windows_sys::core::GUID::from_u128(
+                0xbd1ce7af_258b_49a1_871e_f20169b605ce
+            ))
+        );
     }
 }

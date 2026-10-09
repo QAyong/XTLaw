@@ -52,7 +52,7 @@ pub enum EntryKind {
     Directory,
 }
 
-pub fn run(mut input: impl BufRead, mut output: impl Write) -> Result<(), MutationError> {
+pub fn run(mut input: impl BufRead, output: impl Write) -> Result<(), MutationError> {
     let mut request = String::new();
     Read::take(input.by_ref(), 65537)
         .read_line(&mut request)
@@ -64,6 +64,7 @@ pub fn run(mut input: impl BufRead, mut output: impl Write) -> Result<(), Mutati
         serde_json::from_str(&request).map_err(|_| MutationError::Failed)?;
     #[cfg(windows)]
     {
+        let mut output = output;
         let prepared = windows::prepare(request)?;
         // Ancestors and source stay pinned while the service rechecks the live grant.
         writeln!(output, "ready").map_err(|_| MutationError::Failed)?;

@@ -7,6 +7,7 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { strToU8, zipSync } from 'fflate'
 import { afterEach, expect, it, vi } from 'vitest'
+import buddyVersion from '../../../buddy.version.json'
 import { BUNDLED_EXTENSION_CATALOG_URL } from '../../../shared/extensions/extensionCatalog'
 import { BundledExtensionCatalog, preinstallBundledExtensions } from '../BundledExtensionCatalog'
 import { ExtensionCatalogService } from '../ExtensionCatalogService'
@@ -125,11 +126,11 @@ it('packages and preinstalls the actual Office plugin with its view, icon and li
   const script = fileURLToPath(new URL('../../../../../packaging/buddy/release/prepare-bundled-extensions.mjs', import.meta.url))
   execFileSync(process.execPath, [script, '--output', directory], { stdio: 'pipe' })
   const provider = new BundledExtensionCatalog(directory)
-  const store = new ExtensionPackageStore(join(root, 'actual-installation'), '0.9.4')
+  const store = new ExtensionPackageStore(join(root, 'actual-installation'), buddyVersion.version)
   const service = new ExtensionService(store, { ...ports, bundled: provider })
   cleanup.push(() => service.dispose())
   const [status] = await service.list()
-  expect(status).toMatchObject({ enabled: true, compatible: true, manifest: { name: 'Office DOCX', author: 'XTLaw官方', version: '0.1.1', apiVersion: 4 } })
+  expect(status).toMatchObject({ enabled: true, compatible: true, manifest: { name: 'Office DOCX', author: 'XTLaw官方', version: '0.1.2', apiVersion: 4 } })
   const pkg = store.installed[status!.manifest.id]!.current
   for (const file of ['view.js', 'icon.svg', 'LICENSE', 'LICENSE-OFL.txt', 'LICENSE-UNICODE.txt', 'provenance.json'])
     expect((await store.asset(pkg, file)).length).toBeGreaterThan(0)

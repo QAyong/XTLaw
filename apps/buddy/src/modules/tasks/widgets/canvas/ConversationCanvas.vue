@@ -4,7 +4,7 @@ import type { BuddyLocale } from '@/i18n/buddyI18n'
 import { getTeleport } from '@antv/x6-vue-shape'
 import { computed, provide, shallowRef, useTemplateRef } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
-import { conversationCanvasActions } from './conversationCanvasContext'
+import { conversationCanvasActions, conversationCanvasRendering } from './conversationCanvasContext'
 import ConversationCanvasToolbar from './ConversationCanvasToolbar.vue'
 import { useConversationCanvas } from './useConversationCanvas'
 
@@ -44,6 +44,11 @@ const canvas = useConversationCanvas({
   minimapVisible,
   canMutate: computed(() => props.canMutate),
   conversationId: computed(() => props.conversationId),
+})
+
+provide(conversationCanvasRendering, {
+  simplified: canvas.simplified,
+  interacting: canvas.interacting,
 })
 
 provide(conversationCanvasActions, {

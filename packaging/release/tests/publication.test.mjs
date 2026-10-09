@@ -7,8 +7,9 @@ import process from 'node:process'
 // eslint-disable-next-line test/no-import-node-test -- Release validation runs before workspace dependencies are installed.
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
+import { readBuddyProductMetadata } from '../../buddy/release/release-metadata.mjs'
 import { validateXTLawPublication } from '../publication.mjs'
-import { createLexoraVersionSources, readLexoraVersionState } from '../version.mjs'
+import { createLexoraVersionSources, readLexoraVersionState, validateLexoraReleaseTag } from '../version.mjs'
 
 const root = fileURLToPath(new URL('../../../', import.meta.url))
 const commit = 'a'.repeat(40)
@@ -24,7 +25,7 @@ function fixture(version = '0.1.0') {
       packagePrivacy: { 'package.json': true, 'apps/buddy/package.json': true, 'apps/website/package.json': true },
       versionlessPackageVersions: { 'apps/website/package.json': undefined },
     },
-    metadata: { version, releaseTag: `v${version}`, releaseRepo: 'QAyong/XTLaw' },
+    metadata: { version, releaseTag: `xtlaw-v${version}`, releaseRepo: 'QAyong/XTLaw' },
     repository: 'QAyong/XTLaw',
     version,
     commit,
@@ -33,11 +34,18 @@ function fixture(version = '0.1.0') {
 }
 
 test('permits the independent 0.1.0 snapshot without a historical upgrade transition', () => {
-  assert.deepEqual(validateXTLawPublication(fixture()), { commit, tag: 'v0.1.0', version: '0.1.0' })
+  assert.deepEqual(validateXTLawPublication(fixture()), { commit, tag: 'xtlaw-v0.1.0', version: '0.1.0' })
 })
 
 test('permits a subsequent synchronized XTLaw release snapshot', () => {
-  assert.equal(validateXTLawPublication(fixture('0.1.1')).tag, 'v0.1.1')
+  assert.equal(validateXTLawPublication(fixture('0.1.1')).tag, 'xtlaw-v0.1.1')
+})
+
+test('uses the independent namespace for artifacts and rejects inherited version tags', () => {
+  const metadata = readBuddyProductMetadata(root)
+  assert.equal(metadata.releaseTag, `xtlaw-v${metadata.version}`)
+  assert.equal(validateLexoraReleaseTag(metadata.releaseTag, metadata.version).version, metadata.version)
+  assert.throws(() => validateLexoraReleaseTag(`v${metadata.version}`, metadata.version), /xtlaw-vX.Y.Z/)
 })
 
 test('rejects publishing to the upstream or another fork', () => {
@@ -110,7 +118,7 @@ test('CLI writes the exact snapshot identity and refuses implicit or non-master 
     const run = (path, overrides = {}) => spawnSync(process.execPath, ['packaging/release/publication.mjs', '--github-output', path], { cwd: root, env: { ...env, ...overrides }, encoding: 'utf8' })
     const valid = run(output)
     assert.equal(valid.status, 0, valid.stderr)
-    assert.equal(readFileSync(output, 'utf8'), `commit=${head}\ntag=v${version}\nversion=${version}\n`)
+    assert.equal(readFileSync(output, 'utf8'), `commit=${head}\ntag=xtlaw-v${version}\nversion=${version}\n`)
     for (const overrides of [{ GITHUB_EVENT_NAME: 'push' }, { GITHUB_REF: 'refs/heads/other' }]) {
       const refused = join(directory, 'refused')
       assert.notEqual(run(refused, overrides).status, 0)

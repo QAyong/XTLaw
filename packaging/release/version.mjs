@@ -8,7 +8,7 @@ import { writeError, writeOutput } from '../shared/cli-output.mjs'
 
 const repoRoot = resolve(import.meta.dirname, '../..')
 const versionPattern = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/
-const releaseTagPattern = /^v((?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))$/
+const releaseTagPattern = /^xtlaw-v((?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))$/
 const applicationPackagePaths = {
   buddy: 'apps/buddy/package.json',
 }
@@ -108,7 +108,7 @@ export function validateLexoraVersionState(state) {
 export function validateLexoraReleaseTag(tag, productVersion) {
   const version = releaseTagPattern.exec(tag)?.[1]
   if (!version)
-    throw new Error(`XTLaw release tag must use vX.Y.Z format: ${tag}`)
+    throw new Error(`XTLaw release tag must use xtlaw-vX.Y.Z format: ${tag}`)
   if (version !== productVersion)
     throw new Error(`XTLaw release tag ${tag} does not match product version ${productVersion}`)
   return { tag, version }
@@ -340,7 +340,7 @@ function main() {
     return
   }
   throw new Error(
-    'usage: version.mjs --set <x.y.z> | --check | --check-next <x.y.z> | --check-tag <vX.Y.Z>',
+    'usage: version.mjs --set <x.y.z> | --check | --check-next <x.y.z> | --check-tag <xtlaw-vX.Y.Z>',
   )
 }
 

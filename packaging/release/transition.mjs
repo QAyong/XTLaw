@@ -117,7 +117,7 @@ export function checkLexoraReleaseTransition(before, after, cwd = repoRoot) {
 
   return {
     commit: afterCommit,
-    tag: `v${afterSnapshot.state.productVersion}`,
+    tag: `xtlaw-v${afterSnapshot.state.productVersion}`,
     version: afterSnapshot.state.productVersion,
   }
 }

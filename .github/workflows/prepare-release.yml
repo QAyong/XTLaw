@@ -46,7 +46,7 @@ jobs:
           node packaging/release/version.mjs --check-next "$VERSION"
 
           release_branch="codex/release-v$VERSION"
-          release_tag="v$VERSION"
+          release_tag="xtlaw-v$VERSION"
 
           existing_release_pull_request="$(
             gh pr list \
@@ -110,7 +110,7 @@ jobs:
           node packaging/release/transition.mjs --check "$BASE_SHA" "$HEAD_SHA"
 
           echo "branch=$release_branch" >> "$GITHUB_OUTPUT"
-          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=xtlaw-v$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Push release branch
         env:

@@ -17,7 +17,7 @@ interface GithubRelease {
   body?: string
 }
 
-const RELEASE_TAG_PREFIX = 'v'
+const RELEASE_TAG_PREFIX = 'xtlaw-v'
 
 export class DesktopUpdateCheckError extends Error {
   readonly code = 'UPDATE_CHECK_FAILED'

@@ -23,7 +23,7 @@ export function validateXTLawPublication({ state, metadata, repository, version,
     throw new Error(`XTLaw releases must target ${productRepository}`)
   if (!commitPattern.test(commit) || commit !== head)
     throw new Error('Publication checkout does not match the requested commit')
-  const { tag } = validateLexoraReleaseTag(`v${version}`, state.productVersion)
+  const { tag } = validateLexoraReleaseTag(`xtlaw-v${version}`, state.productVersion)
   if (metadata.version !== version || metadata.releaseTag !== tag)
     throw new Error('Publication metadata does not match the requested version')
   return { commit, tag, version }

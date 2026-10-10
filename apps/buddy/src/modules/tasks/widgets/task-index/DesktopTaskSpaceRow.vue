@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { LocalConversationSummary } from '@buddy-shared/conversation/conversationApi'
 import type { LocalSpace } from '@buddy-shared/spaces/spaceApi'
 
 import type { DropdownOption } from 'naive-ui'
@@ -6,11 +7,13 @@ import type { BuddyLocale } from '@/i18n/buddyI18n'
 import type { DesktopTaskPinnedDropPosition } from '@/modules/tasks/widgets/task-index/taskPinnedItems'
 import type { TaskSpaceMenuAction } from '@/modules/tasks/widgets/task-index/useTaskIndexManagement'
 import {
+  ApprovalsApp20Regular,
   ChevronDown16Regular,
   ChevronRight16Regular,
   Edit20Regular,
   FolderOpen20Regular,
   MoreHorizontal20Regular,
+  SpinnerIos20Regular,
 } from '@vicons/fluent'
 import { NDropdown } from 'naive-ui'
 import { computed, h, useId, useTemplateRef } from 'vue'
@@ -32,6 +35,7 @@ const props = defineProps<{
   space: LocalSpace
   reorderable?: boolean
   reorderTarget?: boolean
+  activity?: LocalConversationSummary['activity']
 }>()
 const emit = defineEmits<{
   dragEnd: []
@@ -78,6 +82,14 @@ const menuThemeOverrides = {
   optionIconPrefixWidthSmall: '28px',
   optionSuffixWidthSmall: '12px',
 }
+const showActivity = computed(() => !props.expanded
+  && (props.activity === 'running' || props.activity === 'awaiting_approval'))
+const activityIcon = computed(() => props.activity === 'awaiting_approval'
+  ? ApprovalsApp20Regular
+  : SpinnerIos20Regular)
+const activityLabel = computed(() => props.activity === 'awaiting_approval'
+  ? t('activity.approval')
+  : t('run.status.running'))
 const pinLabel = computed(() => props.pinMode === 'pin'
   ? t('desktop.tasks.pin')
   : t('desktop.tasks.unpin'))
@@ -166,6 +178,18 @@ useTaskHistoryDrag({
         <DesktopIcon :name="pinMode === 'pin' ? 'windowPin' : 'pinOff'" :size="16" />
       </button>
     </div>
+    <span
+      v-if="showActivity"
+      class="desktop-task-space-row__activity"
+      :class="{
+        'is-awaiting-approval': activity === 'awaiting_approval',
+        'is-running': activity === 'running',
+      }"
+      role="status"
+      :aria-label="activityLabel"
+    >
+      <DesktopIcon :component="activityIcon" :size="16" />
+    </span>
   </div>
 </template>
 
@@ -271,6 +295,44 @@ button {
 .desktop-task-space-row:has(:focus-visible) .desktop-task-space-row__actions {
   opacity: 1;
   pointer-events: auto;
+}
+
+.desktop-task-space-row__activity {
+  position: absolute;
+  top: 50%;
+  right: var(--buddy-task-sidebar-action-inset);
+  display: grid;
+  width: var(--buddy-task-sidebar-action-size);
+  height: var(--buddy-task-sidebar-action-size);
+  place-items: center;
+  transform: translateY(-50%);
+  color: var(--buddy-text-muted);
+  pointer-events: none;
+
+  &.is-running .n-icon {
+    animation: desktop-task-space-row-spin 1s linear infinite;
+  }
+
+  &.is-awaiting-approval {
+    color: var(--buddy-status-warning-text);
+  }
+}
+
+.desktop-task-space-row:hover .desktop-task-space-row__activity,
+.desktop-task-space-row:has(:focus-visible) .desktop-task-space-row__activity {
+  opacity: 0;
+}
+
+@keyframes desktop-task-space-row-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .desktop-task-space-row__activity.is-running .n-icon {
+    animation: none;
+  }
 }
 
 .desktop-task-space-row__action {

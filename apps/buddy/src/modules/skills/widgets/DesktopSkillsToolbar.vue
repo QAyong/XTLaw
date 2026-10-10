@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { LocalSpace } from '@buddy-shared/spaces/spaceApi'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
-import { Search20Regular } from '@vicons/fluent'
+import { ArrowClockwise20Regular, Search20Regular } from '@vicons/fluent'
 import { NButton, NInput, NSelect } from 'naive-ui'
 import { computed, nextTick, shallowRef, useTemplateRef } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
@@ -13,8 +13,9 @@ const props = defineProps<{
   spaceId: string | null
   spaces: readonly LocalSpace[]
   disabled: boolean
+  refreshing: boolean
 }>()
-const emit = defineEmits<{ category: [value: 'global' | 'space'], space: [id: string], install: [] }>()
+const emit = defineEmits<{ category: [value: 'global' | 'space'], space: [id: string], install: [], create: [], refresh: [] }>()
 const search = defineModel<string>('search', { required: true })
 const { t } = useBuddyI18n(() => props.language)
 const spaceOptions = computed(() => props.spaces.filter(space => !space.revokedAt).map(space => ({ value: space.id, label: space.name })))
@@ -61,8 +62,16 @@ async function closeSearch() {
           <DesktopIcon :component="Search20Regular" />
         </template>
       </NButton>
-      <NButton type="primary" :disabled="disabled || !hasScope" @click="emit('install')">
+      <NButton quaternary :disabled="disabled || !hasScope" :loading="refreshing" :aria-label="t('desktop.skills.refresh')" :title="t('desktop.skills.refresh')" @click="emit('refresh')">
+        <template #icon>
+          <DesktopIcon :component="ArrowClockwise20Regular" />
+        </template>
+      </NButton>
+      <NButton :disabled="disabled || !hasScope" @click="emit('install')">
         {{ t('desktop.skills.install') }}
+      </NButton>
+      <NButton type="primary" :disabled="disabled || !hasScope" @click="emit('create')">
+        {{ t('desktop.skills.create') }}
       </NButton>
     </div>
   </div>

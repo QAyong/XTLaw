@@ -145,6 +145,23 @@ export function getDesktopTaskPinnedItemKey(item: DesktopTaskPinnedItem): string
   return `${item.kind}:${item.id}`
 }
 
+export function resolveSpaceActivities(
+  tasks: ReadonlyArray<LocalConversationSummary>,
+): ReadonlyMap<string, LocalConversationSummary['activity']> {
+  const activities = new Map<string, LocalConversationSummary['activity']>()
+  for (const task of tasks) {
+    if (!task.spaceId || task.activity === 'idle')
+      continue
+    const current = activities.get(task.spaceId)
+    // Waiting for approval needs the user, so it outranks running.
+    if (current === 'awaiting_approval')
+      continue
+    if (current === undefined || task.activity === 'awaiting_approval')
+      activities.set(task.spaceId, task.activity)
+  }
+  return activities
+}
+
 function createSpaceRows(
   space: LocalSpace,
   tasks: ReadonlyArray<LocalConversationSummary>,

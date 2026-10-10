@@ -113,7 +113,7 @@ async function afterDetailClosed() {
 
 <template>
   <div class="skills-manager">
-    <DesktopSkillsToolbar v-model:search="search" :language="language" :category="category" :space-id="scope" :spaces="context.spaces.value" :disabled="busy || importOpen || creating" @category="changeCategory" @space="router.replace(desktopRouteLocations.skills($event))" @install="openImport()" @create="create" />
+    <DesktopSkillsToolbar v-model:search="search" :language="language" :category="category" :space-id="scope" :spaces="context.spaces.value" :disabled="busy || importOpen || creating" :refreshing="loading" @category="changeCategory" @space="router.replace(desktopRouteLocations.skills($event))" @install="openImport()" @create="create" @refresh="manager.load(true)" />
     <NAlert v-if="error && !importOpen" type="error" :show-icon="false">
       {{ error }}
     </NAlert>

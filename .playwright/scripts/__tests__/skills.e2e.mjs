@@ -1,0 +1,33 @@
+import fs from 'node:fs/promises'
+import path from 'node:path'
+import { expect, test } from '../fixtures/electron.mjs'
+
+test('fresh skills open details and preserve enablement across restart', async ({ buddy }) => {
+  const instance = await buddy.createInstance('skills-management')
+  const source = path.join(instance.home, 'buddy', 'agent', 'skills', 'fresh-workflow')
+  await fs.mkdir(source, { recursive: true })
+  await fs.writeFile(path.join(source, 'SKILL.md'), '---\nname: fresh-workflow\ndescription: A newly discovered workflow\n---\n\nFresh instructions.\n')
+  let desktop = await instance.launch()
+  await desktop.page.evaluate(() => window.location.hash = '/settings/skills')
+  let row = desktop.page.locator('[data-skill-name="fresh-workflow"]')
+  await expect(row).toBeVisible()
+  await row.getByRole('button', { name: /fresh-workflow/ }).click()
+  await expect(desktop.page.locator('.skill-detail__document')).toContainText('Fresh instructions.')
+  await desktop.page.keyboard.press('Escape')
+  await expect(desktop.page.locator('.skill-detail-drawer')).not.toBeVisible()
+  await fs.writeFile(path.join(source, 'SKILL.md'), '---\nname: fresh-workflow\ndescription: Updated workflow metadata\n---\n\nFresh instructions.\n')
+  await expect(row).toContainText('Updated workflow metadata')
+  await desktop.page.getByRole('button', { name: '刷新技能', exact: true }).click()
+  await expect(row).toContainText('Updated workflow metadata')
+  await row.getByRole('switch').click()
+  await expect(row.getByRole('switch')).not.toBeChecked()
+  expect(desktop.diagnostics.console.filter(item => item.type === 'pageerror')).toEqual([])
+  await instance.stop()
+  desktop = await instance.launch()
+  await desktop.page.evaluate(() => window.location.hash = '/settings/skills')
+  row = desktop.page.locator('[data-skill-name="fresh-workflow"]')
+  await expect(row.getByRole('switch')).not.toBeChecked()
+  await row.getByRole('switch').click()
+  await expect(row.getByRole('switch')).toBeChecked()
+  expect(desktop.diagnostics.console.filter(item => item.type === 'pageerror')).toEqual([])
+})

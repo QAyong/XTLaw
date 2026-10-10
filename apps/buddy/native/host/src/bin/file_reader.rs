@@ -10,7 +10,12 @@ fn main() -> ExitCode {
             }
         };
     }
-    match lexora_buddy_host::file_reader::run(io::stdin().lock(), io::stdout().lock()) {
+    let result = if std::env::args().nth(1).as_deref() == Some("--batch") {
+        lexora_buddy_host::file_reader::run_batch(io::stdin().lock(), io::stdout().lock())
+    } else {
+        lexora_buddy_host::file_reader::run(io::stdin().lock(), io::stdout().lock())
+    };
+    match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
             eprintln!("{error}");

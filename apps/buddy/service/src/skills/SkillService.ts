@@ -6,7 +6,8 @@ import type { SkillInstallation, SkillRepository } from '../storage/skillReposit
 import type { SpaceRepository } from '../storage/spaceRepository'
 import type { SkillEvent, SkillEventDetails } from './skillEvents'
 import type { LoadedSkill } from './skillFiles'
-import type { ResolvedSkill } from './SkillPackageCache'
+import type { ResolvedSkill, SkillMetadata } from './SkillPackageCache'
+import type { SkillSourceVersion } from './SkillSourceCache'
 import { createHash, randomUUID } from 'node:crypto'
 import { mkdir, readdir, realpath, rm } from 'node:fs/promises'
 import { basename, dirname, join, relative } from 'node:path'
@@ -19,6 +20,7 @@ import { discoverSkillFiles, readSkill, requireSkillPath, SkillError, skillIdent
 import { prepareSkillSource, writeSkillFiles } from './skillImport'
 import { SkillInspector } from './SkillInspector'
 import { SkillPackageCache } from './SkillPackageCache'
+import { SkillSourceCache } from './SkillSourceCache'
 
 export interface BuddySkillResolution {
   readonly diagnostics: LocalSkillCatalog['diagnostics']
@@ -49,7 +51,7 @@ interface SkillServiceOptions {
 interface Candidate {
   allowedRoot: string | null
   entry: LocalSkill
-  loaded: ResolvedSkill | null
+  loaded: SkillMetadata | null
   priority: number
   referenceRevision: string
 }
@@ -57,6 +59,7 @@ interface Candidate {
 interface ResolvedCatalog {
   readonly candidates: readonly Readonly<Candidate>[]
   readonly catalog: LocalSkillCatalog
+  readonly sources: readonly SkillSourceVersion[]
 }
 
 interface ImportPreview {
@@ -71,6 +74,7 @@ export class SkillService {
   readonly #previews = new Map<string, ImportPreview>()
   readonly #inspector: SkillInspector
   readonly #packages = new SkillPackageCache()
+  readonly #sources = new SkillSourceCache(this.#packages, () => this.#sourceChanged())
   readonly #resolutions = new Map<string, Promise<ResolvedCatalog>>()
   readonly #resolved = new Map<string, { key: string, result: ResolvedCatalog }>()
   readonly #accepted = new Map<string, string>()
@@ -85,12 +89,13 @@ export class SkillService {
   #sequence = 0
   #disposed = false
   #quiescing = false
+  #refreshTimer: ReturnType<typeof setTimeout> | undefined
   readonly #operations = new Set<Promise<unknown>>()
 
   constructor(options: SkillServiceOptions) {
     this.#options = options
     this.#events = new Emitter(options.onListenerError ?? (() => console.error('SKILL_OBSERVER_FAILED')))
-    this.#inspector = new SkillInspector({ ...options, refresh: spaceId => this.list(spaceId) })
+    this.#inspector = new SkillInspector({ ...options, refresh: spaceId => this.list(spaceId, true) })
   }
 
   readonly onDidChange: Event<SkillEvent> = (listener, options) => this.#events.event(listener, options)
@@ -119,15 +124,20 @@ export class SkillService {
     }
   }
 
-  list(spaceId: string | null, metadataOnly = false): Promise<LocalSkillCatalog> {
+  list(spaceId: string | null, metadataOnly = false, forceReload = false): Promise<LocalSkillCatalog> {
     if (this.#quiescing)
       return Promise.reject(new SkillError('SKILL_CHANGED'))
+    if (forceReload) {
+      this.#sources.clear()
+      this.#invalidateResolutions(null, true)
+    }
     return this.#list(spaceId, metadataOnly)
   }
 
   #list(spaceId: string | null, metadataOnly = false): Promise<LocalSkillCatalog> {
     return this.#track(async () => {
-      this.#invalidateResolutions(spaceId)
+      if (!metadataOnly)
+        this.#invalidateResolutions(spaceId)
       return (await this.#resolve(spaceId, metadataOnly)).catalog
     })
   }
@@ -156,13 +166,17 @@ export class SkillService {
         throw new SkillError('SKILL_NOT_FOUND')
       let loaded: ResolvedSkill
       try {
+        if (await realpath(candidate.allowedRoot) !== candidate.allowedRoot)
+          throw new SkillError('SKILL_CHANGED')
         loaded = await this.#packages.load(candidate.entry.filePath, candidate.allowedRoot)
       }
       catch (error) {
+        this.#sources.clear()
         this.#invalidateResolutions(spaceId)
         throw error
       }
       if (loaded.referenceRevision !== candidate.referenceRevision) {
+        this.#sources.clear()
         this.#invalidateResolutions(spaceId)
         throw new SkillError('SKILL_CHANGED')
       }
@@ -205,33 +219,25 @@ export class SkillService {
   setEnabled(input: { spaceId: string | null, id: string, enabled: boolean, revision: string }) {
     input = copyEventSnapshot(input)
     return this.#mutate(async () => {
-      const skill = await this.#currentSkill(input.spaceId, input.id)
-      if (skill.managedBy === 'directory' || skill.spaceId !== input.spaceId)
-        throw new SkillError('SKILL_READ_ONLY')
-      if (skill.revision !== input.revision)
-        throw new SkillError('SKILL_CHANGED')
+      await this.#currentSkill(input.spaceId, input.id, input.revision, 'enable')
       const record = this.#record(input.id)
       if (record.enabled === input.enabled)
-        return (await this.#resolve(input.spaceId)).catalog
+        return (await this.#resolve(input.spaceId, true)).catalog
       this.#options.repository.save({ ...record, enabled: input.enabled, updatedAt: new Date().toISOString() })
       this.#installationCommitted(input.spaceId, 'enabled', [record.id])
-      return this.#list(input.spaceId)
+      return this.#list(input.spaceId, true)
     })
   }
 
   remove(input: { spaceId: string | null, id: string, revision: string }) {
     input = copyEventSnapshot(input)
     return this.#mutate(async () => {
-      const skill = await this.#currentSkill(input.spaceId, input.id)
-      if (!skill.canRemove)
-        throw new SkillError('SKILL_READ_ONLY')
-      if (skill.revision !== input.revision)
-        throw new SkillError('SKILL_CHANGED')
+      const skill = await this.#currentSkill(input.spaceId, input.id, input.revision, 'remove')
       this.#assertIdle(skill.spaceId)
       this.#options.repository.remove(input.id)
       this.#installationCommitted(input.spaceId, 'removed', [input.id])
       await this.#cleanup()
-      return this.#list(input.spaceId)
+      return this.#list(input.spaceId, true)
     })
   }
 
@@ -406,7 +412,7 @@ export class SkillService {
         this.#cleanupChanged({ path: dirname(dirname(record.path)), spaceId: scope, installationId: record.id }, 'cancelled')
       await this.#cleanup()
       await this.discard(input.previewId).catch(() => {})
-      return this.#list(scope)
+      return this.#list(scope, true)
     })
   }
 
@@ -427,6 +433,8 @@ export class SkillService {
 
   async quiesce(): Promise<void> {
     this.#quiescing = true
+    clearTimeout(this.#refreshTimer)
+    this.#sources.stopWatching()
     await this.whenIdle()
   }
 
@@ -435,6 +443,7 @@ export class SkillService {
     this.#disposed = true
     this.#globalGeneration = ++this.#generation
     this.#resolved.clear()
+    this.#sources.dispose()
     this.#packages.clear()
     await Promise.all([...this.#previews.keys()].map(id => this.discard(id)))
     this.#events.dispose()
@@ -450,7 +459,7 @@ export class SkillService {
     const generation = this.#currentGeneration(spaceId)
     const key = JSON.stringify([state, generation])
     const cached = this.#resolved.get(cacheId)
-    if (cached?.key === key && await this.#isCatalogCurrent(cached.result)) {
+    if (cached?.key === key && this.#sources.isCurrent(cached.result.sources)) {
       if (this.#resolutionKey(spaceId, lightweight) !== state)
         throw new SkillError('SKILL_CHANGED')
       if (!this.#disposed && this.#currentGeneration(spaceId) === generation)
@@ -502,31 +511,29 @@ export class SkillService {
     return Math.max(this.#globalGeneration, this.#scopeGenerations.get(spaceId) ?? 0)
   }
 
-  async #isCatalogCurrent(result: ResolvedCatalog): Promise<boolean> {
-    for (const candidate of result.candidates) {
-      if (!candidate.loaded || !candidate.allowedRoot)
-        continue
-      try {
-        if (await realpath(candidate.allowedRoot) !== candidate.allowedRoot)
-          return false
-        const document = await this.#packages.loadMetadata(candidate.entry.filePath, candidate.allowedRoot)
-        if (document.path !== candidate.loaded.path || document.referenceRevision !== candidate.referenceRevision)
-          return false
-      }
-      catch { return false }
-    }
-    return true
+  #sourceChanged() {
+    if (this.#quiescing || this.#disposed)
+      return
+    this.#invalidateResolutions(null, true)
+    clearTimeout(this.#refreshTimer)
+    this.#refreshTimer = setTimeout(() => {
+      this.#refreshTimer = undefined
+      for (const scope of this.#resources.keys())
+        void this.#track(() => this.#resolve(scope, true)).catch(() => {})
+    }, 30)
+    this.#refreshTimer.unref()
   }
 
   #resolutionKey(spaceId: string | null, lightweight: boolean) {
     const space = this.#requireSpace(spaceId)
-    return JSON.stringify([spaceId, JSON.stringify(space?.primaryDirectory ?? null), this.#options.repository.list().filter(record => record.spaceId === null || record.spaceId === spaceId), lightweight])
+    return JSON.stringify([spaceId, space?.primaryDirectory ?? null, this.#options.repository.list().filter(record => record.spaceId === null || record.spaceId === spaceId), this.#options.repository.hasActiveRuns(null), spaceId && this.#options.repository.hasActiveRuns(spaceId), lightweight])
   }
 
   async #resolveCatalog(spaceId: string | null, lightweight = false) {
     const space = this.#requireSpace(spaceId)
     const diagnostics: Array<{ code: 'SKILL_INVALID' | 'SKILL_NAME_COLLISION' | 'SKILL_PATH_OUTSIDE_SOURCE' | 'SKILL_SOURCE_UNREADABLE', message: string, path?: string }> = []
     const candidates: Candidate[] = []
+    const sourceVersions: SkillSourceVersion[] = []
     const legacyRoot = join(this.#options.agentDirectory, 'skills')
     await mkdir(legacyRoot, { recursive: true, mode: 0o700 })
     const sources = [
@@ -536,16 +543,23 @@ export class SkillService {
         ? ['.agents', '.pi'].map(name => ({ root: join(space.primaryDirectory!.canonicalRoot, name, 'skills'), allowedRoot: space.primaryDirectory!.canonicalRoot, kind: 'directory' as const }))
         : []),
     ]
-    const discovered = new Map<string, ResolvedSkill>()
+    const discovered = new Map<string, SkillMetadata>()
     const discoveredRoots = new Map<string, string>()
+    const existingRecords = new Map(this.#options.repository.list().map(record => [record.id, record]))
     for (const source of sources) {
       try {
-        const root = await requireSkillPath(source.allowedRoot, source.root)
-        for (const path of await discoverSkillFiles(root, source.kind !== 'application', path => diagnostics.push({ code: 'SKILL_PATH_OUTSIDE_SOURCE', message: 'Skill source is outside the allowed folder or cannot be read.', path }))) {
+        const snapshot = lightweight ? await this.#sources.load({ ...source, allowLooseFiles: source.kind !== 'application' }) : null
+        if (snapshot) {
+          sourceVersions.push({ key: snapshot.key, generation: snapshot.generation })
+          diagnostics.push(...snapshot.diagnostics)
+        }
+        const root = snapshot?.root ?? await requireSkillPath(source.allowedRoot, source.root)
+        const entries = snapshot?.files ?? (await discoverSkillFiles(root, source.kind !== 'application', path => diagnostics.push({ code: 'SKILL_PATH_OUTSIDE_SOURCE', message: 'Skill source is outside the allowed folder or cannot be read.', path }))).map(path => ({ path, skill: null }))
+        for (const { path, skill } of entries) {
           try {
-            const loaded = lightweight
-              ? await this.#packages.loadMetadata(path, root)
-              : await this.#packages.load(path, root)
+            const loaded = lightweight ? skill : await this.#packages.load(path, root)
+            if (!loaded)
+              throw new SkillError('SKILL_INVALID')
             const id = skillIdentity(source.kind === 'application' ? `application:${loaded.name}` : `${source.kind}:${path}`)
             if (source.kind === 'directory') {
               candidates.push({ allowedRoot: root, loaded, priority: 1, referenceRevision: loaded.referenceRevision, entry: {
@@ -568,9 +582,8 @@ export class SkillService {
               } })
             }
             else {
-              const records = this.#options.repository.list()
-              const existing = records.find(record => record.id === id)
-              if (!existing && records.some(record => record.name === loaded.name && record.managedBy === source.kind && record.spaceId === null))
+              const existing = existingRecords.get(id)
+              if (!existing && [...existingRecords.values()].some(record => record.name === loaded.name && record.managedBy === source.kind && record.spaceId === null))
                 continue
               const now = new Date().toISOString()
               if (!lightweight && (!existing || existing.path !== loaded.path || existing.revision !== loaded.revision)) {
@@ -651,17 +664,30 @@ export class SkillService {
         diagnostics.push({ code: error instanceof SkillError ? 'SKILL_PATH_OUTSIDE_SOURCE' : 'SKILL_SOURCE_UNREADABLE', message: 'A skill source could not be read within its allowed directory.', path: source.root })
       }
     }
-    for (const record of this.#options.repository.list().filter(record => !record.spaceId || record.spaceId === spaceId)) {
+    const records = this.#options.repository.list().filter(record => !record.spaceId || record.spaceId === spaceId)
+    const installedDocuments = new Map<string, SkillMetadata | null>()
+    if (lightweight) {
+      for (const scope of new Set(records.filter(record => record.managedBy === 'user').map(record => record.spaceId))) {
+        const snapshot = await this.#sources.load({ root: this.#options.paths.skillsDirectory(scope), allowedRoot: this.#options.paths.root, files: records.filter(record => record.managedBy === 'user' && record.spaceId === scope).map(record => record.path).sort() })
+        sourceVersions.push({ key: snapshot.key, generation: snapshot.generation })
+        for (const item of snapshot.files)
+          installedDocuments.set(item.path, item.skill)
+      }
+    }
+    for (const record of records) {
       let loaded = discovered.get(record.id) ?? null
       let allowedRoot = discoveredRoots.get(record.id) ?? null
       if (record.managedBy === 'user') {
         try {
           allowedRoot = this.#options.paths.skillsDirectory(record.spaceId)
-          await requireSkillPath(this.#options.paths.root, record.path)
-          loaded = lightweight
-            ? await this.#packages.loadMetadata(record.path, allowedRoot)
-            : await this.#packages.load(record.path, allowedRoot)
-          if (loaded.name !== record.name)
+          if (lightweight) {
+            loaded = installedDocuments.get(record.path) ?? null
+          }
+          else {
+            await requireSkillPath(this.#options.paths.root, record.path)
+            loaded = await this.#packages.load(record.path, allowedRoot)
+          }
+          if (loaded?.name !== record.name)
             loaded = null
         }
         catch {
@@ -703,18 +729,69 @@ export class SkillService {
       }
       else { winners.set(candidate.entry.name, candidate.entry.id) }
     }
+    const installations = new Map(this.#options.repository.list().map(record => [record.id, record]))
+    for (const candidate of candidates) {
+      const { entry } = candidate
+      const installation = installations.get(entry.id)
+      const managementRevision = createHash('sha256').update(JSON.stringify([entry.id, entry.filePath, candidate.referenceRevision, installation?.revision ?? null])).digest('hex')
+      candidate.entry = { ...entry, managementRevision }
+    }
     const skills = [...candidates].sort((a, b) => a.entry.name.localeCompare(b.entry.name) || a.priority - b.priority || a.entry.id.localeCompare(b.entry.id)).map(candidate => candidate.entry)
-    const revision = createHash('sha256').update(JSON.stringify(skills.map(({ id, revision, status, enabled }) => ({ id, revision, status, enabled })))).digest('hex')
+    const revision = createHash('sha256').update(JSON.stringify(skills.map(({ id, revision, managementRevision, status, enabled }) => ({ id, revision, managementRevision, status, enabled })))).digest('hex')
     const catalog = { skills, diagnostics, revision }
-    return { candidates, catalog }
+    return { candidates, catalog, sources: sourceVersions }
   }
 
-  async #currentSkill(spaceId: string | null, id: string) {
+  async #currentSkill(spaceId: string | null, id: string, revision: string, action: 'enable' | 'remove') {
     this.#invalidateResolutions(spaceId)
-    const { catalog } = await this.#resolve(spaceId)
-    const skill = catalog.skills.find(skill => skill.id === id)
-    if (!skill)
+    const { candidates } = await this.#resolve(spaceId, true)
+    const candidate = candidates.find(item => item.entry.id === id)
+    if (!candidate)
       throw new SkillError('SKILL_NOT_FOUND')
+    const { entry: skill } = candidate
+    if (skill.managedBy === 'directory' || skill.spaceId !== spaceId || (action === 'remove' && !skill.canRemove))
+      throw new SkillError('SKILL_READ_ONLY')
+    if (candidate.loaded && candidate.allowedRoot) {
+      const state = this.#resolutionKey(spaceId, true)
+      if (await realpath(candidate.allowedRoot) !== candidate.allowedRoot)
+        throw new SkillError('SKILL_CHANGED')
+      const document = await this.#packages.loadMetadata(skill.filePath, candidate.allowedRoot)
+      if (document.path !== candidate.loaded.path || document.referenceRevision !== candidate.referenceRevision || this.#resolutionKey(spaceId, true) !== state) {
+        this.#sources.clear()
+        this.#invalidateResolutions(null, true)
+        throw new SkillError('SKILL_CHANGED')
+      }
+    }
+    const record = this.#options.repository.list().find(record => record.id === id)
+    const matchesManagement = revision === skill.managementRevision
+    let loaded: ResolvedSkill | null = null
+    if ((!matchesManagement || !record) && candidate.loaded && candidate.allowedRoot) {
+      const state = this.#resolutionKey(spaceId, true)
+      loaded = await this.#packages.load(skill.filePath, candidate.allowedRoot)
+      if (loaded.referenceRevision !== candidate.referenceRevision || this.#resolutionKey(spaceId, true) !== state)
+        throw new SkillError('SKILL_CHANGED')
+    }
+    if (!matchesManagement && revision !== (loaded?.revision ?? skill.revision))
+      throw new SkillError('SKILL_CHANGED')
+    if (!record) {
+      if (!loaded || !skill.origin || skill.managedBy === 'user')
+        throw new SkillError('SKILL_NOT_FOUND')
+      const now = new Date().toISOString()
+      this.#options.repository.save({
+        id,
+        name: loaded.name,
+        description: loaded.description,
+        path: loaded.path,
+        spaceId: null,
+        managedBy: skill.managedBy,
+        enabled: skill.enabled,
+        origin: skill.origin,
+        revision: loaded.revision,
+        createdAt: now,
+        updatedAt: now,
+      })
+      this.#installationCommitted(null, 'discovered', [id])
+    }
     return skill
   }
 
@@ -852,7 +929,7 @@ export function formatBuddySkillPrompt(skill: BuddyMaterializedSkill): string {
 
 export function registerSkillServiceRpc(rpc: RuntimeRequestRegistrar, service: SkillService): () => void {
   const stops = [
-    registerRuntimeRequest(rpc, skillsRpc.list, input => service.list(input.spaceId, input.metadataOnly)),
+    registerRuntimeRequest(rpc, skillsRpc.list, input => service.list(input.spaceId, input.metadataOnly, input.forceReload)),
     registerRuntimeRequest(rpc, skillsRpc.get, input => service.get(input.spaceId, input.id)),
     registerRuntimeRequest(rpc, skillsRpc.listFiles, input => service.listFiles(input)),
     registerRuntimeRequest(rpc, skillsRpc.readFile, input => service.readFile(input)),

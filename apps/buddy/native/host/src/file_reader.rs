@@ -11,6 +11,8 @@ mod windows;
 
 pub const MAX_FILE_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_REQUEST_BYTES: u64 = 256 * 1024;
+const MAX_BATCH_FILES: usize = 64;
+const MAX_BATCH_BYTES: u64 = 16 * 1024 * 1024;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ReadError {
@@ -50,6 +52,51 @@ pub fn run(input: impl Read, mut output: impl Write) -> Result<(), ReadError> {
     let request = read_request(input)?;
     let bytes = read_bounded_file(&request)?;
     output.write_all(&bytes).map_err(|_| ReadError::ReadFailed)
+}
+
+pub fn run_batch(input: impl Read, mut output: impl Write) -> Result<(), ReadError> {
+    let mut bytes = Vec::new();
+    input
+        .take(MAX_REQUEST_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|_| ReadError::ReadFailed)?;
+    if bytes.len() as u64 > MAX_REQUEST_BYTES {
+        return Err(ReadError::ReadFailed);
+    }
+    let requests: Vec<ReadRequest> =
+        serde_json::from_slice(&bytes).map_err(|_| ReadError::ReadFailed)?;
+    if requests.len() > MAX_BATCH_FILES
+        || requests
+            .iter()
+            .any(|request| request.max_bytes > MAX_BATCH_BYTES)
+        || requests
+            .iter()
+            .map(|request| request.max_bytes)
+            .sum::<u64>()
+            > MAX_BATCH_BYTES
+    {
+        return Err(ReadError::OutputLimit);
+    }
+    for request in &requests {
+        let (status, contents) = match read_bounded_file(request) {
+            Ok(contents) => (0, contents),
+            Err(ReadError::ReadFailed) => (1, Vec::new()),
+            Err(ReadError::OutputLimit) => (2, Vec::new()),
+            Err(ReadError::Unavailable) => (3, Vec::new()),
+        };
+        // Each frame is status:u8, length:u32be, followed by the file bytes.
+        let length = u32::try_from(contents.len()).map_err(|_| ReadError::OutputLimit)?;
+        output
+            .write_all(&[status])
+            .map_err(|_| ReadError::ReadFailed)?;
+        output
+            .write_all(&length.to_be_bytes())
+            .map_err(|_| ReadError::ReadFailed)?;
+        output
+            .write_all(&contents)
+            .map_err(|_| ReadError::ReadFailed)?;
+    }
+    Ok(())
 }
 
 pub fn read_bounded_file(request: &ReadRequest) -> Result<Vec<u8>, ReadError> {

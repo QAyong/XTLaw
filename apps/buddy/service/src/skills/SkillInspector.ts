@@ -24,6 +24,7 @@ interface InspectionTarget {
   scopeKey: string
   root: string
   filePath: string
+  installationPath: string | null
 }
 
 export class SkillInspector {
@@ -106,7 +107,8 @@ export class SkillInspector {
   async #target(spaceId: string | null, id: string): Promise<InspectionTarget> {
     const scopeKey = this.#scopeKey(spaceId)
     let snapshot = this.#catalogs.get(spaceId)
-    if (!snapshot || snapshot.scopeKey !== scopeKey || !snapshot.catalog.skills.some(skill => skill.id === id)) {
+    const listed = snapshot?.catalog.skills.find(skill => skill.id === id)
+    if (!snapshot || snapshot.scopeKey !== scopeKey || !listed) {
       await this.#options.refresh(spaceId)
       snapshot = this.#catalogs.get(spaceId)
     }
@@ -117,6 +119,7 @@ export class SkillInspector {
       throw new SkillError('SKILL_CHANGED')
     let skill = entry
     let allowedRoot: string | undefined
+    let installationPath: string | null = null
     if (entry.managedBy === 'directory') {
       const directory = spaceId ? this.#options.spaces.findById(spaceId)?.primaryDirectory : null
       if (!directory?.resourcesTrustedAt || directory.revokedAt)
@@ -127,23 +130,28 @@ export class SkillInspector {
     }
     else {
       const record = this.#options.repository.list().find(record => record.id === id)
-      if (!record || (record.spaceId && record.spaceId !== spaceId))
+      if ((!record && entry.managedBy === 'user') || (record?.spaceId && record.spaceId !== spaceId))
         throw new SkillError('SKILL_NOT_FOUND')
-      skill = { ...entry, filePath: record.path, revision: entry.filePath === record.path ? entry.revision : record.revision, enabled: record.enabled, busy: this.#options.repository.hasActiveRuns(record.spaceId) }
-      if (record.managedBy === 'user') {
-        await requireSkillPath(this.#options.paths.root, record.path)
-        allowedRoot = this.#options.paths.skillsDirectory(record.spaceId)
+      if (record) {
+        if (record.path !== entry.filePath)
+          throw new SkillError('SKILL_CHANGED')
+        installationPath = record.path
+        skill = { ...entry, enabled: record.enabled, busy: this.#options.repository.hasActiveRuns(record.spaceId) }
       }
-      else if (record.managedBy === 'external') {
+      if (skill.managedBy === 'user') {
+        await requireSkillPath(this.#options.paths.root, skill.filePath)
+        allowedRoot = this.#options.paths.skillsDirectory(skill.spaceId)
+      }
+      else if (skill.managedBy === 'external') {
         allowedRoot = await requireSkillPath(this.#options.agentDirectory, join(this.#options.agentDirectory, 'skills'))
       }
-      else { allowedRoot = this.#options.builtinSkillsDirectories?.find(root => isWithin(root, record.path)) }
+      else { allowedRoot = this.#options.builtinSkillsDirectories?.find(root => isWithin(root, skill.filePath)) }
     }
     if (!allowedRoot)
       throw new SkillError('SKILL_NOT_FOUND')
     const root = await requireSkillPath(allowedRoot, dirname(skill.filePath))
     const filePath = await requireSkillPath(root, skill.filePath)
-    const target = { skill, spaceId, scopeKey, filePath, root }
+    const target = { skill, spaceId, scopeKey, filePath, root, installationPath }
     this.#assertCurrent(target)
     return target
   }
@@ -160,7 +168,7 @@ export class SkillInspector {
       throw new SkillError('SKILL_CHANGED')
     if (target.skill.managedBy !== 'directory') {
       const record = this.#options.repository.list().find(record => record.id === target.skill.id)
-      if (!record || record.path !== target.skill.filePath)
+      if ((record?.path ?? null) !== target.installationPath)
         throw new SkillError('SKILL_CHANGED')
     }
   }

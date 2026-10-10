@@ -33,6 +33,7 @@ export const skillSchema = z.object({
   shadowedBy: idSchema.nullable(),
   revision: z.string(),
   referenceRevision: z.string().optional(),
+  managementRevision: z.string().optional(),
   filePath: z.string(),
   origin: skillOriginSchema.nullable(),
   canUpdate: z.boolean(),
@@ -84,7 +85,7 @@ export type SkillInstallPreview = DeepReadonly<z.infer<typeof previewSchema>>
 export const skillReviewRequested = { method: 'skills.reviewRequested', params: previewSchema } as const
 
 export const skillsRequestSchemas = {
-  skillScope: scopeSchema.extend({ metadataOnly: z.boolean().optional() }),
+  skillScope: scopeSchema.extend({ metadataOnly: z.boolean().optional(), forceReload: z.boolean().optional() }),
   target: targetSchema,
   file: fileTargetSchema,
   directory: directoryRequestSchema,

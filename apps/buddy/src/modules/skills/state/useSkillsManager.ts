@@ -25,7 +25,7 @@ export function useSkillsManager(context: SkillsManagerOptions, scope: Readonly<
   let detailVersion = 0
   let disposed = false
 
-  async function load() {
+  async function load(forceReload = false) {
     if (!enabled.value)
       return
     const current = ++loadVersion
@@ -33,7 +33,7 @@ export function useSkillsManager(context: SkillsManagerOptions, scope: Readonly<
     loading.value = true
     try {
       await context.ready
-      const result = await context.api.list(spaceId)
+      const result = await context.api.list(spaceId, true, forceReload)
       if (!disposed && current === loadVersion) {
         catalog.value = result
         error.value = null
@@ -136,12 +136,12 @@ export function useSkillsManager(context: SkillsManagerOptions, scope: Readonly<
 
   function setEnabled(skill: LocalSkill, enabled: boolean) {
     const spaceId = scope.value
-    return mutate(() => context.api.setEnabled({ spaceId, id: skill.id, revision: skill.revision, enabled }), result => catalog.value = result)
+    return mutate(() => context.api.setEnabled({ spaceId, id: skill.id, revision: skill.managementRevision ?? skill.revision, enabled }), result => catalog.value = result)
   }
 
   function remove(skill: LocalSkill) {
     const spaceId = scope.value
-    return mutate(() => context.api.remove({ spaceId, id: skill.id, revision: skill.revision }), (result) => {
+    return mutate(() => context.api.remove({ spaceId, id: skill.id, revision: skill.managementRevision ?? skill.revision }), (result) => {
       catalog.value = result
       closeDetail()
     })
@@ -171,7 +171,7 @@ export function useSkillsManager(context: SkillsManagerOptions, scope: Readonly<
     if (event.sequence <= lastSequence)
       return
     lastSequence = event.sequence
-    if (event.type === 'catalog' && event.mode === 'discovery')
+    if (event.type === 'catalog' && event.mode === 'discovery' && !catalog.value)
       return
     if (event.spaceId === null || event.spaceId === scope.value)
       void load()

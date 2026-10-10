@@ -338,7 +338,7 @@ export interface LocalChatApi {
     update: (input: LocalSpaceUpdateInput) => Promise<LocalSpace>
   }
   skills: {
-    list: (spaceId?: string | null, metadataOnly?: boolean) => Promise<LocalSkillCatalog>
+    list: (spaceId?: string | null, metadataOnly?: boolean, forceReload?: boolean) => Promise<LocalSkillCatalog>
     get: (input: { spaceId: string | null, id: string }) => Promise<SkillDetail>
     listFiles: (input: SkillDirectoryRequest) => Promise<DirectoryPage>
     readFile: (input: SkillFileTarget) => Promise<FilePreview>

@@ -5,7 +5,7 @@ import { LOCAL_CHAT_IPC_CHANNELS } from '../../shared/localChatApi'
 
 export function createSkillsApi(): Pick<LocalChatApi, 'skills'> {
   return { skills: Object.freeze({
-    list: (spaceId, metadataOnly) => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.skillsList, { spaceId: spaceId ?? null, metadataOnly }),
+    list: (spaceId, metadataOnly, forceReload) => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.skillsList, { spaceId: spaceId ?? null, metadataOnly, forceReload }),
     get: input => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.skillsGet, { ...input }),
     listFiles: input => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.skillsListFiles, { ...input }),
     readFile: input => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.skillsReadFile, { ...input }),

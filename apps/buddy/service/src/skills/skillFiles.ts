@@ -8,6 +8,7 @@ import { readBoundedFile } from '../../../platform/filesystem/boundedFile'
 export const MAX_SKILL_BYTES = 256 * 1024
 export const MAX_SKILL_PACKAGE_BYTES = 64 * 1024 * 1024
 export const MAX_SKILL_FILES = 5000
+const SKILL_READ_CONCURRENCY = 10
 
 export class SkillError extends Error {
   readonly code: 'SKILL_NOT_FOUND' | 'SKILL_CHANGED' | 'SKILL_INVALID' | 'SKILL_TOO_LARGE' | 'SKILL_BUSY' | 'SKILL_READ_ONLY' | 'SKILL_INSTALL_FAILED' | 'SKILL_SOURCE_UNAVAILABLE' | 'SKILL_PREVIEW_EXPIRED' | 'SKILL_NAME_COLLISION'
@@ -35,7 +36,7 @@ export async function requireSkillPath(root: string, path: string): Promise<stri
   return canonicalPath
 }
 
-export async function discoverSkillFiles(root: string, allowLooseFiles = false, onInvalid?: (path: string) => void): Promise<string[]> {
+export async function discoverSkillFiles(root: string, allowLooseFiles = false, onInvalid?: (path: string) => void, onDirectory?: (path: string) => void): Promise<string[]> {
   const canonicalRoot = await realpath(root)
   const seen = new Set<string>()
   const files: string[] = []
@@ -47,6 +48,7 @@ export async function discoverSkillFiles(root: string, allowLooseFiles = false, 
     if (seen.has(canonical))
       return
     seen.add(canonical)
+    onDirectory?.(canonical)
     const entries = await readdir(canonical, { withFileTypes: true })
     const declared = entries.find(entry => entry.name === 'SKILL.md')
     if (declared) {
@@ -77,8 +79,7 @@ export async function discoverSkillFiles(root: string, allowLooseFiles = false, 
 
 export async function readSkillFiles(root: string) {
   const canonical = await realpath(root)
-  const files = new Map<string, Buffer>()
-  const modes = new Map<string, number>()
+  const pending: Array<{ target: string, name: string, size: number, mode: number }> = []
   let bytes = 0
   let count = 0
   async function visit(path: string, depth: number) {
@@ -98,17 +99,42 @@ export async function readSkillFiles(root: string) {
       }
       const metadata = await lstat(target)
       bytes += metadata.size
-      if (bytes > MAX_SKILL_PACKAGE_BYTES || files.size >= MAX_SKILL_FILES)
+      if (bytes > MAX_SKILL_PACKAGE_BYTES || pending.length >= MAX_SKILL_FILES)
         throw new SkillError('SKILL_TOO_LARGE')
-      const content = await readBoundedFile(canonical, target, MAX_SKILL_PACKAGE_BYTES)
-      if (content.length !== metadata.size)
-        throw new SkillError('SKILL_CHANGED')
-      const name = relative(canonical, target).split(sep).join('/')
-      files.set(name, content)
-      modes.set(name, (metadata.mode & 0o111) ? 0o700 : 0o600)
+      pending.push({ target, name: relative(canonical, target).split(sep).join('/'), size: metadata.size, mode: (metadata.mode & 0o111) ? 0o700 : 0o600 })
     }
   }
   await visit(canonical, 0)
+  const contents: Buffer[] = Array.from({ length: pending.length })
+  let next = 0
+  const controller = new AbortController()
+  let failure: unknown
+  await Promise.all(Array.from({ length: Math.min(SKILL_READ_CONCURRENCY, pending.length) }, async () => {
+    while (!controller.signal.aborted && next < pending.length) {
+      const index = next++
+      const item = pending[index]!
+      try {
+        const content = await readBoundedFile(canonical, item.target, item.size, controller.signal)
+        if (content.length !== item.size)
+          throw new SkillError('SKILL_CHANGED')
+        contents[index] = content
+      }
+      catch (error) {
+        if (!controller.signal.aborted) {
+          failure = error
+          controller.abort()
+        }
+      }
+    }
+  }))
+  if (controller.signal.aborted)
+    throw failure
+  const files = new Map<string, Buffer>()
+  const modes = new Map<string, number>()
+  pending.forEach((item, index) => {
+    files.set(item.name, contents[index]!)
+    modes.set(item.name, item.mode)
+  })
   return { files, modes }
 }
 
@@ -124,6 +150,10 @@ export async function readSkillDocument(filePath: string, allowedRoot = dirname(
   if ((await lstat(path)).size > MAX_SKILL_BYTES)
     throw new SkillError('SKILL_TOO_LARGE')
   const content = await readBoundedFile(allowedRoot, path, MAX_SKILL_BYTES)
+  return parseSkillDocument(path, content)
+}
+
+export function parseSkillDocument(path: string, content: Buffer) {
   if (content.length > MAX_SKILL_BYTES)
     throw new SkillError('SKILL_TOO_LARGE')
   const text = content.toString('utf8')

@@ -1,4 +1,5 @@
 export default {
+  'desktop.skills.refresh': '刷新技能',
   'desktop.settings.category.skills': 'Skills',
   'desktop.skills.description': '为任务安装可复用的工作方法与资源。',
   'desktop.skills.empty': '还没有 Skills',

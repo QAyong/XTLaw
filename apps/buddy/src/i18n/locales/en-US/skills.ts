@@ -1,4 +1,5 @@
 export default {
+  'desktop.skills.refresh': 'Refresh skills',
   'desktop.settings.category.skills': 'Skills',
   'desktop.skills.description': 'Install reusable instructions and resources for your tasks.',
   'desktop.skills.empty': 'No skills yet',

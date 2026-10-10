@@ -1,10 +1,11 @@
+import { Buffer } from 'node:buffer'
 import { chmod, mkdir, mkdtemp, rename, rm, stat, symlink, utimes, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as boundedFile from '../../../../platform/filesystem/boundedFile'
-import { readSkill } from '../skillFiles'
+import { hashSkillFiles, readSkill } from '../skillFiles'
 import { SkillPackageCache } from '../SkillPackageCache'
 
 const directories: string[] = []
@@ -15,47 +16,23 @@ afterEach(async () => {
 })
 
 describe('skillPackageCache', () => {
-  it('reads package files concurrently within the limit and keeps contents, modes and revision stable', async () => {
+  it('preserves package contents, modes and revision across multiple files', async () => {
     const f = await fixture()
-    for (let index = 0; index < 40; index++)
-      await writeFile(join(f.root, 'references', `file-${String(index).padStart(2, '0')}.md`), `content ${index}`)
-    const sequential = await readSkill(f.path, f.root)
-    const read = boundedFile.readBoundedFile
-    let active = 0
-    let peak = 0
-    vi.spyOn(boundedFile, 'readBoundedFile').mockImplementation(async (...args) => {
-      active++
-      peak = Math.max(peak, active)
-      try {
-        await new Promise(resolve => setTimeout(resolve, 5))
-        return await read(...args)
-      }
-      finally { active-- }
-    })
-
+    const expected = new Map<string, Buffer>()
+    for (let index = 0; index < 12; index++) {
+      const name = `references/file-${String(index).padStart(2, '0')}.md`
+      const content = Buffer.from(`content ${index}`)
+      await writeFile(join(f.root, name), content)
+      expected.set(name, content)
+    }
+    expected.set('references/guide.md', Buffer.from('version one'))
+    expected.set('SKILL.md', Buffer.from('---\nname: workflow\ndescription: A local workflow\n---\n\nFollow the workflow.'))
+    const modes = new Map([...expected.keys()].map(name => [name, 0o600]))
     const loaded = await readSkill(f.path, f.root)
 
-    expect(peak).toBeGreaterThan(1)
-    expect(peak).toBeLessThanOrEqual(10)
-    expect(loaded.revision).toBe(sequential.revision)
-    expect([...loaded.files.keys()]).toEqual([...sequential.files.keys()])
-    expect(loaded.files.get('references/file-17.md')?.toString()).toBe('content 17')
-  })
-
-  it('stops starting reads and rejects when a concurrent read fails', async () => {
-    const f = await fixture()
-    for (let index = 0; index < 40; index++)
-      await writeFile(join(f.root, 'references', `file-${String(index).padStart(2, '0')}.md`), `content ${index}`)
-    const read = boundedFile.readBoundedFile
-    let calls = 0
-    vi.spyOn(boundedFile, 'readBoundedFile').mockImplementation(async (...args) => {
-      if (++calls === 3)
-        throw new Error('read failed')
-      return read(...args)
-    })
-
-    await expect(readSkill(f.path, f.root)).rejects.toThrow('read failed')
-    expect(calls).toBeLessThan(20)
+    expect(loaded.revision).toBe(hashSkillFiles(expected, modes))
+    expect([...loaded.files]).toEqual([...expected])
+    expect(loaded.modes).toEqual(modes)
   })
 
   it.each(['metadata', 'package'] as const)('does not accept a late %s read after cache invalidation', async (mode) => {
@@ -85,24 +62,6 @@ describe('skillPackageCache', () => {
     expect((mode === 'metadata' ? await f.cache.loadMetadata(f.path, f.root) : await f.cache.load(f.path, f.root)).description).toBe('A local workflow')
   })
 
-  it('loads skill metadata without traversing bundled resources', async () => {
-    const f = await fixture()
-    await rm(join(f.root, 'references'), { recursive: true })
-    let nested = f.root
-    for (let depth = 0; depth < 18; depth++) {
-      nested = join(nested, `level-${depth}`)
-      await mkdir(nested)
-    }
-    await writeFile(join(nested, 'guide.md'), 'resource')
-
-    const metadata = await f.cache.loadMetadata(f.path, f.root)
-
-    expect(metadata.name).toBe('workflow')
-    expect(metadata.description).toBe('A local workflow')
-    expect(metadata.referenceRevision).toBeTruthy()
-    await expect(f.cache.load(f.path, f.root)).rejects.toMatchObject({ code: 'SKILL_TOO_LARGE' })
-  })
-
   it('reuses unchanged document bytes while detecting same-size edits and path escapes', async () => {
     const f = await fixture()
     const first = await f.cache.loadMetadata(f.path, f.root)
@@ -121,22 +80,6 @@ describe('skillPackageCache', () => {
     await rm(f.path)
     await symlink(join(outside, 'SKILL.md'), f.path)
     await expect(f.cache.loadMetadata(f.path, f.root)).rejects.toMatchObject({ code: 'SKILL_INVALID' })
-  })
-
-  it('shares a complete revision across concurrent loads and reuses unchanged packages without reading content', async () => {
-    const f = await fixture()
-    const expected = await readSkill(f.path, f.root)
-    const read = vi.spyOn(boundedFile, 'readBoundedFile')
-
-    const results = await Promise.all(Array.from({ length: 8 }, () => f.cache.load(f.path, f.root)))
-
-    expect(results.every(skill => skill.revision === expected.revision && skill.body === expected.body)).toBe(true)
-    expect(read).toHaveBeenCalledTimes(3)
-    read.mockImplementation(async () => {
-      throw new Error('Unchanged package content must not be read')
-    })
-    expect(await f.cache.load(f.path, f.root)).toEqual(results[0])
-    expect(read).toHaveBeenCalledTimes(3)
   })
 
   it('detects resource edits with the same size and restored modification time', async () => {

@@ -27,9 +27,15 @@ async function fixture() {
   const builtin = join(root, 'application')
   await mkdir(builtin)
   const options = { agentDirectory: join(paths.root, 'agent'), paths, spaces, repository, builtinSkillsDirectories: [builtin] }
-  const service = new SkillService(options)
+  const services: SkillService[] = []
+  function createService() {
+    const service = new SkillService(options)
+    services.push(service)
+    return service
+  }
+  const service = createService()
   cleanup.push(async () => {
-    await service.dispose()
+    await Promise.all(services.map(service => service.dispose()))
     database.close()
     await rm(root, { recursive: true, force: true })
   })
@@ -45,10 +51,45 @@ async function fixture() {
     const result = await service.install({ previewId: preview.id, candidateIds: preview.candidates.map(item => item.id) })
     return result.skills.find(skill => skill.spaceId === spaceId && skill.managedBy === 'user')!
   }
-  return { root, paths, database, repository, spaces, options, service, source, install, builtin }
+  return { root, paths, database, repository, spaces, options, service, source, install, builtin, createService }
 }
 
 describe('skill installation lifecycle', () => {
+  it.each([true, false])('rejects stale management after replacement when resources changed: %s', async (changeResources) => {
+    const f = await fixture()
+    const source = await f.source('writer')
+    await writeFile(join(source, 'guide.md'), 'Version one')
+    const installed = await f.install(source)
+    if (changeResources)
+      await writeFile(join(source, 'guide.md'), 'Version two')
+    const updated = await f.install(source)
+    expect(updated.id).toBe(installed.id)
+    expect(updated.revision).toBe(installed.revision)
+    expect(updated.filePath).not.toBe(installed.filePath)
+    expect(updated.managementRevision).not.toBe(installed.managementRevision)
+    await expect(f.service.remove({ spaceId: null, id: installed.id, revision: installed.managementRevision! })).rejects.toMatchObject({ code: 'SKILL_CHANGED' })
+    await expect(f.service.remove({ spaceId: null, id: installed.id, revision: installed.revision })).rejects.toMatchObject({ code: 'SKILL_CHANGED' })
+    await expect(f.service.setEnabled({ spaceId: null, id: installed.id, revision: installed.managementRevision!, enabled: false })).rejects.toMatchObject({ code: 'SKILL_CHANGED' })
+    expect(f.repository.list()).toMatchObject([{ id: updated.id, path: updated.filePath, enabled: true }])
+    expect(await readFile(join(dirname(updated.filePath), 'guide.md'), 'utf8')).toBe(changeResources ? 'Version two' : 'Version one')
+    await f.service.remove({ spaceId: null, id: updated.id, revision: updated.managementRevision! })
+    await expect(stat(updated.filePath)).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('keeps full-package revision checks for existing management clients', async () => {
+    const f = await fixture()
+    const source = await f.source('writer')
+    await writeFile(join(source, 'guide.md'), 'Version one')
+    await f.install(source)
+    const installed = (await f.service.list(null)).skills[0]!
+    await writeFile(join(dirname(installed.filePath), 'guide.md'), 'Version two')
+    await expect(f.service.remove({ spaceId: null, id: installed.id, revision: installed.revision })).rejects.toMatchObject({ code: 'SKILL_CHANGED' })
+    expect(await readFile(join(dirname(installed.filePath), 'guide.md'), 'utf8')).toBe('Version two')
+    const refreshed = (await f.service.list(null)).skills[0]!
+    await f.service.remove({ spaceId: null, id: refreshed.id, revision: refreshed.revision })
+    expect(f.repository.list()).toEqual([])
+  })
+
   it('preserves the complete document and previews files only within the selected package', async () => {
     const f = await fixture()
     const source = await f.source('writer', '# Writing\n\n## Steps\n\n- Read\n- Summarize', 'license: MIT\nmetadata:\n  author: Example\n  version: "1.0"\n')
@@ -115,17 +156,19 @@ describe('skill installation lifecycle', () => {
     const ref = { id: installed.id, name: installed.name, revision: installed.revision }
     expect((await f.service.materializeForSpace('space-a', [ref]))[0]?.body).toBe('Version one')
 
+    await f.service.setEnabled({ spaceId: 'space-a', id: installed.id, revision: installed.managementRevision!, enabled: false })
     await f.source('writer', 'Version two')
     const preview = await f.service.preview({ spaceId: 'space-a', updateId: installed.id, source: { kind: 'directory', location: source } })
     await f.source('writer', 'Changed after preview')
     const result = await f.service.install({ previewId: preview.id, candidateIds: [preview.candidates[0]!.id] })
     const updated = result.skills[0]!
-    expect(updated.id).toBe(installed.id)
+    expect(updated).toMatchObject({ id: installed.id, enabled: false, status: 'disabled' })
     expect(updated.revision).not.toBe(installed.revision)
     expect((await f.service.get('space-a', updated.id)).body).toBe('Version two')
+    await f.service.setEnabled({ spaceId: 'space-a', id: updated.id, revision: updated.managementRevision!, enabled: true })
     await expect(f.service.materializeForSpace('space-a', [ref])).rejects.toMatchObject({ code: 'SKILL_CHANGED' })
     await expect(stat(installed.filePath)).rejects.toMatchObject({ code: 'ENOENT' })
-    await f.service.remove({ spaceId: 'space-a', id: updated.id, revision: updated.revision })
+    await f.service.remove({ spaceId: 'space-a', id: updated.id, revision: updated.managementRevision! })
     expect((await f.service.list('space-a')).skills).toEqual([])
     expect(await readFile(join(source, 'SKILL.md'), 'utf8')).toContain('Changed after preview')
   })
@@ -136,14 +179,14 @@ describe('skill installation lifecycle', () => {
     const global = await f.install(source)
     f.database.prepare('INSERT INTO skill_space_exclusions (skill_id, space_id) VALUES (?, ?)').run(global.id, 'space-a')
     expect((await f.service.list('space-a')).skills[0]).toMatchObject({ enabled: true, status: 'available', canRemove: false, canUpdate: false })
-    await expect(f.service.setEnabled({ spaceId: 'space-a', id: global.id, revision: global.revision, enabled: false })).rejects.toMatchObject({ code: 'SKILL_READ_ONLY' })
-    await expect(f.service.remove({ spaceId: 'space-a', id: global.id, revision: global.revision })).rejects.toMatchObject({ code: 'SKILL_READ_ONLY' })
+    await expect(f.service.setEnabled({ spaceId: 'space-a', id: global.id, revision: global.managementRevision!, enabled: false })).rejects.toMatchObject({ code: 'SKILL_READ_ONLY' })
+    await expect(f.service.remove({ spaceId: 'space-a', id: global.id, revision: global.managementRevision! })).rejects.toMatchObject({ code: 'SKILL_READ_ONLY' })
     await expect(f.service.preview({ spaceId: 'space-a', updateId: global.id, source: { kind: 'directory', location: source } })).rejects.toMatchObject({ code: 'SKILL_READ_ONLY' })
     expect((await f.service.loadForSpace('space-a')).skills[0]?.id).toBe(global.id)
-    await f.service.setEnabled({ spaceId: null, id: global.id, revision: global.revision, enabled: false })
-    expect((await new SkillService(f.options).list('space-a')).skills[0]?.status).toBe('disabled')
-    await f.service.setEnabled({ spaceId: null, id: global.id, revision: global.revision, enabled: true })
-    expect((await new SkillService(f.options).loadForSpace('space-a')).skills[0]?.id).toBe(global.id)
+    await f.service.setEnabled({ spaceId: null, id: global.id, revision: global.managementRevision!, enabled: false })
+    expect((await f.createService().list('space-a')).skills[0]?.status).toBe('disabled')
+    await f.service.setEnabled({ spaceId: null, id: global.id, revision: global.managementRevision!, enabled: true })
+    expect((await f.createService().loadForSpace('space-a')).skills[0]?.id).toBe(global.id)
     expect(f.database.prepare('SELECT skill_id FROM skill_space_exclusions WHERE space_id = ?').get('space-a')).toMatchObject({ skill_id: global.id })
   })
 
@@ -152,10 +195,10 @@ describe('skill installation lifecycle', () => {
     const source = await f.source('writer')
     const global = await f.install(source)
     const local = await f.install(source, 'space-a')
-    await f.service.setEnabled({ spaceId: 'space-a', id: local.id, revision: local.revision, enabled: false })
+    await f.service.setEnabled({ spaceId: 'space-a', id: local.id, revision: local.managementRevision!, enabled: false })
     expect((await f.service.loadForSpace('space-a')).skills).toEqual([])
     expect((await f.service.list('space-a')).skills.find(skill => skill.id === global.id)?.status).toBe('shadowed')
-    await f.service.setEnabled({ spaceId: 'space-a', id: local.id, revision: local.revision, enabled: true })
+    await f.service.setEnabled({ spaceId: 'space-a', id: local.id, revision: local.managementRevision!, enabled: true })
     await writeFile(local.filePath, 'broken')
     await f.service.list('space-a')
     expect((await f.service.loadForSpace('space-a')).skills).toEqual([])
@@ -169,21 +212,21 @@ describe('skill installation lifecycle', () => {
     await writeFile(join(f.builtin, 'app-workflow', 'SKILL.md'), await readFile(join(source, 'SKILL.md')))
     const app = (await f.service.list(null)).skills[0]!
     expect(app).toMatchObject({ source: 'global', managedBy: 'application', canRemove: false, canUpdate: false })
-    await f.service.setEnabled({ spaceId: null, id: app.id, revision: app.revision, enabled: false })
+    await f.service.setEnabled({ spaceId: null, id: app.id, revision: app.managementRevision!, enabled: false })
     const preview = await f.service.preview({ spaceId: null, source: { kind: 'directory', location: source } })
     expect(preview.candidates[0]?.blocked).toBe(true)
     await expect(f.service.install({ previewId: preview.id, candidateIds: [preview.candidates[0]!.id] })).rejects.toMatchObject({ code: 'SKILL_INVALID' })
-    await expect(f.service.remove({ spaceId: null, id: app.id, revision: app.revision })).rejects.toMatchObject({ code: 'SKILL_READ_ONLY' })
+    await expect(f.service.remove({ spaceId: null, id: app.id, revision: app.managementRevision! })).rejects.toMatchObject({ code: 'SKILL_READ_ONLY' })
     expect((await f.service.loadForSpace(null)).skills).toEqual([])
     await f.source('app-workflow', 'Space instructions')
     const local = await f.install(source, 'space-a')
     expect((await f.service.loadForSpace('space-a')).skills.map(skill => skill.id)).toEqual([local.id])
     expect((await f.service.materializeForSpace('space-a', [{ id: local.id, name: local.name, revision: local.revision }]))[0]?.body).toBe('Space instructions')
-    await f.service.setEnabled({ spaceId: null, id: app.id, revision: app.revision, enabled: true })
+    await f.service.setEnabled({ spaceId: null, id: app.id, revision: app.managementRevision!, enabled: true })
     expect((await f.service.list('space-a')).skills.find(skill => skill.id === app.id)).toMatchObject({ status: 'shadowed', enabled: true, shadowedBy: local.id })
-    await f.service.setEnabled({ spaceId: 'space-a', id: local.id, revision: local.revision, enabled: false })
+    await f.service.setEnabled({ spaceId: 'space-a', id: local.id, revision: local.managementRevision!, enabled: false })
     expect((await f.service.loadForSpace('space-a')).skills).toEqual([])
-    await f.service.remove({ spaceId: 'space-a', id: local.id, revision: local.revision })
+    await f.service.remove({ spaceId: 'space-a', id: local.id, revision: local.managementRevision! })
     expect((await f.service.loadForSpace('space-a')).skills.map(skill => skill.id)).toEqual([app.id])
     expect((await f.service.get(null, app.id)).body).toBe('Version one')
   })
@@ -240,7 +283,7 @@ describe('skill installation lifecycle', () => {
     await mkdir(orphan, { recursive: true })
     await writeFile(join(orphan, 'pending.txt'), 'uncommitted')
     f.repository.scheduleCleanup(null, 'orphan-installation', orphan)
-    await new SkillService(f.options).initialize()
+    await f.createService().initialize()
     await expect(stat(orphan)).rejects.toMatchObject({ code: 'ENOENT' })
     expect(f.repository.pendingCleanup()).toEqual([])
     expect(await readFile(installed.filePath, 'utf8')).toContain('Version one')
@@ -257,7 +300,7 @@ describe('skill installation lifecycle', () => {
     await f.source('writer', 'Version two')
     const preview = await f.service.preview({ spaceId: 'space-a', updateId: installed.id, source: { kind: 'directory', location: source } })
     await expect(f.service.install({ previewId: preview.id, candidateIds: [preview.candidates[0]!.id] })).rejects.toMatchObject({ code: 'SKILL_BUSY' })
-    await expect(f.service.remove({ spaceId: 'space-a', id: installed.id, revision: installed.revision })).rejects.toMatchObject({ code: 'SKILL_BUSY' })
+    await expect(f.service.remove({ spaceId: 'space-a', id: installed.id, revision: installed.managementRevision! })).rejects.toMatchObject({ code: 'SKILL_BUSY' })
     expect((await f.service.get('space-a', installed.id)).body).toBe('Version one')
   })
 

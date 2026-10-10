@@ -4,10 +4,12 @@ import type { LoadedSkill } from './skillFiles'
 import { createHash } from 'node:crypto'
 import { lstat, readdir } from 'node:fs/promises'
 import { basename, dirname, join, relative } from 'node:path'
+import { readNativeBoundedFiles } from '../../../platform/filesystem/nativeBoundedFile'
 import { copyEventSnapshot } from '../../../shared/events/eventSnapshot'
-import { MAX_SKILL_BYTES, MAX_SKILL_FILES, MAX_SKILL_PACKAGE_BYTES, readSkill, readSkillDocument, requireSkillPath, SkillError } from './skillFiles'
+import { MAX_SKILL_BYTES, MAX_SKILL_FILES, MAX_SKILL_PACKAGE_BYTES, parseSkillDocument, readSkill, readSkillDocument, requireSkillPath, SkillError } from './skillFiles'
 
 export type ResolvedSkill = EventSnapshot<Omit<LoadedSkill, 'files' | 'modes'>>
+export type SkillMetadata = Pick<ResolvedSkill, 'name' | 'description' | 'path' | 'baseDirectory' | 'referenceRevision' | 'revision' | 'manualOnly'>
 
 interface CachedPackage {
   signature: string
@@ -60,6 +62,41 @@ export class SkillPackageCache {
     while (this.#documents.size > MAX_CACHED_PACKAGES)
       this.#documents.delete(this.#documents.keys().next().value!)
     return skill
+  }
+
+  async loadMetadataBatch(filePaths: readonly string[], allowedRoot: string): Promise<PromiseSettledResult<SkillMetadata>[]> {
+    const generation = this.#generation
+    const results: PromiseSettledResult<SkillMetadata>[] = []
+    for (let offset = 0; offset < filePaths.length; offset += 64) {
+      const inspected = await Promise.allSettled(filePaths.slice(offset, offset + 64).map(async (filePath) => {
+        const path = await requireSkillPath(allowedRoot, filePath)
+        const metadata = await lstat(path, { bigint: true })
+        if (!metadata.isFile() || metadata.size > BigInt(MAX_SKILL_BYTES))
+          throw new SkillError('SKILL_INVALID')
+        return { path, signature: fileSignature(path, metadata) }
+      }))
+      this.#assertGeneration(generation)
+      const requests = inspected.flatMap(result => result.status === 'fulfilled' ? [{ root: allowedRoot, path: result.value.path, maxBytes: MAX_SKILL_BYTES }] : [])
+      const contents = await readNativeBoundedFiles(requests)
+      let index = 0
+      const parsed = await Promise.allSettled(inspected.map(async (result) => {
+        if (result.status === 'rejected')
+          throw result.reason
+        const content = contents[index++]!
+        if (content.status === 'rejected')
+          throw content.reason
+        const { path, signature } = result.value
+        if (fileSignature(path, await lstat(path, { bigint: true })) !== signature)
+          throw new SkillError('SKILL_CHANGED')
+        const document = parseSkillDocument(path, content.value)
+        if (!document.description)
+          throw new SkillError('SKILL_INVALID')
+        return copyEventSnapshot({ name: document.name, description: document.description, path: document.path, baseDirectory: document.baseDirectory, referenceRevision: document.referenceRevision, revision: document.referenceRevision, manualOnly: document.manualOnly })
+      }))
+      this.#assertGeneration(generation)
+      results.push(...parsed)
+    }
+    return results
   }
 
   clear() {

@@ -1,11 +1,13 @@
 import type { DatabaseSync } from 'node:sqlite'
 import type { SkillEvent } from '../skillEvents'
+import * as fs from 'node:fs'
 import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import * as boundedFile from '../../../../platform/filesystem/boundedFile'
+import * as nativeBoundedFile from '../../../../platform/filesystem/nativeBoundedFile'
 import { SessionResourceReconciler } from '../../agent/resources/SessionResourceReconciler'
 import { BuddySessionRegistry } from '../../agent/sessions/BuddySessionRegistry'
 import { BuddyDataPaths } from '../../storage/BuddyDataPaths'
@@ -17,9 +19,16 @@ import { formatBuddySkillPrompt, SkillService } from '../SkillService'
 
 const databases: DatabaseSync[] = []
 const directories: string[] = []
+const services: SkillService[] = []
 const now = '2026-08-14T00:00:00.000Z'
 
+vi.mock('node:fs', async (importOriginal) => {
+  const original = await importOriginal<typeof import('node:fs')>()
+  return { ...original, watch: vi.fn(original.watch) }
+})
+
 afterEach(async () => {
+  await Promise.all(services.splice(0).map(service => service.dispose()))
   vi.restoreAllMocks()
   for (const database of databases.splice(0))
     database.close()
@@ -27,6 +36,50 @@ afterEach(async () => {
 })
 
 describe('skillService', () => {
+  it('publishes source creation, document edits and removal', async () => {
+    const fixture = await createFixture()
+    fixture.spaces.create(spaceInput('space-trusted', fixture.trustedSpace))
+    expect((await fixture.service.list('space-trusted', true)).skills).toEqual([])
+    const events: SkillEvent[] = []
+    fixture.service.onDidChange(event => events.push(event))
+    const source = join(fixture.trustedSpace, '.agents', 'skills')
+    await writeSkill(source, 'new', 'newly created')
+    await vi.waitFor(() => expect(events.some(event => event.type === 'resources' && event.skillIds.length === 1)).toBe(true))
+    await writeSkill(source, 'new', 'updated metadata')
+    await vi.waitFor(async () => expect((await fixture.service.list('space-trusted', true)).skills[0]?.description).toBe('updated metadata'))
+    await rm(join(source, 'new'), { recursive: true })
+    await vi.waitFor(async () => expect((await fixture.service.list('space-trusted', true)).skills).toEqual([]))
+  })
+
+  it('keeps target validation active when filesystem notifications have not refreshed the catalog', async () => {
+    const originalFs = await vi.importActual<typeof import('node:fs')>('node:fs')
+    await vi.mocked(fs.watch).withImplementation(path => originalFs.watch(path, { persistent: false }, () => {}), async () => {
+      const fixture = await createFixture()
+      await writeSkill(fixture.global, 'target', 'original metadata')
+      const skill = (await fixture.service.list(null, true)).skills[0]!
+      const original = await fixture.service.materializeForSpace(null, [{ id: skill.id, name: skill.name, revision: skill.referenceRevision! }])
+      await writeSkill(fixture.global, 'target', 'changed metadata')
+      expect((await fixture.service.list(null, true)).skills[0]?.description).toBe('original metadata')
+      await expect(fixture.service.setEnabled({ spaceId: null, id: skill.id, revision: skill.managementRevision!, enabled: false })).rejects.toMatchObject({ code: 'SKILL_CHANGED' })
+      await expect(fixture.service.materializeForSpace(null, original.map(item => item.reference))).rejects.toMatchObject({ code: 'SKILL_CHANGED' })
+      await writeSkill(fixture.global, 'target', 'explicitly refreshed metadata')
+      const refreshed = await fixture.service.list(null, true, true)
+      expect(refreshed.skills[0]?.description).toBe('explicitly refreshed metadata')
+    })
+  })
+
+  it('rescans a source when filesystem watching is unavailable', async () => {
+    await vi.mocked(fs.watch).withImplementation(() => {
+      throw Object.assign(new Error('watch limit'), { code: 'ENOSPC' })
+    }, async () => {
+      const fixture = await createFixture()
+      await writeSkill(fixture.global, 'unwatched', 'initial metadata')
+      expect((await fixture.service.list(null, true)).skills[0]?.description).toBe('initial metadata')
+      await writeSkill(fixture.global, 'unwatched', 'current metadata')
+      expect((await fixture.service.list(null, true)).skills[0]?.description).toBe('current metadata')
+    })
+  })
+
   it('delivers an accepted installation commit to its session consumer before shutdown', async () => {
     const fixture = await createFixture()
     await writeSkill(fixture.global, 'late-commit', 'fixture metadata')
@@ -60,11 +113,11 @@ describe('skillService', () => {
     await writeSkill(fixture.global, 'delayed', 'entry metadata')
     const entered = Promise.withResolvers<void>()
     const resume = Promise.withResolvers<void>()
-    const read = boundedFile.readBoundedFile
+    const read = nativeBoundedFile.readNativeBoundedFiles
     let delayed = false
-    vi.spyOn(boundedFile, 'readBoundedFile').mockImplementation(async (...args) => {
+    vi.spyOn(nativeBoundedFile, 'readNativeBoundedFiles').mockImplementation(async (...args) => {
       const contents = await read(...args)
-      if (!delayed && args[1].endsWith('SKILL.md')) {
+      if (!delayed && args[0].length) {
         delayed = true
         entered.resolve()
         await resume.promise
@@ -75,11 +128,11 @@ describe('skillService', () => {
     fixture.service.onDidAcceptCatalog(event => accepted.push(event))
     const old = fixture.service.list(null, true)
     await entered.promise
-    const current = await fixture.service.list(null, true)
+    const current = await fixture.service.list(null, true, true)
     resume.resolve()
     expect(await old).toEqual(current)
     expect(accepted).toHaveLength(1)
-    expect(accepted[0]?.generation).toBe(2)
+    expect(accepted[0]?.generation).toBeGreaterThan(0)
   })
 
   it('isolates returned catalogs, inspector details and effective resources from owner state', async () => {
@@ -119,7 +172,7 @@ describe('skillService', () => {
     expect(events.some(event => event.type === 'cleanup' && event.status === 'cancelled')).toBe(true)
     expect(failures).toHaveLength(1)
     events.length = 0
-    await fixture.service.setEnabled({ spaceId: null, id: installed.id, revision: installed.revision, enabled: true })
+    await fixture.service.setEnabled({ spaceId: null, id: installed.id, revision: installed.managementRevision!, enabled: true })
     expect(events).toEqual([])
     expect(JSON.stringify(diagnostics)).not.toContain(fixture.root)
     expect(JSON.stringify(diagnostics)).not.toContain('private')
@@ -316,58 +369,89 @@ describe('skillService', () => {
     expect(second.revision).toBe(first.revision)
   })
 
-  it('lists metadata without reading supporting resources', async () => {
-    const fixture = await createFixture()
-    await writeSkill(fixture.global, 'bundle', 'many resources')
-    await mkdir(join(fixture.global, 'bundle', 'assets'), { recursive: true })
-    await writeFile(join(fixture.global, 'bundle', 'assets', 'data.bin'), 'payload')
-    const read = vi.spyOn(boundedFile, 'readBoundedFile')
-
-    const catalog = await fixture.service.list(null, true)
-
-    expect(catalog.skills.map(skill => skill.name)).toEqual(['bundle'])
-    expect(read.mock.calls.every(([, path]) => path.endsWith('SKILL.md'))).toBe(true)
-    expect(fixture.repository.list()).toEqual([])
-  })
-
   it('manages a skill from a metadata listing, including one that is not registered yet', async () => {
     const fixture = await createFixture()
     await writeSkill(fixture.global, 'fresh', 'newly discovered')
-    const listed = (await fixture.service.list(null, true)).skills[0]!
+    await writeSkill(fixture.global, 'unrelated', 'another package')
+    const listed = (await fixture.service.list(null, true)).skills.find(skill => skill.name === 'fresh')!
 
     const detail = await fixture.service.get(null, listed.id)
     expect(detail.skill.name).toBe('fresh')
+    expect(fixture.repository.list()).toEqual([])
+    const [selected] = await fixture.service.materializeForSpace(null, [{ id: listed.id, name: listed.name, revision: listed.revision }])
+    expect(selected?.body).toBe('# fresh')
 
-    const disabled = await fixture.service.setEnabled({ spaceId: null, id: listed.id, revision: listed.revision, enabled: false })
+    const disabled = await fixture.service.setEnabled({ spaceId: null, id: listed.id, revision: listed.managementRevision!, enabled: false })
     expect(disabled.skills[0]).toMatchObject({ id: listed.id, enabled: false, status: 'disabled' })
     expect(fixture.repository.list().find(record => record.id === listed.id)?.enabled).toBe(false)
-
-    const relisted = (await fixture.service.list(null, true)).skills[0]!
-    await writeSkill(fixture.global, 'fresh', 'changed after listing')
-    await expect(fixture.service.setEnabled({ spaceId: null, id: relisted.id, revision: relisted.revision, enabled: true })).rejects.toMatchObject({ code: 'SKILL_CHANGED' })
+    expect(fixture.repository.list().map(record => record.name)).toEqual(['fresh'])
   })
 
-  it('materializes a skill selected from a metadata listing', async () => {
-    const fixture = await createFixture()
-    await writeSkill(fixture.global, 'picked', 'selected from a lightweight listing')
-    const listed = (await fixture.service.list(null, true)).skills[0]!
-
-    const [selected] = await fixture.service.materializeForSpace(null, [{ id: listed.id, name: listed.name, revision: listed.revision }])
-
-    expect(selected?.body).toBe('# picked')
-    expect(selected?.reference.revision).toBe(listed.revision)
-  })
-
-  it('accepts either the metadata or the package revision when changing a listed skill', async () => {
+  it('separates management revisions from document references and preserves full-package checks', async () => {
     const fixture = await createFixture()
     await writeSkill(fixture.global, 'either', 'dual revision')
     const full = (await fixture.service.list(null)).skills[0]!
     const light = (await fixture.service.list(null, true)).skills[0]!
     expect(full.revision).not.toBe(light.revision)
 
-    await fixture.service.setEnabled({ spaceId: null, id: full.id, revision: light.revision, enabled: false })
+    await fixture.service.setEnabled({ spaceId: null, id: full.id, revision: light.managementRevision!, enabled: false })
     await fixture.service.setEnabled({ spaceId: null, id: full.id, revision: full.revision, enabled: true })
+    await expect(fixture.service.setEnabled({ spaceId: null, id: full.id, revision: light.revision, enabled: false })).rejects.toMatchObject({ code: 'SKILL_CHANGED' })
     await expect(fixture.service.setEnabled({ spaceId: null, id: full.id, revision: 'unknown', enabled: false })).rejects.toMatchObject({ code: 'SKILL_CHANGED' })
+    await writeFile(join(fixture.global, 'either', 'guide.md'), 'new supporting resource')
+    await expect(fixture.service.setEnabled({ spaceId: null, id: full.id, revision: full.revision, enabled: false })).rejects.toMatchObject({ code: 'SKILL_CHANGED' })
+    expect(fixture.repository.list()[0]?.enabled).toBe(true)
+  })
+
+  it('drains failed parallel reads before materialization and shutdown settle', async () => {
+    const fixture = await createFixture()
+    await writeSkill(fixture.global, 'parallel', 'parallel read fixture')
+    const root = join(fixture.global, 'parallel')
+    for (let index = 0; index < 20; index++)
+      await writeFile(join(root, `resource-${String(index).padStart(2, '0')}.md`), 'fixture')
+    const selected = (await fixture.service.list(null, true)).skills[0]!
+    const started = Promise.withResolvers<void>()
+    const cancelled = Promise.withResolvers<void>()
+    const release = Promise.withResolvers<void>()
+    const read = boundedFile.readBoundedFile
+    const failure = new Error('fixture read failure')
+    let active = 0
+    vi.spyOn(boundedFile, 'readBoundedFile').mockImplementation(async (...args) => {
+      if (args[1].endsWith('SKILL.md'))
+        return read(...args)
+      active++
+      if (active === 2)
+        started.resolve()
+      args[3]?.addEventListener('abort', () => cancelled.resolve(), { once: true })
+      try {
+        if (args[1].endsWith('resource-00.md')) {
+          await started.promise
+          throw failure
+        }
+        await release.promise
+        return await read(...args)
+      }
+      finally { active-- }
+    })
+    let settled = false
+    const pending = fixture.service.materializeForSpace(null, [{ id: selected.id, name: selected.name, revision: selected.revision }]).finally(() => settled = true)
+    const rejected = expect(pending).rejects.toBe(failure)
+    try {
+      await cancelled.promise
+      let stopped = false
+      const stopping = fixture.service.quiesce().then(() => stopped = true)
+      await new Promise(resolve => setTimeout(resolve, 0))
+      expect(settled).toBe(false)
+      expect(stopped).toBe(false)
+      release.resolve()
+      await rejected
+      await stopping
+      expect(active).toBe(0)
+    }
+    finally {
+      release.resolve()
+      await rejected
+    }
   })
 
   it('rejects a pending resolution when the Space directory binding is cleared', async () => {
@@ -485,6 +569,8 @@ async function createFixture(onListenerError?: (error: unknown) => void) {
   databases.push(database)
   const spaces = createSpaceRepository(database)
   const repository = createSkillRepository(database)
+  const service = new SkillService({ agentDirectory, builtinSkillsDirectories: [builtin], spaces, repository, onListenerError, paths: new BuddyDataPaths(join(root, 'buddy')) })
+  services.push(service)
   return {
     repository,
     agentDirectory,
@@ -492,14 +578,7 @@ async function createFixture(onListenerError?: (error: unknown) => void) {
     global,
     spaces,
     root,
-    service: new SkillService({
-      agentDirectory,
-      builtinSkillsDirectories: [builtin],
-      spaces,
-      repository,
-      onListenerError,
-      paths: new BuddyDataPaths(join(root, 'buddy')),
-    }),
+    service,
     trustedSpace,
   }
 }

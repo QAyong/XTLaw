@@ -95,6 +95,7 @@ const {
   spaceDeleteTarget,
   spaceDialogOpen,
   spaceEditTarget,
+  spaceActivities,
   spaceRows,
   relativeTimeNow,
   requestTaskDelete,
@@ -195,6 +196,7 @@ function openSearchSpace(spaceId: string) {
                 :expanded="isSpaceExpanded(item.space.id)"
                 :language="language"
                 pin-mode="unpin"
+                :activity="spaceActivities.get(item.space.id)"
                 :space="item.space"
                 :reorderable="item.pinnedTopLevel"
                 reorder-target
@@ -254,6 +256,7 @@ function openSearchSpace(spaceId: string) {
                 :expanded="isSpaceExpanded(item.space.id)"
                 :language="language"
                 pin-mode="pin"
+                :activity="spaceActivities.get(item.space.id)"
                 :space="item.space"
                 @menu="selectSpaceMenuAction(item.space, $event)"
                 @pin="pinSpace(item.space.id)"

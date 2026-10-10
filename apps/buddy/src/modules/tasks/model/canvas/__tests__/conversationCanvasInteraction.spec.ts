@@ -3,12 +3,9 @@ import { CANVAS_INTERACTION_IDLE_MS, createCanvasInteraction, resolveCanvasSimpl
 
 afterEach(() => vi.useRealTimers())
 
-function controller(nodeCount = 50) {
+function controller() {
   vi.useFakeTimers()
   const options = {
-    getNodeCount: () => nodeCount,
-    disableCulling: vi.fn(),
-    enableCulling: vi.fn(),
     onStart: vi.fn(),
     onEnd: vi.fn(),
   }
@@ -16,19 +13,16 @@ function controller(nodeCount = 50) {
 }
 
 describe('canvas viewport interaction', () => {
-  it('suspends culling once and settles only after the last transform', () => {
+  it('settles only after the last transform', () => {
     const value = controller()
     value.interaction.touch()
     vi.advanceTimersByTime(100)
     value.interaction.touch()
     vi.advanceTimersByTime(CANVAS_INTERACTION_IDLE_MS - 1)
     expect(value.interaction.active).toBe(true)
-    expect(value.disableCulling).toHaveBeenCalledTimes(1)
     expect(value.onStart).toHaveBeenCalledTimes(1)
-    expect(value.enableCulling).not.toHaveBeenCalled()
     vi.advanceTimersByTime(1)
     expect(value.interaction.active).toBe(false)
-    expect(value.enableCulling).toHaveBeenCalledTimes(1)
     expect(value.onEnd).toHaveBeenCalledTimes(1)
   })
 
@@ -44,25 +38,14 @@ describe('canvas viewport interaction', () => {
     expect(value.onEnd).toHaveBeenCalledTimes(1)
   })
 
-  it.each([0, 301, 1000])('keeps virtual rendering for %s nodes while still deferring presentation', (count) => {
-    const value = controller(count)
-    value.interaction.touch()
-    expect(value.onStart).toHaveBeenCalledTimes(1)
-    expect(value.disableCulling).not.toHaveBeenCalled()
-    vi.advanceTimersByTime(CANVAS_INTERACTION_IDLE_MS)
-    expect(value.enableCulling).not.toHaveBeenCalled()
-    expect(value.onEnd).toHaveBeenCalledTimes(1)
-  })
-
-  it('clears held state on scope changes and restores culling on disposal without a late callback', () => {
-    const value = controller(300)
+  it('clears held state on scope changes and disposes without a late callback', () => {
+    const value = controller()
     value.interaction.hold()
     value.interaction.finish()
     expect(value.onEnd).toHaveBeenCalledTimes(1)
     value.interaction.touch()
     value.interaction.dispose()
     vi.advanceTimersByTime(1000)
-    expect(value.enableCulling).toHaveBeenCalledTimes(2)
     expect(value.onEnd).toHaveBeenCalledTimes(1)
     expect(vi.getTimerCount()).toBe(0)
   })

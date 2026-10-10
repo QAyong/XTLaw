@@ -20,7 +20,7 @@ function createMockNode(data: ConversationCanvasData): Node {
   } as unknown as Node
 }
 
-function mountNode(data: ConversationCanvasData, rendering = { simplified: shallowRef(false), interacting: shallowRef(false) }) {
+function mountNode(data: ConversationCanvasData, rendering = { simplified: shallowRef(false), interacting: shallowRef(false) }, active = shallowRef(true)) {
   const root = document.createElement('div')
   document.body.append(root)
 
@@ -29,7 +29,7 @@ function mountNode(data: ConversationCanvasData, rendering = { simplified: shall
       provide(conversationCanvasRendering, rendering)
       provide(conversationCanvasActions, {
         language: shallowRef('zh-CN' as const),
-        active: shallowRef(true),
+        active,
         selectedNodeId: shallowRef(null),
         open: vi.fn(),
         edit: vi.fn(),
@@ -95,10 +95,17 @@ describe('conversationMessageNode simplified rendering', () => {
       expect(root.querySelector(`.conversation-node__${section}`)).not.toBeNull()
   })
 
-  it('pauses the busy clock during interaction and simplified rendering, then resumes', async () => {
+  it('pauses the busy clock while hidden, interacting or simplified, then resumes', async () => {
     vi.useFakeTimers()
     const rendering = { simplified: shallowRef(false), interacting: shallowRef(false) }
-    mountNode(richNode(), rendering)
+    const active = shallowRef(true)
+    mountNode(richNode(), rendering, active)
+    expect(vi.getTimerCount()).toBe(1)
+    active.value = false
+    await nextTick()
+    expect(vi.getTimerCount()).toBe(0)
+    active.value = true
+    await nextTick()
     expect(vi.getTimerCount()).toBe(1)
     rendering.interacting.value = true
     await nextTick()

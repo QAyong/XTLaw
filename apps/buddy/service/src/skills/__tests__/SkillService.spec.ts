@@ -245,10 +245,13 @@ describe('skillService', () => {
 
     const first = await fixture.service.loadForSpace(null)
     await writeSkill(fixture.global, 'mutable', 'second revision')
-    const second = await fixture.service.loadForSpace(null)
+    const second = await vi.waitFor(async () => {
+      const current = await fixture.service.loadForSpace(null)
+      expect(current.revision).not.toBe(first.revision)
+      return current
+    })
 
     expect(first.paths).toEqual(second.paths)
-    expect(second.revision).not.toBe(first.revision)
     await expect(fixture.service.materializeForSpace(null, first.references)).rejects.toMatchObject({ code: 'SKILL_CHANGED' })
 
     const third = await fixture.service.loadForSpace(null)
@@ -269,10 +272,12 @@ describe('skillService', () => {
     await rm(replaced, { recursive: true })
     await symlink(replacement, replaced, target === 'source' ? 'junction' : 'file')
 
-    const current = await fixture.service.loadForSpace('space-trusted')
-    expect(current.skills).toEqual([])
-    expect(current.readRoots).toEqual([])
-    expect(current.diagnostics.length).toBeGreaterThan(0)
+    await vi.waitFor(async () => {
+      const current = await fixture.service.loadForSpace('space-trusted')
+      expect(current.skills).toEqual([])
+      expect(current.readRoots).toEqual([])
+      expect(current.diagnostics.length).toBeGreaterThan(0)
+    })
   })
 
   it('keeps discovery and the picker lightweight after a full management inspection', async () => {
@@ -291,7 +296,7 @@ describe('skillService', () => {
     expect(picker.skills.map(skill => skill.name)).toEqual(['large'])
     expect((await fixture.service.loadForSpace(null)).revision).toBe(initial.revision)
     await writeSkill(fixture.global, 'new-skill', 'new skill')
-    expect((await fixture.service.list(null, true)).skills.map(skill => skill.name)).toEqual(['large', 'new-skill'])
+    await vi.waitFor(async () => expect((await fixture.service.list(null, true)).skills.map(skill => skill.name)).toEqual(['large', 'new-skill']))
   })
 
   it('rejects revocation while a selected package is being materialized', async () => {

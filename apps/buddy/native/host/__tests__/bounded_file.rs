@@ -65,6 +65,15 @@ fn rejects_unbounded_batches_before_writing_output() {
 fn batch_frames_preserve_binary_bytes_empty_files_and_individual_failures() {
     let directory = tempfile::tempdir().unwrap();
     let root = directory.path().canonicalize().unwrap();
+    #[cfg(windows)]
+    let root = {
+        let path = root.to_str().unwrap();
+        if let Some(path) = path.strip_prefix(r"\\?\UNC\") {
+            std::path::PathBuf::from(format!(r"\\{path}"))
+        } else {
+            std::path::PathBuf::from(path.strip_prefix(r"\\?\").unwrap())
+        }
+    };
     std::fs::write(root.join("binary"), [0, 255, 10]).unwrap();
     std::fs::write(root.join("empty"), []).unwrap();
     let input = serde_json::to_vec(&serde_json::json!([

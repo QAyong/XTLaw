@@ -4,6 +4,7 @@ import type { ExtensionContext } from '../../extensionContext'
 import type { ExtensionViews } from '../useExtensionViews'
 import type { SurfaceLayout } from '@/shared/ui/surfaces/surfaceLayout'
 import { extensionManifestSchema } from '@buddy-shared/extensions/extensionManifest'
+import { NMessageProvider } from 'naive-ui'
 import { afterEach, expect, it, vi } from 'vitest'
 import { createApp, h, nextTick, shallowRef } from 'vue'
 import { SemanticAnchorRegistry } from '@/workbench/browser/surfaces/SemanticAnchorRegistry'
@@ -32,7 +33,7 @@ it('delivers each broadcast once per frame only within the matching extension an
     setup() {
       views = useExtensionViews(api as ExtensionApi, installed, shallowRef({}))
       useProvideExtensionContext({ settingsLocation: () => null, state: { installed, api } as ExtensionContext['state'], views, ui: useExtensionUiContributions(installed, controller.configuration), anchors: new SemanticAnchorRegistry(), workbench: shallowRef({ values: {}, pages: [] }), language: shallowRef('en-US'), isDark: shallowRef(false), endInteraction: () => {}, focusView: () => {}, authoring: { author: shallowRef(''), save: async () => true }, startCreation: async () => {} })
-      return () => h(DesktopExtensionFrameHost, { layout })
+      return () => h(NMessageProvider, null, { default: () => h(DesktopExtensionFrameHost, { layout }) })
     },
   })
   app.mount(element)

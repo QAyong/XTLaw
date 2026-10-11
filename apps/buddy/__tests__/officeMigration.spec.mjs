@@ -123,5 +123,11 @@ it('ships fonts but no PDF assets, dynamic imports, export bridge calls or netwo
   expect(renderer).not.toMatch(/window\.desktop\.(?:exportPdf|printPdfBuffer|saveMergedPdf|takeExportPdf|pickExportImagesTarget|writeExportImage)\(/)
   expect(renderer).toContain('export const ready = rze()')
   const manifest = JSON.parse(await readFile(new URL('extension.json', plugin), 'utf8'))
-  expect(manifest.permissions).toEqual({ localResources: true, resourceExport: true })
+  expect(manifest.permissions).toEqual({
+    composerReference: true,
+    localResources: true,
+    resourceExport: true,
+    selectedResource: 'read',
+    selectedResourceWrite: true,
+  })
 })

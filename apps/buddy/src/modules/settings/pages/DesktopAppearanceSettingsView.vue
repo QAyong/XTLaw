@@ -27,12 +27,15 @@ const syncedProfile = computed(() => resolveUserProfile(profile.config.value, ap
       :error="settingsError"
       :language="language"
       :update-settings="updateSettings"
-    />
-    <DesktopAgentIdentitySettings
-      :language="language"
-      :profile="agentProfileConfig"
-      :synced-profile="syncedProfile"
-      :update-profile="agentProfile.update"
-    />
+    >
+      <template #after-application-appearance>
+        <DesktopAgentIdentitySettings
+          :language="language"
+          :profile="agentProfileConfig"
+          :synced-profile="syncedProfile"
+          :update-profile="agentProfile.update"
+        />
+      </template>
+    </DesktopAppearanceSettings>
   </DesktopSettingsPageLayout>
 </template>

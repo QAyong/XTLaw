@@ -74,6 +74,7 @@ async function updateWelcomePreference(preference: DesktopChatWelcomePreference)
         </div>
       </div>
     </section>
+    <slot name="after-application-appearance" />
     <section class="desktop-appearance-settings__section">
       <h2>{{ t('desktop.settings.conversationAppearance') }}</h2>
       <div class="desktop-appearance-settings__group">
@@ -110,6 +111,8 @@ async function updateWelcomePreference(preference: DesktopChatWelcomePreference)
     </section>
     <DesktopTypographySettings v-bind="props" />
   </section>
+  <!-- AI identity does not depend on desktop settings; keep it visible while they load. -->
+  <slot v-else name="after-application-appearance" />
 </template>
 
 <style scoped lang="scss">

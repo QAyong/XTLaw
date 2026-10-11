@@ -71,7 +71,9 @@ function selectZoom(event: Event): void {
 <template>
   <div class="browser-viewport-controls" data-testid="browser-viewport-controls" role="group" :aria-label="t('desktop.context.browserResponsive')">
     <select class="browser-viewport-controls__device" data-testid="browser-viewport-device" :aria-label="t('desktop.context.browserViewportDevice')" :title="t('desktop.context.browserViewportDeviceHint')" :value="selectedDevice" :disabled="disabled" @change="selectDevice">
-      <option value="custom">{{ t('desktop.context.browserViewportCustom') }}</option>
+      <option value="custom">
+        {{ t('desktop.context.browserViewportCustom') }}
+      </option>
       <option v-for="device in BROWSER_VIEWPORT_DEVICES" :key="device.id" :value="device.id">
         {{ device.id === 'desktop' ? t('desktop.context.browserViewportDesktop') : device.name }}
       </option>

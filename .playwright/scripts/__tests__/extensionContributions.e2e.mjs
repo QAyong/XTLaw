@@ -10,7 +10,7 @@ test('plugin-owned preferences activate contributions, yield native content and 
     if (await back.count())
       await back.click()
   }
-  const openModule = async name => {
+  const openModule = async (name) => {
     await backToTasks()
     await page.locator('.desktop-sidebar-footer').getByRole('button', { name, exact: true }).click()
   }

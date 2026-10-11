@@ -893,7 +893,9 @@ export class ExtensionService {
           assertView()
           if (path) {
             const writer = await ExtensionResourceWriter.create(path, input.size, assertView)
-            try { assertView() }
+            try {
+              assertView()
+            }
             catch (error) {
               await writer.dispose()
               throw error

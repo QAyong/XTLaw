@@ -6,7 +6,7 @@ import DesktopMarkdownContent from '@/shared/ui/markdown/DesktopMarkdownContent.
 import BuddyChatNarrationBody from '../BuddyChatNarrationBody.vue'
 import { useProvideChatContent } from '../chatContentContext'
 
-describe('Markdown link destinations', () => {
+describe('markdown link destinations', () => {
   it.each(['system', 'host', 'narration'] as const)('routes nested anchor clicks in %s mode', (mode) => {
     const openWebLink = vi.fn()
     const previewFile = vi.fn()
@@ -17,7 +17,9 @@ describe('Markdown link destinations', () => {
     const app = createApp({
       setup() {
         useProvideDesktopUi({
-          language: shallowRef('zh-CN'), isDark: shallowRef(false), sidebarCollapsed: shallowRef(false),
+          language: shallowRef('zh-CN'),
+          isDark: shallowRef(false),
+          sidebarCollapsed: shallowRef(false),
           chat: shallowRef({ outlinePosition: 'top-right', pasteTextAsAttachment: true, permissionMode: 'policy_approval', welcome: 'random' }),
           agentIdentity: shallowRef({ avatar: '', avatarColor: null, initials: null, name: '' }),
         })
@@ -25,8 +27,11 @@ describe('Markdown link destinations', () => {
         return () => mode === 'narration'
           ? h(BuddyChatNarrationBody, { text: '', language: 'zh-CN' })
           : h(DesktopMarkdownContent, {
-              content: '', language: 'zh-CN', writeClipboardText: async () => {},
-              ...(mode === 'host' ? { externalLinkMode: 'host' as const } : {}), onOpenLink: openLink,
+              content: '',
+              language: 'zh-CN',
+              writeClipboardText: async () => {},
+              ...(mode === 'host' ? { externalLinkMode: 'host' as const } : {}),
+              onOpenLink: openLink,
             })
       },
     })

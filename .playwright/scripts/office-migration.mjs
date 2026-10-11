@@ -11,6 +11,7 @@ const root = fileURLToPath(new URL('../../', import.meta.url))
 const buddy = path.join(root, 'apps/buddy')
 const require = createRequire(path.join(buddy, 'package.json'))
 const { strToU8, zipSync, unzipSync } = require('fflate')
+
 const pluginId = 'pd2ec0b9018e6402d8ada6873f7fa8721.office'
 const runRoot = path.join(root, '.playwright/runs')
 await mkdir(runRoot, { recursive: true })
@@ -37,13 +38,17 @@ const app = await electron.launch({
 })
 const report = { profile: 'isolated test', nativeDialogs: 'stubbed to bounded test files; requires manual native-dialog acceptance', errors: [], steps: [] }
 let stderr = ''
-app.process().stderr?.on('data', (chunk) => { stderr = `${stderr}${chunk}`.slice(-32768) })
+app.process().stderr?.on('data', (chunk) => {
+  stderr = `${stderr}${chunk}`.slice(-32768)
+})
 async function mainWindow() {
   const deadline = Date.now() + 45000
   while (Date.now() < deadline) {
     const page = app.windows().find(page => page.url().startsWith('lexora-app:'))
-    if (page) return page
-    if (app.process().exitCode !== null) throw new Error(`Application exited: ${stderr}`)
+    if (page)
+      return page
+    if (app.process().exitCode !== null)
+      throw new Error(`Application exited: ${stderr}`)
     await new Promise(resolve => setTimeout(resolve, 100))
   }
   throw new Error(`Main window not ready; URLs: ${app.windows().map(page => page.url().slice(0, 120)).join(', ')}; ${stderr}`)
@@ -51,14 +56,18 @@ async function mainWindow() {
 try {
   const page = await mainWindow()
   page.on('pageerror', error => report.errors.push(error.message))
-  page.on('console', message => { if (message.type() === 'error') report.errors.push(message.text()) })
+  page.on('console', (message) => {
+    if (message.type() === 'error')
+      report.errors.push(message.text())
+  })
   await page.waitForFunction(() => location.protocol === 'lexora-app:', undefined, { timeout: 45000 })
   await page.waitForFunction(async () => (await window.lexoraDesktop?.app.startup.getState())?.status === 'ready', undefined, { timeout: 45000 })
   const info = await page.evaluate(() => window.lexoraDesktop.app.getInfo())
   assert.equal(info.runtimeProfile, 'test')
   assert.equal(path.dirname(info.configPath), home)
   const newTask = page.getByRole('button', { name: '新任务', exact: true })
-  if (await newTask.count()) await newTask.first().click()
+  if (await newTask.count())
+    await newTask.first().click()
   await page.waitForFunction(async id => (await window.lexoraDesktop.extensions.list()).some(item => item.manifest.id === id && item.enabled), pluginId)
   await page.evaluate(id => window.lexoraDesktop.extensions.execute(id, `${id}.open`, null), pluginId)
   const frame = page.frameLocator('iframe[src^="lexora-extension:"]').first()
@@ -89,7 +98,8 @@ try {
   report.steps.push('actual editor serialization and host Save As completed; source unchanged')
   await page.screenshot({ path: path.join(run, 'editor-saved.png') })
   report.ok = true
-  if (process.env.LEXORA_OFFICE_SMOKE_HOLD === '1') await new Promise(resolve => setTimeout(resolve, 90000))
+  if (process.env.LEXORA_OFFICE_SMOKE_HOLD === '1')
+    await new Promise(resolve => setTimeout(resolve, 90000))
 }
 catch (error) {
   report.ok = false

@@ -25,7 +25,8 @@ describe('message web links', () => {
     await Promise.all([open('https://example.com'), open('http://127.0.0.1:4173/')])
     expect(options.browser.ensureSession.mock.calls).toEqual([['conversation'], ['conversation']])
     expect(options.browser.navigate.mock.calls).toEqual([
-      ['session', 'https://example.com'], ['session', 'http://127.0.0.1:4173/'],
+      ['session', 'https://example.com'],
+      ['session', 'http://127.0.0.1:4173/'],
     ])
     expect(options.retainBrowserSession).toHaveBeenCalledWith(state)
     expect(options.updateBrowserState).toHaveBeenCalledWith(state)

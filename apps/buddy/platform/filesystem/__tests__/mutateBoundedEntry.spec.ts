@@ -13,8 +13,12 @@ beforeEach(() => {
   mocks.execFile.mockReset()
   mocks.process.env = {
     LEXORA_BUDDY_FILE_READER: '/trusted/helper',
-    SystemRoot: 'C:/Windows', USERPROFILE: 'C:/Users/test', LOCALAPPDATA: 'C:/Users/test/local',
-    HOME: '/home/test', XDG_DATA_HOME: '/home/test/.local/share', SECRET: 'not-forwarded',
+    SystemRoot: 'C:/Windows',
+    USERPROFILE: 'C:/Users/test',
+    LOCALAPPDATA: 'C:/Users/test/local',
+    HOME: '/home/test',
+    XDG_DATA_HOME: '/home/test/.local/share',
+    SECRET: 'not-forwarded',
   }
 })
 

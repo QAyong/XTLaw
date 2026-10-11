@@ -25,7 +25,9 @@ async function start() {
     process.stderr.write(`${error.message}\n`)
     process.exitCode = 1
   })
-  child.on('exit', (code) => { process.exitCode = code ?? 1 })
+  child.on('exit', (code) => {
+    process.exitCode = code ?? 1
+  })
 }
 void start().catch((error) => {
   process.stderr.write(`${error.message}\n`)

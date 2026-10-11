@@ -8,6 +8,7 @@ import messageEditUrl from './assets/message-edit.svg'
 import messageQueueUrl from './assets/message-queue.svg'
 import messageRetryUrl from './assets/message-retry.svg'
 import navigationAutomationUrl from './assets/navigation-automation.svg'
+import navigationExtensionsUrl from './assets/navigation-extensions.svg'
 import navigationSettingsUrl from './assets/navigation-settings.svg'
 import navigationTaskUrl from './assets/navigation-task.svg'
 import notificationMarkAllReadUrl from './assets/notification-mark-all-read.svg'
@@ -35,6 +36,7 @@ export const DESKTOP_ICON_URLS = {
   messageQueue: messageQueueUrl,
   messageRetry: messageRetryUrl,
   navigationAutomation: navigationAutomationUrl,
+  navigationExtensions: navigationExtensionsUrl,
   navigationSettings: navigationSettingsUrl,
   navigationTask: navigationTaskUrl,
   notificationMarkAllRead: notificationMarkAllReadUrl,

@@ -1,7 +1,6 @@
 import type { ExtensionStatus } from '@buddy-shared/extensions/extensionApi'
 import type { RouteRecordRaw } from 'vue-router'
 import type { DesktopPageContribution, DesktopPageDefinition } from '@/shared/navigation/desktopPages'
-import { VehicleShip20Regular } from '@vicons/fluent'
 import { DESKTOP_ROUTE_NAMES, desktopRouteLocations } from '@/shared/navigation/desktopRoutes'
 
 export const extensionsRoutes: RouteRecordRaw[] = [
@@ -12,7 +11,7 @@ export const extensionsRoutes: RouteRecordRaw[] = [
 export const extensionsPage: DesktopPageContribution = {
   id: 'lexora.extensions',
   title: language => language === 'en-US' ? 'Plugins' : '插件',
-  icon: { kind: 'component', component: VehicleShip20Regular },
+  icon: { kind: 'named', name: 'navigationExtensions' },
   order: 40,
   location: desktopRouteLocations.extensions(),
   routes: extensionsRoutes,

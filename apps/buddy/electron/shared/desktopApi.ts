@@ -176,12 +176,14 @@ export type DesktopChatOutlinePosition = typeof DESKTOP_CHAT_OUTLINE_POSITIONS[n
 
 export interface DesktopChatPreferences {
   outlinePosition: DesktopChatOutlinePosition
+  pasteTextAsAttachment: boolean
   permissionMode: import('../../shared/permissions/permissionMode').BuddyPermissionMode
   welcome: DesktopChatWelcomePreference
 }
 
 export const DEFAULT_DESKTOP_CHAT_PREFERENCES: Readonly<DesktopChatPreferences> = {
   outlinePosition: 'top-right',
+  pasteTextAsAttachment: true,
   permissionMode: BUDDY_DEFAULT_PERMISSION_MODE,
   welcome: 'random',
 }
@@ -199,6 +201,7 @@ export interface LexoraConfig {
     keybindings: Record<string, string>
     taskSidebarPinnedItems: DesktopTaskPinnedItem[]
     taskSidebar: DesktopTaskSidebarPreferences
+    typography: import('../../shared/typography/typographyPreferences').TypographyPreferences
     developerToolsEnabled: boolean
     language: 'zh-CN' | 'en-US'
     launchAtLogin: boolean
@@ -222,7 +225,8 @@ export interface LexoraConfigPatch {
   runtime?: Partial<LexoraConfig['runtime']>
   browser?: Partial<LexoraConfig['browser']>
   proxy?: LexoraConfig['proxy']
-  desktop?: Partial<Omit<LexoraConfig['desktop'], 'agentProfile' | 'chat' | 'taskSidebar' | 'profile'>> & {
+  desktop?: Partial<Omit<LexoraConfig['desktop'], 'agentProfile' | 'chat' | 'taskSidebar' | 'profile' | 'typography'>> & {
+    typography?: Partial<LexoraConfig['desktop']['typography']>
     chat?: Partial<DesktopChatPreferences>
     taskSidebar?: Partial<DesktopTaskSidebarPreferences>
     profile?: Partial<DesktopUserProfileConfig>

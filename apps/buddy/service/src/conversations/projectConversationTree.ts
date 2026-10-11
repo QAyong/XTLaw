@@ -98,7 +98,7 @@ export function projectConversationTree(input: {
       artifacts: artifacts.slice(0, 3),
       artifactCount: artifacts.length,
       metadata: {
-        modelId: run.model,
+        modelId: readMessageModel(answers.at(-1)?.content) ?? run.model,
         startedAt: run.startedAt,
         completedAt: run.completedAt,
         usage: input.usageByRun?.get(run.id) ?? null,
@@ -135,6 +135,13 @@ export function projectConversationTree(input: {
     headId,
     nodes: [...nodes.values()].map(node => ({ ...node, active: active.has(node.id) })),
   }
+}
+
+function readMessageModel(content: unknown): string | null {
+  if (!content || typeof content !== 'object')
+    return null
+  const model = (content as { modelId?: unknown }).modelId
+  return typeof model === 'string' && model.trim() ? model : null
 }
 
 function readText(content: unknown, attachments: readonly { id: string, name: string }[] = []): string {

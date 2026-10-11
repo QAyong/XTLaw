@@ -9,6 +9,7 @@ import { NSelect, NSpin, useMessage } from 'naive-ui'
 import { computed, shallowRef } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import DesktopWelcomePreferencePicker from '@/modules/settings/widgets/app/DesktopWelcomePreferencePicker.vue'
+import DesktopTypographySettings from './DesktopTypographySettings.vue'
 
 type AppearanceSettingField = 'theme' | 'welcome' | 'outlinePosition'
 
@@ -107,6 +108,7 @@ async function updateWelcomePreference(preference: DesktopChatWelcomePreference)
         </div>
       </div>
     </section>
+    <DesktopTypographySettings v-bind="props" />
   </section>
 </template>
 

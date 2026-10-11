@@ -6,6 +6,7 @@ import { proxySettingsSchema } from '../../shared/network/proxySettings'
 import { BUDDY_PERMISSION_MODES } from '../../shared/permissions/permissionMode'
 import { runtimePreferencesSchema } from '../../shared/runtime/runtimePreferences'
 import { keybindingsSchema } from '../../shared/shortcuts/keybindingSchema'
+import { typographyPreferencesSchema } from '../../shared/typography/typographyPreferences'
 import {
   DESKTOP_CHAT_OUTLINE_POSITIONS,
   DESKTOP_CHAT_WELCOME_VARIANT_IDS,
@@ -75,6 +76,7 @@ export const lexoraConfigPatchSchema: z.ZodType<LexoraConfigPatch> = z.object({
     backgroundCloseNoticeShown: z.boolean().optional(),
     chat: z.object({
       outlinePosition: z.enum(DESKTOP_CHAT_OUTLINE_POSITIONS).optional(),
+      pasteTextAsAttachment: z.boolean().optional(),
       permissionMode: z.enum(BUDDY_PERMISSION_MODES).optional(),
       welcome: z.enum(['none', 'random', ...DESKTOP_CHAT_WELCOME_VARIANT_IDS]).optional(),
     }).strict().optional(),
@@ -84,6 +86,7 @@ export const lexoraConfigPatchSchema: z.ZodType<LexoraConfigPatch> = z.object({
     keybindings: keybindingsSchema.optional(),
     taskSidebarPinnedItems: taskSidebarPinnedItemsSchema.optional(),
     taskSidebar: taskSidebarPreferencesSchema.optional(),
+    typography: typographyPreferencesSchema.partial().optional(),
     profile: desktopUserProfilePatchSchema.optional(),
     agentProfile: desktopAgentProfilePatchSchema.optional(),
     developerToolsEnabled: z.boolean().optional(),

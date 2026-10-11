@@ -2,6 +2,7 @@ import type { ExtensionAgentDescriptor, ExtensionAgentInvocation } from '../../s
 import type { ExtensionMenuInvocation, ExtensionResource, ExtensionStatus, ExtensionViewInput, ExtensionViewSession, ExtensionWorkbenchEvent } from '../../shared/extensions/extensionApi'
 import type { ExtensionInspection } from '../../shared/extensions/extensionAuthoring'
 import type { ExtensionConditionRuntime } from '../../shared/extensions/extensionConditionContext'
+import type { ExtensionConditionState } from '../../shared/extensions/extensionConditions'
 import type { ExtensionResourceSelection } from '../../shared/extensions/extensionResources'
 import type { ExtensionConfiguration, ExtensionConfigurationSnapshot } from '../../shared/extensions/extensionSettings'
 import type { SpaceFileByteChunk, SpaceFileByteRequest, SpaceFileTarget } from '../../shared/spaces/spaceFileApi'
@@ -30,6 +31,7 @@ import { controlProposalSchema, extensionPresentationRequestSchema } from '../..
 import { publicWebUrl, readResponseBytes } from '../network/publicWebTransport'
 import { preinstallBundledExtensions } from './BundledExtensionCatalog'
 import { ExtensionCatalogService } from './ExtensionCatalogService'
+import { ExtensionConditionInvalidatedError } from './ExtensionConditionEvaluator'
 import { ExtensionConditions } from './ExtensionConditions'
 import { sha256, unpackExtension } from './extensionFiles'
 import { ExtensionInstallations } from './ExtensionInstallations'
@@ -363,7 +365,21 @@ export class ExtensionService {
     for (const { reference, target } of references) {
       if (!input.context)
         throw new Error('EXTENSION_CONDITION_UNAVAILABLE')
-      const state = await this.conditions.evaluate(running.package, reference, target, { kind: 'task', ...input.context }, { cache: false, signal })
+      let state: ExtensionConditionState
+      for (let attempt = 0; ; attempt++) {
+        try {
+          state = await this.conditions.evaluate(running.package, reference, target, { kind: 'task', ...input.context }, { cache: false, signal })
+          break
+        }
+        catch (error) {
+          if (!(error instanceof ExtensionConditionInvalidatedError))
+            throw error
+          signal.throwIfAborted()
+          this.#assertCurrent(running)
+          if (attempt > 0)
+            throw Object.assign(new Error('EXTENSION_AGENT_CANCELLED'), { code: 'EXTENSION_AGENT_CANCELLED' })
+        }
+      }
       signal.throwIfAborted()
       this.#assertCurrent(running)
       if (!state.value) {
@@ -499,13 +515,25 @@ export class ExtensionService {
       if (!this.store.installed[id])
         throw new Error('EXTENSION_NOT_INSTALLED')
       await this.#stopClosure(id)
-      const previousRevision = this.store.installed[id]!.current.revision
-      await this.store.promote(id)
-      if (this.store.installed[id]!.current.revision !== previousRevision)
-        this.#publish({ kind: 'package', action: 'promoted', extensionId: id, packageRevision: this.store.installed[id]!.current.revision })
       this.#clearError(id)
       await this.scheduler.resume()
       this.#log(id, 'restarted')
+    })
+  }
+
+  applyUpdate(id: string): Promise<void> {
+    return this.#mutate(async () => {
+      const installed = this.store.installed[id]
+      if (!installed)
+        throw new Error('EXTENSION_NOT_INSTALLED')
+      if (!installed.pending)
+        throw new Error('EXTENSION_UPDATE_UNAVAILABLE')
+      await this.#stopClosure(id)
+      await this.store.promote(id)
+      this.#publish({ kind: 'package', action: 'promoted', extensionId: id, packageRevision: this.store.installed[id]!.current.revision })
+      this.#clearError(id)
+      await this.scheduler.resume()
+      this.#log(id, 'update.applied')
     })
   }
 

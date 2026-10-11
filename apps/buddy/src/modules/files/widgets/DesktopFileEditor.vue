@@ -121,7 +121,7 @@ watch([container, attempt, viewId, identity], async ([element, , viewId, key], _
     editor = ownedEditor
     if (references)
       registerMonacoResourceQuote(ownedEditor, { source: () => quoteSource(), prepare: prepareQuote, editable: () => mode.value === 'edit' })
-    stopTheme = observeDesktopMonacoTheme(lease.monaco)
+    stopTheme = observeDesktopMonacoTheme(lease.monaco, ownedEditor)
     if (props.view.state.editor)
       ownedEditor.restoreViewState(JSON.parse(JSON.stringify(props.view.state.editor)) as Monaco.editor.ICodeEditorViewState)
     applyQuoteSelection()

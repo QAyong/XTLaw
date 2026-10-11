@@ -28,21 +28,24 @@ import type { LocalNotificationList, NotificationsChanged } from '../../shared/n
 import type { LocalApproval } from '../../shared/permissions/approvalApi'
 import type { ApprovalGrantScope } from '../../shared/permissions/approvalReviewPayload'
 import type { BuddyPermissionSettings } from '../../shared/permissions/permissionMode'
+import type { BuiltinPromptCatalog } from '../../shared/prompts/promptApi'
 import type { LocalBuiltinProviderPreset, LocalCustomProvider, LocalCustomProviderModel, LocalDefaultModel, LocalModelSnapshot, LocalProvider, LocalProviderAuthChallenge, LocalRuntimeModelOption, ProviderChanged } from '../../shared/providers/providerApi'
 import type { ModelCapabilityOverrides } from '../../shared/providers/providerCapabilities'
 import type { ModelCatalogReference } from '../../shared/providers/providerCatalog'
 import type { ProviderRequestHeader } from '../../shared/providers/providerHeaders'
 import type { LocalRun, LocalRunEvent } from '../../shared/runs/runApi'
 import type { LocalBuddyServiceSupervisorState } from '../../shared/runtime/serviceState'
+
 import type { LocalSkillCatalog, SkillChangeNotice, SkillDetail, SkillDirectoryRequest, SkillFileTarget, SkillInstallPreview, SkillPreviewInput } from '../../shared/skills/skillApi'
-
 import type { LocalSpace, LocalSpaceCreateInput, LocalSpaceFile, LocalSpaceUpdateInput, SpaceChangeNotice } from '../../shared/spaces/spaceApi'
-import type { LocalSpaceDirectoryPage, LocalSpaceFilePreview, SpaceDirectoryRequest, SpaceFileTarget } from '../../shared/spaces/spaceFileApi'
 
+import type { LocalSpaceDirectoryPage, LocalSpaceFilePreview, SpaceDirectoryRequest, SpaceFileTarget } from '../../shared/spaces/spaceFileApi'
 import type { LocalUsageAnalytics, LocalUsageTopTasks, LocalUsageTrend, UsagePeriod, UsageTopTasksRequest, UsageTrendRequest } from '../../shared/usage/usageAnalyticsApi'
+
 import type { LocalUsageSnapshot } from '../../shared/usage/usageApi'
 
 export const LOCAL_CHAT_IPC_CHANNELS = {
+  promptsGet: 'lexora:buddy:prompts:get',
   taskMarksList: 'lexora:buddy:task-marks:list',
   taskMarksCreate: 'lexora:buddy:task-marks:create',
   taskMarksUpdate: 'lexora:buddy:task-marks:update',
@@ -86,6 +89,7 @@ export const LOCAL_CHAT_IPC_CHANNELS = {
   composerResourcesComplete: 'lexora:buddy:composer-resources:complete',
   composerResourcesFail: 'lexora:buddy:composer-resources:fail',
   composerResourcesList: 'lexora:buddy:composer-resources:list',
+  composerResourcesReadText: 'lexora:buddy:composer-resources:read-text',
   composerResourcesListSources: 'lexora:buddy:composer-resources:list-sources',
   composerResourcesRetry: 'lexora:buddy:composer-resources:retry',
   composerResourcesSelectFiles: 'lexora:buddy:composer-resources:select-files',
@@ -198,6 +202,7 @@ export const LOCAL_CHAT_IPC_CHANNELS = {
   skillsRemove: 'lexora:buddy:skills:remove',
   skillsReveal: 'lexora:buddy:skills:reveal',
   skillsChanged: 'lexora:buddy:skills:changed',
+  skillsReviewRequested: 'lexora:buddy:skills:review-requested',
   usageSnapshot: 'lexora:buddy:usage:snapshot',
   usageAnalytics: 'lexora:buddy:usage:analytics',
   usageTopTasks: 'lexora:buddy:usage:top-tasks',
@@ -249,6 +254,9 @@ export interface LocalChatApi {
     runNow: (input: LocalAutomationMutationRequest) => Promise<LocalAutomationRunNowResult>
     update: (input: LocalAutomationUpdateRequest) => Promise<LocalAutomation>
     onChanged: (listener: (automationId: string) => void) => () => void
+  }
+  prompts: {
+    get: () => Promise<BuiltinPromptCatalog>
   }
   runtime: {
     getStatus: () => Promise<LocalBuddyServiceSupervisorState>
@@ -350,6 +358,7 @@ export interface LocalChatApi {
     remove: (input: { spaceId: string | null, id: string, revision: string }) => Promise<LocalSkillCatalog>
     reveal: (input: { spaceId: string | null, id: string }) => Promise<void>
     onChanged: (listener: (event: SkillChangeNotice) => void) => () => void
+    onReview: (listener: (preview: SkillInstallPreview) => void) => () => void
   }
   connectors: {
     onChanged: (listener: (event: ConnectorChangeNotice) => void) => () => void
@@ -453,6 +462,7 @@ export interface LocalChatApi {
     deny: (approvalId: string) => Promise<LocalApproval>
   }
   composerResources: {
+    readText: (input: BuddyComposerResourceTarget) => Promise<string>
     onChanged: (listener: (change: ComposerResourcesChanged) => void) => () => void
     accept: (input: BuddyComposerResourceAccept) => Promise<readonly BuddyComposerResource[]>
     complete: (input: BuddyComposerResourceComplete) => Promise<BuddyComposerResource>

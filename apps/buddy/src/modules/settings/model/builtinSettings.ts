@@ -12,7 +12,7 @@ export const builtinSettings = {
     page: category === 'general' ? undefined : category,
     ...builtinSettingsCatalog[category],
     order,
-    fill: category === 'logs',
+    fill: category === 'logs' || category === 'prompts',
     title: text(`desktop.settings.category.${category}`),
     description: text(category === 'logs' ? 'applicationLogs.description' : category === 'usage' ? 'usageAnalytics.description' : category === 'skills' ? 'desktop.skills.description' : `desktop.settings.categoryDescription.${category}`),
   })),
@@ -21,6 +21,7 @@ export const builtinSettings = {
     { id: 'settings.general.general', module: 'settings.general', title: text('desktop.settings.category.general'), order: 0 },
     { id: 'settings.general.window-behavior', module: 'settings.general', title: text('desktop.settings.windowBehavior'), order: 5 },
     { id: 'settings.general.context-panel', module: 'settings.general', title: text('desktop.settings.contextPanel'), order: 10 },
+    { id: 'settings.general.composer', module: 'settings.general', title: text('desktop.settings.conversationInput'), order: 20 },
     ...builtinSettingsCategories.filter(category => category !== 'general').map(category => ({
       id: `settings.${category}.content`,
       module: `settings.${category}`,
@@ -30,6 +31,7 @@ export const builtinSettings = {
   ],
   items: [
     { id: 'settings.general.profile', group: 'settings.general.account', order: 0, kind: 'content' as const },
+    { id: 'settings.general.pasteTextAsAttachment', group: 'settings.general.composer', order: 0, kind: 'general' as const, field: 'pasteTextAsAttachment' },
     ...(['language', 'minimizeToTrayOnClose', 'contextPanelMode', 'contextPanelGlobal'] as GeneralSettingField[]).map((field, order) => ({
       id: `settings.general.${field}`,
       group: field === 'language'

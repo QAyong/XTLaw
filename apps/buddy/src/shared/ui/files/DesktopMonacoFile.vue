@@ -76,7 +76,7 @@ watch(container, async (element, _previous, onCleanup) => {
     if (props.quoteSource && props.prepareQuote) {
       registerMonacoResourceQuote(editor, { source: () => props.quoteSource!, prepare: (quote, x, y, editable, editSource) => props.prepareQuote?.(quote, x, y, editable, editSource) ?? null })
     }
-    stopTheme = observeDesktopMonacoTheme(monaco)
+    stopTheme = observeDesktopMonacoTheme(monaco, editor)
     stopUpdates = watch(() => [props.text, props.path, props.wrap] as const, ([text, path, wrap], previous) => {
       if (!editor || !model)
         return

@@ -1,4 +1,5 @@
 import type { DesktopTaskSidebarSection } from '@buddy-electron/shared/desktopApi'
+import { lexoraConfigPatchSchema } from '@buddy-electron/shared/desktopApiSchemas'
 import { describe, expect, it } from 'vitest'
 import { shallowRef } from 'vue'
 import { useTaskSidebarPreferences } from '../useTaskSidebarPreferences'
@@ -31,6 +32,7 @@ function createFixture(options: { failWrites?: boolean, initial?: SidebarDesktop
   const sidebar = useTaskSidebarPreferences({
     config,
     updateSettings: async (patch) => {
+      lexoraConfigPatchSchema.parse(patch)
       if (options.failWrites)
         return false
       writes.push(patch.desktop)
@@ -71,7 +73,7 @@ describe('task sidebar preferences', () => {
     await sidebar.setSectionExpanded('pinned', false)
     await sidebar.setSpaceExpanded('space-a', false)
     await sidebar.setCollapsed(true)
-    await sidebar.setWidth(336)
+    await sidebar.setWidth(336.42)
 
     expect(writes).toEqual([
       { taskSidebar: { collapsedSections: ['pinned'] } },
@@ -83,6 +85,8 @@ describe('task sidebar preferences', () => {
     expect(sidebar.isSpaceExpanded('space-a')).toBe(false)
     expect(sidebar.collapsed.value).toBe(true)
     expect(sidebar.width.value).toBe(336)
+    await sidebar.setWidth(null)
+    expect(sidebar.width.value).toBe(null)
   })
 
   it('rolls back the optimistic change when the profile write fails', async () => {
@@ -91,6 +95,8 @@ describe('task sidebar preferences', () => {
     expect(sidebar.collapsed.value).toBe(false)
     await expect(sidebar.setSpaceExpanded('space-a', false)).resolves.toBe(false)
     expect(sidebar.isSpaceExpanded('space-a')).toBe(true)
+    await expect(sidebar.setWidth(263.42)).resolves.toBe(false)
+    expect(sidebar.width.value).toBe(null)
   })
 
   it('drops folded Spaces that disappeared while keeping the preference before Spaces load', async () => {

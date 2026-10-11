@@ -13,6 +13,7 @@ import type { ImageGenerationServiceOptions } from './images/ImageGenerationServ
 import type { ImageTransformService } from './images/ImageTransformService'
 import type { PetActionService } from './pet/PetActionService'
 import type { PluginAuthoringService } from './plugins/PluginAuthoringService'
+import type { SkillAuthoringServices } from './skills/skillAuthoringCapability'
 import type { RunInputRepository } from './storage/runInputRepository'
 import type { WebCapabilityService } from './web/WebCapabilityService'
 import { createSessionAskCapability } from './agent/extensions/sessionAskExtension'
@@ -28,6 +29,7 @@ import { observeImageDiagnostics } from './images/ImageOperationLifecycle'
 import { createImageTransformCapability } from './images/imageTransformExtension'
 import { createPetCapability } from './pet/petExtension'
 import { createPluginAuthoringCapability } from './plugins/pluginAuthoringCapability'
+import { createSkillAuthoringCapability } from './skills/skillAuthoringCapability'
 import { createSystemHost } from './system/createSystemHost'
 import { createSystemCapability } from './system/systemExtension'
 import { createWebCapability } from './web/webExtension'
@@ -37,6 +39,7 @@ export interface BuddyCapabilityServices {
   pluginCapabilities?: (context: BuddyCapabilityContext) => Promise<BuddyCapability[]>
   pluginAuthoring: Pick<RuntimeRpcPeerContract, 'request' | 'notify'>
   pluginBuilder: PluginAuthoringService
+  skillAuthoring: Omit<SkillAuthoringServices, 'conversations'>
   artifactService: ImageGenerationServiceOptions['artifactService'] & Pick<ArtifactService, 'presentOutputs'> & SessionReferenceServices['artifacts']
   attachmentService: ImageGenerationServiceOptions['attachmentService'] & SessionReferenceServices['attachments']
   automationService: CreateAutomationToolOptions['service']
@@ -68,7 +71,14 @@ export function createBuddyCapabilityFactory(
   const supported = platform.features.map(id => platformFactories[id]())
   return async (context) => {
     context.signal.throwIfAborted()
-    const mcp = services.connectorService.getTools(context.signal, context.executionProfile === 'read_only' ? undefined : createMcpResultWriter({ ...context, artifactService: services.artifactService }))
+    const writeMcpResult = createMcpResultWriter({
+      ...context,
+      get grants() { return context.grants },
+      artifactService: services.artifactService,
+    })
+    const mcp = services.connectorService.getTools(context.signal, (bytes, mimeType, signal) => context.executionProfile === 'read_only'
+      ? Promise.reject(new Error('EXECUTION_PROFILE_READ_ONLY'))
+      : writeMcpResult(bytes, mimeType, signal))
     context.signal.throwIfAborted()
     const capabilities = [
       createMcpCapability(mcp, context.isCodemodeEnabled ?? (() => false)),
@@ -98,6 +108,7 @@ export function createBuddyCapabilityFactory(
       if (context.sessionMode === 'interactive') {
         capabilities.push(...await services.pluginCapabilities?.(context) ?? [])
         capabilities.push(createPluginAuthoringCapability(context, services.pluginAuthoring, services.pluginBuilder))
+        capabilities.push(createSkillAuthoringCapability(context, { ...services.skillAuthoring, conversations: services.conversations }))
         capabilities.push(createAutomationCapability({
           service: services.automationService,
         }))

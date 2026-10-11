@@ -103,8 +103,8 @@ function confirmFullAccess() {
 }
 
 async function confirmSetup() {
-  await setup()
-  if (setupResult.value === 'ready' || setupResult.value === 'incompatible') {
+  const result = await setup()
+  if (result === 'ready' || result === 'incompatible') {
     setupOpen.value = false
     popoverOpen.value = true
   }
@@ -182,9 +182,6 @@ async function confirmSetup() {
           </span>
         </button>
       </div>
-      <small v-if="!canUpdate && !isUpdating" class="desktop-permission-mode-selector__locked">
-        {{ t('desktop.chat.executionProfileRunLocked') }}
-      </small>
       <footer v-if="boundaryWarning" class="desktop-permission-mode-selector__boundary" role="status">
         <strong>{{ t(`desktop.chat.shellSandboxStatus.${sandboxStatus}`) }}</strong>
         <span>{{ t(`desktop.chat.shellSandboxHint.${sandboxStatus}`) }}</span>
@@ -375,14 +372,5 @@ async function confirmSetup() {
 .desktop-permission-mode-selector__option.is-danger small {
   color: var(--buddy-status-danger-text);
   opacity: 0.82;
-}
-
-.desktop-permission-mode-selector__locked {
-  display: block;
-  border-top: 1px solid var(--buddy-border-subtle);
-  margin-top: 0.3rem;
-  padding: 0.4rem 0.25rem 0.05rem;
-  color: var(--buddy-text-muted);
-  font-size: 0.68rem;
 }
 </style>

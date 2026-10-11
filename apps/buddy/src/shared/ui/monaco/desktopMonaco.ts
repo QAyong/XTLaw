@@ -1,5 +1,7 @@
 import type * as Monaco from 'monaco-editor/editor/editor.api.js'
 import EditorWorker from 'monaco-editor/editor/editor.worker.js?worker'
+import { watch } from 'vue'
+import { desktopTypography } from '@/theme/desktopTypography'
 
 interface MonacoEnvironmentGlobal {
   MonacoEnvironment?: {
@@ -42,14 +44,18 @@ export function loadDesktopMonaco(): Promise<typeof Monaco> {
   return monacoPromise
 }
 
-export function observeDesktopMonacoTheme(monaco: typeof Monaco): () => void {
+export function observeDesktopMonacoTheme(monaco: typeof Monaco, editor: Monaco.editor.IStandaloneCodeEditor | Monaco.editor.IStandaloneDiffEditor): () => void {
+  const stopTypography = watch(() => desktopTypography.value.mono, fontFamily => editor.updateOptions({ fontFamily }), { immediate: true })
   syncDesktopMonacoTheme(monaco)
   const observer = new MutationObserver(() => syncDesktopMonacoTheme(monaco))
   observer.observe(document.documentElement, {
     attributeFilter: ['data-buddy-theme'],
     attributes: true,
   })
-  return () => observer.disconnect()
+  return () => {
+    stopTypography()
+    observer.disconnect()
+  }
 }
 
 function syncDesktopMonacoTheme(monaco: typeof Monaco): void {

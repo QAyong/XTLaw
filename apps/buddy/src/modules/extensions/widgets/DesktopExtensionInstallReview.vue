@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import type { ExtensionReview } from '@buddy-shared/extensions/extensionApi'
 import { Alert20Regular, Clock20Regular, Document20Regular, Globe20Regular } from '@vicons/fluent'
-import { NButton, NEllipsis, NModal } from 'naive-ui'
-import { computed } from 'vue'
+import { NButton, NCheckbox, NEllipsis, NModal } from 'naive-ui'
+import { computed, shallowRef } from 'vue'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import DesktopPluginIcon from '@/shared/ui/icon/DesktopPluginIcon.vue'
 import { extensionLabels } from '../extensionLabels'
 
 const props = defineProps<{ review: ExtensionReview, language: string, busy: boolean }>()
-const emit = defineEmits<{ cancel: [], install: [] }>()
+const emit = defineEmits<{ cancel: [], install: [applyUpdate: boolean] }>()
+const applyUpdate = shallowRef(true)
 const labels = computed(() => extensionLabels(props.language))
 const english = computed(() => props.language === 'en-US')
 const permissions = computed(() => {
@@ -105,13 +106,21 @@ const sharesContent = computed(() => (props.review.manifest.permissions.selected
         {{ english ? 'This plugin can send authorized content to the listed websites.' : '此插件可以向上述网站发送已授权读取的内容。' }}
       </template>
     </p>
+    <div v-if="review.currentVersion" class="extension-install-review__apply">
+      <NCheckbox v-model:checked="applyUpdate" :disabled="busy">
+        {{ labels.applyAfterInstall }}
+      </NCheckbox>
+      <p v-if="applyUpdate" class="extension-install-review__muted">
+        {{ labels.applyUpdateHint }}
+      </p>
+    </div>
     <template #footer>
       <div class="extension-install-review__actions">
         <NButton :disabled="busy" @click="emit('cancel')">
           {{ labels.cancel }}
         </NButton>
-        <NButton type="primary" :loading="busy" data-testid="extension-confirm-install" @click="emit('install')">
-          {{ review.currentVersion ? labels.update : labels.confirm }}
+        <NButton type="primary" :loading="busy" data-testid="extension-confirm-install" @click="emit('install', applyUpdate)">
+          {{ review.currentVersion ? (applyUpdate ? labels.updateAndApply : labels.update) : labels.confirm }}
         </NButton>
       </div>
     </template>
@@ -148,6 +157,7 @@ const sharesContent = computed(() => (props.review.manifest.permissions.selected
 .extension-install-review__muted { margin: 0; color: var(--buddy-text-secondary); font-size: 12px; line-height: 1.6; }
 .extension-install-review__unchanged { margin-top: 12px; }
 .extension-install-review__dependencies { margin-top: 24px; }
+.extension-install-review__apply { display: grid; gap: 4px; margin-top: 20px; border-top: 1px solid var(--buddy-border-subtle); padding-top: 16px; }
 .extension-install-review__dependencies p { margin: 4px 0 0; color: var(--buddy-text-primary); font-size: 12px; overflow-wrap: anywhere; }
 .extension-install-review__dependencies span { color: var(--buddy-text-secondary); }
 .extension-install-review__trust { margin: 24px 0 0; color: var(--buddy-text-secondary); font-size: 12px; line-height: 1.6; }

@@ -12,6 +12,7 @@ import { useExtensionState, useExtensionUiContributions, useExtensionViews, useP
 import { DesktopExtensionControl, DesktopExtensionFrameHost, DesktopExtensionMenu, DesktopExtensionOverlays, DesktopExtensionReviewHost, DesktopExtensionSlot } from '@/modules/extensions/ui'
 import { resolveUserProfile, usePluginSettings, useProvideSettingsContext, useSettingsRegistry } from '@/modules/settings'
 import { useProvideSkillsContext } from '@/modules/skills'
+import { DesktopSkillReviewHost } from '@/modules/skills/ui'
 import { sessionReferenceNavigationKey, useProvideTaskEnvironment, useTaskIndex, useTaskResourcePanel } from '@/modules/tasks'
 import { useProvideDesktopUpdates } from '@/modules/updates'
 import { DesktopUpdateHost } from '@/modules/updates/ui'
@@ -24,6 +25,7 @@ import { useProvideWorkbenchCommands } from '@/shared/ui/contributions/workbench
 import { useProvideWorkbenchUi } from '@/shared/ui/contributions/workbenchUiContext'
 import { useProvideDesktopUi } from '@/shared/ui/desktopUiContext'
 import { showSelectionReferenceResult, workbenchSelectionReferencesKey } from '@/shared/ui/selection/workbenchSelectionReferences'
+import { useDesktopTypography } from '@/theme/desktopTypography'
 import { SemanticAnchorRegistry } from '@/workbench/browser/surfaces/SemanticAnchorRegistry'
 import { WorkbenchPaneRegistry } from '@/workbench/browser/surfaces/WorkbenchPaneRegistry'
 import WorkbenchSurfaceHost from '@/workbench/browser/surfaces/WorkbenchSurfaceHost.vue'
@@ -52,6 +54,7 @@ const router = useRouter()
 const message = useMessage()
 const appState = useDesktopAppState({ api })
 const { stores } = appState
+useDesktopTypography(() => stores.applicationSettings.config.value?.desktop.typography)
 useProvideDesktopUpdates(stores.updates)
 const taskIndex = useTaskIndex({
   api: api.localChat,
@@ -305,9 +308,12 @@ useProvideSettingsContext({
   ready,
   webSettings: capabilities.webSettings,
   mcpSettings: capabilities.mcpSettings,
+  prompts: api.localChat.prompts,
+  writeClipboardText: text => api.clipboard.writeText(text),
   openTask: navigation.openTask,
 })
 useProvideSkillsContext({
+  startCreation: (spaceId, prompt) => workbench.startTaskWithSkill('skill-creator', prompt, spaceId),
   writeClipboardText: text => api.clipboard.writeText(text),
   api: api.localChat.skills,
   spaces: taskIndex.index.spaces,
@@ -343,6 +349,7 @@ watch(() => stores.applicationSettings.config.value?.desktop.theme, (theme) => {
   </WorkbenchSurfaceHost>
   <DesktopExtensionOverlays />
   <DesktopExtensionReviewHost />
+  <DesktopSkillReviewHost />
   <DesktopUpdateHost :language="stores.applicationSettings.language.value" />
   <slot :shell="shellBindings" />
 </template>

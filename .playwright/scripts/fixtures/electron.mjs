@@ -38,7 +38,7 @@ export { expect } from '@playwright/test'
 
 export async function useSyntheticCredentialStorage({ app, page }) {
   await app.evaluate(({ app, safeStorage }) => {
-    if (app.getName() !== 'Lexora Buddy Test')
+    if (!['XTLaw Test', 'Lexora Buddy Test'].includes(app.getName()))
       throw new Error('Synthetic credentials require an isolated test instance')
     const { Buffer } = process.getBuiltinModule('node:buffer')
     Object.defineProperties(safeStorage, {

@@ -18,7 +18,7 @@ describe('Markdown link destinations', () => {
       setup() {
         useProvideDesktopUi({
           language: shallowRef('zh-CN'), isDark: shallowRef(false), sidebarCollapsed: shallowRef(false),
-          chat: shallowRef({ outlinePosition: 'top-right', permissionMode: 'policy_approval', welcome: 'random' }),
+          chat: shallowRef({ outlinePosition: 'top-right', pasteTextAsAttachment: true, permissionMode: 'policy_approval', welcome: 'random' }),
           agentIdentity: shallowRef({ avatar: '', avatarColor: null, initials: null, name: '' }),
         })
         useProvideChatContent({ openWebLink, previewFile, canPreviewFile: () => true, writeClipboardText: async () => {} })

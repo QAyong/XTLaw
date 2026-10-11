@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { SmoothMarkdownStreamOptions } from 'markstream-vue'
+import type { NodeRendererProps, SmoothMarkdownStreamOptions } from 'markstream-vue'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import { usePreferredReducedMotion } from '@vueuse/core'
 import MarkdownRender from 'markstream-vue'
@@ -10,12 +10,14 @@ import 'markstream-vue/index.css'
 
 const props = withDefaults(defineProps<{
   content: string
+  allowImages?: boolean
   codeOverflow?: 'wrap' | 'scroll'
   externalLinkMode?: 'system' | 'host'
   final?: boolean
   language: BuddyLocale
   writeClipboardText: (text: string) => Promise<void>
 }>(), {
+  allowImages: true,
   final: true,
   externalLinkMode: 'system',
 })
@@ -31,6 +33,7 @@ interface CopyButtonState {
 
 const { t } = useBuddyI18n(() => props.language)
 const { isDark } = useDesktopUi()
+const disableImages: NonNullable<NodeRendererProps['customMarkdownIt']> = md => md.disable('image')
 const copyButtonStates = new Map<HTMLButtonElement, CopyButtonState>()
 
 const smoothStreamingOptions = {
@@ -72,7 +75,7 @@ async function copyCodeBlock(event: MouseEvent) {
 }
 
 function handleLinkClick(event: MouseEvent) {
-  if (!(event.target instanceof Element))
+  if (event.defaultPrevented || !(event.target instanceof Element))
     return
 
   const anchor = event.target.closest<HTMLAnchorElement>('a')
@@ -92,14 +95,6 @@ function handleLinkClick(event: MouseEvent) {
   }
 
   emit('openLink', href)
-}
-
-function handleClick(event: MouseEvent) {
-  void copyCodeBlock(event)
-  if (event.defaultPrevented)
-    return
-
-  handleLinkClick(event)
 }
 
 function showCopiedState(button: HTMLButtonElement) {
@@ -136,11 +131,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="buddy-chat-markdown-host" @click.capture="handleClick">
+  <div class="buddy-chat-markdown-host" @click="handleLinkClick" @click.capture="copyCodeBlock">
     <MarkdownRender
       class="buddy-chat-markdown"
       :batch-rendering="animateStreaming"
       :content="content"
+      :custom-markdown-it="allowImages ? undefined : disableImages"
       :code-block-options="codeOverflow ? { overflow: codeOverflow } : undefined"
       :fade="false"
       :final="final"
@@ -172,13 +168,13 @@ onBeforeUnmount(() => {
 }
 
 .buddy-chat-markdown-host :deep(.markstream-vue) {
-  --ms-font-sans: var(--buddy-font-ui);
+  --ms-font-sans: var(--buddy-font-body);
   --ms-font-mono: var(--buddy-font-mono);
   --ms-text-body: var(--buddy-chat-final-font-size);
   --ms-leading-body: var(--buddy-chat-final-line-height);
-  --ms-text-h1: 22px;
-  --ms-text-h2: 19px;
-  --ms-text-h3: 16px;
+  --ms-text-h1: calc(var(--buddy-chat-final-font-size) * 22 / 14);
+  --ms-text-h2: calc(var(--buddy-chat-final-font-size) * 19 / 14);
+  --ms-text-h3: calc(var(--buddy-chat-final-font-size) * 16 / 14);
   --ms-text-h4: var(--buddy-chat-final-heading-font-size);
   --ms-text-h5: var(--buddy-chat-final-heading-font-size);
   --ms-text-h6: var(--buddy-chat-final-heading-font-size);

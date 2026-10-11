@@ -278,7 +278,16 @@ export function useTaskCapability(options: UseTaskCapabilityOptions): TaskCapabi
     resources: composerResources.resources.value,
   }))
   const composerInteractions = useChatComposerInteractions({ runs })
+  const { selectChatModel, setChatEffort, setChatServiceTier, flushModelSelection } = useTaskModelPersistence({
+    activeConversationId,
+    api: api.localChat.conversations,
+    applyConversation,
+    drafts,
+    onError: setError,
+    selection: taskModels,
+  })
   const execution = useChatExecution({
+    flushModelSelection,
     activeRun,
     approvalPolicy: permissionSettingsState.approvalPolicy,
     api: api.localChat,
@@ -326,14 +335,6 @@ export function useTaskCapability(options: UseTaskCapabilityOptions): TaskCapabi
     && !isSending.value
     && !isMutatingBranch.value
   ))
-  const { selectChatModel, setChatEffort, setChatServiceTier } = useTaskModelPersistence({
-    activeConversationId,
-    api: api.localChat.conversations,
-    applyConversation,
-    drafts,
-    onError: setError,
-    selection: taskModels,
-  })
 
   async function setPermissionMode(value: BuddyPermissionMode): Promise<boolean> {
     if (!canUpdatePermissionSettings.value)
@@ -481,6 +482,8 @@ export function useTaskCapability(options: UseTaskCapabilityOptions): TaskCapabi
       resources: composerResources.resources,
       rejectedResourceIds: composerResources.rejectedIds,
       beginImport: (files: readonly File[], origin?: 'file' | 'clipboard') => !isClosing.value && lifecycle.hasCompletedInitialLoad.value ? composerResources.begin(files, origin) : [],
+      importPastedText: (text: string) => !isClosing.value && lifecycle.hasCompletedInitialLoad.value ? composerResources.importText(text) : Promise.resolve(null),
+      readResourceText: composerResources.readText,
       selectSource: composerResources.selectSource,
       retryResource: composerResources.retry,
       canUpdatePermissionSettings: readonly(canUpdatePermissionSettings),

@@ -22,7 +22,9 @@ const labels = computed(() => ({
   minimizeToTrayOnClose: { title: t('desktop.settings.minimizeToTrayOnClose'), description: t('desktop.settings.minimizeToTrayOnCloseDescription'), testId: 'minimize-to-tray-setting' },
   contextPanelMode: { title: t('desktop.settings.contextPanelMode'), description: t('desktop.settings.contextPanelModeDescription'), testId: 'context-panel-mode-setting' },
   contextPanelGlobal: { title: t('desktop.settings.contextPanelGlobal'), description: t('desktop.settings.contextPanelGlobalDescription'), testId: 'context-panel-global-setting' },
+  pasteTextAsAttachment: { title: t('desktop.settings.pasteTextAsAttachment'), description: t('desktop.settings.pasteTextAsAttachmentDescription'), testId: 'paste-text-as-attachment-setting' },
 }))
+const isToggle = computed(() => props.field === 'contextPanelGlobal' || props.field === 'minimizeToTrayOnClose' || props.field === 'pasteTextAsAttachment')
 async function save(patch: LexoraConfigPatch) {
   if (pending.value)
     return
@@ -41,12 +43,13 @@ async function save(patch: LexoraConfigPatch) {
       <strong :id="labelId">{{ labels[field].title }}</strong>
       <small v-if="labels[field].description">{{ labels[field].description }}</small>
     </div>
-    <div class="desktop-settings-row__control" :class="{ 'desktop-settings-row__control--toggle': field === 'contextPanelGlobal' || field === 'minimizeToTrayOnClose' }">
+    <div class="desktop-settings-row__control" :class="{ 'desktop-settings-row__control--toggle': isToggle }">
       <NSelect v-if="field === 'language'" :aria-labelledby="labelId" :options="languageOptions" :value="config.desktop.language" :disabled="pending" @update:value="save({ desktop: { language: $event } })" />
       <NSelect v-else-if="field === 'contextPanelMode'" :aria-labelledby="labelId" :options="contextPanelModes" :value="config.desktop.contextPanelMode" :disabled="pending" @update:value="save({ desktop: { contextPanelMode: $event } })" />
       <NSwitch v-else-if="field === 'contextPanelGlobal'" :aria-labelledby="labelId" :aria-disabled="pending" :round="false" :value="config.desktop.contextPanelGlobal" :loading="pending" :disabled="pending" @update:value="save({ desktop: { contextPanelGlobal: $event } })" />
-      <NSwitch v-else :aria-labelledby="labelId" :aria-disabled="pending" :round="false" :value="config.desktop.minimizeToTrayOnClose" :loading="pending" :disabled="pending" @update:value="save({ desktop: { minimizeToTrayOnClose: $event } })" />
-      <NSpin v-if="pending && (field === 'language' || field === 'contextPanelMode')" size="small" />
+      <NSwitch v-else-if="field === 'minimizeToTrayOnClose'" :aria-labelledby="labelId" :aria-disabled="pending" :round="false" :value="config.desktop.minimizeToTrayOnClose" :loading="pending" :disabled="pending" @update:value="save({ desktop: { minimizeToTrayOnClose: $event } })" />
+      <NSwitch v-else :aria-labelledby="labelId" :aria-disabled="pending" :round="false" :value="config.desktop.chat.pasteTextAsAttachment" :loading="pending" :disabled="pending" @update:value="save({ desktop: { chat: { pasteTextAsAttachment: $event } } })" />
+      <NSpin v-if="pending && !isToggle" size="small" />
     </div>
   </div>
 </template>

@@ -46,7 +46,7 @@ describe('checkForDesktopUpdate', () => {
     })).rejects.toMatchObject({ code: 'UPDATE_CHECK_FAILED' })
   })
 
-  it('selects the highest trusted stable version and bounds the untrusted release notes', async () => {
+  it('selects the highest trusted stable version and preserves the complete release notes', async () => {
     const result = await checkForDesktopUpdate({
       currentVersion: '1.2.0',
       fetchRelease: async () => new Response(JSON.stringify([
@@ -59,7 +59,7 @@ describe('checkForDesktopUpdate', () => {
       ])),
     })
     expect(result).toMatchObject({ latestVersion: '1.10.0', status: 'update_available' })
-    expect(result.releaseNotes).toHaveLength(8_000)
+    expect(result.releaseNotes).toBe('x'.repeat(20_000))
   })
 
   it('returns a stable failure for an oversized response or an aborted request', async () => {

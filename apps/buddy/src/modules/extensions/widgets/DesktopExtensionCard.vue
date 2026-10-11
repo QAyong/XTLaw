@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ExtensionStatus } from '@buddy-shared/extensions/extensionApi'
 import type { DropdownOption } from 'naive-ui'
-import { MoreHorizontal20Regular } from '@vicons/fluent'
+import { ArrowSync20Regular, MoreHorizontal20Regular } from '@vicons/fluent'
 import { NButton, NDropdown, NEllipsis, NTag } from 'naive-ui'
 import { computed } from 'vue'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
@@ -12,6 +12,7 @@ const props = defineProps<{ item: ExtensionStatus, language: string, busy: boole
 const emit = defineEmits<{
   toggle: []
   restart: []
+  applyUpdate: []
   diagnostics: []
   remove: []
   open: []
@@ -26,6 +27,7 @@ const actions = computed<DropdownOption[]>(() => {
   return [
     ...pluginActions,
     ...(pluginActions.length ? [{ key: 'plugin-actions-divider', type: 'divider' as const }] : []),
+    ...(props.item.pending ? [{ key: 'apply-update', label: labels.value.applyUpdate, props: { 'role': 'menuitem', 'data-testid': 'extension-apply-update-menu' } }] : []),
     { key: 'restart', label: labels.value.restart, props: { 'role': 'menuitem', 'data-testid': 'extension-restart' } },
     { key: 'diagnostics', label: labels.value.diagnostics, props: { role: 'menuitem' } },
     { key: 'divider', type: 'divider' },
@@ -35,6 +37,8 @@ const actions = computed<DropdownOption[]>(() => {
 function handleAction(key: string | number) {
   if (key === 'restart')
     emit('restart')
+  else if (key === 'apply-update')
+    emit('applyUpdate')
   else if (key === 'diagnostics')
     emit('diagnostics')
   else if (key === 'remove')
@@ -59,18 +63,25 @@ function handleAction(key: string | number) {
           </NEllipsis>
         </p>
       </div>
-      <NTag class="extension-card__status" size="small" :bordered="false" :type="item.state === 'failed' || item.state === 'blocked' ? 'warning' : 'default'">
-        {{ status }}
+      <NTag class="extension-card__status" size="small" :bordered="false" :type="item.pending || item.state === 'failed' || item.state === 'blocked' ? 'warning' : 'default'">
+        {{ item.pending ? labels.updateReady : status }}
       </NTag>
     </header>
     <NEllipsis v-if="item.manifest.description" class="extension-card__description" :line-clamp="2">
       {{ item.manifest.description }}
     </NEllipsis>
-    <p v-if="item.pending" class="extension-card__pending">
-      {{ labels.pending }} {{ item.pending.manifest.version }}
-    </p>
+    <div v-if="item.pending" class="extension-card__pending">
+      <span class="extension-card__pending-version">{{ labels.pending }} {{ item.pending.manifest.version }}</span>
+      <span class="extension-card__pending-hint">{{ labels.applyUpdateHint }}</span>
+    </div>
     <code v-if="item.error" class="extension-card__error">{{ item.error }}</code>
     <footer class="extension-card__actions">
+      <NButton v-if="item.pending" type="primary" size="small" :disabled="busy" data-testid="extension-apply-update" @click="emit('applyUpdate')">
+        <template #icon>
+          <DesktopIcon :component="ArrowSync20Regular" :size="16" />
+        </template>
+        {{ labels.applyUpdate }}
+      </NButton>
       <NButton v-if="canOpen" size="small" secondary :disabled="busy" @click="emit('open')">
         {{ language === 'en-US' ? 'Open' : '打开' }}
       </NButton>
@@ -98,7 +109,9 @@ function handleAction(key: string | number) {
 .extension-card__meta > span:first-child, .extension-card__status { flex: none; }
 .extension-card__description { color: var(--buddy-text-secondary); font-size: 13px; line-height: 1.6; }
 .extension-card__pending, .extension-card__error { margin: 0; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
-.extension-card__pending { color: var(--buddy-accent-text); }
+.extension-card__pending { display: grid; gap: 4px; border: 1px solid var(--buddy-accent-border); border-radius: var(--buddy-radius-micro); background: var(--buddy-accent-surface-subtle); padding: 8px 12px; }
+.extension-card__pending-version { color: var(--buddy-accent-text); font-size: 12px; font-weight: 500; }
+.extension-card__pending-hint { color: var(--buddy-text-secondary); font-size: 11px; }
 .extension-card__error { color: var(--buddy-status-danger-text); }
 .extension-card__actions { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: auto; padding-top: 4px; }
 .extension-card__more { flex: none; width: 28px; height: 28px; margin-left: auto; padding: 0; }

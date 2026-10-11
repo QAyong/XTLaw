@@ -196,20 +196,30 @@ it('does not claim state was saved if the workbench failed to persist it', async
   await expect(service.viewRequest(session.id, session.generation, session.token, 'view.setState', { position: 9 })).rejects.toThrow('EXTENSION_STATE_SAVE_FAILED')
 })
 
-it('keeps new network permissions inactive until an explicitly approved update is restarted', async () => {
+it('keeps pending versions and permissions inactive across restarts until the update is applied', async () => {
   const get = vi.fn(async () => new Response('allowed'))
   const { root, store, service, hosts } = await fixture({ get })
   await service.execute('tests.reader', 'tests.reader.open', null)
+  await expect(service.applyUpdate('tests.reader')).rejects.toThrow('EXTENSION_UPDATE_UNAVAILABLE')
+  expect(hosts[0]!.disposed).toBe(false)
   const update = await reviewPackage(root, store, manifest({ version: '1.1.0', permissions: { selectedResource: 'read', network: ['https://example.com'] } }))
   await service.install(update.token)
   await expect(hosts[0]!.broker('network.get', { url: 'https://example.com/' })).rejects.toThrow('EXTENSION_NETWORK_DENIED')
   expect(get).not.toHaveBeenCalled()
   await service.restart('tests.reader')
   await service.execute('tests.reader', 'tests.reader.open', null)
-  expect(await hosts[1]!.broker('network.get', { url: 'https://example.com/' })).toEqual({ status: 200, text: 'allowed' })
-  get.mockImplementation(async () => new Response(null, { status: 302, headers: { location: 'https://unapproved.example/' } }))
+  expect((await service.list())[0]).toMatchObject({ manifest: { version: '1.0.0' }, pending: { manifest: { version: '1.1.0' } } })
+  expect(hosts[0]!.disposed).toBe(true)
+  await expect(hosts[0]!.broker('storage.get', {})).rejects.toThrow('EXTENSION_HOST_STOPPED')
   await expect(hosts[1]!.broker('network.get', { url: 'https://example.com/' })).rejects.toThrow('EXTENSION_NETWORK_DENIED')
-  expect(get).toHaveBeenCalledTimes(2)
+  await service.applyUpdate('tests.reader')
+  expect((await service.list())[0]).toMatchObject({ manifest: { version: '1.1.0' }, pending: null })
+  expect(hosts[1]!.disposed).toBe(true)
+  await expect(hosts[1]!.broker('storage.get', {})).rejects.toThrow('EXTENSION_HOST_STOPPED')
+  await service.execute('tests.reader', 'tests.reader.open', null)
+  expect(await hosts[2]!.broker('network.get', { url: 'https://example.com/' })).toEqual({ status: 200, text: 'allowed' })
+  get.mockImplementation(async () => new Response(null, { status: 302, headers: { location: 'https://unapproved.example/' } }))
+  await expect(hosts[2]!.broker('network.get', { url: 'https://example.com/' })).rejects.toThrow('EXTENSION_NETWORK_DENIED')
 })
 
 it('stops dependent hosts when their dependency is disabled', async () => {
@@ -383,7 +393,7 @@ it('keeps export permission separate from reads and expires writers with their o
   const payload = { name: 'file.unknown', size: 4 }
   await expect(f.service.viewRequest(readOnly.id, readOnly.generation, readOnly.token, 'resources.beginSave', payload)).rejects.toThrow('EXTENSION_RESOURCE_EXPORT_DENIED')
   await f.service.install((await reviewPackage(f.root, f.store, manifest({ ...value, version: '1.1.0', permissions: { resourceExport: true } }))).token)
-  await f.service.restart(value.id)
+  await f.service.applyUpdate(value.id)
   const owner = await f.service.openView(input)
   const other = await f.service.openView({ ...input, viewId: randomUUID() })
   const request = (method: string, params: JsonValue) => f.service.viewRequest(owner.id, owner.generation, owner.token, method, params)

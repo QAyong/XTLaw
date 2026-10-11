@@ -21,7 +21,7 @@ function render(agentIdentity: Ref<AgentIdentityInput>) {
         language: shallowRef('zh-CN'),
         isDark: shallowRef(false),
         sidebarCollapsed: shallowRef(false),
-        chat: shallowRef({ outlinePosition: 'top-right', permissionMode: 'policy_approval', welcome: 'random' }),
+        chat: shallowRef({ outlinePosition: 'top-right', pasteTextAsAttachment: true, permissionMode: 'policy_approval', welcome: 'random' }),
         agentIdentity,
       })
       return () => h(BuddyChatAgentIdentity, { language: 'zh-CN' })

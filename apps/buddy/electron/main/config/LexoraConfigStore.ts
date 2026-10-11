@@ -15,6 +15,7 @@ import { DEFAULT_PROXY_SETTINGS, proxySettingsSchema } from '../../../shared/net
 import { BUDDY_PERMISSION_MODES } from '../../../shared/permissions/permissionMode'
 import { DEFAULT_RUNTIME_PREFERENCES, runtimePreferencesSchema } from '../../../shared/runtime/runtimePreferences'
 import { keybindingsSchema } from '../../../shared/shortcuts/keybindingSchema'
+import { DEFAULT_TYPOGRAPHY, typographyPreferencesSchema } from '../../../shared/typography/typographyPreferences'
 import { DEFAULT_DESKTOP_CHAT_PREFERENCES, DESKTOP_CHAT_OUTLINE_POSITIONS, DESKTOP_CHAT_WELCOME_VARIANT_IDS, DESKTOP_PROFILE_AVATAR_MAX_DATA_URL_LENGTH, DESKTOP_TASK_SIDEBAR_SECTIONS } from '../../shared/desktopApi'
 
 const taskSidebarPinnedItemSchema = z.discriminatedUnion('kind', [
@@ -44,6 +45,7 @@ const desktopConfigSchema = z.object({
   background_close_notice_shown: z.boolean().default(false),
   chat: z.object({
     outline_position: z.enum(DESKTOP_CHAT_OUTLINE_POSITIONS).default(DEFAULT_DESKTOP_CHAT_PREFERENCES.outlinePosition),
+    paste_text_as_attachment: z.boolean().default(DEFAULT_DESKTOP_CHAT_PREFERENCES.pasteTextAsAttachment),
     permission_mode: z.enum(BUDDY_PERMISSION_MODES).default(DEFAULT_DESKTOP_CHAT_PREFERENCES.permissionMode),
     welcome: z.enum(['none', 'random', ...DESKTOP_CHAT_WELCOME_VARIANT_IDS]).default(DEFAULT_DESKTOP_CHAT_PREFERENCES.welcome),
   }).passthrough().prefault({}),
@@ -56,6 +58,12 @@ const desktopConfigSchema = z.object({
     .refine(items => new Set(items.map(item => `${item.kind}:${item.id}`)).size === items.length)
     .default([]),
   task_sidebar: taskSidebarConfigSchema,
+  typography: z.object({
+    ui_font: typographyPreferencesSchema.shape.uiFont.default(DEFAULT_TYPOGRAPHY.uiFont),
+    body_font: typographyPreferencesSchema.shape.bodyFont.default(DEFAULT_TYPOGRAPHY.bodyFont),
+    code_font: typographyPreferencesSchema.shape.codeFont.default(DEFAULT_TYPOGRAPHY.codeFont),
+    body_size: typographyPreferencesSchema.shape.bodySize.default(DEFAULT_TYPOGRAPHY.bodySize),
+  }).passthrough().prefault({}),
   profile: z.object({
     user_name: z.string().max(30).default(''),
     device_name: z.string().max(30).default(''),
@@ -87,6 +95,7 @@ const desktopConfigSchema = z.object({
   plugin_author: '',
   chat: {
     outline_position: DEFAULT_DESKTOP_CHAT_PREFERENCES.outlinePosition,
+    paste_text_as_attachment: DEFAULT_DESKTOP_CHAT_PREFERENCES.pasteTextAsAttachment,
     permission_mode: DEFAULT_DESKTOP_CHAT_PREFERENCES.permissionMode,
     welcome: DEFAULT_DESKTOP_CHAT_PREFERENCES.welcome,
   },
@@ -96,6 +105,7 @@ const desktopConfigSchema = z.object({
   keybindings: {},
   task_sidebar_pinned_items: [],
   task_sidebar: { collapsed: false, collapsed_sections: [], collapsed_spaces: [] },
+  typography: { ui_font: '', body_font: '', code_font: '', body_size: DEFAULT_TYPOGRAPHY.bodySize },
   profile: { user_name: '', device_name: '', avatar: '' },
   agent_profile: { name: '', avatar: '', sync_with_user_profile: false },
   developer_tools_enabled: false,
@@ -307,6 +317,7 @@ function decodeConfig(value: unknown): LexoraConfig {
       pluginAuthor: config.desktop.plugin_author,
       chat: {
         outlinePosition: config.desktop.chat.outline_position,
+        pasteTextAsAttachment: config.desktop.chat.paste_text_as_attachment,
         permissionMode: config.desktop.chat.permission_mode,
         welcome: config.desktop.chat.welcome,
       },
@@ -320,6 +331,12 @@ function decodeConfig(value: unknown): LexoraConfig {
         collapsedSections: config.desktop.task_sidebar.collapsed_sections,
         collapsedSpaces: config.desktop.task_sidebar.collapsed_spaces,
         width: config.desktop.task_sidebar.width ?? null,
+      },
+      typography: {
+        uiFont: config.desktop.typography.ui_font,
+        bodyFont: config.desktop.typography.body_font,
+        codeFont: config.desktop.typography.code_font,
+        bodySize: config.desktop.typography.body_size,
       },
       profile: {
         userName: config.desktop.profile.user_name,
@@ -364,6 +381,7 @@ function encodeConfig(config: LexoraConfig) {
       plugin_author: config.desktop.pluginAuthor,
       chat: {
         outline_position: config.desktop.chat.outlinePosition,
+        paste_text_as_attachment: config.desktop.chat.pasteTextAsAttachment,
         permission_mode: config.desktop.chat.permissionMode,
         welcome: config.desktop.chat.welcome,
       },
@@ -377,6 +395,12 @@ function encodeConfig(config: LexoraConfig) {
         collapsed_sections: config.desktop.taskSidebar.collapsedSections,
         collapsed_spaces: config.desktop.taskSidebar.collapsedSpaces,
         ...(config.desktop.taskSidebar.width === null ? {} : { width: config.desktop.taskSidebar.width }),
+      },
+      typography: {
+        ui_font: config.desktop.typography.uiFont,
+        body_font: config.desktop.typography.bodyFont,
+        code_font: config.desktop.typography.codeFont,
+        body_size: config.desktop.typography.bodySize,
       },
       profile: {
         user_name: config.desktop.profile.userName,
@@ -426,6 +450,7 @@ function mergeConfig(current: LexoraConfig, patch: LexoraConfigPatch): LexoraCon
         ...current.desktop.taskSidebar,
         ...patch.desktop?.taskSidebar,
       },
+      typography: typographyPreferencesSchema.parse({ ...current.desktop.typography, ...patch.desktop?.typography }),
       profile: {
         ...current.desktop.profile,
         ...patch.desktop?.profile,
@@ -457,6 +482,10 @@ function mergeConfigFile(file: unknown, config: LexoraConfig): Record<string, un
     task_sidebar: {
       ...asRecord(desktop.task_sidebar),
       ...asRecord(encoded.desktop.task_sidebar),
+    },
+    typography: {
+      ...asRecord(desktop.typography),
+      ...asRecord(encoded.desktop.typography),
     },
     profile: {
       ...asRecord(desktop.profile),

@@ -4,6 +4,82 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { expect, test, useSyntheticCredentialStorage } from '../fixtures/electron.mjs'
 
+test('prompt previews copy the current source without changing configuration or tasks', async ({ buddy }) => {
+  const instance = await buddy.createInstance('settings-prompts')
+  const { page, app, diagnostics } = await instance.launch()
+  const configPath = path.join(instance.home, 'config.toml')
+  const originalConfig = await fs.readFile(configPath, 'utf8')
+  const catalog = await page.evaluate(() => window.lexoraDesktop.localChat.prompts.get())
+  const originalTasks = await page.evaluate(() => window.lexoraDesktop.localChat.conversations.list(100))
+  await openSettings(page)
+  await page.getByRole('link', { name: '提示词', exact: true }).click()
+  const body = page.locator('.prompt-content__body')
+  const content = () => body.locator('.tiptap > p').evaluateAll(paragraphs => paragraphs.map(node => node.textContent).join('\n'))
+  const entry = name => page.locator('.prompt-catalog__item').filter({ has: page.getByText(name, { exact: true }) })
+  await expect.poll(content).toBe(catalog.system)
+  await body.locator('.tiptap > p').first().click()
+  await page.keyboard.insertText('read-only probe')
+  await expect.poll(content).toBe(catalog.system)
+
+  await entry('执行模式').click()
+  await expect.poll(content).toBe(catalog.execution.workspace_write)
+  for (const [name, profile] of [['只读', 'read_only'], ['完全访问', 'full_access']]) {
+    await page.locator('.prompt-detail__variants').getByRole('button', { name, exact: true }).click()
+    await expect.poll(content).toBe(catalog.execution[profile])
+  }
+  await page.getByRole('button', { name: '复制原文', exact: true }).click()
+  await expect.poll(() => app.evaluate(({ clipboard }) => clipboard.readText())).toBe(catalog.execution.full_access)
+  await entry('审查模板').click()
+  await expect.poll(content).toBe(catalog.review)
+  await page.getByRole('button', { name: '复制原文', exact: true }).click()
+  await expect.poll(() => app.evaluate(({ clipboard }) => clipboard.readText())).toBe(catalog.review)
+  expect(await fs.readFile(configPath, 'utf8')).toBe(originalConfig)
+  expect(await page.evaluate(() => window.lexoraDesktop.localChat.conversations.list(100))).toEqual(originalTasks)
+  expect(diagnostics.console.filter(item => item.type === 'pageerror')).toEqual([])
+})
+
+test('prompt loading can retry and late responses do not replace another settings page', async ({ buddy }) => {
+  const instance = await buddy.createInstance('settings-prompts-retry')
+  const { page, app, diagnostics } = await instance.launch()
+  await app.evaluate(({ ipcMain }) => {
+    const channel = 'lexora:buddy:prompts:get'
+    const original = ipcMain._invokeHandlers.get(channel)
+    globalThis.promptReadProbe = { fail: true, gate: null, reads: 0, completions: 0 }
+    ipcMain.removeHandler(channel)
+    ipcMain.handle(channel, async (event, input) => {
+      const probe = globalThis.promptReadProbe
+      probe.reads++
+      if (probe.fail)
+        throw new Error('Isolated prompt read failure')
+      await probe.gate?.promise
+      const result = await original(event, input)
+      probe.completions++
+      return result
+    })
+  })
+  await openSettings(page)
+  await page.getByRole('link', { name: '提示词', exact: true }).click()
+  await expect(page.locator('.n-alert')).toBeVisible()
+  await app.evaluate(() => globalThis.promptReadProbe.fail = false)
+  await page.locator('.n-alert').getByRole('button').click()
+  await expect(page.locator('.prompt-content__body')).toContainText('You are XTLaw')
+  await expect(page.locator('.n-alert')).toHaveCount(0)
+  await page.getByRole('link', { name: '常规', exact: true }).click()
+  await app.evaluate(() => globalThis.promptReadProbe.gate = Promise.withResolvers())
+  await page.getByRole('link', { name: '提示词', exact: true }).click()
+  await expect.poll(() => app.evaluate(() => globalThis.promptReadProbe.reads)).toBe(3)
+  await page.getByRole('link', { name: '常规', exact: true }).click()
+  await app.evaluate(() => {
+    globalThis.promptReadProbe.gate.resolve()
+    globalThis.promptReadProbe.gate = null
+  })
+  await expect.poll(() => app.evaluate(() => globalThis.promptReadProbe.completions)).toBe(2)
+  await expect(page.locator('.desktop-settings-page__title')).toHaveText('常规')
+  await page.getByRole('link', { name: '提示词', exact: true }).click()
+  await expect(page.locator('.prompt-content__body')).toContainText('You are XTLaw')
+  expect(diagnostics.console.filter(item => item.type === 'pageerror')).toEqual([])
+})
+
 test('registered builtin settings preserve navigation, failed-save rollback and restart persistence', async ({ buddy }) => {
   const instance = await buddy.createInstance('settings')
   let desktop = await instance.launch()
@@ -75,7 +151,7 @@ test('registered plugin settings share groups, roll back failed saves and withdr
       return original(event, request)
     })
   }, directory)
-  await page.locator('.desktop-app-sidebar').getByRole('button', { name: '插件', exact: true }).click()
+  await openPlugins(page)
   await page.getByTestId('extension-install-options').click()
   await page.getByTestId('extension-development').click()
   await page.getByTestId('extension-confirm-install').click()
@@ -202,7 +278,7 @@ test('registered plugin settings share groups, roll back failed saves and withdr
   await page.getByRole('link', { name: '注册设置', exact: true }).click()
   await expect(toggle()).toBeChecked()
   await expect(label()).toHaveValue('粘贴后的名称')
-  await page.locator('.desktop-app-sidebar').getByRole('button', { name: '插件', exact: true }).click()
+  await openPlugins(page)
   await page.locator('[data-extension-id="tests.settings"]').getByTestId('extension-card-more').click()
   await page.getByTestId('extension-uninstall').click()
   const regularDialog = page.getByRole('dialog').filter({ has: page.getByRole('button', { name: '卸载并清理', exact: true }) })
@@ -220,7 +296,7 @@ test('registered plugin settings share groups, roll back failed saves and withdr
     await app.evaluate(({ dialog }, directory) => {
       dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [directory] })
     }, directory)
-    await page.locator('.desktop-app-sidebar').getByRole('button', { name: '插件', exact: true }).click()
+    await openPlugins(page)
     await page.getByTestId('extension-install-options').click()
     await page.getByTestId('extension-development').click()
     await page.getByTestId('extension-confirm-install').click()
@@ -234,7 +310,7 @@ test('registered plugin settings share groups, roll back failed saves and withdr
   await expect(toggle()).toBeChecked()
   await page.evaluate(() => window.lexoraDesktop.extensions.execute('tests.settings', 'tests.settings.open', null))
   await expect.poll(() => page.evaluate(async () => Object.values((await window.lexoraDesktop.workbench.read()).layout.views).filter(view => view.resource.data.extensionId === 'tests.settings').length)).toBe(1)
-  await page.locator('.desktop-app-sidebar').getByRole('button', { name: '插件', exact: true }).click()
+  await openPlugins(page)
   const showUninstall = async () => {
     await card().getByTestId('extension-card-more').click()
     await page.getByTestId('extension-uninstall').click()
@@ -320,7 +396,7 @@ export function render(context, container) {
     await app.evaluate(({ dialog }, directory) => {
       dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [directory] })
     }, directory)
-    await page.locator('.desktop-app-sidebar').getByRole('button', { name: '插件', exact: true }).click()
+    await openPlugins(page)
     await page.getByTestId('extension-install-options').click()
     await page.getByTestId('extension-development').click()
     await page.getByTestId('extension-confirm-install').click()
@@ -493,11 +569,13 @@ test('MCP quick controls require execution confirmation, read caches offline and
   expect(await fs.stat(pidFile).then(() => true, () => false)).toBe(false)
   await toggle.click()
   await confirmation.getByRole('button', { name: '确认并继续', exact: true }).click()
-  await expect(local).toContainText('已连接')
+  await expect.poll(() => page.evaluate(async () => (await window.lexoraDesktop.localChat.connectors.list()).find(connector => connector.id === 'local-fixture'))).toMatchObject({ enabled: true, runtime: { status: 'ready', toolCount: 4 } })
+  await expect(local.getByRole('button', { name: /4 个工具/ })).toBeEnabled()
   const originalPid = await fs.readFile(pidFile, 'utf8')
   await toggle.click()
-  await expect(local).toContainText('已停用')
-  await local.getByRole('button', { name: '4 个缓存工具', exact: true }).click()
+  await expect(toggle).not.toBeChecked()
+  await expect.poll(() => page.evaluate(async () => (await window.lexoraDesktop.localChat.connectors.list()).find(connector => connector.id === 'local-fixture'))).toMatchObject({ enabled: false, runtime: { status: 'disabled', toolCount: 4 } })
+  await local.getByRole('button', { name: /4 个缓存工具/ }).click()
   const tools = page.locator('.n-modal').filter({ has: page.getByPlaceholder('搜索工具名称或能力') })
   await expect(tools.locator('.mcp-settings__tool')).toHaveCount(4)
   expect(await fs.readFile(pidFile, 'utf8')).toBe(originalPid)
@@ -539,8 +617,17 @@ test('MCP quick controls require execution confirmation, read caches offline and
   expect(desktop.diagnostics.console.filter(item => item.type === 'pageerror')).toEqual([])
 })
 
+async function openPlugins(page) {
+  const back = page.locator('.desktop-back-to-tasks')
+  if (await back.count())
+    await back.click()
+  await page.locator('.desktop-sidebar-footer').getByRole('button', { name: '插件', exact: true }).click()
+}
 async function openSettings(page) {
-  await page.locator('.desktop-app-sidebar').getByRole('button', { name: '设置', exact: true }).click()
+  const back = page.locator('.desktop-back-to-tasks')
+  if (await back.count())
+    await back.click()
+  await page.locator('.desktop-sidebar-footer').getByRole('button', { name: '设置', exact: true }).click()
   await page.locator('.desktop-settings-sidebar').getByRole('link', { name: '常规', exact: true }).click()
   await expect(page).toHaveURL(/#\/settings\/general$/)
 }

@@ -40,7 +40,7 @@ it('preserves incompatible upgrade values and repairs individual fields before r
   await store.install((await reviewPackage(root, store, upgraded)).token)
   const service = new ExtensionService(store, ports)
   try {
-    await service.restart(original.id)
+    await service.applyUpdate(original.id)
     expect(await service.configurationSnapshot(original.id)).toEqual({ values: { enabled: true, mode: 'old', count: 90 }, invalidKeys: ['mode', 'count'] })
     await expect(service.configuration(original.id)).rejects.toThrow('EXTENSION_CONFIGURATION_INVALID')
     expect(await service.agentContributions()).toEqual([])

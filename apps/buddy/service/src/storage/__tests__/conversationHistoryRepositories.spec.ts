@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { createConversationRepository } from '../conversationRepository'
 import { openBuddyDatabase } from '../database'
 import { createRunRepository } from '../runRepository'
+import { createExecutionStorageFixture } from './executionFixture'
 
 const databases: DatabaseSync[] = []
 
@@ -154,6 +155,11 @@ describe('conversation history repositories', () => {
     expect(newest.items.map(message => message.id)).toEqual(['child-1', 'child-2'])
     expect(newest.nextBeforeMessageId).toBe('child-1')
 
+    expect(Array.from({ length: 7 }, (_, offset) => conversations.findMessageIdAtOffset('conversation-1', 'branch-child', offset)))
+      .toEqual(['child-2', 'child-1', 'root-4', 'root-3', 'root-2', 'root-1', null])
+    expect(conversations.findMessageIdAtOffset('conversation-1', 'branch-child', Number.MAX_SAFE_INTEGER)).toBeNull()
+    expect(() => conversations.findMessageIdAtOffset('conversation-1', 'branch-child', -1)).toThrow(/offset/i)
+
     const middle = conversations.listMessagePage('conversation-1', 'branch-child', {
       beforeMessageId: newest.nextBeforeMessageId,
       limit: 3,
@@ -171,6 +177,29 @@ describe('conversation history repositories', () => {
       beforeMessageId: 'root-5',
       limit: 2,
     })).toThrow(/cursor/i)
+  })
+
+  it('locates offsets within public messages on the selected branch lineage', () => {
+    const f = createExecutionStorageFixture()
+    databases.push(f.database)
+    f.executions.admitChild(f.child('npc-child'))
+    f.executions.admitChild(f.child('actor-child', f.actor.id))
+    const insert = f.database.prepare('INSERT INTO messages (id, conversation_id, branch_id, run_id, role, content_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    for (const [id, runId, role, second] of [
+      ['public-old', 'root', 'assistant', '05'],
+      ['private-npc', 'npc-child', 'assistant', '07'],
+      ['public-shared', 'root', 'user', '10'],
+      ['private-actor', 'actor-child', 'user', '11'],
+      ['public-actor', 'actor-child', 'assistant', '12'],
+    ]) {
+      insert.run(id, 'conversation', 'branch', runId, role, JSON.stringify({ text: id }), `2026-10-12T00:00:${second}.000Z`)
+    }
+    expect(Array.from({ length: 4 }, (_, offset) => f.conversations.findMessageIdAtOffset('conversation', 'branch', offset)))
+      .toEqual(['public-actor', 'public-shared', 'public-old', null])
+    f.conversations.createBranch({ id: 'fork', conversationId: 'conversation', parentBranchId: 'branch', forkedFromMessageId: 'public-shared', createdAt: '2026-10-12T00:00:20.000Z', activate: true })
+    f.conversations.createMessage({ id: 'fork-message', conversationId: 'conversation', branchId: 'fork', runId: null, role: 'user', content: { text: 'fork' }, createdAt: '2026-10-12T00:00:21.000Z' })
+    expect(Array.from({ length: 4 }, (_, offset) => f.conversations.findMessageIdAtOffset('conversation', 'fork', offset)))
+      .toEqual(['fork-message', 'public-shared', 'public-old', null])
   })
 
   it('paginates messages and manual compactions through the visible branch lineage', () => {

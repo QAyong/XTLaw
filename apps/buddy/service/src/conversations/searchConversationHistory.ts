@@ -8,15 +8,8 @@ const MAX_SCANNED = 500
 const PAGE_SIZE = 50
 const EXCERPT_LENGTH = 1600
 
-/**
- * Searches the active branch from the newest message backwards.
- *
- * Continuation is a plain count of the newest messages already covered (`messageOffset`), not a
- * message ID. Page boundaries stay inside this function, so any value a model can fill in is valid
- * input: 0 starts a new search and a value past the end returns an empty page.
- */
 export async function searchConversationHistory(
-  conversations: Pick<ConversationRepository, 'findById' | 'listMessagePage'>,
+  conversations: Pick<ConversationRepository, 'findById' | 'findMessageIdAtOffset' | 'listMessagePage'>,
   target: ConversationRecord,
   input: { query?: string, messageOffset?: number },
   signal?: AbortSignal,
@@ -24,7 +17,6 @@ export async function searchConversationHistory(
   const matchQuery = createSessionQuery(input.query)
   const matches: Array<{ source: { kind: 'message', messageId: string }, messageId: string, role: string, createdAt: string, excerpt: string, offset: number }> = []
   const startOffset = input.messageOffset ?? 0
-  let toSkip = startOffset
   let scanned = 0
   let boundary: string | undefined
   const result = (nextMessageOffset: number | null) => {
@@ -43,13 +35,14 @@ export async function searchConversationHistory(
     const current = conversations.findById(target.id)
     if (!current || current.deletedAt !== null || current.activeBranchId !== target.activeBranchId)
       throw new Error('SESSION_REFERENCE_UNAVAILABLE')
-    const page = conversations.listMessagePage(target.id, target.activeBranchId!, { beforeMessageId: boundary, limit: PAGE_SIZE })
+    if (boundary === undefined && startOffset > 0) {
+      boundary = conversations.findMessageIdAtOffset(target.id, target.activeBranchId!, startOffset - 1) ?? undefined
+      if (boundary === undefined)
+        return result(null)
+    }
+    const page = conversations.listMessagePage(target.id, target.activeBranchId!, { beforeMessageId: boundary, limit: Math.min(PAGE_SIZE, MAX_SCANNED - scanned) })
     const items = page.items.toReversed()
     for (const [index, message] of items.entries()) {
-      if (toSkip > 0) {
-        toSkip -= 1
-        continue
-      }
       scanned += 1
       if (message.role !== 'user' && message.role !== 'assistant')
         continue

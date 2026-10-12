@@ -264,6 +264,49 @@ describe('message-bound session retrieval', () => {
     expect(Check(sessionSearchParameters, { ...filled, messageOffset: -1 })).toBe(false)
   })
 
+  it('keeps the scan bounded after continuing from a full result page', async () => {
+    const f = fixture()
+    const target = f.session('source')
+    f.message('source', 'needle oldest')
+    for (let index = 0; index < 505; index++)
+      f.message('source', `other ${index}`)
+    for (let index = 0; index < 8; index++)
+      f.message('source', `needle newest ${index}`)
+    const first = await searchConversationHistory(f.conversations, target, { query: 'needle' })
+    expect(first).toMatchObject({ scanned: 8, nextMessageOffset: 8 })
+    const second = await searchConversationHistory(f.conversations, target, { query: 'needle', messageOffset: first.nextMessageOffset! })
+    expect(second).toMatchObject({ matches: [], scanned: 500, nextMessageOffset: 508 })
+    const third = await searchConversationHistory(f.conversations, target, { query: 'needle', messageOffset: second.nextMessageOffset! })
+    expect(third).toMatchObject({ scanned: 6, nextMessageOffset: null })
+    expect(third.matches.map(match => match.excerpt)).toEqual(['needle oldest'])
+  })
+
+  it('retrieves deep ancestor results without loading the skipped message history', async () => {
+    const f = fixture()
+    f.session('source')
+    const oldest = f.message('source', 'needle oldest')
+    let shared = oldest
+    for (let index = 0; index < 1000; index++)
+      shared = f.message('source', `other ${index}`)
+    f.message('source', 'needle abandoned')
+    f.conversations.createBranch({ id: 'fork', conversationId: 'source', parentBranchId: 'source-branch', forkedFromMessageId: shared.id, createdAt: '2026-02-01T00:00:00.000Z', activate: true })
+    for (let index = 0; index < 19; index++)
+      f.message('source', `other child ${index}`, 'fork')
+    let loaded = 0
+    const conversations = {
+      ...f.conversations,
+      listMessagePage(...args: Parameters<typeof f.conversations.listMessagePage>) {
+        const page = f.conversations.listMessagePage(...args)
+        loaded += page.items.length
+        return page
+      },
+    }
+    const result = await searchConversationHistory(conversations, f.conversations.findById('source')!, { query: 'needle', messageOffset: 1008 })
+    expect(result).toMatchObject({ scanned: 12, nextMessageOffset: null })
+    expect(result.matches.map(match => match.messageId)).toEqual([oldest.id])
+    expect(loaded).toBeLessThanOrEqual(500)
+  })
+
   it('continues beyond the bounded scan and fails after deletion or cancellation', async () => {
     const f = fixture()
     const target = f.session('source')

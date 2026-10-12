@@ -14,9 +14,7 @@ import type { ImageTransformService } from './images/ImageTransformService'
 import type { PetActionService } from './pet/PetActionService'
 import type { PluginAuthoringService } from './plugins/PluginAuthoringService'
 import type { SkillAuthoringServices } from './skills/skillAuthoringCapability'
-import type { RunInputRepository } from './storage/runInputRepository'
 import type { WebCapabilityService } from './web/WebCapabilityService'
-import { createSessionAskCapability } from './agent/extensions/sessionAskExtension'
 import { createOutputPresentationCapability } from './artifacts/outputPresentationExtension'
 import { createAutomationCapability } from './automations/automationExtension'
 import { createBrowserCapability } from './browser/browserExtension'
@@ -50,7 +48,6 @@ export interface BuddyCapabilityServices {
   imageTransformService: Pick<ImageTransformService, 'removeChroma'>
   webService: Pick<WebCapabilityService, 'search' | 'fetch'>
   conversations: SessionReferenceServices['conversations']
-  runInputs: Pick<RunInputRepository, 'findByRunId'>
   eventLog: SessionReferenceServices['eventLog']
 }
 
@@ -100,7 +97,6 @@ export function createBuddyCapabilityFactory(
       createImageCapability(context, services),
       createImageTransformCapability({ ...context, service: services.imageTransformService }),
       createOutputPresentationCapability({ ...context, artifactService: services.artifactService }),
-      createSessionAskCapability({ conversationId: context.conversationId, getRunId: context.getRunId, conversations: services.conversations, runInputs: services.runInputs }),
       createSessionReferenceCapability({ conversationId: context.conversationId, conversations: services.conversations, attachments: services.attachmentService, artifacts: services.artifactService, eventLog: services.eventLog }),
       ...supported.map(create => create(context)),
     ]

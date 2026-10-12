@@ -820,7 +820,6 @@ export async function startBuddyService(
         imageTransformService,
         webService,
         conversations,
-        runInputs,
         eventLog: options.eventLog,
       }, petActions),
     }

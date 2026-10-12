@@ -3,9 +3,8 @@ import type { SkillReference } from '../../shared/skills/skillApi'
 import type { toPublicRun } from './runs/publicRun'
 
 export interface BuddyTurnContextItem {
-  title?: string
   skill?: SkillReference
-  kind: 'file' | 'skill' | 'slashCommand' | 'sessionReference'
+  kind: 'file' | 'skill' | 'slashCommand'
   value: string
 }
 

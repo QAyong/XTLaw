@@ -5,8 +5,7 @@ import { BUDDY_SERVICE_TIERS, BUDDY_THINKING_LEVELS } from '../../../shared/conv
 import { skillReferenceSchema } from '../../../shared/skills/skillApi'
 
 const contextItemSchema = z.object({
-  kind: z.enum(['file', 'skill', 'slashCommand', 'sessionReference']),
-  title: z.string().max(80).optional(),
+  kind: z.enum(['file', 'skill', 'slashCommand']),
   value: z.string().min(1),
   skill: skillReferenceSchema.optional(),
 }).strict()
@@ -83,11 +82,18 @@ function toRecord(value: unknown): RunInputRecord | null {
   const row = value as RunInputRow
   return {
     attachmentIds: attachmentIdsSchema.parse(JSON.parse(row.attachment_ids_json)),
-    contextItems: contextItemsSchema.parse(JSON.parse(row.context_items_json)),
+    contextItems: readContextItems(row.context_items_json),
     createdAt: row.created_at,
     prompt: row.prompt,
     reasoning: reasoningSchema.parse(row.reasoning),
     runId: row.run_id,
     serviceTier: serviceTierSchema.parse(row.service_tier),
   }
+}
+
+// Runs recorded before session references moved into message content carry `sessionReference` items.
+// They no longer have a consumer, but their rows must stay readable.
+function readContextItems(json: string): RunInputContextItem[] {
+  const items: unknown = JSON.parse(json)
+  return contextItemsSchema.parse(Array.isArray(items) ? items.filter(item => (item as { kind?: unknown } | null)?.kind !== 'sessionReference') : items)
 }

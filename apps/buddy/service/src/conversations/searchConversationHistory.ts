@@ -5,26 +5,51 @@ import { createSessionQuery, sessionMessageText } from './sessionReferenceText'
 
 const MAX_RESULTS = 8
 const MAX_SCANNED = 500
+const PAGE_SIZE = 50
 const EXCERPT_LENGTH = 1600
 
+/**
+ * Searches the active branch from the newest message backwards.
+ *
+ * Continuation is a plain count of the newest messages already covered (`messageOffset`), not a
+ * message ID. Page boundaries stay inside this function, so any value a model can fill in is valid
+ * input: 0 starts a new search and a value past the end returns an empty page.
+ */
 export async function searchConversationHistory(
   conversations: Pick<ConversationRepository, 'findById' | 'listMessagePage'>,
   target: ConversationRecord,
-  input: { query?: string, beforeMessageId?: string },
+  input: { query?: string, messageOffset?: number },
   signal?: AbortSignal,
 ) {
   const matchQuery = createSessionQuery(input.query)
   const matches: Array<{ source: { kind: 'message', messageId: string }, messageId: string, role: string, createdAt: string, excerpt: string, offset: number }> = []
-  let cursor = input.beforeMessageId
+  const startOffset = input.messageOffset ?? 0
+  let toSkip = startOffset
   let scanned = 0
-  let nextBeforeMessageId: string | null = null
-  do {
+  let boundary: string | undefined
+  const result = (nextMessageOffset: number | null) => {
+    signal?.throwIfAborted()
+    return {
+      sessionId: target.id,
+      title: target.title,
+      branchId: target.activeBranchId,
+      matches,
+      scanned,
+      nextMessageOffset,
+    }
+  }
+  while (true) {
     signal?.throwIfAborted()
     const current = conversations.findById(target.id)
     if (!current || current.deletedAt !== null || current.activeBranchId !== target.activeBranchId)
       throw new Error('SESSION_REFERENCE_UNAVAILABLE')
-    const page = conversations.listMessagePage(target.id, target.activeBranchId!, { beforeMessageId: cursor, limit: 50 })
-    for (const message of page.items.toReversed()) {
+    const page = conversations.listMessagePage(target.id, target.activeBranchId!, { beforeMessageId: boundary, limit: PAGE_SIZE })
+    const items = page.items.toReversed()
+    for (const [index, message] of items.entries()) {
+      if (toSkip > 0) {
+        toSkip -= 1
+        continue
+      }
       scanned += 1
       if (message.role !== 'user' && message.role !== 'assistant')
         continue
@@ -43,25 +68,14 @@ export async function searchConversationHistory(
         createdAt: message.createdAt,
         excerpt: `${start ? '…' : ''}${text.slice(start, start + EXCERPT_LENGTH)}${text.length > start + EXCERPT_LENGTH ? '…' : ''}`,
       })
-      if (matches.length === MAX_RESULTS) {
-        nextBeforeMessageId = message.id
-        break
-      }
+      if (matches.length === MAX_RESULTS)
+        return result((index < items.length - 1 || page.nextBeforeMessageId) ? startOffset + scanned : null)
     }
-    if (matches.length === MAX_RESULTS)
-      break
-    nextBeforeMessageId = page.nextBeforeMessageId
-    cursor = page.nextBeforeMessageId ?? undefined
-    if (cursor && scanned < MAX_SCANNED)
-      await setImmediate(undefined, { signal })
-  } while (cursor && scanned < MAX_SCANNED)
-  signal?.throwIfAborted()
-  return {
-    sessionId: target.id,
-    title: target.title,
-    branchId: target.activeBranchId,
-    matches,
-    scanned,
-    nextBeforeMessageId,
+    if (!page.nextBeforeMessageId)
+      return result(null)
+    if (scanned >= MAX_SCANNED)
+      return result(startOffset + scanned)
+    boundary = page.nextBeforeMessageId
+    await setImmediate(undefined, { signal })
   }
 }

@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createAssistantMessageEventStream, getCurrentTools, InMemoryCredentialStore } from '@earendil-works/pi-ai'
 import { ModelRuntime } from '@earendil-works/pi-coding-agent'
+import { Check } from 'typebox/value'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createBuddyUserContent } from '../../../../shared/conversation/buddyUserContent'
 import { createBuddyInputReference, createBuddyInputReferenceMessage } from '../../agent/context/BuddyInputReference'
@@ -26,7 +27,7 @@ import { createSpaceRepository } from '../../storage/spaceRepository'
 import { createTurnRequestRepository } from '../../storage/turnRequestRepository'
 import { searchConversationHistory } from '../searchConversationHistory'
 import { createSessionReferenceCapability } from '../sessionReferenceExtension'
-import { SESSION_READ_TOOL, SESSION_SEARCH_TOOL } from '../sessionReferenceToolContract'
+import { SESSION_READ_TOOL, SESSION_SEARCH_TOOL, sessionSearchParameters } from '../sessionReferenceToolContract'
 
 const databases: DatabaseSync[] = []
 const roots: string[] = []
@@ -67,7 +68,7 @@ function response(model: Model<Api>, call?: { name: string, arguments: ToolCall[
 }
 
 describe('message-bound session retrieval', () => {
-  it.each(['followUp', 'steer'] as const)('discovers references delivered with %s into the same run and withdraws them on the next message in real Pi', async (delivery) => {
+  it.each(['followUp', 'steer'] as const)('discovers references delivered with %s into the same run and keeps them for later messages in real Pi', async (delivery) => {
     const f = fixture()
     for (const id of ['source-a', 'source-b', 'unreferenced'])
       f.session(id)
@@ -129,11 +130,17 @@ describe('message-bound session retrieval', () => {
       if (request === 1)
         return response(model, { name: 'lexora_tool_search', arguments: { toolNames: [SESSION_SEARCH_TOOL, SESSION_READ_TOOL] } })
       if (phase === 'referenced' && request === 2)
-        return response(model, { name: SESSION_SEARCH_TOOL, arguments: { sessionId: 'source-b', query: 'needle' } })
+        return response(model, { name: SESSION_SEARCH_TOOL, arguments: { sessionId: 'source-b', query: 'needle', kind: 'all', messageOffset: 0, resourceOffset: 0 } })
       if (phase === 'referenced' && request === 3)
         return response(model, { name: SESSION_READ_TOOL, arguments: { sessionId: 'source-b', source: { kind: 'message', messageId: longMessage.id }, offset: 16000 } })
       if (phase === 'referenced' && request === 4)
         return response(model, { name: SESSION_READ_TOOL, arguments: { sessionId: 'unreferenced', source: { kind: 'message', messageId: longMessage.id } } })
+      if (phase === 'cleared' && request === 2)
+        return response(model, { name: SESSION_SEARCH_TOOL, arguments: { sessionId: 'source-b', query: 'needle' } })
+      if (phase === 'new-prompt' && request === 2)
+        return response(model, { name: SESSION_SEARCH_TOOL, arguments: { sessionId: 'source-a', query: 'needle' } })
+      if (phase === 'new-prompt' && request === 3)
+        return response(model, { name: SESSION_SEARCH_TOOL, arguments: { sessionId: 'unreferenced', query: 'SECRET' } })
       if (phase === 'referenced' && request === 5) {
         deliver('no-refs', [])
         created.session.agent[delivery](createBuddyInputReferenceMessage(createBuddyInputReference({ messageId: 'no-refs', prompt: 'no-refs', images: [] }), Date.now()))
@@ -170,10 +177,17 @@ describe('message-bound session retrieval', () => {
       phase = 'new-prompt'
       deliver('next', [])
       await prompt('next')
-      expect(seen.filter(entry => entry.phase !== 'referenced' && entry.names.includes(SESSION_SEARCH_TOOL)).map(entry => entry.phase)).toEqual([])
+      expect(seen.filter(entry => entry.phase === 'initial').some(entry => entry.names.includes(SESSION_SEARCH_TOOL))).toBe(false)
+      for (const later of ['referenced', 'cleared', 'new-prompt'])
+        expect(seen.filter(entry => entry.phase === later).some(entry => entry.names.includes(SESSION_SEARCH_TOOL))).toBe(true)
       const searches = created.session.messages.flatMap(message => message.role === 'toolResult' && message.toolName === 'lexora_tool_search' ? [message] : [])
-      expect(searches.map(message => JSON.parse(message.content.find(block => block.type === 'text')!.text).tools.length)).toEqual([0, 2, 0, 0])
-      expect(seen.filter(entry => entry.phase === 'referenced').some(entry => entry.names.includes(SESSION_SEARCH_TOOL))).toBe(true)
+      expect(searches.map(message => JSON.parse(message.content.find(block => block.type === 'text')!.text).tools.length)).toEqual([0, 2, 2, 2])
+      const sessionSearches = created.session.messages.flatMap(message => message.role === 'toolResult' && message.toolName === SESSION_SEARCH_TOOL ? [message] : [])
+      expect(sessionSearches.map(message => message.isError)).toEqual([false, false, false, true])
+      const text = (message: (typeof sessionSearches)[number]) => message.content.map(block => block.type === 'text' ? block.text : '').join('')
+      expect(text(sessionSearches[1]!)).toContain('needle final decision: green')
+      expect(text(sessionSearches[2]!)).toContain('needle first session')
+      expect(text(sessionSearches[3]!)).toContain('SESSION_REFERENCE_NOT_AUTHORIZED')
     }
     finally { await created.shutdown('quit') }
   })
@@ -214,14 +228,52 @@ describe('message-bound session retrieval', () => {
     const target = f.session('source')
     const ids = Array.from({ length: 21 }, (_, index) => f.message('source', `needle ${index}`).id)
     const found: string[] = []
-    let cursor: string | undefined
+    let messageOffset: number | undefined
     do {
-      const result = await searchConversationHistory(f.conversations, target, { query: 'needle', beforeMessageId: cursor })
+      const result = await searchConversationHistory(f.conversations, target, { query: 'needle', messageOffset })
       expect(result.matches.length).toBeLessThanOrEqual(8)
       found.push(...result.matches.map(match => match.messageId))
-      cursor = result.nextBeforeMessageId ?? undefined
-    } while (cursor)
+      messageOffset = result.nextMessageOffset ?? undefined
+    } while (messageOffset !== undefined)
     expect(found).toEqual(ids.toReversed())
+  })
+
+  it('treats the first-page offset as optional and ends cleanly past the history', async () => {
+    const f = fixture()
+    const target = f.session('source')
+    const ids = Array.from({ length: 8 }, (_, index) => f.message('source', `needle ${index}`).id)
+    const omitted = await searchConversationHistory(f.conversations, target, { query: 'needle' })
+    const zero = await searchConversationHistory(f.conversations, target, { query: 'needle', messageOffset: 0 })
+    expect(zero).toEqual(omitted)
+    expect(omitted.matches.map(match => match.messageId)).toEqual(ids.toReversed())
+    expect(omitted.nextMessageOffset).toBeNull()
+    for (const messageOffset of [8, 9, 1000, Number.MAX_SAFE_INTEGER]) {
+      const past = await searchConversationHistory(f.conversations, target, { query: 'needle', messageOffset })
+      expect(past).toMatchObject({ matches: [], scanned: 0, nextMessageOffset: null })
+    }
+  })
+
+  it('keeps the continuation offset exact when the page is full mid-history', async () => {
+    const f = fixture()
+    const target = f.session('source')
+    f.message('source', 'needle oldest')
+    for (let index = 0; index < 60; index++)
+      f.message('source', `other ${index}`)
+    const newest = Array.from({ length: 8 }, (_, index) => f.message('source', `needle new ${index}`).id)
+    const first = await searchConversationHistory(f.conversations, target, { query: 'needle' })
+    expect(first.matches.map(match => match.messageId)).toEqual(newest.toReversed())
+    expect(first.nextMessageOffset).toBe(8)
+    const second = await searchConversationHistory(f.conversations, target, { query: 'needle', messageOffset: first.nextMessageOffset! })
+    expect(second.matches.map(match => match.excerpt)).toEqual(['needle oldest'])
+    expect(second.nextMessageOffset).toBeNull()
+  })
+
+  it('accepts every optional field filled with its neutral value and no longer takes a message ID cursor', () => {
+    const filled = { sessionId: 'source', query: 'needle', kind: 'all', messageOffset: 0, resourceOffset: 0 }
+    expect(Check(sessionSearchParameters, filled)).toBe(true)
+    expect(Check(sessionSearchParameters, { sessionId: 'source' })).toBe(true)
+    expect(Check(sessionSearchParameters, { ...filled, beforeMessageId: '0' })).toBe(false)
+    expect(Check(sessionSearchParameters, { ...filled, messageOffset: -1 })).toBe(false)
   })
 
   it('continues beyond the bounded scan and fails after deletion or cancellation', async () => {
@@ -231,10 +283,10 @@ describe('message-bound session retrieval', () => {
     for (let index = 0; index < 505; index++)
       f.message('source', `other ${index}`)
     const first = await searchConversationHistory(f.conversations, target, { query: 'needle' })
-    expect(first).toMatchObject({ scanned: 500, matches: [] })
-    expect(first.nextBeforeMessageId).toBeTruthy()
-    const next = await searchConversationHistory(f.conversations, target, { query: 'needle', beforeMessageId: first.nextBeforeMessageId! })
+    expect(first).toMatchObject({ scanned: 500, matches: [], nextMessageOffset: 500 })
+    const next = await searchConversationHistory(f.conversations, target, { query: 'needle', messageOffset: first.nextMessageOffset! })
     expect(next.matches[0]?.excerpt).toBe('needle oldest')
+    expect(next.nextMessageOffset).toBeNull()
     const abort = new AbortController()
     abort.abort()
     await expect(searchConversationHistory(f.conversations, target, {}, abort.signal)).rejects.toThrow()

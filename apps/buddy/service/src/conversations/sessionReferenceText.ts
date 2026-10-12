@@ -1,4 +1,5 @@
-import { buddyUserContentToText, readBuddyUserMessageContent } from '../../../shared/conversation/buddyUserContent'
+import type { BuddyUserContentV1 } from '../../../shared/conversation/buddyUserContent'
+import { buddyPromptDirectiveToText, readBuddyUserMessageContent } from '../../../shared/conversation/buddyUserContent'
 
 const segmenter = new Intl.Segmenter('zh', { granularity: 'word' })
 const stopWords = new Set(['的', '了', '是', '什么', '为什么', '怎么', '如何', '请', 'the', 'a', 'an', 'is', 'was', 'were', 'what', 'why', 'how', 'to', 'of', 'in', 'and'])
@@ -18,11 +19,33 @@ export function createSessionQuery(query = '') {
   }
 }
 
+// Tasks a user attached to a message stay visible as text, the way the model saw them when it was sent: an inline
+// [SESSION:id] marker plus the reference list. Searching for "Referenced tasks" lists every message that carried
+// one. Literal markers typed by the user are escaped; authorization never reads this text.
+function escapeSessionMarkers(text: string): string {
+  return text.replace(/\[SESSION:[^\]\s]+\]/g, match => `［${match.slice(1, -1)}］`)
+}
+
+function userContentText(content: BuddyUserContentV1): string {
+  const body = content.body.map(paragraph => paragraph.content.map((node) => {
+    switch (node.type) {
+      case 'text': return escapeSessionMarkers(node.text)
+      case 'hard_break': return '\n'
+      case 'resource_ref': return '@file'
+      case 'session_ref': return `[SESSION:${node.sessionId}]`
+      case 'prompt_directive': return escapeSessionMarkers(buddyPromptDirectiveToText(node))
+      default: return node satisfies never
+    }
+  }).join('')).join('\n')
+  const references = content.sessionReferences?.length ? `Referenced tasks: ${JSON.stringify(content.sessionReferences)}` : ''
+  return [body, references].filter(Boolean).join('\n')
+}
+
 export function sessionMessageText(role: string, content: unknown): string {
   if (role === 'user') {
     const structured = readBuddyUserMessageContent(content)
     if (structured)
-      return [buddyUserContentToText(structured.userContent), ...(structured.userContent.quotes ?? []).map(quote => quote.text)].filter(Boolean).join('\n')
+      return [userContentText(structured.userContent), ...(structured.userContent.quotes ?? []).map(quote => quote.text)].filter(Boolean).join('\n')
   }
   if (typeof content === 'string')
     return content

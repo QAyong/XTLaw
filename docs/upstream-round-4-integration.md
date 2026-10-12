@@ -319,4 +319,5 @@
 - 有意偏离上游（引用链）：被引用会话的活动分支上，用户亲手附加过的会话也可读，最多再沿 3 层、整体不超过 24 个会话，环路与当前会话自身被忽略；新增 `sessionReferenceChain.ts`。为了让模型发现下一层 ID，`sessionMessageText()` 把消息里的 `session_ref` 节点渲染为行内 `[SESSION:id]` 标记，并在消息文本末尾追加 `Referenced tasks: [...]` 清单（此前节点转成文本为空）；用户手打的同形标记会被转义，授权只看数据里的 `sessionReferences`。做法对齐 ZCode：下一层引用留在文本里。使用时会重新核对携带该引用的会话仍存在且活动分支未变；其他不相关会话里的引用不会被带过来。
 - UI 侧与上游的差异（样式写法、冻结选区引用等）属于其他本地定制，本次不改。
 - 验证：会话相关测试共 24 个文件、185 个用例（`service/src/conversations/__tests__` 全部、`sessionReferenceAuthorization`、`ChatQueueService`、`runInputRepository`、`chatQueueRepository`、`conversationHistoryRepositories`、`agent/extensions/__tests__`、`BuddyTurnLauncher`）：180 通过、1 跳过、4 失败。4 个失败都是 Windows 环境问题，与本次改动无关：`BuddyTurnLauncher.spec.ts` 1 个用例因创建符号链接需要权限（`EPERM`），`toolPolicyExtension.spec.ts` 3 个用例以 `/tmp` 作工作目录、在 Windows 上被判为 `INVALID_PATH`，它们依赖的文件本次均未改动。`vue-tsc -b` 与相关文件 ESLint 通过。未跑全量测试或打包。
-- 已在本地分三次提交，未推送（见 `git log`）：去掉 `ask` 并对齐上游；会话检索改为数字偏移、授权持续有效并加入引用链；文档与 bug 记录。
+- 验收（2026-10-12）：用 `pnpm --filter @uselexora/lexora-buddy package:windows` 生成安装包 `XTLaw-0.1.1-windows-x64.exe`（SHA256 `e120068d62a9ce1ebc299dce258461c0dee90a5bc6ed834854e5cfed90ad07be`，基于提交 `060c2c83`，约 2 分钟，包体与打包目录校验通过），用户实机验收通过。版本号仍是 0.1.1，未签名。
+- 已在本地提交，未推送（见 `git log`）：去掉 `ask` 并对齐上游；会话检索改为数字偏移、授权持续有效并加入引用链；文档与 bug 记录；验收记录。

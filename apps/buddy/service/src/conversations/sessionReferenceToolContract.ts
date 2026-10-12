@@ -24,8 +24,8 @@ export const sessionSearchParameters = Type.Object({
   sessionId: Type.String({ minLength: 1, maxLength: 128, description: 'ID of a task explicitly referenced by the current user message.' }),
   query: Type.Optional(Type.String({ minLength: 1, maxLength: 500, description: 'Keywords in messages or resource names and paths. Omit to browse recent messages and the resource catalogue. Does not search inside files.' })),
   kind: Type.Optional(Type.Union([Type.Literal('all'), Type.Literal('messages'), Type.Literal('resources')], { description: 'Defaults to all. Select a kind when continuing its results.' })),
-  beforeMessageId: Type.Optional(Type.String({ minLength: 1, maxLength: 128, description: 'nextBeforeMessageId from the previous message search.' })),
-  resourceOffset: Type.Optional(Type.Integer({ minimum: 0, maximum: Number.MAX_SAFE_INTEGER, description: 'nextResourceOffset from the previous resource search.' })),
+  messageOffset: Type.Optional(Type.Integer({ minimum: 0, maximum: Number.MAX_SAFE_INTEGER, description: 'How many of the newest messages earlier searches already covered. 0 (or omit) for a new search; nextMessageOffset from the previous message search to continue.' })),
+  resourceOffset: Type.Optional(Type.Integer({ minimum: 0, maximum: Number.MAX_SAFE_INTEGER, description: 'How many resources earlier searches already covered. 0 (or omit) for a new search; nextResourceOffset from the previous resource search to continue.' })),
 }, { additionalProperties: false })
 
 export const sessionReadParameters = Type.Object({

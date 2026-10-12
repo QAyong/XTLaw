@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createAssistantMessageEventStream, getCurrentTools, InMemoryCredentialStore } from '@earendil-works/pi-ai'
 import { ModelRuntime } from '@earendil-works/pi-coding-agent'
+import { Check } from 'typebox/value'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createBuddyUserContent } from '../../../../shared/conversation/buddyUserContent'
 import { createBuddyInputReference, createBuddyInputReferenceMessage } from '../../agent/context/BuddyInputReference'
@@ -27,7 +28,7 @@ import { createSpaceRepository } from '../../storage/spaceRepository'
 import { createTurnRequestRepository } from '../../storage/turnRequestRepository'
 import { searchConversationHistory } from '../searchConversationHistory'
 import { createSessionReferenceCapability } from '../sessionReferenceExtension'
-import { SESSION_READ_TOOL, SESSION_SEARCH_TOOL } from '../sessionReferenceToolContract'
+import { SESSION_READ_TOOL, SESSION_SEARCH_TOOL, sessionSearchParameters } from '../sessionReferenceToolContract'
 
 const databases: DatabaseSync[] = []
 const roots: string[] = []
@@ -130,7 +131,7 @@ describe('message-bound session retrieval', () => {
       if (request === 1)
         return response(model, { name: 'lexora_tool_search', arguments: { toolNames: [SESSION_SEARCH_TOOL, SESSION_READ_TOOL] } })
       if (phase === 'referenced' && request === 2)
-        return response(model, { name: SESSION_SEARCH_TOOL, arguments: { sessionId: 'source-b', query: 'needle' } })
+        return response(model, { name: SESSION_SEARCH_TOOL, arguments: { sessionId: 'source-b', query: 'needle', kind: 'all', messageOffset: 0, resourceOffset: 0 } })
       if (phase === 'referenced' && request === 3)
         return response(model, { name: SESSION_READ_TOOL, arguments: { sessionId: 'source-b', source: { kind: 'message', messageId: longMessage.id }, offset: 16000 } })
       if (phase === 'referenced' && request === 4)
@@ -215,14 +216,95 @@ describe('message-bound session retrieval', () => {
     const target = f.session('source')
     const ids = Array.from({ length: 21 }, (_, index) => f.message('source', `needle ${index}`).id)
     const found: string[] = []
-    let cursor: string | undefined
+    let messageOffset: number | undefined
     do {
-      const result = await searchConversationHistory(f.conversations, target, { query: 'needle', beforeMessageId: cursor })
+      const result = await searchConversationHistory(f.conversations, target, { query: 'needle', messageOffset })
       expect(result.matches.length).toBeLessThanOrEqual(8)
       found.push(...result.matches.map(match => match.messageId))
-      cursor = result.nextBeforeMessageId ?? undefined
-    } while (cursor)
+      messageOffset = result.nextMessageOffset ?? undefined
+    } while (messageOffset !== undefined)
     expect(found).toEqual(ids.toReversed())
+  })
+
+  it('treats the first-page offset as optional and ends cleanly past the history', async () => {
+    const f = fixture()
+    const target = f.session('source')
+    const ids = Array.from({ length: 8 }, (_, index) => f.message('source', `needle ${index}`).id)
+    const omitted = await searchConversationHistory(f.conversations, target, { query: 'needle' })
+    const zero = await searchConversationHistory(f.conversations, target, { query: 'needle', messageOffset: 0 })
+    expect(zero).toEqual(omitted)
+    expect(omitted.matches.map(match => match.messageId)).toEqual(ids.toReversed())
+    expect(omitted.nextMessageOffset).toBeNull()
+    for (const messageOffset of [8, 9, 1000, Number.MAX_SAFE_INTEGER]) {
+      const past = await searchConversationHistory(f.conversations, target, { query: 'needle', messageOffset })
+      expect(past).toMatchObject({ matches: [], scanned: 0, nextMessageOffset: null })
+    }
+  })
+
+  it('keeps the continuation offset exact when the page is full mid-history', async () => {
+    const f = fixture()
+    const target = f.session('source')
+    f.message('source', 'needle oldest')
+    for (let index = 0; index < 60; index++)
+      f.message('source', `other ${index}`)
+    const newest = Array.from({ length: 8 }, (_, index) => f.message('source', `needle new ${index}`).id)
+    const first = await searchConversationHistory(f.conversations, target, { query: 'needle' })
+    expect(first.matches.map(match => match.messageId)).toEqual(newest.toReversed())
+    expect(first.nextMessageOffset).toBe(8)
+    const second = await searchConversationHistory(f.conversations, target, { query: 'needle', messageOffset: first.nextMessageOffset! })
+    expect(second.matches.map(match => match.excerpt)).toEqual(['needle oldest'])
+    expect(second.nextMessageOffset).toBeNull()
+  })
+
+  it('accepts every optional field filled with its neutral value and no longer takes a message ID cursor', () => {
+    const filled = { sessionId: 'source', query: 'needle', kind: 'all', messageOffset: 0, resourceOffset: 0 }
+    expect(Check(sessionSearchParameters, filled)).toBe(true)
+    expect(Check(sessionSearchParameters, { sessionId: 'source' })).toBe(true)
+    expect(Check(sessionSearchParameters, { ...filled, beforeMessageId: '0' })).toBe(false)
+    expect(Check(sessionSearchParameters, { ...filled, messageOffset: -1 })).toBe(false)
+  })
+
+  it('keeps the scan bounded after continuing from a full result page', async () => {
+    const f = fixture()
+    const target = f.session('source')
+    f.message('source', 'needle oldest')
+    for (let index = 0; index < 505; index++)
+      f.message('source', `other ${index}`)
+    for (let index = 0; index < 8; index++)
+      f.message('source', `needle newest ${index}`)
+    const first = await searchConversationHistory(f.conversations, target, { query: 'needle' })
+    expect(first).toMatchObject({ scanned: 8, nextMessageOffset: 8 })
+    const second = await searchConversationHistory(f.conversations, target, { query: 'needle', messageOffset: first.nextMessageOffset! })
+    expect(second).toMatchObject({ matches: [], scanned: 500, nextMessageOffset: 508 })
+    const third = await searchConversationHistory(f.conversations, target, { query: 'needle', messageOffset: second.nextMessageOffset! })
+    expect(third).toMatchObject({ scanned: 6, nextMessageOffset: null })
+    expect(third.matches.map(match => match.excerpt)).toEqual(['needle oldest'])
+  })
+
+  it('retrieves deep ancestor results without loading the skipped message history', async () => {
+    const f = fixture()
+    f.session('source')
+    const oldest = f.message('source', 'needle oldest')
+    let shared = oldest
+    for (let index = 0; index < 1000; index++)
+      shared = f.message('source', `other ${index}`)
+    f.message('source', 'needle abandoned')
+    f.conversations.createBranch({ id: 'fork', conversationId: 'source', parentBranchId: 'source-branch', forkedFromMessageId: shared.id, createdAt: '2026-02-01T00:00:00.000Z', activate: true })
+    for (let index = 0; index < 19; index++)
+      f.message('source', `other child ${index}`, 'fork')
+    let loaded = 0
+    const conversations = {
+      ...f.conversations,
+      listMessagePage(...args: Parameters<typeof f.conversations.listMessagePage>) {
+        const page = f.conversations.listMessagePage(...args)
+        loaded += page.items.length
+        return page
+      },
+    }
+    const result = await searchConversationHistory(conversations, f.conversations.findById('source')!, { query: 'needle', messageOffset: 1008 })
+    expect(result).toMatchObject({ scanned: 12, nextMessageOffset: null })
+    expect(result.matches.map(match => match.messageId)).toEqual([oldest.id])
+    expect(loaded).toBeLessThanOrEqual(500)
   })
 
   it('continues beyond the bounded scan and fails after deletion or cancellation', async () => {
@@ -232,10 +314,10 @@ describe('message-bound session retrieval', () => {
     for (let index = 0; index < 505; index++)
       f.message('source', `other ${index}`)
     const first = await searchConversationHistory(f.conversations, target, { query: 'needle' })
-    expect(first).toMatchObject({ scanned: 500, matches: [] })
-    expect(first.nextBeforeMessageId).toBeTruthy()
-    const next = await searchConversationHistory(f.conversations, target, { query: 'needle', beforeMessageId: first.nextBeforeMessageId! })
+    expect(first).toMatchObject({ scanned: 500, matches: [], nextMessageOffset: 500 })
+    const next = await searchConversationHistory(f.conversations, target, { query: 'needle', messageOffset: first.nextMessageOffset! })
     expect(next.matches[0]?.excerpt).toBe('needle oldest')
+    expect(next.nextMessageOffset).toBeNull()
     const abort = new AbortController()
     abort.abort()
     await expect(searchConversationHistory(f.conversations, target, {}, abort.signal)).rejects.toThrow()

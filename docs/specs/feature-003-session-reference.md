@@ -12,11 +12,15 @@
 - 菜单入口为“更多 → 复制 → 会话引用”；输入候选增加按空间分组的会话引用入口。引用标签可点击打开来源任务。
 - 行内位置通过独立的 `session_ref` 正文节点持久化，`sessionReferences` 仍保存引用 ID/title；不伪装成附件节点。旧版仅保存元数据的草稿/消息仍兼容，恢复时补齐引用 token。
 - 模型输入投影使用 `[SESSION:id]` 标记引用位置，并把历史内容明确标为不可信上下文；用户输入的伪造字面量标记会被转义。
-- 新主入口为 `lexora_session_search` 和 `lexora_session_read`：只针对本轮显式引用的会话，按需搜索/分页读取消息、邻近上下文、附件和交付物。`lexora_session_ask` 保留为兼容入口，其最多 12 条关键词片段限制不代表新版工具整体能力。
+- 新主入口为 `lexora_session_search` 和 `lexora_session_read`：按需搜索/分页读取消息、邻近上下文、附件和交付物。本地早期的 `lexora_session_ask` 已于 2026-10-12 移除，工具与提示词与上游保持一致；历史 run 输入中遗留的 `sessionReference` 上下文项在读取时被忽略。
+- 与上游相比有三处有意偏离（2026-10-12，原因与证据见 [Bug 记录](../bugs/bug-20261010-session-reference-responses-optional-cursor.md)）：
+  1. **数字页码**：消息续翻使用 `messageOffset` / `nextMessageOffset`，而不是消息 ID 游标，避免习惯满填可选字段的模型编造无效 ID。
+  2. **授权在同一会话内持续有效**：用户在当前活动分支上任意一条消息里显式引用过的会话，后续消息不必重新附加；没有引用过的会话和已放弃分支上的引用不授权。
+  3. **引用链**：被引用会话的活动分支上，用户亲手附加过的会话也可读，最多再沿 3 层、整体不超过 24 个会话，环路与当前会话自身被忽略。下一层引用像 ZCode 那样保留在搜索/读取结果的文本里：行内 `[SESSION:id]` 标记加 “Referenced tasks” 清单；用户手打的同形标记会被转义，授权只看数据里的 `sessionReferences`，不看文本。
 - 附件/交付物读取仍走正常文件权限分类与执行前路径校验；会话或来源删除、猜测来源、文件变化及请求取消会阻断或撤销读取。引用不增加文件访问授权。
 - 保留跨 Space 显式引用、非空问题要求、冻结选区/网页元素引用及草稿关闭保护。不默认展开整段会话，也不让 renderer 或模型直接访问数据库文件。
 
-实现入口为 `service/src/conversations/SessionReferenceService.ts`、`sessionReferenceExtension.ts`、`sessionReferenceToolContract.ts`，以及 `src/modules/prompt-input/editor/chatComposerSessionEditing.ts`、`src/modules/tasks/widgets/references/`（均相对于 `apps/buddy/`）。
+实现入口为 `service/src/conversations/SessionReferenceService.ts`、`sessionReferenceExtension.ts`、`sessionReferenceChain.ts`、`sessionReferenceText.ts`、`sessionReferenceToolContract.ts`，以及 `src/modules/prompt-input/editor/chatComposerSessionEditing.ts`、`src/modules/tasks/widgets/references/`（均相对于 `apps/buddy/`）。
 
 新版自动验证覆盖授权、搜索/分页读取、来源撤销、composer 和冻结引用共存；全部集成验证为 62 个测试文件、617 通过、4 跳过，详见 [集成记录](../upstream-remaining-integration.md)。这不沿用首版用户预览验收来声称新版桌面交互已验收。
 
@@ -96,13 +100,15 @@ Buddy 端工作区可跨全局会话和多个 Space 会话。用户可在任一�
 
 ### 4.4 检索接口
 
+> 以下为首版设计记录。`lexora_session_ask` 已于 2026-10-12 移除，当前检索入口见第 0 节。
+
 给 Agent 提供 `session_ask` 或等价内建工具，输入为当前问题。工具只能访问本轮显式引用的会话，不额外接受任意会话 ID、检索深度或条数参数，也不向模型暴露数据库或本地文件路径。
 
 Buddy 桌面端使用主 Agent 内建只读工具 `lexora_session_ask`：工具在 Buddy service 内重新校验本轮用户消息显式引用的会话，再按页检索目标会话活动分支；只返回匹配的用户/助手消息片段，最多 12 条，每条最多 4,000 字符。工具不读取工具输出、隐藏思考、附件或数据库文件，也不额外启动隔离模型。`pi-session-ask` 仅作为按需检索思路参考。
 
 ## 5. 权限、安全与隐私
 
-- 会话读取必须重新执行服务端授权校验；不可仅凭 UI 中看见会话、剪贴板内容、会话 ID 或 agent 参数读取。
+- 会话读取必须重新执行服务端授权校验；不可仅凭 UI 中看见会话、剪贴板内容、会话 ID 或 agent 参数读取。授权范围是“用户在当前会话活动分支上显式附加过的会话”，以及这些会话的活动分支上用户同样显式附加过的会话（引用链，最多 3 层、24 个会话，环路与当前会话自身被忽略）。不包含未引用过的会话、已放弃分支上的引用，也不把其他不相关会话里的引用带过来；链路上的任何会话被删除或活动分支变化后，沿它到达的会话立即失去授权，被引用会话本身删除或分支变化时读取仍会被拒绝。
 - 首版允许在任一 Space 和全局会话之间引用；被引用会话必须存在且未删除。
 - 剪贴板中的 ID/title 只用于传递和展示，不是授权凭证；发送时和 Agent 读取时都要重新查询服务端数据。
 - 通过 API/Agent 内部服务访问持久化数据，不让桌面渲染层或模型直接读取任意 JSONL、数据库文件或磁盘路径。

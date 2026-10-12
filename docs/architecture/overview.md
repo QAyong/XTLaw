@@ -159,9 +159,9 @@ flowchart LR
 
 ### 4.5 显式会话引用
 
-`sessionReferences` 保存 ID/title，`session_ref` 节点保存行内位置；冻结选区 `resourceQuotes` 与这些结构并存。`SessionReferenceService` 通过 `lexora_session_search` / `lexora_session_read` 按需搜索、分页读取消息及附件/交付物，`lexora_session_ask` 保留兼容。
+`sessionReferences` 保存 ID/title，`session_ref` 节点保存行内位置；冻结选区 `resourceQuotes` 与这些结构并存。`SessionReferenceService` 通过 `lexora_session_search` / `lexora_session_read` 按需搜索、分页读取消息及附件/交付物；早期的 `lexora_session_ask` 已移除。
 
-引用只限定本轮可检索的历史会话，不授予任意文件权限。附件读取仍经正常权限分类和执行前来源校验；历史内容是不可信数据，删除/变更/取消会阻断或撤销对应读取。renderer 和模型不直接访问数据库。
+引用只限定当前会话中用户显式附加过的历史会话（后续消息沿用，仅限活动分支）以及这些会话里用户同样附加过的会话（引用链，最多 3 层 / 24 个会话，`sessionReferenceChain.ts`），不授予任意文件权限，也不开放未引用的会话。附件读取仍经正常权限分类和执行前来源校验；历史内容是不可信数据，删除/变更/取消会阻断或撤销对应读取。renderer 和模型不直接访问数据库。
 
 ### 4.6 Codemode、MCP 与资源空间联动
 

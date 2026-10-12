@@ -115,7 +115,7 @@
 - `lexora_tool_search` 新增 `namespace`、`source`、`offset`，可先列出某个组再按需加载。
 - 工具名保持不变（例如 `lexora_browser_open`、`lexora_image_generate`、`lexora_buddy_automation`），已有会话、授权和审批规则不受影响。
 - 冲突：自动化与宠物工具的标签，采用上游的 `...TOOLS.xxx` 展开，保留 `XTLaw` 标签。
-- 本地的 `lexora_session_ask` 没有命名空间，继续作为独立工具出现在目录中。
+- 本地的 `lexora_session_ask` 当时没有命名空间，作为独立工具出现在目录中；已于 2026-10-12 移除，见“后续调整”。
 
 ## 已移植（第四批：早于比较基线的两个提交）
 
@@ -307,3 +307,16 @@
 - 移植的原生沙盒改动需要随下一次完整打包重新编译；本轮只重编了两个相关二进制用于测试，没有生成安装包。
 - 首次用新版本运行时，沙盒组件会提示一次修复，属于预期行为。
 - 本轮没有数据库迁移，不需要备份或回滚特殊处理。
+
+## 后续调整（2026-10-12）：会话引用与上游一致
+
+- 检查到的上游 commit 仍为 `df0f9369`（`git fetch upstream --prune` 后 `df0f9369..upstream/master` 为 0 个提交），没有新的可移植内容。
+- 移除本地 `lexora_session_ask`：删除 `sessionAskExtension.ts` 及其测试；`createBuddyCapabilityFactory.ts`、`BuddyService.ts`、`BuddyRuntime.ts`、`shared/conversation/chatApi.ts` 恢复为上游内容。
+- `ChatTurnService.ts` 去掉追加的“已引用会话……调用 `lexora_session_ask`”提示段，以及向 `contextItems` 写入 `sessionReference` 的逻辑；会话引用只通过消息内容中的 `sessionReferences` 与 `[SESSION:id]` 投影传递，与上游一致。该文件仅保留与会话引用无关的 `resourceQuotes` 本地差异。
+- 除下面三处有意偏离外，本地只有一处兼容读取差异，在 `runInputRepository.ts`：读取 `context_items_json` 时过滤历史遗留的 `sessionReference` 项，再按上游的严格枚举解析。不能直接删除枚举值，否则历史 run 输入会在读取时抛错。新增 `runInputRepository.spec.ts` 覆盖遗留行可读与未知类型仍被拒绝。
+- 有意偏离上游：消息续翻参数 `beforeMessageId` / 结果字段 `nextBeforeMessageId` 改为数字偏移 `messageOffset` / `nextMessageOffset`，涉及 `sessionReferenceToolContract.ts`、`searchConversationHistory.ts`、`sessionReferenceExtension.ts`。原因：上游契约的可选字符串游标必须是真实消息 ID，习惯满填可选字段的模型（本机日志中的 `gpt-6-luna`）只能编造值而连续失败，见 `docs/bugs/bug-20261010-session-reference-responses-optional-cursor.md`。下次移植上游时，这三个文件的搜索契约保留本地版本。
+- 有意偏离上游（授权范围）：上游只对“最新一条用户消息”里附加的会话授权，下一条消息不再附加就会撤出工具。本地改为“用户在当前会话活动分支上显式附加过的会话”持续有效，改动在 `sessionReferenceExtension.ts`（`referencedSessionIds()` 按消息缓存，沿分支祖先收集 `sessionReferences`；工具披露要求至少一个被引用会话仍存在）以及工具描述文字（`sessionReferenceToolContract.ts`）。没有引用过的会话、已放弃分支上的引用仍不授权；会话删除、活动分支变化、文件权限与执行前校验不变。下次移植上游时，这一函数保留本地版本。
+- 有意偏离上游（引用链）：被引用会话的活动分支上，用户亲手附加过的会话也可读，最多再沿 3 层、整体不超过 24 个会话，环路与当前会话自身被忽略；新增 `sessionReferenceChain.ts`。为了让模型发现下一层 ID，`sessionMessageText()` 把消息里的 `session_ref` 节点渲染为行内 `[SESSION:id]` 标记，并在消息文本末尾追加 `Referenced tasks: [...]` 清单（此前节点转成文本为空）；用户手打的同形标记会被转义，授权只看数据里的 `sessionReferences`。做法对齐 ZCode：下一层引用留在文本里。使用时会重新核对携带该引用的会话仍存在且活动分支未变；其他不相关会话里的引用不会被带过来。
+- UI 侧与上游的差异（样式写法、冻结选区引用等）属于其他本地定制，本次不改。
+- 验证：会话相关测试共 24 个文件、185 个用例（`service/src/conversations/__tests__` 全部、`sessionReferenceAuthorization`、`ChatQueueService`、`runInputRepository`、`chatQueueRepository`、`conversationHistoryRepositories`、`agent/extensions/__tests__`、`BuddyTurnLauncher`）：180 通过、1 跳过、4 失败。4 个失败都是 Windows 环境问题，与本次改动无关：`BuddyTurnLauncher.spec.ts` 1 个用例因创建符号链接需要权限（`EPERM`），`toolPolicyExtension.spec.ts` 3 个用例以 `/tmp` 作工作目录、在 Windows 上被判为 `INVALID_PATH`，它们依赖的文件本次均未改动。`vue-tsc -b` 与相关文件 ESLint 通过。未跑全量测试或打包。
+- 已在本地分三次提交，未推送（见 `git log`）：去掉 `ask` 并对齐上游；会话检索改为数字偏移、授权持续有效并加入引用链；文档与 bug 记录。

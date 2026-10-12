@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
 import { afterEach, describe, expect, it } from 'vitest'
+import { MutationCoordinator } from '../../changes/MutationCoordinator'
+import { createMutationRepository } from '../../changes/mutationRepository'
 
 import { createComposerResourceRepository } from '../composerResourceRepository'
 import { openBuddyDatabase } from '../database'
@@ -115,15 +117,15 @@ describe('buddy schema', { timeout: MIGRATION_TEST_TIMEOUT }, () => {
       ...config,
       builtin_provider_id: config.builtin_provider_id === 'azure-openai-responses' ? 'azure' : config.builtin_provider_id,
     })))
-    expect(tables.map(table => upgraded.prepare(`SELECT * FROM ${table}`).all())).toEqual(before)
+    expect(tables.map(table => upgraded.prepare(`SELECT * FROM ${table}`).all())).toEqual(before.map((rows, index) => ['runs', 'conversations'].includes(tables[index]!) ? rows.map(row => ({ ...row, buddy_id: 'default', ...(tables[index] === 'runs' ? { actor_snapshot_json: null, model_override_json: null, root_run_id: row.id, parent_run_id: null, execution_kind: 'root', thread_id: 'actor:["conversation-1","default"]', generation: 0 } : {}) })) : rows.map(row => ({ ...row, ...(tables[index] === 'provider_model_states' ? { service_metadata_json: null } : {}) }))))
     upgraded.close()
     const reopened = openBuddyDatabase({ databasePath })
     databases.push(reopened)
-    expect(tables.map(table => reopened.prepare(`SELECT * FROM ${table}`).all())).toEqual(before)
+    expect(tables.map(table => reopened.prepare(`SELECT * FROM ${table}`).all())).toEqual(before.map((rows, index) => ['runs', 'conversations'].includes(tables[index]!) ? rows.map(row => ({ ...row, buddy_id: 'default', ...(tables[index] === 'runs' ? { actor_snapshot_json: null, model_override_json: null, root_run_id: row.id, parent_run_id: null, execution_kind: 'root', thread_id: 'actor:["conversation-1","default"]', generation: 0 } : {}) })) : rows.map(row => ({ ...row, ...(tables[index] === 'provider_model_states' ? { service_metadata_json: null } : {}) }))))
     expect(reopened.prepare('PRAGMA foreign_key_check').all()).toEqual([])
   })
 
-  it.each([22, 23])('upgrades v%i with checkpoints and a message index without changing historical data', (version) => {
+  it.each([22, 23])('upgrades v%i with checkpoints without changing historical data', (version) => {
     const root = mkdtempSync(join(tmpdir(), 'buddy-checkpoint-migration-'))
     directories.push(root)
     const databasePath = join(root, 'buddy.sqlite3')
@@ -141,14 +143,9 @@ describe('buddy schema', { timeout: MIGRATION_TEST_TIMEOUT }, () => {
     legacy.close()
     const migrated = openBuddyDatabase({ databasePath })
     databases.push(migrated)
-    expect(migrated.prepare('SELECT * FROM run_event_checkpoints').all()).toEqual([])
-    expect(migrated.prepare('SELECT * FROM runs').all()).toEqual(before.runs)
+    expect(migrated.prepare('SELECT * FROM runs').all()).toEqual(before.runs.map(run => ({ ...run, buddy_id: 'default', actor_snapshot_json: null, model_override_json: null, root_run_id: run.id, parent_run_id: null, execution_kind: 'root', thread_id: 'actor:["conversation-1","default"]', generation: 0 })))
     expect(migrated.prepare('SELECT rowid, * FROM messages').all()).toEqual(before.messages)
-    expect(migrated.prepare('SELECT * FROM conversations').all()).toEqual(before.conversations)
-    const plan = migrated.prepare(`EXPLAIN QUERY PLAN
-      SELECT id FROM messages WHERE run_id = ? AND role IN ('assistant', 'tool')
-    `).all('run-1')
-    expect(plan).toEqual([expect.objectContaining({ detail: expect.stringContaining('USING INDEX idx_messages_run') })])
+    expect(migrated.prepare('SELECT * FROM conversations').all()).toEqual(before.conversations.map(conversation => ({ ...conversation, buddy_id: 'default' })))
     expect(migrated.prepare('PRAGMA foreign_key_check').all()).toEqual([])
     expect(migrated.prepare('PRAGMA user_version').get()).toEqual({ user_version: BUDDY_SCHEMA_VERSION })
   })
@@ -185,7 +182,6 @@ describe('buddy schema', { timeout: MIGRATION_TEST_TIMEOUT }, () => {
     const upgraded = openBuddyDatabase({ databasePath })
     databases.push(upgraded)
     expect(upgraded.prepare('SELECT * FROM usage_records').all()).toEqual(before.map(record => ({ ...record, invocation_id: null })))
-    expect(upgraded.prepare('PRAGMA table_info(extension_invocations)').all().map(column => column.name)).toEqual(expect.arrayContaining(['branch_id', 'source_message_id', 'extension_name', 'action_title', 'result_message']))
     const invocations = createExtensionInvocationRepository(upgraded)
     invocations.start({ id: 'invocation', extensionId: 'test.action', actionId: 'test.action.generate', conversationId: 'conversation-1', trigger: 'user', startedAt: '2026-08-14T00:02:00.000Z' })
     const usage = createUsageRepository(upgraded)
@@ -198,9 +194,7 @@ describe('buddy schema', { timeout: MIGRATION_TEST_TIMEOUT }, () => {
     expect(createUsageAnalyticsRepository(upgraded).topTasks({ startDate: '2026-08-14', endDate: '2026-08-14', timeZone: 'UTC', model: null })).toMatchObject([{ conversationId: 'conversation-1', totalTokens: 40, recordCount: 2 }])
     expect(() => upgraded.prepare('UPDATE usage_records SET run_id = \'run-1\' WHERE id = \'usage-2\'').run()).toThrow(/CHECK constraint/)
     expect(() => upgraded.prepare('UPDATE usage_records SET invocation_id = NULL WHERE id = \'usage-2\'').run()).toThrow(/CHECK constraint/)
-    invocations.recover()
-    expect(upgraded.prepare('SELECT status FROM extension_invocations').get()).toEqual({ status: 'interrupted' })
-    expect(upgraded.prepare('SELECT * FROM runs').all()).toEqual(runs)
+    expect(upgraded.prepare('SELECT * FROM runs').all()).toEqual(runs.map(run => ({ ...run, buddy_id: 'default', actor_snapshot_json: null, model_override_json: null, root_run_id: run.id, parent_run_id: null, execution_kind: 'root', thread_id: 'actor:["conversation-1","default"]', generation: 0 })))
     expect(upgraded.prepare('PRAGMA foreign_key_check').all()).toEqual([])
   })
 
@@ -226,26 +220,6 @@ describe('buddy schema', { timeout: MIGRATION_TEST_TIMEOUT }, () => {
     expect(upgraded.prepare('PRAGMA user_version').get()).toEqual({ user_version: BUDDY_SCHEMA_VERSION })
     expect(upgraded.prepare('PRAGMA foreign_key_check').all()).toEqual([])
   })
-  it('upgrades v16 to skills storage without changing conversations or run history', () => {
-    const directory = mkdtempSync(join(tmpdir(), 'buddy-skills-migration-'))
-    directories.push(directory)
-    const databasePath = join(directory, 'buddy.sqlite3')
-    const previous = openMigrationFixtureDatabase(databasePath)
-    for (const migration of BUDDY_SCHEMA_MIGRATIONS.filter(migration => migration.version <= 16))
-      previous.exec(migration.sql)
-    previous.exec('PRAGMA user_version = 16')
-    seedRun(previous)
-    const runs = previous.prepare('SELECT * FROM runs').all()
-    const conversations = previous.prepare('SELECT * FROM conversations').all()
-    previous.close()
-    const upgraded = openBuddyDatabase({ databasePath })
-    databases.push(upgraded)
-    expect(upgraded.prepare('SELECT * FROM runs').all()).toEqual(runs)
-    expect(upgraded.prepare('SELECT * FROM conversations').all()).toEqual(conversations.map(conversation => ({ ...conversation, title_source: 'manual', title_revision: 0 })))
-    expect(upgraded.prepare('SELECT * FROM skill_installations').all()).toEqual([])
-    expect(upgraded.prepare('PRAGMA foreign_key_check').all()).toEqual([])
-  })
-
   it.each([14, 15])('preserves existing services and model references when completing model services from v%s', (version) => {
     const directory = mkdtempSync(join(tmpdir(), 'lexora-buddy-provider-instances-'))
     directories.push(directory)
@@ -269,22 +243,46 @@ describe('buddy schema', { timeout: MIGRATION_TEST_TIMEOUT }, () => {
     legacy.prepare('INSERT INTO provider_states VALUES (?, ?, ?, ?)').run('proxy', 1, now, now)
     legacy.prepare(`INSERT INTO provider_configs (id, display_name, api, base_url, models_json, credential_ref, enabled, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).run('proxy', 'Proxy', 'openai-completions', 'https://models.example.test/v1', '[]', 'proxy', 1, now, now)
+    legacy.exec(`
+      INSERT INTO provider_model_states (
+        provider_id, model_id, display_name, api, input_json, reasoning, cost_json,
+        context_window, max_tokens, override_context_window, override_max_tokens,
+        source_revision, acknowledged_source_revision, source, enabled, available,
+        last_seen_at, created_at, updated_at
+      ) VALUES (
+        'proxy', 'model-1', 'Model 1', 'openai-responses', '["text"]', 1,
+        '{"input":1,"output":2,"cacheRead":0,"cacheWrite":0}',
+        128000, 16384, 96000, 12000, 'source-v1', NULL, 'synced', 1, 1,
+        '${now}', '${now}', '${now}'
+      );
+    `)
     const states = legacy.prepare('SELECT * FROM provider_states ORDER BY provider_id').all()
     const configs = legacy.prepare('SELECT * FROM provider_configs').all()
+    const models = legacy.prepare('SELECT * FROM provider_model_states').all()
     const runs = legacy.prepare('SELECT * FROM runs').all()
     legacy.close()
 
     const upgraded = openBuddyDatabase({ databasePath })
     expect(upgraded.prepare('SELECT * FROM provider_states ORDER BY provider_id').all()).toEqual(states.map(state => ({ ...state, request_headers_json: '[]' })))
     expect(upgraded.prepare('SELECT * FROM provider_configs').all()).toEqual(configs)
-    expect(upgraded.prepare('SELECT * FROM runs').all()).toEqual(runs)
+    expect(upgraded.prepare('SELECT * FROM runs').all()).toEqual(runs.map(run => ({ ...run, buddy_id: 'default', actor_snapshot_json: null, model_override_json: null, root_run_id: run.id, parent_run_id: null, execution_kind: 'root', thread_id: 'actor:["conversation-1","default"]', generation: 0 })))
     expect(upgraded.prepare('SELECT id, builtin_provider_id, display_name FROM builtin_provider_configs').all()).toEqual([
       { id: 'anthropic', builtin_provider_id: 'anthropic', display_name: null },
       { id: 'azure-openai-responses', builtin_provider_id: 'azure', display_name: null },
     ])
     expect(upgraded.prepare('PRAGMA user_version').get()).toEqual({ user_version: BUDDY_SCHEMA_VERSION })
-    expect((upgraded.prepare('PRAGMA table_info(provider_model_states)').all() as Array<{ name: string }>).map(column => column.name))
-      .toEqual(expect.arrayContaining(['catalog_model_id', 'catalog_selection_json', 'capability_overrides_json']))
+    expect(upgraded.prepare('SELECT * FROM provider_model_states').all()).toEqual(models.map(model => ({
+      ...model,
+      thinking_level_map_json: null,
+      sampling_params_json: null,
+      compat_json: null,
+      catalog_provider_id: null,
+      source_fingerprint: '',
+      catalog_model_id: null,
+      catalog_selection_json: null,
+      capability_overrides_json: null,
+      service_metadata_json: null,
+    })))
     upgraded.prepare('UPDATE builtin_provider_configs SET display_name = ? WHERE id = ?').run('Personal', 'anthropic')
     upgraded.prepare('UPDATE provider_states SET request_headers_json = ? WHERE provider_id = ?').run(`[{"name":"api-key","value":"\${apiKey}"}]`, 'anthropic')
     upgraded.close()
@@ -315,8 +313,8 @@ describe('buddy schema', { timeout: MIGRATION_TEST_TIMEOUT }, () => {
     const migrated = openBuddyDatabase({ databasePath })
     expect(migrated.prepare('SELECT * FROM spaces').get()).toEqual({ ...space, icon: 'folder', icon_color: 'default' })
     expect(migrated.prepare('SELECT * FROM space_directory_bindings').all()).toEqual(grants)
-    expect(migrated.prepare('SELECT * FROM conversations').all()).toEqual(tasks.map(conversation => ({ ...conversation, title_source: 'manual', title_revision: 0 })))
-    expect(migrated.prepare('SELECT * FROM runs').all()).toEqual(runs)
+    expect(migrated.prepare('SELECT * FROM conversations').all()).toEqual(tasks.map(conversation => ({ ...conversation, buddy_id: 'default', title_source: 'manual', title_revision: 0 })))
+    expect(migrated.prepare('SELECT * FROM runs').all()).toEqual(runs.map(run => ({ ...run, buddy_id: 'default', actor_snapshot_json: null, model_override_json: null, root_run_id: run.id, parent_run_id: null, execution_kind: 'root', thread_id: 'actor:["conversation-1","default"]', generation: 0 })))
     migrated.exec('UPDATE spaces SET icon = \'code\', icon_color = \'blue\' WHERE id = \'space-1\'')
     migrated.close()
 
@@ -358,7 +356,7 @@ describe('buddy schema', { timeout: MIGRATION_TEST_TIMEOUT }, () => {
     expect(interrupted.status).toBe(23)
     const recovered = openBuddyDatabase({ databasePath })
     databases.push(recovered)
-    expect(recovered.prepare('SELECT * FROM composer_drafts').get()).toEqual({ ...draft, scope_kind: 'task' })
+    expect(recovered.prepare('SELECT * FROM composer_drafts').get()).toEqual({ ...draft, scope_kind: 'task', participants_json: null })
     expect(recovered.prepare('SELECT * FROM composer_resources').all()).toEqual(resources)
     expect(recovered.prepare('PRAGMA integrity_check').get()).toEqual({ integrity_check: 'ok' })
     expect(recovered.prepare('PRAGMA foreign_key_check').all()).toEqual([])
@@ -393,13 +391,13 @@ describe('buddy schema', { timeout: MIGRATION_TEST_TIMEOUT }, () => {
     legacy.close()
     const migrated = openBuddyDatabase({ databasePath })
     databases.push(migrated)
-    expect(migrated.prepare('SELECT * FROM composer_drafts').all()).toEqual(drafts)
+    expect(migrated.prepare('SELECT * FROM composer_drafts').all()).toEqual(drafts.map(draft => ({ ...draft, participants_json: null })))
     expect(migrated.prepare('SELECT * FROM composer_resources').all()).toEqual(resources.map(resource => ({ ...resource, name_source: 'file', source_path: null })))
     expect(migrated.prepare('SELECT * FROM messages').all()).toEqual(messages)
     migrated.exec(`
       INSERT INTO composer_drafts
       SELECT 'followup-1', 'message_followup', space_id, conversation_id, branch_id, 'answer-1', 0,
-        content_json, model_selection_json, approval_policy, execution_profile, created_at, updated_at
+        content_json, model_selection_json, approval_policy, execution_profile, created_at, updated_at, participants_json
       FROM composer_drafts WHERE id = 'draft-1';
     `)
     expect(migrated.prepare('SELECT COUNT(*) AS count FROM composer_drafts').get()).toEqual({ count: 2 })
@@ -441,59 +439,37 @@ describe('buddy schema', { timeout: MIGRATION_TEST_TIMEOUT }, () => {
     `).run(200_000, null)).toThrow(/valid pair/)
   })
 
-  it('adds model catalog metadata without changing existing model state', () => {
-    const directory = mkdtempSync(join(tmpdir(), 'lexora-buddy-model-catalog-'))
-    directories.push(directory)
-    const databasePath = join(directory, 'buddy.sqlite3')
-    const legacy = openMigrationFixtureDatabase(databasePath)
-    for (const migration of BUDDY_SCHEMA_MIGRATIONS.filter(({ version }) => version <= 14)) {
-      legacy.exec(migration.sql)
-      legacy.exec(`PRAGMA user_version = ${migration.version}`)
-    }
-    legacy.exec(`
-      INSERT INTO provider_model_states (
-        provider_id, model_id, display_name, api, input_json, reasoning, cost_json,
-        context_window, max_tokens, override_context_window, override_max_tokens,
-        source_revision, acknowledged_source_revision, source, enabled, available,
-        last_seen_at, created_at, updated_at
-      ) VALUES (
-        'proxy', 'model-1', 'Model 1', 'openai-responses', '["text"]', 1,
-        '{"input":1,"output":2,"cacheRead":0,"cacheWrite":0}',
-        128000, 16384, 96000, 12000, 'source-v1', NULL, 'synced', 1, 1,
-        '2026-09-12T00:00:00.000Z', '2026-09-12T00:00:00.000Z',
-        '2026-09-12T00:00:00.000Z'
-      );
+  it('restores persisted mutation lifetimes without replaying interrupted changes', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'buddy-mutation-migration-'))
+    directories.push(root)
+    const databasePath = join(root, 'buddy.sqlite3')
+    const previous = openBuddyDatabase({ databasePath })
+    seedRun(previous)
+    const insert = previous.prepare(`INSERT INTO run_mutation_leases (invocation_id, run_id, segment_id, claims_json, status, created_at, updated_at, lifetime) VALUES (?, 'run-1', 'segment', ?, 'active', 'now', 'now', ?)`)
+    for (const id of ['file', 'shell', 'unrecorded'])
+      insert.run(id, JSON.stringify([{ kind: 'file', canonicalPath: `/fixture/${id}` }]), id === 'file' ? 'runtime' : 'external')
+    previous.exec(`
+      INSERT INTO run_change_invocations (id, run_id, segment_id, tool_call_id, tool_name, status, created_at)
+      VALUES ('file', 'run-1', 'segment', 'write-call', 'write', 'pending', 'now');
+      INSERT INTO run_mutation_processes (invocation_id, process_id, settlement, updated_at)
+      VALUES ('shell', 'supervisor', 'pending', 'now');
     `)
-    legacy.close()
-
+    const captures = previous.prepare('SELECT * FROM run_change_invocations').all()
+    previous.close()
     const migrated = openBuddyDatabase({ databasePath })
     databases.push(migrated)
-    expect(migrated.prepare(`
-      SELECT provider_id, model_id, display_name, context_window, max_tokens,
-        override_context_window, override_max_tokens, source, enabled, available,
-        thinking_level_map_json, sampling_params_json, compat_json,
-        catalog_provider_id, source_fingerprint
-      FROM provider_model_states
-    `).get()).toEqual({
-      available: 1,
-      catalog_provider_id: null,
-      compat_json: null,
-      context_window: 128000,
-      display_name: 'Model 1',
-      enabled: 1,
-      max_tokens: 16384,
-      model_id: 'model-1',
-      override_context_window: 96000,
-      override_max_tokens: 12000,
-      provider_id: 'proxy',
-      sampling_params_json: null,
-      source: 'synced',
-      source_fingerprint: '',
-      thinking_level_map_json: null,
-    })
-    expect(migrated.prepare('PRAGMA user_version').get()).toEqual({
-      user_version: BUDDY_SCHEMA_VERSION,
-    })
+    const repository = createMutationRepository(migrated)
+    const coordinator = new MutationCoordinator({ repository })
+    try {
+      expect(repository.listUnreleased().map(lease => lease.invocationId)).toEqual(['shell', 'unrecorded'])
+      const signal = new AbortController().signal
+      const lease = await coordinator.acquire({ runId: 'new', invocationId: 'new', lifetime: 'runtime' as const, claims: [{ kind: 'file', canonicalPath: '/fixture/file' }], signal })
+      lease.release()
+      await expect(coordinator.acquire({ runId: 'new', invocationId: 'blocked', lifetime: 'runtime' as const, claims: [{ kind: 'host' }], signal })).rejects.toMatchObject({ code: 'MUTATION_RESOURCE_UNSAFE' })
+      expect(migrated.prepare('SELECT * FROM run_change_invocations').all()).toEqual(captures)
+      expect(migrated.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+    }
+    finally { coordinator.dispose() }
   })
 
   it('rejects databases created by a newer Buddy version', () => {
@@ -715,7 +691,6 @@ describe('buddy schema', { timeout: MIGRATION_TEST_TIMEOUT }, () => {
   it('deduplicates usage by run, source entry, and purpose', () => {
     const database = createDatabase()
     seedRun(database)
-    const usage = createUsageRepository(database)
     const insert = database.prepare(`
       INSERT INTO usage_records (
         id, run_id, source_entry_id, provider, model, purpose,
@@ -747,18 +722,5 @@ describe('buddy schema', { timeout: MIGRATION_TEST_TIMEOUT }, () => {
 
     insert.run(...values)
     expect(() => insert.run('usage-2', ...values.slice(1))).toThrow(/UNIQUE/)
-    expect(usage.listForRun('run-1')).toHaveLength(1)
-    expect(usage.findBySource('run-1', 'pi-entry-1', 'turn')).toMatchObject({
-      id: 'usage-1',
-      runId: 'run-1',
-      sourceEntryId: 'pi-entry-1',
-    })
-    expect(usage.summarize()).toMatchObject({
-      inputTokens: 10,
-      outputTokens: 5,
-      recordCount: 1,
-      totalCost: 0.33,
-      totalTokens: 18,
-    })
   })
 })

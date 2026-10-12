@@ -13,6 +13,9 @@ import { computed, h, shallowRef } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import { translateSystemAction, translateSystemInterruption } from '../../model/approvals/systemActionPresentation'
+import { useExecutionTree } from '../../state/runs/chatExecutionContext'
+import BuddyExecutionIdentity from '../executions/BuddyExecutionIdentity.vue'
+import { executionLabels } from '../executions/executionLabels'
 
 const props = defineProps<{
   approval: LocalApproval
@@ -21,6 +24,9 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ approve: [scope: ApprovalGrantScope], deny: [] }>()
 const { t } = useBuddyI18n(() => props.language)
+const tree = useExecutionTree()
+const execution = computed(() => tree?.records.value.find(record => record.runId === props.approval.runId))
+const labels = computed(() => executionLabels(props.language))
 const detailsProps = {
   bordered: true,
   column: 1,
@@ -198,6 +204,8 @@ function renderScopeLabel(option: DropdownOption) {
         <strong :id="headingId" class="desktop-approval-card__title">
           {{ approvalTitle }}
         </strong>
+        <BuddyExecutionIdentity v-if="execution" :execution="execution" :language="language" />
+        <span v-else class="text-muted text-[12px] break-all">{{ labels.executionRecord }}{{ approval.runId }}</span>
         <span class="desktop-approval-card__description">
           {{ approvalDescription }}
         </span>

@@ -110,7 +110,7 @@ const actionCopyText = computed(() => resultNoticeText.value ?? statusLabel.valu
       :aria-controls="disclosureId"
       @click="toggleDisclosure"
     >
-      <BuddyChatAgentIdentity v-if="showIdentity !== false" as="span" :language="language" />
+      <BuddyChatAgentIdentity v-if="showIdentity !== false" as="span" :run-id="turn.runId" :language="language" />
       <span class="buddy-chat-agent-turn__status">
         <span class="buddy-chat-agent-turn__status-label">{{ statusLabel }}</span>
         <span class="buddy-chat-agent-turn__duration">{{ duration }}</span>
@@ -118,7 +118,7 @@ const actionCopyText = computed(() => resultNoticeText.value ?? statusLabel.valu
       </span>
     </button>
     <div v-else-if="showIdentity !== false" class="buddy-chat-agent-turn__heading">
-      <BuddyChatAgentIdentity :language="language" />
+      <BuddyChatAgentIdentity :run-id="turn.runId" :language="language" />
       <div v-if="!isActive && showOutcome !== false" class="buddy-chat-agent-turn__status">
         <span class="buddy-chat-agent-turn__status-label">{{ statusLabel }}</span>
         <span class="buddy-chat-agent-turn__duration">{{ duration }}</span>

@@ -202,6 +202,7 @@ export class DesktopIntegrations {
       resolveArtifactEntry: async input => browserArtifactEntrySchema.parse(await service.request('artifacts.resolveBrowserEntry', input)),
     }))
     this.#subscriptions.push(registerLocalChatIpc({
+      configStore: runtime.configStore,
       recordDiagnostic: this.#environment.events.scope({ component: 'desktop.gateway' }).publish,
       readWebCredential: () => runtime.readWebCredential(),
       getLanguage: () => runtime.language,

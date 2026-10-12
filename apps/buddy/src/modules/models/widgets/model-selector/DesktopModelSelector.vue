@@ -25,6 +25,7 @@ import ModelIcon from '@/shared/ui/icon/ModelIcon.vue'
 import { useModelSelector } from './useModelSelector'
 
 const props = withDefaults(defineProps<{
+  busy?: boolean
   clearable?: boolean
   disabled: boolean
   language: BuddyLocale
@@ -39,6 +40,7 @@ const props = withDefaults(defineProps<{
   showFastMode?: boolean
   surface?: 'compact' | 'field'
 }>(), {
+  busy: false,
   clearable: false,
   placement: 'top-end',
   placeholder: undefined,
@@ -70,6 +72,7 @@ const {
   effortTransitionDirection,
   canClearModel,
   canOpen,
+  controlsDisabled,
   reasoningLevelOptions,
   selectedEffortValue,
   isEffortUnavailable,
@@ -120,7 +123,7 @@ defineExpose({
 </script>
 
 <template>
-  <div ref="root" class="desktop-model-selector">
+  <div ref="root" class="desktop-model-selector" :aria-busy="busy">
     <NPopover
       class="buddy-raw-popover"
       raw
@@ -172,6 +175,7 @@ defineExpose({
       <div
         class="desktop-model-selector__popover"
         :class="`is-${placement}`"
+        :aria-busy="busy"
         @pointerdown.stop
       >
         <section
@@ -210,6 +214,7 @@ defineExpose({
                   class="desktop-model-selector__fast-toggle"
                   :class="{ 'is-active': isFastMode }"
                   type="button"
+                  :disabled="controlsDisabled"
                   role="switch"
                   :aria-checked="isFastMode"
                   :aria-label="t('desktop.chat.fastMode')"
@@ -222,9 +227,10 @@ defineExpose({
           </div>
 
           <div v-if="reasoningLevelOptions.length" class="desktop-model-selector__spell">
-            <WorkbenchControl target="model.reasoning" :context-key="selectedModelId ?? ''" :value="selectedEffortValue" :options="reasoningLevelOptions" :disabled="disabled" @change="selectContributedEffort" @dismiss="close">
+            <WorkbenchControl target="model.reasoning" :context-key="selectedModelId ?? ''" :value="selectedEffortValue" :options="reasoningLevelOptions" :disabled="controlsDisabled" @change="selectContributedEffort" @dismiss="close">
               <DesktopReasoningPicker
                 v-if="isEffortUnavailable"
+                :disabled="controlsDisabled"
                 :language="language"
                 :options="reasoningLevelOptions"
                 :selected-effort="selectedEffortValue"
@@ -232,6 +238,7 @@ defineExpose({
               />
               <DesktopReasoningMeter
                 v-else
+                :disabled="controlsDisabled"
                 :fast="isFastMode"
                 :label="t('desktop.chat.effort')"
                 :options="reasoningLevelOptions"
@@ -284,6 +291,7 @@ defineExpose({
             :class="{ 'is-fast': isFastMode }"
             type="button"
             role="menuitemcheckbox"
+            :disabled="controlsDisabled"
             :aria-checked="isFastMode"
             @click="toggleFastMode"
           >
@@ -293,8 +301,9 @@ defineExpose({
           </button>
         </section>
 
-        <WorkbenchControl v-if="activePanel === 'advanced' && secondaryPanel === 'reasoning'" target="model.reasoning" :context-key="selectedModelId ?? ''" :value="selectedEffortValue" :options="reasoningLevelOptions" :disabled="disabled" @change="selectContributedEffort" @dismiss="close">
+        <WorkbenchControl v-if="activePanel === 'advanced' && secondaryPanel === 'reasoning'" target="model.reasoning" :context-key="selectedModelId ?? ''" :value="selectedEffortValue" :options="reasoningLevelOptions" :disabled="controlsDisabled" @change="selectContributedEffort" @dismiss="close">
           <DesktopReasoningPicker
+            :disabled="controlsDisabled"
             :language="language"
             :options="reasoningLevelOptions"
             :selected-effort="selectedEffortValue"
@@ -304,6 +313,7 @@ defineExpose({
 
         <DesktopModelPicker
           v-else-if="activePanel === 'advanced' && secondaryPanel === 'model'"
+          :disabled="controlsDisabled"
           :language="language"
           :models="models"
           :providers="providers"
@@ -647,6 +657,12 @@ defineExpose({
   background: color-mix(in srgb, #3b82f6 14%, transparent);
   color: #3b82f6;
   filter: drop-shadow(0 0 0.35rem color-mix(in srgb, #3b82f6 44%, transparent));
+}
+
+.desktop-model-selector__fast-toggle:disabled,
+.desktop-model-selector__item:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .desktop-model-selector__spell {

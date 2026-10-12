@@ -7,7 +7,6 @@ interface DesktopUiContext {
   language: Readonly<Ref<BuddyLocale>>
   isDark: Readonly<Ref<boolean>>
   chat: Readonly<Ref<Readonly<DesktopChatPreferences>>>
-  agentIdentity: Readonly<Ref<{ avatar: string, avatarColor: string | null, initials: string | null, name: string }>>
   sidebarCollapsed: Readonly<Ref<boolean>>
 }
 

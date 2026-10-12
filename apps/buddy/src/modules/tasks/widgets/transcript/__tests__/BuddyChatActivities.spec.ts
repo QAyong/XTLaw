@@ -624,7 +624,6 @@ function mountTurn(nodes: ChatAgentTurnNode[], status: ChatAgentTurn['status'] =
       useProvideDesktopUi({
         language: shallowRef('zh-CN'),
         isDark: shallowRef(false),
-        agentIdentity: shallowRef({ avatar: '', avatarColor: null, initials: null, name: '' }),
         sidebarCollapsed: shallowRef(false),
         chat: shallowRef({ outlinePosition: 'top-right', pasteTextAsAttachment: true, permissionMode: 'policy_approval', welcome: 'random' }),
       })

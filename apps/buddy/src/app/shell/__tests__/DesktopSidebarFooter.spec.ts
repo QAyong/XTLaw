@@ -7,6 +7,7 @@ import DesktopSidebarFooter from '../DesktopSidebarFooter.vue'
 
 function createNavigation(activeId = 'lexora.tasks'): DesktopNavigationEntry[] {
   return [
+    { active: activeId === 'lexora.buddies', id: 'lexora.buddies', icon: { kind: 'component', component: VehicleShip20Regular }, location: { name: 'desktop.buddies' }, title: '伙伴' },
     { active: activeId === 'lexora.tasks', id: 'lexora.tasks', icon: { kind: 'component', component: VehicleShip20Regular }, location: { name: 'desktop.tasks' }, title: '任务' },
     { active: activeId === 'lexora.automations', id: 'lexora.automations', icon: { kind: 'component', component: VehicleShip20Regular }, location: { name: 'desktop.automations' }, title: '自动化' },
     { active: activeId === 'lexora.settings', id: 'lexora.settings', icon: { kind: 'named', name: 'navigationSettings' }, location: { name: 'desktop.settings' }, title: '设置' },
@@ -41,7 +42,7 @@ describe('desktopSidebarFooter', () => {
     await nextTick()
 
     const entries = [...root.querySelectorAll('.desktop-sidebar-footer__entry')]
-    expect(entries.map(entry => entry.getAttribute('aria-label'))).toEqual(['设置', '插件', '自动化', '打开通知'])
+    expect(entries.map(entry => entry.getAttribute('aria-label'))).toEqual(['设置', '插件', '自动化', '伙伴', '打开通知'])
 
     app.unmount()
   })
@@ -63,7 +64,7 @@ describe('desktopSidebarFooter', () => {
     await nextTick()
 
     const entries = [...root.querySelectorAll('.desktop-sidebar-footer__entry')]
-    expect(entries.map(entry => entry.classList.contains('is-active'))).toEqual([true, false, false, false])
+    expect(entries.map(entry => entry.classList.contains('is-active'))).toEqual([true, false, false, false, false])
     expect(entries[0]!.getAttribute('aria-current')).toBe('page')
 
     app.unmount()

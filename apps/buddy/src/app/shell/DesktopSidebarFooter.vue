@@ -27,7 +27,7 @@ const emit = defineEmits<{
 const { t } = useBuddyI18n(() => props.language)
 const showNotifications = shallowRef(false)
 const notificationPopoverThemeOverrides = { padding: '0' } as const
-const FOOTER_ENTRY_IDS = ['lexora.settings', 'lexora.extensions', 'lexora.automations'] as const
+const FOOTER_ENTRY_IDS = ['lexora.settings', 'lexora.extensions', 'lexora.automations', 'lexora.buddies'] as const
 const entries = computed(() => FOOTER_ENTRY_IDS
   .map(id => props.navigation.find(entry => entry.id === id))
   .filter((entry): entry is DesktopNavigationEntry => entry !== undefined))

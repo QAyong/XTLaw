@@ -1,19 +1,21 @@
 <script setup lang="ts">
-import type { DesktopAgentProfileConfig, DesktopUserProfileConfig } from '@buddy-electron/shared/desktopApi'
+import type { DesktopUserProfileConfig } from '@buddy-electron/shared/desktopApi'
 import type { DesktopShellBindings } from '../shell/desktopShellBindings'
 import type { DesktopBrowserGuestSurfaceHost } from '@/platform/browser/browserGuestSurface'
 import { DEFAULT_DESKTOP_CHAT_PREFERENCES } from '@buddy-electron/shared/desktopApi'
+import { executionTargetSchema } from '@buddy-shared/executions/executionPresentationApi'
 import { useMessage } from 'naive-ui'
 import { computed, nextTick, onMounted, onScopeDispose, provide, ref, toRef, useTemplateRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { resolveBuddyLocale, translateBuddy } from '@/i18n/buddyI18n'
 import { useProvideAutomationContext } from '@/modules/automations'
+import { useProvideBuddiesContext } from '@/modules/buddies'
 import { useExtensionState, useExtensionUiContributions, useExtensionViews, useProvideExtensionContext } from '@/modules/extensions'
 import { DesktopExtensionControl, DesktopExtensionFrameHost, DesktopExtensionMenu, DesktopExtensionOverlays, DesktopExtensionReviewHost, DesktopExtensionSlot } from '@/modules/extensions/ui'
-import { resolveUserProfile, usePluginSettings, useProvideSettingsContext, useSettingsRegistry } from '@/modules/settings'
+import { usePluginSettings, useProvideSettingsContext, useSettingsRegistry } from '@/modules/settings'
 import { useProvideSkillsContext } from '@/modules/skills'
 import { DesktopSkillReviewHost } from '@/modules/skills/ui'
-import { sessionReferenceNavigationKey, useProvideTaskEnvironment, useTaskIndex, useTaskResourcePanel } from '@/modules/tasks'
+import { provideExecutionEnvironment, sessionReferenceNavigationKey, useProvideTaskEnvironment, useTaskIndex, useTaskResourcePanel } from '@/modules/tasks'
 import { useProvideDesktopUpdates } from '@/modules/updates'
 import { DesktopUpdateHost } from '@/modules/updates/ui'
 import DesktopBrowserGuestHost from '@/platform/browser/DesktopBrowserGuestHost.vue'
@@ -54,8 +56,10 @@ const router = useRouter()
 const message = useMessage()
 const appState = useDesktopAppState({ api })
 const { stores } = appState
+
 useDesktopTypography(() => stores.applicationSettings.config.value?.desktop.typography)
 useProvideDesktopUpdates(stores.updates)
+const buddyDirectory = useProvideBuddiesContext({ api: api.localChat.buddies, ready: computed(() => stores.runtimeSupervisor.runtimeState.value.status === 'ready') })
 const taskIndex = useTaskIndex({
   api: api.localChat,
   applicationSettings: stores.applicationSettings,
@@ -65,7 +69,8 @@ const taskIndex = useTaskIndex({
   onSpaceCreated,
 })
 const diagnostics = createRendererDiagnostics(api.app.logs)
-const workbench = useDesktopWorkbench({ api, events: diagnostics.events, stores, taskIndex, router, resources: getResources, onError: () => message.error(translateBuddy(stores.applicationSettings.language.value, 'desktop.command.failed')) })
+const workbench = useDesktopWorkbench({ buddyCatalog: buddyDirectory.catalog, api, events: diagnostics.events, stores, taskIndex, router, resources: getResources, onError: () => message.error(translateBuddy(stores.applicationSettings.language.value, 'desktop.command.failed')) })
+
 onScopeDispose(() => {
   void workbench.dispose().finally(() => diagnostics.dispose()).catch(() => {})
 })
@@ -131,6 +136,26 @@ const resources = useTaskResourcePanel({
   changeSets: computed(() => selectedTask.value?.workspace.transcript.changeSets.value ?? []),
   runOutputs: computed(() => selectedTask.value?.workspace.transcript.runOutputs.value ?? []),
   onError: () => message.error(translateBuddy(stores.applicationSettings.language.value, 'desktop.context.controlFailed')),
+})
+provideExecutionEnvironment({
+  api: api.localChat.executions,
+  ready: computed(() => stores.runtimeSupervisor.runtimeState.value.status === 'ready'),
+  selectedTarget: computed(() => {
+    if (!resources.isOpen.value)
+      return null
+    const tab = resources.activeTab.value
+    const view = tab?.kind === 'view' ? workbench.controller.layout.views[tab.viewId] : null
+    if (view?.resource.scheme !== 'execution')
+      return null
+    const target = executionTargetSchema.safeParse(view.resource.data)
+    return target.success ? target.data : null
+  }),
+  open: async (target, label) => {
+    const view = await workbench.controller.open({ scheme: 'execution', id: `${target.branchId}:${target.runId}`, data: { ...target } }, label)
+    if (!view)
+      throw new Error('Execution detail is unavailable')
+  },
+  onError: () => message.error(translateBuddy(stores.applicationSettings.language.value, 'desktop.command.failed')),
 })
 watch(() => resources.activeTab.value?.id, () => {
   if (workbench.controller.context.values['focus.area'] !== 'context')
@@ -230,29 +255,10 @@ const browserGuests = useBrowserGuestHost(browserGuestHost)
 onScopeDispose(workbench.controller.subscribe(() => void nextTick(() => browserGuests.layout?.())))
 const toggleSidebar = () => void taskIndex.index.sidebar.setCollapsed(!taskIndex.index.sidebar.collapsed.value)
 const profileConfig = computed(() => stores.applicationSettings.config.value?.desktop.profile ?? { avatar: '', deviceName: '', userName: '' })
-const agentProfileConfig = computed(() => stores.applicationSettings.config.value?.desktop.agentProfile ?? { avatar: '', name: '', syncWithUserProfile: false })
-const agentIdentity = computed(() => {
-  const profile = agentProfileConfig.value
-  if (!profile.syncWithUserProfile)
-    return { avatar: profile.avatar, avatarColor: null, initials: null, name: profile.name }
-  const resolved = resolveUserProfile(profileConfig.value, shell.appInfo.value)
-  return {
-    avatar: resolved.avatarUrl ?? '',
-    avatarColor: resolved.avatarUrl ? null : resolved.avatarColor,
-    initials: resolved.avatarUrl ? null : resolved.initials,
-    name: resolved.userName,
-  }
-})
 async function updateProfile(patch: Partial<DesktopUserProfileConfig>) {
   const saved = await stores.applicationSettings.updateSettings({ desktop: { profile: patch } })
   if (saved)
     message.success(translateBuddy(stores.applicationSettings.language.value, 'desktop.account.saveSuccess'))
-  return saved
-}
-async function updateAgentProfile(patch: Partial<DesktopAgentProfileConfig>) {
-  const saved = await stores.applicationSettings.updateSettings({ desktop: { agentProfile: patch } })
-  if (saved)
-    message.success(translateBuddy(stores.applicationSettings.language.value, 'desktop.agent.saveSuccess'))
   return saved
 }
 
@@ -282,7 +288,6 @@ useProvideDesktopUi({
   isDark: toRef(() => props.isDark),
   chat: computed(() => stores.applicationSettings.config.value?.desktop.chat ?? DEFAULT_DESKTOP_CHAT_PREFERENCES),
   language: stores.applicationSettings.language,
-  agentIdentity,
   sidebarCollapsed: taskIndex.index.sidebar.collapsed,
 })
 useProvideTaskEnvironment({
@@ -303,7 +308,6 @@ useProvideSettingsContext({
   dataSettings: capabilities.dataSettings,
   platformCapabilities: shell.platformCapabilities,
   profile: { config: profileConfig, update: updateProfile },
-  agentProfile: { config: agentProfileConfig, update: updateAgentProfile },
   providerSettings: stores.modelProviders,
   ready,
   webSettings: capabilities.webSettings,

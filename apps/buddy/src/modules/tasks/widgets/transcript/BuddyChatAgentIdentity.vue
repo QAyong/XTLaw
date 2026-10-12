@@ -1,38 +1,30 @@
 <script setup lang="ts">
 import type { BuddyLocale } from '@/i18n/buddyI18n'
+import { BUILTIN_BUDDY_ID } from '@buddy-shared/buddies/buddyApi'
 import { computed } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
-import { BRAND_ASSET_URLS } from '@/shared/branding/brandAssets'
-import { useDesktopUi } from '@/shared/ui/desktopUiContext'
+import { BuddyAvatar, useBuddyIdentity } from '@/modules/buddies'
+import { useChatBuddyId } from './chatBuddyIdentity'
 
 const props = defineProps<{
   as?: 'header' | 'span'
   language: BuddyLocale
+  runId?: string | null
 }>()
 
 const { t } = useBuddyI18n(() => props.language)
-const { agentIdentity } = useDesktopUi()
-const agentName = computed(() => agentIdentity.value.name.trim() || t('desktop.chat.agentName'))
-const agentAvatar = computed(() => agentIdentity.value.avatar.trim() || BRAND_ASSET_URLS.chatAvatar)
-const agentInitials = computed(() => agentIdentity.value.initials)
+const buddyId = useChatBuddyId(() => props.runId)
+const buddy = useBuddyIdentity(buddyId)
+const name = computed(() => buddy.value?.name ?? (buddyId.value === BUILTIN_BUDDY_ID ? t('desktop.chat.agentName') : props.language === 'en-US' ? 'Companion' : '伙伴'))
 </script>
 
 <template>
-  <component :is="props.as ?? 'header'" class="buddy-chat-agent-identity">
-    <span
-      class="buddy-chat-agent-identity__avatar"
-      :style="agentInitials ? { background: agentIdentity.avatarColor ?? undefined } : undefined"
-    >
-      <span v-if="agentInitials" class="buddy-chat-agent-identity__initials">{{ agentInitials }}</span>
-      <img
-        v-else
-        :src="agentAvatar"
-        alt=""
-        draggable="false"
-      >
+  <component :is="props.as ?? 'header'" :data-buddy-id="buddyId" class="buddy-chat-agent-identity">
+    <span class="buddy-chat-agent-identity__avatar">
+      <BuddyAvatar :buddy-id="buddyId" :src="buddy?.avatar" />
     </span>
     <span class="buddy-chat-agent-identity__name">
-      {{ agentName }}
+      {{ name }}
     </span>
   </component>
 </template>
@@ -60,17 +52,6 @@ const agentInitials = computed(() => agentIdentity.value.initials)
   width: 100%;
   height: 100%;
   object-fit: cover;
-}
-
-.buddy-chat-agent-identity__initials {
-  display: grid;
-  width: 100%;
-  height: 100%;
-  place-items: center;
-  color: var(--buddy-text-on-accent);
-  font-size: calc(var(--buddy-chat-avatar-size) * 0.45);
-  font-weight: 600;
-  line-height: 1;
 }
 
 .buddy-chat-agent-identity__name {

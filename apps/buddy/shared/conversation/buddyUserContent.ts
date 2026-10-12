@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { browserElementSnapshotSchema, browserSelectionSourceSchema } from '../browser/browserSelection'
-import { timestampSchema } from '../runtime/apiValidation'
+import { idSchema, timestampSchema } from '../runtime/apiValidation'
 import { skillReferenceSchema } from '../skills/skillApi'
 import { spaceFileTargetSchema } from '../spaces/spaceFileApi'
 import { buddyLocalResourceSchema } from './localResource'
@@ -23,6 +23,13 @@ export const buddySessionReferencesSchema = z.array(buddySessionReferenceSchema)
   .refine(references => new Set(references.map(reference => reference.id)).size === references.length, 'Duplicate session reference')
   .readonly()
 export type BuddySessionReference = z.infer<typeof buddySessionReferenceSchema>
+
+export const buddyActorReferenceSchema = z.object({
+  type: z.literal('actor_ref'),
+  actorId: idSchema,
+  name: z.string().trim().min(1).max(80),
+}).strict().readonly()
+export type BuddyActorReference = z.infer<typeof buddyActorReferenceSchema>
 
 export const buddyMessageQuoteSchema = z.object({
   id: buddyResourceIdSchema,
@@ -124,6 +131,7 @@ export const buddyInlineNodeV1Schema = z.union([
   z.object({ type: z.literal('hard_break') }).strict().readonly(),
   z.object({ resourceId: buddyResourceIdSchema, type: z.literal('resource_ref') }).strict().readonly(),
   z.object({ sessionId: buddyResourceIdSchema, type: z.literal('session_ref') }).strict().readonly(),
+  buddyActorReferenceSchema,
   buddyPromptDirectiveSchema,
 ])
 
@@ -235,6 +243,17 @@ export function getBuddyUserContentResourceIds(content: BuddyUserContentV1): str
   ])]
 }
 
+export function getBuddyUserContentActorReferences(content: BuddyUserContentV1): BuddyActorReference[] {
+  const references = new Map<string, BuddyActorReference>()
+  for (const paragraph of content.body) {
+    for (const node of paragraph.content) {
+      if (node.type === 'actor_ref' && !references.has(node.actorId))
+        references.set(node.actorId, node)
+    }
+  }
+  return [...references.values()]
+}
+
 export function hasBuddyUserContent(content: BuddyUserContentV1 | null | undefined): boolean {
   if (!content)
     return false
@@ -257,6 +276,7 @@ export function buddyUserContentToText(
       case 'hard_break': return '\n'
       case 'resource_ref': return resourceLabel(node.resourceId)
       case 'session_ref': return ''
+      case 'actor_ref': return `@${node.name}`
       case 'prompt_directive': return buddyPromptDirectiveToText(node)
       default: throw new Error('Unsupported Composer inline node')
     }

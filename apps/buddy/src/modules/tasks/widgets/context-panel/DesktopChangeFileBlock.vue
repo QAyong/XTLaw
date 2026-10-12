@@ -36,6 +36,9 @@ const fileName = computed(() => props.file.path.slice(parentPath.value.length))
         <span v-if="parentPath" class="desktop-change-file-block__directory">{{ parentPath }}</span>
         <span class="desktop-change-file-block__filename">{{ fileName }}</span>
       </span>
+      <span v-if="file.sourceOrder" class="desktop-change-file-block__source" :data-change-source="file.source?.runId">
+        {{ t('desktop.context.changeSource', { name: file.source?.actorName ?? t('desktop.context.changeSourceUnknown'), index: file.sourceOrder }) }}
+      </span>
       <span v-if="counts" class="desktop-change-file-block__counts"><span class="is-added">+{{ counts.added }}</span><span class="is-deleted">-{{ counts.deleted }}</span></span>
     </button>
     <template v-if="!collapsed">
@@ -67,6 +70,7 @@ const fileName = computed(() => props.file.path.slice(parentPath.value.length))
 .desktop-change-file-block__path { display: flex; min-width: 0; flex: 1; font-family: var(--buddy-font-mono); font-size: 12px; white-space: nowrap; }
 .desktop-change-file-block__directory { min-width: 0; overflow: hidden; color: var(--buddy-text-muted); text-overflow: ellipsis; }
 .desktop-change-file-block__filename { min-width: 0; flex: 0 0 auto; max-width: 100%; overflow: hidden; font-weight: 500; text-overflow: ellipsis; }
+.desktop-change-file-block__source { max-width: 150px; flex-shrink: 0; overflow: hidden; color: var(--buddy-text-muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .desktop-change-file-block__counts { display: flex; flex: none; gap: 5px; font-family: var(--buddy-font-mono); font-size: 11px; font-weight: 500; }
 .is-added { color: var(--buddy-status-success-text); }
 .is-deleted { color: var(--buddy-status-danger-text); }

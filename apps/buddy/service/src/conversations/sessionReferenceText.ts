@@ -32,6 +32,7 @@ function userContentText(content: BuddyUserContentV1): string {
       case 'text': return escapeSessionMarkers(node.text)
       case 'hard_break': return '\n'
       case 'resource_ref': return '@file'
+      case 'actor_ref': return escapeSessionMarkers(`@${node.name}`)
       case 'session_ref': return `[SESSION:${node.sessionId}]`
       case 'prompt_directive': return escapeSessionMarkers(buddyPromptDirectiveToText(node))
       default: return node satisfies never

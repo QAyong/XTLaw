@@ -46,6 +46,7 @@ function fixture() {
       if (method === 'runs.get') {
         return {
           approvalPolicy: 'policy',
+          buddyId: 'default',
           branchId: 'branch-1',
           completedAt: '2026-08-19T08:00:00.000Z',
           conversationId: target.conversationId,
@@ -62,6 +63,7 @@ function fixture() {
         }
       }
       return {
+        buddyId: 'default',
         activeBranchId: 'branch-1',
         approvalPolicy: 'policy',
         createdAt: '2026-08-19T07:58:00.000Z',

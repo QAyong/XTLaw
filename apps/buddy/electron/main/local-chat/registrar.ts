@@ -10,6 +10,7 @@ import { diagnosticIdentitySchema, safeDiagnosticReporter } from '../../../share
 import { isRoutineRpc } from '../../../shared/diagnostics/rpcDiagnosticPolicy'
 import { formatLocalChatPublicError, readLocalChatErrorCode } from '../../../shared/runtime/localChatError'
 import { assertTrustedSender } from '../ipc'
+import type { LexoraConfigStore } from '../config/LexoraConfigStore'
 
 export interface DesktopRuntimeGateway {
   readonly state: unknown
@@ -26,6 +27,7 @@ export interface DesktopRuntimeGateway {
 }
 
 export interface RegisterLocalChatIpcOptions {
+  configStore?: LexoraConfigStore
   recordDiagnostic?: ApplicationDiagnosticReporter
   getLanguage: () => LexoraConfig['desktop']['language']
   getWindow: () => BrowserWindow | null

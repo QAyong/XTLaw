@@ -9,6 +9,7 @@ import { useBuddyI18n } from '@/i18n/buddyI18n'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 
 const props = defineProps<{
+  disabled?: boolean
   language: BuddyLocale
   options: ReadonlyArray<ReasoningSelectorOption>
   selectedEffort: BuddyThinkingLevel | null
@@ -30,6 +31,7 @@ const { t } = useBuddyI18n(() => props.language)
           class="desktop-reasoning-picker__item"
           type="button"
           role="menuitemradio"
+          :disabled="disabled"
           :aria-checked="selectedEffort === option.value"
           @click="emit('select', option.value)"
         >

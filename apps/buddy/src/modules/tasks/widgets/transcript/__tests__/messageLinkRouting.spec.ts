@@ -21,8 +21,7 @@ describe('markdown link destinations', () => {
           isDark: shallowRef(false),
           sidebarCollapsed: shallowRef(false),
           chat: shallowRef({ outlinePosition: 'top-right', pasteTextAsAttachment: true, permissionMode: 'policy_approval', welcome: 'random' }),
-          agentIdentity: shallowRef({ avatar: '', avatarColor: null, initials: null, name: '' }),
-        })
+          })
         useProvideChatContent({ openWebLink, previewFile, canPreviewFile: () => true, writeClipboardText: async () => {} })
         return () => mode === 'narration'
           ? h(BuddyChatNarrationBody, { text: '', language: 'zh-CN' })

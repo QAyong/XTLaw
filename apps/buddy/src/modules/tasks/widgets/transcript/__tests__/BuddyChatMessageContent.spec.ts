@@ -87,8 +87,7 @@ describe('buddyChatMessageContent', () => {
           isDark: shallowRef(false),
           sidebarCollapsed: shallowRef(false),
           chat: shallowRef({ outlinePosition: 'top-right', pasteTextAsAttachment: true, permissionMode: 'policy_approval', welcome: 'random' }),
-          agentIdentity: shallowRef({ avatar: '', avatarColor: null, initials: null, name: '' }),
-        })
+          })
         useProvideChatContent({
           openWebLink,
           canPreviewFile,
@@ -232,7 +231,6 @@ function renderContent(message: LocalMessage, isDark = false) {
         isDark: shallowRef(isDark),
         sidebarCollapsed: shallowRef(false),
         chat: shallowRef({ outlinePosition: 'top-right', pasteTextAsAttachment: true, permissionMode: 'policy_approval', welcome: 'random' }),
-        agentIdentity: shallowRef({ avatar: '', avatarColor: null, initials: null, name: '' }),
       })
       return () => h(BuddyChatMessageContent, {
         language: 'zh-CN',

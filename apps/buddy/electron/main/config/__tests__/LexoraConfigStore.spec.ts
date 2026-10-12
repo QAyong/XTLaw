@@ -3,7 +3,7 @@ import { access, mkdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import process from 'node:process'
 import { createTemporaryDirectory } from '@buddy-tests/temporaryDirectories'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { DEFAULT_BROWSER_PREFERENCES } from '../../../../shared/browser/browserPreferences'
 import { DEFAULT_TYPOGRAPHY } from '../../../../shared/typography/typographyPreferences'
 import { DEFAULT_DESKTOP_CHAT_PREFERENCES, DESKTOP_CHAT_OUTLINE_POSITIONS } from '../../../shared/desktopApi'
@@ -20,6 +20,34 @@ async function createConfigStore() {
 }
 
 describe('lexoraConfigStore', () => {
+  it('migrates the old identity once, retains it on failure and keeps unrelated TOML', async () => {
+    const { configPath, store } = await createConfigStore()
+    await mkdir(dirname(configPath), { recursive: true })
+    const legacy = '[desktop.agent_profile]\nname="旧助手"\navatar=""\n[custom]\nkeep=true\n'
+    await writeFile(configPath, legacy)
+    const system = vi.fn()
+    await expect(store.migrateAgentProfile(async () => { throw new Error('database unavailable') }, system)).rejects.toThrow('database unavailable')
+    expect(await readFile(configPath, 'utf8')).toBe(legacy)
+    const migrate = vi.fn(async () => {})
+    await store.migrateAgentProfile(migrate, system)
+    expect(migrate).toHaveBeenCalledWith({ name: '旧助手', avatar: '' })
+    expect(await readFile(configPath, 'utf8')).not.toContain('agent_profile')
+    expect(await readFile(configPath, 'utf8')).toContain('keep = true')
+    await store.update({ desktop: { theme: 'dark' } })
+    await store.migrateAgentProfile(migrate, system)
+    expect(migrate).toHaveBeenCalledTimes(1)
+    expect(system).not.toHaveBeenCalled()
+  })
+
+  it('resolves a synchronized identity from the user and system profile before migration', async () => {
+    const { configPath, store } = await createConfigStore()
+    await mkdir(dirname(configPath), { recursive: true })
+    await writeFile(configPath, '[desktop.agent_profile]\nsync_with_user_profile=true\n[desktop.profile]\nuser_name="用户名称"\navatar="custom-avatar"\n')
+    const migrate = vi.fn(async () => {})
+    await store.migrateAgentProfile(migrate, async () => ({ username: 'system', displayName: 'System User', hostname: 'PC', avatarUrl: null }))
+    expect(migrate).toHaveBeenCalledWith({ name: '用户名称', avatar: 'custom-avatar' })
+  })
+
   it('defaults legacy typography, merges independent choices and resets without losing other preferences', async () => {
     const { configPath, store } = await createConfigStore()
     expect((await store.read()).desktop.typography).toEqual(DEFAULT_TYPOGRAPHY)
@@ -269,11 +297,6 @@ describe('lexoraConfigStore', () => {
         avatar: '',
         deviceName: '',
         userName: '',
-      },
-      agentProfile: {
-        avatar: '',
-        name: '',
-        syncWithUserProfile: false,
       },
       sidebarCollapsed: false,
       theme: 'dark',

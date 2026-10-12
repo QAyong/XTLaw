@@ -117,12 +117,6 @@ export interface DesktopUserProfileConfig {
   avatar: string
 }
 
-export interface DesktopAgentProfileConfig {
-  name: string
-  avatar: string
-  syncWithUserProfile: boolean
-}
-
 export interface DesktopAppInfo {
   runtimeProfile: BuddyRuntimeProfile
   isPackaged: boolean
@@ -209,7 +203,6 @@ export interface LexoraConfig {
     updateNotificationsEnabled: boolean
     notifyWhenFocused: boolean
     profile: DesktopUserProfileConfig
-    agentProfile: DesktopAgentProfileConfig
     pluginAuthor: string
     sidebarCollapsed: boolean
     theme: 'system' | 'light' | 'dark'
@@ -225,12 +218,11 @@ export interface LexoraConfigPatch {
   runtime?: Partial<LexoraConfig['runtime']>
   browser?: Partial<LexoraConfig['browser']>
   proxy?: LexoraConfig['proxy']
-  desktop?: Partial<Omit<LexoraConfig['desktop'], 'agentProfile' | 'chat' | 'taskSidebar' | 'profile' | 'typography'>> & {
+  desktop?: Partial<Omit<LexoraConfig['desktop'], 'chat' | 'taskSidebar' | 'profile' | 'typography'>> & {
     typography?: Partial<LexoraConfig['desktop']['typography']>
     chat?: Partial<DesktopChatPreferences>
     taskSidebar?: Partial<DesktopTaskSidebarPreferences>
     profile?: Partial<DesktopUserProfileConfig>
-    agentProfile?: Partial<DesktopAgentProfileConfig>
   }
   pet?: Partial<LexoraConfig['pet']>
 }

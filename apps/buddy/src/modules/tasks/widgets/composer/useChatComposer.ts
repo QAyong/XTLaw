@@ -9,7 +9,7 @@ import { composerReferencePath } from '@buddy-shared/conversation/composerRefere
 import { closeHistory } from '@tiptap/pm/history'
 import { computed, onScopeDispose, watch } from 'vue'
 import { CHAT_PROMPT_DIRECTIVE_NODE_NAME, getChatComposerResourceIds, serializeChatComposerContent } from '@/modules/prompt-input'
-import { insertChatComposerResources, insertChatComposerSessionReferences, insertResolvedChatComposerResource, removeChatComposerPanelResource, removeChatComposerResource, removeChatComposerSessionReference } from '@/modules/prompt-input/ui'
+import { insertChatComposerActorReference, insertChatComposerResources, insertChatComposerSessionReferences, insertResolvedChatComposerResource, removeChatComposerPanelResource, removeChatComposerResource, removeChatComposerSessionReference } from '@/modules/prompt-input/ui'
 import { useConversationMcpPanel } from '@/modules/tasks/state/runs/conversationMcpPanel'
 import { useConversationStatusPanel } from '@/modules/tasks/state/runs/conversationStatusPanel'
 import { resolveComposerResourcePreviewUrl } from '../../model/attachments/chatAttachmentView'
@@ -258,6 +258,12 @@ export function useChatComposer(options: UseChatComposerOptions) {
 
     const to = currentEditor.state.selection.from
     const from = Math.max(1, to - (trigger.rawQuery ?? trigger.query).length - 1)
+    if (option.kind === 'actorReference' && option.actorReference) {
+      insertChatComposerActorReference(currentEditor, option.actorReference, { from, to })
+      query.closeSuggestions()
+      currentEditor.commands.focus()
+      return
+    }
     if (option.kind === 'sessionGroup' && option.sessionScope) {
       query.sessionScope.value = option.sessionScope
       currentEditor.chain().focus().insertContentAt({ from, to }, { type: 'text', text: '@' }).run()

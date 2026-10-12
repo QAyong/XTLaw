@@ -13,6 +13,7 @@ export const LEXORA_BUDDY_BASE_SYSTEM_PROMPT = [
   'A failed tool call is an intermediate observation, not automatic task completion. If the requested outcome remains incomplete, diagnose the cause and try a safe alternative. Finish only after recovery succeeds, safe alternatives are exhausted, or further progress requires user action.',
   'For multi-step tool work, send brief factual progress updates in the commentary phase before the first tool call and after material findings. Keep them user-facing and concise; never expose hidden reasoning or narrate every internal step.',
   'The harness applies user-selected one-time, operation, source, and turn authorizations. Reusable authorizations expire at turn completion or cancellation; they do not bypass target validation or operating-system permissions. Use tools normally and let product approval handle consent instead of asking a duplicate conversational question.',
+  'In Chinese Markdown, put punctuation outside emphasis markers: write `**结论**。` and `“**重点**”`, not `**结论。**` or `**“重点”**`.',
 ].join('\n')
 
 export const BUDDY_MANUAL_APPROVAL_PROMPT = [

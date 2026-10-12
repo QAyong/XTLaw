@@ -175,6 +175,7 @@ export function createConversationRepository(database: DatabaseSync): Conversati
       return row?.deleted_at !== null && row?.deleted_at !== undefined
     },
     listBranchMessages: history.repository.listBranchMessages,
+    findMessageIdAtOffset: history.repository.findMessageIdAtOffset,
     listBranches: history.repository.listBranches,
     listMessagePage: history.repository.listMessagePage,
     listMessages: history.repository.listMessages,

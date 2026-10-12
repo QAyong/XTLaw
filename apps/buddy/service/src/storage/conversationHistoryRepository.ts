@@ -60,6 +60,7 @@ export interface ConversationHistoryRepository {
   createBranch: (input: CreateBranchInput) => ConversationBranchRecord
   createMessage: (input: CreateMessageInput) => MessageRecord
   findMessageById: (id: string) => MessageRecord | null
+  findMessageIdAtOffset: (conversationId: string, branchId: string, offset: number) => string | null
   listBranchMessages: (conversationId: string, branchId: string) => MessageRecord[]
   listBranches: (conversationId: string) => ConversationBranchRecord[]
   listMessagePage: (
@@ -163,6 +164,28 @@ export function createConversationHistoryStore(database: DatabaseSync): Conversa
       AND (created_at < ? OR (created_at = ? AND id <= ?))
     ORDER BY created_at DESC, id DESC
     LIMIT ?
+  `)
+  const findMessageIdForBranchAtOffset = database.prepare(`
+    SELECT id FROM messages
+    WHERE conversation_id = ? AND branch_id = ? AND ${publicMessage}
+    ORDER BY created_at DESC, id DESC
+    LIMIT 1 OFFSET ?
+  `)
+  const findMessageIdForBranchThroughAtOffset = database.prepare(`
+    SELECT id FROM messages
+    WHERE conversation_id = ? AND branch_id = ? AND ${publicMessage}
+      AND (created_at < ? OR (created_at = ? AND id <= ?))
+    ORDER BY created_at DESC, id DESC
+    LIMIT 1 OFFSET ?
+  `)
+  const countMessagesForBranch = database.prepare(`
+    SELECT COUNT(*) AS count FROM messages
+    WHERE conversation_id = ? AND branch_id = ? AND ${publicMessage}
+  `)
+  const countMessagesForBranchThrough = database.prepare(`
+    SELECT COUNT(*) AS count FROM messages
+    WHERE conversation_id = ? AND branch_id = ? AND ${publicMessage}
+      AND (created_at < ? OR (created_at = ? AND id <= ?))
   `)
   const listBranches = database.prepare(`
     SELECT * FROM conversation_branches
@@ -306,6 +329,23 @@ export function createConversationHistoryStore(database: DatabaseSync): Conversa
       findMessageById(id) {
         const row = findMessage.get(id) as MessageRow | undefined
         return row ? toMessage(row) : null
+      },
+      findMessageIdAtOffset(conversationId, branchId, offset) {
+        if (!Number.isSafeInteger(offset) || offset < 0)
+          throw new ConversationHistoryError('message offset is invalid')
+        let remaining = offset
+        for (const segment of collectVisibleBranchSegments(conversationId, branchId).toReversed()) {
+          const parameters = segment.throughMessage
+            ? [conversationId, segment.branchId, segment.throughMessage.createdAt, segment.throughMessage.createdAt, segment.throughMessage.id]
+            : [conversationId, segment.branchId]
+          const find = segment.throughMessage ? findMessageIdForBranchThroughAtOffset : findMessageIdForBranchAtOffset
+          const row = find.get(...parameters, remaining) as { id: string } | undefined
+          if (row)
+            return row.id
+          const count = segment.throughMessage ? countMessagesForBranchThrough : countMessagesForBranch
+          remaining -= (count.get(...parameters) as { count: number }).count
+        }
+        return null
       },
       listBranchMessages(conversationId, branchId) {
         return collectBranchMessages(conversationId, branchId)

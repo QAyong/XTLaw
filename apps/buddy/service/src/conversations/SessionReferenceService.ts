@@ -10,7 +10,7 @@ import { historicalComposerSources } from '../attachments/historicalComposerSour
 import { createSessionQuery, readSessionText, sessionMessageText } from './sessionReferenceText'
 
 export interface SessionReferenceServices {
-  conversations: Pick<ConversationRepository, 'findById' | 'findMessageById' | 'listBranchMessages' | 'listMessagePage'>
+  conversations: Pick<ConversationRepository, 'findById' | 'findMessageById' | 'findMessageIdAtOffset' | 'listBranchMessages' | 'listMessagePage'>
   attachments: Pick<AttachmentService, 'listForConversation'>
   artifacts: Pick<ArtifactService, 'resolveConversationArtifactLocation'>
   publications: Pick<ConversationTreeRepository, 'listPublications'>

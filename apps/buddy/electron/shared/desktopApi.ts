@@ -7,10 +7,12 @@ import type { RendererLifecycleReport } from '../../shared/lifecycle/serviceLife
 import type { SandboxEnvironmentStatus, SandboxSetupResult } from '../../shared/permissions/shellSandbox'
 import type { BuddyCapabilities } from '../../shared/platform'
 import type { BuddyRuntimeProfile } from '../../shared/runtime/profile'
+import type { DesktopChatWelcomeItem, DesktopChatWelcomePreference } from './desktopChatWelcome'
 import type { DesktopCommandId, DesktopPlatform } from './desktopCommands'
 import type { DesktopUpdateApi, DesktopUpdateCheckResult } from './desktopUpdates'
 import type { LocalChatApi } from './localChatApi'
 import { BUDDY_DEFAULT_PERMISSION_MODE } from '../../shared/permissions/permissionMode'
+import { DEFAULT_DESKTOP_CHAT_WELCOME_ITEMS } from './desktopChatWelcome'
 
 export { DESKTOP_BROWSER_BLOCKED_ACTIONS, DESKTOP_BROWSER_ERROR_CODES, DESKTOP_BROWSER_PROFILE_MODES, DESKTOP_BROWSER_SECURITY_KINDS } from '../../shared/browser/browserDesktopApi'
 
@@ -135,12 +137,6 @@ export interface DesktopTaskPinnedItem {
   kind: 'conversation' | 'space'
 }
 
-export const DESKTOP_CHAT_WELCOME_VARIANT_IDS = [
-  'writing',
-  'planning',
-  'orchestrating',
-] as const
-
 export const DESKTOP_TASK_SIDEBAR_SECTIONS = ['pinned', 'spaces', 'tasks'] as const
 
 export type DesktopTaskSidebarSection = typeof DESKTOP_TASK_SIDEBAR_SECTIONS[number]
@@ -153,8 +149,7 @@ export interface DesktopTaskSidebarPreferences {
   width: number | null
 }
 
-export type DesktopChatWelcomeVariantId = typeof DESKTOP_CHAT_WELCOME_VARIANT_IDS[number]
-export type DesktopChatWelcomePreference = 'none' | 'random' | DesktopChatWelcomeVariantId
+export { DEFAULT_DESKTOP_CHAT_WELCOME_ITEMS, DESKTOP_CHAT_WELCOME_VARIANT_IDS } from './desktopChatWelcome'
 export type DesktopContextPanelMode = 'task' | 'space' | 'independent'
 
 export const DESKTOP_CHAT_OUTLINE_POSITIONS = [
@@ -173,6 +168,10 @@ export interface DesktopChatPreferences {
   pasteTextAsAttachment: boolean
   permissionMode: import('../../shared/permissions/permissionMode').BuddyPermissionMode
   welcome: DesktopChatWelcomePreference
+  welcomeEnabled: boolean
+  welcomeItems: ReadonlyArray<DesktopChatWelcomeItem>
+  welcomeGreetingEnabled: boolean
+  welcomeCompanionEnabled: boolean
 }
 
 export const DEFAULT_DESKTOP_CHAT_PREFERENCES: Readonly<DesktopChatPreferences> = {
@@ -180,6 +179,10 @@ export const DEFAULT_DESKTOP_CHAT_PREFERENCES: Readonly<DesktopChatPreferences> 
   pasteTextAsAttachment: true,
   permissionMode: BUDDY_DEFAULT_PERMISSION_MODE,
   welcome: 'random',
+  welcomeEnabled: true,
+  welcomeItems: [...DEFAULT_DESKTOP_CHAT_WELCOME_ITEMS],
+  welcomeGreetingEnabled: true,
+  welcomeCompanionEnabled: true,
 }
 
 export interface LexoraConfig {
@@ -274,5 +277,6 @@ export interface LexoraDesktopApi {
 }
 
 export type { DesktopBrowserApi, DesktopBrowserAttachGuestInput, DesktopBrowserBlockedAction, DesktopBrowserDownload, DesktopBrowserEnsureSessionInput, DesktopBrowserError, DesktopBrowserErrorCode, DesktopBrowserGuestDescriptor, DesktopBrowserNavigateInput, DesktopBrowserOpenArtifactInput, DesktopBrowserProfileMode, DesktopBrowserSecurityKind, DesktopBrowserSecurityState, DesktopBrowserSessionInput, DesktopBrowserSetProfileModeInput, DesktopBrowserSetSurfaceInput, DesktopBrowserState, DesktopBrowserStatus } from '../../shared/browser/browserDesktopApi'
+export type { DesktopChatWelcomeItem, DesktopChatWelcomePreference, DesktopChatWelcomeVariantId } from './desktopChatWelcome'
 export type { DesktopCommandId, DesktopPlatform } from './desktopCommands'
 export type { DesktopUpdateCheckResult } from './desktopUpdates'

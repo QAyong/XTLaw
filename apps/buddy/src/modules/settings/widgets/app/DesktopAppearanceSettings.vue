@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type {
-  DesktopChatWelcomePreference,
   LexoraConfigPatch,
 } from '@buddy-electron/shared/desktopApi'
 import type { ApplicationSettingsProps } from './typing'
@@ -8,17 +7,16 @@ import { DESKTOP_CHAT_OUTLINE_POSITIONS } from '@buddy-electron/shared/desktopAp
 import { NSelect, NSpin, useMessage } from 'naive-ui'
 import { computed, shallowRef } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
-import DesktopWelcomePreferencePicker from '@/modules/settings/widgets/app/DesktopWelcomePreferencePicker.vue'
+import DesktopWelcomeSettings from './DesktopWelcomeSettings.vue'
 import DesktopTypographySettings from './DesktopTypographySettings.vue'
 
-type AppearanceSettingField = 'theme' | 'welcome' | 'outlinePosition'
+type AppearanceSettingField = 'theme' | 'outlinePosition'
 
 const props = defineProps<ApplicationSettingsProps>()
 
 const { t } = useBuddyI18n(() => props.language)
 const message = useMessage()
 const pendingFields = shallowRef<ReadonlySet<AppearanceSettingField>>(new Set())
-const pendingWelcomePreference = shallowRef<DesktopChatWelcomePreference | null>(null)
 const themeOptions = computed(() => [
   { label: t('desktop.settings.themeSystem'), value: 'system' },
   { label: t('desktop.settings.themeLight'), value: 'light' },
@@ -28,11 +26,6 @@ const outlinePositionOptions = computed(() => DESKTOP_CHAT_OUTLINE_POSITIONS.map
   label: t(`desktop.settings.outlinePosition.${position}`),
   value: position,
 })))
-const activeWelcomePreference = computed(() => (
-  pendingWelcomePreference.value
-  ?? props.config?.desktop.chat.welcome
-  ?? 'random'
-))
 
 async function updateSetting(field: AppearanceSettingField, patch: LexoraConfigPatch) {
   if (pendingFields.value.has(field))
@@ -47,11 +40,6 @@ async function updateSetting(field: AppearanceSettingField, patch: LexoraConfigP
   }
 }
 
-async function updateWelcomePreference(preference: DesktopChatWelcomePreference) {
-  pendingWelcomePreference.value = preference
-  await updateSetting('welcome', { desktop: { chat: { welcome: preference } } })
-  pendingWelcomePreference.value = null
-}
 </script>
 
 <template>
@@ -93,22 +81,9 @@ async function updateWelcomePreference(preference: DesktopChatWelcomePreference)
             <NSpin v-if="pendingFields.has('outlinePosition')" size="small" />
           </div>
         </div>
-        <div class="desktop-settings-row">
-          <div>
-            <strong>{{ t('desktop.settings.welcome') }}</strong>
-          </div>
-          <div class="desktop-settings-row__control">
-            <DesktopWelcomePreferencePicker
-              :language="language"
-              :pending="pendingFields.has('welcome')"
-              :value="activeWelcomePreference"
-              @select="updateWelcomePreference"
-            />
-            <NSpin v-if="pendingFields.has('welcome')" size="small" />
-          </div>
-        </div>
       </div>
     </section>
+    <DesktopWelcomeSettings v-bind="props" />
     <DesktopTypographySettings v-bind="props" />
   </section>
   <!-- AI identity does not depend on desktop settings; keep it visible while they load. -->

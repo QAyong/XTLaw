@@ -217,10 +217,11 @@ function openDetailChanges(id: string) {
           @edit-node="editNode"
           @open-node-artifact="nodeDetail.close(); emit('openNodeArtifact', $event)"
         />
-        <WorkbenchSlot v-if="viewMode !== 'canvas' && isEmpty && !isLoading && welcomeVariant" target="task.welcome">
+        <WorkbenchSlot v-if="viewMode !== 'canvas' && isEmpty && !isLoading && workspace.welcomeEnabled.value" target="task.welcome">
           <DesktopChatWelcome
             :language="language"
             :variant="welcomeVariant"
+            :greeting-enabled="workspace.welcomeGreetingEnabled.value"
           />
         </WorkbenchSlot>
 
@@ -277,18 +278,20 @@ function openDetailChanges(id: string) {
               {{ t('desktop.canvas.cancelFollowup') }}
             </button>
           </div>
-          <DesktopTaskComposer
-            ref="composerRef"
-            :composer="workspace.composer"
-            :skill-scope-id="workspace.session.spaceId.value"
-            :focus-ready="active && composerVisible && !isLoading && workspace.status.runtimeState.value.status === 'ready'"
-            :execution="workspace.execution"
-            :language="language"
-          >
-            <template #leadingContext>
-              <slot name="composerLeadingContext" />
-            </template>
-          </DesktopTaskComposer>
+          <div class="desktop-chat-page__composer-wrapper relative w-full min-w-0">
+            <DesktopTaskComposer
+              ref="composerRef"
+              :composer="workspace.composer"
+              :skill-scope-id="workspace.session.spaceId.value"
+              :focus-ready="active && composerVisible && !isLoading && workspace.status.runtimeState.value.status === 'ready'"
+              :execution="workspace.execution"
+              :language="language"
+            >
+              <template #leadingContext>
+                <slot name="composerLeadingContext" />
+              </template>
+            </DesktopTaskComposer>
+          </div>
         </div>
       </footer>
       <ChatSelectionQuoteMenu

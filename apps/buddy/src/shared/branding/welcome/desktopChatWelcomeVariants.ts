@@ -1,61 +1,28 @@
-import type {
-  DesktopChatWelcomePreference,
-  DesktopChatWelcomeVariantId,
-} from '@buddy-electron/shared/desktopApi'
-import type { BuddyI18nKey } from '@/i18n/buddyI18n'
-import orchestratingIllustrationUrl from './assets/orchestrating.webp'
-import planningIllustrationUrl from './assets/planning.webp'
-import writingIllustrationUrl from './assets/writing.webp'
+import type { DesktopChatWelcomeItem, DesktopChatWelcomePreference, DesktopChatWelcomeVariantId } from '@buddy-electron/shared/desktopApi'
+import type { BuddyI18nKey, BuddyLocale } from '@/i18n/buddyI18n'
+import { DEFAULT_DESKTOP_CHAT_WELCOME_ITEMS } from '@buddy-electron/shared/desktopApi'
+import { translateBuddy } from '@/i18n/buddyI18n'
 
-export type DesktopChatWelcomeDecoration
-  = | 'none'
-    | 'orbit-arc'
-    | 'underline-star'
-
-export interface DesktopChatWelcomeVariant {
-  decoration: DesktopChatWelcomeDecoration
-  id: DesktopChatWelcomeVariantId
-  illustrationUrl: string
-  titleKey: BuddyI18nKey
+const PRESET_WELCOME_KEYS: Record<DesktopChatWelcomeVariantId, BuddyI18nKey> = {
+  writing: 'desktop.chat.welcome.writing',
+  planning: 'desktop.chat.welcome.planning',
 }
 
-export const DESKTOP_CHAT_WELCOME_VARIANTS = [
-  {
-    decoration: 'underline-star',
-    id: 'writing',
-    illustrationUrl: writingIllustrationUrl,
-    titleKey: 'desktop.chat.welcome.writing',
-  },
-  {
-    decoration: 'none',
-    id: 'planning',
-    illustrationUrl: planningIllustrationUrl,
-    titleKey: 'desktop.chat.welcome.planning',
-  },
-  {
-    decoration: 'orbit-arc',
-    id: 'orchestrating',
-    illustrationUrl: orchestratingIllustrationUrl,
-    titleKey: 'desktop.chat.welcome.orchestrating',
-  },
-] as const satisfies ReadonlyArray<DesktopChatWelcomeVariant>
+export function resolveDesktopChatWelcomeText(item: DesktopChatWelcomeItem | null, language: BuddyLocale): string {
+  if (!item)
+    return ''
+  return item.kind === 'preset' ? translateBuddy(language, PRESET_WELCOME_KEYS[item.id]) : item.text
+}
 
 export function selectDesktopChatWelcomeVariant(
   preference: DesktopChatWelcomePreference,
+  items: ReadonlyArray<DesktopChatWelcomeItem> = DEFAULT_DESKTOP_CHAT_WELCOME_ITEMS,
   randomUnit = Math.random(),
-) {
-  if (preference === 'none')
+): DesktopChatWelcomeItem | null {
+  if (preference === 'none' || items.length === 0)
     return null
-
   if (preference !== 'random')
-    return DESKTOP_CHAT_WELCOME_VARIANTS.find(variant => variant.id === preference)!
-
-  const boundedUnit = Number.isFinite(randomUnit)
-    ? Math.min(1, Math.max(0, randomUnit))
-    : 0
-  const index = Math.min(
-    Math.floor(boundedUnit * DESKTOP_CHAT_WELCOME_VARIANTS.length),
-    DESKTOP_CHAT_WELCOME_VARIANTS.length - 1,
-  )
-  return DESKTOP_CHAT_WELCOME_VARIANTS[index]!
+    return items.find(item => item.id === preference) ?? null
+  const boundedUnit = Number.isFinite(randomUnit) ? Math.min(1, Math.max(0, randomUnit)) : 0
+  return items[Math.min(Math.floor(boundedUnit * items.length), items.length - 1)]!
 }

@@ -8,7 +8,7 @@ import type { ChatWorkspaceProps } from '../typing'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import type { ChatComposerSubmitPayload } from '@/modules/prompt-input'
 import { afterEach, describe, expect, it } from 'vitest'
-import { computed, effectScope, nextTick, shallowReactive, shallowRef } from 'vue'
+import { effectScope, nextTick, shallowReactive, shallowRef } from 'vue'
 import { createChatComposerContentFromText } from '@/modules/prompt-input'
 import { useChatWorkspace } from '../useChatWorkspace'
 import { useTaskComposer } from '../useTaskComposer'
@@ -58,7 +58,7 @@ function createOwner(name: string) {
       selectedModelId: shallowRef(null),
       selectedServiceTier: shallowRef(null),
       permissionMode: shallowRef('manual_approval' as const),
-      beginImport: () => [name],
+      beginImport: () => [],
       importPastedText: async () => null,
       readResourceText: async () => '',
       dismissInteraction: () => {},
@@ -107,6 +107,10 @@ function createOwner(name: string) {
     },
     language: shallowRef<BuddyLocale>('zh-CN'),
     welcomePreference: shallowRef<DesktopChatWelcomePreference>('writing'),
+    welcomeItems: shallowRef([{ kind: 'preset' as const, id: 'writing' as const }]),
+    welcomeEnabled: shallowRef(true),
+    welcomeGreetingEnabled: shallowRef(true),
+    welcomeCompanionEnabled: shallowRef(true),
     session: {
       members: { memberIds: shallowRef(['default']), busy: shallowRef(false), error: shallowRef(''), refresh: async () => {}, add: async () => true, remove: async () => true },
       selectedBuddyId: shallowRef<string | null>('default'),
@@ -235,21 +239,23 @@ describe('useChatWorkspace', () => {
     expect(view.viewport.showReturnToLatest.value).toBe(false)
   })
 
-  it('follows a replacement workspace owner and ignores late updates from the previous owner', async () => {
+  it('isolates drafts, late updates, sends and edits when the workspace owner changes', async () => {
     const previous = createOwner('previous')
     const next = createOwner('next')
     const { props, view, composer } = bindWorkspace(previous)
     const { language } = view
-    const draft = computed(() => composer.bindings.value.draft)
-    const draftId = computed(() => composer.bindings.value.draftId)
+    const { sendMessage } = composer
     next.workspace.language.value = 'en-US'
     props.workspace = next.workspace
-    await nextTick()
 
-    expect(draft.value).toBe('next draft')
-    expect(draftId.value).toBe('next-draft')
+    expect(composer.bindings.value.draft).toBe('next draft')
+    expect(composer.bindings.value.draftId).toBe('next-draft')
     expect(language.value).toBe('en-US')
-    expect(composer.bindings.value.beginImport([])).toEqual(['next'])
+    await sendMessage({ content: 'new turn' })
+    expect(next.delivered).toEqual([{ mode: 'send', content: 'new turn' }])
+    expect(next.workspace.composer.draft.value).toBe('')
+    expect(previous.delivered).toEqual([])
+    expect(previous.workspace.composer.draft.value).toBe('previous draft')
 
     await Promise.resolve()
     previous.workspace.composer.draft.value = 'late previous draft'
@@ -258,22 +264,8 @@ describe('useChatWorkspace', () => {
     next.workspace.language.value = 'zh-CN'
     await nextTick()
 
-    expect(draft.value).toBe('updated next draft')
+    expect(composer.bindings.value.draft).toBe('updated next draft')
     expect(language.value).toBe('zh-CN')
-  })
-
-  it('sends and submits edits through the current owner after the workspace is replaced', async () => {
-    const previous = createOwner('previous')
-    const next = createOwner('next')
-    const { props, composer } = bindWorkspace(previous)
-    const { sendMessage } = composer
-    props.workspace = next.workspace
-
-    await sendMessage({ content: 'new turn' })
-    expect(next.delivered).toEqual([{ mode: 'send', content: 'new turn' }])
-    expect(next.workspace.composer.draft.value).toBe('')
-    expect(previous.delivered).toEqual([])
-    expect(previous.workspace.composer.draft.value).toBe('previous draft')
 
     next.workspace.execution.editingMessageId.value = 'message-edited'
     next.workspace.composer.draft.value = 'edited content'

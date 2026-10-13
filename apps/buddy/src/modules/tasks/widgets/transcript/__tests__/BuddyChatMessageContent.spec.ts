@@ -1,3 +1,4 @@
+import { DEFAULT_DESKTOP_CHAT_PREFERENCES } from '@buddy-electron/shared/desktopApi'
 import type { LocalMessage } from '@buddy-shared/conversation/conversationApi'
 // @vitest-environment jsdom
 
@@ -86,7 +87,8 @@ describe('buddyChatMessageContent', () => {
           language: shallowRef('zh-CN'),
           isDark: shallowRef(false),
           sidebarCollapsed: shallowRef(false),
-          chat: shallowRef({ outlinePosition: 'top-right', pasteTextAsAttachment: true, permissionMode: 'policy_approval', welcome: 'random' }),
+          userName: shallowRef(''),
+          chat: shallowRef({ ...DEFAULT_DESKTOP_CHAT_PREFERENCES, permissionMode: 'policy_approval' }),
           })
         useProvideChatContent({
           openWebLink,
@@ -230,7 +232,8 @@ function renderContent(message: LocalMessage, isDark = false) {
         language: shallowRef('zh-CN'),
         isDark: shallowRef(isDark),
         sidebarCollapsed: shallowRef(false),
-        chat: shallowRef({ outlinePosition: 'top-right', pasteTextAsAttachment: true, permissionMode: 'policy_approval', welcome: 'random' }),
+        userName: shallowRef(''),
+        chat: shallowRef({ ...DEFAULT_DESKTOP_CHAT_PREFERENCES, permissionMode: 'policy_approval' }),
       })
       return () => h(BuddyChatMessageContent, {
         language: 'zh-CN',

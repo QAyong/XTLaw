@@ -1,19 +1,23 @@
 <script setup lang="ts">
 import type { BuddyLocale } from '@/i18n/buddyI18n'
-import type { DesktopChatWelcomeVariant } from '@/shared/branding/welcome/desktopChatWelcomeVariants'
-import { useBuddyI18n } from '@/i18n/buddyI18n'
+import type { DesktopChatWelcomeItem } from '@buddy-electron/shared/desktopApi'
+import { computed } from 'vue'
+import { resolveDesktopChatWelcomeText } from '@/shared/branding/welcome/desktopChatWelcomeVariants'
+import { useWelcomeGreeting } from '@/shared/branding/welcome/useWelcomeGreeting'
 import { BRAND_ASSET_URLS } from '@/shared/branding/brandAssets'
 
 const props = defineProps<{
   language: BuddyLocale
-  variant: DesktopChatWelcomeVariant
+  greetingEnabled: boolean
+  variant: DesktopChatWelcomeItem | null
 }>()
 
-const { t } = useBuddyI18n(() => props.language)
+const title = computed(() => resolveDesktopChatWelcomeText(props.variant, props.language))
+const greeting = useWelcomeGreeting(() => props.language, () => props.greetingEnabled)
 </script>
 
 <template>
-  <section class="desktop-chat-welcome" :data-variant="variant.id">
+  <section class="desktop-chat-welcome" :data-variant="variant?.id ?? 'none'">
     <img
       class="desktop-chat-welcome__wordmark desktop-chat-welcome__wordmark--light"
       :src="BRAND_ASSET_URLS.chatWelcomeWordmark.light"
@@ -28,9 +32,10 @@ const { t } = useBuddyI18n(() => props.language)
     >
     <div
       class="desktop-chat-welcome__heading"
-      :data-decoration="variant.decoration"
+      :data-has-title="!!title"
     >
-      <h1>{{ t(variant.titleKey) }}</h1>
+      <h1 v-if="title">{{ title }}</h1>
+      <p v-if="greeting" class="desktop-chat-welcome__greeting">{{ greeting }}</p>
     </div>
   </section>
 </template>
@@ -62,6 +67,12 @@ const { t } = useBuddyI18n(() => props.language)
 
 :global(:root[data-buddy-theme='dark'] .desktop-chat-welcome__wordmark--dark) {
   display: block;
+}
+
+.desktop-chat-welcome__greeting {
+  margin: 0.5rem 0 0;
+  color: var(--buddy-text-secondary);
+  font-size: clamp(0.9rem, 2cqw, 1rem);
 }
 
 .desktop-chat-welcome__heading {

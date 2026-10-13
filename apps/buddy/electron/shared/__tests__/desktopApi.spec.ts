@@ -3,6 +3,28 @@ import { DESKTOP_PROFILE_AVATAR_MAX_DATA_URL_LENGTH } from '../desktopApi'
 import { feedbackIssueInputSchema, lexoraConfigPatchSchema, releasePageInputSchema } from '../desktopApiSchemas'
 
 describe('desktop Preload API contract', () => {
+  it('accepts welcome patches and rejects ambiguous identities or invalid text at the bridge', () => {
+    const patch = {
+      desktop: {
+        chat: {
+          welcome: 'custom-1791819734847',
+          welcomeItems: [
+            { kind: 'preset', id: 'writing' },
+            { kind: 'preset', id: 'planning' },
+            { kind: 'custom', id: 'custom-1791819734847', text: '我的欢迎语' },
+          ],
+        },
+      },
+    }
+    expect(lexoraConfigPatchSchema.parse(patch)).toEqual(patch)
+    const parse = (welcomeItems: unknown) => lexoraConfigPatchSchema.parse({ desktop: { chat: { welcomeItems } } })
+    expect(() => parse([{ kind: 'preset', id: 'writing', text: 'ignored text' }])).toThrow()
+    expect(() => parse([{ kind: 'custom', id: 'random', text: 'reserved' }])).toThrow()
+    expect(() => parse([{ kind: 'custom', id: 'a', text: ' ' }])).toThrow()
+    expect(() => parse([{ kind: 'preset', id: 'writing' }, { kind: 'preset', id: 'writing' }])).toThrow()
+    expect(() => parse([{ kind: 'custom', id: 'a', text: 'x'.repeat(201) }])).toThrow()
+  })
+
   it('rejects unknown outline positions before updating the application configuration', () => {
     expect(() => lexoraConfigPatchSchema.parse({ desktop: { chat: { outlinePosition: 'center' } } })).toThrow()
     expect(lexoraConfigPatchSchema.parse({ desktop: { chat: { outlinePosition: 'bottom-left', permissionMode: 'full_access', welcome: 'none' } } }))
@@ -42,7 +64,7 @@ describe('desktop Preload API contract', () => {
   })
 
   it('accepts task sidebar layout preferences and rejects duplicates and unknown sections', () => {
-    expect(lexoraConfigPatchSchema.parse({
+    const patch = {
       desktop: {
         taskSidebar: {
           collapsed: true,
@@ -51,16 +73,8 @@ describe('desktop Preload API contract', () => {
           width: 336,
         },
       },
-    })).toEqual({
-      desktop: {
-        taskSidebar: {
-          collapsed: true,
-          collapsedSections: ['tasks', 'spaces'],
-          collapsedSpaces: ['space-a'],
-          width: 336,
-        },
-      },
-    })
+    }
+    expect(lexoraConfigPatchSchema.parse(patch)).toEqual(patch)
     expect(lexoraConfigPatchSchema.parse({ desktop: { taskSidebar: { width: null } } }))
       .toEqual({ desktop: { taskSidebar: { width: null } } })
     expect(() => lexoraConfigPatchSchema.parse({

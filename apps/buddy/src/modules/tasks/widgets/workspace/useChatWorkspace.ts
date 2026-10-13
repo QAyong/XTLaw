@@ -21,7 +21,7 @@ export function useChatWorkspace(
   const transcript = computed(() => workspace.value.transcript)
   const revealMessageId = computed(() => props.revealMessageId)
   const isEmpty = computed(() => session.value.activeConversationId.value === null)
-  const welcomeVariant = shallowRef(selectDesktopChatWelcomeVariant(workspace.value.welcomePreference.value))
+  const welcomeVariant = shallowRef(selectDesktopChatWelcomeVariant(workspace.value.welcomePreference.value, workspace.value.welcomeItems.value))
   const viewport = useChatViewport({
     ...revealCallbacks,
     readingPositions: props.readingPositions,
@@ -44,10 +44,11 @@ export function useChatWorkspace(
   watch(() => [
     session.value.activeConversationId.value,
     workspace.value.welcomePreference.value,
-  ] as const, ([conversationId, preference], [previousId, previousPreference]) => {
+    JSON.stringify(workspace.value.welcomeItems.value),
+  ] as const, ([conversationId, preference, items], [previousId, previousPreference, previousItems]) => {
     if (conversationId === null
-      && (previousId !== null || preference !== previousPreference)) {
-      welcomeVariant.value = selectDesktopChatWelcomeVariant(preference)
+      && (previousId !== null || preference !== previousPreference || items !== previousItems)) {
+      welcomeVariant.value = selectDesktopChatWelcomeVariant(preference, workspace.value.welcomeItems.value)
     }
   })
 

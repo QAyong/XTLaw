@@ -1,3 +1,4 @@
+import { DEFAULT_DESKTOP_CHAT_PREFERENCES } from '@buddy-electron/shared/desktopApi'
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest'
 import { createApp, h, shallowRef } from 'vue'
@@ -20,7 +21,8 @@ describe('markdown link destinations', () => {
           language: shallowRef('zh-CN'),
           isDark: shallowRef(false),
           sidebarCollapsed: shallowRef(false),
-          chat: shallowRef({ outlinePosition: 'top-right', pasteTextAsAttachment: true, permissionMode: 'policy_approval', welcome: 'random' }),
+          userName: shallowRef(''),
+          chat: shallowRef({ ...DEFAULT_DESKTOP_CHAT_PREFERENCES, permissionMode: 'policy_approval' }),
           })
         useProvideChatContent({ openWebLink, previewFile, canPreviewFile: () => true, writeClipboardText: async () => {} })
         return () => mode === 'narration'

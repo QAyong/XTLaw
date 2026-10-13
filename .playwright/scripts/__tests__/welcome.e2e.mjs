@@ -1,0 +1,192 @@
+import { expect, test } from '../fixtures/electron.mjs'
+
+async function openWelcome(page) {
+  await page.evaluate(() => window.location.hash = '/settings/appearance')
+  const section = page.getByTestId('welcome-settings')
+  await section.scrollIntoViewIfNeeded()
+  return section
+}
+
+function readWelcome(page) {
+  return page.evaluate(async () => (await window.lexoraDesktop.settings.get()).desktop.chat)
+}
+
+async function selectMode(page, label) {
+  const option = page.getByTestId('welcome-mode').getByRole('button', { name: label, exact: true })
+  await option.click()
+  await expect(option).toHaveAttribute('aria-pressed', 'true')
+}
+
+async function openMessages(page) {
+  await page.getByTestId('welcome-settings').getByRole('button', { name: '欢迎语列表', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: '欢迎语列表', exact: true })
+  await expect(dialog).toBeVisible()
+  return dialog
+}
+
+async function closeMessages(page) {
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog', { name: '欢迎语列表', exact: true })).toBeHidden()
+}
+
+test('welcome settings preserve content, support keyboard selection and disable all dependent controls', async ({ buddy }) => {
+  const instance = await buddy.createInstance('welcome-settings')
+  let { page } = await instance.launch()
+  let section = await openWelcome(page)
+  let dialog = await openMessages(page)
+  const input = () => dialog.getByRole('textbox', { name: '写一句开始新任务时想看到的话', exact: true })
+  await input().fill('一起把今天的想法变成作品')
+  await dialog.getByRole('button', { name: '添加', exact: true }).click()
+  await expect(input()).toHaveValue('')
+  const added = await readWelcome(page)
+  expect(added.welcome).toBe('random')
+  expect(added.welcomeItems).toHaveLength(3)
+  const custom = added.welcomeItems.find(item => item.kind === 'custom')
+  await closeMessages(page)
+  await selectMode(page, '指定')
+  dialog = await openMessages(page)
+  const radio = dialog.getByRole('radio', { name: custom.text, exact: true })
+  await radio.focus()
+  await radio.press('Space')
+  await expect(radio).toBeChecked()
+  await expect.poll(() => readWelcome(page)).toMatchObject({ welcome: custom.id })
+  await dialog.getByRole('button', { name: '删除欢迎语：今天想一起完成什么？', exact: true }).click()
+  await expect.poll(() => readWelcome(page)).toMatchObject({ welcomeItems: [{ kind: 'preset', id: 'planning' }, custom] })
+  await closeMessages(page)
+
+  await section.getByRole('switch', { name: '显示欢迎区域', exact: true }).click()
+  await expect(section.getByRole('switch', { name: '显示欢迎区域', exact: true })).not.toBeChecked()
+  await expect(section.getByRole('switch', { name: '时段问候', exact: true })).toBeDisabled()
+  await expect(section.getByRole('button', { name: '欢迎语列表', exact: true })).toBeDisabled()
+  for (const name of ['不显示', '随机', '指定'])
+    await expect(page.getByTestId('welcome-mode').getByRole('button', { name, exact: true })).toBeDisabled()
+  const disabled = await readWelcome(page)
+  expect(disabled).toMatchObject({ welcomeEnabled: false, welcome: custom.id, welcomeGreetingEnabled: true, welcomeCompanionEnabled: true })
+  await page.evaluate(() => window.location.hash = '/tasks')
+  await expect(page.locator('.desktop-chat-composer__prosemirror')).toBeVisible()
+  await expect(page.locator('.desktop-chat-welcome')).toHaveCount(0)
+  await expect(page.locator('.desktop-chat-companion-peeking')).toHaveCount(0)
+
+  await instance.stop()
+  ;({ page } = await instance.launch())
+  expect(await readWelcome(page)).toEqual(disabled)
+  section = await openWelcome(page)
+  await section.getByRole('switch', { name: '显示欢迎区域', exact: true }).click()
+  dialog = await openMessages(page)
+  await expect(dialog.getByRole('radio', { name: custom.text, exact: true })).toBeChecked()
+  await expect(input()).toBeEnabled()
+  await closeMessages(page)
+  await page.evaluate(() => window.location.hash = '/tasks')
+  await expect(page.locator('.desktop-chat-welcome h1')).toHaveText(custom.text)
+  const dismiss = page.getByRole('button', { name: '忽略本次', exact: true })
+  if (await dismiss.count())
+    await dismiss.click()
+  await expect(page.locator('.desktop-chat-companion-peeking')).toHaveCount(0)
+
+  section = await openWelcome(page)
+  dialog = await openMessages(page)
+  await dialog.getByRole('button', { name: `删除欢迎语：${custom.text}`, exact: true }).click()
+  await expect.poll(() => readWelcome(page)).toMatchObject({ welcome: 'random' })
+  await dialog.getByRole('button', { name: '删除欢迎语：今天想从哪里开始？', exact: true }).click()
+  await expect(dialog.getByText('还没有欢迎语，可以在下方添加。', { exact: true })).toBeVisible()
+  await closeMessages(page)
+  for (const name of ['随机', '指定'])
+    await expect(page.getByTestId('welcome-mode').getByRole('button', { name, exact: true })).toBeDisabled()
+  await expect(page.getByTestId('welcome-mode').getByRole('button', { name: '不显示', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await instance.stop()
+  ;({ page } = await instance.launch())
+  expect(await readWelcome(page)).toMatchObject({ welcome: 'none', welcomeEnabled: true, welcomeItems: [] })
+})
+
+test('welcome additions keep failed input and greetings update when the time of day changes', async ({ buddy }) => {
+  const instance = await buddy.createInstance('welcome-failure')
+  const { page, app } = await instance.launch()
+  await openWelcome(page)
+  let dialog = await openMessages(page)
+  await app.evaluate(({ ipcMain }) => {
+    const channel = 'lexora:settings:update'
+    const original = ipcMain._invokeHandlers.get(channel)
+    globalThis.welcomeProbe = { fail: true, release: null }
+    ipcMain.removeHandler(channel)
+    ipcMain.handle(channel, async (event, patch) => {
+      if (globalThis.welcomeProbe.fail)
+        throw new Error('Isolated welcome save failure')
+      await new Promise(resolve => globalThis.welcomeProbe.release = resolve)
+      return original(event, patch)
+    })
+  })
+  const input = () => dialog.getByRole('textbox', { name: '写一句开始新任务时想看到的话', exact: true })
+  await input().fill('失败后保留这条欢迎语')
+  await input().press('Enter')
+  await expect(page.getByText('保存失败，已恢复原设置', { exact: true })).toBeVisible()
+  await expect(input()).toHaveValue('失败后保留这条欢迎语')
+  await expect(input()).toBeEnabled()
+  expect((await readWelcome(page)).welcomeItems).toHaveLength(2)
+  await closeMessages(page)
+  dialog = await openMessages(page)
+  await expect(input()).toHaveValue('失败后保留这条欢迎语')
+  await app.evaluate(() => globalThis.welcomeProbe.fail = false)
+  await input().press('Enter')
+  await expect(input()).toBeDisabled()
+  await expect(input()).toHaveValue('失败后保留这条欢迎语')
+  await page.keyboard.press('Escape')
+  await expect(dialog).toBeVisible()
+  await expect.poll(() => app.evaluate(() => typeof globalThis.welcomeProbe.release)).toBe('function')
+  await app.evaluate(() => globalThis.welcomeProbe.release())
+  await expect(input()).toHaveValue('')
+  expect((await readWelcome(page)).welcome).toBe('random')
+  expect((await readWelcome(page)).welcomeItems).toHaveLength(3)
+  await closeMessages(page)
+
+  const noon = await page.evaluate(() => new Date(2026, 9, 13, 12, 58, 0).getTime())
+  await page.clock.install({ time: noon })
+  await page.reload()
+  await page.evaluate(() => window.location.hash = '/tasks')
+  const greeting = page.locator('.desktop-chat-welcome__greeting')
+  await expect(greeting).toContainText('中午好')
+  await page.clock.runFor(60_000)
+  await expect(greeting).toContainText('中午好')
+  await page.clock.runFor(60_000)
+  await expect(greeting).toContainText('下午好')
+})
+
+test('welcome split panes keep composers reachable and drafts independent in a short window', async ({ buddy }) => {
+  const instance = await buddy.createInstance('welcome-layout')
+  const { page } = await instance.launch()
+  await page.evaluate(() => window.lexoraDesktop.settings.update({ desktop: { chat: { welcome: 'planning' } } }))
+  await page.evaluate(() => window.location.hash = '/tasks')
+  await expect(page.locator('.desktop-chat-welcome h1')).toHaveText('今天想从哪里开始？')
+  const dismiss = page.getByRole('button', { name: '忽略本次', exact: true })
+  if (await dismiss.count())
+    await dismiss.click()
+
+  await page.setViewportSize({ width: 1920, height: 640 })
+  await page.getByTestId('pane-layout-menu').click()
+  await page.locator('.n-dropdown-menu:visible').getByText('向右分屏', { exact: true }).click()
+  await expect(page.locator('.desktop-task-editor')).toHaveCount(2)
+  await expect(page.locator('.n-dropdown-menu:visible')).toHaveCount(0)
+  const divider = page.locator('.workbench-split.horizontal > .workbench-split__handle')
+  await divider.focus()
+  for (let step = 0; step < 6; step++)
+    await divider.press('ArrowRight')
+  await page.locator('.desktop-task-editor').nth(1).getByTestId('pane-layout-menu').click()
+  await page.locator('.n-dropdown-menu:visible').getByText('向下分屏', { exact: true }).click()
+  await expect(page.locator('.desktop-task-editor')).toHaveCount(3)
+  while (await dismiss.count())
+    await dismiss.first().click()
+
+  for (const pane of await page.locator('.desktop-chat-page').all()) {
+    const bounds = await pane.evaluate((element) => {
+      const pane = element.getBoundingClientRect()
+      const composer = element.querySelector('.desktop-chat-composer-frame').getBoundingClientRect()
+      return { top: pane.top, bottom: pane.bottom, composerTop: composer.top, composerBottom: composer.bottom }
+    })
+    expect(bounds.composerTop).toBeGreaterThanOrEqual(bounds.top)
+    expect(bounds.composerBottom).toBeLessThanOrEqual(bounds.bottom)
+  }
+  const panes = page.locator('.desktop-task-editor')
+  for (let index = 0; index < 3; index++)
+    await panes.nth(index).locator('.desktop-chat-composer__prosemirror').fill(`面板 ${index + 1} 的草稿`)
+  for (let index = 0; index < 3; index++)
+    await expect(panes.nth(index).locator('.desktop-chat-composer__prosemirror')).toHaveText(`面板 ${index + 1} 的草稿`)
+})

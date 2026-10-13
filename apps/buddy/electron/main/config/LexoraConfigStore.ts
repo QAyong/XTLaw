@@ -16,7 +16,23 @@ import { BUDDY_PERMISSION_MODES } from '../../../shared/permissions/permissionMo
 import { DEFAULT_RUNTIME_PREFERENCES, runtimePreferencesSchema } from '../../../shared/runtime/runtimePreferences'
 import { keybindingsSchema } from '../../../shared/shortcuts/keybindingSchema'
 import { DEFAULT_TYPOGRAPHY, typographyPreferencesSchema } from '../../../shared/typography/typographyPreferences'
-import { DEFAULT_DESKTOP_CHAT_PREFERENCES, DESKTOP_CHAT_OUTLINE_POSITIONS, DESKTOP_CHAT_WELCOME_VARIANT_IDS, DESKTOP_PROFILE_AVATAR_MAX_DATA_URL_LENGTH, DESKTOP_TASK_SIDEBAR_SECTIONS } from '../../shared/desktopApi'
+import { DEFAULT_DESKTOP_CHAT_PREFERENCES, DEFAULT_DESKTOP_CHAT_WELCOME_ITEMS, DESKTOP_CHAT_OUTLINE_POSITIONS, DESKTOP_PROFILE_AVATAR_MAX_DATA_URL_LENGTH, DESKTOP_TASK_SIDEBAR_SECTIONS } from '../../shared/desktopApi'
+
+import { desktopChatWelcomeItemsSchema } from '../../shared/desktopApiSchemas'
+import { isPresetWelcomeId, normalizeDesktopChatWelcomePreference } from '../../shared/desktopChatWelcome'
+
+function migrateWelcomeItems(value: unknown): unknown {
+  if (!Array.isArray(value))
+    return value
+  return value.filter(item => asRecord(item).id !== 'orchestrating').map((item) => {
+    const record = asRecord(item)
+    if (record.kind !== undefined || typeof record.id !== 'string')
+      return item
+    return isPresetWelcomeId(record.id)
+      ? { kind: 'preset', id: record.id }
+      : { kind: 'custom', id: record.id, text: record.text }
+  })
+}
 
 const taskSidebarPinnedItemSchema = z.discriminatedUnion('kind', [
   z.object({ id: z.string().min(1).max(128), kind: z.literal('conversation') }).strict(),
@@ -47,7 +63,11 @@ const desktopConfigSchema = z.object({
     outline_position: z.enum(DESKTOP_CHAT_OUTLINE_POSITIONS).default(DEFAULT_DESKTOP_CHAT_PREFERENCES.outlinePosition),
     paste_text_as_attachment: z.boolean().default(DEFAULT_DESKTOP_CHAT_PREFERENCES.pasteTextAsAttachment),
     permission_mode: z.enum(BUDDY_PERMISSION_MODES).default(DEFAULT_DESKTOP_CHAT_PREFERENCES.permissionMode),
-    welcome: z.enum(['none', 'random', ...DESKTOP_CHAT_WELCOME_VARIANT_IDS]).default(DEFAULT_DESKTOP_CHAT_PREFERENCES.welcome),
+    welcome: z.string().max(64).default(DEFAULT_DESKTOP_CHAT_PREFERENCES.welcome).transform(val => val === 'orchestrating' ? 'writing' : val),
+    welcome_items: z.preprocess(migrateWelcomeItems, desktopChatWelcomeItemsSchema.default([...DEFAULT_DESKTOP_CHAT_WELCOME_ITEMS])),
+    welcome_enabled: z.boolean().optional(),
+    welcome_greeting_enabled: z.boolean().default(DEFAULT_DESKTOP_CHAT_PREFERENCES.welcomeGreetingEnabled),
+    welcome_companion_enabled: z.boolean().default(DEFAULT_DESKTOP_CHAT_PREFERENCES.welcomeCompanionEnabled),
   }).passthrough().prefault({}),
   context_panel_mode: z.enum(['task', 'space', 'independent']).default('task'),
   context_panel_global: z.boolean().default(false),
@@ -89,6 +109,10 @@ const desktopConfigSchema = z.object({
     paste_text_as_attachment: DEFAULT_DESKTOP_CHAT_PREFERENCES.pasteTextAsAttachment,
     permission_mode: DEFAULT_DESKTOP_CHAT_PREFERENCES.permissionMode,
     welcome: DEFAULT_DESKTOP_CHAT_PREFERENCES.welcome,
+    welcome_items: [...DEFAULT_DESKTOP_CHAT_WELCOME_ITEMS],
+    welcome_enabled: DEFAULT_DESKTOP_CHAT_PREFERENCES.welcomeEnabled,
+    welcome_greeting_enabled: DEFAULT_DESKTOP_CHAT_PREFERENCES.welcomeGreetingEnabled,
+    welcome_companion_enabled: DEFAULT_DESKTOP_CHAT_PREFERENCES.welcomeCompanionEnabled,
   },
   context_panel_mode: 'task',
   context_panel_global: false,
@@ -335,7 +359,11 @@ function decodeConfig(value: unknown): LexoraConfig {
         outlinePosition: config.desktop.chat.outline_position,
         pasteTextAsAttachment: config.desktop.chat.paste_text_as_attachment,
         permissionMode: config.desktop.chat.permission_mode,
-        welcome: config.desktop.chat.welcome,
+        welcome: normalizeDesktopChatWelcomePreference(config.desktop.chat.welcome, config.desktop.chat.welcome_items),
+        welcomeItems: config.desktop.chat.welcome_items,
+        welcomeEnabled: config.desktop.chat.welcome_enabled ?? config.desktop.chat.welcome !== 'none',
+        welcomeGreetingEnabled: config.desktop.chat.welcome_greeting_enabled,
+        welcomeCompanionEnabled: config.desktop.chat.welcome_companion_enabled,
       },
       contextPanelMode: config.desktop.context_panel_mode,
       contextPanelGlobal: config.desktop.context_panel_global,
@@ -395,6 +423,10 @@ function encodeConfig(config: LexoraConfig) {
         paste_text_as_attachment: config.desktop.chat.pasteTextAsAttachment,
         permission_mode: config.desktop.chat.permissionMode,
         welcome: config.desktop.chat.welcome,
+        welcome_items: config.desktop.chat.welcomeItems,
+        welcome_enabled: config.desktop.chat.welcomeEnabled,
+        welcome_greeting_enabled: config.desktop.chat.welcomeGreetingEnabled,
+        welcome_companion_enabled: config.desktop.chat.welcomeCompanionEnabled,
       },
       context_panel_mode: config.desktop.contextPanelMode,
       context_panel_global: config.desktop.contextPanelGlobal,
@@ -436,6 +468,7 @@ function encodeConfig(config: LexoraConfig) {
 }
 
 function mergeConfig(current: LexoraConfig, patch: LexoraConfigPatch): LexoraConfig {
+  const welcomeItems = desktopChatWelcomeItemsSchema.parse(patch.desktop?.chat?.welcomeItems ?? current.desktop.chat.welcomeItems)
   return {
     runtime: runtimePreferencesSchema.parse({ ...current.runtime, ...patch.runtime }),
     browser: browserPreferencesSchema.parse({ ...current.browser, ...patch.browser }),
@@ -447,6 +480,8 @@ function mergeConfig(current: LexoraConfig, patch: LexoraConfigPatch): LexoraCon
       chat: {
         ...current.desktop.chat,
         ...patch.desktop?.chat,
+        welcomeItems,
+        welcome: normalizeDesktopChatWelcomePreference(patch.desktop?.chat?.welcome ?? current.desktop.chat.welcome, welcomeItems),
         permissionMode: z.enum(BUDDY_PERMISSION_MODES).parse(
           patch.desktop?.chat?.permissionMode ?? current.desktop.chat.permissionMode,
         ),

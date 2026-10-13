@@ -1,3 +1,4 @@
+import { DEFAULT_DESKTOP_CHAT_PREFERENCES } from '@buddy-electron/shared/desktopApi'
 // @vitest-environment jsdom
 import type { LocalMessage } from '@buddy-shared/conversation/conversationApi'
 import type { PropType } from 'vue'
@@ -96,7 +97,8 @@ function mountTranscript(loadOutlineMessages: () => Promise<readonly LocalMessag
         language: shallowRef('zh-CN'),
         isDark: shallowRef(false),
         sidebarCollapsed: shallowRef(false),
-        chat: shallowRef({ outlinePosition: 'top-right', pasteTextAsAttachment: true, permissionMode: 'policy_approval', welcome: 'random' }),
+        userName: shallowRef(''),
+        chat: shallowRef({ ...DEFAULT_DESKTOP_CHAT_PREFERENCES, permissionMode: 'policy_approval' }),
       })
       return () => h(DesktopChatTranscript, props.value)
     },

@@ -1,3 +1,6 @@
+import type { LocalChatApi } from '@buddy-electron/shared/localChatApi'
+import { useProvideBuddiesContext } from '@/modules/buddies'
+import { DEFAULT_DESKTOP_CHAT_PREFERENCES } from '@buddy-electron/shared/desktopApi'
 // @vitest-environment jsdom
 import type { ChatAgentToolNode, ChatAgentTurn, ChatAgentTurnNode } from '../../../model/transcript/chatAgentTurn'
 import { NMessageProvider } from 'naive-ui'
@@ -621,11 +624,13 @@ function mountTurn(nodes: ChatAgentTurnNode[], status: ChatAgentTurn['status'] =
   document.body.append(root)
   const app = createApp({
     setup: () => {
+      useProvideBuddiesContext({ api: { onChanged: () => () => {} } as unknown as LocalChatApi['buddies'], ready: shallowRef(false) })
       useProvideDesktopUi({
         language: shallowRef('zh-CN'),
         isDark: shallowRef(false),
         sidebarCollapsed: shallowRef(false),
-        chat: shallowRef({ outlinePosition: 'top-right', pasteTextAsAttachment: true, permissionMode: 'policy_approval', welcome: 'random' }),
+        userName: shallowRef(''),
+        chat: shallowRef({ ...DEFAULT_DESKTOP_CHAT_PREFERENCES, permissionMode: 'policy_approval' }),
       })
       useProvideChatContent({ openWebLink: () => {}, canPreviewFile: () => false, previewFile: () => {}, writeClipboardText: async () => {} })
       return () => h(NMessageProvider, null, { default: () => [

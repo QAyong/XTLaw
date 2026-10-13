@@ -1,4 +1,5 @@
-import type { LocalBuddy } from '@buddy-shared/buddies/buddyApi'
+import type { BUDDY_AVATAR_PRESET_IDS, LocalBuddy } from '@buddy-shared/buddies/buddyApi'
+import { BUILTIN_BUDDY_ID } from '@buddy-shared/buddies/buddyApi'
 import actorChatGpt from '../assets/avatars/actor-chatgpt.webp'
 import actorClaude from '../assets/avatars/actor-claude.webp'
 import actorDeepSeek from '../assets/avatars/actor-deepseek.webp'
@@ -7,7 +8,7 @@ import npcLilac from '../assets/avatars/npc-lilac.webp'
 import npcSlate from '../assets/avatars/npc-slate.webp'
 
 export interface BuddyAvatarPreset {
-  id: string
+  id: typeof BUDDY_AVATAR_PRESET_IDS[number]
   kind: LocalBuddy['kind']
   label: 'avatarXiaoxiao' | 'avatarClaude' | 'avatarDeepSeek' | 'avatarChatGpt' | 'avatarNpcSlate' | 'avatarNpcLilac'
   src: string
@@ -21,6 +22,22 @@ export const BUDDY_AVATAR_PRESETS: readonly BuddyAvatarPreset[] = [
   { id: 'npc-slate', kind: 'npc', label: 'avatarNpcSlate', src: npcSlate },
   { id: 'npc-lilac', kind: 'npc', label: 'avatarNpcLilac', src: npcLilac },
 ]
+
+export const DEFAULT_ACTOR_AVATAR = BRAND_ASSET_URLS.chatAvatar
+
+export function buddyPresetAvatar(id: BuddyAvatarPreset['id']) {
+  return `preset:${id}` as const
+}
+
+export function resolveBuddyAvatar(source: string) {
+  return BUDDY_AVATAR_PRESETS.find(preset => buddyPresetAvatar(preset.id) === source)?.src ?? source
+}
+
+export function defaultBuddyAvatar(kind: LocalBuddy['kind'], buddyId?: string) {
+  if (buddyId === BUILTIN_BUDDY_ID || (kind === 'npc' && buddyId))
+    return null
+  return buddyPresetAvatar(buddyAvatarPresets(kind)[0]!.id)
+}
 
 export function buddyAvatarPresets(kind: LocalBuddy['kind']) {
   return BUDDY_AVATAR_PRESETS.filter(preset => preset.kind === kind)

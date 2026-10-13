@@ -3,7 +3,7 @@ import type { GlobalThemeOverrides } from 'naive-ui'
 import { NTab, NTabs } from 'naive-ui'
 
 const props = defineProps<{
-  options: readonly { label: string, value: T }[]
+  options: readonly { label: string, value: T, disabled?: boolean }[]
   disabled?: boolean
 }>()
 const value = defineModel<T>({ required: true })
@@ -22,7 +22,7 @@ const themeOverrides: GlobalThemeOverrides['Tabs'] = {
 
 function select(next: string | number) {
   const option = props.options.find(option => option.value === next)
-  if (!props.disabled && option && option.value !== value.value)
+  if (!props.disabled && option && !option.disabled && option.value !== value.value)
     value.value = option.value
 }
 </script>
@@ -42,11 +42,11 @@ function select(next: string | number) {
       v-for="option in options"
       :key="option.value"
       :name="option.value"
-      :disabled="disabled"
+      :disabled="disabled || option.disabled"
       role="button"
-      :tabindex="disabled ? -1 : 0"
+      :tabindex="disabled || option.disabled ? -1 : 0"
       :aria-pressed="value === option.value"
-      :aria-disabled="disabled || undefined"
+      :aria-disabled="disabled || option.disabled || undefined"
       @keydown.enter.prevent="select(option.value)"
       @keydown.space.prevent="select(option.value)"
     >

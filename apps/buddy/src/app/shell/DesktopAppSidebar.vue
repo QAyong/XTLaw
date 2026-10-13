@@ -60,7 +60,7 @@ function openNotification(notification: DesktopNotification) {
     <WorkbenchMountPoint target="app.sidebar">
       <header class="flex flex-none items-center justify-between gap-[0.65rem] border-b-1 border-b-solid border-b-border py-0 px-3 h-region-header">
         <div class="flex min-w-0 items-baseline gap-2">
-          <strong class="truncate text-strong text-sidebar-header [font-weight:var(--buddy-sidebar-header-font-weight)]">Lexora Buddy</strong>
+          <strong class="truncate text-strong text-sidebar-header [font-weight:var(--buddy-sidebar-header-font-weight)]">Lexora</strong>
           <span class="flex-none truncate text-muted text-[11px]">{{ versionLabel }}</span>
         </div>
       </header>

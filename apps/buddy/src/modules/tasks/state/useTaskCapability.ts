@@ -10,6 +10,7 @@ import type { ModelProvidersStore } from '@/modules/models'
 import type { ApplicationSettings } from '@/modules/settings'
 import type { ChatBlockerKind } from '@/modules/tasks/model/status/typing'
 import type { RuntimeSupervisorStore } from '@/platform/runtime/useRuntimeSupervisorStore'
+import { DEFAULT_DESKTOP_CHAT_WELCOME_ITEMS } from '@buddy-electron/shared/desktopApi'
 import { getBuddyUserContentActorReferences } from '@buddy-shared/conversation/buddyUserContent'
 import { BUDDY_DEFAULT_PERMISSION_MODE } from '@buddy-shared/permissions/permissionMode'
 import { until } from '@vueuse/core'
@@ -82,6 +83,16 @@ export function useTaskCapability(options: UseTaskCapabilityOptions): TaskCapabi
   const { language } = applicationSettings
   const welcomePreference = computed(() => (
     applicationSettings.config.value?.desktop.chat.welcome ?? 'random'
+  ))
+  const welcomeItems = computed(() => (
+    applicationSettings.config.value?.desktop.chat.welcomeItems ?? [...DEFAULT_DESKTOP_CHAT_WELCOME_ITEMS]
+  ))
+  const welcomeEnabled = computed(() => applicationSettings.config.value?.desktop.chat.welcomeEnabled ?? true)
+  const welcomeGreetingEnabled = computed(() => (
+    applicationSettings.config.value?.desktop.chat.welcomeGreetingEnabled ?? true
+  ))
+  const welcomeCompanionEnabled = computed(() => (
+    applicationSettings.config.value?.desktop.chat.welcomeCompanionEnabled ?? true
   ))
   const { t } = useBuddyI18n(language)
   const taskMarks = options.index.index.marks
@@ -628,6 +639,10 @@ export function useTaskCapability(options: UseTaskCapabilityOptions): TaskCapabi
     language,
     session: chatWorkspaceSession,
     welcomePreference: readonly(welcomePreference),
+    welcomeItems: readonly(welcomeItems),
+    welcomeEnabled: readonly(welcomeEnabled),
+    welcomeGreetingEnabled: readonly(welcomeGreetingEnabled),
+    welcomeCompanionEnabled: readonly(welcomeCompanionEnabled),
     restoration: {
       state: workspacePersistence.restorationState,
       conflict: workspacePersistence.restorationConflict,

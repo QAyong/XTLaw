@@ -33,6 +33,7 @@ import WorkbenchSurfaceHost from '@/workbench/browser/surfaces/WorkbenchSurfaceH
 import { commandLabel } from '@/workbench/common/workbench'
 import { useDesktopPages } from '../router/useDesktopPages'
 import { useDesktopShellState } from '../shell/useDesktopShellState'
+import { resolveUserProfile } from '../shell/userProfile'
 import { desktopWorkbenchKey } from '../workbench/desktopWorkbenchContext'
 import { useDesktopKeybindings } from '../workbench/useDesktopKeybindings'
 import { useDesktopWorkbench } from '../workbench/useDesktopWorkbench'
@@ -265,11 +266,17 @@ const shellBindings: DesktopShellBindings = {
     return saved
   },
 }
+const userProfile = computed(() => resolveUserProfile(
+  stores.applicationSettings.config.value?.desktop.profile,
+  shell.appInfo.value,
+))
+
 useProvideDesktopUi({
   isDark: desktopTheme.isDark,
   chat: computed(() => stores.applicationSettings.config.value?.desktop.chat ?? DEFAULT_DESKTOP_CHAT_PREFERENCES),
   language: stores.applicationSettings.language,
   appSidebarCollapsed: shell.appSidebarCollapsed,
+  userName: computed(() => userProfile.value.userName),
 })
 useProvideTaskEnvironment({
   resources,

@@ -1,4 +1,4 @@
-import type { DesktopChatWelcomePreference, DesktopTaskPinnedItem, DesktopTaskSidebarSection } from '@buddy-electron/shared/desktopApi'
+import type { DesktopChatWelcomeItem, DesktopChatWelcomePreference, DesktopTaskPinnedItem, DesktopTaskSidebarSection } from '@buddy-electron/shared/desktopApi'
 import type { LocalChatApi } from '@buddy-electron/shared/localChatApi'
 import type { LocalChangeSetSummary } from '@buddy-shared/changes/changeApi'
 import type { LocalChatQueueItem } from '@buddy-shared/conversation/chatQueueApi'
@@ -226,6 +226,10 @@ export interface TaskChatWorkspace {
   language: State<BuddyLocale>
   session: TaskWorkspaceSession
   welcomePreference: State<DesktopChatWelcomePreference>
+  welcomeItems: State<DesktopChatWelcomeItem[]>
+  welcomeEnabled: State<boolean>
+  welcomeGreetingEnabled: State<boolean>
+  welcomeCompanionEnabled: State<boolean>
   status: TaskStatus
   transcript: TaskTranscript
 }

@@ -3,11 +3,12 @@ import type { Ref } from 'vue'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import { createInjectionState } from '@vueuse/core'
 
-interface DesktopUiContext {
+export interface DesktopUiContext {
   language: Readonly<Ref<BuddyLocale>>
   isDark: Readonly<Ref<boolean>>
   chat: Readonly<Ref<Readonly<DesktopChatPreferences>>>
   appSidebarCollapsed: Readonly<Ref<boolean>>
+  userName: Readonly<Ref<string>>
 }
 
 const [useProvideDesktopUi, injectDesktopUi] = createInjectionState(

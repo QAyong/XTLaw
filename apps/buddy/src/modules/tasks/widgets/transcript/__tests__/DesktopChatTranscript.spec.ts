@@ -1,7 +1,8 @@
-// @vitest-environment jsdom
 import type { LocalMessage } from '@buddy-shared/conversation/conversationApi'
+// @vitest-environment jsdom
 import type { PropType } from 'vue'
 import type { ChatOutlineItem } from '../../../model/transcript/chatOutline'
+import { DEFAULT_DESKTOP_CHAT_PREFERENCES } from '@buddy-electron/shared/desktopApi'
 import { deferred } from '@buddy-tests/deferred'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createApp, h, nextTick, shallowRef } from 'vue'
@@ -16,12 +17,8 @@ vi.mock('../BuddyChatMessageList.vue', async () => {
         outlineItems: { type: Array as PropType<readonly ChatOutlineItem[]>, default: () => [] },
         outlineLoading: Boolean,
       },
-      emits: ['prepareOutline'],
-      setup(props, { emit }) {
-        return () => h('div', [
-          h('button', { onClick: () => emit('prepareOutline') }, 'outline'),
-          h('output', { 'data-loading': String(props.outlineLoading) }, props.outlineItems.map(item => item.text).join('|')),
-        ])
+      setup(props) {
+        return () => h('output', { 'data-loading': String(props.outlineLoading) }, props.outlineItems.map(item => item.text).join('|'))
       },
     }),
   }
@@ -31,19 +28,6 @@ const cleanups: (() => void)[] = []
 afterEach(() => cleanups.splice(0).forEach(cleanup => cleanup()))
 
 describe('desktopChatTranscript outline inputs', () => {
-  it('prepares the full outline automatically with the current task loader', async () => {
-    const fixture = mountTranscript(async () => [message('old', 'old loader')])
-    await vi.waitFor(() => expect(fixture.output()).toBe('old loader'))
-    fixture.props.value = {
-      ...fixture.props.value,
-      conversationId: 'conversation-2',
-      activeBranchId: 'branch-2',
-      loadOutlineMessages: async () => [message('new', 'replacement loader', 'conversation-2')],
-    }
-
-    await vi.waitFor(() => expect(fixture.output()).toBe('replacement loader'))
-  })
-
   it('updates outline refs after task props change and ignores the old task response', async () => {
     const first = deferred<readonly LocalMessage[]>()
     const second = deferred<readonly LocalMessage[]>()
@@ -93,10 +77,11 @@ function mountTranscript(loadOutlineMessages: () => Promise<readonly LocalMessag
   const app = createApp({
     setup() {
       useProvideDesktopUi({
+        userName: shallowRef(''),
         language: shallowRef('zh-CN'),
         isDark: shallowRef(false),
         appSidebarCollapsed: shallowRef(false),
-        chat: shallowRef({ outlinePosition: 'top-right', pasteTextAsAttachment: true, permissionMode: 'policy_approval', welcome: 'random' }),
+        chat: shallowRef({ ...DEFAULT_DESKTOP_CHAT_PREFERENCES, permissionMode: 'policy_approval' }),
       })
       return () => h(DesktopChatTranscript, props.value)
     },
@@ -108,7 +93,6 @@ function mountTranscript(loadOutlineMessages: () => Promise<readonly LocalMessag
   })
   return {
     props,
-    prepare: () => root.querySelector<HTMLButtonElement>('button')!.click(),
     loading: () => root.querySelector('output')?.getAttribute('data-loading') === 'true',
     output: () => root.querySelector('output')?.textContent,
   }

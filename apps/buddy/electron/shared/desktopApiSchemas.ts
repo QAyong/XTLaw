@@ -10,10 +10,10 @@ import { themePreferenceSchema } from '../../shared/theme/themePreferences'
 import { typographyPreferencesSchema } from '../../shared/typography/typographyPreferences'
 import {
   DESKTOP_CHAT_OUTLINE_POSITIONS,
-  DESKTOP_CHAT_WELCOME_VARIANT_IDS,
   DESKTOP_PROFILE_AVATAR_MAX_DATA_URL_LENGTH,
   DESKTOP_TASK_SIDEBAR_SECTIONS,
 } from './desktopApi'
+import { DESKTOP_CHAT_WELCOME_MAX_ITEMS, DESKTOP_CHAT_WELCOME_MAX_LENGTH, DESKTOP_CHAT_WELCOME_VARIANT_IDS } from './desktopChatWelcome'
 import { isLexoraReleaseUrl } from './productLinks'
 
 const taskSidebarPinnedItemSchema = z.discriminatedUnion('kind', [
@@ -60,6 +60,18 @@ export const releasePageInputSchema = z.object({
   url: z.url().refine(isLexoraReleaseUrl),
 }).strict()
 
+export const desktopChatWelcomeItemSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('preset'), id: z.enum(DESKTOP_CHAT_WELCOME_VARIANT_IDS) }).strict(),
+  z.object({
+    kind: z.literal('custom'),
+    id: z.string().trim().min(1).max(64).refine(id => !['none', 'random', 'orchestrating', ...DESKTOP_CHAT_WELCOME_VARIANT_IDS].includes(id)),
+    text: z.string().trim().min(1).max(DESKTOP_CHAT_WELCOME_MAX_LENGTH),
+  }).strict(),
+])
+export const desktopChatWelcomeItemsSchema = z.array(desktopChatWelcomeItemSchema)
+  .max(DESKTOP_CHAT_WELCOME_MAX_ITEMS)
+  .refine(items => new Set(items.map(item => item.id)).size === items.length)
+
 export const lexoraConfigPatchSchema: z.ZodType<LexoraConfigPatch> = z.object({
   runtime: runtimePreferencesSchema.partial().optional(),
   browser: browserPreferencesSchema.partial().optional(),
@@ -70,7 +82,11 @@ export const lexoraConfigPatchSchema: z.ZodType<LexoraConfigPatch> = z.object({
       outlinePosition: z.enum(DESKTOP_CHAT_OUTLINE_POSITIONS).optional(),
       pasteTextAsAttachment: z.boolean().optional(),
       permissionMode: z.enum(BUDDY_PERMISSION_MODES).optional(),
-      welcome: z.enum(['none', 'random', ...DESKTOP_CHAT_WELCOME_VARIANT_IDS]).optional(),
+      welcome: z.string().trim().min(1).max(64).optional(),
+      welcomeItems: desktopChatWelcomeItemsSchema.optional(),
+      welcomeEnabled: z.boolean().optional(),
+      welcomeGreetingEnabled: z.boolean().optional(),
+      welcomeCompanionEnabled: z.boolean().optional(),
     }).strict().optional(),
     contextPanelMode: z.enum(['task', 'space', 'independent']).optional(),
     contextPanelGlobal: z.boolean().optional(),

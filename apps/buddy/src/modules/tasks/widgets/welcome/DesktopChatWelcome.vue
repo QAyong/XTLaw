@@ -1,80 +1,67 @@
 <script setup lang="ts">
+import type { DesktopChatWelcomeItem } from '@buddy-electron/shared/desktopApi'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
-import type { DesktopChatWelcomeVariant } from '@/shared/branding/welcome/desktopChatWelcomeVariants'
 import { computed, shallowRef } from 'vue'
-import { useBuddyI18n } from '@/i18n/buddyI18n'
+import { resolveDesktopChatWelcomeText } from '@/shared/branding/welcome/desktopChatWelcomeVariants'
+import { useWelcomeGreeting } from '@/shared/branding/welcome/useWelcomeGreeting'
 import { useDesktopTheme } from '@/theme/useDesktopTheme'
-import DesktopChatWelcomeDecoration from './DesktopChatWelcomeDecoration.vue'
 
 const props = defineProps<{
+  greetingEnabled: boolean
   language: BuddyLocale
-  variant: DesktopChatWelcomeVariant | null
+  variant: DesktopChatWelcomeItem | null
 }>()
 
-const { t } = useBuddyI18n(() => props.language)
 const { resolved } = useDesktopTheme()
 const failedImage = shallowRef<string | null>(null)
 const welcome = computed(() => resolved.value.document.welcome)
 const custom = computed(() => welcome.value !== undefined)
+const greeting = useWelcomeGreeting(() => props.language, () => props.greetingEnabled)
 const heading = computed(() => custom.value
   ? welcome.value?.text?.[props.language] ?? ''
-  : props.variant ? t(props.variant.titleKey) : '')
+  : resolveDesktopChatWelcomeText(props.variant, props.language))
 const illustration = computed(() => {
   const image = welcome.value?.image
-  const url = custom.value
-    ? image ? resolved.value.assets[image] : null
-    : props.variant?.illustrationUrl
+  const url = image ? resolved.value.assets[image] : null
   return url && url !== failedImage.value ? url : null
 })
 </script>
 
 <template>
-  <section v-if="heading || illustration" class="desktop-chat-welcome grid w-[min(calc(100%_-_2.5rem),_44rem)] gap-[0.55rem] my-0 mx-auto text-center" :data-variant="custom ? 'theme' : variant?.id">
+  <section v-if="greeting || heading || illustration" class="desktop-chat-welcome grid w-[min(calc(100%_-_2.5rem),_44rem)] gap-[0.25rem] my-0 mx-auto text-center" :data-variant="custom ? 'theme' : variant?.id">
     <img
       v-if="illustration"
-      class="desktop-chat-welcome__illustration w-[clamp(5rem,_min(26cqh,_54cqw),_16rem)] max-w-full mb-[var(--desktop-chat-welcome-illustration-offset-bottom)] select-none"
+      class="desktop-chat-welcome__illustration w-[clamp(4rem,_min(20cqh,_40cqw),_12rem)] max-w-full mb-2 select-none"
       :src="illustration"
       alt=""
       draggable="false"
       @error="failedImage = illustration"
     >
+    <div v-if="greeting" class="desktop-chat-welcome__greeting">
+      <span>{{ greeting }}</span>
+    </div>
     <div
       v-if="heading"
       class="desktop-chat-welcome__heading relative max-w-[calc(100%_-_2.5rem)]"
-      :data-decoration="custom ? undefined : variant?.decoration"
     >
       <h1>{{ heading }}</h1>
-      <DesktopChatWelcomeDecoration v-if="!custom && variant" :type="variant.decoration" />
     </div>
   </section>
 </template>
 
 <style scoped lang="scss">
 .desktop-chat-welcome {
-  --desktop-chat-welcome-illustration-offset-x: 0%;
-  --desktop-chat-welcome-illustration-offset-bottom: 0rem;
   justify-items: center;
 }
 
-.desktop-chat-welcome[data-variant='orchestrating'] {
-  --desktop-chat-welcome-illustration-offset-x: -3.7%;
-  --desktop-chat-welcome-illustration-offset-bottom: -1.4rem;
-}
-
-.desktop-chat-welcome[data-variant='planning'] {
-  --desktop-chat-welcome-illustration-offset-x: 1%;
-  --desktop-chat-welcome-illustration-offset-bottom: -2.2rem;
-}
-
-.desktop-chat-welcome[data-variant='writing'] {
-  --desktop-chat-welcome-illustration-offset-x: -2.3%;
-  --desktop-chat-welcome-illustration-offset-bottom: -1rem;
-}
-
-.desktop-chat-welcome__illustration {
-  aspect-ratio: 1;
-  object-fit: contain;
-  transform: translateX(var(--desktop-chat-welcome-illustration-offset-x));
+.desktop-chat-welcome__greeting {
+  color: var(--buddy-text-secondary);
+  font-family: var(--buddy-font-ui);
+  font-size: 0.92rem;
+  font-weight: 400;
+  line-height: 1.45;
+  letter-spacing: 0.01em;
+  margin-bottom: 0.35rem;
 }
 
 .desktop-chat-welcome__heading {
@@ -84,48 +71,28 @@ const illustration = computed(() => {
   h1 {
     margin: 0;
     color: var(--buddy-text-strong);
-    font-family: "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", STSong, SimSun, serif;
-    font-size: clamp(1.15rem, 4cqw, 2.15rem);
-    font-weight: 600;
-    letter-spacing: 0.01em;
-    line-height: 1.3;
+    font-family: var(--buddy-font-ui);
+    font-size: clamp(1.4rem, 2.8cqw, 1.85rem);
+    font-weight: 500;
+    letter-spacing: 0;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
     text-rendering: optimizelegibility;
   }
 }
 
 @container task-pane (max-height: 620px) {
-  .desktop-chat-welcome {
-    gap: 0.35rem;
-  }
-
-  .desktop-chat-welcome[data-variant='orchestrating'] {
-    --desktop-chat-welcome-illustration-offset-bottom: -1rem;
-  }
-
-  .desktop-chat-welcome[data-variant='planning'] {
-    --desktop-chat-welcome-illustration-offset-bottom: -1.6rem;
-  }
-
-  .desktop-chat-welcome[data-variant='writing'] {
-    --desktop-chat-welcome-illustration-offset-bottom: -0.75rem;
-  }
-
-  .desktop-chat-welcome__illustration {
-    width: min(13rem, 60cqh);
+  .desktop-chat-welcome__greeting {
+    font-size: 0.85rem;
+    margin-bottom: 0.25rem;
   }
 
   .desktop-chat-welcome__heading h1 {
-    font-size: clamp(1.15rem, 4cqw, 1.6rem);
+    font-size: clamp(1.15rem, 2.5cqw, 1.45rem);
   }
 }
 
-@container welcome-region (max-height: 120px) {
-  .desktop-chat-welcome__illustration {
-    display: none;
-  }
-}
-
-@container welcome-region (max-height: 64px) {
+@container task-pane (max-height: 340px) {
   .desktop-chat-welcome {
     display: none;
   }

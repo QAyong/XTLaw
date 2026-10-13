@@ -86,6 +86,7 @@ describe('lexoraConfigStore', () => {
       outlinePosition: 'center-left',
       pasteTextAsAttachment: false,
       welcome: 'none',
+      welcomeEnabled: false,
     })
     const saved = await readFile(configPath, 'utf8')
     expect(saved).toContain('paste_text_as_attachment = false')
@@ -256,6 +257,86 @@ describe('lexoraConfigStore', () => {
     expect(content).toContain('future = true')
     expect((await stat(configPath)).mode & 0o777).toBe(0o600)
     expect(await readdir(dirname(configPath))).toEqual(['config.toml'])
+  })
+
+  it('preserves welcome content and selection across concurrent partial writes and restart', async () => {
+    const { configPath, store } = await createConfigStore()
+    const initial = await store.read()
+    expect(initial.desktop.chat.welcomeItems).toEqual(DEFAULT_DESKTOP_CHAT_PREFERENCES.welcomeItems)
+
+    const updated = await store.update({
+      desktop: {
+        chat: {
+          welcome: 'custom-123',
+          welcomeItems: [
+            ...initial.desktop.chat.welcomeItems,
+            { kind: 'custom', id: 'custom-123', text: '新的一天，尽情创造' },
+          ],
+        },
+      },
+    })
+    const reloadedConfig = await new LexoraConfigStore({ configPath }).read()
+    expect(reloadedConfig.desktop.chat).toEqual(updated.desktop.chat)
+
+    const concurrent1 = store.update({
+      desktop: {
+        chat: {
+          welcomeItems: [
+            ...reloadedConfig.desktop.chat.welcomeItems,
+            { kind: 'custom', id: 'custom-456', text: '第二条自定义' },
+          ],
+        },
+      },
+    })
+    const concurrent2 = store.update({
+      desktop: {
+        chat: {
+          welcome: 'custom-456',
+        },
+      },
+    })
+    await Promise.all([concurrent1, concurrent2])
+    const finalConfig = await (new LexoraConfigStore({ configPath })).read()
+    expect(finalConfig.desktop.chat.welcome).toBe('custom-456')
+    expect(finalConfig.desktop.chat.welcomeItems).toEqual([
+      ...initial.desktop.chat.welcomeItems,
+      { kind: 'custom', id: 'custom-123', text: '新的一天，尽情创造' },
+      { kind: 'custom', id: 'custom-456', text: '第二条自定义' },
+    ])
+  })
+
+  it('migrates stored welcome text, preserves disabled preferences and does not restore deleted messages', async () => {
+    const { configPath, store } = await createConfigStore()
+    await mkdir(dirname(configPath), { recursive: true })
+    await writeFile(configPath, `
+[desktop.chat]
+welcome = "custom-kept"
+[[desktop.chat.welcome_items]]
+id = "writing"
+text = "今天想一起完成什么？"
+[[desktop.chat.welcome_items]]
+id = "custom-kept"
+text = "保留我的内容"
+`)
+    const loaded = await store.read()
+    expect(loaded.desktop.chat.welcomeItems).toEqual([
+      { kind: 'preset', id: 'writing' },
+      { kind: 'custom', id: 'custom-kept', text: '保留我的内容' },
+    ])
+    const disabled = await store.update({ desktop: { chat: { welcomeEnabled: false } } })
+    expect(disabled.desktop.chat).toMatchObject({ welcomeEnabled: false, welcome: 'custom-kept', welcomeItems: loaded.desktop.chat.welcomeItems })
+    const restarted = new LexoraConfigStore({ configPath })
+    expect((await restarted.read()).desktop.chat).toEqual(disabled.desktop.chat)
+    await restarted.update({ desktop: { chat: { welcome: 'writing' } } })
+    const remaining = [{ kind: 'custom' as const, id: 'custom-kept', text: '保留我的内容' }]
+    const deleted = await restarted.update({ desktop: { chat: { welcomeItems: remaining } } })
+    expect(deleted.desktop.chat).toMatchObject({ welcome: 'random', welcomeEnabled: false, welcomeItems: remaining })
+    expect((await store.read()).desktop.chat).toEqual(deleted.desktop.chat)
+    const empty = await store.update({ desktop: { chat: { welcomeItems: [] } } })
+    expect(empty.desktop.chat).toMatchObject({ welcome: 'none', welcomeEnabled: false, welcomeItems: [] })
+    expect((await restarted.read()).desktop.chat.welcomeItems).toEqual([])
+    await store.update({ desktop: { chat: { welcomeEnabled: true } } })
+    expect((await restarted.read()).desktop.chat).toMatchObject({ welcomeEnabled: true, welcome: 'none', welcomeItems: [] })
   })
 
   it('rejects malformed TOML with a stable configuration error', async () => {

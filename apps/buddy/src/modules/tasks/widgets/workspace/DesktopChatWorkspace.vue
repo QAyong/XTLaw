@@ -6,6 +6,7 @@ import { readBuddyUserMessageContent } from '@buddy-shared/conversation/buddyUse
 import { computed, defineAsyncComponent, nextTick, shallowRef, useTemplateRef, watch } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import DesktopRuntimePane from '@/platform/runtime/DesktopRuntimePane.vue'
+import peekingIllustrationUrl from '@/shared/branding/welcome/assets/peeking.png'
 import WorkbenchSlot from '@/shared/ui/contributions/WorkbenchSlot.vue'
 import { useThemeMaterial } from '@/theme/useThemeMaterial'
 import { useConversationNodeDetail } from '../../state/conversations/useConversationNodeDetail'
@@ -109,6 +110,10 @@ async function openModelSelector() {
 const quoteContextKey = computed(() => [props.workspace.session.activeConversationId.value, props.workspace.session.activeBranchId.value, props.workspace.composer.editorKey.value].join(':'))
 const quoteOwnerKey = computed(() => [quoteContextKey.value, props.viewMode, nodeDetail.visible.value, nodeDetail.target.value?.kind === 'question' ? nodeDetail.target.value.messageId : nodeDetail.target.value?.runId].join(':'))
 const quoteDisabled = computed(() => isLoading.value || props.workspace.execution.isSending.value || props.workspace.execution.isMutatingBranch.value)
+const hasNotice = computed(() => (
+  !!props.workspace.status.visibleChatBlocker.value
+  || !!props.workspace.status.runtimeError.value
+))
 const quoteNavigation = useChatQuoteNavigation({
   root: pageRef,
   ownerKey: quoteContextKey,
@@ -205,10 +210,11 @@ function openDetailChanges(id: string) {
           @edit-node="editNode"
           @open-node-artifact="nodeDetail.close(); emit('openNodeArtifact', $event)"
         />
-        <WorkbenchSlot v-if="viewMode !== 'canvas' && isEmpty && !isLoading" target="task.welcome">
+        <WorkbenchSlot v-if="viewMode !== 'canvas' && isEmpty && !isLoading && workspace.welcomeEnabled.value" target="task.welcome">
           <DesktopChatWelcome
             :language="language"
             :variant="welcomeVariant"
+            :greeting-enabled="workspace.welcomeGreetingEnabled.value"
           />
         </WorkbenchSlot>
 
@@ -265,18 +271,27 @@ function openDetailChanges(id: string) {
               {{ t('desktop.canvas.cancelFollowup') }}
             </button>
           </div>
-          <DesktopTaskComposer
-            ref="composerRef"
-            :composer="workspace.composer"
-            :skill-scope-id="workspace.session.spaceId.value"
-            :focus-ready="active && composerVisible && !isLoading && workspace.status.runtimeState.value.status === 'ready'"
-            :execution="workspace.execution"
-            :language="language"
-          >
-            <template #leadingContext>
-              <slot name="composerLeadingContext" />
-            </template>
-          </DesktopTaskComposer>
+          <div class="desktop-chat-page__composer-wrapper relative w-full min-w-0">
+            <img
+              v-if="isEmpty && workspace.welcomeEnabled.value && workspace.welcomeCompanionEnabled.value && !hasNotice"
+              class="desktop-chat-companion-peeking pointer-events-none select-none relative block ml-auto mr-[1.5rem] -mb-[0.7rem] w-[5.25rem] h-[5.25rem] z-3 object-contain"
+              :src="peekingIllustrationUrl"
+              alt=""
+              draggable="false"
+            >
+            <DesktopTaskComposer
+              ref="composerRef"
+              :composer="workspace.composer"
+              :skill-scope-id="workspace.session.spaceId.value"
+              :focus-ready="active && composerVisible && !isLoading && workspace.status.runtimeState.value.status === 'ready'"
+              :execution="workspace.execution"
+              :language="language"
+            >
+              <template #leadingContext>
+                <slot name="composerLeadingContext" />
+              </template>
+            </DesktopTaskComposer>
+          </div>
         </div>
       </footer>
       <ChatSelectionQuoteMenu
@@ -305,18 +320,23 @@ function openDetailChanges(id: string) {
 }
 
 .desktop-chat-page.is-empty {
-  display: grid;
-  grid-template-rows: auto auto;
-  align-content: center;
-  padding-block: 1.5rem 3.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 1.5rem 0 4.5rem;
+  box-sizing: border-box;
 
   .desktop-chat-page__content {
     flex: none;
+    width: 100%;
     overflow: visible;
   }
 
   .desktop-chat-page__composer-dock {
-    padding-top: 1.75rem;
+    flex: none;
+    width: 100%;
+    padding-top: 1.25rem;
     padding-bottom: 0;
   }
 }
@@ -348,18 +368,14 @@ function openDetailChanges(id: string) {
 
 @container task-pane (max-height: 620px) {
   .desktop-chat-page.is-empty {
-    grid-template-rows: minmax(0, 1fr) auto;
-    padding-block: 1rem;
-
-    .desktop-chat-page__content {
-      justify-content: center;
-      overflow: hidden;
-      container: welcome-region / size;
-    }
+    padding-bottom: 2rem;
 
     .desktop-chat-page__composer-dock {
-      padding-top: 0.75rem;
+      padding-top: 0.85rem;
     }
   }
+}
+.desktop-chat-page.is-empty .desktop-chat-page__composer-dock:has(.desktop-chat-companion-peeking) {
+  padding-top: 0.5rem;
 }
 </style>

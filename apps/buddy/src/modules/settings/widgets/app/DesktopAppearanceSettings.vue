@@ -1,45 +1,27 @@
 <script setup lang="ts">
-import type {
-  DesktopChatWelcomePreference,
-} from '@buddy-electron/shared/desktopApi'
 import type { ApplicationSettingsProps } from './typing'
 import { DESKTOP_CHAT_OUTLINE_POSITIONS } from '@buddy-electron/shared/desktopApi'
 import { NSelect, NSpin, useMessage } from 'naive-ui'
-import { computed, shallowRef } from 'vue'
+import { computed } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
-import DesktopWelcomePreferencePicker from '@/modules/settings/widgets/app/DesktopWelcomePreferencePicker.vue'
 import { useSettingMutation } from '../../state/useSettingMutation'
 import DesktopSettingRow from '../shared/DesktopSettingRow.vue'
 import DesktopSettingsGroup from '../shared/DesktopSettingsGroup.vue'
 import DesktopThemeSettings from './DesktopThemeSettings.vue'
 import DesktopTypographySettings from './DesktopTypographySettings.vue'
-
-type AppearanceSettingField = 'welcome' | 'outlinePosition'
+import DesktopWelcomeSettings from './DesktopWelcomeSettings.vue'
 
 const props = defineProps<ApplicationSettingsProps>()
-
 const { t } = useBuddyI18n(() => props.language)
 const message = useMessage()
-const { pending: pendingFields, save: updateSetting } = useSettingMutation<AppearanceSettingField>(
+const { pending, save } = useSettingMutation<'outlinePosition'>(
   patch => props.updateSettings(patch),
   () => message.error(t('desktop.settings.saveFailed')),
 )
-const pendingWelcomePreference = shallowRef<DesktopChatWelcomePreference | null>(null)
 const outlinePositionOptions = computed(() => DESKTOP_CHAT_OUTLINE_POSITIONS.map(position => ({
   label: t(`desktop.settings.outlinePosition.${position}`),
   value: position,
 })))
-const activeWelcomePreference = computed(() => (
-  pendingWelcomePreference.value
-  ?? props.config?.desktop.chat.welcome
-  ?? 'random'
-))
-
-async function updateWelcomePreference(preference: DesktopChatWelcomePreference) {
-  pendingWelcomePreference.value = preference
-  await updateSetting('welcome', { desktop: { chat: { welcome: preference } } })
-  pendingWelcomePreference.value = null
-}
 </script>
 
 <template>
@@ -58,24 +40,14 @@ async function updateWelcomePreference(preference: DesktopChatWelcomePreference)
       <DesktopSettingsGroup>
         <DesktopSettingRow v-slot="{ controlAttrs }" :label="t('desktop.settings.outlinePosition')" :description="t('desktop.settings.outlinePositionDescription')">
           <NSelect
-            v-bind="controlAttrs"
-            :options="outlinePositionOptions"
-            :value="config.desktop.chat.outlinePosition"
-            :disabled="pendingFields.has('outlinePosition')"
-            @update:value="updateSetting('outlinePosition', { desktop: { chat: { outlinePosition: $event } } })"
+            v-bind="controlAttrs" :options="outlinePositionOptions" :value="config.desktop.chat.outlinePosition"
+            :disabled="pending.has('outlinePosition')"
+            @update:value="save('outlinePosition', { desktop: { chat: { outlinePosition: $event } } })"
           />
-          <NSpin v-if="pendingFields.has('outlinePosition')" size="small" />
-        </DesktopSettingRow>
-        <DesktopSettingRow :label="t('desktop.settings.welcome')">
-          <DesktopWelcomePreferencePicker
-            :language="language"
-            :pending="pendingFields.has('welcome')"
-            :value="activeWelcomePreference"
-            @select="updateWelcomePreference"
-          />
-          <NSpin v-if="pendingFields.has('welcome')" size="small" />
+          <NSpin v-if="pending.has('outlinePosition')" size="small" />
         </DesktopSettingRow>
       </DesktopSettingsGroup>
     </section>
+    <DesktopWelcomeSettings v-bind="props" />
   </section>
 </template>

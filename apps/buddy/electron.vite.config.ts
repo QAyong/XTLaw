@@ -88,6 +88,7 @@ export default defineConfig({
       },
     },
     server: {
+      watch: { ignored: ['**/.output/**'] },
       port: 1420,
       strictPort: true,
     },

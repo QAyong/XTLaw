@@ -1,4 +1,6 @@
+import type { BuddyUserContentV1 } from '@buddy-shared/conversation/buddyUserContent'
 import type { LocalConversation } from '@buddy-shared/conversation/conversationApi'
+import type { ExecutionTarget } from '@buddy-shared/executions/executionPresentationApi'
 import type { LocalRuntimeModelOption } from '@buddy-shared/providers/providerApi'
 import type { LocalRun } from '@buddy-shared/runs/runApi'
 import { browserQuote } from '@buddy-shared/browser/__tests__/browserSelectionFixture'
@@ -183,6 +185,55 @@ describe('turn submission conflicts', () => {
   })
 })
 
+describe('addressed role input', () => {
+  function prepare() {
+    const f = createFixture()
+    f.selectedModel.value = { modelId: 'model-a', providerId: 'provider-a' } as LocalRuntimeModelOption
+    f.actorInput.target.value = { conversationId: 'conversation-a', branchId: 'branch-a', rootRunId: 'run-a', runId: 'partner-run' }
+    const content: BuddyUserContentV1 = { ...createBuddyUserContent(), body: [{ type: 'paragraph', content: [{ type: 'actor_ref', actorId: 'partner', name: 'Partner' }, { type: 'text', text: ' Continue this work' }] }] }
+    f.drafts.setUserContent(content)
+    const key = 'conversation:conversation-a:branch-a'
+    const snapshot = f.drafts.snapshot(key)
+    f.drafts.confirmOpen(snapshot, {
+      content,
+      draftId: snapshot.draftId,
+      executionConfig: { approvalPolicy: snapshot.approvalPolicy, executionProfile: snapshot.executionProfile },
+      modelSelection: null,
+      revision: 1,
+      scope: { kind: 'conversation_branch', conversationId: 'conversation-a', branchId: 'branch-a' },
+      updatedAt: '2026-10-13T00:00:00.000Z',
+    })
+    return { ...f, key, snapshot, content }
+  }
+
+  it.each([true, false])('automatically submits the same addressed draft when the role ends while sending, root active: %s', async (active) => {
+    const f = prepare()
+    if (!active)
+      f.projectedRuns.value = []
+    f.api.executions.sendDraft.mockResolvedValue(null)
+    const result = { id: 'queued', conversationId: 'conversation-a', branchId: 'branch-a', run: { ...f.run, id: 'next-run', buddyId: 'partner' }, draftReceipt: { draftId: f.snapshot.draftId, sourceRevision: 1, committedRevision: 2 } }
+    const destination = active ? f.api.chat.enqueue : f.api.chat.startTurn
+    destination.mockImplementation(async () => {
+      expect(f.drafts.snapshot(f.key).content).toEqual(f.content)
+      return result
+    })
+    expect(await f.execution.send({ content: '@Partner Continue this work', userContent: f.content })).toBe(true)
+    expect(destination.mock.calls).toEqual([[expect.objectContaining({ draftId: f.snapshot.draftId, expectedRevision: 1 })]])
+    expect(f.drafts.draft.value).toBe('')
+    expect(f.error.value).toBeNull()
+  })
+
+  it('preserves the addressed draft without starting another turn when delivery acknowledgement is uncertain', async () => {
+    const f = prepare()
+    f.api.executions.sendDraft.mockRejectedValue(new Error('Connection lost'))
+    expect(await f.execution.send({ content: '@Partner Continue this work', userContent: f.content })).toBe(false)
+    expect(f.drafts.snapshot(f.key).content).toEqual(f.content)
+    expect(f.api.chat.enqueue.mock.calls).toEqual([])
+    expect(f.api.chat.startTurn.mock.calls).toEqual([])
+    expect(f.error.value).toBeTruthy()
+  })
+})
+
 function createFixture() {
   const scope = effectScope()
   scopes.push(scope)
@@ -213,10 +264,12 @@ function createFixture() {
     const error = shallowRef<string | null>(null)
     const pending = deferred<LocalRun>()
     const composerTarget = useComposerTarget({ drafts, conversationId: session.activeConversationId, branchId: session.activeBranchId, persist: async () => true })
-    const api = { chat: { listQueue: async () => [], enqueue: vi.fn(), cancelQueued: vi.fn(), steerQueued: vi.fn(), cancel: vi.fn(() => pending.promise), executeCommand: vi.fn(), startTurn: vi.fn() } }
+    const actorInput = { target: shallowRef<ExecutionTarget | null>(null) }
+    const api = { executions: { sendDraft: vi.fn() }, chat: { listQueue: async () => [], enqueue: vi.fn(), cancelQueued: vi.fn(), steerQueued: vi.fn(), cancel: vi.fn(() => pending.promise), executeCommand: vi.fn(), startTurn: vi.fn() } }
     const presentation = { cancelRunPresentation: vi.fn(), restoreRunPresentation: vi.fn() }
     const selectedModel = shallowRef<LocalRuntimeModelOption | null>(null)
     const execution = useChatTurnExecution({
+      actorInput,
       composerTarget,
       activeRun: computed(() => projectedRuns.value.find(item => item.status === 'running') ?? null),
       api,
@@ -263,7 +316,7 @@ function createFixture() {
       drafts.updateComposerContent('current view input', null)
       error.value = 'current view status'
     }
-    return { api, drafts, error, execution, navigate, pending, presentation, projectedRuns, run, scope, selectedModel }
+    return { actorInput, api, drafts, error, execution, navigate, pending, presentation, projectedRuns, run, scope, selectedModel }
   })!
 }
 

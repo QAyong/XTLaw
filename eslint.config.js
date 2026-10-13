@@ -9,7 +9,7 @@ export default antfu({
 }, {
   ignores: [
     '**/.output/**',
-    'apps/buddy/native/target/**',
+    '**/native/target/**',
     '**/native-pet/target/**',
   ],
 }, {
@@ -23,6 +23,11 @@ export default antfu({
   },
   rules: {
     'buddy/dependency-boundaries': 'error',
+  },
+}, {
+  files: ['**/*.{js,mjs,cjs,jsx}'],
+  rules: {
+    'unused-imports/no-unused-vars': 'off',
   },
 }, {
   files: ['apps/api/src/**/*.ts'],

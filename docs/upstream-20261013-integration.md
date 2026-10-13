@@ -1,13 +1,13 @@
-# 2026-10-13 上游集成：第 1 批伙伴主体
+# 2026-10-13 上游集成：第 1–2 批
 
 ## 范围与状态
 
-- 预评估区间：`df0f9369..a270927d`，16 个上游提交；本批只移植 `d3caa74554de99996868ea1a753ebadc4a69d39f`。
+- 预评估区间：`df0f9369..a270927d`，16 个上游提交；第 1 批移植 `d3caa74554de99996868ea1a753ebadc4a69d39f`，第 2 批移植 `ed95b426`、`082fea3c`、`5cc3f108`、`8b79995a`。
 - 工作分支：`codex/upstream-20261013`；本地原基线为 `065b1b48`，已知失败基线记录提交为 `51823089`。
-- 本批代码、检查和移植提交已完成；未合并到 `master`、未推送、未打包。
-- 第 2–4 批尚未开始，待用户确认；上游后续修复不混入本批。
+- 第 1–2 批代码、检查和移植提交已完成；未合并到 `master`、未推送、未打包。
+- 第 3–4 批尚未开始，待用户确认；没有把新上游区间或后续批次混入本轮。
 
-## 已完成的本地接入
+## 第 1 批：已完成的本地接入
 
 - 接入伙伴资料管理、多角色执行、子智能体委派、执行详情和受监督 shell；保留本地 Office、浏览器、选区引用、任务布局及应用/数据目录隔离。
 - 保留本地 v23/v24 顺序，v26 接在 v25 后；新建默认伙伴及恢复默认资料均为“晓晓”。默认头像与头像预设使用本地晓晓图，不包含上游 `actor-lexora.webp`。
@@ -20,7 +20,7 @@
 - 保留本地系统提示词品牌和权限约定，按伙伴可用工具生成相关段落。
 - 修正新增测试写死 POSIX 路径及 `bash` 的平台假设，以及本地 Skill 版本字段的差异。
 
-## 验证
+## 第 1 批：验证
 
 - 类型检查：`pnpm --filter @uselexora/lexora-buddy type-check` 通过。
 - Windows 原生编译：`cargo check --locked --manifest-path apps/buddy/native/host/Cargo.toml --target-dir apps/buddy/.output/build/native --lib --bin lexora-buddy-process-control` 通过。
@@ -45,9 +45,42 @@
 - 会话原模型设置全部迁入 `conversation_members`，21 条排队消息正确增加默认伙伴路由；默认伙伴名称为“晓晓”。
 - 临时副本与核对记录保留在 `apps/buddy/.output/upstream-v26-database-20261013/`，不纳入 Git。
 
+## 第 2 批：伙伴后续修复（2026-10-14）
+
+按既定上游顺序逐条移植，每条保持一个本地提交与来源行。没有重新拉取并扩大上游范围。
+
+| 上游提交 | 本地提交 | 内容及本地处理 |
+| --- | --- | --- |
+| `ed95b426` | `cc25c2ec` | 模型服务元数据同步与 v27，干净应用；保留本地 v23/v24 顺序。优先识别服务声明的名称、输入类型、思考档位及上下文/输出额度，保留手工覆盖。 |
+| `082fea3c` | `7b2e9793` | 回同步我们会话引用 PR 的上游最终版。保留本地已完成的数字偏移接口、会话级授权及引用链；采用数据库直接定位消息的查询、剩余扫描额度限制，保留上游新用例。处理 3 个冲突文件。 |
+| `5cc3f108` | `0c89635e` | 子智能体调度、报告/结果分页读取、结果交接和已交付消息去重。唯一冲突是测试导入，保留第一批 Windows 路径适配并加入 SessionManager。 |
+| `8b79995a` | 本记录所在提交 | 沙盒本地通信；network.rs 的唯一冲突保留 XTLaw 名称，采用新 loopback 规则。沙盒 profile、过滤器 GUID、安装目录和数据目录保持 XTLaw 独立。 |
+
+### 沙盒边界变化
+
+- Windows：允许沙盒连接/监听本机 loopback TCP，包括宿主服务；其他网络目标仍按代理授权执行。
+- Linux：新增可用性探测及私有 Unix socket/loopback 通信隔离，宿主服务和其他网络目标仍需代理授权；不支持新能力时沿用上游兼容路径。
+- 同步本地系统提示词，明确 Windows loopback 的例外，避免旧的“host IPC 全部不可用”文案与实际新边界矛盾。文件授权、敏感目录隔离和禁止自动退回宿主执行的约定保持不变。
+- 仅 Rust 清单/锁文件变化，没有 pnpm 清单或锁文件变化，未重新安装 JavaScript 依赖。
+
+### 第 2 批验证
+
+- 最终类型检查：`pnpm --filter @uselexora/lexora-buddy type-check` 通过。
+- 相关测试：25 个文件、225 个用例，**207 通过、0 失败、18 跳过**。覆盖模型同步、旧迁移、深层会话翻页与授权、子智能体调度/结果、沙盒命令及依赖解析；未跑全量测试。
+- 提示词检查：另按名称筛选 `sandboxPermissions.spec.ts` 的 Linux/Windows/macOS 三个平台边界用例，3 个通过；其余用例未选入本次范围。
+- Windows 原生代码：`cargo check --locked --manifest-path apps/buddy/native/host/Cargo.toml --target-dir apps/buddy/.output/build/native --lib --bin lexora-buddy-process-control --bin lexora-buddy-sandbox` 通过。
+- 原生隔离检查：`cargo test --locked --manifest-path apps/buddy/native/host/Cargo.toml --target-dir apps/buddy/.output/build/native --lib profiles_and_filter_keys_belong_only_to_xtlaw`，1 个通过。确认拒绝上游 profile 名称且 XTLaw 过滤器 GUID 与上游不同。
+- 从第一批已验证的 v26 真实旧库副本，再通过 SQLite backup 创建独立临时库；实际升级到 v27，**57 张表的原有字段逐行摘要全部一致**，新增模型服务元数据列初始为空，完整性检查 `ok`、外键无错误，重复打开正常，晓晓身份保留。原库和第一批副本均未执行这次升级。
+- 临时库及报告：`apps/buddy/.output/upstream-v27-database-20261014/verification.json`；测试结果：`apps/buddy/.output/upstream-batch2-test-results.json`。这些文件不纳入 Git。
+
+### 第 2 批未验证部分
+
+- 18 个跳过来自测试自身的平台/原生组件条件：依赖真实命名空间探测 1 个、会话资源重定向 1 个、真实 shell 进程归属 4 个、Linux 内核沙盒执行 12 个；没有为消除失败新增跳过条件。
+- 当前为 Windows 环境，未执行 Linux `sandbox-ipc-linux` 原生运行用例；未安装/替换系统中正在使用的 Windows 沙盒组件，也未执行新版组件的实际 loopback/外部网络授权验收。
+- 最小后续验收：准备新版隔离测试组件后，在 Windows 验证本机 TCP 服务可访问、其他网络仍经审批，过滤器清理正常；在 Linux 只运行 `sandbox-ipc-linux` 与对应 shellSandbox 原生用例，预期沙盒内部通信成功、宿主 socket 访问被隔离。
+
 ## 尚未移植及下一批
 
-- 第 2 批：`ed95b426` → `082fea3c` → `5cc3f108` → `8b79995a`。
 - 第 3 批：`5f5eba09` → `09e07b44`（只取头像集合及 v28，保留 XTLaw 品牌）。
 - 第 4 批：`4f959579` → `11161a78` → `9ab5f713`。
 - 插件兼容 `7e0e301f` 暂缓：依赖未取的主题系统，并与本地 Office 内置插件目录冲突。

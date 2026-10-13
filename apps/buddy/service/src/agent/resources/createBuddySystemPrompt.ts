@@ -56,6 +56,10 @@ function createExecutionProfilePrompt(
   const hasTool = (name: string) => activeToolNames?.includes(name) ?? true
   const hasShell = hasTool(shellTool)
   const shellName = shellTool === 'powershell' ? 'PowerShell' : 'bash'
+  const hostIpc = shellTool === 'powershell' ? 'host IPC other than loopback TCP' : 'host IPC'
+  const localNetwork = shellTool === 'powershell'
+    ? 'Loopback TCP connections and listeners, including host services, are allowed without separate network approval.'
+    : ''
   const inspection = [
     hasShell ? `Use Pi built-in tools, including ${shellName}, for general host inspection, diagnosis, and target discovery.` : '',
     hasTool('lexora_system_action') ? 'Use lexora_system_action for supported structured host state changes.' : '',
@@ -76,10 +80,11 @@ function createExecutionProfilePrompt(
       'Writing and deleting are blocked in this profile, and no approval can lift that; say plainly that the profile has to change before you can modify anything, and do not retry the call.',
       hasShell
         ? isolatedShell
-          ? `${shellName} commands run in an OS sandbox: authorized directories are read-only, credentials and host IPC are hidden, and only private temporary files may be written. Arbitrary command syntax is available for inspection; host execution cannot be enabled in this profile.`
+          ? `${shellName} commands run in an OS sandbox: authorized directories are read-only, credentials and ${hostIpc} are hidden, and only private temporary files may be written. Arbitrary command syntax is available for inspection; host execution cannot be enabled in this profile.`
           : `Only commands that are safe to run without confirmation are available through ${shellName}; use them for inspection and diagnosis.`
         : '',
-      'Network access and external tools remain separate approval boundaries; local read-only mode does not auto-approve them.',
+      hasShell && isolatedShell ? localNetwork : '',
+      'External network access and external tools remain separate approval boundaries; local read-only mode does not auto-approve them.',
     ].filter(Boolean).join('\n')
   }
   return [
@@ -87,9 +92,10 @@ function createExecutionProfilePrompt(
     'Pi built-in tools keep their native names; Lexora-owned tools use lexora_ prefixed names.',
     hasShell
       ? isolatedShell
-        ? `${shellName} runs in an OS sandbox. It can read authorized directories and installed toolchains, and modify authorized directories except protected locations. Credentials, host IPC and root repository Git metadata writes are unavailable. The harness requests network authorization when the destination is not covered by the user's current turn grants. Isolated execution is never silently retried on the host.`
+        ? `${shellName} runs in an OS sandbox. It can read authorized directories and installed toolchains, and modify authorized directories except protected locations. Credentials, ${hostIpc} and root repository Git metadata writes are unavailable. The harness requests external network authorization when the destination is not covered by the user's current turn grants. Isolated execution is never silently retried on the host.`
         : 'Host tools run with the XTLaw service user\'s operating-system permissions. Buddy policy may allow, block, or request product approval before execution.'
       : '',
+    hasShell && isolatedShell ? localNetwork : '',
     hasShell && isolatedShell && hasTool('lexora_authorize_directory')
       ? 'Use lexora_authorize_directory with read or write access and a reason for another directory. This expands only isolated shell permissions for the current run, never saved grants or other tools. Prefer read when inspection suffices.'
       : '',

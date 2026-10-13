@@ -17,8 +17,8 @@ it('shows a bundled Office card as installed, and allows reinstall after it is r
   const entry = { manifest, repository: 'https://github.com/QAyong/XTLaw', artifact: { kind: 'bundled' as const, file: 'office.lexora-extension', sha256: 'a'.repeat(64), size: 100 }, compatible: true }
   const status: ExtensionStatus = { manifest, revision: 'package-1', enabled: true, compatible: true, development: false, pending: null, state: 'inactive', generation: null, error: null, activationMs: null, logs: [] }
   const installed = shallowRef([status])
-  const catalog = vi.fn(async () => ({ plugins: [entry], error: null, stale: false, cachedAt: null }))
-  context.read = () => ({ state: { installed, api: { catalog } }, language: shallowRef('zh-CN') })
+  const catalog = vi.fn(async () => ({ plugins: [{ ...entry, incompatibility: null }], invalidEntries: 0, error: null, stale: false, cachedAt: null }))
+  context.read = () => ({ state: { installed, unavailable: shallowRef([]), api: { catalog } }, language: shallowRef('zh-CN') })
   const install = vi.fn()
   const element = document.createElement('div')
   document.body.append(element)

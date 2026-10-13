@@ -2,7 +2,7 @@ import type { ExtensionCatalogEntry } from '../../shared/extensions/extensionCat
 import type { ExtensionPackageStore } from './ExtensionPackageStore'
 import { join } from 'node:path'
 import { z } from 'zod'
-import { BUNDLED_EXTENSION_CATALOG_URL, extensionCatalogSchema } from '../../shared/extensions/extensionCatalog'
+import { BUNDLED_EXTENSION_CATALOG_URL, extensionCatalogEntrySchema, extensionCatalogSchema } from '../../shared/extensions/extensionCatalog'
 import { extensionCompatible, extensionIdSchema } from '../../shared/extensions/extensionManifest'
 import { readExtensionFile, readExtensionJson, sha256, unpackExtension, writeExtensionJson } from './extensionFiles'
 
@@ -21,10 +21,11 @@ export class BundledExtensionCatalog implements BundledExtensionProvider {
 
   list(): Promise<ExtensionCatalogEntry[]> {
     return this.#entries ??= readExtensionJson(join(this.#directory, 'catalog.json'), 2 * 1024 * 1024).then((raw) => {
-      const catalog = extensionCatalogSchema.parse(raw)
-      if (catalog.plugins.some(entry => !('kind' in entry.artifact)))
+      // Product-shipped entries must be fully valid; unlike remote listings they are never shown as invalid.
+      const plugins = extensionCatalogSchema.parse(raw).plugins.map(entry => extensionCatalogEntrySchema.parse(entry))
+      if (plugins.some(entry => !('kind' in entry.artifact)))
         throw new Error('EXTENSION_BUNDLED_CATALOG_INVALID')
-      return catalog.plugins
+      return plugins
     })
   }
 

@@ -1,10 +1,10 @@
-import type { ExtensionCatalogEntry, ExtensionCatalogSnapshot } from '../../shared/extensions/extensionCatalog'
+import type { ExtensionCatalogEntry, ExtensionCatalogListing, ExtensionCatalogSnapshot } from '../../shared/extensions/extensionCatalog'
 import type { BundledExtensionProvider } from './BundledExtensionCatalog'
 import { join } from 'node:path'
 import { rcompare } from 'semver'
 import { z } from 'zod'
-import { EXTENSION_CATALOG_URL, extensionCatalogSchema } from '../../shared/extensions/extensionCatalog'
-import { extensionCompatible } from '../../shared/extensions/extensionManifest'
+import { EXTENSION_CATALOG_URL, extensionCatalogEntrySchema, extensionCatalogListingSchema, extensionCatalogSchema } from '../../shared/extensions/extensionCatalog'
+import { ExtensionCompatibilityError, extensionCompatibilityIssue } from '../../shared/extensions/extensionCompatibility'
 import { publicWebUrl, readResponseBytes } from '../network/publicWebTransport'
 import { catalogEntrySource } from './BundledExtensionCatalog'
 import { readExtensionJson, sha256, writeExtensionJson } from './extensionFiles'
@@ -13,7 +13,11 @@ const cacheSchema = z.object({ cachedAt: z.string(), catalog: extensionCatalogSc
 // Product exclusions apply to both saved and refreshed catalogs, not just the UI.
 const excludedCatalogIds = new Set(['lexora.water-reminder'])
 function filterCatalog(catalog: z.infer<typeof extensionCatalogSchema>) {
-  return { ...catalog, plugins: catalog.plugins.filter(entry => !excludedCatalogIds.has(entry.manifest.id) && 'url' in entry.artifact) }
+  // Unparseable entries are kept so the snapshot can count them as invalid.
+  return { ...catalog, plugins: catalog.plugins.filter((raw) => {
+    const parsed = extensionCatalogListingSchema.safeParse(raw)
+    return !parsed.success || (!excludedCatalogIds.has(parsed.data.manifest.id) && 'url' in parsed.data.artifact)
+  }) }
 }
 export class ExtensionCatalogService {
   readonly #path: string
@@ -64,12 +68,37 @@ export class ExtensionCatalogService {
       throw new Error('EXTENSION_CATALOG_ENTRY_UNAVAILABLE')
     await this.list()
     const owned = this.#bundledEntries.filter(item => item.manifest.id === id)
-    const entry = (owned.length ? owned : this.#cache?.catalog.plugins ?? []).find(item => item.manifest.id === id && item.manifest.version === version)
-    if (!entry || !extensionCompatible(entry.manifest, this.#version))
-      throw new Error('EXTENSION_CATALOG_ENTRY_UNAVAILABLE')
-    const bytes = 'kind' in entry.artifact
-      ? await this.#bundled!.read(entry, signal)
-      : await this.#fetch(entry.artifact.url, entry.artifact.size, signal)
+    let entry: ExtensionCatalogEntry
+    let bytes: Uint8Array
+    if (owned.length) {
+      const bundled = owned.find(item => item.manifest.version === version)
+      if (!bundled)
+        throw new Error('EXTENSION_CATALOG_ENTRY_UNAVAILABLE')
+      const issue = extensionCompatibilityIssue(bundled.manifest, this.#version)
+      if (issue)
+        throw new ExtensionCompatibilityError(bundled.manifest, issue)
+      entry = bundled
+      bytes = await this.#bundled!.read(entry, signal)
+    }
+    else {
+      if (this.#snapshot(false, null).plugins.find(item => item.manifest.id === id)?.manifest.version !== version)
+        throw new Error('EXTENSION_CATALOG_ENTRY_UNAVAILABLE')
+      const raw = this.#cache?.catalog.plugins.find((item) => {
+        const parsed = extensionCatalogListingSchema.safeParse(item)
+        return parsed.success && parsed.data.manifest.id === id && parsed.data.manifest.version === version
+      })
+      if (!raw)
+        throw new Error('EXTENSION_CATALOG_ENTRY_UNAVAILABLE')
+      const listing = extensionCatalogListingSchema.parse(raw)
+      const issue = extensionCompatibilityIssue(listing.manifest, this.#version)
+      if (issue)
+        throw new ExtensionCompatibilityError(listing.manifest, issue)
+      const parsed = extensionCatalogEntrySchema.safeParse(raw)
+      if (!parsed.success || !('url' in parsed.data.artifact))
+        throw new Error('EXTENSION_MANIFEST_INVALID')
+      entry = parsed.data
+      bytes = await this.#fetch(parsed.data.artifact.url, entry.artifact.size, signal)
+    }
     if (bytes.byteLength !== entry.artifact.size || sha256(bytes) !== entry.artifact.sha256)
       throw new Error('EXTENSION_DOWNLOAD_CHECKSUM_FAILED')
     return { entry, bytes }
@@ -96,16 +125,27 @@ export class ExtensionCatalogService {
   }
 
   #snapshot(stale: boolean, error: string | null): ExtensionCatalogSnapshot {
-    const selected = new Map<string, ExtensionCatalogEntry & { compatible: boolean }>()
+    const selected = new Map<string, ExtensionCatalogListing>()
+    let invalidEntries = 0
+    // Bundled entries own their IDs; remote listings for the same plugin are ignored.
     const localIds = new Set(this.#bundledEntries.map(entry => entry.manifest.id))
-    const remote = this.#catalogUrl === null ? [] : (this.#cache?.catalog.plugins ?? []).filter(entry => !localIds.has(entry.manifest.id))
-    for (const entry of [...remote, ...this.#bundledEntries].sort((a, b) => rcompare(a.manifest.version, b.manifest.version))) {
-      const compatible = extensionCompatible(entry.manifest, this.#version)
+    const remote = (this.#catalogUrl === null ? [] : this.#cache?.catalog.plugins ?? []).flatMap((raw) => {
+      const parsed = extensionCatalogListingSchema.safeParse(raw)
+      if (!parsed.success) {
+        invalidEntries++
+        return []
+      }
+      return localIds.has(parsed.data.manifest.id) ? [] : [{ raw, entry: parsed.data }]
+    })
+    const entries = [...remote, ...this.#bundledEntries.map(entry => ({ raw: entry as unknown, entry }))]
+    for (const { raw, entry } of entries.sort((a, b) => rcompare(a.entry.manifest.version, b.entry.manifest.version))) {
+      const incompatibility = extensionCompatibilityIssue(entry.manifest, this.#version) ?? (extensionCatalogEntrySchema.safeParse(raw).success ? null : { reason: 'manifest-invalid' as const, currentVersion: this.#version, requiredVersion: entry.manifest.engines.lexora, requiredApiVersion: entry.manifest.apiVersion })
+      const compatible = !incompatibility
       const previous = selected.get(entry.manifest.id)
-      if (!previous || (!previous.compatible && compatible))
-        selected.set(entry.manifest.id, { ...entry, compatible })
+      if (!previous)
+        selected.set(entry.manifest.id, { ...entry, compatible, incompatibility })
     }
-    return { plugins: [...selected.values()], cachedAt: this.#catalogUrl === null ? null : this.#cache?.cachedAt ?? null, stale, error }
+    return { plugins: [...selected.values()], invalidEntries, cachedAt: this.#catalogUrl === null ? null : this.#cache?.cachedAt ?? null, stale, error }
   }
 
   async #fetch(raw: string, limit: number, signal: AbortSignal): Promise<Uint8Array> {

@@ -130,5 +130,5 @@ export function useContextPanelTabs(options: {
     }
   }
 
-  return { snapshot, restoreSelections, activeTab: readonly(activeTab), tabs: readonly(tabs), resources: readonly(resources), scope: readonly(scope), select, put, close, update, retain, discard, discardDraft, adoptDraft }
+  return { snapshot, restoreSelections, activeTab: readonly(activeTab), tabs: readonly(tabs), resources: readonly(resources), scope: readonly(scope), selectionScope: readonly(selectionScope), select, put, close, update, retain, discard, discardDraft, adoptDraft }
 }

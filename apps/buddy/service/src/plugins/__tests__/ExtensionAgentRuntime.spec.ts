@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest'
 import { extensionAgentRpc } from '../../../../shared/extensions/extensionAgent'
 import { ToolDisclosure } from '../../agent/extensions/discovery/ToolDisclosure'
 import { ExtensionAgentRuntime } from '../ExtensionAgentRuntime'
+import { observeExtensionAgentDiagnostics } from '../observeExtensionAgentDiagnostics'
 
 const descriptor: ExtensionAgentDescriptor = { id: 'tests.reader', name: 'Fixture', revision: 'package-revision', configurationRevision: 'config-revision', agent: { actions: [], instructions: 'fixture-private-instructions', tools: [{ id: 'tests.reader.read', title: 'Read', description: 'fixture-private-description', parameters: { type: 'object', properties: {}, required: [], additionalProperties: false } }] } }
 function fixture() {
@@ -252,5 +253,26 @@ describe('extension agent capability and invocation lifetimes', () => {
     expect(f.facts.at(-1)).toMatchObject({ kind: 'invocation', stage: 'settled', invocationId })
     expect(f.runtime.snapshot.activeInvocations).toEqual([])
     expect(JSON.stringify(f.facts.filter(fact => fact.kind !== 'capabilities'))).not.toContain('fixture-private')
+  })
+
+  it('reports fixed host error codes of failed requests and hides any other failure message', async () => {
+    const f = fixture()
+    const reports: { event: string, errorCode?: string }[] = []
+    observeExtensionAgentDiagnostics(f.runtime, report => reports.push(report))
+    f.handlers['models.generateText'] = async (_input, context) => {
+      throw new Error(context.callNumber === 1 ? 'EXTENSION_MODEL_TRUNCATED' : 'fixture-private-provider-message')
+    }
+    f.invoke(async (raw) => {
+      const invocationId = (raw as { invocationId: string }).invocationId
+      await f.request({ invocationId, method: 'models.generateText', params: {} }).catch(() => undefined)
+      await f.request({ invocationId, method: 'models.generateText', params: {} }).catch(() => undefined)
+      return { done: true }
+    })
+    await (await f.tool())()
+    const finished = f.facts.filter(fact => fact.kind === 'request' && fact.stage === 'finished')
+    expect(finished).toMatchObject([{ handler: 'failed', errorCode: 'EXTENSION_MODEL_TRUNCATED' }, { handler: 'failed' }])
+    expect(finished[1]).not.toHaveProperty('errorCode')
+    expect(reports.filter(report => report.event === 'plugins.request.finished').map(report => report.errorCode)).toEqual(['EXTENSION_MODEL_TRUNCATED', 'EXTENSION_REQUEST_FAILED'])
+    expect(JSON.stringify([f.facts.filter(fact => fact.kind !== 'capabilities'), reports])).not.toContain('fixture-private')
   })
 })

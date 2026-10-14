@@ -23,6 +23,6 @@ export type ExtensionAgentFact
   = | { readonly kind: 'capabilities', readonly projection: ExtensionCapabilityProjection }
     | { readonly kind: 'capabilities-released', readonly projectionId: string, readonly conversationId: string }
     | (InvocationIdentity & { readonly kind: 'invocation', readonly stage: 'started' | 'returned' | 'settled', readonly outcome?: 'completed' | 'failed' | 'cancelled', readonly durationMs?: number })
-    | (InvocationIdentity & { readonly kind: 'request', readonly requestId: string, readonly method: ExtensionAgentMethod, readonly stage: 'accepted' | 'finished', readonly handler?: 'completed' | 'failed', readonly response?: 'returned' | 'failed' | 'cancelled', readonly durationMs?: number })
+    | (InvocationIdentity & { readonly kind: 'request', readonly requestId: string, readonly method: ExtensionAgentMethod, readonly stage: 'accepted' | 'finished', readonly handler?: 'completed' | 'failed', readonly errorCode?: string, readonly response?: 'returned' | 'failed' | 'cancelled', readonly durationMs?: number })
 
 export type ExtensionAgentChange = ExtensionAgentFact & { readonly revision: number }

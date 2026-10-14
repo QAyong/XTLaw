@@ -1,6 +1,7 @@
 import type { ExtensionTaskSession } from '../conversations/ExtensionTaskContext'
 import type { UsageService } from '../usage/UsageService'
 import type { ProviderExecutionModelResolver } from './ProviderExecutionModelResolver'
+import { uuidv7 } from '@earendil-works/pi-ai'
 import { extensionAgentHandler } from '../plugins/extensionAgentHandlers'
 
 export function createExtensionModelCapabilities(models: Pick<ProviderExecutionModelResolver, 'resolveSession'>, usage: Pick<UsageService, 'record' | 'recordInvocation'>, task: Pick<ExtensionTaskSession, 'model' | 'assertCurrent'>) {
@@ -13,7 +14,9 @@ export function createExtensionModelCapabilities(models: Pick<ProviderExecutionM
       const { model, runtime } = await models.resolveSession({ ...selection, contextWindow: null, maxTokens: null })
       context.signal.throwIfAborted()
       task.assertCurrent()
-      const result = await runtime.completeSimple(model, { systemPrompt: input.system, messages: [{ role: 'user', content: input.prompt, timestamp: Date.now() }] }, { signal: context.signal, maxTokens: input.maxTokens })
+      // One-off request: same routing options as Pi's own summarization calls (compaction, branch summary).
+      // Some providers (OpenCode) reject requests without a routing session id and derive their header from it.
+      const result = await runtime.completeSimple(model, { systemPrompt: input.system, messages: [{ role: 'user', content: input.prompt, timestamp: Date.now() }] }, { signal: context.signal, maxTokens: input.maxTokens, sessionId: uuidv7(), cacheRetention: 'none' })
       const record = { createdAt: new Date().toISOString(), model: result.model, provider: result.provider, sourceEntryId: `plugin:${context.extensionId}:${context.invocationId}:${context.callNumber}`, usage: result.usage }
       if (context.action)
         usage.recordInvocation({ ...record, invocationId: context.invocationId })
@@ -21,7 +24,10 @@ export function createExtensionModelCapabilities(models: Pick<ProviderExecutionM
         await usage.record({ ...record, purpose: 'tool', runId: context.runId })
       context.signal.throwIfAborted()
       task.assertCurrent()
-      if (result.stopReason === 'error' || result.stopReason === 'aborted' || result.stopReason === 'length')
+      // Text cut off by the output limit is never returned: a plugin cannot tell it from a complete answer.
+      if (result.stopReason === 'length')
+        throw new Error('EXTENSION_MODEL_TRUNCATED')
+      if (result.stopReason === 'error' || result.stopReason === 'aborted')
         throw new Error('EXTENSION_MODEL_FAILED')
       return { text: result.content.filter(block => block.type === 'text').map(block => block.text).join(''), model: { providerId: model.provider, modelId: model.id } }
     }),

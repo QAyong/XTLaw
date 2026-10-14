@@ -250,16 +250,22 @@ export class ExtensionAgentRuntime {
     const identity = { invocationId: invocation.scope.invocationId, extensionId: invocation.scope.extensionId, conversationId: invocation.scope.conversationId, runId: invocation.scope.runId, requestId: randomUUID(), method: input.method }
     const startedAt = performance.now()
     let handler: 'completed' | 'failed' = 'failed'
+    let errorCode: string | undefined
     const pending = Promise.resolve().then(async () => {
       signal.throwIfAborted()
       const result = await invocation.handlers[input.method](input.params, { ...context, callNumber })
       handler = 'completed'
       signal.throwIfAborted()
       return result
+    }).catch((error: unknown) => {
+      // Only fixed host error codes reach diagnostics; any other message could carry user content.
+      if (error instanceof Error && /^EXTENSION_[A-Z_]+$/.test(error.message))
+        errorCode = error.message
+      throw error
     }).finally(() => {
       requests.active--
       invocation.pending.delete(pending)
-      this.#publish({ kind: 'request', stage: 'finished', ...identity, handler, response: signal.aborted ? 'cancelled' : handler === 'completed' ? 'returned' : 'failed', durationMs: Math.round(performance.now() - startedAt) })
+      this.#publish({ kind: 'request', stage: 'finished', ...identity, handler, ...(errorCode ? { errorCode } : {}), response: signal.aborted ? 'cancelled' : handler === 'completed' ? 'returned' : 'failed', durationMs: Math.round(performance.now() - startedAt) })
     })
     invocation.pending.add(pending)
     this.#publish({ kind: 'request', stage: 'accepted', ...identity })

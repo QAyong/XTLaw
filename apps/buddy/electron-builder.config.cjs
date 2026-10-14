@@ -26,6 +26,9 @@ const signedMacos = macosSigningMode() === 'developer-id'
 
 module.exports = {
   appId: desktopName,
+  extraMetadata: {
+    desktopDistribution: { schemaVersion: 1, format: process.env.LEXORA_BUDDY_PACKAGE_FORMAT === 'zip' ? 'dmg' : process.env.LEXORA_BUDDY_PACKAGE_FORMAT ?? target.packageFormats[0], architecture: target.architecture, signing: target.platform === OPERATING_SYSTEM.MacOS ? (signedMacos ? 'developer-id' : 'ad-hoc') : 'none' },
+  },
   productName: 'xtlaw',
   asar: true,
   asarUnpack: ['node_modules/@anthropic-ai/sandbox-runtime/vendor/**'],

@@ -44,7 +44,7 @@ const result = spawnSync(process.execPath, [
   `--${platform.architecture}`,
   '--publish',
   'never',
-], { cwd: paths.buddyRoot, env: process.env, stdio: 'inherit' })
+], { cwd: paths.buddyRoot, env: { ...process.env, LEXORA_BUDDY_PACKAGE_FORMAT: target }, stdio: 'inherit' })
 if (result.error)
   throw result.error
 if (result.status !== 0)

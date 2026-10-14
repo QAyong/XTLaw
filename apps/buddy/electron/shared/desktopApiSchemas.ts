@@ -104,6 +104,7 @@ export const lexoraConfigPatchSchema: z.ZodType<LexoraConfigPatch> = z.object({
     launchAtLogin: z.boolean().optional(),
     notificationsEnabled: z.boolean().optional(),
     updateNotificationsEnabled: z.boolean().optional(),
+    autoDownloadUpdates: z.boolean().optional(),
     notifyWhenFocused: z.boolean().optional(),
     sidebarCollapsed: z.boolean().optional(),
     theme: z.enum(['system', 'light', 'dark']).optional(),

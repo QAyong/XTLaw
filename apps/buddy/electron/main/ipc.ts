@@ -1,6 +1,7 @@
 import type { BrowserWindow, IpcMainInvokeEvent } from 'electron'
 import type { BuddyRuntimeProfile } from '../../shared/runtime/profile'
 import type { DesktopOpenTargetRequest, DesktopOpenTargetResult, LexoraConfig } from '../shared/desktopApi'
+import type { DesktopUpdateCapabilities } from '../shared/desktopUpdates'
 import type { LexoraConfigStore } from './config/LexoraConfigStore'
 import type { ExecuteDesktopCommand } from './desktopCommands'
 import process from 'node:process'
@@ -24,6 +25,7 @@ import { readDesktopWindowState } from './window'
 
 export interface RegisterDesktopIpcOptions {
   checkForUpdates: () => Promise<unknown>
+  updateCapabilities?: DesktopUpdateCapabilities
   getSandboxStatus: () => Promise<unknown>
   setupSandbox: () => Promise<unknown>
   configPath: string
@@ -76,6 +78,7 @@ export function registerDesktopIpc(options: RegisterDesktopIpcOptions): void {
     assertTrustedSender(event, options.getWindow())
     return {
       capabilities: describeBuddyCapabilities(currentPlatform),
+      updateCapabilities: options.updateCapabilities,
       chromiumVersion: process.versions.chrome,
       configPath: options.configPath,
       runtimeProfile: options.runtimeProfile,

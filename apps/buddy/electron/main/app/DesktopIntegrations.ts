@@ -50,16 +50,18 @@ export class DesktopIntegrations {
   readonly #browser: BrowserIntegration
   readonly #requestQuit: () => void
   readonly #requestRestart: () => void
+  readonly #requestInstall: (prepare: () => Promise<(() => void) | void>) => Promise<boolean>
   readonly #subscriptions: Array<() => void | Promise<void>> = []
   #tray: DesktopTrayController | null = null
 
-  constructor(environment: DesktopEnvironment, runtime: DesktopRuntimeHost, windows: DesktopWindowHost, browser: BrowserIntegration, requestQuit: () => void, requestRestart: () => void) {
+  constructor(environment: DesktopEnvironment, runtime: DesktopRuntimeHost, windows: DesktopWindowHost, browser: BrowserIntegration, requestQuit: () => void, requestRestart: () => void, requestInstall: (prepare: () => Promise<(() => void) | void>) => Promise<boolean>) {
     this.#environment = environment
     this.#runtime = runtime
     this.#windows = windows
     this.#browser = browser
     this.#requestQuit = requestQuit
     this.#requestRestart = requestRestart
+    this.#requestInstall = requestInstall
     this.executeCommand = createDesktopCommandExecutor({
       getWindow: () => windows.window,
       isDeveloperToolsEnabled: () => runtime.config?.desktop.developerToolsEnabled ?? false,
@@ -171,12 +173,13 @@ export class DesktopIntegrations {
       })
     }))
     this.#subscriptions.push(() => notifications.dispose())
-    const updates = registerDesktopUpdates(this.#environment, runtime, windows)
+    const updates = registerDesktopUpdates(this.#environment, runtime, windows, this.#requestInstall)
     this.#subscriptions.push(updates.dispose)
     registerDesktopIpc({
       getSandboxStatus: () => this.#runtime.getSandboxStatus(),
       setupSandbox: () => this.#runtime.setupSandbox(),
       checkForUpdates: updates.check,
+      updateCapabilities: updates.capabilities,
       configPath: paths.configPath,
       runtimeProfile: paths.profile,
       configStore: runtime.configStore,

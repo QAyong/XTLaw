@@ -295,6 +295,7 @@ describe('lexoraConfigStore', () => {
       launchAtLogin: false,
       notificationsEnabled: true,
       updateNotificationsEnabled: true,
+      autoDownloadUpdates: true,
       notifyWhenFocused: false,
       profile: {
         avatar: '',

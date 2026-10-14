@@ -14,8 +14,6 @@ const { language } = useDesktopUi()
     <template #sidebar>
       <DesktopBuddiesSidebar :buddy-id="buddyId" />
     </template>
-    <template #workspace>
-      <DesktopBuddyProfile :key="buddyId" :buddy-id="buddyId" />
-    </template>
+    <DesktopBuddyProfile :key="buddyId" :buddy-id="buddyId" />
   </WorkbenchLayout>
 </template>

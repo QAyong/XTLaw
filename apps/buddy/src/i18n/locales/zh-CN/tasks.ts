@@ -5,6 +5,8 @@ export default {
   'desktop.chat.open': '展开聊天区',
   'desktop.chat.panelActorSystem': '系统',
   'desktop.chat.panelActorUser': '你',
+  'desktop.chat.panelActorMixed': '你与系统',
+  'desktop.chat.panelOperationCount': '资源面板操作 {count} 次',
   'desktop.context.controlFailed': '资源面板操作失败，请重试。',
   'desktop.marks.name': '名称',
   'desktop.marks.description': '描述（选填）',

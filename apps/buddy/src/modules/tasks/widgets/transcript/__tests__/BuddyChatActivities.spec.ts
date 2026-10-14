@@ -1,9 +1,9 @@
 import type { LocalChatApi } from '@buddy-electron/shared/localChatApi'
 // @vitest-environment jsdom
-import type { ChatAgentToolNode, ChatAgentTurn, ChatAgentTurnNode } from '../../../model/transcript/chatAgentTurn'
+import type { ChatAgentPanelNode, ChatAgentToolNode, ChatAgentTurn, ChatAgentTurnNode } from '../../../model/transcript/chatAgentTurn'
 import { DEFAULT_DESKTOP_CHAT_PREFERENCES } from '@buddy-electron/shared/desktopApi'
 import { NMessageProvider } from 'naive-ui'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApp, h, nextTick, shallowRef } from 'vue'
 import { useProvideBuddiesContext } from '@/modules/buddies'
 import { useProvideDesktopUi } from '@/shared/ui/desktopUiContext'
@@ -14,12 +14,48 @@ import { useProvideChatContent } from '../chatContentContext'
 
 vi.mock('../BuddyChatActionToolbar.vue', () => ({ default: { render: () => null } }))
 const cleanups: (() => void)[] = []
+beforeEach(() => {
+  Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { value: () => {}, configurable: true, writable: true })
+})
 afterEach(() => {
   cleanups.splice(0).forEach(cleanup => cleanup())
+  Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView')
   vi.useRealTimers()
 })
 
 describe('activity disclosure', () => {
+  it('preserves panel disclosure across mixed actors, appended records and turn completion, with bottom collapse returning focus', async () => {
+    const first = panel('first')
+    const { root, turn } = mountTurn([first])
+    expect(root.querySelector('.buddy-chat-panel-group__header')).toBeNull()
+    expect(root.querySelector('[data-testid="context-panel-operation"]')?.textContent).toBe('你 · 已展开资源面板')
+    turn.value = { ...turn.value, nodes: [first, panel('second', 'harness', 'close')] }
+    await nextTick()
+    const header = root.querySelector<HTMLButtonElement>('.buddy-chat-panel-group__header')!
+    expect(header.textContent).toBe('你与系统 · 资源面板操作 2 次')
+    expect(header.getAttribute('aria-expanded')).toBe('false')
+    header.click()
+    await nextTick()
+    turn.value = { ...turn.value, nodes: [...turn.value.nodes, panel('third')] }
+    await nextTick()
+    expect(header.getAttribute('aria-expanded')).toBe('true')
+    expect([...root.querySelectorAll('[data-testid="context-panel-operation"]')].map(element => element.textContent?.trim())).toEqual(['你 · 已展开资源面板', '系统 · 已收起资源面板', '你 · 已展开资源面板'])
+    header.click()
+    await nextTick()
+    turn.value = { ...turn.value, nodes: [...turn.value.nodes, ...Array.from({ length: 6 }, (_, index) => panel(`extra:${index}`, 'harness', index % 2 ? 'open' : 'close'))], status: 'completed', completedAt: '2026-09-09T00:00:10Z' }
+    await nextTick()
+    expect(header.textContent).toBe('你与系统 · 资源面板操作 9 次')
+    expect(header.getAttribute('aria-expanded')).toBe('false')
+    await vi.waitFor(() => expect(root.querySelector('[data-testid="context-panel-operation"]')).toBeNull())
+    header.click()
+    await nextTick()
+    expect(root.querySelectorAll('[data-testid="context-panel-operation"]')).toHaveLength(9)
+    root.querySelector<HTMLButtonElement>('.buddy-chat-panel-group__collapse')!.click()
+    await nextTick()
+    expect(header.getAttribute('aria-expanded')).toBe('false')
+    expect(document.activeElement).toBe(header)
+  })
+
   it('shows finite and unlimited retries with a live deadline and uninterrupted total duration', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-09-09T00:00:18Z'))
@@ -55,7 +91,7 @@ describe('activity disclosure', () => {
   })
 
   it('uses shared grouping, issue navigation and retained details for an independent action and built-in tool', async () => {
-    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { value: () => {}, configurable: true })
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { value: () => {}, configurable: true, writable: true })
     cleanups.push(() => {
       Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView')
     })
@@ -85,7 +121,7 @@ describe('activity disclosure', () => {
 
   it('keeps a single tool and its open output stable while model progress runs independently', async () => {
     vi.useFakeTimers()
-    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { value: () => {}, configurable: true })
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { value: () => {}, configurable: true, writable: true })
     cleanups.push(() => {
       Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView')
     })
@@ -378,7 +414,7 @@ describe('activity disclosure', () => {
   })
 
   it('cycles issues from a collapsed group and focuses denied tools even when no details are available', async () => {
-    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { value: () => {}, configurable: true })
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { value: () => {}, configurable: true, writable: true })
     cleanups.push(() => {
       Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView')
     })
@@ -649,4 +685,8 @@ function mountTurn(nodes: ChatAgentTurnNode[], status: ChatAgentTurn['status'] =
 
 function readTool(id: string, status: ChatAgentToolNode['status']): ChatAgentToolNode & { presentation: Extract<ChatAgentToolNode['presentation'], { card: 'read' }> } {
   return { id: `tool:${id}`, toolCallId: id, toolName: 'read', kind: 'tool', status, isError: false, description: null, presentation: { card: 'read', path: 'src/Row.vue', lineStart: 1, language: 'vue', description: null, output: 'x'.repeat(64 * 1024), truncated: false } }
+}
+
+function panel(id: string, actor: ChatAgentPanelNode['actor'] = 'user', action: ChatAgentPanelNode['action'] = 'open'): ChatAgentPanelNode {
+  return { id: `panel:${id}`, kind: 'panel', actor, action, status: 'completed' }
 }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ChatAgentTurnNode } from '../../model/transcript/chatStreamingMessage'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
-import { ChevronRight20Regular, PanelRight20Regular, Thinking20Regular } from '@vicons/fluent'
+import { ChevronRight20Regular, Thinking20Regular } from '@vicons/fluent'
 import { computed, shallowReactive, shallowRef, useId } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
@@ -9,6 +9,7 @@ import { createChatAgentActivityProjector } from '../../model/transcript/chatAge
 import BuddyChatActivityGroup from './BuddyChatActivityGroup.vue'
 import BuddyChatCompactionRow from './BuddyChatCompactionRow.vue'
 import BuddyChatNarrationBody from './BuddyChatNarrationBody.vue'
+import BuddyChatPanelGroup from './BuddyChatPanelGroup.vue'
 import { useChatActivityNavigation } from './useChatActivityNavigation'
 
 const props = defineProps<{
@@ -91,10 +92,7 @@ defineExpose({ revealActivity })
           :language="language"
           :text="row.text"
         />
-        <p v-else-if="row.kind === 'panel'" class="buddy-chat-agent-turn__panel-operation" data-testid="context-panel-operation">
-          <DesktopIcon :component="PanelRight20Regular" />
-          <span>{{ t(row.actor === 'harness' ? 'desktop.chat.panelActorSystem' : 'desktop.chat.panelActorUser') }} · {{ t(row.action === 'open' ? 'desktop.chat.panelOpened' : 'desktop.chat.panelClosed') }}</span>
-        </p>
+        <BuddyChatPanelGroup v-else-if="row.kind === 'panel-group'" :group="row" :language="language" />
       </template>
     </div>
     <p v-if="failureDetailText" class="buddy-chat-agent-turn__failure-detail">
@@ -164,22 +162,6 @@ defineExpose({ revealActivity })
   span {
     color: var(--buddy-chat-process-color);
     font-weight: 600;
-  }
-}
-
-.buddy-chat-agent-turn__panel-operation {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 4px 0;
-  color: var(--buddy-chat-process-color);
-  font-size: var(--buddy-chat-meta-font-size);
-  line-height: var(--buddy-chat-meta-line-height);
-
-  svg {
-    width: 16px;
-    height: 16px;
-    flex-shrink: 0;
   }
 }
 </style>

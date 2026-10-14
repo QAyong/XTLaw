@@ -12,6 +12,8 @@ import { observeLifecycleDiagnostics } from '../../../shared/observability/lifec
 import { runsRpc } from '../../../shared/runs/runApi'
 import { BrowserIntegration } from '../browser/BrowserIntegration'
 import { INSTALLER_EXIT_ARGUMENT, isInstallerExitRequest, resolveDesktopLaunchIntent } from '../startupIntent'
+import { showStorageMigration } from '../storage/StorageMigrationWindow'
+import { showStorageUnavailable, StorageUnavailableError } from '../storage/storageUnavailable'
 import { isWindowsInstallationActive } from '../updates/windowsInstallationGate'
 import { closeDesktopDiagnostics } from './closeDesktopDiagnostics'
 import { confirmDesktopQuit, showBackgroundCloseNotice, showDesktopStartupFailure, showLegacyPowerShellNotice } from './desktopDialogs'
@@ -22,8 +24,9 @@ import { readPreviousLaunchId, recoveryRelaunchArgs } from './desktopRecovery'
 import { showDesktopRendererRecovery } from './desktopRendererRecovery'
 import { DesktopRuntimeHost } from './DesktopRuntimeHost'
 import { checkDesktopSmokeBridge } from './desktopSmokeCheck'
+import { checkDesktopDirectories, DesktopInstanceLockUnavailable } from './desktopStorage'
 import { DesktopWindowHost } from './DesktopWindowHost'
-import { checkDesktopCoreDirectories, initializeDesktopEnvironment, prepareDesktopEnvironment, prepareDesktopReady } from './environment'
+import { initializeDesktopEnvironment, prepareDesktopEnvironment, prepareDesktopReady } from './environment'
 
 class DesktopApplication {
   readonly #environment: DesktopEnvironment
@@ -143,10 +146,10 @@ class DesktopApplication {
       }, ['desktop.browser_adapter'])
       await host.step('desktop.features', () => this.#integrations.applyConfig(config), ['desktop.runtime'])
       this.#runtime.start()
-      await host.start('desktop.integrations', ({ defer }) => {
+      await host.start('desktop.integrations', async ({ defer }) => {
         defer(() => this.#integrations.destroyTray())
         defer(() => this.#integrations.stopSubscriptions())
-        this.#integrations.start()
+        await this.#integrations.start()
       }, ['desktop.runtime'])
       return host.start('desktop.window', ({ defer }) => {
         defer(() => this.#windows.close())
@@ -257,14 +260,11 @@ export async function startDesktopApplication(): Promise<void> {
       return
     }
     environment = prepareDesktopEnvironment()
-    initializeDesktopEnvironment(environment)
-    if (!app.requestSingleInstanceLock({ executablePath: process.execPath })) {
-      environment.diagnostics.record({ scope: 'desktop', level: 'info', event: 'startup.single_instance_lock_unavailable' })
-      await checkDesktopCoreDirectories(environment)
-      await closeDesktopDiagnostics(environment.diagnostics)
-      app.quit()
+    if (environment.storage.state.pending) {
+      await showStorageMigration(environment.storage)
       return
     }
+    initializeDesktopEnvironment(environment)
     if (process.argv.includes(INSTALLER_EXIT_ARGUMENT)) {
       await closeDesktopDiagnostics(environment.diagnostics)
       app.quit()
@@ -280,7 +280,22 @@ export async function startDesktopApplication(): Promise<void> {
     application.bindEvents()
     void application.start().catch(error => application.handleStartupFailure(error))
   }
-  catch (error) {
+  catch (cause) {
+    let error = cause
+    if (error instanceof StorageUnavailableError) {
+      await showStorageUnavailable(error)
+      return
+    }
+    if (error instanceof DesktopInstanceLockUnavailable) {
+      try {
+        await checkDesktopDirectories({ user_data: error.userData })
+        app.quit()
+        return
+      }
+      catch (failure) {
+        error = failure
+      }
+    }
     const previousLaunchId = readPreviousLaunchId(process.argv)
     if (previousLaunchId && !recoveryRecorded)
       environment?.events.publish({ level: 'info', event: 'app.recovery_started', previousLaunchId })

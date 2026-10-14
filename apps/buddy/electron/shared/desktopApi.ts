@@ -241,6 +241,8 @@ export interface LexoraConfigPatch {
 
 export interface LexoraDesktopApi {
   selectionReferenceMenu?: { executeEdit: (command: DesktopSelectionEditCommand) => Promise<void> }
+  sync: import('../../shared/sync/syncApi').SyncApi
+  storage: import('../../shared/storage/storageApi').StorageApi
   extensions: import('../../shared/extensions/extensionApi').ExtensionApi
   workbench: import('../../shared/workbench/workbenchState').WorkbenchStateApi
   contextPanel: import('../../shared/context-panel/contextPanel').ContextPanelApi

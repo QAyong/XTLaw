@@ -538,6 +538,7 @@ export class SkillService {
     ]
     const discovered = new Map<string, ResolvedSkill>()
     const discoveredRoots = new Map<string, string>()
+    const existingRecords = new Map(this.#options.repository.list().map(record => [record.id, record]))
     for (const source of sources) {
       try {
         const root = await requireSkillPath(source.allowedRoot, source.root)
@@ -546,7 +547,11 @@ export class SkillService {
             const loaded = lightweight
               ? await this.#packages.loadMetadata(path, root)
               : await this.#packages.load(path, root)
-            const id = skillIdentity(source.kind === 'application' ? `application:${loaded.name}` : `${source.kind}:${path}`)
+            const discoveredId = skillIdentity(source.kind === 'application' ? `application:${loaded.name}` : `${source.kind}:${path}`)
+            const installation = source.kind === 'external'
+              ? [...existingRecords.values()].find(record => record.managedBy === source.kind && record.spaceId === null && record.path === loaded.path)
+              : undefined
+            const id = installation?.id ?? discoveredId
             if (source.kind === 'directory') {
               candidates.push({ allowedRoot: root, loaded, priority: 1, referenceRevision: loaded.referenceRevision, entry: {
                 id,

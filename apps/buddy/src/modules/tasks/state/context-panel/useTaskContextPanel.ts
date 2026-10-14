@@ -275,6 +275,7 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
     allTabs: store.resources,
     activeTab: store.activeTab,
     tabs: store.tabs,
+    selectionScope: store.selectionScope,
     isOpen: control.isOpen,
     mode: options.mode,
     fileEntry: readonly(fileEntry),
@@ -296,6 +297,10 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
     setArtifactViewMode,
     restoreTab,
     selectTab: store.select,
+    closePanel: () => {
+      store.setOpen(store.selectionScope.value, false)
+      restoreOpenState(false)
+    },
     toggle: () => {
       clearExpectedOpenState()
       return control.toggle()

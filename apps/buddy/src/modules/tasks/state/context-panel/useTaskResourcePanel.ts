@@ -86,14 +86,22 @@ export function useTaskResourcePanel(options: TaskResourcePanelOptions) {
     const tab = taskContext.allTabs.value.find(item => item.id === tabId)
     if (!tab)
       return false
+    const closingScope = taskContext.selectionScope.value
+    const wasVisible = taskContext.tabs.value.some(item => item.id === tabId)
     if (tab.kind === 'files' && options.closeFiles && !await options.closeFiles(tab.id))
       return false
     if (tab.kind === 'view' && options.closeView && !await options.closeView(tab.viewId))
       return false
     act(() => taskContext.closeTab(tabId))
-    if (tab.kind !== 'browser' || (tab.browserKey && !browserStates.value[tab.id]))
-      return true
     const isCurrent = currentOperation()
+    function finishClose() {
+      // Only an explicit close in the same visible scope may collapse an empty panel.
+      if (wasVisible && isCurrent() && taskContext.selectionScope.value === closingScope && !taskContext.tabs.value.length)
+        taskContext.closePanel()
+      return true
+    }
+    if (tab.kind !== 'browser' || (tab.browserKey && !browserStates.value[tab.id]))
+      return finishClose()
     try {
       const state = browserStates.value[tab.id] ?? await options.browser.ensureSession(tab.conversationId, tab.browserKey)
       if (!isCurrent() && !tab.browserKey)
@@ -101,7 +109,7 @@ export function useTaskResourcePanel(options: TaskResourcePanelOptions) {
       await options.browser.close(state.sessionId)
       if (browserStates.value[tab.id]?.sessionId === state.sessionId)
         browserStates.value = Object.fromEntries(Object.entries(browserStates.value).filter(([id]) => id !== tab.id))
-      return true
+      return finishClose()
     }
     catch {
       if (!disposed && (tab.browserKey || isCurrent()))

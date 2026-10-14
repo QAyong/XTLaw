@@ -272,7 +272,6 @@ const shellBindings: DesktopShellBindings = {
   workbench,
   resources,
   resourceContext: {
-    references: { listReferenceAccess: api.localChat.conversations.listReferenceAccess, setReferenceExcluded: api.localChat.conversations.setReferenceExcluded, onChanged: api.localChat.conversations.onChanged },
     getChangeOverview: api.localChat.changes.overview,
     files: workbench.workspaceFiles,
     getNodeDetail: api.localChat.conversations.getNodeDetail,

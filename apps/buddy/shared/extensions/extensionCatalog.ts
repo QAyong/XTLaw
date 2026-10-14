@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { extensionIconUrlSchema, extensionManifestSchema, extensionPathSchema } from './extensionManifest'
 import { EXTENSION_PACKAGE_LIMIT } from './extensionPackageLimits'
 
-export const EXTENSION_CATALOG_URL = 'https://raw.githubusercontent.com/useLexora/plugins/main/catalog/v1/index.json'
+export const EXTENSION_CATALOG_URL = 'https://raw.githubusercontent.com/QAyong/xtlaw-plugins/main/catalog/v1/index.json'
 export const BUNDLED_EXTENSION_CATALOG_URL = 'xtlaw-bundled://catalog'
 const httpsUrl = z.string().url().max(2048).refine((value) => {
   const url = new URL(value)

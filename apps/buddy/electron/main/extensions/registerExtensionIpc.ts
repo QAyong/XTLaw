@@ -66,7 +66,6 @@ export function registerExtensionIpc(options: {
     conditionRuntime: options.conditionRuntime,
     get: options.get,
     bundled: new BundledExtensionCatalog(join(app.isPackaged ? process.resourcesPath : join(app.getAppPath(), '.output/resources'), 'bundled-extensions')),
-    catalogUrl: null,
     compile: compileExtension,
     selectResources: async (name, selection, signal) => {
       const owner = window()

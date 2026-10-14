@@ -4,11 +4,21 @@ import { WebError } from '../../../shared/network/webProtocol'
 
 export type ProxyAuthenticator = (authInfo: AuthInfo, callback: (username?: string, password?: string) => void) => boolean
 
+// Public requests are stateless. Sogou Weixin only resolves article links for a client holding its session cookies,
+// so `*.sogou.com` alone may use the isolated in-memory session's cookie jar.
+function usesSessionCookies(raw: string): boolean {
+  try {
+    const hostname = new URL(raw).hostname.toLowerCase()
+    return hostname === 'sogou.com' || hostname.endsWith('.sogou.com')
+  }
+  catch { return false }
+}
+
 export async function requestThroughHost(session: Session, input: Pick<WebNetworkRequest, 'body' | 'headers' | 'method' | 'url'>, signal: AbortSignal, authenticateProxy?: ProxyAuthenticator): Promise<Response> {
   const { net } = await import('electron')
   signal.throwIfAborted()
   return new Promise((resolve, reject) => {
-    const request = net.request({ url: input.url, method: input.method, session, redirect: 'manual', credentials: 'omit', useSessionCookies: false })
+    const request = net.request({ url: input.url, method: input.method, session, redirect: 'manual', credentials: usesSessionCookies(input.url) ? 'include' : 'omit', useSessionCookies: false })
     let stream: ReadableStreamDefaultController<Uint8Array> | undefined
     let ended = false
     function cleanup() {

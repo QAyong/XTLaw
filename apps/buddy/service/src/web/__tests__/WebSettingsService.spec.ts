@@ -122,7 +122,7 @@ describe('web settings ownership', () => {
         fetch: { render: false, remote: true },
       }
       repository.set('buddy.web', previous, '2026-09-05T00:00:00Z')
-      const expected = { ...previous, search: [...previous.search, { provider: 'google', enabled: true }, { provider: 'duckduckgo', enabled: true }] }
+      const expected = { ...previous, search: [...previous.search, { provider: 'google', enabled: true }, { provider: 'duckduckgo', enabled: true }, { provider: 'sogou-weixin', enabled: true }] }
       expect(service.get()).toEqual(expected)
       expect(repository.get('buddy.web')).toEqual(previous)
       expect(webSettingsSchema.safeParse(service.get()).success).toBe(true)

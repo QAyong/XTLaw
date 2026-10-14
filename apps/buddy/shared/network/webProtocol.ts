@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export const WEB_SEARCH_PROVIDERS = ['native', 'tavily', 'google', 'bing', 'duckduckgo', 'brave'] as const
+export const WEB_SEARCH_PROVIDERS = ['native', 'tavily', 'google', 'bing', 'duckduckgo', 'brave', 'sogou-weixin'] as const
 export const webSearchSourceSchema = z.object({
   provider: z.enum(WEB_SEARCH_PROVIDERS),
   enabled: z.boolean(),

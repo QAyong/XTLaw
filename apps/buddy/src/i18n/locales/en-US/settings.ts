@@ -202,6 +202,8 @@ export default {
   'desktop.web.duckduckgoSearchDescription': 'Availability may be affected by network restrictions, rate limits and CAPTCHAs.',
   'desktop.web.google': 'Google',
   'desktop.web.googleSearchDescription': 'Availability may be affected by network restrictions, rate limits and CAPTCHAs.',
+  'desktop.web.sogou-weixin': 'Sogou WeChat',
+  'desktop.web.sogou-weixinSearchDescription': 'Availability may be affected by network restrictions, rate limits and CAPTCHAs.',
   'desktop.web.tavily': 'Tavily',
   'desktop.web.tavilySearchDescription': 'Billed to your Tavily account. Enabled separately from page reading.',
   'desktop.web.fetchDescription': 'Read public pages, text and text-based PDFs directly.',

@@ -31,7 +31,7 @@ export function createWebExtension(options: { service: Pick<WebCapabilityService
         ...WEB_TOOLS.search,
         label: '搜索网页',
         parameters: searchParameters,
-        description: 'Search the public web for one query without opening a browser. Default auto tries enabled sources in user-configured priority order. Results identify the real backend, availableProviders and sources; generatedSummary is model-generated, not source text. Read relevant URLs with lexora_web_fetch. Decide query decomposition and independent calls yourself.',
+        description: 'Search the public web for one query without opening a browser. Default auto tries enabled sources in user-configured priority order. Provider sogou-weixin (listed in availableProviders when enabled) searches WeChat official-account articles and is never used by auto: request it explicitly only for lawyer, firm or practitioner commentary; its articles are leads and opinions, not authoritative statutes or case text, and fetched article text omits images. Results identify the real backend, availableProviders and sources; generatedSummary is model-generated, not source text. Read relevant URLs with lexora_web_fetch. Decide query decomposition and independent calls yourself.',
         execute: async (_id, input, signal, _update, context) => {
           if (!Check(searchParameters, input))
             throw new Error('Invalid web search parameters')
@@ -43,7 +43,7 @@ export function createWebExtension(options: { service: Pick<WebCapabilityService
         ...WEB_TOOLS.fetch,
         label: '读取网页',
         parameters: fetchParameters,
-        description: 'Read one public HTTP(S) URL without interacting with a browser. Default auto uses local extraction, isolated background rendering when enabled, then separately authorized remote extraction when needed. Results identify the real backend and availableProviders. Supports public GitHub, HTML, text and text PDFs, not OCR. outputTruncated only describes tool output; acquisitionIncomplete describes source coverage. Use read on contentPath for the rest of acquired text. If access, login or interaction is required, decide whether to use browser tools yourself; this tool never opens an interactive browser.',
+        description: 'Read one public HTTP(S) URL without interacting with a browser. Default auto uses local extraction, isolated background rendering when enabled, then separately authorized remote extraction when needed. Results identify the real backend and availableProviders. Supports public GitHub, HTML, text and text PDFs, not OCR. outputTruncated only describes tool output; acquisitionIncomplete describes source coverage. When warnings name an original-article URL (for example a WeChat image post that only carries a caption), read that URL with this tool to get the full text. Use read on contentPath for the rest of acquired text. If access, login or interaction is required, decide whether to use browser tools yourself; this tool never opens an interactive browser.',
         execute: async (_id, input, signal) => {
           if (!Check(fetchParameters, input))
             throw new Error('Invalid web fetch parameters')

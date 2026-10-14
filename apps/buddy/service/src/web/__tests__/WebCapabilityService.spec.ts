@@ -19,7 +19,7 @@ async function fixture() {
   const root = await mkdtemp(join(tmpdir(), 'buddy-web-contract-'))
   directories.push(root)
   const settings = structuredClone(DEFAULT_WEB_SETTINGS)
-  const order = ['native', 'bing', 'brave', 'tavily', 'duckduckgo', 'google']
+  const order = ['native', 'bing', 'brave', 'tavily', 'duckduckgo', 'google', 'sogou-weixin']
   settings.search.sort((left, right) => order.indexOf(left.provider) - order.indexOf(right.provider))
   const requests: string[] = []
   const html = '<html><body><ol id="b_results"><li class="b_algo"><h2><a href="https://example.com/doc">Source</a></h2></li></ol></body></html>'
@@ -79,8 +79,69 @@ describe('web capability routing', () => {
   it('refuses an explicitly named disabled public provider and lists enabled alternatives', async () => {
     const { service, settings, requests } = await fixture()
     settings.search.find(source => source.provider === 'brave')!.enabled = false
-    expect(await service.search({ query: 'query', provider: 'brave' })).toMatchObject({ ok: false, code: 'WEB_PROVIDER_UNAVAILABLE', attempts: [], availableProviders: ['bing', 'duckduckgo', 'google'] })
+    expect(await service.search({ query: 'query', provider: 'brave' })).toMatchObject({ ok: false, code: 'WEB_PROVIDER_UNAVAILABLE', attempts: [], availableProviders: ['bing', 'duckduckgo', 'google', 'sogou-weixin'] })
     expect(requests).toEqual([])
+  })
+  describe('sogou-weixin', () => {
+    const search = '<html><body><div class="news-box"></div><div class="b404-box" id="noresult_part1_container"></div></body></html>'
+    const withSogouOnly = async () => {
+      const context = await fixture()
+      context.settings.search = [
+        { provider: 'sogou-weixin', enabled: true },
+        { provider: 'native', enabled: false },
+        { provider: 'bing', enabled: false },
+        { provider: 'brave', enabled: false },
+        { provider: 'tavily', enabled: false },
+        { provider: 'duckduckgo', enabled: false },
+        { provider: 'google', enabled: false },
+      ]
+      return context
+    }
+
+    it('is never tried by auto, even when it is the only enabled source and sorted first', async () => {
+      const { service, settings, requests } = await fixture()
+      settings.search = [{ provider: 'sogou-weixin', enabled: true }, ...settings.search.filter(source => source.provider !== 'sogou-weixin')]
+      const result = await service.search({ query: 'query' })
+      expect(result).toMatchObject({ ok: true, provider: 'bing' })
+      expect(requests.every(url => !url.includes('sogou.com'))).toBe(true)
+      expect(result.availableProviders).toContain('sogou-weixin')
+
+      const only = await withSogouOnly()
+      expect(await only.service.search({ query: 'query' })).toMatchObject({ ok: false, code: 'WEB_PROVIDER_UNAVAILABLE', attempts: [], availableProviders: ['sogou-weixin'] })
+      expect(await only.service.search({ query: 'query', provider: 'auto' })).toMatchObject({ ok: false, code: 'WEB_PROVIDER_UNAVAILABLE' })
+      expect(only.requests).toEqual([])
+    })
+
+    it('is used when requested explicitly and reports an empty result as a success', async () => {
+      const { options, requests } = await withSogouOnly()
+      options.host.get = async (url) => {
+        requests.push(url)
+        return { bytes: new TextEncoder().encode(search), url, status: 200, headers: new Headers({ 'content-type': 'text/html' }) }
+      }
+      const result = await new WebCapabilityService(options).search({ query: '尸检', provider: 'sogou-weixin' })
+      expect(result).toMatchObject({ ok: true, provider: 'sogou-weixin', sources: [], attempts: [{ provider: 'sogou-weixin', code: null }] })
+      expect(requests).toEqual(['https://weixin.sogou.com/weixin?type=2&ie=utf8&query=%E5%B0%B8%E6%A3%80'])
+    })
+
+    it('refuses an explicit request while disabled and does not fall back', async () => {
+      const { service, settings, requests } = await fixture()
+      settings.search.find(source => source.provider === 'sogou-weixin')!.enabled = false
+      const result = await service.search({ query: 'query', provider: 'sogou-weixin' })
+      expect(result).toMatchObject({ ok: false, code: 'WEB_PROVIDER_UNAVAILABLE', attempts: [] })
+      expect(result.availableProviders).not.toContain('sogou-weixin')
+      expect(requests).toEqual([])
+    })
+
+    it('does not fall back to another source after a challenge', async () => {
+      const { options, requests } = await withSogouOnly()
+      options.host.get = async (url) => {
+        requests.push(url)
+        return { bytes: new TextEncoder().encode('<span id="seccoderight"></span>'), url, status: 200, headers: new Headers({ 'content-type': 'text/html' }) }
+      }
+      const result = await new WebCapabilityService(options).search({ query: 'query', provider: 'sogou-weixin' })
+      expect(result).toMatchObject({ ok: false, code: 'WEB_CHALLENGE', provider: 'sogou-weixin', attempts: [{ provider: 'sogou-weixin', code: 'WEB_CHALLENGE' }] })
+      expect(requests).toHaveLength(1)
+    })
   })
   it('does not send a native request if disabled while authentication is resolving', async () => {
     const { options, settings } = await fixture()

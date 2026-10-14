@@ -200,6 +200,8 @@ export default {
   'desktop.web.duckduckgoSearchDescription': '可用性受网络、限流和验证码影响。',
   'desktop.web.google': 'Google',
   'desktop.web.googleSearchDescription': '可用性受网络、限流和验证码影响。',
+  'desktop.web.sogou-weixin': '搜狗微信',
+  'desktop.web.sogou-weixinSearchDescription': '可用性受网络、限流和验证码影响。',
   'desktop.web.tavily': 'Tavily',
   'desktop.web.tavilySearchDescription': '按 Tavily 账户计费，与网页读取独立开启。',
   'desktop.web.fetchDescription': '直接读取公开网页、文本和文字型 PDF。',

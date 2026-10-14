@@ -20,7 +20,7 @@ export interface WebSearchResponse {
   usage?: { inputTokens?: number, outputTokens?: number, credits?: number, cost: null }
 }
 
-type PublicSearchProvider = Exclude<WebSearchProvider, 'native' | 'tavily'>
+type PublicSearchProvider = Exclude<WebSearchProvider, 'native' | 'tavily' | 'sogou-weixin'>
 interface PublicSearchDefinition { endpoint: string, result: string, anchor: string, title: string, snippet: string, empty?: string }
 
 const PUBLIC_SEARCH: Record<PublicSearchProvider, PublicSearchDefinition> = {

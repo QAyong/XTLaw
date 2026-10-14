@@ -16,6 +16,7 @@ import { copyEventSnapshot } from '../../../shared/events/eventSnapshot'
 import { WebError, webError } from '../../../shared/network/webProtocol'
 import { githubWebFetch } from './githubWebFetch'
 import { nativeSearchFamily, nativeWebSearch } from './NativeWebSearch'
+import { sogouWeixinSearch } from './sogouWeixinSearch'
 import { extractHtml, extractWebResource } from './webContent'
 import { WebContentCache } from './WebContentCache'
 import { publicWebSearch, tavilyRequest, tavilySearch } from './webSearchBackends'
@@ -71,7 +72,8 @@ export class WebCapabilityService {
         .map(source => ({ provider: source.provider, id: source.provider === 'native' ? nativeId! : source.provider }))
       availableProviders = routes.map(route => route.id)
       const requested = input.provider === 'native' ? nativeId ?? 'native' : input.provider
-      const selected = !requested || requested === 'auto' ? routes : routes.filter(route => route.id === requested)
+      // Official-account search succeeds for any query, so it is only ever an explicit choice, never a fallback.
+      const selected = !requested || requested === 'auto' ? routes.filter(route => route.provider !== 'sogou-weixin') : routes.filter(route => route.id === requested)
       if (!selected.length)
         throw new WebError('WEB_PROVIDER_UNAVAILABLE')
       let last: WebSearchResponse | undefined
@@ -93,7 +95,9 @@ export class WebCapabilityService {
             ? await nativeWebSearch(providerFetch, this.#options.models, input.model!, input.query, attemptSignal, (usage) => { modelUsage = usage })
             : route.provider === 'tavily'
               ? await tavilySearch(providerFetch, input.query, await this.#key(), attemptSignal)
-              : await publicWebSearch(this.#options.host.get, route.provider, input.query, attemptSignal)
+              : route.provider === 'sogou-weixin'
+                ? await sogouWeixinSearch(this.#options.host.get, input.query, attemptSignal)
+                : await publicWebSearch(this.#options.host.get, route.provider, input.query, attemptSignal)
           attempts.push({ provider, code: null, durationMs: Date.now() - started })
           publish({ phase: 'attempt-finished', provider: route.provider, attempt: attempts.length, count: result.sources.length, durationMs: Date.now() - started })
           if (result.sources.length)

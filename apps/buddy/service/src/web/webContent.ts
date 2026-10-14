@@ -25,8 +25,67 @@ export function decodeWebText(bytes: Uint8Array, contentType: string): string {
   catch { return new TextDecoder().decode(bytes) }
 }
 
+// WeChat ships the article body hidden and reveals it from page scripts, which Readability treats as invisible.
+function revealWeChatArticle(document: ReturnType<typeof parseHTML>['document']): void {
+  for (const element of document.querySelectorAll('[style]')) {
+    const style = element.getAttribute('style') ?? ''
+    const revealed = style.replace(/visibility\s*:\s*hidden\s*;?/gi, '').replace(/opacity\s*:\s*0(?:\.0+)?\s*(?:;|$)/gi, '')
+    if (revealed !== style)
+      element.setAttribute('style', revealed)
+  }
+}
+
+function decodeScriptEscapes(raw: string): string {
+  return raw.replace(/\\x([0-9a-f]{2})|\\u([0-9a-f]{4})/gi, (_match, byte: string | undefined, unit: string | undefined) => String.fromCharCode(Number.parseInt(byte ?? unit!, 16)))
+}
+
+// A WeChat image post (item_show_type 8) carries its caption in page metadata, its images in scripts, and, when it
+// was made from an article, a link back to that article. There is no article body, so the generic path would only
+// find the "open in WeChat" placeholder and report it as a successful read.
+function extractWeChatImagePost(html: string, document: ReturnType<typeof parseHTML>['document'], url: string): WebDocument | null {
+  if (!/window\.item_show_type\s*=\s*'8'/.test(html))
+    return null
+  const caption = decodeScriptEscapes(document.querySelector('meta[name="description"]')?.getAttribute('content') ?? '')
+    .replace(/\r\n?/g, '\n')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+  const title = (document.querySelector('meta[property="og:title"]')?.getAttribute('content') || document.title || url).trim()
+  const block = /convert_appmsg_link\s*:\s*\{([\s\S]*?)\}/.exec(html)?.[1] ?? ''
+  const field = (name: string) => new RegExp(`\\b${name}\\s*:\\s*'((?:[^'\\\\]|\\\\.)*)'`).exec(block)?.[1]
+  let original: { title: string, url: string } | null = null
+  try {
+    const target = new URL(decodeScriptEscapes(field('content_url') ?? '').replace(/&amp;/g, '&'))
+    if (target.hostname === 'mp.weixin.qq.com' && target.pathname === '/s') {
+      target.protocol = 'https:'
+      original = { title: decodeScriptEscapes(field('title') ?? '').trim() || target.href, url: target.href }
+    }
+  }
+  catch {}
+  if (!caption && !original)
+    throw new WebError('WEB_EMPTY_CONTENT')
+  return {
+    url,
+    title,
+    content: caption || title,
+    contentType: 'text/markdown',
+    acquisitionIncomplete: true,
+    warnings: [
+      'WeChat image post: the images were not read (no OCR), so this is only the text caption.',
+      ...(original ? [`Original article: "${original.title}" ${original.url} - read this URL with lexora_web_fetch for the full text.`] : []),
+    ],
+    handler: 'html',
+  }
+}
+
 export function extractHtml(html: string, url: string): WebDocument {
   const { document } = parseHTML(html)
+  if (URL.canParse(url) && new URL(url).hostname === 'mp.weixin.qq.com') {
+    const imagePost = extractWeChatImagePost(html, document, url)
+    if (imagePost)
+      return imagePost
+    revealWeChatArticle(document)
+  }
   const title = document.title?.trim() || url
   const visible = document.body?.textContent?.trim() ?? ''
   if (document.querySelector('#challenge-form, #cf-challenge-running, form[action*="captcha"], #b_captcha')

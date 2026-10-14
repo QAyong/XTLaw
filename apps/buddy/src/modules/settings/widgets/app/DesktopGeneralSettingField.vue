@@ -23,9 +23,10 @@ const labels = computed(() => ({
   language: { title: t('settings.language'), description: '', testId: undefined },
   contextPanelMode: { title: t('desktop.settings.contextPanelMode'), description: t('desktop.settings.contextPanelModeDescription'), testId: 'context-panel-mode-setting' },
   contextPanelGlobal: { title: t('desktop.settings.contextPanelGlobal'), description: t('desktop.settings.contextPanelGlobalDescription'), testId: 'context-panel-global-setting' },
+  contextPanelAutoCollapse: { title: t('desktop.settings.contextPanelAutoCollapse'), description: t('desktop.settings.contextPanelAutoCollapseDescription'), testId: 'context-panel-auto-collapse-setting' },
   pasteTextAsAttachment: { title: t('desktop.settings.pasteTextAsAttachment'), description: t('desktop.settings.pasteTextAsAttachmentDescription'), testId: 'paste-text-as-attachment-setting' },
 }))
-const isToggle = computed(() => props.field === 'contextPanelGlobal' || props.field === 'pasteTextAsAttachment')
+const isToggle = computed(() => props.field === 'contextPanelGlobal' || props.field === 'contextPanelAutoCollapse' || props.field === 'pasteTextAsAttachment')
 function save(patch: LexoraConfigPatch) {
   return saveSetting(props.field, patch)
 }
@@ -36,6 +37,7 @@ function save(patch: LexoraConfigPatch) {
     <NSelect v-if="field === 'language'" v-bind="controlAttrs" :options="languageOptions" :value="config.desktop.language" :disabled="pending" @update:value="save({ desktop: { language: $event } })" />
     <NSelect v-else-if="field === 'contextPanelMode'" v-bind="controlAttrs" :options="contextPanelModes" :value="config.desktop.contextPanelMode" :disabled="pending" @update:value="save({ desktop: { contextPanelMode: $event } })" />
     <NSwitch v-else-if="field === 'contextPanelGlobal'" v-bind="controlAttrs" :aria-disabled="pending" :round="false" :value="config.desktop.contextPanelGlobal" :loading="pending" :disabled="pending" @update:value="save({ desktop: { contextPanelGlobal: $event } })" />
+    <NSwitch v-else-if="field === 'contextPanelAutoCollapse'" v-bind="controlAttrs" :aria-disabled="pending" :round="false" :value="config.desktop.contextPanelAutoCollapse" :loading="pending" :disabled="pending" @update:value="save({ desktop: { contextPanelAutoCollapse: $event } })" />
     <NSwitch v-else v-bind="controlAttrs" :round="false" :value="config.desktop.chat.pasteTextAsAttachment" :loading="pending" :disabled="pending" :aria-disabled="pending" @update:value="save({ desktop: { chat: { pasteTextAsAttachment: $event } } })" />
     <NSpin v-if="pending && !isToggle" size="small" />
   </DesktopSettingRow>

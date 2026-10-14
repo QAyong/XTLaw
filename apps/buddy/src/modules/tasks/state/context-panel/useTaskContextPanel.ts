@@ -13,10 +13,11 @@ import { useContextPanelTabs } from './useContextPanelTabs'
 export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
   const store = useContextPanelTabs({ mode: options.mode, scopeSpaceIds: options.scopeSpaceIds, conversationId: options.activeConversationId, draftId: options.activeDraftId })
   const linked = computed(() => options.mode.value !== 'independent')
+  const getSource = () => contextTabSource(store.activeTab.value)
+    ?? (linked.value && options.taskVisible.value ? currentSource() ?? null : null)
   const control = useContextPanelControl({
     api: options.control,
-    getSource: () => contextTabSource(store.activeTab.value)
-      ?? (linked.value && options.taskVisible.value ? currentSource() ?? null : null),
+    getSource,
     onError: options.onError,
     onTarget: (target) => {
       const tab = spaceTaskBrowserTab(target.source.conversationId)
@@ -242,6 +243,7 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
     restoreTab,
     selectTab: store.select,
     closePanel: control.close,
+    getSource,
     toggle: control.toggle,
   }
 }

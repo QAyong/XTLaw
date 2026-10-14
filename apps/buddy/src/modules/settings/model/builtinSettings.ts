@@ -29,7 +29,7 @@ export const builtinSettings = {
   ],
   items: [
     { id: 'settings.general.pasteTextAsAttachment', group: 'settings.general.composer', order: 0, kind: 'general', field: 'pasteTextAsAttachment' },
-    ...(['language', 'contextPanelMode', 'contextPanelGlobal'] as GeneralSettingField[]).map((field, order) => ({
+    ...(['language', 'contextPanelMode', 'contextPanelGlobal', 'contextPanelAutoCollapse'] as GeneralSettingField[]).map((field, order) => ({
       id: `settings.general.${field}`,
       group: field === 'language' ? 'settings.general.general' : 'settings.general.context-panel',
       order,

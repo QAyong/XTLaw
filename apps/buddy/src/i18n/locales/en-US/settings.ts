@@ -144,6 +144,8 @@ export default {
   'desktop.settings.contextPanelSpace': 'Space-linked',
   'desktop.settings.contextPanelIndependent': 'Independent',
   'desktop.settings.contextPanelGlobal': 'Follow resources across pages',
+  'desktop.settings.contextPanelAutoCollapse': 'Collapse empty resource panel',
+  'desktop.settings.contextPanelAutoCollapseDescription': 'Collapse the resource panel after closing its last visible tab.',
   'desktop.settings.contextPanelGlobalDescription': 'Show the resource panel in settings and automations using the current browsing mode. Open tabs always remain available.',
   'desktop.settings.proxy.title': 'Network proxy',
   'desktop.settings.proxy.mode': 'Connection mode',

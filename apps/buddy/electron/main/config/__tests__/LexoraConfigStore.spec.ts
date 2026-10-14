@@ -277,6 +277,7 @@ describe('lexoraConfigStore', () => {
     expect(updated.desktop).toEqual({
       contextPanelMode: 'task',
       contextPanelGlobal: false,
+      contextPanelAutoCollapse: false,
       minimizeToTrayOnClose: false,
       keybindings: {},
       backgroundCloseNoticeShown: false,

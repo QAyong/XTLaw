@@ -1,13 +1,15 @@
 import type { DesktopBrowserApi, DesktopBrowserState } from '@buddy-electron/shared/desktopApi'
 import type { LocalArtifact } from '@buddy-shared/artifacts/artifactApi'
 import type { ContextPanelSource } from '@buddy-shared/context-panel/contextPanel'
+import type { Ref } from 'vue'
 import type { UseTaskContextPanelOptions } from './typing'
 import { computed, onScopeDispose, readonly, shallowRef, watch } from 'vue'
-import { browserTabId, isBrowserArtifact } from '../../model/context-panel/taskContextPanel'
+import { browserTabId, contextTabSource, isBrowserArtifact } from '../../model/context-panel/taskContextPanel'
 import { resolveChatArtifactTarget } from '../../model/transcript/chatToolFileTarget'
 import { useTaskContextPanel } from './useTaskContextPanel'
 
 interface TaskResourcePanelOptions extends UseTaskContextPanelOptions {
+  autoCollapse: Readonly<Ref<boolean>>
   closeView?: (id: string) => Promise<boolean>
   closeFiles?: (tabId: string) => Promise<boolean>
   browser: Pick<DesktopBrowserApi, 'ensureSession' | 'close' | 'openArtifact' | 'onStateChanged'>
@@ -16,6 +18,8 @@ interface TaskResourcePanelOptions extends UseTaskContextPanelOptions {
 export function useTaskResourcePanel(options: TaskResourcePanelOptions) {
   const taskContext = useTaskContextPanel(options)
   const browserStates = shallowRef<Readonly<Record<string, DesktopBrowserState>>>({})
+  const pendingSessions = new Map<string, Promise<DesktopBrowserState>>()
+  const closingTabs = new Map<string, Promise<boolean>>()
   const activeBrowserState = computed(() => {
     const tab = taskContext.activeTab.value
     return tab?.kind === 'browser' ? browserStates.value[tab.id] ?? null : null
@@ -45,16 +49,29 @@ export function useTaskResourcePanel(options: TaskResourcePanelOptions) {
       taskContext.selectTab(id)
   })
   let operation = 0
+  let interaction = 0
   let disposed = false
-  watch(() => taskContext.activeTab.value?.id, () => {
+  watch(() => taskContext.activeTab.value?.id, (_, previous) => {
     operation += 1
+    if (!previous || !closingTabs.has(previous) || taskContext.hasTab(previous))
+      interaction += 1
+  }, { flush: 'sync' })
+  watch(taskContext.selectionScope, () => {
+    operation += 1
+    interaction += 1
+  }, { flush: 'sync' })
+  watch(taskContext.isOpen, (open) => {
+    interaction += 1
+    if (!open)
+      operation += 1
   }, { flush: 'sync' })
   onScopeDispose(() => {
     stopBrowserState()
     disposed = true
     operation += 1
+    interaction += 1
     for (const [id, state] of Object.entries(browserStates.value)) {
-      if (id !== browserTabId(state.conversationId))
+      if (id !== browserTabId(state.conversationId) && !closingTabs.has(id))
         void options.browser.close(state.sessionId).catch(() => {})
     }
   })
@@ -62,16 +79,33 @@ export function useTaskResourcePanel(options: TaskResourcePanelOptions) {
   function retainBrowserSession(state: DesktopBrowserState, key?: string) {
     const id = browserTabId(state.conversationId, key)
     if (disposed || !taskContext.hasTab(id)) {
-      if (key)
-        void options.browser.close(state.sessionId).catch(() => {})
+      if (key && !closingTabs.has(id)) {
+        void options.browser.close(state.sessionId).catch(() => {
+          if (!disposed)
+            options.onError()
+        })
+      }
       return
     }
     if (!browserStates.value[id] || browserStates.value[id].sessionId !== state.sessionId)
       browserStates.value = { ...browserStates.value, [id]: state }
   }
 
+  function ensureBrowserSession(conversationId: string | null, key?: string): Promise<DesktopBrowserState> {
+    const id = browserTabId(conversationId, key)
+    if (disposed || !taskContext.hasTab(id))
+      return Promise.reject(new Error('BROWSER_TAB_CLOSED'))
+    const pending = pendingSessions.get(id)
+    if (pending)
+      return pending
+    const request = options.browser.ensureSession(conversationId, key).finally(() => pendingSessions.delete(id))
+    pendingSessions.set(id, request)
+    return request
+  }
+
   function act(action: () => void) {
     operation += 1
+    interaction += 1
     action()
   }
 
@@ -82,40 +116,59 @@ export function useTaskResourcePanel(options: TaskResourcePanelOptions) {
       && taskContext.activeTab.value?.id === activeTabId
   }
 
-  async function closeTab(tabId: string): Promise<boolean> {
+  function closeTab(tabId: string): Promise<boolean> {
+    const pending = closingTabs.get(tabId)
+    if (pending)
+      return pending
+    const accepted = Promise.withResolvers<boolean>()
+    closingTabs.set(tabId, accepted.promise)
+    void closeResource(tabId).finally(() => closingTabs.delete(tabId)).then(accepted.resolve, accepted.reject)
+    return accepted.promise
+  }
+
+  async function closeResource(tabId: string): Promise<boolean> {
     const tab = taskContext.allTabs.value.find(item => item.id === tabId)
     if (!tab)
       return false
     const closingScope = taskContext.selectionScope.value
+    const closingSource = contextTabSource(tab) ?? taskContext.getSource()
     const wasVisible = taskContext.tabs.value.some(item => item.id === tabId)
+    operation += 1
+    const version = ++interaction
     if (tab.kind === 'files' && options.closeFiles && !await options.closeFiles(tab.id))
       return false
     if (tab.kind === 'view' && options.closeView && !await options.closeView(tab.viewId))
       return false
-    act(() => taskContext.closeTab(tabId))
-    const isCurrent = currentOperation()
-    function finishClose() {
-      // Only an explicit close in the same visible scope may collapse an empty panel.
-      if (wasVisible && isCurrent() && taskContext.selectionScope.value === closingScope && !taskContext.tabs.value.length)
-        taskContext.closePanel()
-      return true
-    }
-    if (tab.kind !== 'browser' || (tab.browserKey && !browserStates.value[tab.id]))
-      return finishClose()
-    try {
-      const state = browserStates.value[tab.id] ?? await options.browser.ensureSession(tab.conversationId, tab.browserKey)
-      if (!isCurrent() && !tab.browserKey)
+    if (tab.kind === 'browser') {
+      try {
+        const session = pendingSessions.get(tab.id) ?? browserStates.value[tab.id]
+          ?? (!tab.browserKey ? ensureBrowserSession(tab.conversationId) : null)
+        if (session) {
+          const state = await session
+          const current = taskContext.allTabs.value.find(item => item.id === tabId)
+          if (current !== tab && (current || !tab.browserKey))
+            return false
+          if (current === tab)
+            retainBrowserSession(state, tab.browserKey)
+          await options.browser.close(state.sessionId)
+          if (browserStates.value[tab.id]?.sessionId === state.sessionId)
+            browserStates.value = Object.fromEntries(Object.entries(browserStates.value).filter(([id]) => id !== tab.id))
+        }
+      }
+      catch {
         return false
-      await options.browser.close(state.sessionId)
-      if (browserStates.value[tab.id]?.sessionId === state.sessionId)
-        browserStates.value = Object.fromEntries(Object.entries(browserStates.value).filter(([id]) => id !== tab.id))
-      return finishClose()
+      }
     }
-    catch {
-      if (!disposed && (tab.browserKey || isCurrent()))
-        taskContext.restoreTab(tab)
-      return false
+    const current = taskContext.allTabs.value.find(item => item.id === tabId)
+    if (current && current !== tab)
+      return true
+    operation += 1
+    taskContext.closeTab(tabId)
+    if (options.autoCollapse.value && wasVisible && !disposed && interaction === version
+      && taskContext.selectionScope.value === closingScope && !taskContext.tabs.value.length) {
+      await taskContext.closePanel(closingSource)
     }
+    return true
   }
 
   async function openArtifact(target: string | LocalArtifact): Promise<void> {
@@ -132,7 +185,7 @@ export function useTaskResourcePanel(options: TaskResourcePanelOptions) {
     act(() => taskContext.openBrowser({ conversationId, runId: artifact.runId }))
     const isCurrent = currentOperation()
     try {
-      const state = await options.browser.ensureSession(conversationId)
+      const state = await ensureBrowserSession(conversationId)
       if (isCurrent())
         await options.browser.openArtifact(state.sessionId, artifact.artifactId)
     }
@@ -166,6 +219,7 @@ export function useTaskResourcePanel(options: TaskResourcePanelOptions) {
     browserStates: readonly(browserStates),
     updateBrowserState,
     retainBrowserSession,
+    ensureBrowserSession,
     addBrowser: () => act(taskContext.addBrowser),
     openFiles: (spaceId: string) => act(() => taskContext.openFiles(spaceId)),
     canPreviewFile,
@@ -173,6 +227,7 @@ export function useTaskResourcePanel(options: TaskResourcePanelOptions) {
     closeTab,
     discardDraft: (id: string) => {
       operation += 1
+      interaction += 1
       const removedIds = new Set(taskContext.discardDraft(id).map(tab => tab.id))
       const sessions = Object.entries(browserStates.value).filter(([tabId]) => removedIds.has(tabId))
       browserStates.value = Object.fromEntries(Object.entries(browserStates.value).filter(([tabId]) => !removedIds.has(tabId)))

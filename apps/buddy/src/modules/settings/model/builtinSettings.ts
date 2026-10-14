@@ -32,7 +32,7 @@ export const builtinSettings = {
   items: [
     { id: 'settings.general.profile', group: 'settings.general.account', order: 0, kind: 'content' as const },
     { id: 'settings.general.pasteTextAsAttachment', group: 'settings.general.composer', order: 0, kind: 'general' as const, field: 'pasteTextAsAttachment' },
-    ...(['language', 'minimizeToTrayOnClose', 'contextPanelMode', 'contextPanelGlobal'] as GeneralSettingField[]).map((field, order) => ({
+    ...(['language', 'minimizeToTrayOnClose', 'contextPanelMode', 'contextPanelGlobal', 'contextPanelAutoCollapse'] as GeneralSettingField[]).map((field, order) => ({
       id: `settings.general.${field}`,
       group: field === 'language'
         ? 'settings.general.general'

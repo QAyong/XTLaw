@@ -203,6 +203,7 @@ export interface LexoraConfig {
     contextPanelMode: DesktopContextPanelMode
     contextPanelGlobal: boolean
     minimizeToTrayOnClose: boolean
+    contextPanelAutoCollapse: boolean
     keybindings: Record<string, string>
     taskSidebarPinnedItems: DesktopTaskPinnedItem[]
     taskSidebar: DesktopTaskSidebarPreferences

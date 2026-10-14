@@ -42,7 +42,7 @@ export function useContextPanelControl(options: {
     initialized: computed(() => initialized.value),
     setOpen: (open: boolean) => execute({ action: open ? 'open' : 'close', source: options.getSource() }),
     open: () => execute({ action: 'open', source: options.getSource() }),
-    close: () => execute({ action: 'close', source: options.getSource() }),
+    close: (source = options.getSource()) => execute({ action: 'close', source }),
     toggle: () => execute({ action: state.value.open ? 'close' : 'open', source: options.getSource() }),
   }
 }

@@ -54,6 +54,26 @@ export class CredentialStoreUnavailableError extends Error {
   }
 }
 
+export type CredentialVaultPhase = 'list_directory' | 'read_file' | 'decrypt' | 'parse' | 'validate' | 'encrypt' | 'write_file' | 'delete_file'
+
+// Records only the failing step, error type and system error code. The original
+// message is dropped because parse failures can echo decrypted credential text.
+export class CredentialVaultError extends Error {
+  readonly code = 'CREDENTIAL_VAULT_FAILED'
+  readonly causeCode: string | null
+  readonly causeType: string
+  readonly phase: CredentialVaultPhase
+
+  constructor(phase: CredentialVaultPhase, cause: unknown) {
+    super(`XTLaw credential vault failed during ${phase}`)
+    this.name = 'CredentialVaultError'
+    this.phase = phase
+    this.causeType = cause instanceof Error ? cause.name : 'UnknownError'
+    const code = (cause as NodeJS.ErrnoException | undefined)?.code
+    this.causeCode = typeof code === 'string' && /^[A-Z][A-Z0-9_]{0,95}$/.test(code) ? code : null
+  }
+}
+
 export function createCredentialVault(
   options: CreateCredentialVaultOptions = {},
 ): CredentialVault {
@@ -68,7 +88,7 @@ export function createCredentialVault(
       }
       catch (error) {
         if (!isFileNotFound(error))
-          throw error
+          throw new CredentialVaultError('delete_file', error)
       }
     },
     async listProviders() {
@@ -81,46 +101,49 @@ export function createCredentialVault(
       catch (error) {
         if (isFileNotFound(error))
           return []
-        throw error
+        throw new CredentialVaultError('list_directory', error)
       }
 
       const providers = await Promise.all(files
         .filter(file => file.endsWith(SECRET_FILE_SUFFIX))
         .sort()
         .map(async (file) => {
-          const envelope = decryptEnvelope(cipher, await readFile(join(directory, file)))
+          const envelope = decryptEnvelope(cipher, await vaultStep('read_file', () => readFile(join(directory, file))))
           const type = readCredentialType(envelope.value)
           if (!type)
-            throw new Error('XTLaw provider credential is invalid')
+            throw new CredentialVaultError('validate', new Error('XTLaw provider credential is invalid'))
           return { providerId: envelope.id, type }
         }))
       return providers.sort((left, right) => left.providerId.localeCompare(right.providerId))
     },
     async read(namespace, id) {
       assertAvailable(cipher)
+      let encrypted: Buffer
       try {
-        const encrypted = await readFile(resolveSecretPath(root, namespace, id))
-        const envelope = decryptEnvelope(cipher, encrypted)
-        if (envelope.id !== id)
-          throw new Error('XTLaw credential identifier does not match its vault entry')
-        return envelope.value
+        encrypted = await readFile(resolveSecretPath(root, namespace, id))
       }
       catch (error) {
         if (isFileNotFound(error))
           return null
-        throw error
+        throw new CredentialVaultError('read_file', error)
       }
+      const envelope = decryptEnvelope(cipher, encrypted)
+      if (envelope.id !== id)
+        throw new CredentialVaultError('validate', new Error('XTLaw credential identifier does not match its vault entry'))
+      return envelope.value
     },
     async write(namespace, id, value) {
       assertAvailable(cipher)
       const directory = resolveNamespacePath(root, namespace)
-      await ensurePrivateDirectory(root)
-      await ensurePrivateDirectory(directory)
+      await vaultStep('write_file', async () => {
+        await ensurePrivateDirectory(root)
+        await ensurePrivateDirectory(directory)
+      })
 
       const destination = resolveSecretPath(root, namespace, id)
       const temporary = join(directory, `.${randomUUID()}.tmp`)
       const envelope: VaultEnvelope = { id, value, version: 1 }
-      const encrypted = cipher.encrypt(JSON.stringify(envelope))
+      const encrypted = await vaultStep('encrypt', () => cipher.encrypt(JSON.stringify(envelope)))
       let handle
       try {
         handle = await open(temporary, 'wx', 0o600)
@@ -134,7 +157,7 @@ export function createCredentialVault(
       catch (error) {
         await handle?.close().catch(() => {})
         await unlink(temporary).catch(() => {})
-        throw error
+        throw new CredentialVaultError('write_file', error)
       }
     },
   }
@@ -181,14 +204,33 @@ function resolveSecretPath(root: string, namespace: CredentialNamespace, id: str
   return join(resolveNamespacePath(root, namespace), `${name}${SECRET_FILE_SUFFIX}`)
 }
 
+async function vaultStep<T>(phase: CredentialVaultPhase, operation: () => T | Promise<T>): Promise<T> {
+  try {
+    return await operation()
+  }
+  catch (error) {
+    throw new CredentialVaultError(phase, error)
+  }
+}
+
+function syncVaultStep<T>(phase: CredentialVaultPhase, operation: () => T): T {
+  try {
+    return operation()
+  }
+  catch (error) {
+    throw new CredentialVaultError(phase, error)
+  }
+}
+
 function decryptEnvelope(cipher: SecretCipher, encrypted: Buffer): VaultEnvelope {
-  const value: unknown = JSON.parse(cipher.decrypt(encrypted))
+  const text = syncVaultStep('decrypt', () => cipher.decrypt(encrypted))
+  const value: unknown = syncVaultStep('parse', () => JSON.parse(text))
   if (!value || typeof value !== 'object' || Array.isArray(value))
-    throw new Error('XTLaw credential envelope is invalid')
+    throw new CredentialVaultError('validate', new Error('XTLaw credential envelope is invalid'))
 
   const envelope = value as Partial<VaultEnvelope>
   if (envelope.version !== 1 || typeof envelope.id !== 'string' || !('value' in envelope))
-    throw new Error('XTLaw credential envelope is invalid')
+    throw new CredentialVaultError('validate', new Error('XTLaw credential envelope is invalid'))
   return envelope as VaultEnvelope
 }
 

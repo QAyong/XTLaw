@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { DesktopBrowserApi } from '@buddy-electron/shared/desktopApi'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import type { TaskChatWorkspace } from '@/modules/tasks/contracts'
 import type { ContextPanelTab } from '@/modules/tasks/model/context-panel/taskContextPanel'
@@ -22,6 +23,7 @@ const props = defineProps<{
 const { t } = useBuddyI18n(() => props.language)
 const fileSpacePickerOpen = shallowRef(false)
 const { browser, browserGuests, clipboard } = useTaskEnvironment()
+const browserApi: DesktopBrowserApi = { ...browser, ensureSession: (conversationId, key) => props.panel.ensureBrowserSession(conversationId, key) }
 const activeTab = computed(() => props.panel.activeTab.value)
 const tabs = computed<ContextPanelTab[]>(() => props.panel.tabs.value.map((tab) => {
   if (tab.kind === 'view')
@@ -70,7 +72,7 @@ function add(kind: 'changes' | 'files' | 'browser') {
       </template>
     </DesktopFilesContextSurface>
     <DesktopChangesContextSurface :tab="activeTab?.kind === 'changes' ? activeTab : null" :context="context" :has-tab="panel.hasTab" :language="language" />
-    <DesktopBrowserContextSurface :tab="activeTab?.kind === 'browser' ? activeTab : null" :api="browser" :guest-host="browserGuests" :state="panel.activeBrowserState.value" :update-state="panel.updateBrowserState" :session-ready="panel.retainBrowserSession" :language="language" :visible="visible && activeTab?.kind === 'browser'" />
+    <DesktopBrowserContextSurface :tab="activeTab?.kind === 'browser' ? activeTab : null" :api="browserApi" :guest-host="browserGuests" :state="panel.activeBrowserState.value" :update-state="panel.updateBrowserState" :session-ready="panel.retainBrowserSession" :language="language" :visible="visible && activeTab?.kind === 'browser'" />
     <DesktopArtifactContextSurface v-if="activeTab?.kind === 'artifact'" :key="activeTab.id" :artifact="activeTab.artifact" :language="language" :view-mode="activeTab.viewMode" :read-artifact-text="context.readArtifactText" :write-clipboard-text="clipboard.writeText" @update:view-mode="panel.setArtifactViewMode(activeTab.id, $event)" />
     <slot v-if="activeTab?.kind === 'view'" name="view" :view-id="activeTab.viewId" />
   </DesktopTaskContextPanel>

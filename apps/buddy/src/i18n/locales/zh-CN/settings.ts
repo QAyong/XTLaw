@@ -137,6 +137,8 @@ export default {
   'desktop.settings.contextPanelSpace': '空间联动',
   'desktop.settings.contextPanelIndependent': '独立浏览',
   'desktop.settings.contextPanelGlobal': '跨页面联动',
+  'desktop.settings.contextPanelAutoCollapse': '自动收起空资源面板',
+  'desktop.settings.contextPanelAutoCollapseDescription': '关闭最后一个可见标签后自动收起资源面板。',
   'desktop.settings.contextPanelGlobalDescription': '在设置和自动化中也显示资源面板，沿用当前浏览模式；已打开的标签始终保留。',
   'desktop.settings.proxy.title': '网络代理',
   'desktop.settings.proxy.mode': '连接方式',

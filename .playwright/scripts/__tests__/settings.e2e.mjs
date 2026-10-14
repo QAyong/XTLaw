@@ -599,6 +599,39 @@ async function openSettings(page) {
   await page.locator('.desktop-settings-sidebar').getByRole('link', { name: '常规', exact: true }).click()
   await expect(page).toHaveURL(/#\/settings\/general$/)
 }
+
+test('resource panel automatic collapse is opt-in and persists across restart', async ({ buddy }) => {
+  const instance = await buddy.createInstance('resource-panel-collapse')
+  let desktop = await instance.launch()
+  const panel = () => desktop.page.getByTestId('task-context-panel')
+  const autoCollapse = () => desktop.page.getByTestId('context-panel-auto-collapse-setting').getByRole('switch')
+  async function closeBrowser() {
+    await desktop.page.locator('.desktop-app-sidebar').getByRole('button', { name: '任务', exact: true }).click()
+    if (!await panel().isVisible())
+      await desktop.page.getByTestId('context-panel-toggle').click()
+    await panel().getByRole('button', { name: '浏览器', exact: true }).click()
+    await expect(panel().getByRole('tab')).toHaveCount(1)
+    await expect.poll(() => desktop.page.evaluate(async () => (await window.lexoraDesktop.browser.listGuests()).length)).toBe(1)
+    await panel().locator('.desktop-task-context-panel__tab-close').click()
+    await expect.poll(() => desktop.page.evaluate(async () => (await window.lexoraDesktop.browser.listGuests()).length)).toBe(0)
+  }
+  await openSettings(desktop.page)
+  await expect(autoCollapse()).not.toBeChecked()
+  await closeBrowser()
+  await expect(panel()).toBeVisible()
+  await expect(panel().getByRole('tab')).toHaveCount(0)
+  await openSettings(desktop.page)
+  await autoCollapse().click()
+  await expect(autoCollapse()).toBeChecked()
+  await instance.stop()
+  desktop = await instance.launch()
+  await openSettings(desktop.page)
+  await expect(autoCollapse()).toBeChecked()
+  await closeBrowser()
+  await expect(panel()).toBeHidden()
+  expect(desktop.diagnostics.console.filter(item => item.type === 'pageerror')).toEqual([])
+})
+
 function panelSettings(page) {
   return page.evaluate(async () => {
     const { desktop } = await window.lexoraDesktop.settings.get()

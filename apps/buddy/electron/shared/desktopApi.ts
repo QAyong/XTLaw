@@ -186,6 +186,7 @@ export interface LexoraConfig {
     chat: DesktopChatPreferences
     contextPanelMode: DesktopContextPanelMode
     contextPanelGlobal: boolean
+    contextPanelAutoCollapse: boolean
     keybindings: Record<string, string>
     taskSidebarPinnedItems: DesktopTaskPinnedItem[]
     taskSidebar: DesktopTaskSidebarPreferences

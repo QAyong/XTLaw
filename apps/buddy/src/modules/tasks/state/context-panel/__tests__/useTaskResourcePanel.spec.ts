@@ -26,7 +26,7 @@ function fixture() {
     sourceToolCallId: 'tool',
     artifacts: [{ artifactId: 'html', conversationId: 'conversation', createdAt: '2026-09-08T00:00:00.000Z', kind: 'file', mimeType: 'text/html', name: 'page.html', path: '/workspace/page.html', previewUrl: null, runId: 'run', sizeBytes: 10, sourceArtifactId: null, sourceToolCallId: 'tool', updatedAt: '2026-09-08T00:00:00.000Z' }],
   }])
-  const panel = scope.run(() => useTaskResourcePanel({ ...contextPanelFixture({ activeConversationId }).options, spaces: shallowRef([]), activeRunId: shallowRef(null), browser, changeSets: shallowRef([]), runOutputs }))!
+  const panel = scope.run(() => useTaskResourcePanel({ ...contextPanelFixture({ activeConversationId }).options, autoCollapse: shallowRef(false), spaces: shallowRef([]), activeRunId: shallowRef(null), browser, changeSets: shallowRef([]), runOutputs }))!
   const release = () => gate.resolve({ sessionId: 'session' } as DesktopBrowserState)
   return { activeConversationId, browser, panel, release, runOutputs, scope, sessionOpen: () => sessionOpen }
 }
@@ -153,7 +153,7 @@ describe('resource panel operations', () => {
     const f = fixture()
     f.panel.openBrowser()
     const closing = f.panel.closeTab('browser:conversation')
-    expect(f.panel.tabs.value).toEqual([])
+    expect(f.panel.tabs.value.map(tab => tab.id)).toEqual(['browser:conversation'])
     f.panel.openBrowser()
     f.release()
     expect(await closing).toBe(false)

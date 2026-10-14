@@ -100,7 +100,7 @@ const actionCopyText = computed(() => resultNoticeText.value ?? statusLabel.valu
 <template>
   <section
     class="buddy-chat-agent-turn"
-    :class="`is-${turn.status}`"
+    :class="[`is-${turn.status}`, { 'is-assistant-continuation': showIdentity === false }]"
   >
     <button
       v-if="showTopProcessToggle"

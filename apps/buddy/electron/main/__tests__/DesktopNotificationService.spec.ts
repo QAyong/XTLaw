@@ -1,3 +1,4 @@
+import type { LocalExecution } from '../../../shared/executions/executionPresentationApi'
 import type { DesktopSystemNotification } from '../DesktopNotificationService'
 import { describe, expect, it, vi } from 'vitest'
 import { DesktopNotificationService } from '../DesktopNotificationService'
@@ -8,11 +9,39 @@ type TestNotification = DesktopSystemNotification & {
   fail: () => void
 }
 
-function fixture() {
+function fixture(kind: LocalExecution['kind'] = 'root') {
   const notifications: TestNotification[] = []
   const target = { conversationId: 'conversation-1', runId: 'run-1' }
   const openTarget = vi.fn()
   const onError = vi.fn()
+  const settings = { notificationsEnabled: true, subtaskNotificationsEnabled: true, notifyWhenFocused: false }
+  const execution: LocalExecution = {
+    runId: 'run-1',
+    rootRunId: kind === 'root' ? 'run-1' : 'root',
+    parentRunId: kind === 'root' ? null : 'root',
+    buddyId: 'default',
+    buddyName: '审查者',
+    ordinal: kind === 'root' ? null : 2,
+    kind,
+    phase: 'closed',
+    status: 'completed',
+    startedAt: '2026-08-19T07:59:00.000Z',
+    completedAt: '2026-08-19T08:00:00.000Z',
+    updatedAt: '2026-08-19T08:00:00.000Z',
+    progress: null,
+    toolCount: 1,
+    stopping: false,
+    task: '检查发布产物\n  与升级路径',
+    waitingFor: null,
+    activeChildren: 0,
+    canCancel: false,
+    canAnswer: false,
+    canSend: false,
+    cleanup: 'clean',
+    errorCode: null,
+    affectedResources: [],
+    questions: [],
+  }
   const service = new DesktopNotificationService({
     createNotification() {
       let click = () => {}
@@ -38,11 +67,13 @@ function fixture() {
       return notification
     },
     getLanguage: () => 'zh-CN',
-    getSettings: () => ({ notificationsEnabled: true, notifyWhenFocused: false }),
+    getSettings: () => settings,
     isWindowFocused: () => false,
     onError,
     openTarget,
     request: async (method) => {
+      if (method === 'executions.list')
+        return [{ ...execution, runId: target.runId }]
       if (method === 'runs.get') {
         return {
           approvalPolicy: 'policy',
@@ -88,7 +119,7 @@ function fixture() {
     },
   }
 
-  return { service, notifications, openTarget, onError, event, target }
+  return { service, notifications, openTarget, onError, event, target, settings }
 }
 
 describe('desktopNotificationService', () => {
@@ -154,5 +185,15 @@ describe('desktopNotificationService', () => {
     await vi.waitFor(() => expect(f.onError).toHaveBeenCalledWith(error))
     expect(f.openTarget).toHaveBeenCalledOnce()
     expect(f.notifications).toHaveLength(2)
+  })
+
+  it.each(['npc_child', 'actor_child'] as const)('shows %s notifications and stops them when subtask notifications are turned off', async (kind) => {
+    const f = fixture(kind)
+    await f.service.handle(f.event)
+    expect(f.notifications).toHaveLength(1)
+    expect(f.notifications[0]!.show).toHaveBeenCalledOnce()
+    f.settings.subtaskNotificationsEnabled = false
+    await f.service.handle({ ...f.event, params: { ...f.event.params, sequence: 9 } })
+    expect(f.notifications).toHaveLength(1)
   })
 })

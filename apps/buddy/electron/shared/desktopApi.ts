@@ -211,6 +211,7 @@ export interface LexoraConfig {
     language: 'zh-CN' | 'en-US'
     launchAtLogin: boolean
     notificationsEnabled: boolean
+    subtaskNotificationsEnabled: boolean
     updateNotificationsEnabled: boolean
     autoDownloadUpdates: boolean
     notifyWhenFocused: boolean

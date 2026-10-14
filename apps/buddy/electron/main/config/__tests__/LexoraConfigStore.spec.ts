@@ -294,6 +294,7 @@ describe('lexoraConfigStore', () => {
       language: 'zh-CN',
       launchAtLogin: false,
       notificationsEnabled: true,
+      subtaskNotificationsEnabled: true,
       updateNotificationsEnabled: true,
       autoDownloadUpdates: true,
       notifyWhenFocused: false,

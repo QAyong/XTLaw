@@ -5,7 +5,7 @@ import { NSpin, NSwitch } from 'naive-ui'
 import { shallowRef } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 
-type NotificationSettingField = 'notifications' | 'notifyWhenFocused'
+type NotificationSettingField = 'notifications' | 'subtaskNotifications' | 'notifyWhenFocused'
 
 const props = defineProps<ApplicationSettingsProps>()
 
@@ -40,6 +40,23 @@ async function updateSetting(field: NotificationSettingField, patch: LexoraConfi
           />
           <NSpin v-if="pendingFields.has('notifications')" size="small" />
           <small v-else-if="failedField === 'notifications'" class="is-error">
+            {{ error ?? t('desktop.settings.saveFailed') }}
+          </small>
+        </div>
+      </div>
+      <div v-if="config.desktop.notificationsEnabled" class="desktop-settings-row">
+        <div>
+          <strong>{{ t('desktop.settings.subtaskNotifications') }}</strong>
+          <small>{{ t('desktop.settings.subtaskNotificationsDescription') }}</small>
+        </div>
+        <div class="desktop-settings-row__control">
+          <NSwitch
+            :round="false"
+            :value="config.desktop.subtaskNotificationsEnabled"
+            @update:value="updateSetting('subtaskNotifications', { desktop: { subtaskNotificationsEnabled: $event } })"
+          />
+          <NSpin v-if="pendingFields.has('subtaskNotifications')" size="small" />
+          <small v-else-if="failedField === 'subtaskNotifications'" class="is-error">
             {{ error ?? t('desktop.settings.saveFailed') }}
           </small>
         </div>

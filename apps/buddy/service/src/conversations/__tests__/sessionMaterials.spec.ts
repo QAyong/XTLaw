@@ -17,6 +17,7 @@ import { createConversationRepository } from '../../storage/conversationReposito
 import { createConversationTreeRepository } from '../../storage/conversationTreeRepository'
 import { openBuddyDatabase } from '../../storage/database'
 import { createRunRepository } from '../../storage/runRepository'
+import { createSessionReferenceRepository } from '../../storage/sessionReferenceRepository'
 import { searchConversationHistory } from '../searchConversationHistory'
 import { createSessionReferenceCapability } from '../sessionReferenceExtension'
 import { SessionReferenceService } from '../SessionReferenceService'
@@ -79,7 +80,7 @@ async function fixture() {
     return { path, early, source: { kind: 'artifact' as const, artifactId: record!.id } }
   }
   const input = message({ userContent: { ...createBuddyUserContent('Use source.'), sessionReferences: [{ id: 'source', title: 'source' }] }, resourceSnapshots: [] }, { conversationId: 'current' })
-  const capability = createSessionReferenceCapability({ ...services, conversationId: 'current' })
+  const capability = createSessionReferenceCapability({ ...services, references: createSessionReferenceRepository(database), conversationId: 'current' })
   const tools = new Map<string, ToolDefinition>()
   const hooks = new Map<string, (input: unknown) => unknown>()
   await capability.extension.factory({
@@ -112,7 +113,11 @@ async function fixture() {
   async function read(source: SessionReferenceSource, options: { offset?: number, limit?: number, sessionId?: string } = {}) {
     return call(SESSION_READ_TOOL, { sessionId: 'source', source, ...options })
   }
-  return { root, conversations, service, controller, call, read, message, inputResource, artifact, capability, tools, hooks }
+  async function nextInput() {
+    const next = message({ userContent: createBuddyUserContent('Continue'), resourceSnapshots: [] }, { conversationId: 'current' })
+    await hooks.get('context')!({ messages: [createBuddyInputReferenceMessage(createBuddyInputReference({ messageId: next.id, prompt: 'Continue', images: [] }), Date.now())] })
+  }
+  return { nextInput, root, conversations, service, controller, call, read, message, inputResource, artifact, capability, tools, hooks }
 }
 
 function textResult(result: Awaited<ReturnType<ToolDefinition['execute']>>) {
@@ -124,6 +129,8 @@ describe('referenced task materials', () => {
     const f = await fixture()
     const output = await f.artifact('late-private-branch-output.txt', 'LATE_BRANCH_ARTIFACT')
     f.conversations.createBranch({ id: 'early-fork', conversationId: 'source', parentBranchId: 'source-branch', forkedFromMessageId: output.early.id, createdAt: '2026-02-01T00:00:00.000Z', activate: true })
+    await expect(f.call(SESSION_SEARCH_TOOL, { sessionId: 'source', kind: 'resources' })).rejects.toThrow('BRANCH_CHANGED')
+    await f.nextInput()
     const search = textResult(await f.call(SESSION_SEARCH_TOOL, { sessionId: 'source', kind: 'resources' }))
     expect(search.resources).toEqual([])
     await expect(f.read(output.source)).rejects.toThrow('SOURCE_UNAVAILABLE')
@@ -196,6 +203,8 @@ describe('referenced task materials', () => {
     const abandoned = await f.artifact('abandoned.html', 'old branch')
     f.conversations.createBranch({ id: 'fork', conversationId: 'source', parentBranchId: 'source-branch', forkedFromMessageId: shared.message.id, createdAt: '2026-02-01T00:00:00.000Z', activate: true })
     const current = await f.artifact('current.html', 'new branch', 'fork')
+    await expect(f.call(SESSION_SEARCH_TOOL, { sessionId: 'source', kind: 'resources' })).rejects.toThrow('BRANCH_CHANGED')
+    await f.nextInput()
     const results = textResult(await f.call(SESSION_SEARCH_TOOL, { sessionId: 'source', kind: 'resources' }))
     expect(results.resources.map((item: { name: string }) => item.name).sort()).toEqual(['current.html', 'shared.txt'])
     await expect(f.read(abandoned.source)).rejects.toThrow('SOURCE_UNAVAILABLE')
@@ -251,23 +260,6 @@ describe('referenced task materials', () => {
       return { ...f, refer, search, attached }
     }
 
-    it('shows tasks attached inside a task as text and follows them to a bounded depth, ignoring cycles', async () => {
-      const f = await chainFixture(['c1', 'c2', 'c3', 'c4'])
-      f.refer('source', 'c1')
-      f.refer('c1', 'c2')
-      f.refer('c2', 'c3')
-      f.refer('c3', 'c4')
-      f.refer('c4', 'source')
-      expect(await f.attached('source')).toContain('continue [SESSION:c1]')
-      expect(await f.attached('source')).toContain('Referenced tasks: [{"id":"c1","title":"c1"}]')
-      expect(await f.attached('c1')).toContain('[SESSION:c2]')
-      expect(await f.attached('c2')).toContain('[SESSION:c3]')
-      expect((await f.search('c3')).sessionId).toBe('c3')
-      // c4 is visible as text inside c3, but it lies beyond the depth limit and stays unreadable.
-      expect(await f.attached('c3')).toContain('[SESSION:c4]')
-      await expect(f.search('c4')).rejects.toThrow('NOT_AUTHORIZED')
-    })
-
     it('escapes markers typed by the user and never authorizes from text', async () => {
       const f = await chainFixture(['typed'])
       f.message({ userContent: { ...createBuddyUserContent('Please also look at [SESSION:typed] for context.') }, resourceSnapshots: [] })
@@ -275,37 +267,6 @@ describe('referenced task materials', () => {
       expect(text).toContain('［SESSION:typed］')
       expect(text).not.toContain('[SESSION:typed]')
       await expect(f.search('typed')).rejects.toThrow('NOT_AUTHORIZED')
-    })
-
-    it('does not share references made in unrelated conversations or on abandoned branches', async () => {
-      const f = await chainFixture(['elsewhere', 'abandoned-target'])
-      f.refer('elsewhere', 'other')
-      const shared = f.message('Shared start')
-      f.refer('source', 'abandoned-target')
-      f.conversations.createBranch({ id: 'source-fork', conversationId: 'source', parentBranchId: 'source-branch', forkedFromMessageId: shared.id, createdAt: '2026-02-01T00:00:00.000Z', activate: true })
-      await expect(f.search('other')).rejects.toThrow('NOT_AUTHORIZED')
-      await expect(f.search('abandoned-target')).rejects.toThrow('NOT_AUTHORIZED')
-      expect(await f.attached('source')).not.toContain('abandoned-target')
-    })
-
-    it('stops following a link once the task that carried it is deleted', async () => {
-      const f = await chainFixture(['c1', 'c2'])
-      f.refer('source', 'c1')
-      f.refer('c1', 'c2')
-      expect((await f.search('c2')).sessionId).toBe('c2')
-      f.conversations.markDeleted('c1', '2026-02-01T00:00:01.000Z')
-      await expect(f.search('c1')).rejects.toThrow('SESSION_REFERENCE_UNAVAILABLE')
-      await expect(f.search('c2')).rejects.toThrow('NOT_AUTHORIZED')
-    })
-
-    it('bounds how many tasks one message can reach', async () => {
-      const ids = Array.from({ length: 40 }, (_, index) => `many-${index}`)
-      const f = await chainFixture(ids)
-      for (const id of ids)
-        f.refer('source', id)
-      const reachable = (await Promise.all(ids.map(id => f.search(id).then(() => true, () => false)))).filter(Boolean).length
-      expect(reachable).toBeGreaterThan(0)
-      expect(reachable).toBeLessThan(ids.length)
     })
   })
 

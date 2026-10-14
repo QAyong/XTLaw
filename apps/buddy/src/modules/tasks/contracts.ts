@@ -235,6 +235,7 @@ export interface TaskChatWorkspace {
   tree: TaskConversationTree
   restoration: TaskDraftRestoration
   context: {
+    references: Pick<LocalChatApi['conversations'], 'listReferenceAccess' | 'setReferenceExcluded' | 'onChanged'>
     getChangeOverview: LocalChatApi['changes']['overview']
     files: import('./model/context-panel/workspaceFilesApi').WorkspaceFilesApi
     getNodeDetail: LocalChatApi['conversations']['getNodeDetail']

@@ -26,7 +26,9 @@ describe('lexoraConfigStore', () => {
     const legacy = '[desktop.agent_profile]\nname="旧助手"\navatar=""\n[custom]\nkeep=true\n'
     await writeFile(configPath, legacy)
     const system = vi.fn()
-    await expect(store.migrateAgentProfile(async () => { throw new Error('database unavailable') }, system)).rejects.toThrow('database unavailable')
+    await expect(store.migrateAgentProfile(async () => {
+      throw new Error('database unavailable')
+    }, system)).rejects.toThrow('database unavailable')
     expect(await readFile(configPath, 'utf8')).toBe(legacy)
     const migrate = vi.fn(async () => {})
     await store.migrateAgentProfile(migrate, system)

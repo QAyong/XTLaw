@@ -218,7 +218,9 @@ export class LexoraConfigStore {
       })
       const next = { ...asRecord(file), desktop: { ...desktop } }
       delete next.desktop.agent_profile
-      await this.#write(next, () => { this.#persisted = decodeConfig(next) })
+      await this.#write(next, () => {
+        this.#persisted = decodeConfig(next)
+      })
     })
     this.#writeQueue = operation.then(() => undefined, () => undefined)
     return operation

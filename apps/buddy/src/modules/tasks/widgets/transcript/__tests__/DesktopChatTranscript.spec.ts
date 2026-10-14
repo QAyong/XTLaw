@@ -1,8 +1,8 @@
-import { DEFAULT_DESKTOP_CHAT_PREFERENCES } from '@buddy-electron/shared/desktopApi'
 // @vitest-environment jsdom
 import type { LocalMessage } from '@buddy-shared/conversation/conversationApi'
 import type { PropType } from 'vue'
 import type { ChatOutlineItem } from '../../../model/transcript/chatOutline'
+import { DEFAULT_DESKTOP_CHAT_PREFERENCES } from '@buddy-electron/shared/desktopApi'
 import { deferred } from '@buddy-tests/deferred'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createApp, h, nextTick, shallowRef } from 'vue'

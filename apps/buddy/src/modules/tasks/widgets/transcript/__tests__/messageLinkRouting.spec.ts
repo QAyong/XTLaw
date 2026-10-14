@@ -23,7 +23,7 @@ describe('markdown link destinations', () => {
           sidebarCollapsed: shallowRef(false),
           userName: shallowRef(''),
           chat: shallowRef({ ...DEFAULT_DESKTOP_CHAT_PREFERENCES, permissionMode: 'policy_approval' }),
-          })
+        })
         useProvideChatContent({ openWebLink, previewFile, canPreviewFile: () => true, writeClipboardText: async () => {} })
         return () => mode === 'narration'
           ? h(BuddyChatNarrationBody, { text: '', language: 'zh-CN' })

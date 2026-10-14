@@ -3,6 +3,7 @@ import type { ApplicationDiagnostic, ApplicationDiagnosticReporter } from '../..
 import type { RuntimeRequestContract, RuntimeRequestInput, RuntimeRequestResult } from '../../../shared/runtime/apiContract'
 import type { LocalChatErrorCode } from '../../../shared/runtime/localChatError'
 import type { LexoraConfig } from '../../shared/desktopApi'
+import type { LexoraConfigStore } from '../config/LexoraConfigStore'
 import { randomUUID } from 'node:crypto'
 import { ipcMain } from 'electron'
 import { ZodError } from 'zod'
@@ -10,7 +11,6 @@ import { diagnosticIdentitySchema, safeDiagnosticReporter } from '../../../share
 import { isRoutineRpc } from '../../../shared/diagnostics/rpcDiagnosticPolicy'
 import { formatLocalChatPublicError, readLocalChatErrorCode } from '../../../shared/runtime/localChatError'
 import { assertTrustedSender } from '../ipc'
-import type { LexoraConfigStore } from '../config/LexoraConfigStore'
 
 export interface DesktopRuntimeGateway {
   readonly state: unknown

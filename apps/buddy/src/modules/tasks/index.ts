@@ -14,3 +14,5 @@ export { useProvideTaskContext, useProvideTaskEnvironment, useTaskContext, useTa
 export { sessionReferenceNavigationKey } from './widgets/references/sessionReferenceNavigation'
 
 export { useProvideChatContent } from './widgets/transcript/chatContentContext'
+
+export { createMessageWebLinkOpener } from './widgets/workspace/openMessageWebLink'

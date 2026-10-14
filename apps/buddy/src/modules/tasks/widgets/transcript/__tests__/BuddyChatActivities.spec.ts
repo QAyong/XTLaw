@@ -1,11 +1,11 @@
 import type { LocalChatApi } from '@buddy-electron/shared/localChatApi'
-import { useProvideBuddiesContext } from '@/modules/buddies'
-import { DEFAULT_DESKTOP_CHAT_PREFERENCES } from '@buddy-electron/shared/desktopApi'
 // @vitest-environment jsdom
 import type { ChatAgentToolNode, ChatAgentTurn, ChatAgentTurnNode } from '../../../model/transcript/chatAgentTurn'
+import { DEFAULT_DESKTOP_CHAT_PREFERENCES } from '@buddy-electron/shared/desktopApi'
 import { NMessageProvider } from 'naive-ui'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createApp, h, nextTick, shallowRef } from 'vue'
+import { useProvideBuddiesContext } from '@/modules/buddies'
 import { useProvideDesktopUi } from '@/shared/ui/desktopUiContext'
 import { projectExtensionActionTool } from '../../../model/transcript/chatTranscriptActivities'
 import BuddyChatAgentTurn from '../BuddyChatAgentTurn.vue'

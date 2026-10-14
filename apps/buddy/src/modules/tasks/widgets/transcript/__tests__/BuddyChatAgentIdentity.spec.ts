@@ -4,11 +4,11 @@ import type { MaybeRefOrGetter } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
 import { computed, createApp, h, nextTick, shallowRef, toValue } from 'vue'
 import { BRAND_ASSET_URLS } from '@/shared/branding/brandAssets'
-import { provideChatBuddyIdentity } from '../chatBuddyIdentity'
 import BuddyChatAgentIdentity from '../BuddyChatAgentIdentity.vue'
+import { provideChatBuddyIdentity } from '../chatBuddyIdentity'
 
 const profiles = shallowRef(new Map<string, Pick<LocalBuddy, 'name' | 'avatar'>>())
-vi.mock('@/modules/buddies', async (original) => ({
+vi.mock('@/modules/buddies', async original => ({
   ...await original<typeof import('@/modules/buddies')>(),
   useBuddyIdentity: (id: MaybeRefOrGetter<string>) => computed(() => profiles.value.get(toValue(id)) ?? null),
 }))

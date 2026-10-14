@@ -1,5 +1,5 @@
-import { DEFAULT_DESKTOP_CHAT_PREFERENCES } from '@buddy-electron/shared/desktopApi'
 import type { LocalMessage } from '@buddy-shared/conversation/conversationApi'
+import { DEFAULT_DESKTOP_CHAT_PREFERENCES } from '@buddy-electron/shared/desktopApi'
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from 'vitest'
@@ -89,7 +89,7 @@ describe('buddyChatMessageContent', () => {
           sidebarCollapsed: shallowRef(false),
           userName: shallowRef(''),
           chat: shallowRef({ ...DEFAULT_DESKTOP_CHAT_PREFERENCES, permissionMode: 'policy_approval' }),
-          })
+        })
         useProvideChatContent({
           openWebLink,
           canPreviewFile,

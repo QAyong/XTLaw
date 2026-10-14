@@ -1,4 +1,3 @@
-import { currentPlatform } from '../../../../../../platform/currentPlatform'
 import type { Api, AssistantMessage, Model, ToolCall } from '@earendil-works/pi-ai'
 import type { BuddySettings } from '../../../../../../shared/buddies/buddySettings'
 import type { BuddyExecutionProfile } from '../../../../../../shared/permissions/executionProfile'
@@ -11,6 +10,7 @@ import { createAssistantMessageEventStream, getCurrentSystemPrompt, getCurrentTo
 import { defineTool, ModelRuntime } from '@earendil-works/pi-coding-agent'
 import { Type } from 'typebox'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { currentPlatform } from '../../../../../../platform/currentPlatform'
 import { MutationCoordinator } from '../../../../changes/MutationCoordinator'
 import { createIsolatedBuddySession } from '../../../sessions/__tests__/isolatedBuddySession'
 import { createBuddySessionExtensions } from '../../createBuddySessionExtensions'

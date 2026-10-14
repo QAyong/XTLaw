@@ -7,8 +7,8 @@ import { DESKTOP_CHAT_OUTLINE_POSITIONS } from '@buddy-electron/shared/desktopAp
 import { NSelect, NSpin, useMessage } from 'naive-ui'
 import { computed, shallowRef } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
-import DesktopWelcomeSettings from './DesktopWelcomeSettings.vue'
 import DesktopTypographySettings from './DesktopTypographySettings.vue'
+import DesktopWelcomeSettings from './DesktopWelcomeSettings.vue'
 
 type AppearanceSettingField = 'theme' | 'outlinePosition'
 
@@ -39,7 +39,6 @@ async function updateSetting(field: AppearanceSettingField, patch: LexoraConfigP
     pendingFields.value = new Set([...pendingFields.value].filter(item => item !== field))
   }
 }
-
 </script>
 
 <template>

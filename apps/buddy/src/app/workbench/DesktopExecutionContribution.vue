@@ -5,9 +5,8 @@ import { executionTargetSchema } from '@buddy-shared/executions/executionPresent
 import { useMessage } from 'naive-ui'
 import { computed } from 'vue'
 import { translateBuddy } from '@/i18n/buddyI18n'
-import { useProvideChatContent, useTaskEnvironment } from '@/modules/tasks'
+import { createMessageWebLinkOpener, useProvideChatContent, useTaskEnvironment } from '@/modules/tasks'
 import { DesktopExecutionDetail } from '@/modules/tasks/ui'
-import { createMessageWebLinkOpener } from '@/modules/tasks/widgets/workspace/openMessageWebLink'
 import { useDesktopWorkbenchContext } from './desktopWorkbenchContext'
 
 const props = defineProps<{ view: WorkbenchView, visible: boolean }>()

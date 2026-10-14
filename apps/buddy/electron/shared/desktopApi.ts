@@ -149,7 +149,7 @@ export interface DesktopTaskSidebarPreferences {
   width: number | null
 }
 
-export { DEFAULT_DESKTOP_CHAT_WELCOME_ITEMS, DESKTOP_CHAT_WELCOME_VARIANT_IDS } from './desktopChatWelcome'
+export type { DesktopBrowserApi, DesktopBrowserAttachGuestInput, DesktopBrowserBlockedAction, DesktopBrowserDownload, DesktopBrowserEnsureSessionInput, DesktopBrowserError, DesktopBrowserErrorCode, DesktopBrowserGuestDescriptor, DesktopBrowserNavigateInput, DesktopBrowserOpenArtifactInput, DesktopBrowserProfileMode, DesktopBrowserSecurityKind, DesktopBrowserSecurityState, DesktopBrowserSessionInput, DesktopBrowserSetProfileModeInput, DesktopBrowserSetSurfaceInput, DesktopBrowserState, DesktopBrowserStatus } from '../../shared/browser/browserDesktopApi'
 export type DesktopContextPanelMode = 'task' | 'space' | 'independent'
 
 export const DESKTOP_CHAT_OUTLINE_POSITIONS = [
@@ -276,7 +276,7 @@ export interface LexoraDesktopApi {
   localChat: LocalChatApi
 }
 
-export type { DesktopBrowserApi, DesktopBrowserAttachGuestInput, DesktopBrowserBlockedAction, DesktopBrowserDownload, DesktopBrowserEnsureSessionInput, DesktopBrowserError, DesktopBrowserErrorCode, DesktopBrowserGuestDescriptor, DesktopBrowserNavigateInput, DesktopBrowserOpenArtifactInput, DesktopBrowserProfileMode, DesktopBrowserSecurityKind, DesktopBrowserSecurityState, DesktopBrowserSessionInput, DesktopBrowserSetProfileModeInput, DesktopBrowserSetSurfaceInput, DesktopBrowserState, DesktopBrowserStatus } from '../../shared/browser/browserDesktopApi'
+export { DEFAULT_DESKTOP_CHAT_WELCOME_ITEMS, DESKTOP_CHAT_WELCOME_VARIANT_IDS } from './desktopChatWelcome'
 export type { DesktopChatWelcomeItem, DesktopChatWelcomePreference, DesktopChatWelcomeVariantId } from './desktopChatWelcome'
 export type { DesktopCommandId, DesktopPlatform } from './desktopCommands'
 export type { DesktopUpdateCheckResult } from './desktopUpdates'

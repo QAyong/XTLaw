@@ -15,6 +15,7 @@ import {
   ArrowLeft16Regular,
   ArrowRight16Regular,
   Camera20Regular,
+  CursorHover20Regular,
   FolderOpen20Regular,
   Globe16Regular,
   LockClosed16Regular,
@@ -32,11 +33,15 @@ import { getBrowserToolbarMenuActions } from './browserToolbarMenu'
 import DesktopBrowserZoomControls from './DesktopBrowserZoomControls.vue'
 
 const props = defineProps<{
+  picking?: boolean
+  pickLabel?: string
+  pickDisabled?: boolean
   busyAction: BrowserToolbarBusyAction | null
   language: BuddyLocale
   state: DesktopBrowserState | null
 }>()
 const emit = defineEmits<{
+  pick: []
   back: []
   forward: []
   menu: [action: BrowserToolbarMenuActionKey]
@@ -142,7 +147,11 @@ function selectAddress(event: FocusEvent): void {
     novalidate
     @submit.prevent="emit('navigate')"
   >
-    <NTooltip placement="bottom">
+    <span v-if="picking" class="flex flex-none items-center gap-1 px-1 text-[12px] text-accent-text" role="status">
+      {{ t('desktop.context.browserPickHint') }}
+      <kbd class="border border-solid border-accent-border rounded-[3px] px-1 text-[10px] leading-[16px] font-sans">Esc</kbd>
+    </span>
+    <NTooltip v-if="!picking" placement="bottom">
       <template #trigger>
         <button
           class="desktop-browser-toolbar__action grid w-9 h-9 flex-none place-items-center border-0 rounded-icon bg-transparent text-muted cursor-pointer ui-focus-ring disabled:cursor-default disabled:opacity-40"
@@ -157,7 +166,7 @@ function selectAddress(event: FocusEvent): void {
       </template>
       <span role="tooltip">{{ t('desktop.context.browserBack') }}</span>
     </NTooltip>
-    <NTooltip placement="bottom">
+    <NTooltip v-if="!picking" placement="bottom">
       <template #trigger>
         <button
           class="desktop-browser-toolbar__action grid w-9 h-9 flex-none place-items-center border-0 rounded-icon bg-transparent text-muted cursor-pointer ui-focus-ring disabled:cursor-default disabled:opacity-40"
@@ -237,6 +246,19 @@ function selectAddress(event: FocusEvent): void {
         {{ t(isLoading ? 'desktop.context.browserStop' : 'desktop.context.browserReload') }}
       </span>
     </NTooltip>
+    <NTooltip placement="bottom">
+      <template #trigger>
+        <button
+          class="desktop-browser-toolbar__action grid w-9 h-9 flex-none place-items-center border-0 rounded-icon bg-transparent text-muted cursor-pointer ui-focus-ring disabled:cursor-default disabled:opacity-40" :class="{ 'desktop-browser-toolbar__action--picking': picking }"
+          data-testid="browser-pick-element" type="button" :disabled="pickDisabled"
+          :aria-pressed="Boolean(picking)" :aria-label="picking ? t('desktop.context.browserCancelPick') : pickLabel || t('desktop.context.browserPickElement')"
+          @click="emit('pick')"
+        >
+          <DesktopIcon aria-hidden="true" :component="CursorHover20Regular" />
+        </button>
+      </template>
+      <span role="tooltip">{{ picking ? t('desktop.context.browserCancelPick') : pickLabel || t('desktop.context.browserPickElement') }}</span>
+    </NTooltip>
     <NDropdown
       trigger="click"
       placement="bottom-end"
@@ -270,6 +292,11 @@ function selectAddress(event: FocusEvent): void {
 .desktop-browser-toolbar__action:not(:disabled):hover {
   background: var(--buddy-state-hover);
   color: var(--buddy-text-strong);
+}
+
+.desktop-browser-toolbar__action--picking {
+  background: var(--buddy-accent-surface-subtle);
+  color: var(--buddy-accent-text);
 }
 
 .desktop-browser-toolbar__address-shell[data-security-kind='certificate-error']

@@ -1,9 +1,16 @@
 <script setup lang="ts">
+import type { BuddyResourceQuote, BuddyTextQuote } from '@buddy-shared/conversation/buddyUserContent'
 import type * as Monaco from 'monaco-editor/editor/editor.api.js'
-import { shallowRef, useTemplateRef, watch } from 'vue'
+import { computed, shallowRef, useTemplateRef, watch } from 'vue'
+import { useBuddyI18n } from '@/i18n/buddyI18n'
 import { loadDesktopMonaco, observeDesktopMonacoTheme } from '@/shared/ui/monaco/desktopMonaco'
+import { revealMonacoQuote } from '@/shared/ui/selection/revealMonacoQuote'
+import { registerMonacoResourceQuote } from '@/shared/ui/selection/useMonacoResourceQuote'
 
-const props = defineProps<{ text: string, path: string, wrap: boolean }>()
+const props = defineProps<{ text: string, path: string, wrap: boolean, language: 'zh-CN' | 'en-US', quoteSource?: BuddyTextQuote['source'], prepareQuote?: (quote: BuddyResourceQuote, x: number, y: number) => (() => void) | null }>()
+const { t } = useBuddyI18n(() => props.language)
+const activeEditor = shallowRef<Monaco.editor.IStandaloneCodeEditor>()
+defineExpose({ ready: computed(() => !!activeEditor.value), reveal: (quote: BuddyTextQuote) => !!activeEditor.value && revealMonacoQuote(activeEditor.value, quote) })
 const container = useTemplateRef<HTMLElement>('container')
 const failed = shallowRef(false)
 const languages: Record<string, string> = {
@@ -41,6 +48,8 @@ watch(container, async (element, _previous, onCleanup) => {
   function dispose() {
     stopUpdates?.()
     stopTheme?.()
+    if (activeEditor.value === editor)
+      activeEditor.value = undefined
     editor?.dispose()
     model?.dispose()
   }
@@ -61,7 +70,7 @@ watch(container, async (element, _previous, onCleanup) => {
       automaticLayout: true,
       readOnly: true,
       domReadOnly: true,
-      contextmenu: false,
+      contextmenu: true,
       fontSize: 12,
       lineHeight: 20,
       minimap: { enabled: false },
@@ -70,6 +79,10 @@ watch(container, async (element, _previous, onCleanup) => {
       renderLineHighlight: 'none',
       padding: { top: 8, bottom: 8 },
     })
+    if (props.quoteSource && props.prepareQuote) {
+      registerMonacoResourceQuote(editor, { label: t('desktop.chat.quoteSelection'), source: () => props.quoteSource!, prepare: (quote, x, y) => props.prepareQuote?.(quote, x, y) ?? null })
+    }
+    activeEditor.value = editor
     stopTheme = observeDesktopMonacoTheme(monaco, editor)
     stopUpdates = watch(() => [props.text, props.path, props.wrap] as const, ([text, path, wrap], previous) => {
       if (!editor || !model)

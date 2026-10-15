@@ -8,6 +8,7 @@ interface ArtifactPreviewOptions {
 }
 
 export function useArtifactPreview(options: ArtifactPreviewOptions) {
+  const revision = shallowRef(0)
   const previewFailed = shallowRef(false)
   const previewIndex = shallowRef(0)
   const previewOpen = shallowRef(false)
@@ -29,6 +30,7 @@ export function useArtifactPreview(options: ArtifactPreviewOptions) {
     () => options.artifact().kind,
     () => options.artifact().mimeType,
     options.readText,
+    revision,
   ], async ([artifactId, , kind, mimeType, readText], _previous, onCleanup) => {
     let active = true
     onCleanup(() => {
@@ -68,6 +70,7 @@ export function useArtifactPreview(options: ArtifactPreviewOptions) {
   }
 
   return {
+    refreshText: () => revision.value++,
     failImage,
     openPreview,
     previewIndex,

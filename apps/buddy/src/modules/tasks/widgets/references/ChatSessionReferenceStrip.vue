@@ -4,7 +4,7 @@ import type { BuddyLocale } from '@/i18n/buddyI18n'
 import { Chat20Regular } from '@vicons/fluent'
 import { inject } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
-import ChatReferenceCard from './ChatReferenceCard.vue'
+import ChatReferenceCard from '@/shared/ui/selection/ReferenceCard.vue'
 import { sessionReferenceNavigationKey } from './sessionReferenceNavigation'
 
 const props = defineProps<{ references: readonly BuddySessionReference[], language: BuddyLocale, removable?: boolean, disabled?: boolean }>()

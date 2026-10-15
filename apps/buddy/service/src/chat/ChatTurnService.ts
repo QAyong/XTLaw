@@ -250,7 +250,7 @@ export class ChatTurnService {
     let stagedAttachments: PreparedTurnAttachments | null = null
     try {
       const resourceInputs = materialized.inputs
-      if ((!content && draft.content.sessionReferences?.length) || (!content && resourceInputs.length === 0 && !draft.content.quotes?.length))
+      if ((!content && draft.content.sessionReferences?.length) || (!content && resourceInputs.length === 0 && !draft.content.quotes?.length && !draft.content.resourceQuotes?.length))
         throw new BuddyServiceError('VALIDATION_FAILED')
       const attachmentIds = getResourceAttachmentIds(resourceInputs)
 
@@ -435,7 +435,7 @@ export class ChatTurnService {
     let prepared: TurnRequestRecord
     try {
       const resourceInputs = materialized?.inputs ?? []
-      if (!replay && ((!content && draft?.content.sessionReferences?.length) || (!content && resourceInputs.length === 0 && !draft?.content.quotes?.length)))
+      if (!replay && ((!content && draft?.content.sessionReferences?.length) || (!content && resourceInputs.length === 0 && !draft?.content.quotes?.length && !draft?.content.resourceQuotes?.length)))
         throw new BuddyServiceError('VALIDATION_FAILED')
       const attachmentIds = getResourceAttachmentIds(resourceInputs)
       const {

@@ -1,5 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite'
 import { afterEach, describe, expect, it } from 'vitest'
+import { artifactQuote } from '../../../../shared/artifacts/__tests__/artifactSelectionFixture'
+import { browserQuote } from '../../../../shared/browser/__tests__/browserSelectionFixture'
 import { createBuddyUserContent } from '../../../../shared/conversation/buddyUserContent'
 import {
   ComposerDraftConflictError,
@@ -82,9 +84,12 @@ describe('composerDraftRepository', () => {
     const initial = repository.open({ ...createOpenInput(), initialParticipants: { leaderId: 'default', actorIds: ['default', 'reviewer'] } })
     const quote = { id: 'quote-1', text: '    enabled: true\n', source: { conversationId: 'conversation-1', branchId: 'branch-1', messageId: 'message-1', role: 'assistant' as const, runId: 'run-1' } }
 
+    const fileQuote = { id: 'file-quote', text: 'frozen excerpt', source: { kind: 'file' as const, title: 'auth.ts', file: { spaceId: 'space', directoryId: 'directory', revision: 1, path: 'auth.ts' }, format: 'source' as const } }
+    const content = { ...createBuddyUserContent('Updated'), quotes: [quote], resourceQuotes: [fileQuote, artifactQuote, browserQuote] }
+
     const saved = repository.save({
       participants: initial.participants,
-      content: { ...createBuddyUserContent('Updated'), quotes: [quote] },
+      content,
       draftId: 'draft-1',
       executionConfig: {
         approvalPolicy: 'manual',
@@ -98,7 +103,7 @@ describe('composerDraftRepository', () => {
     expect(initial.content).toEqual(createBuddyUserContent('Hello'))
     expect(saved.participants).toEqual({ leaderId: 'default', actorIds: ['default', 'reviewer'] })
     expect(saved).toMatchObject({
-      content: { ...createBuddyUserContent('Updated'), quotes: [quote] },
+      content,
       executionConfig: {
         approvalPolicy: 'manual',
         executionProfile: 'full_access',

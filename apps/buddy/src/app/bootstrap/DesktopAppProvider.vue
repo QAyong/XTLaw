@@ -26,6 +26,7 @@ import { runtimeAvailabilityKey } from '@/platform/runtime/runtimeAvailability'
 import { useProvideWorkbenchCommands } from '@/shared/ui/contributions/workbenchCommands'
 import { useProvideWorkbenchUi } from '@/shared/ui/contributions/workbenchUiContext'
 import { useProvideDesktopUi } from '@/shared/ui/desktopUiContext'
+import { workbenchSelectionReferencesKey } from '@/shared/ui/selection/workbenchSelectionReferences'
 import { useDesktopTypography } from '@/theme/desktopTypography'
 import { useDesktopTheme } from '@/theme/useDesktopTheme'
 import { SemanticAnchorRegistry } from '@/workbench/browser/surfaces/SemanticAnchorRegistry'
@@ -77,6 +78,7 @@ onScopeDispose(() => {
 provide(desktopWorkbenchKey, workbench)
 provide(fileOperationsKey, workbench.fileOperations)
 provide(sessionReferenceNavigationKey, id => workbench.openTask(id, { direction: 'right' }))
+provide(workbenchSelectionReferencesKey, workbench.selectionReferences)
 const extensions = useExtensionState(api.extensions)
 const settingsRegistry = useSettingsRegistry(extensions.installed)
 const pages = useDesktopPages(router, extensions.installed, stores.applicationSettings.language)

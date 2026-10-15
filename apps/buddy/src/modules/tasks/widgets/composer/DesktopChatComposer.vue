@@ -18,6 +18,7 @@ import DesktopChatComposerInteractionHost from '@/modules/tasks/widgets/composer
 import { useChatComposer } from '@/modules/tasks/widgets/composer/useChatComposer'
 import WorkbenchMenu from '@/shared/ui/contributions/WorkbenchMenu.vue'
 import WorkbenchSlot from '@/shared/ui/contributions/WorkbenchSlot.vue'
+import ResourceQuoteStrip from '@/shared/ui/selection/ResourceQuoteStrip.vue'
 import ChatQuoteStrip from '../quotes/ChatQuoteStrip.vue'
 import ChatSessionReferenceStrip from '../references/ChatSessionReferenceStrip.vue'
 import ChatComposerSourceMenu from './ChatComposerSourceMenu.vue'
@@ -67,6 +68,8 @@ const {
   resourceStripResources,
   pastedText,
   quotes,
+  resourceQuotes,
+  removeResourceQuote,
   sessionReferences,
   addQuote,
   removeQuote,
@@ -178,6 +181,7 @@ function captureDraft(): WorkbenchMenuSelection {
       <WorkbenchSlot target="composer.accessory" class="desktop-chat-composer__accessory max-h-[min(240px,30vh)] overflow-auto" />
       <ChatSessionReferenceStrip :references="sessionReferences" :language="language" :disabled="isSending" removable @remove="removeSessionReference" />
       <ChatQuoteStrip :quotes="quotes" :language="language" :disabled="isSending" removable @remove="removeQuote" />
+      <ResourceQuoteStrip v-if="resourceQuotes.length" :quotes="resourceQuotes" :language="language" :disabled="isSending" removable @remove="removeResourceQuote" />
       <ComposerResourceStrip
         ref="resourceStrip"
         :resources="resourceStripResources"

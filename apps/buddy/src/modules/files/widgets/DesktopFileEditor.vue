@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { BuddyFileQuote, BuddyResourceQuote, BuddyTextQuote } from '@buddy-shared/conversation/buddyUserContent'
 import type { JsonValue } from '@buddy-shared/workbench/workbenchState'
 import type * as Monaco from 'monaco-editor/editor/editor.api.js'
 import type { TextModelPool } from '@/workbench/browser/TextModelPool'
@@ -6,17 +7,34 @@ import type { ResourceRef, WorkbenchView } from '@/workbench/common/workbench'
 import { spaceFileTargetSchema } from '@buddy-shared/spaces/spaceFileApi'
 import { NButton } from 'naive-ui'
 import { computed, onScopeDispose, shallowRef, useTemplateRef, watch } from 'vue'
+import { useBuddyI18n } from '@/i18n/buddyI18n'
 import WorkbenchMenu from '@/shared/ui/contributions/WorkbenchMenu.vue'
 import DesktopDocumentContent from '@/shared/ui/files/DesktopDocumentContent.vue'
 import DesktopDocumentToolbar from '@/shared/ui/files/DesktopDocumentToolbar.vue'
 import { fileDocumentModes, isMarkdownFile, resolveFileDocumentMode } from '@/shared/ui/files/fileDocumentPresentation'
 import { observeDesktopMonacoTheme } from '@/shared/ui/monaco/desktopMonaco'
+import ResourceSelectionQuoteMenu from '@/shared/ui/selection/ResourceSelectionQuoteMenu.vue'
+import { revealMonacoQuote } from '@/shared/ui/selection/revealMonacoQuote'
+import { registerMonacoResourceQuote } from '@/shared/ui/selection/useMonacoResourceQuote'
+import { useResourceQuoteReveal } from '@/shared/ui/selection/useResourceQuoteReveal'
+import { useSelectionReferences } from '@/shared/ui/selection/workbenchSelectionReferences'
 import { useWorkbench } from '@/workbench/browser/workbenchContext'
 
 const props = withDefaults(defineProps<{ view: WorkbenchView, models: TextModelPool, language: 'zh-CN' | 'en-US', writeClipboardText: (text: string) => Promise<void>, toolbarTarget?: HTMLElement | null, visible?: boolean }>(), { visible: true })
 const { copies, controller, labels } = useWorkbench()
 const container = useTemplateRef<HTMLElement>('container')
+const quoteMenu = useTemplateRef<InstanceType<typeof ResourceSelectionQuoteMenu>>('quoteMenu')
+const references = useSelectionReferences()
+const { t } = useBuddyI18n(() => props.language)
+function quoteSource(format: 'source' | 'markdown' = 'source'): BuddyFileQuote['source'] {
+  return { kind: 'file', title: props.view.title, file: spaceFileTargetSchema.strip().parse(props.view.resource.data), format }
+}
+function prepareQuote(quote: BuddyResourceQuote, x: number, y: number) {
+  return quoteMenu.value?.prepare(quote, x, y) ?? null
+}
 const failed = shallowRef(false)
+const editorReady = shallowRef(false)
+const document = useTemplateRef<InstanceType<typeof DesktopDocumentContent>>('document')
 const copy = shallowRef(copies.get(props.view.resource))
 const modes = computed(() => fileDocumentModes({ preview: isMarkdownFile(props.view.title), source: !!copy.value?.etag, edit: !!copy.value?.etag }))
 const mode = computed({
@@ -33,6 +51,9 @@ function captureResource() {
 }
 const viewId = computed(() => props.view.id)
 let editor: Monaco.editor.IStandaloneCodeEditor | undefined
+function revealSource(quote: BuddyTextQuote) {
+  return !!editor && revealMonacoQuote(editor, quote)
+}
 const attempt = shallowRef(0)
 watch(identity, (_, __, onCleanup) => {
   const resource = props.view.resource
@@ -71,8 +92,10 @@ watch([container, attempt, viewId, identity], async ([element, , viewId, key], _
         state()
     }
     finally {
-      if (editor === ownedEditor)
+      if (editor === ownedEditor) {
         editor = undefined
+        editorReady.value = false
+      }
       stopTheme?.()
       try {
         ownedEditor?.dispose()
@@ -102,11 +125,15 @@ watch([container, attempt, viewId, identity], async ([element, , viewId, key], _
       tabSize: Number(controller.configuration.get('workbench.tabSize') ?? 2),
       scrollBeyondLastLine: false,
       padding: { top: 12, bottom: 12 },
+      contextmenu: true,
     })
     editor = ownedEditor
+    if (references)
+      registerMonacoResourceQuote(ownedEditor, { source: () => quoteSource(), prepare: prepareQuote, label: t('desktop.chat.quoteSelection') })
     stopTheme = observeDesktopMonacoTheme(lease.monaco, ownedEditor)
     if (props.view.state.editor)
       ownedEditor.restoreViewState(JSON.parse(JSON.stringify(props.view.state.editor)) as Monaco.editor.ICodeEditorViewState)
+    editorReady.value = true
     const schedule = () => {
       if (disposed)
         return
@@ -124,6 +151,13 @@ watch([container, attempt, viewId, identity], async ([element, , viewId, key], _
   }
 }, { immediate: true })
 watch([mode, () => copy.value?.blocked], ([value, blocked]) => editor?.updateOptions({ readOnly: value !== 'edit' || blocked, domReadOnly: value !== 'edit' || blocked }))
+useResourceQuoteReveal({
+  viewId: () => props.view.id,
+  identity: () => identity.value,
+  visible: () => props.visible,
+  ready: () => !!document.value?.ready,
+  reveal: quote => document.value?.reveal(quote) ?? false,
+})
 watch(() => props.view.state.wrap, value => editor?.updateOptions({ wordWrap: (value ?? controller.configuration.get('workbench.wordWrap')) ? 'on' : 'off' }))
 async function retry() {
   const key = identity.value
@@ -169,7 +203,12 @@ onScopeDispose(controller.configuration.subscribe(() => editor?.updateOptions({ 
         {{ labels.retry }}
       </button>
     </div>
-    <DesktopDocumentContent :mode="mode" :name="view.title" :text="copy?.text ?? ''" :language="language" :write-clipboard-text="writeClipboardText">
+    <ResourceSelectionQuoteMenu v-if="references" ref="quoteMenu" :view-id="view.id" :owner-key="`${view.id}:${identity}:${mode}`" :language="language" :visible="visible" />
+    <DesktopDocumentContent
+      ref="document" :source-ready="editorReady" :reveal-source="revealSource"
+      :mode="mode" :name="view.title" :text="copy?.text ?? ''" :language="language" :write-clipboard-text="writeClipboardText"
+      :quote-source="references ? quoteSource('markdown') : undefined" :prepare-quote="prepareQuote" @scroll.capture="quoteMenu?.close()"
+    >
       <template #source>
         <div ref="container" class="flex-1 min-h-0" data-testid="workbench-text-editor" />
       </template>

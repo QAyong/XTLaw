@@ -81,7 +81,6 @@ module.exports = {
     include: '../../packaging/buddy/windows/installer.nsh',
     oneClick: false,
     allowElevation: false,
-    allowToChangeInstallationDirectory: false,
     perMachine: false,
     runAfterFinish: true,
     shortcutName: displayName,

@@ -7,6 +7,7 @@ import { proxySettingsSchema } from '../../shared/network/proxySettings'
 import { BUDDY_PERMISSION_MODES } from '../../shared/permissions/permissionMode'
 import { runtimePreferencesSchema } from '../../shared/runtime/runtimePreferences'
 import { keybindingsSchema } from '../../shared/shortcuts/keybindingSchema'
+import { localBackupLimitSchema } from '../../shared/storage/backupRetention'
 import { typographyPreferencesSchema } from '../../shared/typography/typographyPreferences'
 import {
   DESKTOP_CHAT_OUTLINE_POSITIONS,
@@ -108,6 +109,7 @@ export const lexoraConfigPatchSchema: z.ZodType<LexoraConfigPatch> = z.object({
     subtaskNotificationsEnabled: z.boolean().optional(),
     updateNotificationsEnabled: z.boolean().optional(),
     autoDownloadUpdates: z.boolean().optional(),
+    localBackupLimit: localBackupLimitSchema.optional(),
     notifyWhenFocused: z.boolean().optional(),
     sidebarCollapsed: z.boolean().optional(),
     fileIconTheme: fileIconPreferenceSchema.optional(),

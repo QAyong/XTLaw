@@ -279,6 +279,7 @@ describe('lexoraConfigStore', () => {
       contextPanelGlobal: false,
       contextPanelAutoCollapse: false,
       fileIconTheme: { id: 'lexora.material' },
+      localBackupLimit: 3,
       minimizeToTrayOnClose: false,
       keybindings: {},
       backgroundCloseNoticeShown: false,

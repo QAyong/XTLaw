@@ -157,7 +157,11 @@ function selectAddress(event: FocusEvent): void {
     novalidate
     @submit.prevent="emit('navigate')"
   >
-    <NTooltip placement="bottom">
+    <span v-if="picking" class="flex flex-none items-center gap-1 px-1 text-[12px] text-accent-text" role="status">
+      {{ t('desktop.context.browserPickHint') }}
+      <kbd class="border border-solid border-accent-border rounded-[3px] px-1 text-[10px] leading-[16px] font-sans">Esc</kbd>
+    </span>
+    <NTooltip v-if="!picking" placement="bottom">
       <template #trigger>
         <button
           class="desktop-browser-toolbar__action"
@@ -172,7 +176,7 @@ function selectAddress(event: FocusEvent): void {
       </template>
       <span role="tooltip">{{ t('desktop.context.browserBack') }}</span>
     </NTooltip>
-    <NTooltip placement="bottom">
+    <NTooltip v-if="!picking" placement="bottom">
       <template #trigger>
         <button
           class="desktop-browser-toolbar__action"

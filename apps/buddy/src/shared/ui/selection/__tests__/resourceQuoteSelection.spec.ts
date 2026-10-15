@@ -24,7 +24,7 @@ describe('markdown selection capture', () => {
     document.body.append(root)
     const captured = readResourceTextSelection(root, select(root.firstChild!, 7), source)!
     expect(captured.text).toBe('chosen')
-    expect(captured.textOffset).toBe(7)
+    expect(captured.textOffset).toBe(6)
     expect(captured.range).toBeUndefined()
     root.textContent = 'changed'
     expect(captured.text).toBe('chosen')

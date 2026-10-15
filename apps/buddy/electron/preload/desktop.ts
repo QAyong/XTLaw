@@ -16,9 +16,8 @@ import { SYNC_CHANGED, SYNC_CHANNEL } from '../../shared/sync/syncApi'
 import { DESKTOP_IPC_CHANNELS } from '../shared/desktopApi'
 import { subscribe } from './subscribe'
 
-export function createDesktopApi(): Pick<LexoraDesktopApi, 'app' | 'clipboard' | 'commands' | 'contextPanel' | 'settings' | 'storage' | 'sync' | 'window' | 'workbench' | 'selectionReferenceMenu'> {
+export function createDesktopApi(): Pick<LexoraDesktopApi, 'app' | 'clipboard' | 'commands' | 'contextPanel' | 'settings' | 'storage' | 'sync' | 'window' | 'workbench'> {
   return {
-    selectionReferenceMenu: Object.freeze({ executeEdit: (command: import('../shared/desktopApi').DesktopSelectionEditCommand) => ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.selectionReferenceEdit, { command }) }),
     sync: Object.freeze({
       selectAdapter: (adapter: 'webdav' | 's3') => ipcRenderer.invoke(SYNC_CHANNEL, { action: 'selectAdapter', adapter }),
       setFrequency: (frequency: 'hourly' | 'daily' | 'weekly') => ipcRenderer.invoke(SYNC_CHANNEL, { action: 'frequency', frequency }),

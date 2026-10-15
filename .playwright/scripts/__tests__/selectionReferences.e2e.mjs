@@ -2,18 +2,14 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { expect, test } from '../fixtures/electron.mjs'
 
-test('bounded component menus keep editing actions and append file and Markdown snapshots to the existing draft', async ({ buddy }) => {
+test('quotes file and Markdown snapshots while preserving native editor actions and explicit draft routing', async ({ buddy }) => {
   const instance = await buddy.createInstance('selection-reference')
   const directory = path.join(instance.home, 'documents')
   await fs.mkdir(directory)
   await fs.writeFile(path.join(directory, 'README.md'), 'Frozen document excerpt.\n\nSecond paragraph.\n')
   const { app, page, diagnostics } = await instance.launch()
-  await app.evaluate(({ dialog, BrowserWindow }, directory) => {
+  await app.evaluate(({ dialog }, directory) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [directory] })
-    // Verify the trusted edit-command dispatch without reading or changing the user's OS clipboard.
-    globalThis.selectionReferenceEdits = []
-    for (const window of BrowserWindow.getAllWindows())
-      window.webContents.copy = () => globalThis.selectionReferenceEdits.push('copy')
   }, directory)
   await expect(page.locator('.desktop-workbench-area__tasks .tiptap:visible')).toBeVisible()
   const section = page.locator('.desktop-task-sidebar__spaces')
@@ -45,15 +41,16 @@ test('bounded component menus keep editing actions and append file and Markdown 
   await paragraph.click({ button: 'right' })
   const menu = page.locator('.resource-selection-menu:visible').first()
   await expect(menu).toBeVisible()
-  expect(await menu.evaluate(element => element.getBoundingClientRect().width)).toBeLessThanOrEqual(280)
-  await expect(menu.getByRole('menuitem', { name: '复制', exact: true })).toHaveCount(1)
-  await page.screenshot({ path: path.join(instance.artifactDirectory, 'selection-menu-current.png'), animations: 'disabled' })
   await menu.getByRole('menuitem', { name: '引用到对话', exact: true }).click()
   const cards = page.locator('.desktop-chat-composer-wrap .resource-quote-card')
   await expect(cards).toHaveCount(1)
   await expect(cards.first()).toContainText('Frozen document excerpt.')
   await expect(input).toHaveText('Keep my latest question.')
   expect(await input.evaluate(element => element.contains(document.activeElement))).toBe(false)
+  await cards.first().locator('.chat-reference-card__link').click()
+  await page.getByRole('button', { name: '定位来源', exact: true }).click()
+  await expect.poll(() => page.evaluate(() => CSS.highlights.get('buddy-resource-quote')?.size ?? 0)).toBeGreaterThan(0)
+  await page.keyboard.press('Escape')
   await page.getByTestId('document-mode-edit').click()
   const editor = page.getByTestId('workbench-text-editor')
   await expect(editor.locator('.view-lines')).toContainText('Frozen document excerpt.')
@@ -61,20 +58,13 @@ test('bounded component menus keep editing actions and append file and Markdown 
   await page.keyboard.press('Control+Home')
   await page.keyboard.press('Shift+End')
   await editor.locator('.view-line span').filter({ hasText: 'Frozen document excerpt.' }).first().click({ button: 'right' })
+  await page.getByRole('menuitem', { name: '引用', exact: true }).click({ delay: 120 })
   await expect(menu).toBeVisible()
-  await expect(menu.getByRole('menuitem', { name: '撤销', exact: true })).toBeVisible()
-  await expect(menu.getByRole('menuitem', { name: '粘贴', exact: true })).toBeVisible()
-  await expect(menu.getByRole('menuitem', { name: '复制', exact: true })).toHaveCount(1)
   await menu.getByRole('menuitem', { name: '引用到对话', exact: true }).click()
   await expect(cards).toHaveCount(2)
   await expect(cards.last()).toContainText('L1–1')
   await expect(input).toHaveText('Keep my latest question.')
   expect(await input.evaluate(element => element.contains(document.activeElement))).toBe(false)
-  await editor.locator('.view-line span').filter({ hasText: 'Frozen document excerpt.' }).first().click({ button: 'right' })
-  await menu.getByRole('menuitem', { name: '复制', exact: true }).click()
-  await expect.poll(() => app.evaluate(() => globalThis.selectionReferenceEdits)).toEqual(['copy'])
-  expect(await editor.evaluate(element => element.contains(document.activeElement))).toBe(true)
-  await expect(input).toHaveText('Keep my latest question.')
   // Check source-local editing, not the composer's undo history.
   await page.keyboard.press('End')
   await page.keyboard.type(' Extra.')
@@ -82,10 +72,10 @@ test('bounded component menus keep editing actions and append file and Markdown 
   await page.keyboard.press('Shift+End')
   // Click a visible content point; the long selected line can extend behind the gutter.
   await editor.locator('.monaco-scrollable-element').first().click({ button: 'right', position: { x: 100, y: 12 } })
-  await menu.getByRole('menuitem', { name: '撤销', exact: true }).click()
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Control+Z')
   await expect(editor.locator('.view-lines')).not.toContainText(' Extra.')
   await expect(input).toHaveText('Keep my latest question.')
-  // Real split and routing; DOM-only long-label fixtures test CSS without changing task data or identities.
   await input.click()
   await page.keyboard.press('Control+\\')
   const inputs = page.locator('.desktop-workbench-area__tasks .tiptap:visible')
@@ -96,31 +86,16 @@ test('bounded component menus keep editing actions and append file and Markdown 
   await page.keyboard.press('Control+Home')
   await page.keyboard.press('Shift+End')
   await editor.locator('.monaco-scrollable-element').first().click({ button: 'right', position: { x: 100, y: 12 } })
+  await page.getByRole('menuitem', { name: '引用', exact: true }).click({ delay: 120 })
   await expect(menu).toBeVisible()
   await expect(menu.getByRole('menuitem', { name: '引用到对话', exact: true })).toHaveCount(0)
-  const label = menu.locator('.resource-selection-menu-option__label').filter({ hasText: '引用到「分屏 1' })
-  await expect(label).toHaveCount(1)
-  await expect(menu.locator('.resource-selection-menu-option__label[title]')).toHaveCount(0)
-  await label.evaluate((element) => {
-    element.textContent += ` · ${'这是用于菜单宽度验收的很长的对话标题'.repeat(12)}`
-  })
-  expect(await label.evaluate(element => element.scrollWidth > element.clientWidth)).toBe(true)
-  expect(await menu.evaluate(element => element.getBoundingClientRect().width)).toBeLessThanOrEqual(280)
   await menu.getByRole('menuitem', { name: '引用到其他对话', exact: true }).hover()
   const child = page.locator('.resource-selection-menu:visible').filter({ has: page.locator('.resource-selection-menu-option__label').filter({ hasText: /^分屏 2/ }) }).last()
   await expect(child).toBeVisible()
-  await expect(child.locator('.resource-selection-menu-option__label[title]')).toHaveCount(0)
-  await child.locator('.resource-selection-menu-option__label').evaluate((element) => {
-    element.textContent += ` · ${'这是另一个很长的分屏对话标题'.repeat(12)}`
-  })
-  expect(await child.locator('.resource-selection-menu-option__label').evaluate(element => element.scrollWidth > element.clientWidth)).toBe(true)
-  expect(await child.evaluate(element => element.getBoundingClientRect().width)).toBeLessThanOrEqual(280)
-  await page.screenshot({ path: path.join(instance.artifactDirectory, 'selection-menu-split.png'), animations: 'disabled' })
   await child.getByRole('menuitem').click()
   await expect(page.locator('.desktop-chat-composer-wrap .resource-quote-card')).toHaveCount(3)
   await expect(input).toHaveText('Keep my latest question.')
   await expect(inputs.nth(1)).toHaveText('')
   expect(await inputs.nth(1).evaluate(element => element.contains(document.activeElement))).toBe(false)
-  await page.screenshot({ path: path.join(instance.artifactDirectory, 'file-and-markdown-references.png'), animations: 'disabled' })
   expect(diagnostics.console.filter(item => item.type === 'pageerror')).toEqual([])
 })

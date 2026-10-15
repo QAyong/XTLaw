@@ -1,15 +1,9 @@
-import type { DesktopSelectionEditCommand } from '@buddy-electron/shared/desktopApi'
-import type { BuddyResourceQuote, BuddyUserContentV1 } from '@buddy-shared/conversation/buddyUserContent'
+import type { BuddyResourceQuote, BuddyTextQuote, BuddyUserContentV1 } from '@buddy-shared/conversation/buddyUserContent'
 import type { MessageApi } from 'naive-ui'
 import type { InjectionKey } from 'vue'
 import type { BuddyTranslate } from '@/i18n/buddyI18n'
 import { appendBuddyResourceQuote, buddyResourceQuoteSchema } from '@buddy-shared/conversation/buddyUserContent'
-import { inject } from 'vue'
-
-export interface SelectionReferenceEditSource {
-  restore: () => boolean
-  executeLocal?: (command: DesktopSelectionEditCommand) => boolean
-}
+import { inject, nextTick } from 'vue'
 
 export interface SelectionReferenceTarget {
   id: string
@@ -41,11 +35,25 @@ export function showSelectionReferenceResult(message: Pick<MessageApi, 'success'
 
 /** Capture identities, never a global active input or stale draft body. */
 export class WorkbenchSelectionReferences {
+  readonly #reveals = new Map<string, (quote: BuddyTextQuote, current: () => boolean) => Promise<boolean>>()
+
+  registerReveal(id: string, reveal: (quote: BuddyTextQuote, current: () => boolean) => Promise<boolean>) {
+    this.#reveals.set(id, reveal)
+    return () => {
+      if (this.#reveals.get(id) === reveal)
+        this.#reveals.delete(id)
+    }
+  }
+
+  async reveal(id: string, quote: BuddyTextQuote, current: () => boolean): Promise<boolean> {
+    await nextTick()
+    return current() && (await this.#reveals.get(id)?.(quote, current) ?? false)
+  }
+
   constructor(readonly options: {
     targets: () => readonly SelectionReferenceTarget[]
     source: (viewId: string) => SelectionReferenceSource | null
     locate: (quote: BuddyResourceQuote) => Promise<boolean>
-    editSelection?: (command: DesktopSelectionEditCommand) => Promise<void>
     isSplit?: () => boolean
   }) {}
 

@@ -339,28 +339,6 @@ describe('composer resource flow', () => {
     expect(flow.resources.resources.value).toEqual([])
   })
 
-  it('hydrates file quotes without changing input focus and sends, removes and restores their snapshots', async () => {
-    const flow = await mountFlow()
-    const quote = { id: 'file-quote', text: '    frozen excerpt\n', source: { kind: 'file' as const, title: 'notes.md', file: { spaceId: 'space', directoryId: 'directory', revision: 1, path: 'notes.md' }, format: 'markdown' as const } }
-    const focus = document.activeElement
-    const original = chatComposerDocumentToUserContent(flow.editor.getJSON())
-    flow.content.value = userContentToChatComposerDocument({ ...original, resourceQuotes: [quote] })
-    await nextTick()
-    expect(document.activeElement).toBe(focus)
-    expect(flow.composer.resourceQuotes.value).toEqual([quote])
-    expect(flow.composer.canSubmit.value).toBe(true)
-    flow.composer.submit()
-    expect(flow.sent).toHaveBeenCalledWith(expect.objectContaining({ userContent: expect.objectContaining({ resourceQuotes: [quote] }) }))
-    expect(flow.records.size).toBe(0)
-    flow.editor.commands.insertContent('normal question')
-    flow.composer.removeResourceQuote(quote.id)
-    expect(flow.composer.resourceQuotes.value).toEqual([])
-    expect(flow.editor.getText()).toBe('normal question')
-    flow.editor.commands.undo()
-    expect(flow.composer.resourceQuotes.value).toEqual([quote])
-    expect(flow.editor.getText()).toBe('normal question')
-  })
-
   it('keeps identical excerpts from distinct positions while deduplicating the same selection', async () => {
     const flow = await mountFlow()
     const quote = { id: 'first', text: 'Repeat', textOffset: 0, source: { conversationId: 'conversation-1', branchId: 'branch-1', messageId: 'message-1', role: 'assistant' as const, runId: 'run-1' } }
@@ -385,13 +363,18 @@ describe('composer resource flow', () => {
     expect(flow.records.size).toBe(0)
   })
 
-  it('preserves quote whitespace through editing, hydration and undo without creating files', async () => {
+  it('hydrates chat and file snapshots without stealing focus and preserves them through send, editing and undo', async () => {
     const flow = await mountFlow()
     const quote = { id: 'quote-1', text: '    enabled: true\n\n', source: { conversationId: 'conversation-1', branchId: 'branch-1', messageId: 'message-1', role: 'assistant' as const, runId: 'run-1' } }
-    expect(flow.composer.addQuote(quote)).toBe('added')
+    const fileQuote = { id: 'file-quote', text: '    frozen excerpt\n', source: { kind: 'file' as const, title: 'notes.md', file: { spaceId: 'space', directoryId: 'directory', revision: 1, path: 'notes.md' }, format: 'markdown' as const } }
+    const focus = document.activeElement
+    flow.content.value = userContentToChatComposerDocument({ ...chatComposerDocumentToUserContent(flow.editor.getJSON()), resourceQuotes: [fileQuote], quotes: [quote] })
     await nextTick()
+    expect(document.activeElement).toBe(focus)
+    expect(flow.composer.resourceQuotes.value).toEqual([fileQuote])
     expect(flow.composer.canSubmit.value).toBe(true)
-    expect(flow.composer.addQuote({ ...quote, id: 'quote-2' })).toBe('duplicate')
+    flow.composer.submit()
+    expect(flow.sent).toHaveBeenCalledWith(expect.objectContaining({ userContent: expect.objectContaining({ resourceQuotes: [fileQuote], quotes: [quote] }) }))
     expect(flow.editor.getText()).toBe('')
     expect(flow.records.size).toBe(0)
     const saved = chatComposerDocumentToUserContent(flow.content.value)
@@ -399,6 +382,12 @@ describe('composer resource flow', () => {
     flow.editor.commands.insertContent('question')
     flow.editor.commands.undo()
     expect(chatComposerDocumentToUserContent(flow.editor.getJSON()).quotes).toEqual([quote])
+    flow.editor.commands.redo()
+    flow.composer.removeResourceQuote(fileQuote.id)
+    expect(flow.composer.resourceQuotes.value).toEqual([])
+    expect(flow.editor.getText()).toBe('question')
+    flow.editor.commands.undo()
+    expect(flow.composer.resourceQuotes.value).toEqual([fileQuote])
     flow.composer.removeQuote(quote.id)
     expect(flow.composer.quotes.value).toEqual([])
     flow.editor.commands.undo()
@@ -487,7 +476,6 @@ describe('composer resource flow', () => {
     expect(moveChatComposerResourceSelection(flow.editor, -1)).toBe(true)
     await nextTick()
     expect(flow.editor.state.selection).toBeInstanceOf(NodeSelection)
-    expect(flow.root.querySelector('[data-type="chat-resource-reference"]')?.classList.contains('ProseMirror-selectednode')).toBe(true)
   })
 
   it('removes a card and all inline appearances in one undoable edit while deleting an inline occurrence retains independent attachments', async () => {

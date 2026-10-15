@@ -32,7 +32,7 @@ const { t } = useBuddyI18n(() => props.language)
     </template>
     <template v-if="preview">
       <div v-if="preview.text !== undefined" class="composer-text-preview__document">
-        <DesktopMonacoFile :text="preview.text" :path="preview.name" :wrap="true">
+        <DesktopMonacoFile :language="language" :text="preview.text" :path="preview.name" :wrap="true">
           <template #error>
             {{ t('chat.attachmentReadFailed') }}
           </template>

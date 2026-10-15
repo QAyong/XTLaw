@@ -68,11 +68,8 @@ test('built-in artifact previews quote Markdown and source text to one selected 
       }
       await providers.setDefaultModel({ providerId: 'artifact-fixture', modelId: 'artifact-fixture', reasoning: null })
     }, `http://127.0.0.1:${server.address().port}/v1`)
-    await app.evaluate(({ dialog, BrowserWindow }, directory) => {
+    await app.evaluate(({ dialog }, directory) => {
       dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [directory] })
-      globalThis.artifactSelectionCopies = 0
-      for (const window of BrowserWindow.getAllWindows())
-        window.webContents.copy = () => globalThis.artifactSelectionCopies += 1
     }, directory)
     await page.reload()
     const section = page.locator('.desktop-task-sidebar__spaces')
@@ -118,6 +115,7 @@ test('built-in artifact previews quote Markdown and source text to one selected 
       await page.keyboard.press('Control+Home')
       await page.keyboard.press('Shift+End')
       await content.click({ button: 'right', position: { x: 100, y: 12 } })
+      await page.getByRole('menuitem', { name: '引用', exact: true }).click({ delay: 120 })
       await expect(menu).toBeVisible()
     }
     await open('report.md')
@@ -131,10 +129,10 @@ test('built-in artifact previews quote Markdown and source text to one selected 
     await menu.getByRole('menuitem', { name: '引用到对话', exact: true }).click()
     await expect(cards).toHaveCount(1)
     await expect(page.locator('.n-message')).toHaveCount(0)
-    await cards.first().locator('.resource-quote-card__preview').click()
+    await cards.first().locator('.chat-reference-card__link').click()
     await expect(page.locator('.resource-quote-preview:visible pre')).toHaveText('Frozen artifact paragraph.')
     await page.getByRole('button', { name: '定位来源', exact: true }).click()
-    await expect(surface).toBeVisible()
+    await expect.poll(() => page.evaluate(() => CSS.highlights.get('buddy-resource-quote')?.size ?? 0)).toBeGreaterThan(0)
     await page.keyboard.press('Escape')
     await surface.getByTestId('document-mode-source').click()
     await selectSource('# Artifact report')
@@ -153,9 +151,7 @@ test('built-in artifact previews quote Markdown and source text to one selected 
     await expect(surface.locator('.desktop-document-content')).toHaveCount(0)
     await open('code.ts')
     await selectSource('export const answer = 42')
-    await expect(menu.getByRole('menuitem', { name: '复制', exact: true })).toHaveCount(1)
-    await menu.getByRole('menuitem', { name: '复制', exact: true }).click()
-    await expect.poll(() => app.evaluate(() => globalThis.artifactSelectionCopies)).toBe(1)
+    await page.keyboard.press('Escape')
     await expect(cards).toHaveCount(3)
     await firstInput.click()
     await page.keyboard.press('Control+\\')
@@ -169,7 +165,6 @@ test('built-in artifact previews quote Markdown and source text to one selected 
     await expect(cards).toHaveCount(4)
     await expect(inputs.nth(1)).toHaveText('Explain the frozen artifact code.')
     await expect(firstInput).toHaveText('Keep my latest artifact question.')
-    await page.screenshot({ path: path.join(instance.artifactDirectory, 'artifact-reference-split.png'), animations: 'disabled' })
     await fs.writeFile(path.join(directory, 'code.ts'), 'export const answer = 999\n')
     await inputs.nth(1).click()
     await page.locator('.desktop-workbench-area__tasks .desktop-task-editor').last().getByRole('button', { name: '发送消息', exact: true }).click()
@@ -185,7 +180,6 @@ test('built-in artifact previews quote Markdown and source text to one selected 
       expect(userText).not.toContain(`"${field}":`)
     expect(sent).toContain('not access grants')
     await expect(cards).toHaveCount(3)
-    await page.screenshot({ path: path.join(instance.artifactDirectory, 'artifact-reference-after-send.png'), animations: 'disabled' })
     expect(diagnostics.console.filter(item => item.type === 'pageerror')).toEqual([])
   }
   finally {

@@ -1,23 +1,20 @@
-/** Fixed script in a host-created isolated world; never interpolates page content as code. */
-export const BROWSER_ELEMENT_PICKER_SCRIPT = String.raw`(() => {
-  const overlay = document.createElement('div');
-  overlay.setAttribute('data-lexora-element-picker', '');
-  Object.assign(overlay.style, { position: 'fixed', pointerEvents: 'none', zIndex: '2147483647', display: 'none', border: '2px solid #2563eb', background: 'rgba(37,99,235,.12)', boxSizing: 'border-box' });
-  document.documentElement.append(overlay);
-  let hovered = null;
+export const BROWSER_ELEMENT_SNAPSHOT_SCRIPT = String.raw`function() {
+  const element = this;
+  if (!(element instanceof Element) || !element.isConnected || ['html', 'body', 'iframe', 'frame'].includes(element.localName))
+    throw new Error('Element unavailable');
   const excluded = 'script, style, noscript, template, input, textarea, select, [contenteditable], [hidden], [aria-hidden="true"]';
   function textOf(element) {
     if (element.closest(excluded)) return '';
     const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
     let text = '', count = 0, node;
     while ((node = walker.nextNode())) {
-      if (++count > 4096) throw new Error('limit');
+      if (++count > 4096) throw new Error('Selection limit');
       const parent = node.parentElement;
       if (!parent || parent.closest(excluded) || !parent.getClientRects().length) continue;
       const style = getComputedStyle(parent);
       if (style.visibility === 'hidden' || style.display === 'none') continue;
       text += node.textContent || '';
-      if (text.length > 32768) throw new Error('limit');
+      if (text.length > 32768) break;
     }
     return text.trim();
   }
@@ -25,49 +22,29 @@ export const BROWSER_ELEMENT_PICKER_SCRIPT = String.raw`(() => {
     const parts = [];
     let current = element;
     while (current) {
+      if (current.id) {
+        parts.unshift('#' + CSS.escape(current.id));
+        break;
+      }
       const parent = current.parentElement;
-      parts.unshift(current.tagName.toLowerCase() + (parent ? ':nth-child(' + (Array.from(parent.children).indexOf(current) + 1) + ')' : ''));
+      parts.unshift(current.localName + (parent ? ':nth-child(' + (Array.from(parent.children).indexOf(current) + 1) + ')' : ''));
       current = parent;
-      if (parts.length > 32) throw new Error('limit');
+      if (parts.length >= 32) break;
     }
     return parts.join(' > ');
   }
-  function collect(element) {
-    const tagName = element.tagName.toLowerCase();
-    const name = element.closest('input[type="password"]') ? '' : element.getAttribute('aria-label') || element.getAttribute('alt') || element.getAttribute('title') || '';
-    const role = element.getAttribute('role') || '';
-    const rect = element.getBoundingClientRect(), style = getComputedStyle(element);
-    return { text: textOf(element) || name || '<' + tagName + '>', element: {
-      tagName, name, role, selector: selectorOf(element),
-      rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
-      style: { color: style.color, backgroundColor: style.backgroundColor, fontSize: style.fontSize, fontFamily: style.fontFamily }
-    } };
+  const tagName = element.localName;
+  const name = element.closest('input[type="password"]') ? '' : element.getAttribute('aria-label') || element.getAttribute('alt') || element.getAttribute('title') || '';
+  const role = element.getAttribute('role') || '';
+  const rect = element.getBoundingClientRect(), style = getComputedStyle(element);
+  const attributes = {};
+  for (const key of ['id', 'class', 'data-testid', 'data-test', 'data-qa', 'type']) {
+    if (element.hasAttribute(key)) attributes[key] = element.getAttribute(key);
   }
-  function at(x, y) {
-    const element = document.elementFromPoint(x, y);
-    return element && !['html', 'body', 'iframe', 'frame'].includes(element.tagName.toLowerCase()) && element !== overlay ? element : null;
-  }
-  function show(element) {
-    hovered = element;
-    if (!element) { overlay.style.display = 'none'; return; }
-    const rect = element.getBoundingClientRect();
-    Object.assign(overlay.style, { display: 'block', left: rect.x + 'px', top: rect.y + 'px', width: rect.width + 'px', height: rect.height + 'px' });
-  }
-  return {
-    move(x, y) { show(at(x, y)); },
-    pick(x, y) {
-      const element = at(x, y);
-      if (!element || (hovered && !hovered.isConnected)) return { status: 'unavailable' };
-      try { return { status: 'selected', ...collect(element), anchor: { x: x / innerWidth, y: y / innerHeight } }; }
-      catch { return { status: 'limit' }; }
-    },
-    locate(selector, tagName, text) {
-      const matches = document.querySelectorAll(selector), element = matches.length === 1 ? matches[0] : null;
-      if (!element || element.tagName.toLowerCase() !== tagName || collect(element).text !== text) return false;
-      element.scrollIntoView({ block: 'center', behavior: 'instant' });
-      show(element);
-      return true;
-    },
-    dispose() { overlay.remove(); }
-  };
-})()`
+  return { status: 'selected', text: textOf(element) || name || '<' + tagName + '>', element: {
+    tagName, name, role, selector: selectorOf(element), attributes,
+    rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+    style: { color: style.color, backgroundColor: style.backgroundColor, fontSize: style.fontSize, fontFamily: style.fontFamily,
+      display: style.display, position: style.position, gap: style.gap, padding: style.padding, margin: style.margin, borderRadius: style.borderRadius }
+  } };
+}`

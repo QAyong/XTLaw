@@ -1,4 +1,5 @@
 import type { BuddyTextQuote } from '@buddy-shared/conversation/buddyUserContent'
+import { quoteExcludedSelector, readQuoteTextOffset } from './quoteText'
 
 export function readResourceTextSelection(root: HTMLElement, selection: Selection | null, source: BuddyTextQuote['source']): BuddyTextQuote | null {
   if (!selection || selection.isCollapsed || selection.rangeCount !== 1)
@@ -6,16 +7,13 @@ export function readResourceTextSelection(root: HTMLElement, selection: Selectio
   const range = selection.getRangeAt(0)
   if (!root.contains(range.startContainer) || !root.contains(range.endContainer))
     return null
-  const excluded = (node: Node) => (node instanceof Element ? node : node.parentElement)?.closest('button, input, textarea, [contenteditable], [data-quote-exclude]')
+  const excluded = (node: Node) => (node instanceof Element ? node : node.parentElement)?.closest(quoteExcludedSelector)
   if (excluded(range.startContainer) || excluded(range.endContainer)
-    || Array.from(root.querySelectorAll('button, input, textarea, [contenteditable], [data-quote-exclude]')).some(node => range.intersectsNode(node))) {
+    || Array.from(root.querySelectorAll(quoteExcludedSelector)).some(node => range.intersectsNode(node))) {
     return null
   }
   const text = selection.toString()
   if (!text.trim())
     return null
-  const before = range.cloneRange()
-  before.selectNodeContents(root)
-  before.setEnd(range.startContainer, range.startOffset)
-  return { id: crypto.randomUUID(), source, text, textOffset: before.toString().length }
+  return { id: crypto.randomUUID(), source, text, textOffset: readQuoteTextOffset(root, range) }
 }

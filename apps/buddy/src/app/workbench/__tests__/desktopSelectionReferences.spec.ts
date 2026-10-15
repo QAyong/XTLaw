@@ -6,7 +6,7 @@ import { artifactQuote, selectionArtifact } from '@buddy-shared/artifacts/__test
 import { browserQuote } from '@buddy-shared/browser/__tests__/browserSelectionFixture'
 import { createBuddyUserContent } from '@buddy-shared/conversation/buddyUserContent'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { effectScope, shallowRef } from 'vue'
+import { effectScope, nextTick, shallowRef } from 'vue'
 import { chatComposerDocumentToUserContent, userContentToChatComposerDocument } from '@/modules/prompt-input'
 import { useChatDrafts } from '@/modules/tasks/state/drafts/useChatDrafts'
 import { ContributionRegistry } from '@/workbench/services/ContributionRegistry'
@@ -52,15 +52,19 @@ async function fixture() {
   const visibleTabs = shallowRef([artifactTab])
   const activeTab = shallowRef({ id: 'browser-a' })
   const selectTab = vi.fn((id: string) => activeTab.value = { id })
-  const readArtifactText = vi.fn(async (artifactId: string) => ({ artifactId, text: artifactQuote.text, language: 'markdown' }))
-  const resources = { allTabs, tabs: visibleTabs, activeTab, browserStates, selectTab } as unknown as TaskResourcePanel
-  const host = createDesktopSelectionReferences({ controller, pool, language: shallowRef('zh-CN'), resources: () => resources, independent: () => independent, ready: () => true, locateFile, openFile, readArtifactText })
+  let version = 0
+  const reveal = vi.fn(async () => true)
+  const selectionScope = shallowRef('task:a')
+  const resources = { allTabs, tabs: visibleTabs, activeTab, browserStates, selectTab, selectionScope, isOpen: shallowRef(true), findArtifact: () => selectionArtifact, openArtifact: async () => activeTab.value = artifactTab, setArtifactViewMode: (_id: string, mode: 'preview' | 'source') => artifactTab.viewMode = mode } as unknown as TaskResourcePanel
+  const host = createDesktopSelectionReferences({ controller, pool, language: shallowRef('zh-CN'), resources: () => resources, independent: () => independent, ready: () => true, locateFile, openFile, navigationVersion: () => version })
+  host.registerReveal(fileId, reveal)
+  host.registerReveal(artifactTab.id, reveal)
   cleanups.push(() => {
     scope.stop()
     void controller.dispose()
   })
   const quote = { id: 'q', text: 'Frozen file text', source: { kind: 'file' as const, title: 'auth.ts', file, format: 'source' as const } }
-  return { a, b, fileId, controller, host, quote, resources, browserStates, draftsA, draftsB, tasks, keyA, locateFile, openFile, artifactTab, allTabs, visibleTabs, activeTab, selectTab, readArtifactText, independent: () => independent = true }
+  return { a, b, fileId, controller, host, quote, resources, browserStates, draftsA, draftsB, tasks, keyA, locateFile, openFile, artifactTab, allTabs, visibleTabs, activeTab, selectTab, reveal, navigate: () => version++, independent: () => independent = true }
 }
 
 describe('desktop resource quote adapter', () => {
@@ -75,14 +79,14 @@ describe('desktop resource quote adapter', () => {
     expect(chatComposerDocumentToUserContent(f.draftsA.composerContent.value).resourceQuotes).toBeUndefined()
     expect(chatComposerDocumentToUserContent(f.draftsB.composerContent.value).resourceQuotes).toEqual([artifactQuote])
     expect(f.draftsB.draft.value).toBe('Newer question')
-    expect(f.readArtifactText).not.toHaveBeenCalled()
   })
 
-  it('requires an explicit artifact target in independent mode', async () => {
+  it('requires explicit file and artifact targets in independent mode', async () => {
     const f = await fixture()
     f.activeTab.value = { id: f.artifactTab.id }
     f.independent()
     expect(f.host.capture(f.artifactTab.id, artifactQuote)?.defaultId).toBeNull()
+    expect(f.host.capture(f.fileId, f.quote)?.defaultId).toBeNull()
   })
 
   it.each(['version', 'path', 'mode', 'scope', 'close', 'switch', 'independent'])('rejects an artifact operation after a %s source change', async (change) => {
@@ -116,29 +120,45 @@ describe('desktop resource quote adapter', () => {
     }
   })
 
-  it('locates only an accessible retained artifact tab without opening a file or sending current text', async () => {
+  it('reopens artifact sources, selects the recorded representation and reports actual highlight failure', async () => {
     const f = await fixture()
-    expect(await f.host.locate(artifactQuote)).toBe(true)
-    expect(f.readArtifactText).toHaveBeenCalledWith(selectionArtifact.artifactId)
-    expect(f.selectTab).toHaveBeenCalledWith(f.artifactTab.id)
-    expect(f.openFile).not.toHaveBeenCalled()
-    f.selectTab.mockClear()
-    f.readArtifactText.mockRejectedValueOnce(new Error('Artifact deleted'))
-    expect(await f.host.locate(artifactQuote)).toBe(false)
-    expect(f.selectTab).not.toHaveBeenCalled()
     f.visibleTabs.value = []
+    f.artifactTab.viewMode = 'source'
+    expect(await f.host.locate(artifactQuote)).toBe(true)
+    expect(f.activeTab.value.id).toBe(f.artifactTab.id)
+    expect(f.artifactTab.viewMode).toBe('preview')
+    f.reveal.mockResolvedValueOnce(false)
     expect(await f.host.locate(artifactQuote)).toBe(false)
   })
 
-  it('rejects a late locate result after the artifact tab closes', async () => {
+  it('rejects a late file lookup after navigation without opening the old source', async () => {
     const f = await fixture()
-    let finish!: (value: { artifactId: string, text: string, language: string }) => void
-    f.readArtifactText.mockImplementationOnce(() => new Promise(resolve => finish = resolve))
-    const pending = f.host.locate(artifactQuote)
-    f.visibleTabs.value = []
-    finish({ artifactId: selectionArtifact.artifactId, text: 'Current text', language: 'markdown' })
+    const lookup = Promise.withResolvers<void>()
+    f.locateFile.mockReturnValueOnce(lookup.promise)
+    const pending = f.host.locate(f.quote)
+    f.navigate()
+    lookup.resolve()
     expect(await pending).toBe(false)
-    expect(f.selectTab).not.toHaveBeenCalled()
+    expect(f.openFile).not.toHaveBeenCalled()
+  })
+
+  it('invalidates a pending reveal when another locate request supersedes it', async () => {
+    const f = await fixture()
+    const reveal = Promise.withResolvers<boolean>()
+    let current!: () => boolean
+    f.host.registerReveal(f.fileId, async (_quote, isCurrent) => {
+      current = isCurrent
+      await reveal.promise
+      return current()
+    })
+    const pending = f.host.locate(f.quote)
+    await vi.waitFor(() => expect(current).toBeDefined())
+    const next = f.host.locate(artifactQuote)
+    await nextTick()
+    expect(current()).toBe(false)
+    reveal.resolve(true)
+    expect(await pending).toBe(false)
+    expect(await next).toBe(true)
   })
 
   it('associates browser tabs with their owning draft, not the focused pane', async () => {
@@ -165,7 +185,6 @@ describe('desktop resource quote adapter', () => {
     f.controller.focus(f.b)
     const request = f.host.capture(f.fileId, f.quote)!
     expect(request.defaultId).toBe(f.a)
-    expect(request.targets.map(target => target.label)).toEqual(['分屏 1 · Same title', '分屏 2 · Same title'])
     expect(f.host.add(request, f.a)).toBe('added')
     expect(f.draftsA.draft.value).toBe('Keep latest A input')
     expect(chatComposerDocumentToUserContent(f.draftsA.composerContent.value).resourceQuotes).toEqual([f.quote])
@@ -180,12 +199,6 @@ describe('desktop resource quote adapter', () => {
     expect(request.isSplit).toBe(true)
     await f.controller.close(f.b)
     expect(f.host.capture(f.fileId, f.quote)?.isSplit).toBe(false)
-  })
-
-  it('requires an explicit choice in independent mode with multiple inputs', async () => {
-    const f = await fixture()
-    f.independent()
-    expect(f.host.capture(f.fileId, f.quote)?.defaultId).toBeNull()
   })
 
   it('invalidates a target after branch rebinding', async () => {

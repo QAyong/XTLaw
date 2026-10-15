@@ -397,7 +397,9 @@ export function useDesktopWorkbench(options: { buddyCatalog?: Readonly<Ref<Buddy
     openingFiles.set(key, opening)
     return opening
   }
-  async function createFile(target: SpaceFileTarget, tabId?: string) {
+  async function createFile(target: SpaceFileTarget, tabId?: string, current: () => boolean = () => true) {
+    if (!current())
+      return null
     const docx = /\.docx$/i.test(target.path)
     const openDocument = async (fallback: string | null) => {
       if (!docx || !fallback)
@@ -435,6 +437,8 @@ export function useDesktopWorkbench(options: { buddyCatalog?: Readonly<Ref<Buddy
           resource = { ...resource, scheme: 'file-preview' }
         }
       }
+      if (!current())
+        return null
       if (tabId && !options.resources().hasTab(tabId)) {
         copies.release(resource)
         return null
@@ -665,7 +669,7 @@ export function useDesktopWorkbench(options: { buddyCatalog?: Readonly<Ref<Buddy
     await inputs.flush().catch(options.onError)
     return saved
   }
-  const selectionReferences = createDesktopSelectionReferences({ controller, pool, language, openFile, browser: api.browser, resources: options.resources, ready: () => initialized.value, independent: () => stores.applicationSettings.config.value?.desktop.contextPanelMode === 'independent', locateFile: target => api.localChat.spaces.readFile(target), readArtifactText: api.localChat.artifacts.readText, editSelection: api.selectionReferenceMenu?.executeEdit })
+  const selectionReferences = createDesktopSelectionReferences({ controller, pool, language, openFile: (target, current) => createFile(target, undefined, current), browser: api.browser, resources: options.resources, ready: () => initialized.value, independent: () => stores.applicationSettings.config.value?.desktop.contextPanelMode === 'independent', locateFile: target => api.localChat.spaces.readFile(target), navigationVersion: () => navigationVersion })
   return { selectionReferences, api, renderers, fileOperations, fileToolbarTargets, fileView, closeContextFiles, readingPositions, discardTask, prepareTaskDeletion, activeTask, activeTaskId, activeResource: activity.resource, backupError, controller, copies, models, pool, persistence, initialize, flush, dispose, openTask, newTask, startTaskWithSkill, openFile, dropResource, language, get initialized() {
     return initialized.value
   }, get navigationVersion() {

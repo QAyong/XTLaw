@@ -17,7 +17,6 @@ import { DEFAULT_DESKTOP_CHAT_WELCOME_ITEMS } from './desktopChatWelcome'
 export { DESKTOP_BROWSER_BLOCKED_ACTIONS, DESKTOP_BROWSER_ERROR_CODES, DESKTOP_BROWSER_PROFILE_MODES, DESKTOP_BROWSER_SECURITY_KINDS } from '../../shared/browser/browserDesktopApi'
 
 export const DESKTOP_IPC_CHANNELS = {
-  selectionReferenceEdit: 'lexora:selection-reference:edit',
   workbenchRead: 'lexora:workbench:read',
   workbenchWrite: 'lexora:workbench:write',
   contextPanelGetState: 'lexora:context-panel:get-state',
@@ -91,9 +90,6 @@ export const DESKTOP_IPC_CHANNELS = {
   windowStateChanged: 'lexora:window:state-changed',
   windowToggleMaximize: 'lexora:window:toggle-maximize',
 } as const
-
-export const DESKTOP_SELECTION_EDIT_COMMANDS = ['undo', 'redo', 'cut', 'copy', 'paste', 'selectAll'] as const
-export type DesktopSelectionEditCommand = typeof DESKTOP_SELECTION_EDIT_COMMANDS[number]
 
 export interface DesktopOpenTarget {
   conversationId: string
@@ -244,7 +240,6 @@ export interface LexoraConfigPatch {
 }
 
 export interface LexoraDesktopApi {
-  selectionReferenceMenu?: { executeEdit: (command: DesktopSelectionEditCommand) => Promise<void> }
   sync: import('../../shared/sync/syncApi').SyncApi
   storage: import('../../shared/storage/storageApi').StorageApi
   fileIcons: import('../../shared/icons/fileIconThemeApi').FileIconThemeApi

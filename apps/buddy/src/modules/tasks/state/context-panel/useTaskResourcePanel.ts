@@ -171,9 +171,14 @@ export function useTaskResourcePanel(options: TaskResourcePanelOptions) {
     return true
   }
 
+  function findArtifact(id: string) {
+    const tab = taskContext.allTabs.value.find(tab => tab.kind === 'artifact' && tab.artifact.artifactId === id)
+    return tab?.kind === 'artifact' ? tab.artifact : options.runOutputs.value.flatMap(output => output.artifacts).find(item => item.artifactId === id)
+  }
+
   async function openArtifact(target: string | LocalArtifact): Promise<void> {
     const artifact = typeof target === 'string'
-      ? options.runOutputs.value.flatMap(output => output.artifacts).find(item => item.artifactId === target)
+      ? findArtifact(target)
       : target
     if (!artifact)
       return
@@ -245,6 +250,7 @@ export function useTaskResourcePanel(options: TaskResourcePanelOptions) {
         return false
       }))
     }),
+    findArtifact,
     openArtifact,
     openBrowser: () => act(taskContext.openBrowser),
     openChanges: (...args: Parameters<typeof taskContext.openChanges>) => act(() => taskContext.openChanges(...args)),

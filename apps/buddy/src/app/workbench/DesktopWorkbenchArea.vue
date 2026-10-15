@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import type { ComponentPublicInstance } from 'vue'
 import type { DesktopShellBindings } from '../shell/desktopShellBindings'
-import { NSpin } from 'naive-ui'
 import { computed, watch } from 'vue'
 import { RouterView } from 'vue-router'
 import { DesktopTaskIndexView, DesktopTaskResourcePanel } from '@/modules/tasks/ui'
 import { useDesktopUi } from '@/shared/ui/desktopUiContext'
+import DesktopFileLoading from '@/shared/ui/loading/DesktopFileLoading.vue'
 import WorkbenchLayout from '@/workbench/browser/layout/WorkbenchLayout.vue'
 import WorkbenchMountPoint from '@/workbench/browser/mounts/WorkbenchMountPoint.vue'
 import { useWorkbench } from '@/workbench/browser/workbenchContext'
@@ -99,9 +99,7 @@ function navigate(id: string) {
           </template>
           <template #file="{ wrap, setWrap }">
             <DesktopDirectoryFileSurface v-if="selectedFile" :view="selectedFile" :wrap="wrap" :visible="(tasksVisible || bindings.contextPanelGlobal.value) && bindings.resources.isOpen.value" @update-wrap="setWrap" />
-            <div v-else class="desktop-workbench-area__file-loading">
-              <NSpin size="small" />{{ labels.loading }}
-            </div>
+            <DesktopFileLoading v-else :key="fileTab?.target.path" :loading="true" :label="labels.loading" />
           </template>
         </DesktopTaskResourcePanel>
       </div>
@@ -114,5 +112,4 @@ function navigate(id: string) {
 .desktop-workbench-area__tasks { display: flex; flex: 1; min-width: 0; min-height: 0; }
 .desktop-workbench-area__tasks > :deep(*) { flex: 1; }
 .desktop-workbench-area__file-toolbar { display: flex; min-width: 0; flex: 1; }
-.desktop-workbench-area__file-loading { display: grid; flex: 1; place-content: center; gap: 12px; color: var(--buddy-text-muted); font-size: 12px; }
 </style>

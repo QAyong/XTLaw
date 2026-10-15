@@ -75,7 +75,8 @@ function updateVersionReminder() {
     :show="show"
     preset="card"
     class="desktop-update-dialog"
-    :style="{ width: 'min(42rem, calc(100vw - 2rem))' }"
+    :style="{ width: 'min(42rem, calc(100vw - 2rem))', maxHeight: 'calc(100vh - 2rem)' }"
+    content-class="min-h-0 flex flex-col"
     :title="t('desktop.update.title')"
     :auto-focus="false"
     :closable="!installing"
@@ -140,6 +141,7 @@ function updateVersionReminder() {
           <NScrollbar
             v-if="result.releaseNotes.trim()"
             :key="result.latestVersion"
+            class="min-h-0"
             style="max-height: min(50vh, 30rem)"
           >
             <section
@@ -241,6 +243,7 @@ function updateVersionReminder() {
   display: flex;
   align-items: center;
   gap: 14px;
+  flex: none;
   padding: 2px 0 14px;
 }
 
@@ -315,6 +318,9 @@ function updateVersionReminder() {
   border: 1px solid var(--buddy-border-subtle);
   background: var(--buddy-surface-raised);
   padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .desktop-update-dialog__card-header {
@@ -322,6 +328,7 @@ function updateVersionReminder() {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  flex: none;
   margin-bottom: 8px;
 }
 

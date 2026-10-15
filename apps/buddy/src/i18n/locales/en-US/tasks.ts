@@ -109,6 +109,7 @@ export default {
   'desktop.context.browserTakingControl': 'Taking control…',
   'desktop.context.browserToolbar': 'Browser toolbar',
   'desktop.context.browserViewport': 'Web page content',
+  'desktop.context.browserPickHint': 'Select element',
   'desktop.context.browserPickElement': 'Select element',
   'desktop.context.browserCancelPick': 'Cancel selection (Esc)',
   'desktop.context.browserPickUnavailable': 'Cannot add reference. Open a writable conversation and select an element in the main document again.',

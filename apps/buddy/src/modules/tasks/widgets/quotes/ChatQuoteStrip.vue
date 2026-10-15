@@ -4,7 +4,7 @@ import type { BuddyLocale } from '@/i18n/buddyI18n'
 import { TextQuote20Regular } from '@vicons/fluent'
 import { inject } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
-import ChatReferenceCard from '../references/ChatReferenceCard.vue'
+import ChatReferenceCard from '@/shared/ui/selection/ReferenceCard.vue'
 import { chatQuoteNavigationKey } from './chatQuoteContext'
 
 const props = defineProps<{

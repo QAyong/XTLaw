@@ -7,7 +7,7 @@ import { createBuddyUserContent } from '@buddy-shared/conversation/buddyUserCont
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createApp, defineComponent, h, nextTick, provide, shallowRef } from 'vue'
 import { WorkbenchSelectionReferences, workbenchSelectionReferencesKey } from '@/shared/ui/selection/workbenchSelectionReferences'
-import { browserElementPickMenuPosition, useBrowserElementReference } from '../useBrowserElementReference'
+import { useBrowserElementReference } from '../useBrowserElementReference'
 
 const cleanups: (() => void)[] = []
 afterEach(() => cleanups.splice(0).forEach(cleanup => cleanup()))
@@ -40,12 +40,7 @@ function fixture(multiple = false, owner: string | null = 'task:a') {
   return { picker, api, state, visible, feedback, choose, body, write, targets, references, selected, resolve: () => resolve(selected), source: () => sourceIdentity = 'page:2' }
 }
 describe('browser element reference routing lifecycle', () => {
-  it('maps viewport ratios into workbench CSS coordinates, including resizing and zoom', () => {
-    const anchor = { x: 0.25, y: 0.4 }
-    expect(browserElementPickMenuPosition(anchor, { left: 500, top: 120, width: 800, height: 600 })).toEqual({ x: 700, y: 360 })
-    expect(browserElementPickMenuPosition(anchor, { left: 100, top: 80, width: 400, height: 300 })).toEqual({ x: 200, y: 200 })
-  })
-  it('preserves latest text and writes once to the frozen default without broadcasting', async () => {
+  it('preserves latest text and writes once to the frozen default', async () => {
     const f = fixture()
     const pending = f.picker.toggle()
     f.body.value = createBuddyUserContent('Typed during picking')

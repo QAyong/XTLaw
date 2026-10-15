@@ -86,7 +86,7 @@ async function followLink(event: MouseEvent) {
         <NAlert v-else-if="error" class="skill-detail__error" type="error" :show-icon="false">
           {{ error }}
         </NAlert>
-        <DesktopMonacoFile v-else-if="source && detail" :text="detail.content" :path="skill.filePath" :wrap="true">
+        <DesktopMonacoFile v-else-if="source && detail" :language="language" :text="detail.content" :path="skill.filePath" :wrap="true">
           <template #error>
             {{ t('desktop.context.editorLoadFailed') }}
           </template>

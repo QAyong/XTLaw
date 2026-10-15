@@ -283,7 +283,9 @@ export function buddyPromptDirectiveToText(directive: BuddyPromptDirective): str
 
 function sameResourceQuote(a: BuddyResourceQuote, b: BuddyResourceQuote): boolean {
   if ('element' in a && 'element' in b) {
-    return a.source.url === b.source.url && a.element.selector === b.element.selector && a.text === b.text
+    return a.source.sessionId === b.source.sessionId && a.source.pageId === b.source.pageId
+      && a.source.documentVersion === b.source.documentVersion && a.source.url === b.source.url
+      && a.element.selector === b.element.selector && a.text === b.text
       && JSON.stringify(a.element) === JSON.stringify(b.element)
   }
   if ('element' in a || 'element' in b)

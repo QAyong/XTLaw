@@ -115,12 +115,12 @@ describe('useChatTurnExecution cancellation ownership', () => {
 })
 
 describe('turn submission conflicts', () => {
-  it.each(['file', 'browser'])('submits a %s-reference-only draft without requiring a question or comment', async (kind) => {
+  it('submits a reference-only draft without requiring a question or comment', async () => {
     const f = createFixture()
     f.projectedRuns.value = []
     f.selectedModel.value = { modelId: 'model-a', providerId: 'provider-a' } as LocalRuntimeModelOption
     const quote = { id: 'file-quote', text: 'frozen excerpt', source: { kind: 'file' as const, title: 'notes.md', file: { spaceId: 'space', directoryId: 'directory', revision: 1, path: 'notes.md' }, format: 'markdown' as const } }
-    const content = { ...createBuddyUserContent(), resourceQuotes: [kind === 'browser' ? browserQuote : quote] }
+    const content = { ...createBuddyUserContent(), resourceQuotes: [quote, browserQuote] }
     f.drafts.setUserContent(content)
     const key = 'conversation:conversation-a:branch-a'
     const snapshot = f.drafts.snapshot(key)

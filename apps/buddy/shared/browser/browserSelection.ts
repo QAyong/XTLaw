@@ -1,12 +1,14 @@
 import { z } from 'zod'
 
 export const browserElementSnapshotSchema = z.object({
+  locator: z.object({ backendNodeId: z.number().int().positive(), frameId: z.string().min(1).max(128) }).strict(),
+  attributes: z.partialRecord(z.enum(['id', 'class', 'data-testid', 'data-test', 'data-qa', 'type']), z.string().max(2048)),
   tagName: z.string().regex(/^[a-z][a-z0-9-]*$/).max(80),
   selector: z.string().min(1).max(2048),
   role: z.string().max(128),
   name: z.string().max(512),
   rect: z.object({ x: z.number().finite(), y: z.number().finite(), width: z.number().finite().nonnegative(), height: z.number().finite().nonnegative() }).strict(),
-  style: z.object({ color: z.string().max(256), backgroundColor: z.string().max(256), fontSize: z.string().max(64), fontFamily: z.string().max(512) }).strict(),
+  style: z.object({ color: z.string().max(256), backgroundColor: z.string().max(256), fontSize: z.string().max(64), fontFamily: z.string().max(512), display: z.string().max(64), position: z.string().max(64), gap: z.string().max(256), padding: z.string().max(256), margin: z.string().max(256), borderRadius: z.string().max(256) }).strict(),
 }).strict().readonly()
 export type BrowserElementSnapshot = z.infer<typeof browserElementSnapshotSchema>
 export const browserSelectionSourceSchema = z.object({

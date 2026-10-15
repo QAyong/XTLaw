@@ -43,7 +43,7 @@ describe('workbench selection target routing', () => {
     expect(f.host.capture('file', quote)?.defaultId).toBeNull()
   })
 
-  it.each(['branch', 'draft', 'sent', 'closed'])('rejects a %s target change instead of rerouting', (change) => {
+  it.each(['rebound', 'closed'])('rejects a %s target change instead of rerouting', (change) => {
     const f = fixture()
     const request = f.host.capture('file', quote)!
     if (change === 'closed')

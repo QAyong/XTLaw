@@ -35,7 +35,7 @@ defineExpose({ open })
       <div v-else-if="failed" class="skill-files__state grid flex-1 min-h-0 p-4 text-[0.8rem] text-muted" role="alert">
         {{ t('desktop.context.previewLoadFailed') }}
       </div>
-      <DesktopMonacoFile v-else-if="preview?.kind === 'text'" :text="preview.text ?? ''" :path="path" :wrap="wrap">
+      <DesktopMonacoFile v-else-if="preview?.kind === 'text'" :language="language" :text="preview.text ?? ''" :path="path" :wrap="wrap">
         <template #error>
           {{ t('desktop.context.editorLoadFailed') }}
         </template>

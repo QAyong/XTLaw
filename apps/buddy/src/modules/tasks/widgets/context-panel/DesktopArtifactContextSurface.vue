@@ -3,7 +3,6 @@ import type { LocalArtifact, LocalArtifactText } from '@buddy-shared/artifacts/a
 import type { BuddyArtifactQuote, BuddyResourceQuote } from '@buddy-shared/conversation/buddyUserContent'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import type { ArtifactViewMode } from '@/modules/tasks/model/context-panel/taskContextPanel'
-import type { SelectionReferenceEditSource } from '@/shared/ui/selection/workbenchSelectionReferences'
 import { NSpin } from 'naive-ui'
 import { computed, useTemplateRef, watch } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
@@ -11,6 +10,7 @@ import { FileIcon, FolderIcon } from '@/shared/ui/file-icon'
 import DesktopDocumentContent from '@/shared/ui/files/DesktopDocumentContent.vue'
 import BuddyImagePreview from '@/shared/ui/media/BuddyImagePreview.vue'
 import ResourceSelectionQuoteMenu from '@/shared/ui/selection/ResourceSelectionQuoteMenu.vue'
+import { useResourceQuoteReveal } from '@/shared/ui/selection/useResourceQuoteReveal'
 import { useSelectionReferences } from '@/shared/ui/selection/workbenchSelectionReferences'
 import { isMarkdownArtifact } from './artifactContextPresentation'
 import DesktopArtifactToolbar from './DesktopArtifactToolbar.vue'
@@ -39,14 +39,23 @@ const quoteSource = computed<BuddyArtifactQuote['source']>(() => ({
   format: markdown.value && viewMode.value === 'preview' ? 'markdown' : 'source',
 }))
 const quoteOwnerKey = computed(() => JSON.stringify([props.tabId, props.artifact, viewMode.value]))
-function prepareQuote(quote: BuddyResourceQuote, x: number, y: number, editable = false, editSource?: SelectionReferenceEditSource) {
-  return quoteMenu.value?.prepare(quote, x, y, editable, editSource) ?? null
+function prepareQuote(quote: BuddyResourceQuote, x: number, y: number) {
+  return quoteMenu.value?.prepare(quote, x, y) ?? null
 }
 
 const { t } = useBuddyI18n(() => props.language)
-const { failImage, openPreview, previewIndex, previewOpen, previewSources, previewUrl, textPreview, textPreviewFailed, textPreviewLoading } = useArtifactPreview({
+const { refreshText, failImage, openPreview, previewIndex, previewOpen, previewSources, previewUrl, textPreview, textPreviewFailed, textPreviewLoading } = useArtifactPreview({
   artifact: () => props.artifact,
   readText: () => props.readArtifactText,
+})
+const document = useTemplateRef<InstanceType<typeof DesktopDocumentContent>>('document')
+useResourceQuoteReveal({
+  viewId: () => props.tabId,
+  identity: () => JSON.stringify(props.artifact),
+  visible: () => props.visible,
+  prepare: refreshText,
+  ready: () => !textPreviewLoading.value && !!document.value?.ready,
+  reveal: quote => document.value?.reveal(quote) ?? false,
 })
 watch(textPreview, () => quoteMenu.value?.close(), { flush: 'sync' })
 </script>
@@ -81,7 +90,8 @@ watch(textPreview, () => quoteMenu.value?.close(), { flush: 'sync' })
         <span>{{ t('common.loading') }}</span>
       </div>
       <DesktopDocumentContent
-        v-else-if="textPreview" :mode="markdown ? viewMode : 'source'" :name="artifact.name" :text="textPreview.text" :language="language" :write-clipboard-text="writeClipboardText"
+        v-else-if="textPreview"
+        ref="document" :mode="markdown ? viewMode : 'source'" :name="artifact.name" :text="textPreview.text" :language="language" :write-clipboard-text="writeClipboardText"
         :quote-source="references ? quoteSource : undefined" :prepare-quote="prepareQuote"
       />
       <div v-else class="desktop-artifact-context-surface__fallback grid max-w-96 gap-2 text-muted text-center">

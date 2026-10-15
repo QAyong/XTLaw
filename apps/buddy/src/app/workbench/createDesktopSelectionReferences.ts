@@ -1,5 +1,3 @@
-import type { DesktopSelectionEditCommand } from '@buddy-electron/shared/desktopApi'
-import type { LocalArtifactText } from '@buddy-shared/artifacts/artifactApi'
 import type { DesktopBrowserApi } from '@buddy-shared/browser/browserDesktopApi'
 import type { SpaceFileTarget } from '@buddy-shared/spaces/spaceFileApi'
 import type { Ref } from 'vue'
@@ -20,17 +18,16 @@ export function createDesktopSelectionReferences(options: {
   controller: WorkbenchController
   pool: TaskWorkspacePool
   language: Readonly<Ref<BuddyLocale>>
-  openFile: (target: SpaceFileTarget) => Promise<string | null | undefined>
+  openFile: (target: SpaceFileTarget, current: () => boolean) => Promise<string | null | undefined>
   resources: () => TaskResourcePanel
   independent: () => boolean
   ready: () => boolean
   locateFile: (target: SpaceFileTarget) => Promise<unknown>
   browser?: DesktopBrowserApi
-  readArtifactText?: (artifactId: string) => Promise<LocalArtifactText>
-  editSelection?: (command: DesktopSelectionEditCommand) => Promise<void>
+  navigationVersion: () => number
 }) {
-  return new WorkbenchSelectionReferences({
-    editSelection: options.editSelection,
+  let operation = 0
+  const references: WorkbenchSelectionReferences = new WorkbenchSelectionReferences({
     isSplit: () => panes(options.controller.layout.root).length > 1,
     targets() {
       if (!options.ready())
@@ -85,45 +82,52 @@ export function createDesktopSelectionReferences(options: {
       const owner = !options.independent() && tab && /^(?:task|draft):/.test(tab.scope) ? tab.scope : null
       return { identity: JSON.stringify([view.id, view.resource, view.state.mode, view.state.preview, options.independent(), tab?.scope]), owner }
     },
-    async locate(quote) {
+    async locate(quote): Promise<boolean> {
+      const request = ++operation
+      const version = options.navigationVersion()
+      const resources = options.resources()
+      const scope = resources.selectionScope.value
+      let activeTabId = resources.activeTab.value?.id
+      const current = () => request === operation && options.ready() && options.navigationVersion() === version
+        && options.resources() === resources && resources.selectionScope.value === scope && resources.activeTab.value?.id === activeTabId
       try {
         if ('element' in quote) {
-          const resources = options.resources()
           const tab = resources.tabs.value.find(tab => tab.kind === 'browser' && resources.browserStates.value[tab.id]?.sessionId === quote.source.sessionId)
-          if (!tab || !await options.browser?.locateElement({ source: quote.source, element: quote.element, text: quote.text }))
+          if (!tab || !await options.browser?.locateElement({ source: quote.source, element: quote.element, text: quote.text }) || !current())
             return false
           resources.selectTab(tab.id)
+          if (!resources.isOpen.value)
+            resources.toggle()
           return true
         }
         if (quote.source.kind === 'artifact') {
           const source = quote.source
-          const resources = options.resources()
-          const tab = resources.tabs.value.find(tab => tab.kind === 'artifact' && tab.artifact.artifactId === source.artifactId
-            && tab.artifact.conversationId === source.conversationId && tab.artifact.runId === source.runId
-            && tab.artifact.updatedAt === source.updatedAt && tab.artifact.path === source.path)
-          if (!tab || !options.readArtifactText)
+          const artifact = resources.findArtifact(source.artifactId)
+          if (!artifact || artifact.conversationId !== source.conversationId || artifact.runId !== source.runId || artifact.path !== source.path)
             return false
-          const text = await options.readArtifactText(source.artifactId)
-          if (text.artifactId !== source.artifactId || options.resources() !== resources || !resources.tabs.value.includes(tab))
+          await resources.openArtifact(artifact)
+          activeTabId = resources.activeTab.value?.id
+          const tab = resources.activeTab.value
+          if (!current() || tab?.kind !== 'artifact' || tab.artifact.artifactId !== source.artifactId)
             return false
-          resources.selectTab(tab.id)
-          return true
+          resources.setArtifactViewMode(tab.id, source.format === 'markdown' ? 'preview' : 'source')
+          return await references.reveal(tab.id, quote, current)
         }
         await options.locateFile(quote.source.file)
-        const id = await options.openFile(quote.source.file)
-        if (!id)
+        if (!current())
+          return false
+        const id = await options.openFile(quote.source.file, current)
+        activeTabId = resources.activeTab.value?.id
+        if (!id || !current())
           return false
         const view = options.controller.layout.views[id]
         if (!view)
           return false
-        options.controller.updateView(id, { state: {
-          ...view.state,
-          mode: quote.source.format === 'markdown' ? 'preview' : 'source',
-          quoteSelection: quote.range ? { ...quote.range, text: quote.text, id: quote.id } : null,
-        } })
-        return true
+        options.controller.updateView(id, { state: { ...view.state, mode: quote.source.format === 'markdown' ? 'preview' : 'source' } })
+        return await references.reveal(id, quote, () => current() && !!options.controller.layout.views[id])
       }
       catch { return false }
     },
   })
+  return references
 }

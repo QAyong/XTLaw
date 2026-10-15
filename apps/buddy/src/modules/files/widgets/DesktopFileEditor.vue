@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import type { BuddyFileQuote, BuddyResourceQuote } from '@buddy-shared/conversation/buddyUserContent'
+import type { BuddyFileQuote, BuddyResourceQuote, BuddyTextQuote } from '@buddy-shared/conversation/buddyUserContent'
 import type { JsonValue } from '@buddy-shared/workbench/workbenchState'
 import type * as Monaco from 'monaco-editor/editor/editor.api.js'
-import type { SelectionReferenceEditSource } from '@/shared/ui/selection/workbenchSelectionReferences'
 import type { TextModelPool } from '@/workbench/browser/TextModelPool'
 import type { ResourceRef, WorkbenchView } from '@/workbench/common/workbench'
 import { spaceFileTargetSchema } from '@buddy-shared/spaces/spaceFileApi'
@@ -15,7 +14,9 @@ import DesktopDocumentToolbar from '@/shared/ui/files/DesktopDocumentToolbar.vue
 import { fileDocumentModes, isMarkdownFile, resolveFileDocumentMode } from '@/shared/ui/files/fileDocumentPresentation'
 import { observeDesktopMonacoTheme } from '@/shared/ui/monaco/desktopMonaco'
 import ResourceSelectionQuoteMenu from '@/shared/ui/selection/ResourceSelectionQuoteMenu.vue'
+import { revealMonacoQuote } from '@/shared/ui/selection/revealMonacoQuote'
 import { registerMonacoResourceQuote } from '@/shared/ui/selection/useMonacoResourceQuote'
+import { useResourceQuoteReveal } from '@/shared/ui/selection/useResourceQuoteReveal'
 import { useSelectionReferences } from '@/shared/ui/selection/workbenchSelectionReferences'
 import { useWorkbench } from '@/workbench/browser/workbenchContext'
 
@@ -28,11 +29,12 @@ const { t } = useBuddyI18n(() => props.language)
 function quoteSource(format: 'source' | 'markdown' = 'source'): BuddyFileQuote['source'] {
   return { kind: 'file', title: props.view.title, file: spaceFileTargetSchema.strip().parse(props.view.resource.data), format }
 }
-function prepareQuote(quote: BuddyResourceQuote, x: number, y: number, isEditable = false, editSource?: SelectionReferenceEditSource) {
-  return quoteMenu.value?.prepare(quote, x, y, isEditable, editSource) ?? null
+function prepareQuote(quote: BuddyResourceQuote, x: number, y: number) {
+  return quoteMenu.value?.prepare(quote, x, y) ?? null
 }
 const failed = shallowRef(false)
-const failedQuote = shallowRef(false)
+const editorReady = shallowRef(false)
+const document = useTemplateRef<InstanceType<typeof DesktopDocumentContent>>('document')
 const copy = shallowRef(copies.get(props.view.resource))
 const modes = computed(() => fileDocumentModes({ preview: isMarkdownFile(props.view.title), source: !!copy.value?.etag, edit: !!copy.value?.etag }))
 const mode = computed({
@@ -49,12 +51,14 @@ function captureResource() {
 }
 const viewId = computed(() => props.view.id)
 let editor: Monaco.editor.IStandaloneCodeEditor | undefined
+function revealSource(quote: BuddyTextQuote) {
+  return !!editor && revealMonacoQuote(editor, quote)
+}
 const attempt = shallowRef(0)
 watch(identity, (_, __, onCleanup) => {
   const resource = props.view.resource
   let active = true
   failed.value = false
-  failedQuote.value = false
   copy.value = copies.get(resource)
   onCleanup(copies.onDidChangeResource(resource)(() => copy.value = copies.get(resource)).dispose)
   onCleanup(() => active = false)
@@ -88,8 +92,10 @@ watch([container, attempt, viewId, identity], async ([element, , viewId, key], _
         state()
     }
     finally {
-      if (editor === ownedEditor)
+      if (editor === ownedEditor) {
         editor = undefined
+        editorReady.value = false
+      }
       stopTheme?.()
       try {
         ownedEditor?.dispose()
@@ -119,15 +125,15 @@ watch([container, attempt, viewId, identity], async ([element, , viewId, key], _
       tabSize: Number(controller.configuration.get('workbench.tabSize') ?? 2),
       scrollBeyondLastLine: false,
       padding: { top: 12, bottom: 12 },
-      contextmenu: false,
+      contextmenu: true,
     })
     editor = ownedEditor
     if (references)
-      registerMonacoResourceQuote(ownedEditor, { source: () => quoteSource(), prepare: prepareQuote, editable: () => mode.value === 'edit' })
+      registerMonacoResourceQuote(ownedEditor, { source: () => quoteSource(), prepare: prepareQuote, label: t('desktop.chat.quoteSelection') })
     stopTheme = observeDesktopMonacoTheme(lease.monaco, ownedEditor)
     if (props.view.state.editor)
       ownedEditor.restoreViewState(JSON.parse(JSON.stringify(props.view.state.editor)) as Monaco.editor.ICodeEditorViewState)
-    applyQuoteSelection()
+    editorReady.value = true
     const schedule = () => {
       if (disposed)
         return
@@ -145,25 +151,13 @@ watch([container, attempt, viewId, identity], async ([element, , viewId, key], _
   }
 }, { immediate: true })
 watch([mode, () => copy.value?.blocked], ([value, blocked]) => editor?.updateOptions({ readOnly: value !== 'edit' || blocked, domReadOnly: value !== 'edit' || blocked }))
-watch(() => props.view.state.quoteSelection, applyQuoteSelection, { flush: 'post' })
-function applyQuoteSelection() {
-  failedQuote.value = false
-  const value = props.view.state.quoteSelection
-  if (!value || typeof value !== 'object' || Array.isArray(value) || !editor)
-    return
-  const data = value as Record<string, unknown>
-  if (typeof data.text !== 'string' || !['startLineNumber', 'startColumn', 'endLineNumber', 'endColumn'].every(key => Number.isSafeInteger(data[key]) && Number(data[key]) > 0))
-    return
-  const range = data as unknown as Monaco.IRange
-  if (editor.getModel()?.getValueInRange(range) === data.text) {
-    editor.setSelection(range)
-    editor.revealRangeInCenter(range)
-  }
-  else {
-    // Preserve the snapshot; never highlight different text at an old location.
-    failedQuote.value = true
-  }
-}
+useResourceQuoteReveal({
+  viewId: () => props.view.id,
+  identity: () => identity.value,
+  visible: () => props.visible,
+  ready: () => !!document.value?.ready,
+  reveal: quote => document.value?.reveal(quote) ?? false,
+})
 watch(() => props.view.state.wrap, value => editor?.updateOptions({ wordWrap: (value ?? controller.configuration.get('workbench.wordWrap')) ? 'on' : 'off' }))
 async function retry() {
   const key = identity.value
@@ -209,11 +203,9 @@ onScopeDispose(controller.configuration.subscribe(() => editor?.updateOptions({ 
         {{ labels.retry }}
       </button>
     </div>
-    <p v-if="failedQuote" class="file-editor__status" role="status">
-      {{ t('desktop.chat.resourceQuoteTextUnavailable') }}
-    </p>
     <ResourceSelectionQuoteMenu v-if="references" ref="quoteMenu" :view-id="view.id" :owner-key="`${view.id}:${identity}:${mode}`" :language="language" :visible="visible" />
     <DesktopDocumentContent
+      ref="document" :source-ready="editorReady" :reveal-source="revealSource"
       :mode="mode" :name="view.title" :text="copy?.text ?? ''" :language="language" :write-clipboard-text="writeClipboardText"
       :quote-source="references ? quoteSource('markdown') : undefined" :prepare-quote="prepareQuote" @scroll.capture="quoteMenu?.close()"
     >

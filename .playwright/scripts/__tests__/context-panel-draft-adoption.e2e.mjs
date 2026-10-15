@@ -78,10 +78,7 @@ test('first send with a browser reference preserves the open resource panel and 
     const pick = page.getByTestId('browser-pick-element')
     await expect(pick).toBeEnabled()
     await pick.click()
-    await expect.poll(() => app.evaluate(async ({ webContents }, url) => {
-      const guest = webContents.getAllWebContents().find(contents => contents.getType() === 'webview' && contents.getURL() === url)
-      return guest?.executeJavaScript('Boolean(document.querySelector("[data-lexora-element-picker]"))')
-    }, `${origin}/page`)).toBe(true)
+    await expect(pick).toHaveAttribute('aria-pressed', 'true')
     await app.evaluate(async ({ webContents }, url) => {
       const guest = webContents.getAllWebContents().find(contents => contents.getType() === 'webview' && contents.getURL() === url)
       const point = await guest.executeJavaScript('(() => { const r = document.querySelector("#picked").getBoundingClientRect(); return { x:r.x+r.width/2, y:r.y+r.height/2 }; })()')
@@ -105,7 +102,6 @@ test('first send with a browser reference preserves the open resource panel and 
     await expect(address).toHaveValue(`${origin}/page`)
     expect(await page.evaluate(() => window.lexoraDesktop.browser.listGuests())).toEqual(before)
     expect(JSON.stringify(requests[0].messages)).toContain('Frozen browser text')
-    await page.screenshot({ path: path.join(instance.artifactDirectory, 'panel-after-first-send.png'), animations: 'disabled' })
     await input.fill('Keep the same panel open on the next send too.')
     await expect(send).toBeEnabled()
     await send.click()

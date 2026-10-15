@@ -367,7 +367,9 @@ export function useDesktopWorkbench(options: { buddyCatalog?: Readonly<Ref<Buddy
     openingFiles.set(key, opening)
     return opening
   }
-  async function createFile(target: SpaceFileTarget, tabId?: string) {
+  async function createFile(target: SpaceFileTarget, tabId?: string, current: () => boolean = () => true) {
+    if (!current())
+      return null
     const previous = fileView(target, tabId)
     if (previous) {
       if (!tabId)
@@ -382,6 +384,8 @@ export function useDesktopWorkbench(options: { buddyCatalog?: Readonly<Ref<Buddy
         copies.release(resource)
         resource = { ...resource, scheme: 'file-preview' }
       }
+      if (!current())
+        return null
       if (tabId && !options.resources().hasTab(tabId)) {
         copies.release(resource)
         return null
@@ -389,10 +393,13 @@ export function useDesktopWorkbench(options: { buddyCatalog?: Readonly<Ref<Buddy
       if (tabId)
         return await controller.open(resource, target.path.split('/').at(-1) ?? target.path, { duplicate: true, focus: false, state: { contextTabId: tabId } })
       const existing = options.resources().tabs.value.find(tab => tab.kind === 'view' && resourceKey(controller.layout.views[tab.viewId]?.resource ?? { scheme: '', id: '', data: {} }) === resourceKey(resource))
-      if (existing?.kind === 'view')
+      if (existing?.kind === 'view') {
         controller.focus(existing.viewId)
-      else
+        return existing.viewId
+      }
+      else {
         return await controller.open(resource, target.path.split('/').at(-1) ?? target.path, { duplicate: true })
+      }
     }
     finally { release() }
   }
@@ -610,7 +617,7 @@ export function useDesktopWorkbench(options: { buddyCatalog?: Readonly<Ref<Buddy
     await inputs.flush().catch(options.onError)
     return saved
   }
-  const selectionReferences = createDesktopSelectionReferences({ controller, pool, language, openFile, browser: api.browser, resources: options.resources, ready: () => initialized.value, independent: () => stores.applicationSettings.config.value?.desktop.contextPanelMode === 'independent', locateFile: target => api.localChat.spaces.readFile(target), readArtifactText: api.localChat.artifacts.readText, editSelection: api.selectionReferenceMenu?.executeEdit })
+  const selectionReferences = createDesktopSelectionReferences({ controller, pool, language, openFile: (target, current) => createFile(target, undefined, current), browser: api.browser, resources: options.resources, ready: () => initialized.value, independent: () => stores.applicationSettings.config.value?.desktop.contextPanelMode === 'independent', locateFile: target => api.localChat.spaces.readFile(target), navigationVersion: () => navigationVersion })
   return { selectionReferences, api, renderers, fileOperations, fileToolbarTargets, fileView, closeContextFiles, readingPositions, discardTask, prepareTaskDeletion, activeTask, activeTaskId, backupError, controller, copies, models, pool, persistence, initialize, flush, dispose, openTask, newTask, startTaskWithSkill, openFile, dropResource, language, get initialized() {
     return initialized.value
   }, get navigationVersion() {

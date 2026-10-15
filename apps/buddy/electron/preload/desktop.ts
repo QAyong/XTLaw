@@ -16,7 +16,7 @@ import { SYNC_CHANGED, SYNC_CHANNEL } from '../../shared/sync/syncApi'
 import { DESKTOP_IPC_CHANNELS } from '../shared/desktopApi'
 import { subscribe } from './subscribe'
 
-export function createDesktopApi(): Pick<LexoraDesktopApi, 'app' | 'clipboard' | 'commands' | 'contextPanel' | 'selectionReferenceMenu' | 'settings' | 'storage' | 'sync' | 'window' | 'workbench'> {
+export function createDesktopApi(): Pick<LexoraDesktopApi, 'app' | 'clipboard' | 'commands' | 'contextPanel' | 'settings' | 'storage' | 'sync' | 'window' | 'workbench'> {
   return {
     sync: Object.freeze({
       selectAdapter: (adapter: 'webdav' | 's3') => ipcRenderer.invoke(SYNC_CHANNEL, { action: 'selectAdapter', adapter }),
@@ -45,7 +45,6 @@ export function createDesktopApi(): Pick<LexoraDesktopApi, 'app' | 'clipboard' |
       cancel: () => ipcRenderer.invoke(STORAGE_CHANNEL, { action: 'cancel' }),
       restart: () => ipcRenderer.invoke(STORAGE_CHANNEL, { action: 'restart' }),
     }),
-    selectionReferenceMenu: Object.freeze({ executeEdit: (command: import('../shared/desktopApi').DesktopSelectionEditCommand) => ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.selectionReferenceEdit, { command }) }),
     workbench: Object.freeze({
       read: () => ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.workbenchRead),
       write: (state: import('../../shared/workbench/workbenchState').WorkbenchState, options?: import('../../shared/workbench/workbenchState').WorkbenchWriteOptions) => ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.workbenchWrite, state, options),

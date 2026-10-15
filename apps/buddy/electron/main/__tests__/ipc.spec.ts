@@ -22,7 +22,7 @@ beforeEach(() => {
 
 describe('registerDesktopIpc', () => {
   it('exposes clipboard writes and sandbox status to the trusted Renderer only', async () => {
-    const webContents = { mainFrame: {}, copy: vi.fn(), paste: vi.fn() }
+    const webContents = { mainFrame: {} }
     const window = { webContents } as unknown as BrowserWindow
     registerDesktopIpc({
       checkForUpdates: vi.fn(),
@@ -61,14 +61,6 @@ describe('registerDesktopIpc', () => {
       'Untrusted Desktop IPC sender',
     )
     expect(electron.writeText).toHaveBeenCalledOnce()
-    const edit = electron.handlers.get('lexora:selection-reference:edit')!
-    expect(() => edit(untrustedEvent, { command: 'copy' })).toThrow('Untrusted Desktop IPC sender')
-    expect(() => edit({ sender: webContents, senderFrame: {} } as unknown as IpcMainInvokeEvent, { command: 'copy' })).toThrow('Untrusted Desktop IPC sender')
-    expect(edit(trustedEvent, { command: 'copy' })).toBeUndefined()
-    expect(webContents.copy).toHaveBeenCalledOnce()
-    expect(() => edit(trustedEvent, { command: 'quit' })).toThrow()
-    expect(() => edit(trustedEvent, { command: 'paste', unexpected: true })).toThrow()
-    expect(webContents.paste).not.toHaveBeenCalled()
     const readSandboxStatus = electron.handlers.get('lexora:app:get-sandbox-status')
     if (!readSandboxStatus)
       throw new Error('Sandbox status IPC handler was not registered')
@@ -79,21 +71,5 @@ describe('registerDesktopIpc', () => {
       throw new Error('Sandbox setup IPC handler was not registered')
     await expect(setupSandbox(trustedEvent)).resolves.toBe('cancelled')
     await expect(setupSandbox(untrustedEvent)).rejects.toThrow('Untrusted Desktop IPC sender')
-
-    const getInfo = electron.handlers.get('lexora:app:get-info')
-    if (!getInfo)
-      throw new Error('Get info IPC handler was not registered')
-    const info = await (getInfo(trustedEvent) as Promise<unknown>) as Record<string, unknown>
-    expect(info).toMatchObject({
-      runtimeProfile: 'test',
-      isPackaged: false,
-      configPath: '/home/example/.lexora/config.toml',
-      version: '0.1.0',
-      systemProfile: {
-        username: expect.any(String),
-        displayName: expect.any(String),
-        hostname: expect.any(String),
-      },
-    })
   })
 })

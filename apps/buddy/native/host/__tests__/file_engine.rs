@@ -432,3 +432,58 @@ fn queued_mutation_can_be_cancelled_without_modifying_the_file() {
 #[cfg(windows)]
 #[path = "file_engine_windows_protocol.rs"]
 mod windows;
+
+#[test]
+fn browsed_directories_notify_shared_roots_after_revocation() {
+    let directory = tempfile::tempdir().unwrap();
+    let root = directory.path().join("root");
+    std::fs::create_dir_all(root.join("src/deep")).unwrap();
+    std::fs::create_dir_all(root.join("unopened")).unwrap();
+    std::fs::write(root.join("src/deep/note.txt"), "original").unwrap();
+    let mut engine = Engine::new(&directory.path().join("journal"));
+    for key in ["first", "second"] {
+        assert!(
+            engine
+                .call(json!({"type":"register", "key":key, "path":root, "watch":true}))
+                .get("result")
+                .is_some()
+        );
+    }
+    engine.register("agent", &root);
+    let read = engine.call(json!({"type":"read", "root":"first", "path":"src/deep/note.txt"}));
+    assert_eq!(read["result"]["text"], "original");
+    while engine
+        .output
+        .recv_timeout(Duration::from_millis(300))
+        .is_ok()
+    {}
+    std::fs::write(root.join("src/deep/note.txt"), "changed").unwrap();
+    let change = engine.output.recv_timeout(Duration::from_secs(5)).unwrap();
+    let roots = change["roots"].as_array().unwrap();
+    assert_eq!(roots.len(), 2);
+    assert!(roots.contains(&json!("first")) && roots.contains(&json!("second")));
+
+    engine.call(json!({"type":"revoke", "key":"first"}));
+    while engine
+        .output
+        .recv_timeout(Duration::from_millis(300))
+        .is_ok()
+    {}
+    std::fs::write(root.join("src/deep/note.txt"), "after revoke").unwrap();
+    let change = engine.output.recv_timeout(Duration::from_secs(5)).unwrap();
+    assert_eq!(change["roots"], json!(["second"]));
+    assert_eq!(
+        engine.call(json!({"type":"read", "root":"first", "path":"src/deep/note.txt"}))["error"],
+        "FILE_PERMISSION_REVOKED"
+    );
+
+    engine.call(json!({"type":"list", "root":"second", "path":"unopened"}));
+    while engine
+        .output
+        .recv_timeout(Duration::from_millis(300))
+        .is_ok()
+    {}
+    std::fs::write(root.join("unopened/new.txt"), "now browsed").unwrap();
+    let change = engine.output.recv_timeout(Duration::from_secs(5)).unwrap();
+    assert_eq!(change["roots"], json!(["second"]));
+}

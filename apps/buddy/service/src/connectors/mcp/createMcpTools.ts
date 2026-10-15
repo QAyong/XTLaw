@@ -23,6 +23,8 @@ export interface CreateMcpToolsOptions {
   tools: readonly McpCatalogTool[]
   toolNames?: ReadonlyMap<string, string>
   writeResult?: McpResultWriter
+  /** Built-in read-only data sources: classified like other network tools instead of always asking. */
+  trusted?: boolean
 }
 
 export interface McpToolsResult {
@@ -101,7 +103,8 @@ export function createMcpTools(options: CreateMcpToolsOptions): McpToolsResult {
         catch (error) {
           signal?.throwIfAborted()
           const code = mcpErrorCode(error, 'MCP_TOOL_FAILED')
-          return { content: [{ type: 'text', text: `MCP tool failed: ${code}` }], details: { ...details, code, isError: true }, isError: true }
+          const reason = options.trusted ? serverErrorMessage(error) : null
+          return { content: [{ type: 'text', text: reason ? `MCP tool failed: ${code}\nServer message: ${reason}` : `MCP tool failed: ${code}` }], details: { ...details, code, isError: true }, isError: true }
         }
       },
     }))
@@ -110,13 +113,25 @@ export function createMcpTools(options: CreateMcpToolsOptions): McpToolsResult {
   return { classifications, diagnostics, tools, disclosure: { ...disclosure, tools: metadata } }
 }
 
+/**
+ * The message a server put in its own JSON-RPC error (for example "quota insufficient").
+ * Only protocol errors qualify, so local failures never leak their messages.
+ */
+export function serverErrorMessage(error: unknown): string | null {
+  const cause = error instanceof Error ? error.cause : undefined
+  if (!(cause instanceof Error) || cause.name !== 'ProtocolError')
+    return null
+  const message = cause.message.replaceAll(/\s+/g, ' ').trim()
+  return message ? message.slice(0, 300) : null
+}
+
 export function createLegacyMcpToolName(serverId: string, toolName: string): string {
   const hash = (value: string) => createHash('sha256').update(value).digest('hex').slice(0, 12)
   const readable = toolName.replaceAll(/\W/g, '_').slice(0, 27) || 'tool'
   return `mcp__${hash(serverId)}__${readable}_${hash(toolName)}`
 }
 
-function classifyTool(options: Pick<CreateMcpToolsOptions, 'generation' | 'serverId' | 'serverName'>, tool: McpCatalogTool): BuddyToolClassification {
+function classifyTool(options: Pick<CreateMcpToolsOptions, 'generation' | 'serverId' | 'serverName' | 'trusted'>, tool: McpCatalogTool): BuddyToolClassification {
   return {
     access: 'network',
     approval: {
@@ -127,6 +142,6 @@ function classifyTool(options: Pick<CreateMcpToolsOptions, 'generation' | 'serve
       },
       summary: `${options.serverName}: ${tool.title ?? tool.name}`,
     },
-    requireApproval: true,
+    ...(options.trusted ? {} : { requireApproval: true }),
   }
 }

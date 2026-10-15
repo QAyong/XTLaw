@@ -44,6 +44,7 @@ const { t } = useBuddyI18n(() => props.language)
           :save-credential="saveCredential"
           :reveal-credential="revealCredential"
         />
+        <slot name="services" />
       </section>
     </template>
     <NSkeleton v-else-if="busy" text :repeat="6" />

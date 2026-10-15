@@ -1,5 +1,5 @@
 import type { LexoraDesktopApi } from '@buddy-electron/shared/desktopApi'
-import type { LocalConnector, LocalConnectorConfig, LocalConnectorCredentialMutation } from '@buddy-shared/connectors/connectorApi'
+import type { LocalConnector, LocalConnectorConfig, LocalConnectorCredential, LocalConnectorCredentialMutation } from '@buddy-shared/connectors/connectorApi'
 import type { Ref } from 'vue'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import { onScopeDispose, readonly, shallowRef } from 'vue'
@@ -93,6 +93,7 @@ export function useMcpSettingsCapability(options: {
     remove: (id: string) => execute(id, () => options.api.remove(id)),
     login: (id: string) => execute(id, () => options.api.login(id)),
     cancelLogin: (id: string) => execute(id, () => options.api.cancelLogin(id)),
+    setCredential: (id: string, credential: LocalConnectorCredential) => execute(id, () => options.api.setCredential(id, credential)),
     clearCredential: (id: string) => execute(id, () => options.api.clearCredential(id)),
   }
 }

@@ -15,6 +15,7 @@ import { connectorCredentialSchema } from '../../../../shared/connectors/connect
 import { Emitter } from '../../../../shared/events/Emitter'
 import { copyEventSnapshot } from '../../../../shared/events/eventSnapshot'
 import { credentialMutationResultSchema, credentialReadResultSchema } from '../../../../shared/runtime/credentialProtocol'
+import { isBuiltinPreset } from './builtinPresets'
 import { createMcpTools } from './createMcpTools'
 import { McpConnectionManager } from './McpConnectionManager'
 import { McpClientError, mcpErrorCode } from './mcpErrors'
@@ -354,6 +355,7 @@ export class McpConnectorService {
         toolNames: names.get(connector.id),
         callTool: (tool, parameters, signal, onProgress) => this.#manager.callTool(connector.id, { generation, exposure: connector.toolExposure }, tool, parameters, signal, onProgress),
         writeResult,
+        trusted: isBuiltinPreset(connector),
       })
       for (const tool of result.tools)
         availability.set(tool.name, () => connector.toolExposure !== 'hidden' && this.#manager.available(connector.id, generation) && this.#connectors.findById(connector.id)?.toolExposure === connector.toolExposure)

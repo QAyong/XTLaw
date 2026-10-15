@@ -97,6 +97,7 @@ import { QueueContinuation } from './chat/QueueContinuation'
 import { registerChatRpc } from './chat/registerChatRpc'
 import { registerComposerDraftRpc } from './chat/registerComposerDraftRpc'
 import { TurnRequestService } from './chat/TurnRequestService'
+import { ensureBuiltinConnectors } from './connectors/mcp/builtinPresets'
 import {
   HostConnectorSecretStore,
   McpConnectorService,
@@ -602,7 +603,7 @@ export async function startBuddyService(
       })
       return service
     }, ['runtime.spaces'])
-    const connectorService = await host.start('runtime.connectors', ({ defer }) => {
+    const connectorService = await host.start('runtime.connectors', async ({ defer }) => {
       const service = new McpConnectorService({
         connectors: connectorsRepository,
         openExternal: async (url) => {
@@ -624,6 +625,7 @@ export async function startBuddyService(
           notifications.dispose()
         }
       })
+      await ensureBuiltinConnectors(service).catch(() => record({ event: 'connectors.builtin.seed_failed', level: 'warn', errorCode: 'MCP_BUILTIN_SEED_FAILED' }))
       return service
     })
     const { skillService, sessionResources } = await host.start('runtime.skills', async ({ defer }) => {

@@ -7,6 +7,7 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { discoverOAuthServerInfo, extractWWWAuthenticateParams, StreamableHTTPClientTransport } from '@modelcontextprotocol/client'
 import { StdioClientTransport } from '@modelcontextprotocol/client/stdio'
 import { createChildProcessEnvironment } from '../../../../platform/process/childProcessEnvironment'
+import { normalizeBearerToken } from '../../../../shared/connectors/bearerToken'
 
 export function createMcpTransport(config: McpServerConfig, credential: ConnectorCredential | null, authProvider?: OAuthClientProvider, authorization?: {
   signal: AbortSignal
@@ -43,13 +44,14 @@ export function createMcpTransport(config: McpServerConfig, credential: Connecto
     return transport
   }
   const headers = new Headers(credential?.type === 'http' ? credential.headers : undefined)
-  if (credential?.type === 'http' && credential.bearerToken)
-    headers.set('authorization', `Bearer ${credential.bearerToken}`)
+  const bearerToken = credential?.type === 'http' && credential.bearerToken ? normalizeBearerToken(credential.bearerToken) : ''
+  if (bearerToken)
+    headers.set('authorization', `Bearer ${bearerToken}`)
   let checkedAuthorization = false
   return new StreamableHTTPClientTransport(new URL(config.url), {
     authProvider,
     fetch: async (input, init) => {
-      const response = await fetch(input, init)
+      const response = repairDuplicateContentType(await fetch(input, init))
       if (authorization && !checkedAuthorization && (response.status === 401 || response.status === 403)) {
         checkedAuthorization = true
         let kind: ConnectorRuntimeState['authorization'] = credential?.type === 'oauth' ? 'oauth' : 'credentials'
@@ -78,6 +80,24 @@ export function createMcpTransport(config: McpServerConfig, credential: Connecto
       reconnectionDelayGrowFactor: 2,
     },
   })
+}
+
+/**
+ * Some gateways send Content-Type twice, which fetch reports as
+ * "application/json,application/json; charset=UTF-8"; the MCP client rejects that value.
+ * When every part names the same media type, keep the most specific one; anything else is left untouched.
+ */
+export function repairDuplicateContentType(response: Response): Response {
+  const value = response.headers.get('content-type')
+  if (!value?.includes(','))
+    return response
+  const parts = value.split(',').map(part => part.trim()).filter(Boolean)
+  const mediaType = (part: string) => part.split(';')[0]!.trim().toLowerCase()
+  if (parts.length < 2 || new Set(parts.map(mediaType)).size !== 1)
+    return response
+  const headers = new Headers(response.headers)
+  headers.set('content-type', parts.reduce((best, part) => part.length > best.length ? part : best))
+  return new Response(response.body, { headers, status: response.status, statusText: response.statusText })
 }
 
 function processExists(pid: number): boolean {

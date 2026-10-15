@@ -20,6 +20,7 @@ import {
   createBuddyColorVariables,
   createBuddyNaiveThemeOverrides,
 } from '@/theme/buddyTheme'
+import { setDesktopAppearance } from '@/theme/desktopAppearance'
 
 type DesktopThemePreference = 'system' | 'light' | 'dark'
 
@@ -43,6 +44,7 @@ watchEffect(() => {
 
   const root = document.documentElement
   root.dataset.buddyTheme = colorTheme.value.colorScheme
+  setDesktopAppearance(colorTheme.value.colorScheme)
 
   for (const [name, value] of Object.entries(createBuddyColorVariables(colorTheme.value)))
     root.style.setProperty(name, value)

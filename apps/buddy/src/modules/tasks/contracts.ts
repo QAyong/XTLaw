@@ -26,8 +26,6 @@ import type { TaskSpaceInput } from './state/task-index/typing'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import type { ChatComposerContextOptions, ChatComposerSessionScope, ChatComposerSubmitPayload } from '@/modules/prompt-input'
 
-export type { WorkspaceEntryChange, WorkspaceFilesApi, WorkspaceMutationResult } from './model/context-panel/workspaceFilesApi'
-
 type State<T> = Readonly<Ref<DeepReadonly<T>>>
 
 export interface TaskMarks {
@@ -236,7 +234,7 @@ export interface TaskChatWorkspace {
   restoration: TaskDraftRestoration
   context: {
     getChangeOverview: LocalChatApi['changes']['overview']
-    files: import('./model/context-panel/workspaceFilesApi').WorkspaceFilesApi
+    files: Pick<LocalChatApi['spaces'], 'listDirectory' | 'readFile' | 'revealFile' | 'fileHistory' | 'acknowledgeFileOperation' | 'cancelFileOperation' | 'onFilesChanged'>
     getNodeDetail: LocalChatApi['conversations']['getNodeDetail']
     getChangeSet: LocalChatApi['changes']['get']
     readArtifactText: LocalChatApi['artifacts']['readText']

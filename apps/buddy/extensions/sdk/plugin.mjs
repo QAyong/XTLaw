@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { zipSync } from 'fflate'
-import { compileExtensionSource, EXTENSION_FILE_LIMIT, EXTENSION_PACKAGE_LIMIT, extensionIconUrl, extensionManifestSchema, extensionPathSchema } from './authoring.mjs'
+import { compileExtensionSource, EXTENSION_FILE_LIMIT, EXTENSION_PACKAGE_LIMIT, extensionIconUrl, extensionManifestSchema, extensionPathSchema, validateExtensionFileCounts, validateFileIconThemeFiles } from './authoring.mjs'
 
 export async function readPlugin(source) {
   const files = new Map()
@@ -25,7 +25,8 @@ export async function readPlugin(source) {
       const bytes = await fs.readFile(absolute)
       total += bytes.length
       names.add(name.toLowerCase())
-      assert(total <= EXTENSION_PACKAGE_LIMIT && names.size <= 512, 'Plugin package exceeds limits')
+      assert(total <= EXTENSION_PACKAGE_LIMIT, 'Plugin package exceeds limits')
+      validateExtensionFileCounts(names)
       files.set(name, bytes)
     }
   }
@@ -33,6 +34,7 @@ export async function readPlugin(source) {
   const manifest = extensionManifestSchema.parse(JSON.parse(new TextDecoder().decode(files.get('extension.json'))))
   for (const entry of [manifest.entry, ...manifest.contributes.views.map(view => view.entry)].filter(Boolean))
     assert(files.has(entry), `Missing entry: ${entry}`)
+  validateFileIconThemeFiles(files, manifest.contributes.iconThemes)
   const iconUrl = extensionIconUrl(manifest.icon, manifest.icon ? files.get(manifest.icon) : undefined)
   return { manifest, files, iconUrl }
 }

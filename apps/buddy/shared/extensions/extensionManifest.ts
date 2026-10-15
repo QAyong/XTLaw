@@ -1,11 +1,13 @@
 import { satisfies, valid, validRange } from 'semver'
 import { z } from 'zod'
+import { fileIconThemeContributionSchema } from '../icons/fileIconTheme'
 import { workbenchSlashSchema } from '../workbench/workbenchCommand'
 import { workbenchConditionSchema } from '../workbench/workbenchContext'
 import { workbenchAnchorSchema, workbenchControls, workbenchControlSchema, workbenchMenuSchema, workbenchMountTargetSchema, workbenchPresentationSchema, workbenchSlots, workbenchSlotSchema } from '../workbench/workbenchUi'
 import { extensionAgentSchema } from './extensionAgent'
 import { extensionConditionDefinitionSchema } from './extensionConditions'
 import { extensionAuthorSchema } from './extensionIdentity'
+import { extensionPathSchema } from './extensionPath'
 import { extensionSettingsGroups, extensionSettingsModules, extensionSettingsSchema, validateExtensionSetting } from './extensionSettings'
 
 export const EXTENSION_API_VERSION = 4
@@ -14,10 +16,7 @@ export const EXTENSION_ICON_LIMIT = 64 * 1024
 export const extensionIconUrlSchema = z.string().max(Math.ceil(EXTENSION_ICON_LIMIT / 3) * 4 + 40).regex(/^data:image\/(?:svg\+xml|png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/)
 export const extensionIdSchema = z.string().max(120).regex(/^[a-z][a-z0-9-]*\.[a-z][a-z0-9-]*$/)
 export const extensionVersionSchema = z.string().max(80).refine(value => valid(value) === value, 'Invalid semantic version')
-export const extensionPathSchema = z.string().min(1).max(256).refine((value) => {
-  const parts = value.split('/')
-  return /^[\w./-]+$/.test(value) && !value.startsWith('__') && parts.every(part => part && part !== '.' && part !== '..' && !part.endsWith('.') && !/^(?:con|prn|aux|nul|com\d|lpt\d)(?:\.|$)/i.test(part))
-}, 'Invalid package path')
+export { extensionPathSchema } from './extensionPath'
 const contributionId = z.string().min(1).max(180).regex(/^[a-z][a-z0-9.-]+$/)
 const placementBase = { id: contributionId, view: contributionId, when: workbenchConditionSchema.optional() }
 export const extensionPlacementSchema = z.discriminatedUnion('kind', [
@@ -99,6 +98,7 @@ export const extensionManifestSchema = extensionMetadataSchema.extend({
   dependencies: z.record(extensionIdSchema, z.string().max(100).refine(value => validRange(value) !== null)).default({}),
   permissions: extensionPermissionsSchema.prefault({}),
   contributes: z.object({
+    iconThemes: z.array(fileIconThemeContributionSchema).max(32).default([]),
     conditions: z.array(extensionConditionDefinitionSchema).max(32).default([]),
     agent: extensionAgentSchema.optional(),
     settings: extensionSettingsSchema.prefault({}),
@@ -112,7 +112,7 @@ export const extensionManifestSchema = extensionMetadataSchema.extend({
   const ids = new Set<string>()
   const settings = manifest.contributes.settings
   const agent = manifest.contributes.agent
-  for (const contribution of [...manifest.contributes.conditions, ...manifest.contributes.commands, ...manifest.contributes.views, ...manifest.contributes.placements, ...manifest.contributes.menus, ...settings.modules, ...settings.groups, ...settings.items, ...agent?.tools ?? [], ...agent?.actions ?? []]) {
+  for (const contribution of [...manifest.contributes.iconThemes, ...manifest.contributes.conditions, ...manifest.contributes.commands, ...manifest.contributes.views, ...manifest.contributes.placements, ...manifest.contributes.menus, ...settings.modules, ...settings.groups, ...settings.items, ...agent?.tools ?? [], ...agent?.actions ?? []]) {
     if (!contribution.id.startsWith(`${manifest.id}.`) || ids.has(contribution.id))
       context.addIssue({ code: 'custom', message: 'Contribution IDs must be unique and owned by the extension' })
     ids.add(contribution.id)
@@ -124,6 +124,8 @@ export const extensionManifestSchema = extensionMetadataSchema.extend({
     issue('Adding file references requires API 4 and selected-resource read permission')
   if (manifest.contributes.views.some(view => view.accepts && (manifest.apiVersion < 4 || view.resource !== 'selected-file' || view.location !== 'context')))
     issue('File handlers require API 4 and a selected-file context view')
+  if (manifest.apiVersion < 3 && manifest.contributes.iconThemes.length)
+    issue('Icon theme contributions require API 3')
   if (manifest.apiVersion < 3 && (manifest.contributes.conditions.length || agent || settings.modules.length || settings.groups.length || settings.items.length || manifest.permissions.agent || manifest.permissions.models || manifest.permissions.taskMessages || manifest.permissions.tasks !== 'none'))
     issue('Agent capabilities and settings require API 3')
   if (agent && (!manifest.entry || !manifest.permissions.agent))

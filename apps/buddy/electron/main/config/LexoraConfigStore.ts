@@ -11,6 +11,7 @@ import { browserPreferencesSchema, DEFAULT_BROWSER_PREFERENCES } from '../../../
 import { Emitter } from '../../../shared/events/Emitter'
 import { copyEventSnapshot } from '../../../shared/events/eventSnapshot'
 import { extensionAuthorSchema } from '../../../shared/extensions/extensionIdentity'
+import { BUILTIN_FILE_ICON_THEME, fileIconPreferenceSchema } from '../../../shared/icons/fileIconTheme'
 import { DEFAULT_PROXY_SETTINGS, proxySettingsSchema } from '../../../shared/network/proxySettings'
 import { BUDDY_PERMISSION_MODES } from '../../../shared/permissions/permissionMode'
 import { DEFAULT_RUNTIME_PREFERENCES, runtimePreferencesSchema } from '../../../shared/runtime/runtimePreferences'
@@ -103,6 +104,7 @@ const desktopConfigSchema = z.object({
   auto_download_updates: z.boolean().default(true),
   notify_when_focused: z.boolean().default(false),
   sidebar_collapsed: z.boolean().default(false),
+  file_icon_theme: fileIconPreferenceSchema.default({ id: BUILTIN_FILE_ICON_THEME }),
   theme: z.enum(['system', 'light', 'dark']).default('system'),
 }).passthrough().default({
   background_close_notice_shown: false,
@@ -135,6 +137,7 @@ const desktopConfigSchema = z.object({
   auto_download_updates: true,
   notify_when_focused: false,
   sidebar_collapsed: false,
+  file_icon_theme: { id: BUILTIN_FILE_ICON_THEME },
   theme: 'system',
 })
 
@@ -232,11 +235,12 @@ export class LexoraConfigStore {
     return operation
   }
 
-  update(patch: LexoraConfigPatch, apply?: (config: LexoraConfig) => Promise<void> | void): Promise<LexoraConfig> {
+  update(patch: LexoraConfigPatch, apply?: (config: LexoraConfig) => Promise<void> | void, assertCurrent: () => void = () => {}): Promise<LexoraConfig> {
     if (this.#disposing)
       return Promise.reject(new Error('CONFIG_STORE_STOPPED'))
     const input = structuredClone(patch)
     const operation = this.#writeQueue.then(async () => {
+      assertCurrent()
       const file = await this.#readFile()
       const current = decodeConfig(file)
       const next = mergeConfig(current, input)
@@ -257,7 +261,7 @@ export class LexoraConfigStore {
           committed = true
           this.#persisted = structuredClone(next)
           this.#changes.fire(copyEventSnapshot({ kind: 'committed', revision: ++this.#revision, operationId, groups, config: next }))
-        })
+        }, assertCurrent)
       }
       catch (error) {
         if (committed) {
@@ -313,7 +317,7 @@ export class LexoraConfigStore {
     }
   }
 
-  async #write(config: Record<string, unknown>, committed: () => void): Promise<void> {
+  async #write(config: Record<string, unknown>, committed: () => void, assertCurrent: () => void = () => {}): Promise<void> {
     const parent = dirname(this.#configPath)
     const temporaryPath = `${this.#configPath}.${process.pid}.${randomUUID()}.tmp`
     const content = stringify(config)
@@ -331,6 +335,7 @@ export class LexoraConfigStore {
       }
 
       await chmod(temporaryPath, 0o600)
+      assertCurrent()
       await rename(temporaryPath, this.#configPath)
       committed()
     }
@@ -405,6 +410,7 @@ function decodeConfig(value: unknown): LexoraConfig {
       autoDownloadUpdates: config.desktop.auto_download_updates,
       notifyWhenFocused: config.desktop.notify_when_focused,
       sidebarCollapsed: config.desktop.sidebar_collapsed,
+      fileIconTheme: config.desktop.file_icon_theme,
       theme: config.desktop.theme,
     },
     pet: {
@@ -471,6 +477,7 @@ function encodeConfig(config: LexoraConfig) {
       auto_download_updates: config.desktop.autoDownloadUpdates,
       notify_when_focused: config.desktop.notifyWhenFocused,
       sidebar_collapsed: config.desktop.sidebarCollapsed,
+      file_icon_theme: config.desktop.fileIconTheme,
       theme: config.desktop.theme,
     },
     pet: {
@@ -490,6 +497,7 @@ function mergeConfig(current: LexoraConfig, patch: LexoraConfigPatch): LexoraCon
     desktop: {
       ...current.desktop,
       ...patch.desktop,
+      fileIconTheme: fileIconPreferenceSchema.parse(patch.desktop?.fileIconTheme ?? current.desktop.fileIconTheme),
       pluginAuthor: extensionAuthorSchema.parse(patch.desktop?.pluginAuthor ?? current.desktop.pluginAuthor),
       chat: {
         ...current.desktop.chat,

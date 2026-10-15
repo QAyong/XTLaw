@@ -219,6 +219,7 @@ export interface LexoraConfig {
     profile: DesktopUserProfileConfig
     pluginAuthor: string
     sidebarCollapsed: boolean
+    fileIconTheme: { id: string }
     theme: 'system' | 'light' | 'dark'
   }
   pet: {
@@ -245,6 +246,7 @@ export interface LexoraDesktopApi {
   selectionReferenceMenu?: { executeEdit: (command: DesktopSelectionEditCommand) => Promise<void> }
   sync: import('../../shared/sync/syncApi').SyncApi
   storage: import('../../shared/storage/storageApi').StorageApi
+  fileIcons: import('../../shared/icons/fileIconThemeApi').FileIconThemeApi
   extensions: import('../../shared/extensions/extensionApi').ExtensionApi
   workbench: import('../../shared/workbench/workbenchState').WorkbenchStateApi
   contextPanel: import('../../shared/context-panel/contextPanel').ContextPanelApi

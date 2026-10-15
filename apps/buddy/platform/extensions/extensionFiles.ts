@@ -4,7 +4,7 @@ import { lstat, mkdir, open, readdir, realpath, rm } from 'node:fs/promises'
 import { dirname, join, relative } from 'node:path'
 import { Unzip, UnzipInflate } from 'fflate/browser'
 import { extensionPathSchema } from '../../shared/extensions/extensionManifest'
-import { EXTENSION_FILE_LIMIT, EXTENSION_PACKAGE_LIMIT } from '../../shared/extensions/extensionPackageLimits'
+import { EXTENSION_FILE_LIMIT, EXTENSION_PACKAGE_ENTRY_LIMIT, EXTENSION_PACKAGE_LIMIT, validateExtensionFileCounts } from '../../shared/extensions/extensionPackageLimits'
 import { fileStorage } from '../filesystem/fileStorage'
 
 export { EXTENSION_FILE_LIMIT, EXTENSION_PACKAGE_LIMIT } from '../../shared/extensions/extensionPackageLimits'
@@ -68,7 +68,7 @@ export function unpackExtension(bytes: Uint8Array): Map<string, Uint8Array> {
     count++
     const name = file.name.endsWith('/') ? file.name.slice(0, -1) : file.name
     const normalized = name.toLowerCase()
-    if (count > 512 || !extensionPathSchema.safeParse(name).success || names.has(normalized) || (file.originalSize ?? 0) > EXTENSION_FILE_LIMIT) {
+    if (count > EXTENSION_PACKAGE_ENTRY_LIMIT || !extensionPathSchema.safeParse(name).success || names.has(normalized) || (file.originalSize ?? 0) > EXTENSION_FILE_LIMIT) {
       failure = new Error('EXTENSION_UNSAFE_PACKAGE')
       file.terminate()
       return
@@ -117,8 +117,7 @@ export function unpackExtension(bytes: Uint8Array): Map<string, Uint8Array> {
 export function validateExtensionFiles(files: ReadonlyMap<string, Uint8Array>): void {
   let total = 0
   const names = new Set<string>()
-  if (files.size > 512)
-    throw new Error('EXTENSION_PACKAGE_LIMIT')
+  validateExtensionFileCounts(files.keys())
   for (const [name, bytes] of files) {
     if (!extensionPathSchema.safeParse(name).success || names.has(name.toLowerCase()))
       throw new Error('EXTENSION_UNSAFE_PATH')

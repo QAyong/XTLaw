@@ -45,7 +45,7 @@ function resourceIdentity(resource: ResourceRef): string {
 }
 const identity = computed(() => resourceIdentity(props.view.resource))
 function captureResource() {
-  return { resource: spaceFileTargetSchema.parse(props.view.resource.data) }
+  return { resource: spaceFileTargetSchema.strip().parse(props.view.resource.data) }
 }
 const viewId = computed(() => props.view.id)
 let editor: Monaco.editor.IStandaloneCodeEditor | undefined

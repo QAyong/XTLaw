@@ -250,3 +250,26 @@ export interface ExtensionModule {
   migrate?: (previous: Json, from: number, to: number) => Json | Promise<Json>
 }
 export interface ViewModule { render: (context: ViewContext, container: HTMLElement) => void | Promise<void> }
+
+export interface FileIconAssociations {
+  file?: string
+  folder?: string
+  folderExpanded?: string
+  rootFolder?: string
+  rootFolderExpanded?: string
+  fileNames?: Record<string, string>
+  fileExtensions?: Record<string, string>
+  languageIds?: Record<string, string>
+  folderNames?: Record<string, string>
+  folderNamesExpanded?: Record<string, string>
+  rootFolderNames?: Record<string, string>
+  rootFolderNamesExpanded?: Record<string, string>
+}
+export interface FileIconThemeDocument extends FileIconAssociations {
+  $schema?: string
+  iconDefinitions: Record<string, { iconPath: string }>
+  light?: FileIconAssociations
+  highContrast?: FileIconAssociations
+  hidesExplorerArrows?: boolean
+}
+export interface FileIconThemeContribution { id: string, label: string, path: string }

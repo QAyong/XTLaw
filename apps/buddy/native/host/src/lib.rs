@@ -1,4 +1,4 @@
-pub mod file_mutation;
+pub mod file_engine;
 pub mod file_reader;
 pub mod file_writer;
 pub mod private_directories;
@@ -13,6 +13,8 @@ pub mod shell_sandbox;
 #[cfg(any(windows, target_os = "linux"))]
 pub mod supervised_shell;
 
+#[cfg(windows)]
+mod windows_fs;
 mod windows_path;
 #[cfg(windows)]
 mod windows_security;

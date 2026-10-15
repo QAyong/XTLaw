@@ -1,19 +1,16 @@
-import type { SpaceFileTarget } from '@buddy-shared/spaces/spaceFileApi'
-import type { TreeOption } from 'naive-ui'
+import type { LocalChatApi } from '@buddy-electron/shared/localChatApi'
 import type { Ref } from 'vue'
-import type { WorkspaceFilesApi } from '../../model/context-panel/workspaceFilesApi'
 import type { TaskFilesContextTab } from '@/modules/tasks/model/context-panel/taskContextPanel'
-import { pathInFileScope } from '@buddy-shared/spaces/spaceFileNames'
+import type { ExplorerNode } from '@/shared/ui/explorer/treeCollection'
 import { computed, onScopeDispose, shallowReactive, watch, watchEffect } from 'vue'
+import { replaceChildren } from '@/shared/ui/explorer/treeCollection'
 
-export type { WorkspaceFilesApi } from '../../model/context-panel/workspaceFilesApi'
+export type WorkspaceFilesApi = Pick<LocalChatApi['spaces'], 'listDirectory' | 'readFile' | 'revealFile' | 'fileHistory' | 'acknowledgeFileOperation' | 'cancelFileOperation' | 'onFilesChanged'>
 interface FileView {
-  target: SpaceFileTarget
-  selectedKey: string | null
-  stale: boolean
   generation: number
-  nodes: TreeOption[]
-  expandedKeys: Array<string | number>
+  tab: TaskFilesContextTab
+  nodes: ExplorerNode[]
+  expandedKeys: string[]
   treeVisible: boolean
   treeWidth: number
   wrap: boolean
@@ -34,39 +31,13 @@ export function useWorkspaceFilePreview(tab: Readonly<Ref<TaskFilesContextTab | 
     views.clear()
   })
   const current = computed(() => tab.value ? views.get(tab.value.id) ?? null : null)
-  const unsubscribe = api.onEntriesChanged?.((change) => {
-    for (const view of views.values()) {
-      if (view.target.directoryId !== change.target.directoryId || view.target.revision !== change.target.revision || view.target.spaceId !== change.target.spaceId)
-        continue
-      view.stale = true
-      view.generation++
-      if (change.removedPath) {
-        view.expandedKeys = view.expandedKeys.filter(key => !pathInFileScope(String(key), change.removedPath!))
-        if (view.selectedKey && pathInFileScope(view.selectedKey, change.removedPath))
-          view.selectedKey = null
-      }
-    }
-  })
-  if (unsubscribe)
-    onScopeDispose(unsubscribe)
   watch(tab, (value) => {
     if (!value)
       return
     let view = views.get(value.id)
     if (!view) {
-      view = shallowReactive<FileView>({ target: { ...value.target }, selectedKey: null, stale: false, generation: 0, nodes: [], expandedKeys: [], treeVisible: true, treeWidth: 220, wrap: false, treeFailed: false })
+      view = shallowReactive<FileView>({ generation: 0, tab: value, nodes: [], expandedKeys: [], treeVisible: true, treeWidth: 220, wrap: false, treeFailed: false })
       views.set(value.id, view)
-      const newView = view
-      const generation = view.generation
-      void readNodes(value, '', newView).then((nodes) => {
-        if (retained(value.id, newView, generation))
-          newView.nodes = nodes
-      }).catch(() => {
-        if (retained(value.id, newView, generation))
-          newView.treeFailed = true
-      })
-    }
-    else if (view.stale) {
       void refresh(value)
     }
   }, { immediate: true, flush: 'sync' })
@@ -78,7 +49,6 @@ export function useWorkspaceFilePreview(tab: Readonly<Ref<TaskFilesContextTab | 
     const view = current.value
     if (!view)
       return
-    const generation = view.generation
     const segments = newPath.split('/').filter(Boolean)
     if (segments.length <= 1)
       return
@@ -93,43 +63,45 @@ export function useWorkspaceFilePreview(tab: Readonly<Ref<TaskFilesContextTab | 
       return
     view.expandedKeys = [...view.expandedKeys, ...missingKeys]
     for (const key of missingKeys) {
-      if (!retained(value.id, view, generation))
+      if (!retained(value.id, view))
         return
       try {
         const children = await readNodes(value, key, view)
-        if (retained(value.id, view, generation))
+        if (retained(value.id, view))
           view.nodes = replaceChildren(view.nodes, key, children)
       }
       catch {}
     }
-  })
+  }, { immediate: true })
 
-  function retained(id: string, view: FileView, generation = view.generation): boolean {
-    return !disposed && hasTab(id) && views.get(id) === view && generation === view.generation
+  function retained(id: string, view: FileView): boolean {
+    return !disposed && hasTab(id) && views.get(id) === view
   }
 
-  async function readNodes(value: TaskFilesContextTab, path: string, view: FileView): Promise<TreeOption[]> {
-    const generation = view.generation
-    const nodes: TreeOption[] = []
+  async function readNodes(value: TaskFilesContextTab, path: string, view: FileView): Promise<ExplorerNode[]> {
+    const nodes: ExplorerNode[] = []
+    const cursors = new Set<string>()
     let cursor: string | undefined
     do {
       const page = await api.listDirectory({ ...value.target, path, cursor })
-      if (!retained(value.id, view, generation))
+      if (!retained(value.id, view))
         return []
       nodes.push(...page.entries.map(entry => ({
         key: entry.path,
         label: entry.name,
         kind: entry.kind,
-        isLeaf: entry.kind === 'file',
         disabled: entry.unavailable,
-        writable: entry.writable !== false,
       })))
       cursor = page.nextCursor ?? undefined
+      if (cursor && cursors.has(cursor))
+        throw new Error('FILE_LIST_CHANGED')
+      if (cursor)
+        cursors.add(cursor)
     } while (cursor)
     return nodes
   }
 
-  async function load(node: TreeOption): Promise<void> {
+  async function load(node: ExplorerNode): Promise<void> {
     const value = tab.value
     const view = current.value
     if (!value || !view)
@@ -137,40 +109,39 @@ export function useWorkspaceFilePreview(tab: Readonly<Ref<TaskFilesContextTab | 
     const generation = view.generation
     try {
       const children = await readNodes(value, String(node.key), view)
-      if (node.writable === false)
-        children.forEach(child => child.writable = false)
-      if (retained(value.id, view, generation)) {
+      if (retained(value.id, view) && view.generation === generation) {
         view.nodes = replaceChildren(view.nodes, node.key!, children)
         view.treeFailed = false
       }
     }
     catch {
-      if (retained(value.id, view, generation))
+      if (retained(value.id, view) && generation === view.generation)
         view.treeFailed = true
     }
   }
 
-  async function refresh(targetTab?: TaskFilesContextTab | null): Promise<boolean> {
+  async function refresh(targetTab?: TaskFilesContextTab | null): Promise<void> {
     const value = targetTab ?? tab.value
     if (!value)
-      return false
+      return
     const view = views.get(value.id)
     if (!view)
-      return false
+      return
     const generation = ++view.generation
     try {
       let rootNodes = await readNodes(value, '', view)
-      if (!retained(value.id, view, generation))
-        return false
-      const validExpandedKeys: Array<string | number> = []
-      const sortedKeys = [...view.expandedKeys].sort((a, b) => {
+      if (!retained(value.id, view))
+        return
+      const validExpandedKeys: string[] = []
+      const expandedAtStart = [...view.expandedKeys]
+      const sortedKeys = [...expandedAtStart].sort((a, b) => {
         const depthA = String(a).split('/').filter(Boolean).length
         const depthB = String(b).split('/').filter(Boolean).length
         return depthA - depthB
       })
       for (const key of sortedKeys) {
-        if (!retained(value.id, view, generation))
-          return false
+        if (!retained(value.id, view))
+          return
         try {
           const children = await readNodes(value, String(key), view)
           rootNodes = replaceChildren(rootNodes, key, children)
@@ -180,22 +151,35 @@ export function useWorkspaceFilePreview(tab: Readonly<Ref<TaskFilesContextTab | 
           // Skip missing or unreadable directories
         }
       }
-      if (retained(value.id, view, generation)) {
+      if (retained(value.id, view) && generation === view.generation) {
+        if (expandedAtStart.length !== view.expandedKeys.length || expandedAtStart.some((key, index) => view.expandedKeys[index] !== key))
+          return refresh(value)
         view.nodes = rootNodes
         view.expandedKeys = validExpandedKeys
         view.treeFailed = false
-        view.stale = false
-        return true
       }
     }
     catch {
-      if (retained(value.id, view, generation)) {
+      if (retained(value.id, view) && generation === view.generation)
         view.treeFailed = true
-        view.stale = true
-      }
     }
-    return false
   }
+
+  const refreshTimers = new Map<string, ReturnType<typeof setTimeout>>()
+  onScopeDispose(api.onFilesChanged((event) => {
+    for (const [id, view] of views) {
+      if (view.tab.target.directoryId !== event.directoryId || view.tab.target.revision !== event.directoryRevision)
+        continue
+      clearTimeout(refreshTimers.get(id))
+      refreshTimers.set(id, setTimeout(() => {
+        refreshTimers.delete(id)
+        void refresh(view.tab)
+      }, 200))
+    }
+  }))
+  onScopeDispose(() => {
+    for (const timer of refreshTimers.values()) clearTimeout(timer)
+  })
 
   let lastFocusSync = 0
   function handleFocus() {
@@ -215,20 +199,5 @@ export function useWorkspaceFilePreview(tab: Readonly<Ref<TaskFilesContextTab | 
     })
   }
 
-  function expand(tabId: string, path: string) {
-    const view = views.get(tabId)
-    if (!view || !path)
-      return
-    const segments = path.split('/')
-    const keys = segments.map((_, index) => segments.slice(0, index + 1).join('/'))
-    view.expandedKeys = [...new Set([...view.expandedKeys, ...keys])]
-  }
-
-  return { current, load, refresh, expand }
-}
-
-function replaceChildren(nodes: TreeOption[], key: string | number, children: TreeOption[]): TreeOption[] {
-  return nodes.map(node => node.key === key
-    ? { ...node, children: node.writable === false ? children.map(child => ({ ...child, writable: false })) : children }
-    : node.children ? { ...node, children: replaceChildren(node.children, key, children) } : node)
+  return { current, load, refresh }
 }

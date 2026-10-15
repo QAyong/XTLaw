@@ -8,6 +8,7 @@ mod unix;
 mod windows;
 
 pub const MAX_TEXT_BYTES: usize = 1024 * 1024;
+const MAX_ENGINE_TEXT_BYTES: usize = 16 * 1024 * 1024;
 
 #[derive(Debug, thiserror::Error)]
 pub enum WriteError {
@@ -83,11 +84,23 @@ pub fn run(input: impl Read) -> Result<(), WriteError> {
         return Err(WriteError::Failed);
     }
     let request: WriteRequest = serde_json::from_slice(&bytes).map_err(|_| WriteError::Failed)?;
+    if request.expected.len() > 1024 * 1024 || request.content.len() > 1024 * 1024 {
+        return Err(WriteError::Failed);
+    }
     write(&request)
 }
 
 pub fn write(request: &WriteRequest) -> Result<(), WriteError> {
     if request.expected.len() > MAX_TEXT_BYTES || request.content.len() > MAX_TEXT_BYTES {
+        return Err(WriteError::Failed);
+    }
+    write_large(request)
+}
+
+pub fn write_large(request: &WriteRequest) -> Result<(), WriteError> {
+    if request.expected.len() > MAX_ENGINE_TEXT_BYTES
+        || request.content.len() > MAX_ENGINE_TEXT_BYTES
+    {
         return Err(WriteError::Failed);
     }
     write_bytes(&WriteRequest {

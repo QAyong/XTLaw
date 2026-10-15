@@ -15,6 +15,7 @@ import { ExtensionCompatibilityError, extensionCompatibilityIssue } from '../../
 import { addedExtensionPermissions, extensionIdSchema, extensionManifestSchema, extensionMetadataSchema } from '../../shared/extensions/extensionManifest'
 import { extensionConfigurationSchema, resolveExtensionConfiguration } from '../../shared/extensions/extensionSettings'
 import { spaceFileTargetSchema } from '../../shared/spaces/spaceFileApi'
+import { validateFileIconThemeFiles } from '../icons/fileIconThemeAssets'
 import { EXTENSION_PACKAGE_LIMIT, readExtensionDirectory, readExtensionFile, readExtensionJson, sha256, unpackExtension, validateExtensionFiles, verifiedExtensionAsset, writeExtensionJson } from './extensionFiles'
 import { extensionIconUrl } from './extensionIcon'
 import { ExtensionResourceStore } from './ExtensionResourceStore'
@@ -141,6 +142,7 @@ export class ExtensionPackageStore {
       if (entry && (!files.has(entry) || !(manifest.format === 'source' ? /\.m?[jt]s$/.test(entry) : /\.m?js$/.test(entry))))
         throw new Error('EXTENSION_ENTRY_MISSING')
     }
+    validateFileIconThemeFiles(files, manifest.contributes.iconThemes)
     const current = this.installed[manifest.id]
     const unavailable = this.#unavailable.get(manifest.id) ?? this.#unavailablePending.get(manifest.id)
     if (unavailable)

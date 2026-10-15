@@ -278,6 +278,7 @@ describe('lexoraConfigStore', () => {
       contextPanelMode: 'task',
       contextPanelGlobal: false,
       contextPanelAutoCollapse: false,
+      fileIconTheme: { id: 'lexora.material' },
       minimizeToTrayOnClose: false,
       keybindings: {},
       backgroundCloseNoticeShown: false,

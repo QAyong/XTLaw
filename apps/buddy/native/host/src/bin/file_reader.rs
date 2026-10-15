@@ -10,9 +10,11 @@ fn main() -> ExitCode {
             }
         };
     }
-    if std::env::args().nth(1).as_deref() == Some("--mutate-entry") {
-        return match lexora_buddy_host::file_mutation::run(io::stdin().lock(), io::stdout().lock())
-        {
+    if std::env::args().nth(1).as_deref() == Some("--serve") {
+        let Some(directory) = std::env::args_os().nth(2) else {
+            return ExitCode::FAILURE;
+        };
+        return match lexora_buddy_host::file_engine::serve(std::path::Path::new(&directory)) {
             Ok(()) => ExitCode::SUCCESS,
             Err(error) => {
                 eprintln!("{error}");

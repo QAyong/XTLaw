@@ -7,11 +7,15 @@ import { subscribe } from '../subscribe'
 export function createSpacesApi(): Pick<LocalChatApi, 'spaces'> {
   return {
     spaces: Object.freeze({
+      onFilesChanged: listener => subscribe(LOCAL_CHAT_IPC_CHANNELS.spaceFilesChanged, listener),
+      mutateFile: input => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.spaceFilesMutate, JSON.parse(JSON.stringify(input))),
+      fileHistory: input => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.spaceFilesHistory, { ...input }),
+      queryFileOperation: input => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.spaceFilesQuery, { ...input }),
+      acknowledgeFileOperation: input => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.spaceFilesAcknowledge, { ...input }),
+      cancelFileOperation: input => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.spaceFilesCancel, { ...input }),
       onChanged: listener => subscribe<SpaceChangeNotice>(LOCAL_CHAT_IPC_CHANNELS.spacesChanged, listener),
       readDocument: input => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.spaceDocumentRead, { ...input }),
       saveDocument: input => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.spaceDocumentSave, { ...input }),
-      mutateEntry: input => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.spaceFilesMutate, { ...input }),
-      locateEntry: input => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.spaceFilesLocate, { ...input }),
       listDirectory: input => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.spaceFilesList, { ...input }),
       readFile: input => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.spaceFilesRead, { ...input }),
       revealFile: input => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.spaceFilesReveal, { ...input }),

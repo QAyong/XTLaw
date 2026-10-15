@@ -10,7 +10,9 @@ import { zipSync } from 'fflate'
 import { build } from 'vite'
 import { compileExtensionSource } from '../platform/extensions/compileExtensionSource.ts'
 import { EXTENSION_FILE_LIMIT, EXTENSION_PACKAGE_LIMIT, validateExtensionFiles } from '../platform/extensions/extensionFiles.ts'
+import { fileIconAssetPaths, readFileIconTheme, validateFileIconThemeFiles } from '../platform/icons/fileIconThemeAssets.ts'
 import { extensionCompatible, extensionManifestSchema, extensionPathSchema } from '../shared/extensions/extensionManifest.ts'
+import { validateExtensionFileCounts } from '../shared/extensions/extensionPackageLimits.ts'
 
 async function run() {
   const buddy = fileURLToPath(new URL('../', import.meta.url))
@@ -29,6 +31,14 @@ async function run() {
   assert(extensionCompatible(manifest, version), `Extension requires Lexora ${manifest.engines.lexora} / API ${manifest.apiVersion}`)
   const entries = [manifest.entry, ...manifest.contributes.views.map(view => view.entry)].filter(Boolean)
   for (const entry of entries) assert((await fs.stat(path.join(source, entry))).isFile(), `Missing entry: ${entry}`)
+  const themeFiles = new Map()
+  for (const theme of manifest.contributes.iconThemes) {
+    const bytes = await fs.readFile(path.join(source, theme.path))
+    themeFiles.set(theme.path, bytes)
+    for (const asset of new Set(fileIconAssetPaths(theme.path, readFileIconTheme(bytes)).values()))
+      themeFiles.set(asset, await fs.readFile(path.join(source, asset)))
+  }
+  validateFileIconThemeFiles(themeFiles, manifest.contributes.iconThemes)
   if (command === 'check') {
     process.stdout.write(`${manifest.id}@${manifest.version}: compatible with Lexora ${version}, API ${manifest.apiVersion}` + '\n')
   }
@@ -50,7 +60,7 @@ async function run() {
         assert(entry.isFile(), `Not a file: ${name}`)
         assert(!names.has(name.toLowerCase()), `Duplicate path: ${name}`)
         names.add(name.toLowerCase())
-        assert(names.size <= 512, 'Too many files')
+        validateExtensionFileCounts(names)
         const stat = await fs.stat(absolute)
         assert(stat.size <= EXTENSION_FILE_LIMIT, 'File exceeds 16 MiB')
         const bytes = await fs.readFile(absolute)

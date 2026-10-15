@@ -24,7 +24,7 @@
 
 `<plugin-id>` 是占位符，填写时必须替换为新插件身份工具返回的 ID，或正在维护的源码清单中的既有 ID；后续声明中的占位符同样替换。宿主代码通过 `context.extension.id` 引用当前插件，不复制示例身份。作者署名 `author` 可选，支持 Unicode，最多 80 个用户可见字符，不含换行或控制字符；留空表示未署名。不符合规则时说明原因，给出候选并通过对话确定，不静默截断或替换。作者与显示名可变，ID 和末尾的调用名保持稳定。使用作者字段的包要求 XTLaw 0.9.0 或更新版本。
 
-可选字段：`author`、`icon`（包内 SVG/PNG/JPEG/WebP，≤64 KiB）、`categories`、`tags`、宿主 `entry`、`dataVersion`。不要添加未定义的字段。命令、视图和挂载声明的 ID 以插件 ID 加 `.` 开头且不重复。文件路径相对包根，不能包含 `..` 或符号链接；512 文件、单文件 16 MiB、合计 64 MiB 上限；压缩输入与实际解压后的总字节数均受限。
+可选字段：`author`、`icon`（包内 SVG/PNG/JPEG/WebP，≤64 KiB）、`categories`、`tags`、宿主 `entry`、`dataVersion`。不要添加未定义的字段。命令、视图和挂载声明的 ID 以插件 ID 加 `.` 开头且不重复。文件路径相对包根，不能包含 `..` 或符号链接；最多 4096 个文件，其中非图片文件最多 512 个，单文件 16 MiB、合计 64 MiB 上限；压缩输入与实际解压后的总字节数均受限。
 
 `contributes` 内的声明结构如下。省略不用的项；每项权限和运行方式见后文，无需查找应用实现或复制某个示例清单。
 
@@ -204,5 +204,7 @@ API 4 的 selected-file 普通 DOCX 视图声明 `composerReference: true` 后�
 ## 主题与样式
 
 直接创建元素、设置样式，或引入包内 CSS：`link.href = new URL('./style.css', import.meta.url).href`。使用 `--lexora-background`、`--lexora-text`、`--lexora-muted`、`--lexora-border`、`--lexora-accent`、`--lexora-accent-solid`。`context.environment` 提供语言、配色与颜色；`context.onEnvironmentChange` 订阅切换。效果应柔和短暂，不遮挡正文或确认操作。
+
+API 3 的 `contributes.iconThemes` 可贡献独立的文件与目录图标主题，无需脚本入口或权限，详见 [文件图标主题](file-icon-themes.md)。
 
 临时覆盖层、分屏布局订阅与局部点击区域见 [交互会话](interactions.md)。

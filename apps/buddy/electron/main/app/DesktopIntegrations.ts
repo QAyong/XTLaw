@@ -10,6 +10,7 @@ import process from 'node:process'
 import { app, Notification, shell } from 'electron'
 import { z } from 'zod'
 import buddyVersion from '../../../buddy.version.json'
+import { FileIconThemeService } from '../../../platform/icons/FileIconThemeService'
 import { CONVERSATION_CHANGED, conversationSchema } from '../../../shared/conversation/conversationApi'
 import { extensionActionRpc } from '../../../shared/extensions/extensionActionApi'
 import { extensionAgentRpc } from '../../../shared/extensions/extensionAgent'
@@ -32,6 +33,7 @@ import { registerLocalChatIpc } from '../localChatIpc'
 import { registerStorageIpc } from '../storage/registerStorageIpc'
 import { StorageBackupService } from '../storage/StorageBackupService'
 import { registerSyncIpc } from '../sync/registerSyncIpc'
+import { registerFileIconIpc } from '../themes/registerFileIconIpc'
 import { createDesktopTray } from '../tray'
 import { registerDesktopUpdates } from '../updates/registerDesktopUpdates'
 import { registerWorkbenchIpc } from '../workbench/registerWorkbenchIpc'
@@ -87,7 +89,18 @@ export class DesktopIntegrations {
     const runtime = this.#runtime
     const windows = this.#windows
     const service = runtime.service
+    const fileIcons = new FileIconThemeService(async (preference, guard) => {
+      await runtime.configStore.update({ desktop: { fileIconTheme: preference } }, config => this.applyConfig(config), guard)
+    }, this.#environment.events.publish)
+    fileIcons.applyPreference(runtime.config!.desktop.fileIconTheme)
+    this.#subscriptions.push(() => fileIcons.dispose())
+    this.#subscriptions.push(registerFileIconIpc(fileIcons, () => windows.window))
+    this.#subscriptions.push(runtime.configStore.onDidChange((change) => {
+      if (change.kind === 'committed')
+        fileIcons.applyPreference(change.config.desktop.fileIconTheme)
+    }).dispose)
     const extensions = registerExtensionIpc({
+      fileIcons,
       record: this.#environment.events.publish,
       home: paths.buddyHome,
       version: buddyVersion.version,

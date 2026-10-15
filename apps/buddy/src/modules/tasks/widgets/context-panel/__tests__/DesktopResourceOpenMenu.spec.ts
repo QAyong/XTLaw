@@ -34,7 +34,7 @@ function fixture(initial: ResourceOpenTarget | null) {
   const target = shallowRef(initial)
   const revealFile = vi.fn().mockResolvedValue(undefined)
   const openArtifact = vi.fn().mockResolvedValue({ status: 'opened' })
-  const context = { files: { revealFile, listDirectory: vi.fn(), readFile: vi.fn() }, openArtifact } satisfies Pick<TaskChatWorkspace['context'], 'files' | 'openArtifact'>
+  const context = { files: { revealFile, listDirectory: vi.fn(), readFile: vi.fn(), fileHistory: vi.fn(), acknowledgeFileOperation: vi.fn(), cancelFileOperation: vi.fn(), onFilesChanged: vi.fn(() => () => {}) }, openArtifact } satisfies Pick<TaskChatWorkspace['context'], 'files' | 'openArtifact'>
   const root = document.createElement('div')
   document.body.append(root)
   const app = createApp({ render: () => h(DesktopResourceOpenMenu, { target: target.value, context, language: 'zh-CN' }) })

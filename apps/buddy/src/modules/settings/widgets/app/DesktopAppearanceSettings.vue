@@ -7,6 +7,7 @@ import { DESKTOP_CHAT_OUTLINE_POSITIONS } from '@buddy-electron/shared/desktopAp
 import { NSelect, NSpin, useMessage } from 'naive-ui'
 import { computed, shallowRef } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
+import DesktopFileIconSettings from './DesktopFileIconSettings.vue'
 import DesktopTypographySettings from './DesktopTypographySettings.vue'
 import DesktopWelcomeSettings from './DesktopWelcomeSettings.vue'
 
@@ -60,6 +61,9 @@ async function updateSetting(field: AppearanceSettingField, patch: LexoraConfigP
           </div>
         </div>
       </div>
+    </section>
+    <section class="desktop-appearance-settings__section">
+      <DesktopFileIconSettings :language="language" />
     </section>
     <slot name="after-application-appearance" />
     <section class="desktop-appearance-settings__section">

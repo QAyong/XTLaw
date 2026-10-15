@@ -40,6 +40,7 @@ export type SpaceSaveBytesResult = z.infer<typeof spaceSaveBytesResultSchema>
 export const spaceSaveDocumentSchema = spaceFileTargetSchema.extend({
   text: z.string().max(1024 * 1024),
   etag: z.string().length(64),
+  operationId: z.string().uuid(),
 }).strict()
 export type SpaceSaveDocument = z.infer<typeof spaceSaveDocumentSchema>
 export const spaceSaveResultSchema = z.object({
@@ -61,25 +62,48 @@ export type SpaceDirectoryRequest = z.infer<typeof spaceDirectoryRequestSchema>
 
 export const spaceDirectoryRequestSchema = spaceFileTargetSchema.extend({ cursor: z.string().max(512).optional() }).strict()
 
-export const spaceFileMutationSchema = z.discriminatedUnion('operation', [
-  spaceFileTargetSchema.extend({ operation: z.literal('create-file'), name: z.string().max(1024) }).strict(),
-  spaceFileTargetSchema.extend({ operation: z.literal('create-directory'), name: z.string().max(1024) }).strict(),
-  spaceFileTargetSchema.extend({ operation: z.literal('rename'), name: z.string().max(1024) }).strict(),
-  spaceFileTargetSchema.extend({ operation: z.literal('trash') }).strict(),
+export const spaceFileActionSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('createFile') }).strict(),
+  z.object({ kind: z.literal('createDirectory') }).strict(),
+  z.object({ kind: z.literal('rename'), destination: z.string().min(1).max(4096) }).strict(),
+  z.object({ kind: z.literal('copy'), destination: spaceFileTargetSchema }).strict(),
+  z.object({ kind: z.literal('move'), destination: spaceFileTargetSchema }).strict(),
+  z.object({ kind: z.literal('trash') }).strict(),
+  z.object({ kind: z.literal('restore'), originalOperationId: z.string().uuid() }).strict(),
 ])
-export const spaceFileMutationErrorSchema = z.enum(['invalid-name', 'exists', 'missing', 'unsafe-path', 'permission', 'busy', 'unsupported', 'case-only', 'open-resource', 'result-unknown', 'failed'])
-export const spaceFileMutationResultSchema = z.discriminatedUnion('status', [
-  z.object({ status: z.literal('completed'), path: z.string().max(4096), kind: z.enum(['file', 'directory']) }).strict(),
-  z.object({ status: z.literal('failed'), reason: spaceFileMutationErrorSchema }).strict(),
-])
+export const spaceFileMutationSchema = spaceFileTargetSchema.extend({
+  operationId: z.string().uuid(),
+  action: spaceFileActionSchema,
+}).strict()
 export type SpaceFileMutation = z.infer<typeof spaceFileMutationSchema>
-export type SpaceFileMutationResult = z.infer<typeof spaceFileMutationResultSchema>
-export type SpaceFileMutationError = z.infer<typeof spaceFileMutationErrorSchema>
+export const spaceFileOperationSchema = z.object({
+  operationId: z.string().uuid(),
+  kind: z.string(),
+  path: z.string().nullable(),
+  destination: z.string().nullable(),
+  temporaryPath: z.string().nullable(),
+  status: z.enum(['prepared', 'executing', 'applied', 'not-applied', 'needs-recovery', 'acknowledged']),
+  error: z.string().nullable(),
+  createdAt: z.number(),
+  updatedAt: z.number(),
+  restorable: z.boolean(),
+}).strict()
+export type SpaceFileOperation = z.infer<typeof spaceFileOperationSchema>
+export const spaceFileOperationRequestSchema = spaceFileTargetSchema.extend({ operationId: z.string().uuid() }).strict()
+export const spaceFilesChanged = {
+  method: 'spaceFiles.changed',
+  params: z.object({ spaceId: idSchema, directoryId: idSchema, directoryRevision: z.number().int().positive(), revision: z.number().int().positive(), operationId: z.string(), kind: z.enum(['saved', 'conflict', 'response-denied', 'changed']) }).strict(),
+}
+export type SpaceFilesChange = z.infer<typeof spaceFilesChanged.params>
 
 export const spaceFilesRpc = {
   saveBytes: { method: 'spaceFiles.saveBytes', input: spaceSaveBytesSchema, response: spaceSaveBytesResultSchema },
   readBytes: { method: 'spaceFiles.readBytes', input: spaceFileByteRequestSchema, response: spaceFileByteChunkSchema },
-  mutate: { method: 'spaceFiles.mutate', input: spaceFileMutationSchema, response: spaceFileMutationResultSchema },
+  mutate: { method: 'spaceFiles.mutate', input: spaceFileMutationSchema, response: spaceFileOperationSchema },
+  history: { method: 'spaceFiles.history', input: spaceFileTargetSchema, response: z.array(spaceFileOperationSchema) },
+  query: { method: 'spaceFiles.query', input: spaceFileOperationRequestSchema, response: spaceFileOperationSchema.nullable() },
+  acknowledge: { method: 'spaceFiles.acknowledge', input: spaceFileOperationRequestSchema, response: spaceFileOperationSchema },
+  cancel: { method: 'spaceFiles.cancel', input: spaceFileOperationRequestSchema, response: z.null() },
   readDocument: { method: 'spaceFiles.readDocument', input: spaceFileTargetSchema, response: spaceTextDocumentSchema },
   saveDocument: { method: 'spaceFiles.saveDocument', input: spaceSaveDocumentSchema, response: spaceSaveResultSchema },
   list: { method: 'spaceFiles.list', input: spaceDirectoryRequestSchema, response: spaceDirectoryPageSchema },

@@ -20,16 +20,16 @@ interface WorkingCopyState {
   baseText: string
   etag: string
   dirty: boolean
+  blocked: boolean
   loading: boolean
   saving: boolean
-  blocked?: boolean
   error: string | null
   conflict: TextDocument | null
 }
 
 export type WorkingCopy = EventSnapshot<WorkingCopyState>
 export type WorkingCopyIdentity = Pick<WorkingCopy, 'key' | 'incarnation' | 'contentVersion'>
-export type WorkingCopyChangeKind = 'registered' | 'restored' | 'released' | 'load-started' | 'loaded' | 'load-failed' | 'edited' | 'save-started' | 'saved' | 'save-conflict' | 'save-failed' | 'conflict-resolved' | 'discarded' | 'access-changed'
+export type WorkingCopyChangeKind = 'registered' | 'restored' | 'released' | 'load-started' | 'loaded' | 'load-failed' | 'edited' | 'save-started' | 'saved' | 'save-conflict' | 'save-failed' | 'conflict-resolved' | 'discarded' | 'guarded' | 'moved'
 export interface WorkingCopyChange {
   readonly kind: WorkingCopyChangeKind
   readonly revision: number
@@ -53,9 +53,8 @@ export type WorkingCopySaveResult
     | { readonly status: 'unavailable', readonly key: string, readonly reason: 'missing' | 'loading' | 'no-etag' | 'disposed' | 'blocked' }
 
 export interface WorkingCopyProvider {
-  canAccess?: (resource: ResourceRef) => boolean
   read: (resource: ResourceRef) => Promise<TextDocument>
-  save: (resource: ResourceRef, document: TextDocument) => Promise<{ status: 'saved' | 'conflict', document: TextDocument }>
+  save: (resource: ResourceRef, document: TextDocument, operationId: string) => Promise<{ status: 'saved' | 'conflict', document: TextDocument }>
 }
 
 export class WorkingCopyService {
@@ -65,7 +64,7 @@ export class WorkingCopyService {
   readonly #changes: Emitter<WorkingCopyChange>
   readonly #loading = new Map<string, Promise<WorkingCopy>>()
   readonly #saving = new Map<string, Promise<WorkingCopySaveResult>>()
-  readonly #mutations = new Set<(resource: ResourceRef) => boolean>()
+  readonly #guards = new Map<symbol, (resource: ResourceRef) => boolean>()
   #revision = 0
   #stopped = false
   #disposing: Promise<void> | undefined
@@ -92,7 +91,7 @@ export class WorkingCopyService {
 
   onDidChangeResource(resource: ResourceRef): Event<WorkingCopyChange> {
     const key = resourceKey(resource)
-    return filterEvent(this.onDidChange, event => event.copy.key === key)
+    return filterEvent(this.onDidChange, event => event.copy.key === key || event.previous?.key === key)
   }
 
   get(resource: ResourceRef): WorkingCopy | undefined {
@@ -108,75 +107,16 @@ export class WorkingCopyService {
     return this.get(resource)?.dirty ?? false
   }
 
-  canAccess(resource: ResourceRef): boolean {
-    return this.#provider.canAccess?.(resource) !== false && ![...this.#mutations].some(matches => matches(resource))
-  }
-
-  // A bounded lease freezes editor entry points while a filesystem operation is pending.
-  // Only its owner may save or retire copies; failure leaves their content untouched.
-  beginMutation(matches: (resource: ResourceRef) => boolean) {
-    const affected = [...this.#copies.values()].filter(copy => matches(copy.resource))
-    if (this.#stopped || affected.some(copy => copy.loading || copy.saving || copy.blocked))
-      return null
-    this.#mutations.add(matches)
-    for (const copy of affected)
-      this.#commit('access-changed', { ...copy, blocked: true })
-    let active = true
-    const check = (resource: ResourceRef) => {
-      if (!active || !matches(resource))
-        throw new Error('WORKING_COPY_MUTATION_EXPIRED')
-    }
-    const remove = (resource: ResourceRef) => {
-      check(resource)
-      const copy = this.get(resource)
-      if (!copy)
-        return
-      this.#copies.delete(copy.key)
-      const revision = ++this.#revision
-      this.#changes.fire(copyEventSnapshot({ kind: 'released', revision, copy: { ...copy, revision }, previous: copy }))
-    }
-    return {
-      save: (resource: ResourceRef) => {
-        check(resource)
-        return this.#saveResource(resource, true)
-      },
-      relocate: (moves: readonly { from: ResourceRef, to: ResourceRef }[]) => {
-        for (const { from, to } of moves) {
-          check(from)
-          check(to)
-          if (this.get(to))
-            throw new Error('WORKING_COPY_DESTINATION_OCCUPIED')
-        }
-        for (const { from, to } of moves) {
-          const copy = this.get(from)
-          if (!copy)
-            continue
-          this.#commit('restored', { ...copy, key: resourceKey(to), resource: to, incarnation: crypto.randomUUID() })
-          remove(from)
-        }
-      },
-      remove,
-      release: () => {
-        if (!active)
-          return
-        active = false
-        this.#mutations.delete(matches)
-        for (const copy of [...this.#copies.values()].filter(copy => matches(copy.resource)))
-          this.#commit('access-changed', { ...copy, blocked: [...this.#mutations].some(other => other(copy.resource)) })
-      },
-    }
-  }
-
   open(resource: ResourceRef): Promise<WorkingCopy> {
     if (this.#stopped)
       return Promise.reject(new Error('WORKING_COPY_DISPOSED'))
-    if (!this.canAccess(resource))
-      return Promise.reject(new Error('WORKING_COPY_BLOCKED'))
     const key = resourceKey(resource)
     const pending = this.#loading.get(key)
     if (pending)
       return pending
     let copy = this.#copies.get(key)
+    if (!copy && this.isBlocked(resource))
+      return Promise.reject(new Error('FILE_OPERATION_BUSY'))
     if (copy && !copy.loading && !copy.error)
       return Promise.resolve(copy)
     const operationId = crypto.randomUUID()
@@ -195,6 +135,7 @@ export class WorkingCopyService {
         baseText: '',
         etag: '',
         dirty: false,
+        blocked: this.isBlocked(resource),
         loading: true,
         saving: false,
         error: null,
@@ -213,22 +154,31 @@ export class WorkingCopyService {
     return promise
   }
 
+  async refresh(resource: ResourceRef): Promise<void> {
+    const key = resourceKey(resource)
+    const copy = this.get(resource)
+    if (this.#stopped || !copy || copy.blocked || copy.loading || copy.saving)
+      return
+    const operationId = crypto.randomUUID()
+    const pending = Promise.withResolvers<WorkingCopy>()
+    this.#loading.set(key, pending.promise)
+    const started = this.#commit('load-started', { ...copy, loading: true }, { operationId })
+    void this.#load(started, operationId, pending.promise).then(pending.resolve)
+    await pending.promise
+  }
+
   edit(resource: ResourceRef, text: string): void {
     const copy = this.get(resource)
-    if (this.#stopped || !copy || copy.text === text || !this.canAccess(resource))
+    if (this.#stopped || !copy || copy.blocked || copy.text === text)
       return
     this.#commit('edited', { ...copy, text, contentVersion: copy.contentVersion + 1 })
   }
 
-  save(resource: ResourceRef): Promise<WorkingCopySaveResult> {
-    return this.#saveResource(resource)
-  }
-
-  #saveResource(resource: ResourceRef, mutation = false): Promise<WorkingCopySaveResult> {
+  save(resource: ResourceRef, allowBlocked = false): Promise<WorkingCopySaveResult> {
     const key = resourceKey(resource)
     if (this.#stopped)
       return Promise.resolve({ status: 'unavailable', key, reason: 'disposed' })
-    if (!mutation && !this.canAccess(resource))
+    if (!allowBlocked && this.isBlocked(resource))
       return Promise.resolve({ status: 'unavailable', key, reason: 'blocked' })
     const pending = this.#saving.get(key)
     if (pending)
@@ -251,7 +201,7 @@ export class WorkingCopyService {
 
   resolveConflict(resource: ResourceRef, choice: 'disk' | 'local'): void {
     const copy = this.get(resource)
-    if (this.#stopped || !copy?.conflict || copy.saving || !this.canAccess(resource))
+    if (this.#stopped || !copy?.conflict || copy.saving || copy.blocked)
       return
     const text = choice === 'disk' ? copy.conflict.text : copy.text
     this.#commit('conflict-resolved', {
@@ -267,7 +217,7 @@ export class WorkingCopyService {
 
   discard(resource: ResourceRef): void {
     const copy = this.get(resource)
-    if (this.#stopped || !copy || copy.saving || !this.canAccess(resource) || (!copy.dirty && !copy.conflict && !copy.error))
+    if (this.#stopped || !copy || copy.saving || copy.blocked || (!copy.dirty && !copy.conflict && !copy.error))
       return
     this.#commit('discarded', { ...copy, text: copy.baseText, contentVersion: copy.contentVersion + Number(copy.text !== copy.baseText), conflict: null, error: null })
   }
@@ -304,6 +254,7 @@ export class WorkingCopyService {
         baseText: backup.baseText,
         etag: backup.etag,
         dirty: backup.text !== backup.baseText,
+        blocked: false,
         loading: true,
         saving: false,
         error: null,
@@ -321,6 +272,46 @@ export class WorkingCopyService {
       etag: copy.etag,
       savedAt: new Date().toISOString(),
     }))
+  }
+
+  isBlocked(resource: ResourceRef): boolean {
+    return [...this.#guards.values()].some(predicate => predicate(resource))
+  }
+
+  guard(predicate: (resource: ResourceRef) => boolean): () => void {
+    const id = Symbol('file-operation')
+    this.#guards.set(id, predicate)
+    const update = () => {
+      for (const copy of this.#copies.values()) {
+        const blocked = this.isBlocked(copy.resource)
+        if (copy.blocked !== blocked)
+          this.#commit('guarded', { ...copy, blocked })
+      }
+    }
+    update()
+    return () => {
+      this.#guards.delete(id)
+      update()
+    }
+  }
+
+  async settle(predicate: (resource: ResourceRef) => boolean): Promise<void> {
+    const keys = [...this.#copies.values()].filter(copy => predicate(copy.resource)).map(copy => copy.key)
+    await Promise.all(keys.flatMap(key => [this.#loading.get(key), this.#saving.get(key)]))
+  }
+
+  move(resource: ResourceRef, destination: ResourceRef): void {
+    const copy = this.get(resource)
+    if (!copy || copy.loading || copy.saving)
+      throw new Error('FILE_OPERATION_BUSY')
+    const key = resourceKey(destination)
+    if (key !== copy.key && this.#copies.has(key))
+      throw new Error('FILE_VIEW_CONFLICT')
+    this.#copies.delete(copy.key)
+    const revision = ++this.#revision
+    const moved = copyEventSnapshot({ ...copy, key, resource: destination, revision, blocked: this.isBlocked(destination) })
+    this.#copies.set(key, moved)
+    this.#changes.fire(copyEventSnapshot({ kind: 'moved', revision, copy: moved, previous: copy }))
   }
 
   async whenIdle(): Promise<void> {
@@ -366,7 +357,7 @@ export class WorkingCopyService {
 
   async #save(started: WorkingCopy, operationId: string, promise: Promise<WorkingCopySaveResult>): Promise<WorkingCopySaveResult> {
     try {
-      const result = await this.#provider.save(started.resource, { text: started.text, etag: started.etag })
+      const result = await this.#provider.save(started.resource, { text: started.text, etag: started.etag }, operationId)
       const current = this.#copies.get(started.key)!
       this.#saving.delete(started.key)
       if (result.status === 'conflict') {

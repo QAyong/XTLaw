@@ -88,6 +88,7 @@
     "@types/node": "catalog:",
     "@types/semver": "^7.8.0",
     "@types/turndown": "^5.0.6",
+    "@unocss/core": "^66.10.5",
     "@vicons/fluent": "^0.13.0",
     "@vitejs/plugin-vue": "^6.0.10",
     "@vue/tsconfig": "^0.9.1",

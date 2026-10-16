@@ -5,11 +5,13 @@ import { createDesktopApi } from './desktop'
 import { createExtensionApi } from './extensions'
 import { createFileIconApi } from './fileIcons'
 import { createLocalChatApi } from './localChatApi'
+import { createThemeApi } from './themes'
 
 const desktopApi: LexoraDesktopApi = Object.freeze({
   ...createDesktopApi(),
   ...createBrowserApi(),
   fileIcons: createFileIconApi(),
+  themes: createThemeApi(),
   extensions: createExtensionApi(),
   localChat: createLocalChatApi(),
 })

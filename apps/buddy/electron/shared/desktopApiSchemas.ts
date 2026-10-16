@@ -9,6 +9,7 @@ import { runtimePreferencesSchema } from '../../shared/runtime/runtimePreference
 import { keybindingsSchema } from '../../shared/shortcuts/keybindingSchema'
 import { localBackupLimitSchema } from '../../shared/storage/backupRetention'
 import { typographyPreferencesSchema } from '../../shared/typography/typographyPreferences'
+import { themePreferenceSchema } from '../../shared/theme/themePreferences'
 import {
   DESKTOP_CHAT_OUTLINE_POSITIONS,
   DESKTOP_PROFILE_AVATAR_MAX_DATA_URL_LENGTH,
@@ -110,7 +111,7 @@ export const lexoraConfigPatchSchema: z.ZodType<LexoraConfigPatch> = z.object({
     notifyWhenFocused: z.boolean().optional(),
     sidebarCollapsed: z.boolean().optional(),
     fileIconTheme: fileIconPreferenceSchema.optional(),
-    theme: z.enum(['system', 'light', 'dark']).optional(),
+    theme: themePreferenceSchema.optional(),
   }).strict().optional(),
   pet: z.object({
     alwaysOnTop: z.boolean().optional(),

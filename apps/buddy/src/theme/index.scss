@@ -58,7 +58,6 @@
   --buddy-menu-icon-size: 16px;
   --buddy-motion-state-duration: 100ms;
   --buddy-motion-state-easing: cubic-bezier(0.2, 0, 0, 1);
-  --buddy-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   --buddy-chat-final-color: var(--buddy-text-primary);
   --buddy-chat-agent-name-color: color-mix(in srgb, var(--buddy-text-strong) 50%, var(--buddy-text-secondary) 50%);
   --buddy-chat-process-color: var(--buddy-text-secondary);
@@ -129,6 +128,10 @@ body,
 body {
   background: var(--buddy-surface-canvas, #fafaf8);
   color: var(--buddy-text-strong, #202522);
+}
+
+::selection {
+  background: var(--buddy-text-selection);
 }
 
 button,

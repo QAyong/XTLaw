@@ -8,6 +8,7 @@ import type { SandboxEnvironmentStatus, SandboxSetupResult } from '../../shared/
 import type { BuddyCapabilities } from '../../shared/platform'
 import type { BuddyRuntimeProfile } from '../../shared/runtime/profile'
 import type { DesktopChatWelcomeItem, DesktopChatWelcomePreference } from './desktopChatWelcome'
+import type { ThemePreference } from '../../shared/theme/themePreferences'
 import type { DesktopCommandId, DesktopPlatform } from './desktopCommands'
 import type { DesktopUpdateApi, DesktopUpdateCapabilities, DesktopUpdateCheckResult } from './desktopUpdates'
 import type { LocalChatApi } from './localChatApi'
@@ -217,7 +218,7 @@ export interface LexoraConfig {
     pluginAuthor: string
     sidebarCollapsed: boolean
     fileIconTheme: { id: string }
-    theme: 'system' | 'light' | 'dark'
+    theme: ThemePreference
   }
   pet: {
     alwaysOnTop: boolean
@@ -243,6 +244,7 @@ export interface LexoraDesktopApi {
   sync: import('../../shared/sync/syncApi').SyncApi
   storage: import('../../shared/storage/storageApi').StorageApi
   fileIcons: import('../../shared/icons/fileIconThemeApi').FileIconThemeApi
+  themes: import('../../shared/theme/themeApi').ThemeApi
   extensions: import('../../shared/extensions/extensionApi').ExtensionApi
   workbench: import('../../shared/workbench/workbenchState').WorkbenchStateApi
   contextPanel: import('../../shared/context-panel/contextPanel').ContextPanelApi

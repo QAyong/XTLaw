@@ -5,6 +5,7 @@ import process from 'node:process'
 import { createTemporaryDirectory } from '@buddy-tests/temporaryDirectories'
 import { describe, expect, it, vi } from 'vitest'
 import { DEFAULT_BROWSER_PREFERENCES } from '../../../../shared/browser/browserPreferences'
+import { DEFAULT_THEME_PREFERENCE } from '../../../../shared/theme/themePreferences'
 import { DEFAULT_TYPOGRAPHY } from '../../../../shared/typography/typographyPreferences'
 import { DEFAULT_DESKTOP_CHAT_PREFERENCES, DESKTOP_CHAT_OUTLINE_POSITIONS } from '../../../shared/desktopApi'
 import { LexoraConfigStore } from '../LexoraConfigStore'
@@ -35,7 +36,7 @@ describe('lexoraConfigStore', () => {
     expect(migrate).toHaveBeenCalledWith({ name: '旧助手', avatar: '' })
     expect(await readFile(configPath, 'utf8')).not.toContain('agent_profile')
     expect(await readFile(configPath, 'utf8')).toContain('keep = true')
-    await store.update({ desktop: { theme: 'dark' } })
+    await store.update({ desktop: { theme: { id: 'lexora.themes.classic-dark' } } })
     await store.migrateAgentProfile(migrate, system)
     expect(migrate).toHaveBeenCalledTimes(1)
     expect(system).not.toHaveBeenCalled()
@@ -90,6 +91,47 @@ describe('lexoraConfigStore', () => {
     await expect(store.read()).rejects.toThrow()
   })
 
+  it('migrates paired themes into one selection while retaining system appearance tracking', async () => {
+    for (const mode of ['light', 'dark', 'system'] as const) {
+      const { configPath, store } = await createConfigStore()
+      await mkdir(dirname(configPath), { recursive: true })
+      await writeFile(configPath, `[desktop.theme]
+mode="${mode}"
+light="author.ocean.day"
+dark="author.ocean.night"
+[custom]
+keep=true
+`)
+      const expected = { id: mode === 'system' ? 'system' : mode === 'dark' ? 'author.ocean.night' : 'author.ocean.day' }
+      expect((await store.read()).desktop.theme).toEqual(expected)
+      await store.update({ desktop: { language: 'en-US' } })
+      expect((await new LexoraConfigStore({ configPath }).read()).desktop.theme).toEqual(expected)
+      expect(await readFile(configPath, 'utf8')).toContain('keep = true')
+    }
+  })
+
+  it('migrates legacy theme choices and rejects an expired write without changing persisted settings', async () => {
+    const { configPath, store } = await createConfigStore()
+    await mkdir(dirname(configPath), { recursive: true })
+    await writeFile(configPath, '[desktop]\ntheme="dark"\naccent_color="violet"\n[custom]\nkeep=true\n')
+    const original = await store.read()
+    expect(original.desktop.theme).toEqual({ id: 'lexora.themes.violet-dark' })
+    await store.update({ desktop: { language: 'en-US' } })
+    const saved = await readFile(configPath, 'utf8')
+    expect(saved).not.toContain('accent_color')
+    expect(saved).toContain('keep = true')
+    let expired = false
+    await expect(store.update({ desktop: { theme: DEFAULT_THEME_PREFERENCE } }, () => {
+      expired = true
+    }, () => {
+      if (expired)
+        throw new Error('owner expired')
+    })).rejects.toThrow('owner expired')
+    expect(await readFile(configPath, 'utf8')).toBe(saved)
+    expect(store.snapshot.applied?.desktop.theme).toEqual(original.desktop.theme)
+    expect((await new LexoraConfigStore({ configPath }).read()).desktop.theme).toEqual(original.desktop.theme)
+  })
+
   it('enables update notifications for old profiles and preserves an opt-out across other settings and restart', async () => {
     const { store, configPath } = await createConfigStore()
     await mkdir(dirname(configPath), { recursive: true })
@@ -97,7 +139,7 @@ describe('lexoraConfigStore', () => {
     expect((await store.read()).desktop.updateNotificationsEnabled).toBe(true)
     await store.update({ desktop: { updateNotificationsEnabled: false } })
     await store.update({ desktop: { language: 'en-US' } })
-    expect((await new LexoraConfigStore({ configPath }).read()).desktop).toMatchObject({ updateNotificationsEnabled: false, notificationsEnabled: false, theme: 'dark' })
+    expect((await new LexoraConfigStore({ configPath }).read()).desktop).toMatchObject({ updateNotificationsEnabled: false, notificationsEnabled: false, theme: { id: 'lexora.themes.classic-dark' } })
     expect(await readFile(configPath, 'utf8')).toContain('keep = true')
   })
 
@@ -197,14 +239,14 @@ describe('lexoraConfigStore', () => {
   it('persists shortcut overrides, disabled commands and reset without losing unrelated settings', async () => {
     const { store, configPath } = await createConfigStore()
     expect((await store.read()).desktop.keybindings).toEqual({})
-    await store.update({ desktop: { keybindings: { 'task.new': 'Mod+Alt+N', 'view.close': '' }, theme: 'dark' } })
+    await store.update({ desktop: { keybindings: { 'task.new': 'Mod+Alt+N', 'view.close': '' }, theme: { id: 'lexora.themes.classic-dark' } } })
     const reopened = new LexoraConfigStore({ configPath })
     expect((await reopened.read()).desktop.keybindings).toEqual({ 'task.new': 'Mod+Alt+N', 'view.close': '' })
     const before = await readFile(configPath, 'utf8')
     await expect(reopened.update({ desktop: { keybindings: { 'task.new': 'not a shortcut' } } })).rejects.toThrow()
     expect(await readFile(configPath, 'utf8')).toBe(before)
     await reopened.update({ desktop: { keybindings: {} } })
-    expect((await reopened.read()).desktop).toMatchObject({ theme: 'dark', keybindings: {} })
+    expect((await reopened.read()).desktop).toMatchObject({ theme: { id: 'lexora.themes.classic-dark' }, keybindings: {} })
   })
 
   it('defaults existing profiles to system proxy and preserves the custom address across mode changes', async () => {
@@ -225,13 +267,13 @@ describe('lexoraConfigStore', () => {
     await writeFile(configPath, '[desktop]\nlanguage = "en-US"\n[future]\nvalue = true\n')
     expect((await store.read()).desktop).toMatchObject({ contextPanelMode: 'task', contextPanelGlobal: false })
     await store.update({ desktop: { contextPanelMode: mode, contextPanelGlobal: true } })
-    await store.update({ desktop: { theme: 'dark' } })
+    await store.update({ desktop: { theme: { id: 'lexora.themes.classic-dark' } } })
     const restarted = new LexoraConfigStore({ configPath })
     expect((await restarted.read()).desktop).toMatchObject({
       contextPanelMode: mode,
       contextPanelGlobal: true,
       language: 'en-US',
-      theme: 'dark',
+      theme: { id: 'lexora.themes.classic-dark' },
     })
     const content = await readFile(configPath, 'utf8')
     expect(content).toContain('context_panel_global = true')
@@ -261,13 +303,13 @@ describe('lexoraConfigStore', () => {
   it('updates only requested settings and writes a private TOML file atomically', async () => {
     const { configPath, store } = await createConfigStore()
     await expect(store.read()).resolves.toMatchObject({
-      desktop: { theme: 'system', chat: { outlinePosition: 'top-right', permissionMode: 'policy_approval', welcome: 'random' } },
+      desktop: { theme: DEFAULT_THEME_PREFERENCE, chat: { outlinePosition: 'top-right', permissionMode: 'policy_approval', welcome: 'random' } },
       pet: { alwaysOnTop: true, enabled: true, rememberPosition: true },
     })
 
     const updated = await store.update({
       desktop: {
-        theme: 'dark',
+        theme: { id: 'lexora.themes.classic-dark' },
         minimizeToTrayOnClose: false,
         chat: { welcome: 'writing' },
       },
@@ -307,7 +349,7 @@ describe('lexoraConfigStore', () => {
         userName: '',
       },
       sidebarCollapsed: false,
-      theme: 'dark',
+      theme: { id: 'lexora.themes.classic-dark' },
     })
     const content = await readFile(configPath, 'utf8')
     expect(content).toContain('[desktop]')
@@ -437,7 +479,7 @@ describe('lexoraConfigStore', () => {
       desktop: { chat: { outlinePosition: 'top-right', permissionMode: 'policy_approval', welcome: 'none' } },
     })
 
-    await store.update({ desktop: { theme: 'dark' } })
+    await store.update({ desktop: { theme: { id: 'lexora.themes.classic-dark' } } })
     const saved = await readFile(configPath, 'utf8')
     expect(saved).toContain('welcome = "none"')
     expect(saved).toContain('future = true')
@@ -448,7 +490,7 @@ describe('lexoraConfigStore', () => {
     await mkdir(dirname(configPath), { recursive: true })
     await writeFile(configPath, '[api]\nbase_url = "https://lexora.example"\n\n[desktop]\ntheme = "system"\nfuture_setting = true\n')
 
-    await store.update({ desktop: { theme: 'dark' } })
+    await store.update({ desktop: { theme: { id: 'lexora.themes.classic-dark' } } })
 
     const content = await readFile(configPath, 'utf8')
     expect(content).toContain('[api]')

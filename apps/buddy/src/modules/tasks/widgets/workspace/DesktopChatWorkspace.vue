@@ -9,6 +9,7 @@ import { useBuddyI18n } from '@/i18n/buddyI18n'
 import { useTaskEnvironment } from '@/modules/tasks/taskContext'
 import DesktopRuntimePane from '@/platform/runtime/DesktopRuntimePane.vue'
 import WorkbenchSlot from '@/shared/ui/contributions/WorkbenchSlot.vue'
+import { useThemeMaterial } from '@/theme/useThemeMaterial'
 import { useConversationNodeDetail } from '../../state/conversations/useConversationNodeDetail'
 import { provideExecutionTree } from '../../state/runs/chatExecutionContext'
 import ConversationNodeDetail from '../canvas/ConversationNodeDetail.vue'
@@ -55,6 +56,7 @@ const selectedNodeId = computed(() => {
 })
 const pageRef = useTemplateRef<HTMLElement>('pageRef')
 const detailResize = useConversationDetailResize(pageRef, detailVisible)
+useThemeMaterial('workbench.pane', () => pageRef.value)
 const editingQuestion = computed(() => nodeDetail.target.value?.kind === 'question'
   && props.workspace.execution.editingMessageId.value === nodeDetail.target.value.messageId)
 const composerVisible = computed(() => !detailVisible.value || nodeDetail.target.value?.kind === 'answer' || editingQuestion.value)

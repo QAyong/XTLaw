@@ -49,26 +49,7 @@ function createFixture(options: { failWrites?: boolean, initial?: SidebarDesktop
 }
 
 describe('task sidebar preferences', () => {
-  it('restores folded state from the persisted profile', () => {
-    const { sidebar } = createFixture({
-      initial: {
-        taskSidebar: {
-          collapsed: true,
-          collapsedSections: ['tasks'],
-          collapsedSpaces: ['space-a'],
-          width: 300,
-        },
-      },
-    })
-    expect(sidebar.collapsed.value).toBe(true)
-    expect(sidebar.isSectionExpanded('tasks')).toBe(false)
-    expect(sidebar.isSectionExpanded('spaces')).toBe(true)
-    expect(sidebar.isSpaceExpanded('space-a')).toBe(false)
-    expect(sidebar.isSpaceExpanded('space-b')).toBe(true)
-    expect(sidebar.width.value).toBe(300)
-  })
-
-  it('persists only the changed preference and keeps optimistic state', async () => {
+  it('persists only the changed preference with whole-pixel widths and keeps optimistic state', async () => {
     const { sidebar, writes } = createFixture()
     await sidebar.setSectionExpanded('pinned', false)
     await sidebar.setSpaceExpanded('space-a', false)

@@ -1,6 +1,7 @@
 import { satisfies, valid, validRange } from 'semver'
 import { z } from 'zod'
 import { fileIconThemeContributionSchema } from '../icons/fileIconTheme'
+import { themeContributionSchema } from '../theme/themeDocument'
 import { workbenchSlashSchema } from '../workbench/workbenchCommand'
 import { workbenchConditionSchema } from '../workbench/workbenchContext'
 import { workbenchAnchorSchema, workbenchControls, workbenchControlSchema, workbenchMenuSchema, workbenchMountTargetSchema, workbenchPresentationSchema, workbenchSlots, workbenchSlotSchema } from '../workbench/workbenchUi'
@@ -69,6 +70,7 @@ export const extensionPermissionsSchema = z.object({
   selectedContent: z.boolean().default(false),
   localResources: z.boolean().default(false),
   resourceExport: z.boolean().default(false),
+  themeManagement: z.boolean().default(false),
   network: z.array(z.string().url().max(512).refine((value) => {
     const url = new URL(value)
     return url.protocol === 'https:' && url.origin === value && !url.username && !url.password
@@ -94,11 +96,16 @@ export const extensionManifestSchema = extensionMetadataSchema.extend({
   format: z.enum(['compiled', 'source']).default('compiled'),
   apiVersion: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(EXTENSION_API_VERSION)]),
   entry: extensionPathSchema.optional(),
+  styles: z.object({
+    uno: z.literal(true),
+    safelist: z.array(z.string().min(1).max(256)).max(512).optional(),
+  }).strict().optional(),
   dataVersion: z.number().int().min(1).max(10000).default(1),
   dependencies: z.record(extensionIdSchema, z.string().max(100).refine(value => validRange(value) !== null)).default({}),
   permissions: extensionPermissionsSchema.prefault({}),
   contributes: z.object({
     iconThemes: z.array(fileIconThemeContributionSchema).max(32).default([]),
+    themes: z.array(themeContributionSchema).max(64).default([]),
     conditions: z.array(extensionConditionDefinitionSchema).max(32).default([]),
     agent: extensionAgentSchema.optional(),
     settings: extensionSettingsSchema.prefault({}),
@@ -112,7 +119,7 @@ export const extensionManifestSchema = extensionMetadataSchema.extend({
   const ids = new Set<string>()
   const settings = manifest.contributes.settings
   const agent = manifest.contributes.agent
-  for (const contribution of [...manifest.contributes.iconThemes, ...manifest.contributes.conditions, ...manifest.contributes.commands, ...manifest.contributes.views, ...manifest.contributes.placements, ...manifest.contributes.menus, ...settings.modules, ...settings.groups, ...settings.items, ...agent?.tools ?? [], ...agent?.actions ?? []]) {
+  for (const contribution of [...manifest.contributes.iconThemes, ...manifest.contributes.themes, ...manifest.contributes.conditions, ...manifest.contributes.commands, ...manifest.contributes.views, ...manifest.contributes.placements, ...manifest.contributes.menus, ...settings.modules, ...settings.groups, ...settings.items, ...agent?.tools ?? [], ...agent?.actions ?? []]) {
     if (!contribution.id.startsWith(`${manifest.id}.`) || ids.has(contribution.id))
       context.addIssue({ code: 'custom', message: 'Contribution IDs must be unique and owned by the extension' })
     ids.add(contribution.id)
@@ -126,6 +133,8 @@ export const extensionManifestSchema = extensionMetadataSchema.extend({
     issue('File handlers require API 4 and a selected-file context view')
   if (manifest.apiVersion < 3 && manifest.contributes.iconThemes.length)
     issue('Icon theme contributions require API 3')
+  if (manifest.apiVersion < 3 && (manifest.contributes.themes.length || manifest.permissions.themeManagement))
+    issue('Theme contributions and management require API 3')
   if (manifest.apiVersion < 3 && (manifest.contributes.conditions.length || agent || settings.modules.length || settings.groups.length || settings.items.length || manifest.permissions.agent || manifest.permissions.models || manifest.permissions.taskMessages || manifest.permissions.tasks !== 'none'))
     issue('Agent capabilities and settings require API 3')
   if (agent && (!manifest.entry || !manifest.permissions.agent))
@@ -214,6 +223,7 @@ export function extensionCompatible(manifest: ExtensionManifest, version: string
 
 export function addedExtensionPermissions(previous: ExtensionPermissions | undefined, next: ExtensionPermissions): string[] {
   return [
+    ...(next.themeManagement && !previous?.themeManagement ? ['themeManagement'] : []),
     ...(next.taskMessages && !previous?.taskMessages ? ['taskMessages'] : []),
     ...(next.agent && !previous?.agent ? ['agent'] : []),
     ...(next.models && !previous?.models ? ['models'] : []),

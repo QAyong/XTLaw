@@ -5,6 +5,8 @@ import { usePreferredReducedMotion } from '@vueuse/core'
 import MarkdownRender from 'markstream-vue'
 import { computed } from 'vue'
 import { useDesktopUi } from '@/shared/ui/desktopUiContext'
+import { desktopThemeSnapshot } from '@/theme/desktopThemeState'
+import { markdownThemeVariables } from '@/theme/markdownTheme'
 import 'katex/dist/katex.min.css'
 import 'markstream-vue/index.css'
 
@@ -28,6 +30,7 @@ const emit = defineEmits<{
 
 const { isDark } = useDesktopUi()
 const disableImages: NonNullable<NodeRendererProps['customMarkdownIt']> = md => md.disable('image')
+const themeVariables = computed(() => markdownThemeVariables(desktopThemeSnapshot.value.active.colors))
 const codeBlockProps = computed<NonNullable<NodeRendererProps['codeBlockProps']>>(() => ({
   clipboardWriter: props.writeClipboardText,
 }))
@@ -75,6 +78,7 @@ function handleLinkClick(event: MouseEvent) {
 <template>
   <div class="buddy-chat-markdown-host" @click="handleLinkClick">
     <MarkdownRender
+      :style="themeVariables"
       class="buddy-chat-markdown"
       :batch-rendering="animateStreaming"
       :content="content"

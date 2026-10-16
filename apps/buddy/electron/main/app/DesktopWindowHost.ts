@@ -22,6 +22,8 @@ interface WindowBindings {
 export class DesktopWindowHost {
   readonly #environment: DesktopEnvironment
   #manager: DesktopWindowManager | null = null
+  #background = '#fafaf8'
+  #themeDark = false
   #onRecoveryExhausted: (() => void) | null = null
   #pendingTarget: DesktopOpenTargetRequest | null = null
   #targetVersion = 0
@@ -58,6 +60,7 @@ export class DesktopWindowHost {
         this.#rendererReady = false
         const handle = createDesktopWindow({
           appName: environment.paths.appName,
+          backgroundColor: this.#background,
           iconPath: environment.desktopIconPath,
           isQuitting: bindings.isQuitting,
           minimizeToTrayOnClose: bindings.minimizeToTrayOnClose,
@@ -75,7 +78,8 @@ export class DesktopWindowHost {
           rendererUrl: resolveDevelopmentRendererUrl(process.env.ELECTRON_RENDERER_URL, app.isPackaged),
           showOnReady: false,
         })
-        applyDesktopWindowAppearance(handle.window, nativeTheme.shouldUseDarkColors)
+        applyDesktopWindowAppearance(handle.window, this.#themeDark)
+        handle.window.setBackgroundColor(this.#background)
         environment.events.publish({ level: 'info', event: 'window.created' })
         handle.window.webContents.on('did-finish-load', () => {
           environment.events.publish({ level: 'info', event: 'window.loaded' })
@@ -156,13 +160,21 @@ export class DesktopWindowHost {
     }
   }
 
+  setThemeAppearance(color: string, dark: boolean, system: boolean): void {
+    this.#background = color
+    this.#themeDark = dark
+    nativeTheme.themeSource = system ? 'system' : dark ? 'dark' : 'light'
+    this.updateAppearance()
+  }
+
   updateAppearance(): void {
-    if (this.window)
-      applyDesktopWindowAppearance(this.window, nativeTheme.shouldUseDarkColors)
+    if (this.window) {
+      applyDesktopWindowAppearance(this.window, this.#themeDark)
+      this.window.setBackgroundColor(this.#background)
+    }
   }
 
   applyConfig(config: LexoraConfig): void {
-    nativeTheme.themeSource = config.desktop.theme
     this.updateAppearance()
     const contents = this.window?.webContents
     if (!config.desktop.developerToolsEnabled && contents?.isDevToolsOpened())

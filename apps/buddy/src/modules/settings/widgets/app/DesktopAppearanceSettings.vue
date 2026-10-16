@@ -8,21 +8,17 @@ import { NSelect, NSpin, useMessage } from 'naive-ui'
 import { computed, shallowRef } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import DesktopFileIconSettings from './DesktopFileIconSettings.vue'
+import DesktopThemeSettings from './DesktopThemeSettings.vue'
 import DesktopTypographySettings from './DesktopTypographySettings.vue'
 import DesktopWelcomeSettings from './DesktopWelcomeSettings.vue'
 
-type AppearanceSettingField = 'theme' | 'outlinePosition'
+type AppearanceSettingField = 'outlinePosition'
 
 const props = defineProps<ApplicationSettingsProps>()
 
 const { t } = useBuddyI18n(() => props.language)
 const message = useMessage()
 const pendingFields = shallowRef<ReadonlySet<AppearanceSettingField>>(new Set())
-const themeOptions = computed(() => [
-  { label: t('desktop.settings.themeSystem'), value: 'system' },
-  { label: t('desktop.settings.themeLight'), value: 'light' },
-  { label: t('desktop.settings.themeDark'), value: 'dark' },
-])
 const outlinePositionOptions = computed(() => DESKTOP_CHAT_OUTLINE_POSITIONS.map(position => ({
   label: t(`desktop.settings.outlinePosition.${position}`),
   value: position,
@@ -46,21 +42,7 @@ async function updateSetting(field: AppearanceSettingField, patch: LexoraConfigP
   <section v-if="config" class="desktop-appearance-settings">
     <section class="desktop-appearance-settings__section">
       <h2>{{ t('desktop.settings.applicationAppearance') }}</h2>
-      <div class="desktop-appearance-settings__group">
-        <div class="desktop-settings-row">
-          <div>
-            <strong>{{ t('desktop.settings.theme') }}</strong>
-          </div>
-          <div class="desktop-settings-row__control">
-            <NSelect
-              :options="themeOptions"
-              :value="config.desktop.theme"
-              @update:value="updateSetting('theme', { desktop: { theme: $event } })"
-            />
-            <NSpin v-if="pendingFields.has('theme')" size="small" />
-          </div>
-        </div>
-      </div>
+      <DesktopThemeSettings :language="language" />
     </section>
     <section class="desktop-appearance-settings__section">
       <DesktopFileIconSettings :language="language" />

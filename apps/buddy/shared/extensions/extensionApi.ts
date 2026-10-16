@@ -10,6 +10,7 @@ import type { ExtensionDiagnostic } from './extensionDiagnostic'
 import type { ExtensionInstallation } from './extensionInstallation'
 import type { ExtensionManifest } from './extensionManifest'
 import type { ExtensionConfiguration, ExtensionConfigurationSnapshot } from './extensionSettings'
+import type { ExtensionWindowStyle } from './extensionWindowStyles'
 import { z } from 'zod'
 import { BUDDY_QUOTE_TEXT_LIMIT } from '../conversation/buddyUserContent'
 import { spaceFileTargetSchema } from '../spaces/spaceFileApi'
@@ -84,6 +85,7 @@ export interface ExtensionLog {
   diagnostic?: ExtensionDiagnostic
 }
 export interface ExtensionStatus {
+  windowStyles?: ExtensionWindowStyle[]
   source?: ExtensionReview['source']
   manifest: ExtensionManifest
   iconUrl?: string

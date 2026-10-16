@@ -5,6 +5,7 @@ import { BODY_SIZE_MAX, BODY_SIZE_MIN, DEFAULT_TYPOGRAPHY, resolveTypography } f
 import { NSelect, NSpin, useMessage } from 'naive-ui'
 import { computed, shallowRef } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
+import DesktopSelect from '@/shared/ui/select/DesktopSelect.vue'
 import { useLocalFonts } from '../../state/useLocalFonts'
 
 type TypographyField = keyof TypographyPreferences
@@ -57,7 +58,7 @@ async function save(field: TypographyField, value: string | number | null) {
           <strong>{{ field.label }}</strong>
         </div>
         <div class="desktop-settings-row__control">
-          <NSelect
+          <DesktopSelect
             filterable
             tag
             :clearable="preferences[field.key] !== DEFAULT_TYPOGRAPHY[field.key]"

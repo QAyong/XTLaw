@@ -2,10 +2,11 @@
 import type { LocalSpace } from '@buddy-shared/spaces/spaceApi'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import { Search20Regular } from '@vicons/fluent'
-import { NButton, NInput, NSelect } from 'naive-ui'
+import { NButton, NInput } from 'naive-ui'
 import { computed, nextTick, shallowRef, useTemplateRef } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
+import DesktopSelect from '@/shared/ui/select/DesktopSelect.vue'
 
 const props = defineProps<{
   language: BuddyLocale
@@ -48,7 +49,7 @@ async function closeSearch() {
           {{ t('desktop.skills.spaces') }}
         </button>
       </div>
-      <NSelect v-if="category === 'space'" class="skills-toolbar__space" :value="spaceId" :options="spaceOptions" filterable :disabled="disabled" :aria-label="t('desktop.skills.selectSpace')" :placeholder="t('desktop.skills.selectSpace')" @update:value="emit('space', $event)" />
+      <DesktopSelect v-if="category === 'space'" class="skills-toolbar__space" :value="spaceId" :options="spaceOptions" filterable :disabled="disabled" :aria-label="t('desktop.skills.selectSpace')" :placeholder="t('desktop.skills.selectSpace')" @update:value="emit('space', $event)" />
     </div>
     <div class="skills-toolbar__actions">
       <NInput v-if="hasScope && (searchOpen || search)" ref="searchInput" v-model:value="search" class="skills-toolbar__search" clearable :placeholder="t('desktop.skills.search')" :aria-label="t('desktop.skills.searchAction')" @blur="searchOpen = false" @keydown.esc.stop="closeSearch">

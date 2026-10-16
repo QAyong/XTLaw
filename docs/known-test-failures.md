@@ -15,7 +15,7 @@
 
 第四类在干净基线上同样失败，原因各不相同（Windows 路径分隔符、文件模式位、本地用例与现状不一致等），附上首行错误便于比对。
 
-### 符号链接权限（EPERM）（26）
+### 符号链接权限（EPERM）（27）
 
 | 测试文件 | 用例 |
 | --- | --- |
@@ -45,6 +45,7 @@
 | `service/src/skills/__tests__/SkillService.spec.ts` | skillService does not let a skill file symlink leave its resolved skills directory |
 | `service/src/skills/__tests__/SkillService.spec.ts` | skillService rejects a cached document replaced by a symlink outside its source |
 | `service/src/skills/__tests__/SkillService.spec.ts` | skillService unloads revoked Space skills and rejects symlink escapes |
+| `service/src/storage/__tests__/StorageSnapshots.spec.ts` | creates portable snapshots without credentials or recursive backups and restores in place with a recovery copy |
 
 ### Unix 套接字（10）
 

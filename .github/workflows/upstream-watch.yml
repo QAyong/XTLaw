@@ -75,6 +75,8 @@ jobs:
             --body-file "$OUT_DIR/report.md"
 
       - name: Update tracking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           status="${{ steps.prepare.outputs.status }}"
           signature="${{ steps.prepare.outputs.signature }}"

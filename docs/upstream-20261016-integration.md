@@ -13,7 +13,7 @@
 | A | `a69cfc6a` 数据迁移与备份恢复 | 已移植（本地 `daa6aa4d`） |
 | B | `f2971e99`、`d7b00bf3`、`3f040626` 任务引用与引用链（含迁移 v29） | 已移植（`76f710ff`、`4e5eb234`、`42a011c7`） |
 | C | `0e3ff0b3`、`cc38b967`、`ebe499ad`、`8a2b8e8f`、`913f2085`、`073d1a43` | 已移植（`ed8ce3c3`、`8c1efbb3`、`baf7d99b`、`f02025fa`、`3b4aae86`、`15f5655f`）；`603a8114` 按你的决定跳过 |
-| D | `f6e2818a` 文件管理与图标扩展（219 个文件，含 Rust） | 待评估 |
+| D | `f6e2818a` 文件管理与图标扩展（219 个文件，含 Rust）、`a7836ac4` 空间文件加载卡顿 | 已移植（`c636db80`、`58e8ee85`）；本地 Spec-019 文件管理已移除 |
 | E | `25fc399f`、`195ab25e`、`585ac20a`、`98b6e3ca`、`2593a182`、`a8ce94f7` | 待做 |
 | F | `0469b6bc`、`1c2c9db4`、`6ec391eb` 选区引用 | 待做，按差异同步，不逐个 cherry-pick |
 | G | `6251ba91`、`61127eec`、`a7836ac4` | 待做 |
@@ -128,3 +128,51 @@
   - Windows 平台差异：`PermissionEngine.spec.ts` 的“forces confirmation…”，Windows 上 `lexora_host_shell` 走 PowerShell 策略，识别不到 `sudo`、`shutdown now`，已补进清单。
   - 本地搜狗微信搜索源（`b6139b74`）新增后断言未更新：`useWebSettingsCapability.spec.ts`，已补进清单。
 - 未验证：没有运行 e2e，没有在窗口里查看资源面板分组、新增的两个设置开关和数据迁移窗口，没有触发过真实的子任务通知。
+
+## D 轮：文件管理与图标主题（`f6e2818a`、`a7836ac4`）
+
+### 决定与更正
+
+- 你决定“同步上游，我们的那个不要了”：用上游的原生文件引擎和新资源管理器，替换本地的文件管理（Spec-019，`76ab90c0`）。
+- 更正：评估阶段我说“图标主题依赖整套主题系统”，说重了。逐行核对后，这个提交新增的代码对主题系统的硬依赖只有两处，没有引入主题引擎，第 4 轮“不要多套主题”的决定不受影响。
+
+### 功能
+
+- 原生文件引擎（Rust `file_engine`）：新建文件和文件夹、重命名、复制、移动、删除到系统回收站、从回收站恢复、写入；操作先写日志，状态为准备、执行中、已应用、未应用、需要核对、已确认；中途被打断时不会假装成功，重启后保留“结果未知”的操作并阻止重放，由用户核对后确认；路径冲突检测、目录授权撤销检查、监听目录变化。
+- 新资源管理器：右键菜单（新建文件、新建文件夹、重命名、复制、剪切、粘贴、删除、在文件管理器中显示、刷新、全部折叠）、命名对话框、操作失败提示、“结果需要核对”恢复界面。
+- 文件图标主题：内置 Material Icons，设置里新增“文件图标主题”，插件可通过 `contributes.iconThemes` 贡献图标主题（需要 API 3）。
+- `a7836ac4`：文件加载延迟显示，减少闪烁和卡顿，文件引擎读取分页优化。
+- 新增 Rust 依赖：`rusqlite`（内置编译）、`notify`、`trash`、`cap-std`、`sha2`、`uuid`，以及 Windows 与 macOS 的系统接口 crate；`Cargo.lock` 已更新。
+
+### 本地 Spec-019 的移除
+
+- 前端：`WorkspaceFileOperations`、`WorkspaceFileMutationGuard`、`DesktopWorkspaceFileMenu`、`DesktopContextFileTree`、`fileTreeContextMenu`、`workspaceFilesApi`、`spaceFileNames`，以及对应测试和 40 条不再使用的翻译键。
+- 后端与原生：Rust `file_mutation` 模块和 `--mutate-entry`、TS `mutateBoundedEntry` 及其测试、`spaceFilesLocate` 通道和 `locateEntry`、旧的变更接口和结果类型。
+- `docs/specs/feature-019-file-manager-basics.md` 保留为历史记录，已加“已被取代”说明。
+
+### 保留与适配
+
+- 保留本地的 Office DOCX 二进制读写（`readBytes`、`saveBytes`）：接到上游的 `SpaceFileService` 上，用 `track` 纳入待完成操作，保存后发布变更事件。注意它不经过文件引擎的日志，与引擎的路径保护是两套机制。
+- 保留本地 `file_writer` 的二进制保存（`--save-binary`）和 `ReadRequest.range`（分块读取），并入上游的 `--serve` 与 `write_large`。上游新增的 `bounded_file_windows.rs` 测试补了 `range: None`。
+- 本地选区引用、引用链、更新、备份等其他功能不受影响；`useDesktopWorkbench.ts` 用“先反向去掉 Spec-019、再叠加上游改动”的方式三方合并，保留了本地的选区引用与伙伴等改动。
+- 对主题系统的两处依赖：
+  - `themeIdSchema` 来自 `shared/theme/themePreferences.ts`：直接取上游文件（只依赖 `zod`）。
+  - 图标变体要知道亮或暗：新增 `src/theme/desktopAppearance.ts`，由 `App.vue` 在应用配色时写入，`fileIcon.ts` 读取。这是本地写的小衔接，不是上游文件。
+- `shared/extensions/extensionPath.ts` 取上游文件，避免插件清单和图标主题之间的循环引用；`extensionManifest.ts` 改为从它导入并转出。
+- 配置存储的 `update` 增加上游的 `assertCurrent` 参数（写入前检查，防止过期写入），图标主题服务使用它。
+- 插件包文件数量限制：并入上游的 `validateExtensionFileCounts`（总数 4096、非图片 512，图片不计入后者），字节上限保持本地的 16 MiB 和 64 MiB（Office 集成调大的）。放在 `shared/extensions/extensionPackageLimits.ts`，不恢复上游的 `extensionLimits.ts`。
+- 插件开发文档：`plugin-creator` 技能加入图标主题说明，不加入主题 API、`styles.uno` 等主题引擎部分。
+- 品牌：图标主题来源名、插件文档中的 Lexora 改为 XTLaw；CSP 加入 `lexora-icon:` 协议（与本地其他协议同为 `lexora-` 前缀的标识符）。临时文件名 `.lexora-*.stage`、`.copy`、`.rename` 与本地已有的 `.lexora-save-*` 保持一致，没有改。
+
+### 验证
+
+- `vue-tsc -b`、ESLint 无错误；`cargo check --all-targets` 通过。
+- Rust 测试：`file-engine` 11 个通过、3 个因需要 SMB 权限被忽略；`bounded-file-windows` 5 个通过、2 个因需要 NTFS 大小写敏感目录或 SMB 被忽略；`bounded-file` 4 个、`bounded-write` 3 个通过。覆盖了 Windows 回收站删除与恢复、重启后保留结果未知的操作、去重和租约共享。
+- TS 相关测试：第一次宽范围运行 2174 个用例，20 个失败，其中 19 个已在 `docs/known-test-failures.md`，另 1 个是本地 Spec-019 遗留的 `spaceFileNames` 载荷测试，随该模块删除。清理和 `a7836ac4` 之后，空间、文件、任务面板和工作台相关的 31 个文件、201 个用例全部通过。
+- `SpaceFileService.spec.ts` 等测试使用 `.output/build/native/x86_64-pc-windows-msvc/release/lexora-buddy-file-reader.exe`，该路径里原有的是 10/14 的旧版本，不认识 `--serve`，测试会超时。我用 `cargo build --release --target x86_64-pc-windows-msvc --target-dir .output/build/native -p lexora-buddy-host --bin lexora-buddy-file-reader` 重建了这一个可执行文件，其余 `.output` 内容没动。以后在干净环境跑这些测试，需要先执行 `pnpm prepare:test-runtime`（或同样重建）。
+- 没有在桌面窗口里查看新资源管理器、右键菜单、恢复界面和文件图标设置页；没有在 `.xtlaw-dev` 的真实数据上运行文件引擎；回收站行为只由 Rust 测试覆盖。
+
+### 风险与后续
+
+- 文件引擎在数据目录下新增操作日志和目录登记。升级后旧版本不认识这些数据；这部分没有用真实开发数据验证。
+- 上游的 `file_engine` 也影响选区引用那一轮（`0469b6bc`、`1c2c9db4`、`6ec391eb` 与 D 轮重叠 6 个文件），F 轮合并时需要注意。

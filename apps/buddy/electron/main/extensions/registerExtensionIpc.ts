@@ -18,6 +18,7 @@ import { ExtensionPackageStore } from '../../../platform/extensions/ExtensionPac
 import { ExtensionService } from '../../../platform/extensions/ExtensionService'
 import { observeExtensionDiagnostics } from '../../../platform/extensions/observeExtensionDiagnostics'
 import { seedBundledThemes } from '../../../platform/themes/bundledThemes'
+import { seedXtlawThemes } from '../../../platform/themes/xtlawThemes'
 import { safeDiagnosticReporter } from '../../../shared/diagnostics/applicationDiagnostic'
 import { EXTENSION_IPC, extensionError, extensionJsonSchema, extensionManagementSchema } from '../../../shared/extensions/extensionApi'
 import { ExtensionCompatibilityError } from '../../../shared/extensions/extensionCompatibility'
@@ -203,6 +204,7 @@ export function registerExtensionIpc(options: {
   const themesReady = (async () => {
     await store.load()
     await seedBundledThemes(store)
+    await seedXtlawThemes(store)
     await refreshThemes()
   })()
   const prepared = themesReady.then(async () => {

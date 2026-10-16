@@ -53,5 +53,5 @@
 ## 后续
 
 - 启动应用（按 AGENTS.md 的 Windows 开发预览流程）检查：设置页主题选择、切换浅色/深色、`runtime.ready` 且无 `credential.decrypt.failed`。
-- 在引擎之上做 XTLaw 自己的主题插件（纯数据，不改上游文件），以及圆角分档（`shape`）。
+- 已做：XTLaw 自带主题插件 `xtlaw.themes`（纸页 · 浅色/深色，纯颜色与阴影，不改引擎），与上游的 `lexora.themes` 分开放，由 `platform/themes/xtlawThemes.ts` 单独播种。尚未做：圆角分档（`shape`）、布局密度（`layout`）、主题默认字体（`typography`）。
 - 评估上游基线之后的 3 个新提交。

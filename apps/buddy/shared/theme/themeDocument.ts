@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { extensionPathSchema } from '../extensions/extensionPath.ts'
 import { workbenchRegionSchema } from '../workbench/workbenchRegions.ts'
+import { themeLayoutSchema, themeMotionSchema, themeShapeSchema } from './themeForm.ts'
 import { themeIdSchema } from './themePreferences.ts'
 import { semanticColorTokens } from './themeTokens.ts'
 
@@ -42,6 +43,9 @@ export const themeDocumentSchema = z.object({
   schemaVersion: z.literal(1),
   colors: z.partialRecord(z.enum(themeColorNames), themeColorSchema).default({}),
   shadows: z.partialRecord(z.enum(['soft', 'raised', 'overlay', 'window', 'illustration']), z.array(shadowSchema).max(4)).default({}),
+  shape: themeShapeSchema.default({ radius: {} }),
+  layout: themeLayoutSchema.default({}),
+  motion: themeMotionSchema.default({}),
   materials: z.array(materialSchema).max(themeAnchorSchema.options.length).default([]),
   welcome: z.object({ text: localizedText.nullable().optional(), image: themeImageSchema.nullable().optional() }).strict().optional(),
 }).strict().superRefine((document, context) => {

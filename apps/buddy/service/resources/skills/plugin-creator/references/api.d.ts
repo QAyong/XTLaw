@@ -317,6 +317,9 @@ export interface ThemeDocument {
   schemaVersion: 1
   colors?: Partial<Record<ThemeColor, string>>
   shadows?: Partial<Record<'soft' | 'raised' | 'overlay' | 'window' | 'illustration', { x: number, y: number, blur: number, spread?: number, color: string }[]>>
+  shape?: { radius?: Partial<Record<'micro' | 'icon' | 'control' | 'menu' | 'menu-item' | 'card' | 'popover', number>> }
+  layout?: Partial<Record<'app-sidebar-width' | 'workspace-sidebar-width' | 'titlebar-height' | 'region-header-height' | 'menu-row-height' | 'composer-control-height' | 'reading-width' | 'sidebar-item-font-size' | 'sidebar-section-font-size', number>>
+  motion?: { 'state-duration'?: number }
   materials?: ThemeMaterial[]
   welcome?: { text?: { 'zh-CN': string, 'en-US': string } | null, image?: string | null }
 }

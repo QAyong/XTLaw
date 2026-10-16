@@ -38,6 +38,26 @@
 
 颜色使用 `#RRGGBB` 或 `#RRGGBBAA`。完整键与范围见 `ThemeDocument` 类型或 `themes.describe()` 返回的 JSON Schema。缺失值由明暗基础主题与已合并的颜色派生；显式 hover、selected、selected-hover、pressed 等值优先。状态颜色、编辑器与语法、终端、正文、侧栏、输入框可以分别配置。`code-header`、`code-border`、`code-line-number` 控制代码块配套，`table-stripe`、`table-hover` 控制表格状态，`canvas-grid` 控制画布网格；省略时沿用已合并的相关颜色。代码区、编辑器与终端的默认底色和前景成对派生，显式设置优先。主题不改变用户字号、行高、分屏尺寸、键盘行为或 Space 标记色。
 
+## 形状、布局与动效
+
+主题 JSON 可选地调整圆角、布局尺寸和状态动效；所有字段都可省略，省略时沿用应用默认值，数值超出范围的主题会被拒绝。长度单位为 px，动效为 ms。
+
+```json
+{
+  "shape": { "radius": { "micro": 4, "menu": 6, "menu-item": 4, "card": 8, "popover": 8 } },
+  "layout": { "workspace-sidebar-width": 240, "reading-width": 768, "menu-row-height": 28 },
+  "motion": { "state-duration": 150 }
+}
+```
+
+| 分组 | 字段与范围 |
+| --- | --- |
+| `shape.radius` | `micro`（按钮、输入等通用小圆角）、`icon`（图标按钮）、`control`（输入框内控件）、`menu`、`menu-item`、`card`、`popover`，均为 0–24 |
+| `layout` | `app-sidebar-width` 120–360、`workspace-sidebar-width` 200–420、`titlebar-height` 24–56、`region-header-height` 32–72、`menu-row-height` 24–48、`composer-control-height` 24–48、`reading-width` 560–1200、`sidebar-item-font-size` 11–18、`sidebar-section-font-size` 10–16 |
+| `motion` | `state-duration` 0–400；系统开启“减少动态效果”时仍然为 0，不受主题影响 |
+
+`card` 与 `popover` 只影响已经改用这两个变量的组件。不属于上表的字段会被拒绝。
+
 图片使用 PNG/JPEG/WebP/SVG 资产名，通过包内文件或 `ThemeArchive.assets` 的受控资源提供；不得使用绝对路径、远端 URL、CSS 或脚本。每个材质锚点最多一层：
 
 | 锚点 | 范围 |

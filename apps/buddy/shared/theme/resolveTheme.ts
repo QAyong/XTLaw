@@ -2,6 +2,7 @@ import type { BuddyColorTheme } from './buddyTheme'
 import type { ThemeColors, ThemeDescriptor, ThemeDocument, ThemeDocumentInput } from './themeDocument'
 import { buddyColorThemes, createBuddyColorVariables } from './buddyTheme'
 import { themeDocumentSchema } from './themeDocument'
+import { themeFormVariables } from './themeForm'
 import { semanticColorTokens } from './themeTokens'
 
 export interface ResolvedTheme {
@@ -143,6 +144,7 @@ export function resolveTheme(descriptor: ThemeDescriptor, input: ThemeDocumentIn
   variables['--buddy-media-overlay-danger-hover'] = alpha(colors['danger-solid'], 0.72)
   for (const [name, shadows] of Object.entries(document.shadows))
     variables[`--buddy-shadow-${name}`] = shadows.map(shadow => `${shadow.x}px ${shadow.y}px ${shadow.blur}px ${shadow.spread}px ${shadow.color}`).join(', ') || 'none'
+  Object.assign(variables, themeFormVariables(document))
   const preview = { canvas: colors.canvas, surface: colors.surface, accent: colors.accent, fg: colors.fg }
   return { descriptor: { ...descriptor, swatch: colors.accent, preview }, colors, variables, document, assets }
 }

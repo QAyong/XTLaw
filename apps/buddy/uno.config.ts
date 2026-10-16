@@ -77,7 +77,7 @@ export default defineConfig({
   },
   theme: {
     colors: themeColors,
-    borderRadius: { 'micro': 'var(--buddy-radius-micro, 6px)', 'menu-item': 'var(--buddy-menu-item-radius, 3px)' },
+    borderRadius: { 'micro': 'var(--buddy-radius-micro, 6px)', 'menu-item': 'var(--buddy-menu-item-radius, 3px)', 'card': 'var(--buddy-radius-card, 0.65rem)', 'popover': 'var(--buddy-radius-popover, 0.65rem)' },
     width: { 'workspace-sidebar': 'var(--buddy-workspace-sidebar-width, 15.5rem)' },
     height: { 'region-header': 'var(--buddy-region-header-height, 2.75rem)' },
     minHeight: { 'menu-row': 'var(--buddy-menu-row-height, 32px)' },

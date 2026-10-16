@@ -111,6 +111,28 @@
     "terminal-sky": "#0b6e99",
     "terminal-rosewater": "#c14c8a"
   },
+  "shape": {
+    "radius": {
+      "micro": 4,
+      "icon": 4,
+      "control": 6,
+      "menu": 6,
+      "menu-item": 4,
+      "card": 8,
+      "popover": 8
+    }
+  },
+  "layout": {
+    "workspace-sidebar-width": 240,
+    "reading-width": 768,
+    "menu-row-height": 28,
+    "composer-control-height": 28,
+    "titlebar-height": 32,
+    "region-header-height": 44
+  },
+  "motion": {
+    "state-duration": 150
+  },
   "shadows": {
     "soft": [
       {

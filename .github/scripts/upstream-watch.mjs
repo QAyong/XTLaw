@@ -11,11 +11,10 @@ const upstreamRef = process.env.UPSTREAM_REF ?? 'upstream/master'
 const outDir = process.env.OUT_DIR ?? join(tmpdir(), 'upstream-watch')
 const repository = process.env.GITHUB_REPOSITORY ?? 'QAyong/XTLaw'
 const maxFiles = 100
-const maxConflicts = 10
 const maxPendingAssessed = 60
 
-const versionFilePattern = /(^|\/)(package\.json|Cargo\.toml|Cargo\.lock|buddy\.version\.json|CHANGELOG[^/]*)$/
-const versionLinePattern = /^\s*"?(version|sourceDateEpoch)"?\s*[:=]/
+const versionFilePattern = /(?:^|\/)(?:package\.json|Cargo\.toml|Cargo\.lock|buddy\.version\.json|CHANGELOG[^/]*)$/
+const versionLinePattern = /^\s*"?(?:version|sourceDateEpoch)"?\s*[:=]/
 
 function git(args, options = {}) {
   return execFileSync('git', args, {
@@ -59,16 +58,16 @@ function inspect(sha) {
   const releaseOnly = /release|发布|版本/i.test(subject)
     && files.length > 0
     && files.every(file => versionFilePattern.test(file))
-    && changed.every(item => /(^|\/)CHANGELOG/.test(item.file) || versionLinePattern.test(item.text))
+    && changed.every(item => /(?:^|\/)CHANGELOG/.test(item.file) || versionLinePattern.test(item.text))
 
   const reasons = []
   if (files.some(file => file.startsWith('.github/workflows/')))
     reasons.push('改动 .github/workflows（Actions 令牌无权推送）')
   if (files.some(file => /migrat/i.test(file) && !/__tests__|\.spec\./.test(file)))
     reasons.push('涉及迁移')
-  if (files.some(file => /(^|\/)(package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml)$/.test(file)))
+  if (files.some(file => /(?:^|\/)(?:package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml)$/.test(file)))
     reasons.push('依赖或包配置变更')
-  if (files.some(file => /^apps\/buddy\/(native|platform\/native)\//.test(file) || /\.rs$|(^|\/)Cargo\./.test(file)))
+  if (files.some(file => /^apps\/buddy\/(?:native|platform\/native)\//.test(file) || /\.rs$|(?:^|\/)Cargo\./.test(file)))
     reasons.push('原生代码变更')
   if (files.length > maxFiles)
     reasons.push(`文件数 ${files.length} 超过 ${maxFiles}（大功能，单独成轮）`)
@@ -79,7 +78,7 @@ function inspect(sha) {
 
 function buildMessage(info) {
   const author = git(['show', '-s', '--format=%an <%ae>', info.sha])
-  const match = /^(\w+)(?:\(([^)]+)\))?!?:\s*(.*)$/.exec(info.subject)
+  const match = /^(\w+)(?:\(([^)]+)\))?!?: ?(.*)$/.exec(info.subject)
   const english = match
     ? `Port upstream ${info.short}: ${match[1]}${match[2] ? `(${match[2]})` : ''} change`
     : `Port upstream ${info.short}`

@@ -4,7 +4,7 @@
   "name": "XTLaw 风格主题",
   "author": "XTLaw",
   "description": "XTLaw 自带的界面风格：纸页风格，浅色与深色。",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "icon": "icon.svg",
   "apiVersion": 3,
   "engines": {

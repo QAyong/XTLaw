@@ -12,7 +12,7 @@ describe('xTLaw bundled themes', () => {
     const home = await createTemporaryDirectory('xtlaw-themes-')
     const store = new ExtensionPackageStore(join(home, 'extensions'), '0.1.1')
     await seedXtlawThemes(store)
-    expect(store.installed['xtlaw.themes']).toMatchObject({ enabled: true, current: { manifest: { version: '1.0.0' } } })
+    expect(store.installed['xtlaw.themes']).toMatchObject({ enabled: true, current: { manifest: { version: '1.0.1' } } })
     expect(store.installed['xtlaw.themes']!.current.manifest.contributes.themes.map(theme => theme.id)).toEqual(['xtlaw.themes.paper-light', 'xtlaw.themes.paper-dark'])
     await store.uninstall('xtlaw.themes')
     await seedXtlawThemes(store)
@@ -25,6 +25,6 @@ describe('xTLaw bundled themes', () => {
     const appearance = name.endsWith('dark') ? 'dark' : 'light'
     const resolved = resolveTheme({ id: `xtlaw.themes.${name}`, label: name, appearance, source: 'plugin', extensionId: 'xtlaw.themes', packageName: 'xtlaw.themes', swatch: document.colors.accent }, document)
     expect(resolved.colors.canvas).toBe(document.colors.canvas)
-    expect(resolved.variables['--buddy-shadow-overlay']).toContain('0px 9px 24px 0px')
+    expect(resolved.variables['--buddy-shadow-overlay']).toContain('0px 4px 6px -1px')
   })
 })

@@ -2,36 +2,36 @@
   "schemaVersion": 1,
   "colors": {
     "canvas": "#ffffff",
-    "app-sidebar": "#f7f7f5",
-    "workspace-sidebar": "#f7f7f5",
+    "app-sidebar": "#f7f6f3",
+    "workspace-sidebar": "#f7f6f3",
     "surface": "#ffffff",
     "raised": "#ffffff",
     "subtle": "#37352f0a",
     "user-message": "#f1f1ef",
-    "hover": "#37352f0f",
-    "pressed": "#37352f29",
-    "selected": "#37352f14",
-    "selected-hover": "#37352f1f",
-    "nav-hover": "#37352f0f",
-    "nav-selected": "#37352f14",
-    "nav-selected-hover": "#37352f1f",
-    "nav-pressed": "#37352f29",
+    "hover": "#efedea",
+    "pressed": "#e3e1db",
+    "selected": "#e9e7e2",
+    "selected-hover": "#e6e4de",
+    "nav-hover": "#efedea",
+    "nav-selected": "#e9e7e2",
+    "nav-selected-hover": "#e6e4de",
+    "nav-pressed": "#e3e1db",
     "nav-foreground": "#37352f",
     "border": "#37352f17",
     "border-strong": "#37352f29",
     "strong": "#37352f",
     "fg": "#37352f",
     "muted": "#787774",
-    "disabled": "#37352f59",
+    "disabled": "#9b9a97",
     "on-accent": "#ffffff",
     "accent": "#2383e2",
     "accent-hover": "#0077d4",
     "accent-pressed": "#0066b8",
     "accent-text": "#1c75c6",
-    "focus": "#2383e2",
-    "text-selection": "#2daadb4d",
-    "text-selection-inactive": "#2daadb26",
-    "text-selection-match": "#2daadb1f",
+    "focus": "#2eaadc",
+    "text-selection": "#2eaadc4d",
+    "text-selection-inactive": "#2eaadc26",
+    "text-selection-match": "#2eaadc1f",
     "accent-subtle": "#2383e20f",
     "accent-surface": "#2383e21a",
     "accent-surface-hover": "#2383e229",
@@ -49,8 +49,8 @@
     "warning-surface": "#fbf3db",
     "warning-surface-hover": "#f7ecc5",
     "warning-border": "#ecd9a0",
-    "danger": "#e03e3e",
-    "danger-solid": "#e03e3e",
+    "danger": "#eb5757",
+    "danger-solid": "#eb5757",
     "danger-surface": "#fdebec",
     "danger-surface-hover": "#fbdcde",
     "danger-border": "#f1b7b9",
@@ -58,7 +58,7 @@
     "gold-surface": "#fbf3db",
     "avatar": "#e3e2e0",
     "avatar-foreground": "#37352f",
-    "data-violet": "#6940a5",
+    "data-violet": "#a083ff",
     "data-cyan": "#0b6e99",
     "data-blue": "#337ea9",
     "reading": "#ffffff",
@@ -107,14 +107,81 @@
     "terminal-green": "#448361",
     "terminal-yellow": "#cb912f",
     "terminal-peach": "#d9730d",
-    "terminal-maroon": "#e03e3e",
+    "terminal-maroon": "#eb5757",
     "terminal-sky": "#0b6e99",
     "terminal-rosewater": "#c14c8a"
   },
   "shadows": {
-    "soft": [{ "x": 0, "y": 1, "blur": 2, "spread": 0, "color": "#0f0f0f0f" }],
-    "raised": [{ "x": 0, "y": 0, "blur": 0, "spread": 1, "color": "#0f0f0f0d" }, { "x": 0, "y": 2, "blur": 4, "spread": 0, "color": "#0f0f0f1a" }],
-    "overlay": [{ "x": 0, "y": 0, "blur": 0, "spread": 1, "color": "#0f0f0f0d" }, { "x": 0, "y": 3, "blur": 6, "spread": 0, "color": "#0f0f0f1a" }, { "x": 0, "y": 9, "blur": 24, "spread": 0, "color": "#0f0f0f33" }],
-    "window": [{ "x": 0, "y": 0, "blur": 0, "spread": 1, "color": "#0f0f0f1a" }, { "x": 0, "y": 12, "blur": 32, "spread": 0, "color": "#0f0f0f33" }]
+    "soft": [
+      {
+        "x": 0,
+        "y": 1,
+        "blur": 2,
+        "spread": 0,
+        "color": "#0000000d"
+      }
+    ],
+    "raised": [
+      {
+        "x": 0,
+        "y": 1,
+        "blur": 3,
+        "spread": 0,
+        "color": "#0000001a"
+      },
+      {
+        "x": 0,
+        "y": 1,
+        "blur": 2,
+        "spread": -1,
+        "color": "#0000001a"
+      }
+    ],
+    "overlay": [
+      {
+        "x": 0,
+        "y": 0,
+        "blur": 0,
+        "spread": 1,
+        "color": "#0000000f"
+      },
+      {
+        "x": 0,
+        "y": 4,
+        "blur": 6,
+        "spread": -1,
+        "color": "#0000001a"
+      },
+      {
+        "x": 0,
+        "y": 2,
+        "blur": 4,
+        "spread": -2,
+        "color": "#0000001a"
+      }
+    ],
+    "window": [
+      {
+        "x": 0,
+        "y": 0,
+        "blur": 0,
+        "spread": 1,
+        "color": "#00000014"
+      },
+      {
+        "x": 0,
+        "y": 4,
+        "blur": 6,
+        "spread": -1,
+        "color": "#0000001a"
+      },
+      {
+        "x": 0,
+        "y": 2,
+        "blur": 4,
+        "spread": -2,
+        "color": "#0000001a"
+      }
+    ]
   }
 }

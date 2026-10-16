@@ -37,7 +37,7 @@ async function createFixture(respond: (request: { headers: Headers, body: Record
   const handler = createExtensionModelCapabilities(
     { resolveSession: async () => ({ model, runtime: transport }) },
     { record: vi.fn(), recordInvocation: vi.fn() },
-    { model: { providerId: 'opencode-go', modelId: model.id }, assertCurrent: () => {} },
+    { conversationId: 'task', branchId: 'branch', model: { providerId: 'opencode-go', modelId: model.id }, assertCurrent: () => {} },
   )['models.generateText']
   const scope = { conversationId: 'task', runId: null, action: { id: 'tests.title.generate', cause: { type: 'user' as const } }, extensionId: 'tests.title', invocationId: 'invocation', signal: new AbortController().signal }
   const generate = (callNumber = 1) => handler({ system: 'Return a title.', prompt: 'Review the lease contract', maxTokens: 256 }, { ...scope, callNumber })
@@ -54,7 +54,8 @@ describe('extension model capabilities request context', () => {
       expect(fixture.requests).toHaveLength(2)
       for (const { headers } of fixture.requests)
         expect(headers.get(SESSION_HEADER), 'plugin request must carry the routing session header').toBeTruthy()
-      expect(fixture.requests[0]!.headers.get(SESSION_HEADER)).not.toBe(fixture.requests[1]!.headers.get(SESSION_HEADER))
+      // The routing id is derived from the conversation, branch, plugin and action, so repeated calls of one action share it.
+      expect(fixture.requests[0]!.headers.get(SESSION_HEADER)).toBe(fixture.requests[1]!.headers.get(SESSION_HEADER))
 
       // Control: the same runtime reports the original failure without a session id and accepts a chat-style one.
       const context = { messages: [{ role: 'user' as const, content: 'hello', timestamp: 1 }] }

@@ -53,8 +53,8 @@ it('keeps the verified Linux package for recovery when a failed transaction alre
   const directory = await createTemporaryDirectory('linux-update-recovery-')
   const linuxPolicy = new DesktopUpdatePolicy({ schemaVersion: 1, format: 'deb', architecture: 'x64', signing: 'none' })
   linuxPolicy.linuxInstallation = { available: true, failedVersion: update.version }
-  const name = 'Lexora-Buddy-1.2.3-linux-amd64.deb'
-  const linuxUpdate = { ...update, name, url: `https://github.com/useLexora/Lexora/releases/download/v1.2.3/${name}` }
+  const name = 'XTLaw-1.2.3-linux-amd64.deb'
+  const linuxUpdate = { ...update, name, url: `https://github.com/QAyong/XTLaw/releases/download/xtlaw-v1.2.3/${name}` }
   const cache = new DesktopUpdateCache(directory, linuxPolicy, update.version)
   const recovery = { mode: 'manual' as const, reason: 'installer-unavailable' as const, update: linuxUpdate, fallback: null }
   await cache.remember(recovery)

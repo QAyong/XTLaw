@@ -19,6 +19,8 @@ vi.mock('electron', () => ({
   app: { getVersion: () => '0.1.0' },
   clipboard: { writeText: vi.fn() },
   ipcMain: {
+    on: vi.fn(),
+    removeListener: vi.fn(),
     handle: vi.fn((channel, handler) => electron.handlers.set(channel, handler)),
     removeHandler: vi.fn((channel: string) => electron.handlers.delete(channel)),
   },
@@ -73,6 +75,7 @@ describe('registerBrowserDesktopIpc', () => {
     const host = {
       close: vi.fn(),
       getState: () => state,
+      hasActiveDownloads: vi.fn(() => false),
       navigate: vi.fn(async () => ({ ...state, url: 'https://example.com/' })),
       reload: vi.fn(),
     }

@@ -78,9 +78,8 @@ jobs:
         run: |
           status="${{ steps.prepare.outputs.status }}"
           signature="${{ steps.prepare.outputs.signature }}"
-          label="upstream-sync"
-          gh label create "$label" --color 5319e7 --description "Upstream sync tracking" 2> /dev/null || true
-          number=$(gh issue list --label "$label" --state open --json number --jq '.[0].number // empty')
+          title="上游待同步"
+          number=$(gh issue list --state open --search "\"$title\" in:title" --json number,title --jq "[.[] | select(.title == \"$title\")][0].number // empty")
 
           if [ "$status" = "up-to-date" ]; then
             if [ -n "$number" ]; then
@@ -91,7 +90,7 @@ jobs:
 
           { cat "$OUT_DIR/report.md"; echo; echo "<!-- signature:$signature -->"; } > "$OUT_DIR/issue.md"
           if [ -z "$number" ]; then
-            gh issue create --label "$label" --title "上游待同步" --body-file "$OUT_DIR/issue.md"
+            gh issue create --title "$title" --body-file "$OUT_DIR/issue.md"
           else
             old=$(gh issue view "$number" --json body --jq .body | grep -o 'signature:[^ ]*' | head -n 1 || true)
             gh issue edit "$number" --body-file "$OUT_DIR/issue.md"

@@ -81,22 +81,24 @@ jobs:
           status="${{ steps.prepare.outputs.status }}"
           signature="${{ steps.prepare.outputs.signature }}"
           title="上游待同步"
-          number=$(gh issue list --state open --search "\"$title\" in:title" --json number,title --jq "[.[] | select(.title == \"$title\")][0].number // empty")
+          api="repos/$GITHUB_REPOSITORY/issues"
+          number=$(gh api "$api?state=open&per_page=100" --jq "[.[] | select(.pull_request == null and .title == \"$title\")][0].number // empty")
 
           if [ "$status" = "up-to-date" ]; then
             if [ -n "$number" ]; then
-              gh issue close "$number" --comment "已追平上游，无待同步提交。"
+              gh api "$api/$number/comments" -f body="已追平上游，无待同步提交。"
+              gh api -X PATCH "$api/$number" -f state=closed
             fi
             exit 0
           fi
 
           { cat "$OUT_DIR/report.md"; echo; echo "<!-- signature:$signature -->"; } > "$OUT_DIR/issue.md"
           if [ -z "$number" ]; then
-            gh issue create --title "$title" --body-file "$OUT_DIR/issue.md"
+            gh api "$api" -f title="$title" -F body=@"$OUT_DIR/issue.md" --jq .html_url
           else
-            old=$(gh issue view "$number" --json body --jq .body | grep -o 'signature:[^ ]*' | head -n 1 || true)
-            gh issue edit "$number" --body-file "$OUT_DIR/issue.md"
+            old=$(gh api "$api/$number" --jq .body | grep -o 'signature:[^ ]*' | head -n 1 || true)
+            gh api -X PATCH "$api/$number" -F body=@"$OUT_DIR/issue.md" --jq .html_url
             if [ "$old" != "signature:$signature" ]; then
-              gh issue comment "$number" --body "上游有新的变化，清单已更新，详见正文。"
+              gh api "$api/$number/comments" -f body="上游有新的变化，清单已更新，详见正文。"
             fi
           fi

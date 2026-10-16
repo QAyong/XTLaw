@@ -46,7 +46,9 @@
 - `pnpm type-check`：通过。
 - 相关测试：`platform/themes`、`platform/extensions`、`electron/main/config`、`electron/main/extensions`、`shared/theme`、`src/workbench`、`src/modules/extensions`、`src/modules/tasks`、`service/src/plugins`、`service/src/storage` 已跑。失败项都在 `docs/known-test-failures.md` 中（Windows 符号链接权限不足与路径分隔符）：`ExtensionPackageStore`、`ExtensionResourceStore`（2）、`pluginAuthoringCapability`、`BuddyDataPaths`、`StorageSnapshots`。
 - 新增并通过的测试：`ThemeService`、`resolveTheme`、`themeClient`，以及 `LexoraConfigStore` 的两个主题迁移用例。
-- **未做：** 没有启动应用，没有看实际界面。主题切换、内置主题是否正确安装、设置页里新主题选择行的样式、材质图片显示都没有运行时验证。`DesktopThemeSettings.vue` 来自上游，使用原子类名，本地 `uno.config.ts` 可能缺少个别类名的映射，需要启动后检查。
+- 开发预览（按 AGENTS.md 的桌面启动流程）：本次启动有 `runtime.ready`，诊断日志无 warn/error，无 `credential.decrypt.failed`；设置页「应用外观」显示主题选择（经典 · 浅色，XTLaw 主题）与文件图标主题。
+- 主题 e2e（`theme.e2e.mjs`，隔离实例）：主题选择、跟随系统、搜索、持久化通过；“损坏的主题数据”通过；“损坏的插件注册表”失败。原因是该用例假设系统为浅色：插件注册表损坏时没有内置主题，兜底主题跟随系统，本机系统为深色，所以得到深色。属环境假设，不是移植回归（探针确认兜底来源为 `lexora.fallback.dark`，系统深色）。
+- **未做：** 没有逐项人工看界面。深浅切换只靠 e2e 覆盖；材质图片显示、`DesktopThemeSettings.vue`（上游原子类名）在本地 `uno.config.ts` 下的样式细节未逐项核对。
 
 ## 后续
 

@@ -43,8 +43,6 @@ async function updateSetting(field: AppearanceSettingField, patch: LexoraConfigP
     <section class="desktop-appearance-settings__section">
       <h2>{{ t('desktop.settings.applicationAppearance') }}</h2>
       <DesktopThemeSettings :language="language" />
-    </section>
-    <section class="desktop-appearance-settings__section">
       <DesktopFileIconSettings :language="language" />
     </section>
     <slot name="after-application-appearance" />

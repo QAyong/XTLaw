@@ -17,9 +17,10 @@ import { BUDDY_PERMISSION_MODES } from '../../../shared/permissions/permissionMo
 import { DEFAULT_RUNTIME_PREFERENCES, runtimePreferencesSchema } from '../../../shared/runtime/runtimePreferences'
 import { keybindingsSchema } from '../../../shared/shortcuts/keybindingSchema'
 import { DEFAULT_LOCAL_BACKUP_LIMIT, localBackupLimitSchema } from '../../../shared/storage/backupRetention'
+import { DESKTOP_ACCENT_COLORS, legacyThemePreferenceSchema, migrateThemePreference, themePreferenceSchema } from '../../../shared/theme/themePreferences'
 import { DEFAULT_TYPOGRAPHY, typographyPreferencesSchema } from '../../../shared/typography/typographyPreferences'
-import { DEFAULT_DESKTOP_CHAT_PREFERENCES, DEFAULT_DESKTOP_CHAT_WELCOME_ITEMS, DESKTOP_CHAT_OUTLINE_POSITIONS, DESKTOP_PROFILE_AVATAR_MAX_DATA_URL_LENGTH, DESKTOP_TASK_SIDEBAR_SECTIONS } from '../../shared/desktopApi'
 
+import { DEFAULT_DESKTOP_CHAT_PREFERENCES, DEFAULT_DESKTOP_CHAT_WELCOME_ITEMS, DESKTOP_CHAT_OUTLINE_POSITIONS, DESKTOP_PROFILE_AVATAR_MAX_DATA_URL_LENGTH, DESKTOP_TASK_SIDEBAR_SECTIONS } from '../../shared/desktopApi'
 import { desktopChatWelcomeItemsSchema } from '../../shared/desktopApiSchemas'
 import { isPresetWelcomeId, normalizeDesktopChatWelcomePreference } from '../../shared/desktopChatWelcome'
 
@@ -35,7 +36,6 @@ function migrateWelcomeItems(value: unknown): unknown {
       : { kind: 'custom', id: record.id, text: record.text }
   })
 }
-import { DESKTOP_ACCENT_COLORS, legacyThemePreferenceSchema, migrateThemePreference, themePreferenceSchema } from '../../../shared/theme/themePreferences'
 
 const taskSidebarPinnedItemSchema = z.discriminatedUnion('kind', [
   z.object({ id: z.string().min(1).max(128), kind: z.literal('conversation') }).strict(),

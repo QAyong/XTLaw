@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import { TASK_MARK_COLORS } from '@buddy-shared/conversation/taskMarkApi'
+import { buddyColorThemes } from '@buddy-shared/theme/buddyTheme'
 import { ChevronDown16Regular, Color20Regular } from '@vicons/fluent'
 import { NButton, NColorPicker, NPopover } from 'naive-ui'
 import { nextTick, shallowRef, useTemplateRef, watch } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import DesktopColorPalette from '@/shared/ui/color-picker/DesktopColorPalette.vue'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
-import { buddyColorThemes } from '@buddy-shared/theme/buddyTheme'
 
 const props = defineProps<{ disabled?: boolean, readonly?: boolean, language: BuddyLocale }>()
 const color = defineModel<string>({ required: true })

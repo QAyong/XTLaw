@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer'
-import { themeAssetPaths, themeDocumentSchema } from '../../shared/theme/themeDocument.ts'
 import { EXTENSION_FILE_LIMIT } from '../../shared/extensions/extensionPackageLimits'
+import { themeAssetPaths, themeDocumentSchema } from '../../shared/theme/themeDocument.ts'
 
 export function validateThemeFiles(files: ReadonlyMap<string, Uint8Array>, themes: Array<{ path: string }>): void {
   for (const theme of themes) {

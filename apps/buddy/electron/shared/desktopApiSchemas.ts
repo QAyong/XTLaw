@@ -8,8 +8,8 @@ import { BUDDY_PERMISSION_MODES } from '../../shared/permissions/permissionMode'
 import { runtimePreferencesSchema } from '../../shared/runtime/runtimePreferences'
 import { keybindingsSchema } from '../../shared/shortcuts/keybindingSchema'
 import { localBackupLimitSchema } from '../../shared/storage/backupRetention'
-import { typographyPreferencesSchema } from '../../shared/typography/typographyPreferences'
 import { themePreferenceSchema } from '../../shared/theme/themePreferences'
+import { typographyPreferencesSchema } from '../../shared/typography/typographyPreferences'
 import {
   DESKTOP_CHAT_OUTLINE_POSITIONS,
   DESKTOP_PROFILE_AVATAR_MAX_DATA_URL_LENGTH,

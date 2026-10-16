@@ -109,3 +109,8 @@ defineExpose({ open, prepare, close, openRequest })
     @select="select" @clickoutside="event => event.button !== 2 && close()"
   />
 </template>
+
+<style>
+/* Naive sizes the label flex item to its text, so without this a long target title overflows instead of truncating. */
+.resource-selection-menu .n-dropdown-option-body__label { min-width: 0; overflow: hidden; }
+</style>

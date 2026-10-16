@@ -1,0 +1,101 @@
+name: Upstream Watch
+
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: upstream-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    if: github.repository == 'QAyong/XTLaw'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # 配置了 UPSTREAM_BOT_TOKEN 时，推送和建 PR 以该令牌身份进行，ci.yml 才会自动触发；
+      # 否则退回默认令牌，分支和 PR 照常创建，但不会触发 CI。
+      GH_TOKEN: ${{ secrets.UPSTREAM_BOT_TOKEN || github.token }}
+      HAS_BOT_TOKEN: ${{ secrets.UPSTREAM_BOT_TOKEN != '' }}
+      OUT_DIR: ${{ runner.temp }}/upstream-watch
+    steps:
+      - name: Checkout master
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: master
+          fetch-depth: 0
+          token: ${{ secrets.UPSTREAM_BOT_TOKEN || github.token }}
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+
+      - name: Fetch upstream
+        run: |
+          git remote add upstream https://github.com/useLexora/Lexora.git
+          git fetch upstream --prune
+
+      - name: Prepare upstream branch
+        id: prepare
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          node .github/scripts/upstream-watch.mjs
+          echo "status=$(jq -r .status "$OUT_DIR/result.json")" >> "$GITHUB_OUTPUT"
+          echo "branch=$(jq -r .branch "$OUT_DIR/result.json")" >> "$GITHUB_OUTPUT"
+          echo "signature=$(jq -r .signature "$OUT_DIR/result.json")" >> "$GITHUB_OUTPUT"
+
+      - name: Push prepared branch
+        id: push
+        if: steps.prepare.outputs.branch != ''
+        run: |
+          branch="${{ steps.prepare.outputs.branch }}"
+          if git ls-remote --exit-code --heads origin "$branch" > /dev/null; then
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
+          else
+            git push origin "HEAD:refs/heads/$branch"
+            echo "pushed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open draft pull request
+        if: steps.push.outputs.pushed == 'true'
+        continue-on-error: true
+        run: |
+          gh pr create --draft --repo "$GITHUB_REPOSITORY" --base master \
+            --head "${{ steps.prepare.outputs.branch }}" \
+            --title "Upstream sync preparation (上游同步预备)" \
+            --body-file "$OUT_DIR/report.md"
+
+      - name: Update tracking issue
+        run: |
+          status="${{ steps.prepare.outputs.status }}"
+          signature="${{ steps.prepare.outputs.signature }}"
+          label="upstream-sync"
+          gh label create "$label" --color 5319e7 --description "Upstream sync tracking" 2> /dev/null || true
+          number=$(gh issue list --label "$label" --state open --json number --jq '.[0].number // empty')
+
+          if [ "$status" = "up-to-date" ]; then
+            if [ -n "$number" ]; then
+              gh issue close "$number" --comment "已追平上游，无待同步提交。"
+            fi
+            exit 0
+          fi
+
+          { cat "$OUT_DIR/report.md"; echo; echo "<!-- signature:$signature -->"; } > "$OUT_DIR/issue.md"
+          if [ -z "$number" ]; then
+            gh issue create --label "$label" --title "上游待同步" --body-file "$OUT_DIR/issue.md"
+          else
+            old=$(gh issue view "$number" --json body --jq .body | grep -o 'signature:[^ ]*' | head -n 1 || true)
+            gh issue edit "$number" --body-file "$OUT_DIR/issue.md"
+            if [ "$old" != "signature:$signature" ]; then
+              gh issue comment "$number" --body "上游有新的变化，清单已更新，详见正文。"
+            fi
+          fi

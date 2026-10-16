@@ -6,6 +6,7 @@ import type { ExtensionTaskAction, ExtensionTaskActionInput, ExtensionTaskAction
 import type { ExtensionCatalogSnapshot } from './extensionCatalog'
 import type { ExtensionCompatibilityIssue, ExtensionIncompatibleReview } from './extensionCompatibility'
 import type { ExtensionConditionsChanged, ExtensionConditionState } from './extensionConditions'
+import type { ExtensionDiagnostic } from './extensionDiagnostic'
 import type { ExtensionInstallation } from './extensionInstallation'
 import type { ExtensionManifest } from './extensionManifest'
 import type { ExtensionConfiguration, ExtensionConfigurationSnapshot } from './extensionSettings'
@@ -80,6 +81,7 @@ export interface ExtensionLog {
   event: string
   code?: string
   durationMs?: number
+  diagnostic?: ExtensionDiagnostic
 }
 export interface ExtensionStatus {
   source?: ExtensionReview['source']
@@ -155,10 +157,7 @@ export const extensionManagementSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('endInteraction'), id: z.string().uuid() }).strict(),
   z.object({ action: z.literal('openView'), view: extensionViewInputSchema }).strict(),
   z.object({ action: z.literal('closeView'), viewId: z.string().uuid(), generation: z.string().uuid(), token: z.string().uuid() }).strict(),
-  z.object({ action: z.literal('viewRequest'), viewId: z.string().uuid(), generation: z.string().uuid(), token: z.string().uuid(), method: z.string().max(80), params: themeTransportSchema }).strict().superRefine((input, context) => {
-    if (input.method !== 'themes.request' && !extensionJsonSchema.safeParse(input.params).success)
-      context.addIssue({ code: 'custom', path: ['params'], message: 'Extension data is too large' })
-  }),
+  z.object({ action: z.literal('viewRequest'), viewId: z.string().uuid(), generation: z.string().uuid(), token: z.string().uuid(), method: z.string().max(80), params: z.unknown() }).strict(),
 ])
 export type ExtensionManagementRequest = z.infer<typeof extensionManagementSchema>
 export interface ExtensionApi {
@@ -192,7 +191,7 @@ export interface ExtensionApi {
   endInteraction: (id: string) => Promise<void>
   openView: (view: ExtensionViewInput) => Promise<ExtensionViewSession>
   closeView: (viewId: string, generation: string, token: string) => Promise<void>
-  viewRequest: (viewId: string, generation: string, token: string, method: string, params: JsonValue) => Promise<JsonValue>
+  viewRequest: (viewId: string, generation: string, token: string, method: string, params: unknown) => Promise<JsonValue>
   onChanged: (listener: () => void) => () => void
   onReview: (listener: (review: ExtensionReviewResult) => void) => () => void
   onWorkbench: (listener: (event: ExtensionWorkbenchEvent) => void) => () => void
@@ -200,6 +199,8 @@ export interface ExtensionApi {
 }
 
 export function extensionError(error: unknown): string {
+  if (error instanceof z.ZodError)
+    return 'EXTENSION_INVALID_ARGUMENT'
   const message = error instanceof Error ? error.message : ''
   return /^EXTENSION_[A-Z_]+$/.test(message) ? message : 'EXTENSION_OPERATION_FAILED'
 }

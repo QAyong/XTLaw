@@ -4,7 +4,6 @@ import type { ViewEnvironment } from '@buddy-shared/extensions/extensionViewEven
 import type { AnchorGeometry, MountGeometry } from '@buddy-shared/workbench/workbenchUi'
 import type { ExtensionSurface } from './useExtensionViews'
 import type { SurfaceLayout, SurfaceLayoutLease } from '@/shared/ui/surfaces/surfaceLayout'
-import { extensionJsonSchema } from '@buddy-shared/extensions/extensionApi'
 import { useMessage } from 'naive-ui'
 import { onMounted, onScopeDispose, useTemplateRef, watch } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
@@ -176,7 +175,7 @@ async function receive(event: MessageEvent) {
       value = frame.projection.synchronization
     }
     else {
-      value = await state.api.viewRequest(session.id, session.generation, session.token, data.method, extensionJsonSchema.parse(data.params))
+      value = await state.api.viewRequest(session.id, session.generation, session.token, data.method, data.params)
     }
     if (frames.get(data.token) !== frame || frame.surface.session !== session)
       return

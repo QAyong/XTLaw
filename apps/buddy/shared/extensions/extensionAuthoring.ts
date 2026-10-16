@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { workbenchCapabilityKinds } from '../workbench/workbenchContributionCatalog'
 import { workbenchCapabilityQuerySchema } from '../workbench/workbenchUi'
+import { extensionLogSchema } from './extensionDiagnostic'
 import { extensionAuthorSchema, extensionSlugSchema } from './extensionIdentity'
 import { extensionIdSchema, extensionVersionSchema } from './extensionManifest'
 import { EXTENSION_ARCHIVE_BASE64_LIMIT } from './extensionPackageLimits'
@@ -38,7 +39,7 @@ export const extensionInspectionSchema = z.object({
   navigation: z.string().nullable(),
   views: z.array(z.object({ type: z.string(), placement: z.string().nullable(), ready: z.boolean(), error: z.string().nullable() }).strict()).max(512),
   installations: z.array(z.object({ version: z.string(), status: z.string(), stage: z.string(), error: z.string().nullable() }).strict()).max(5),
-  logs: z.array(z.object({ time: z.string(), event: z.string(), code: z.string().optional(), durationMs: z.number().optional() }).strict()).max(50),
+  logs: z.array(extensionLogSchema).max(50),
 }).strict()
 export type ExtensionInspection = z.infer<typeof extensionInspectionSchema>
 export const extensionArchiveSchema = z.string().max(EXTENSION_ARCHIVE_BASE64_LIMIT).regex(/^[A-Z0-9+/]+={0,2}$/i)

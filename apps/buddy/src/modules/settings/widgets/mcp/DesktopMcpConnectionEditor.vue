@@ -9,6 +9,7 @@ import { NAlert, NButton, NCollapse, NCollapseItem, NForm, NFormItem, NInput, NM
 import { computed, reactive, shallowRef, useId } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import { createConnectorSavePlan } from '@/modules/settings/model/desktopConnectorForm'
+import DesktopSelect from '@/shared/ui/select/DesktopSelect.vue'
 
 const props = withDefaults(defineProps<{
   connector: LocalConnector | null
@@ -121,7 +122,7 @@ function submit() {
         </NFormItem>
         <template v-if="form.transport === 'stdio'">
           <NFormItem :label="t('desktop.mcp.command')">
-            <NSelect
+            <DesktopSelect
               :value="form.command || null"
               :options="commandOptions"
               filterable

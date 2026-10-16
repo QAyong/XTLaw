@@ -2,10 +2,11 @@
 import type { ThemeDescriptor } from '@buddy-shared/theme/themeDocument'
 import type { SelectGroupOption, SelectOption } from 'naive-ui'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
-import { NSelect, useMessage } from 'naive-ui'
+import { useMessage } from 'naive-ui'
 import { computed, h, shallowRef } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import { requireDesktopApi } from '@/platform/desktop/desktopApi'
+import DesktopSelect from '@/shared/ui/select/DesktopSelect.vue'
 import { useDesktopTheme } from '@/theme/useDesktopTheme'
 import DesktopSettingRow from '../shared/DesktopSettingRow.vue'
 import DesktopSettingsGroup from '../shared/DesktopSettingsGroup.vue'
@@ -60,7 +61,7 @@ async function update(id: string) {
 <template>
   <DesktopSettingsGroup>
     <DesktopSettingRow v-slot="{ controlAttrs }" :label="t('desktop.settings.theme')">
-      <NSelect
+      <DesktopSelect
         v-bind="controlAttrs"
         data-testid="desktop-theme-select"
         filterable

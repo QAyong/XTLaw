@@ -5,6 +5,7 @@ import { DEFAULT_TYPOGRAPHY, resolveTypography } from '@buddy-shared/typography/
 import { NSelect, useMessage } from 'naive-ui'
 import { computed } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
+import DesktopSelect from '@/shared/ui/select/DesktopSelect.vue'
 import { useLocalFonts } from '../../state/useLocalFonts'
 import { useSettingMutation } from '../../state/useSettingMutation'
 import DesktopSettingRow from '../shared/DesktopSettingRow.vue'
@@ -42,7 +43,7 @@ const sizeOptions = Array.from({ length: 9 }, (_, index) => ({ label: `${index +
     </h2>
     <DesktopSettingsGroup>
       <DesktopSettingRow v-for="field in fontFields" :key="field.key" v-slot="{ controlAttrs }" :label="field.label" :data-testid="`typography-${field.key}`">
-        <NSelect
+        <DesktopSelect
           v-bind="controlAttrs"
           filterable
           tag

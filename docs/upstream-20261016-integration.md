@@ -15,8 +15,8 @@
 | C | `0e3ff0b3`、`cc38b967`、`ebe499ad`、`8a2b8e8f`、`913f2085`、`073d1a43` | 已移植（`ed8ce3c3`、`8c1efbb3`、`baf7d99b`、`f02025fa`、`3b4aae86`、`15f5655f`）；`603a8114` 按你的决定跳过 |
 | D | `f6e2818a` 文件管理与图标扩展（219 个文件，含 Rust）、`a7836ac4` 空间文件加载卡顿 | 已移植（`c636db80`、`58e8ee85`）；本地 Spec-019 文件管理已移除 |
 | E | `25fc399f`、`195ab25e`、`585ac20a`、`2593a182`、`98b6e3ca`、`a8ce94f7` | 已移植（`68fa9cb3`、`79fdf5bb`、`1503b0db`、`e135c64f`、`7fc0090c`、`db3a317a`） |
-| F | `0469b6bc`、`1c2c9db4`、`6ec391eb` 选区引用 | 待做，按差异同步，不逐个 cherry-pick |
-| G | `6251ba91`、`61127eec`、`a7836ac4` | 待做 |
+| F | `1c2c9db4`（`0469b6bc` 是你自己的 PR，`6ec391eb` 只是合并外壳，均不取） | 已移植（`2d2f8ec9`），以上游为准 |
+| G | `6251ba91`、`61127eec`（`a7836ac4` 已在 D 轮） | 已移植（`a81daae8`、`af7b21b2`） |
 
 计划跳过：
 
@@ -208,3 +208,68 @@
 - 统一检查一次：`vue-tsc -b` 无错误，ESLint 无错误。
 - 相关测试 100 个文件、669 个用例：652 通过、4 跳过、13 失败。其中 12 个已在 `docs/known-test-failures.md`，另 1 个是新增的 `ImageBlobStore.spec.ts`“拒绝损坏、缺失、链接和格式错误的图片”，在创建符号链接时被系统拒绝，同类，已补进清单。
 - 没有验证：Windows 安装包的目录选择页（需要打包后实际安装，也要确认 `StrContains.nsh` 在打包时可用，已确认该文件在 `app-builder-lib` 模板里）；云备份的真实 WebDAV 或 S3 连接；本地备份清理的实际效果；更新下载失败各分支的窗口效果。
+
+## F 轮：选区引用（`1c2c9db4`）
+
+### 为什么只取一个提交
+
+- `0469b6bc` 是你自己提交的 PR（#245），本地已有对应实现。
+- `6ec391eb` 是把 PR 合进主线的合并提交，它的文件树与 `1c2c9db4` 完全相同，没有额外内容。
+- 真正的差异只有维护者在你的 PR 之上加的 `1c2c9db4`。单独取它，冲突是 15 个；按三个提交整体合，冲突是 43 个。
+- 你的要求是“以上游为准”：选区引用相关行为冲突时取上游，但不丢本地其他功能。
+
+### 上游带来的
+
+- 统一的引用卡片 `ReferenceCard`（替换聊天里的 `ChatReferenceCard`）；点引用在编辑器和预览里定位并高亮原文（`useResourceQuoteReveal`、`useQuoteHighlight`、`revealMonacoQuote`）。
+- 浏览器元素选择更稳：滚动和 Shadow DOM 下元素身份不丢，替换页面后拒绝旧引用，帧高亮可清理；浏览器按钮选元素不会点到页面。
+- 首次带浏览器引用发送时保留已打开的资源面板。
+- 引用文本投影到模型输入的逻辑拆到 `buddyResourceQuoteText.ts`。
+- 12 个新增文件，4 个 e2e 脚本（没有运行）。
+
+### 以上游为准而移除的本地内容
+
+- 原生编辑菜单：`selectionReferenceMenu`、`selectionReferenceEdit` 通道、`desktopSelectionReferenceEditInputSchema` 和 `executeEdit`。这是你 PR 里做的，上游在后续提交里去掉了。
+- 编辑器里基于 `quoteSelection` 状态的定位（`applyQuoteSelection`），改用上游的 `useResourceQuoteReveal`。
+- `ChatReferenceCard.vue`，改用 `ReferenceCard.vue`。
+
+### 保留的本地内容
+
+- Office DOCX 引用：`createDesktopSelectionReferences` 里 `docx` 的特殊处理，以及 `createFile` 里打开 DOCX 的路径和 `file-preview` 回退（并入了上游新增的 `current` 守卫参数）。
+- 通知点击跳转的两个 IPC（`appGetPendingOpenTarget`、`appCompleteOpenTarget`）；`showSelectionReferenceResult`；`activeResource`。
+- 样式：新增的 `ReferenceCard` 等上游组件保留其原子类名；本地已有组件（文档预览、浏览器工具栏、文本预览）保留作用域样式，只补上高亮等新增规则。
+
+### 测试的取舍
+
+- `registerBrowserDesktopIpc.spec.ts`、`composerDraftRepository.spec.ts`、`resourceQuotes.spec.ts` 冲突时先取了上游版本，结果丢掉了 7 个本地测试（草稿里恢复文件、浏览器、产物摘录各一个，引用文本投影 3 到 4 个，页面确认框的“只回复一次”）。我逐个核对后补回：
+  - `composerDraftRepository.spec.ts` 用本地版本（上游没有新增用例，本地是超集）。
+  - `resourceQuotes.spec.ts` 保留上游版本，本地版本另存为 `resourceQuotesProjection.spec.ts`，两者都通过。
+  - `registerBrowserDesktopIpc.spec.ts` 保留上游版本，给 `ipcMain` 的 mock 补 `on`、`removeListener`，给宿主 mock 补 `hasActiveDownloads`；页面确认框的用例另存为 `registerBrowserDesktopIpcDialog.spec.ts`。
+- 没有运行 e2e。
+
+## G 轮：插件任务钩子、Linux 更新
+
+### `6251ba91` 插件任务钩子与请求上下文
+
+- 新增三个任务事件：`task:created`、`task:run:before`（可声明阻塞，前置阶段总预算 10 秒）、`task:reply:started`，并把请求上下文传到插件的模型请求。
+- **与你本地 `16617fef` 的差异：** 本地给插件模型请求发的是每次随机的 `uuidv7`；上游改为由对话、分支、插件、动作（或调用）标识算出的确定性路由标识。采用上游，所以同一个动作的多次调用现在共用一个路由标识；本地 `extensionModelCapabilities.spec.ts` 里“两次调用路由头不同”的断言改成了“相同”，并给任务会话补了 `conversationId`、`branchId`。
+- **我取上游文件时丢了本地的输出截断保护**（输出被 token 上限截断时单独报 `EXTENSION_MODEL_TRUNCATED`，不返回半截文本），测试暴露后已补回。
+- `ExtensionCapabilities.spec.ts` 的期望里补上 `agent.hooks`（该能力项来自本次新增的目录条目）。
+- `extensionAgent.e2e.mjs` 冲突取了本地版本，上游新增的钩子 e2e 没有加入（本地 e2e 文件名与上游不同，且没有运行 e2e）。
+
+### `61127eec` Linux 应用内更新
+
+- Linux 上下载完成后，确认系统授权，应用退出、安装更新并重新打开；失败可回退，并显示手动安装步骤和可复制的命令。新增 Rust `linux_update.rs`、TS `linuxInstaller.ts`、`DesktopUpdateInstallDialog.vue`；安装闸门文件改名为 `desktopInstallationGate`；`process_control` 增加对应入口。
+- XTLaw 的调整：可执行文件路径 `/opt/xtlaw/xtlaw`（来自 `productName: xtlaw` 和 Linux 的 `executableName: xtlaw`）、锁文件 `/run/xtlaw-update.lock`、临时目录 `/var/tmp/xtlaw-update-*`、安装包名前缀 `XTLaw-`；界面和对话框文案中的 Lexora 改为 XTLaw；对应测试夹具的文件名和发布地址改为 XTLaw 的。
+- 冲突只有更新对话框和提醒条的样式写法：保留本地作用域样式，取上游新增的状态文案和 `pending` 属性。
+- **没有在 Linux 上验证。** Windows 上 `cargo check --target x86_64-unknown-linux-gnu` 因缺少 Linux 的 C 交叉编译器失败（`rusqlite` 的内置编译需要），所以 `linux_update.rs` 没有真正编译，也没有运行 `native/host/__tests__/linux_update.rs`；我只用 `rustc` 单独解析了这个文件，只报缺少外部依赖，没有语法错误，这只是弱证据。`Cargo.toml` 里 Linux 下的 `rustix` 特性（`fs`、`process`、`event` 等）已满足它的导入。
+
+### 验证
+
+- `vue-tsc -b` 和 ESLint 对 `electron`、`src`、`shared`、`service/src`、`platform`、`extensions`、`.playwright/scripts` 全部无错误。
+- F 与 G 之后的一次宽范围测试（349 个文件、2409 个用例）：33 个失败，其中 23 个是已知失败，10 个是新增。10 个都已查清并修复：`registerBrowserDesktopIpc` 的 mock 缺 `on`、`removeListener`、`hasActiveDownloads`（6 个）；`ExtensionCapabilities` 的期望缺 `agent.hooks`；`DesktopUpdateCache` 的 Linux 夹具还用着 Lexora 的包名和发布地址；`extensionModelCapabilities` 的两个用例（截断保护丢失、路由标识断言）。修复后对涉及的文件重跑通过；没有再重跑整个宽范围测试。
+
+## 整体结果（本轮 1073fa9a 到 ad2a3dd1）
+
+- 移植：`a69cfc6a`；`f2971e99`、`d7b00bf3`、`3f040626`；`0e3ff0b3`、`cc38b967`、`ebe499ad`、`8a2b8e8f`、`913f2085`、`073d1a43`；`f6e2818a`、`a7836ac4`；`25fc399f`、`195ab25e`、`585ac20a`、`2593a182`、`98b6e3ca`、`a8ce94f7`；`1c2c9db4`；`6251ba91`、`61127eec`。
+- 跳过：`603a8114`（面板按钮图标，你决定不要）；`24fefd1b`、`5f9ee744`、`14b42798`（发版提交，只改版本号）；`ad2a3dd1`（官网重构，本地官网已是 XTLaw 品牌）；`5ce92339`、`352fa46c`（Playwright 目录与归档调整）；`0469b6bc`（你自己的 PR，已在本地）、`6ec391eb`（合并外壳，无额外内容）。
+- 本地被上游取代的实现：Spec-019 文件管理（D 轮）、引用链 `c271532b`（B 轮）、选区引用的原生编辑菜单（F 轮）、插件模型请求的随机路由标识 `16617fef`（G 轮）。

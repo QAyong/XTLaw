@@ -11,8 +11,11 @@ export const themeRadiusFields = {
   'control': { variable: '--buddy-composer-control-radius', min: 0, max: 24, unit: 'px' },
   'menu': { variable: '--buddy-menu-radius', min: 0, max: 24, unit: 'px' },
   'menu-item': { variable: '--buddy-menu-item-radius', min: 0, max: 24, unit: 'px' },
-  'card': { variable: '--buddy-radius-card', min: 0, max: 24, unit: 'px' },
-  'popover': { variable: '--buddy-radius-popover', min: 0, max: 24, unit: 'px' },
+  'xs': { variable: '--buddy-radius-xs', min: 0, max: 24, unit: 'px' },
+  'sm': { variable: '--buddy-radius-sm', min: 0, max: 24, unit: 'px' },
+  'md': { variable: '--buddy-radius-md', min: 0, max: 24, unit: 'px' },
+  'lg': { variable: '--buddy-radius-lg', min: 0, max: 24, unit: 'px' },
+  'xl': { variable: '--buddy-radius-xl', min: 0, max: 24, unit: 'px' },
 } as const satisfies Record<string, FormField>
 
 export const themeLayoutFields = {

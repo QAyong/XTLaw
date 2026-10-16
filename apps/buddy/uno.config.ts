@@ -1,4 +1,5 @@
 import { defineConfig, presetUno, transformerVariantGroup } from 'unocss'
+import { tokenizeRadiusValue } from './shared/theme/radiusScale'
 
 const alphaLevels = [10, 20, 30, 40, 50, 60, 70, 80] as const
 
@@ -68,6 +69,12 @@ const themeColors = {
 export default defineConfig({
   presets: [presetUno()],
   transformers: [transformerVariantGroup()],
+  postprocess: (util) => {
+    for (const entry of util.entries) {
+      if (entry[0].endsWith('radius') && typeof entry[1] === 'string')
+        entry[1] = tokenizeRadiusValue(entry[1])
+    }
+  },
   shortcuts: {
     'transition-state-colors': 'transition-[background-color,color] duration-[var(--buddy-motion-state-duration)] ease-[var(--buddy-motion-state-easing)]',
     'ui-focus-ring': 'focus-visible:(outline-solid outline-2 outline-focus outline-offset-[-2px])',
@@ -77,7 +84,7 @@ export default defineConfig({
   },
   theme: {
     colors: themeColors,
-    borderRadius: { 'micro': 'var(--buddy-radius-micro, 6px)', 'menu-item': 'var(--buddy-menu-item-radius, 3px)', 'card': 'var(--buddy-radius-card, 0.65rem)', 'popover': 'var(--buddy-radius-popover, 0.65rem)' },
+    borderRadius: { 'micro': 'var(--buddy-radius-micro, 6px)', 'menu-item': 'var(--buddy-menu-item-radius, 3px)' },
     width: { 'workspace-sidebar': 'var(--buddy-workspace-sidebar-width, 15.5rem)' },
     height: { 'region-header': 'var(--buddy-region-header-height, 2.75rem)' },
     minHeight: { 'menu-row': 'var(--buddy-menu-row-height, 32px)' },

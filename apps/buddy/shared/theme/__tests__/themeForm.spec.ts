@@ -9,21 +9,21 @@ describe('theme form tokens', () => {
     const document = themeDocumentSchema.parse({ schemaVersion: 1 })
     expect(document.shape).toEqual({ radius: {} })
     const { variables } = resolveTheme(descriptor, { schemaVersion: 1 })
-    for (const name of ['--buddy-radius-micro', '--buddy-radius-card', '--buddy-workspace-sidebar-width', '--buddy-theme-motion-duration'])
+    for (const name of ['--buddy-radius-micro', '--buddy-radius-lg', '--buddy-workspace-sidebar-width', '--buddy-theme-motion-duration'])
       expect(variables[name]).toBeUndefined()
   })
 
   it('maps radius, layout and motion tokens to the existing variables', () => {
     const { variables } = resolveTheme(descriptor, {
       schemaVersion: 1,
-      shape: { radius: { 'micro': 4, 'menu-item': 3, 'card': 8 } },
+      shape: { radius: { 'micro': 4, 'menu-item': 3, 'lg': 8 } },
       layout: { 'workspace-sidebar-width': 240, 'reading-width': 768, 'sidebar-item-font-size': 14 },
       motion: { 'state-duration': 150 },
     })
     expect(variables).toMatchObject({
       '--buddy-radius-micro': '4px',
       '--buddy-menu-item-radius': '3px',
-      '--buddy-radius-card': '8px',
+      '--buddy-radius-lg': '8px',
       '--buddy-workspace-sidebar-width': '240px',
       '--buddy-chat-reading-width': '768px',
       '--buddy-sidebar-item-font-size': '14px',

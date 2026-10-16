@@ -6,6 +6,7 @@ import vue from '@vitejs/plugin-vue'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import UnoCSS from 'unocss/vite'
 import { extensionRuntimePlugin } from './electron/extensionRuntimePlugin.ts'
+import { radiusTokensPlugin } from './electron/radiusTokensPlugin.ts'
 
 const PRODUCTION_CONNECT_SRC = 'connect-src \'self\';'
 const DEVELOPMENT_CONNECT_SRC
@@ -78,6 +79,7 @@ export default defineConfig({
     },
     plugins: [
       allowDevelopmentWebSockets(),
+      radiusTokensPlugin(),
       vue(),
       UnoCSS(),
     ],

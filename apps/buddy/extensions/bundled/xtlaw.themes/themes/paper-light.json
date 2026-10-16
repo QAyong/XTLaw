@@ -118,8 +118,11 @@
       "control": 6,
       "menu": 6,
       "menu-item": 4,
-      "card": 8,
-      "popover": 8
+      "xs": 3,
+      "sm": 4,
+      "md": 6,
+      "lg": 8,
+      "xl": 8
     }
   },
   "layout": {

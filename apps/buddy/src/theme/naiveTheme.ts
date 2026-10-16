@@ -1,6 +1,7 @@
 import type { BuddyColorTheme } from '@buddy-shared/theme/buddyTheme'
 import type { ThemeColors } from '@buddy-shared/theme/themeDocument'
 import type { GlobalThemeOverrides } from 'naive-ui'
+import { radiusToken } from '@buddy-shared/theme/radiusScale'
 
 export function createBuddyNaiveThemeOverrides(theme: BuddyColorTheme, colors: ThemeColors): GlobalThemeOverrides {
   const { accent, state } = theme
@@ -133,7 +134,7 @@ export function createBuddyNaiveThemeOverrides(theme: BuddyColorTheme, colors: T
     Spin: { color: accent.text, textColor: accent.text },
     Steps: { indicatorTextColorFinish: accent.text },
     Tooltip: {
-      borderRadius: '6px',
+      borderRadius: radiusToken('6px'),
       boxShadow: theme.shadow.overlay,
       color: theme.surface.raised,
       padding: '7px 10px',

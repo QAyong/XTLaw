@@ -282,3 +282,36 @@
 - 修复（`cdffdd74`）：把期望列表补成 `['brave', 'native', 'google', 'bing', 'duckduckgo', 'sogou-weixin']`，并从已知失败清单里删除这一条。第二轮完整 CI（运行 38882680542，提交 `cdffdd74`）：**全部通过**，包括 Workspace checks、Repository checks 和 CI Gate，Website quality 与依赖缓存因路径过滤跳过。
 - 收尾：PR #5 已关闭（没有带 `--delete-branch`，因为它的头分支是 `master`），临时基线分支在远端和本地都已删除。
 - 这些 CI 覆盖的是：编译、格式、clippy、单元测试和工作区检查。没有覆盖：e2e、打包安装、Linux 上真实的应用内更新、云备份真实连接。
+
+## H 轮：`d4e914d5..3ca97e2e`（分支 `codex/upstream-20261016-b`）
+
+接在自动预备分支（PR #8，移植 `7f88940e`，基线 `7f88940e`）之后，处理机器人停下的 `d4e914d5` 及其后的 4 个提交。
+
+| 上游提交 | 处理 | 原因 |
+|---|---|---|
+| `d4e914d5` 修复插件主题请求与错误诊断 | 跳过 | 它是上游主题插件系统（`00feaa2c` 引入）上的修补；本地没有主题系统，`themeClient.ts` 等文件不存在，试合并 9 处冲突无处落地 |
+| `9372413d` 修复浏览器元素选取错位 | 已移植（`264c40f8`） | 与被跳过的提交没有共享文件 |
+| `cc0ac294` 插件媒体资源与主题图片存储 | 跳过 | 属于主题功能，且与 `d4e914d5` 共享 7 个文件 |
+| `86e3b502` 支持网页读取与截图模式 | 已移植（`385261b4`） | 与被跳过的提交没有共享文件，无冲突 |
+| `3ca97e2e` 扩展插件窗口样式与主题材质能力 | 跳过 | 属于主题功能，且与 `d4e914d5` 共享 6 个文件；新增行含 `Lexora` 字样 |
+
+### 冲突处理（`9372413d`，3 个文件）
+
+- `desktopIcons.ts`：只取新增的 `browserPickElement` 图标；上游上下文里的 `contextPanel`、`contextPanelActive` 本地没有素材也没有使用，不引入。
+- `DesktopBrowserToolbar.vue`：保留本地使用的 `Code20Regular`，去掉上游同样删除的 `CursorHover20Regular`。
+- `browserHostFixture.ts`：按上游让 `debugger` 本身成为事件发射器，去掉本地的 `on`/`off` 转发；本地另有 3 个测试使用 `debuggerEvents`，所以保留它并指向 `debugger`。
+
+### 检查
+
+- 品牌：新增行只有小写的内部标识符（CDP 隔离世界名、全局变量名、`lexora_browser_*` 工具名），与本地已有命名一致，无用户可见的 `Lexora` 文案。
+- 没有迁移、依赖变更、原生代码或新增样式类名。
+- `vue-tsc -b` 无错误。
+- 相关测试（108 个文件、944 个用例）：930 通过、2 跳过、12 失败。12 个失败全部在 `docs/known-test-failures.md` 中（`BrowserAdapterServer` 7 个、`BrowserAdapterClient` 3 个、`BrowserHostClient` 2 个），原因是 Windows 上的 socket 权限与符号链接 `EPERM`。注意 `BrowserHostClient.ts` 被本轮改动，而它的 2 个测试在本机无法运行，需靠远端 CI 验证。
+
+### 关于主题系统
+
+评估过取回主题栈（`00feaa2c`、`0b9d252e`、`fd88122a`、`df0f9369`、`b915b87d` 及上面被跳过的 3 个）：只取引擎约 108 个非组件文件（其中约 30 个试合并冲突，集中在插件系统与 Electron 主进程），连组件样式一起换约 380 个文件、85 个组件需要人工合并。结论是本轮不取。若以后要取，注意内置主题插件的 `engines.lexora` 要求 `>=0.10.1`，而本地应用版本是 `0.1.x`，直接带入会被判为不兼容；上游的 `b915b87d` 修正了元数据与兼容范围，应一并取。
+
+### 基线
+
+检查到的上游提交推进到 `3ca97e2e`；上游之后又有 `c249ed7c`（优化工具探索与编排），留给下一轮。

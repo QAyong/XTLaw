@@ -12,7 +12,7 @@ describe('xTLaw bundled themes', () => {
     const home = await createTemporaryDirectory('xtlaw-themes-')
     const store = new ExtensionPackageStore(join(home, 'extensions'), '0.1.1')
     await seedXtlawThemes(store)
-    expect(store.installed['xtlaw.themes']).toMatchObject({ enabled: true, current: { manifest: { version: '1.0.1' } } })
+    expect(store.installed['xtlaw.themes']).toMatchObject({ enabled: true, current: { manifest: { version: '1.0.2' } } })
     expect(store.installed['xtlaw.themes']!.current.manifest.contributes.themes.map(theme => theme.id)).toEqual(['xtlaw.themes.paper-light', 'xtlaw.themes.paper-dark'])
     await store.uninstall('xtlaw.themes')
     await seedXtlawThemes(store)

@@ -16,7 +16,6 @@ import {
   ArrowRight16Regular,
   Camera20Regular,
   Code20Regular,
-  CursorHover20Regular,
   FolderOpen20Regular,
   Globe16Regular,
   LockClosed16Regular,
@@ -264,7 +263,7 @@ function selectAddress(event: FocusEvent): void {
           :aria-pressed="Boolean(picking)" :aria-label="picking ? t('desktop.context.browserCancelPick') : pickLabel || t('desktop.context.browserPickElement')"
           @click="emit('pick')"
         >
-          <DesktopIcon aria-hidden="true" :component="CursorHover20Regular" />
+          <DesktopIcon name="browserPickElement" />
         </button>
       </template>
       <span role="tooltip">{{ picking ? t('desktop.context.browserCancelPick') : pickLabel || t('desktop.context.browserPickElement') }}</span>

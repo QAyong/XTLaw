@@ -93,8 +93,7 @@ class FakeWebContents extends EventEmitter {
     toPNG: () => Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]),
   }))
 
-  readonly debuggerEvents = new EventEmitter()
-  readonly debugger = {
+  readonly debugger = Object.assign(new EventEmitter(), {
     attach: vi.fn(() => {
       this.debuggerAttached = true
     }),
@@ -102,12 +101,6 @@ class FakeWebContents extends EventEmitter {
       this.debuggerAttached = false
     }),
     isAttached: vi.fn(() => this.debuggerAttached),
-    off: (event: string, listener: (...args: unknown[]) => void) => {
-      this.debuggerEvents.off(event, listener)
-    },
-    on: (event: string, listener: (...args: unknown[]) => void) => {
-      this.debuggerEvents.on(event, listener)
-    },
     sendCommand: vi.fn<(
       method: string,
       commandParams?: Record<string, unknown>,
@@ -116,7 +109,9 @@ class FakeWebContents extends EventEmitter {
         this.lifecycleState = params?.state as 'active' | 'frozen'
       return {}
     }),
-  }
+  })
+
+  readonly debuggerEvents = this.debugger
 
   readonly focus = vi.fn()
   readonly openDevTools = vi.fn()

@@ -341,10 +341,7 @@ fn stage_package(installation: &Installation, uid: u32) -> io::Result<StagedPack
     if !metadata.is_file() || metadata.uid() != uid || metadata.len() != installation.size {
         return Err(invalid());
     }
-    let directory = PathBuf::from(format!(
-        "/var/tmp/xtlaw-update-{}",
-        uuid::Uuid::new_v4()
-    ));
+    let directory = PathBuf::from(format!("/var/tmp/xtlaw-update-{}", uuid::Uuid::new_v4()));
     fs::DirBuilder::new().mode(0o700).create(&directory)?;
     let staged = StagedPackage {
         file: directory.join(name),

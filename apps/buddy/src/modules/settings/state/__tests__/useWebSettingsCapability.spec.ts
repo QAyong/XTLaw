@@ -39,7 +39,7 @@ describe('web settings UI state', () => {
     const pending = Promise.withResolvers<void>()
     gate(pending.promise)
     const saving = capability.reorderSearch('brave', 'native', 'before')
-    expect(capability.searchSources.value.map(source => source.provider)).toEqual(['brave', 'native', 'google', 'bing', 'duckduckgo'])
+    expect(capability.searchSources.value.map(source => source.provider)).toEqual(['brave', 'native', 'google', 'bing', 'duckduckgo', 'sogou-weixin'])
     expect(capability.busy.value).toBe(true)
     expect(state().settings.search[0]?.provider).toBe('native')
     pending.resolve()

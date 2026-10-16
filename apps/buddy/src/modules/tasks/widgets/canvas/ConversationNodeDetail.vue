@@ -2,7 +2,7 @@
 import type { ConversationNodeDetailRequest } from '@buddy-shared/conversation/conversationTree'
 import type { ChatTranscriptRow } from '../../model/transcript/chatTranscriptProjection'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
-import { Dismiss20Regular, Edit20Regular, Keyboard20Regular, Wand20Regular } from '@vicons/fluent'
+import { Chat20Regular, Dismiss20Regular, Edit20Regular, Keyboard20Regular } from '@vicons/fluent'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import BuddyChatAgentTurn from '../transcript/BuddyChatAgentTurn.vue'
@@ -31,7 +31,7 @@ const { writeClipboardText } = useChatContent()
 <template>
   <section class="conversation-node-detail" data-testid="canvas-node-detail" :data-kind="target.kind" :data-target-id="target.kind === 'question' ? target.messageId : target.runId">
     <header class="conversation-node-detail__header">
-      <DesktopIcon :component="target.kind === 'question' ? Keyboard20Regular : Wand20Regular" />
+      <DesktopIcon :component="target.kind === 'question' ? Keyboard20Regular : Chat20Regular" />
       <span>{{ t(`desktop.canvas.${target.kind}`) }}</span>
       <div class="conversation-node-detail__actions">
         <button v-if="target.kind === 'question' && !editing" type="button" :disabled="!canEdit" :aria-label="t('desktop.chat.editMessage')" :title="t('desktop.chat.editMessage')" data-testid="canvas-detail-edit" @click="emit('edit')">

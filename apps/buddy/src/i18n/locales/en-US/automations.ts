@@ -22,7 +22,7 @@ export default {
   'desktop.automations.effectiveStatus.failed': 'Failed',
   'desktop.automations.effectiveStatus.cancelled': 'Cancelled',
   'desktop.automations.effectiveStatus.skipped': 'Skipped',
-  'desktop.automations.effectiveStatus.actorUnavailable': 'Skipped: actor unavailable',
+  'desktop.automations.effectiveStatus.actorUnavailable': 'Skipped: assistant unavailable',
   'desktop.automations.effectiveStatus.expired': 'Expired',
   'desktop.automations.action.edit': 'Edit',
   'desktop.automations.action.more': 'More actions',

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Node } from '@antv/x6'
 import type { ConversationCanvasData } from './conversationCanvasContext'
-import { Add20Regular, ArrowSync20Regular, Document20Regular, Edit20Regular, Keyboard20Regular, Wand20Regular } from '@vicons/fluent'
+import { Add20Regular, ArrowSync20Regular, Chat20Regular, Document20Regular, Edit20Regular, Keyboard20Regular } from '@vicons/fluent'
 import { useIntervalFn } from '@vueuse/core'
 import { computed, inject, onBeforeUnmount, shallowRef, useTemplateRef, watch } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
@@ -74,7 +74,7 @@ function open(event: MouseEvent) {
   >
     <div class="conversation-node__card" :class="{ 'buddy-border-beam': message.status === 'running' }">
       <header class="conversation-node__header">
-        <DesktopIcon class="conversation-node__role" :component="message.kind === 'answer' ? Wand20Regular : Keyboard20Regular" :title="label" />
+        <DesktopIcon class="conversation-node__role" :component="message.kind === 'answer' ? Chat20Regular : Keyboard20Regular" :title="label" />
         <span v-if="message.toolCount" class="conversation-node__tools">{{ t('desktop.canvas.tools', { count: message.toolCount }) }}</span>
         <div class="conversation-node__trailing">
           <span v-if="message.kind === 'draft'" class="conversation-node__status">{{ label }}</span>

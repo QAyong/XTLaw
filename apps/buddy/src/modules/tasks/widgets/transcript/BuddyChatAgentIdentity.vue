@@ -15,7 +15,7 @@ const props = defineProps<{
 const { t } = useBuddyI18n(() => props.language)
 const buddyId = useChatBuddyId(() => props.runId)
 const buddy = useBuddyIdentity(buddyId)
-const name = computed(() => buddy.value?.name ?? (buddyId.value === BUILTIN_BUDDY_ID ? t('desktop.chat.agentName') : props.language === 'en-US' ? 'Companion' : '伙伴'))
+const name = computed(() => buddy.value?.name ?? (buddyId.value === BUILTIN_BUDDY_ID ? t('desktop.chat.agentName') : props.language === 'en-US' ? 'Assistant' : '助手'))
 </script>
 
 <template>

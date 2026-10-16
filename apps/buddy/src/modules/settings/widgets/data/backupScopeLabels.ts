@@ -3,7 +3,7 @@ import type { BackupScope } from '@buddy-shared/storage/backupScope'
 export const backupScopeLabels: Record<BackupScope, { zh: string, en: string, hint: string, hintEn: string }> = {
   tasks: { zh: '任务与空间', en: 'Tasks and spaces', hint: '任务记录、附件、产物与空间信息', hintEn: 'History, attachments, artifacts and space metadata' },
   workspaces: { zh: '托管工作文件', en: 'Managed workspace files', hint: 'XTLaw 数据目录内的工作文件，不含外部目录', hintEn: 'Workspace files inside the data directory, excluding external folders' },
-  buddies: { zh: '伙伴与 NPC', en: 'Buddies and NPCs', hint: '自定义伙伴、指令、头像及能力偏好', hintEn: 'Custom buddies, instructions, avatars and preferences' },
+  buddies: { zh: '助手', en: 'Assistants', hint: '自定义助手、指令、头像及能力偏好', hintEn: 'Custom assistants, instructions, avatars and preferences' },
   providers: { zh: '模型服务配置', en: 'Model services', hint: '服务商、模型与参数；密钥单独选择', hintEn: 'Providers, models and parameters; credentials are optional' },
   connections: { zh: '工具与连接配置', en: 'Tools and connections', hint: 'MCP、搜索服务及云备份连接', hintEn: 'MCP, search services and cloud backup connections' },
   skills: { zh: 'Skills', en: 'Skills', hint: '全局与空间 Skills 的文件和安装信息', hintEn: 'Global and space skill files and installation records' },

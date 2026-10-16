@@ -170,6 +170,13 @@ function openNotification(notification: DesktopNotification) {
   height: 1rem;
 }
 
+.desktop-sidebar-footer__notification-trigger :deep(svg) {
+  stroke: currentColor;
+  /* 20 单位画布的原有 1 单位轮廓加粗至 1.5，对齐 24 单位画布的 1.8 线宽。 */
+  stroke-width: 0.5;
+  stroke-linejoin: round;
+}
+
 .desktop-sidebar-footer :deep(.n-badge-sup) {
   min-width: 18px;
   padding: 0 5px;

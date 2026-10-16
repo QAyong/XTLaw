@@ -3,8 +3,8 @@ import type { LocalBuddy } from '@buddy-shared/buddies/buddyApi'
 import {
   CheckmarkCircle20Filled,
   Dismiss20Regular,
+  PersonAdd20Regular,
   Search20Regular,
-  Sparkle20Regular,
 } from '@vicons/fluent'
 import {
   NButton,
@@ -94,7 +94,7 @@ function confirm() {
   >
     <template #header>
       <div class="flex items-center gap-2">
-        <DesktopIcon :component="Sparkle20Regular" class="text-accent-text text-[18px]" />
+        <DesktopIcon :component="PersonAdd20Regular" class="text-accent-text text-[18px]" />
         <span class="text-[15px] font-600 text-fg">{{ labels.recruitNpc }}</span>
       </div>
     </template>
@@ -133,7 +133,7 @@ function confirm() {
               @click="toggleNpc(npc.id)"
             >
               <div v-if="draftSelection.has(npc.id)" class="recruit-stamp">
-                <span class="recruit-stamp__text">RECRUITED</span>
+                <span class="recruit-stamp__text">{{ labels.selectedForCollaboration }}</span>
               </div>
 
               <div>
@@ -148,10 +148,10 @@ function confirm() {
                     </div>
                     <div class="mt-1 flex items-center gap-1.5 flex-wrap">
                       <NTag size="tiny" :bordered="false" class="uppercase text-[10px]">
-                        {{ npc.settings.model ? npc.settings.model.modelId : '默认模型' }}
+                        {{ npc.settings.model ? npc.settings.model.modelId : labels.preferredModel }}
                       </NTag>
                       <span v-if="npc.settings.tools.mode === 'selected'" class="text-[11px] text-muted">
-                        {{ npc.settings.tools.ids.length }} 工具
+                        {{ npc.settings.tools.ids.length }} {{ labels.tools }}
                       </span>
                     </div>
                   </div>
@@ -170,10 +170,10 @@ function confirm() {
                 <div class="flex items-center gap-1 text-[12px] font-500">
                   <template v-if="draftSelection.has(npc.id)">
                     <DesktopIcon :component="CheckmarkCircle20Filled" class="text-accent-text text-[15px]" />
-                    <span class="text-accent-text font-600">已入队</span>
+                    <span class="text-accent-text font-600">{{ labels.selectedForCollaboration }}</span>
                   </template>
                   <template v-else>
-                    <span class="text-muted group-hover:text-fg transition-colors">+ 招募入队</span>
+                    <span class="text-muted group-hover:text-fg transition-colors">+ {{ labels.selectForCollaboration }}</span>
                   </template>
                 </div>
               </div>
@@ -191,7 +191,7 @@ function confirm() {
       <div class="flex items-center justify-between w-full">
         <div class="flex items-center gap-2">
           <span class="text-[13px] font-500 text-fg">
-            已编入小队：<span class="tabular-nums font-600 text-accent-text">{{ draftSelection.size }}</span> 位
+            {{ labels.selectedAssistants(draftSelection.size) }}
           </span>
         </div>
         <div class="flex items-center gap-2">
@@ -203,9 +203,9 @@ function confirm() {
           </NButton>
           <NButton size="small" type="primary" :disabled="disabled" @click="confirm">
             <template #icon>
-              <DesktopIcon :component="Sparkle20Regular" />
+              <DesktopIcon :component="PersonAdd20Regular" />
             </template>
-            确认编队
+            {{ labels.confirm }}
           </NButton>
         </div>
       </div>

@@ -66,7 +66,7 @@ function preview(item: LocalChatQueueItem, id: string) {
               </template>
             </NButton>
           </template>
-          {{ item.differentBuddy ? (language === 'en-US' ? 'Waiting for the selected companion’s next turn' : '等待所选伙伴在下一轮处理') : t('desktop.chat.queueSteer') }}
+          {{ item.differentBuddy ? (language === 'en-US' ? 'Waiting for the selected assistant’s next turn' : '等待所选助手在下一轮处理') : t('desktop.chat.queueSteer') }}
         </NTooltip>
         <NButton quaternary circle size="small" :disabled="pending.has(item.id)" :title="t('desktop.chat.queueCancel')" :aria-label="t('desktop.chat.queueCancel')" @click="emit('cancel', item.id)">
           <template #icon>

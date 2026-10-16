@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ExtensionReview, ExtensionReviewResult, ExtensionStatus } from '@buddy-shared/extensions/extensionApi'
 import type { ExtensionIncompatibleReview } from '@buddy-shared/extensions/extensionCompatibility'
-import { ChevronDown16Regular, MoreHorizontal20Regular, Wand20Regular } from '@vicons/fluent'
+import { ChevronDown16Regular, MoreHorizontal20Regular } from '@vicons/fluent'
 import { NAlert, NButton, NDropdown, NEmpty, NModal, useMessage } from 'naive-ui'
 import { computed, onScopeDispose, shallowRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -137,7 +137,7 @@ onScopeDispose(cancel)
       <div class="extension-manager__acquisition-split">
         <NButton class="extension-manager__create-button" type="primary" size="small" :disabled="busy" data-testid="extension-create" @click="create">
           <template #icon>
-            <DesktopIcon :component="Wand20Regular" :size="16" />
+            <DesktopIcon name="pluginAdd" :size="16" />
           </template>
           {{ labels.create }}
         </NButton>

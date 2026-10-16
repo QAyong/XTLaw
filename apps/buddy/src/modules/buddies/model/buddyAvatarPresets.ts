@@ -1,9 +1,9 @@
 import type { BUDDY_AVATAR_PRESET_IDS, LocalBuddy } from '@buddy-shared/buddies/buddyApi'
 import { BUILTIN_BUDDY_ID } from '@buddy-shared/buddies/buddyApi'
 import { BRAND_ASSET_URLS } from '@/shared/branding/brandAssets'
-import actorChatGpt from '../assets/avatars/actor-chatgpt.webp'
-import actorClaude from '../assets/avatars/actor-claude.webp'
-import actorDeepSeek from '../assets/avatars/actor-deepseek.webp'
+import actorChatGpt from '../assets/avatars/actor-chatgpt.svg'
+import actorClaude from '../assets/avatars/actor-claude.svg'
+import actorDeepSeek from '../assets/avatars/actor-deepseek.svg'
 import npcLilac from '../assets/avatars/npc-lilac.webp'
 import npcSlate from '../assets/avatars/npc-slate.webp'
 

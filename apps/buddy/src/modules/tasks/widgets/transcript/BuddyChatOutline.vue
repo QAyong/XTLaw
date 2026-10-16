@@ -4,7 +4,7 @@ import type { VirtualListInst } from 'naive-ui'
 
 import type { ChatOutlineItem } from '../../model/transcript/chatOutline'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
-import { Keyboard20Regular, Wand20Regular } from '@vicons/fluent'
+import { Chat20Regular, Keyboard20Regular } from '@vicons/fluent'
 import { NVirtualList } from 'naive-ui'
 import { computed, nextTick, shallowRef, useTemplateRef, watch } from 'vue'
 
@@ -123,7 +123,7 @@ function itemAriaLabel(item: ChatOutlineItem): string {
 }
 
 function roleIcon(item: ChatOutlineItem) {
-  return item.kind === 'input' ? Keyboard20Regular : Wand20Regular
+  return item.kind === 'input' ? Keyboard20Regular : Chat20Regular
 }
 
 function handleRailWheel(event: WheelEvent) {

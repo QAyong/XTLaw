@@ -114,7 +114,7 @@ function close(): void {
               />
             </NFormItem>
 
-            <NFormItem :label="language === 'en-US' ? 'Actor' : '主角'">
+            <NFormItem :label="language === 'en-US' ? 'Conversation assistant' : '对话助手'">
               <BuddyActorSelect v-model:value="form.actorId" :disabled="busy" />
             </NFormItem>
 

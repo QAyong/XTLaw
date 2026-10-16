@@ -132,32 +132,6 @@ function handleSelect(key: string) {
 </template>
 
 <style scoped lang="scss">
-.buddy-profile-card {
-  background-image: radial-gradient(ellipse at 0% 50%, color-mix(in srgb, var(--buddy-accent-solid) 10%, transparent), transparent 65%);
-
-  &::before,
-  &::after {
-    content: '';
-    position: absolute;
-    z-index: -1;
-    pointer-events: none;
-    width: 220px;
-    height: 220px;
-    border: 1px solid color-mix(in srgb, var(--buddy-accent-solid) 15%, transparent);
-    border-radius: 50%;
-  }
-
-  &::before {
-    top: -84px;
-    right: 90px;
-  }
-
-  &::after {
-    top: -34px;
-    right: 20px;
-  }
-}
-
 .buddy-profile-card__split-actions.has-menu > :deep(.n-button:first-child) {
   border-top-right-radius: 0;
   border-bottom-right-radius: 0;

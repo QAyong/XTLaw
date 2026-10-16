@@ -11,8 +11,8 @@ const emit = defineEmits<{ 'update:value': [value: string | null] }>()
 const { buddies, catalog, ready, refresh } = useBuddiesContext()
 const { language } = useDesktopUi()
 const defaultValue = '__application_default__'
-const defaultLabel = computed(() => language.value === 'en-US' ? 'Application default actor' : '应用默认主角')
-const unavailableLabel = computed(() => language.value === 'en-US' ? 'Unavailable actor' : '主角不可用')
+const defaultLabel = computed(() => language.value === 'en-US' ? 'Application default assistant' : '应用默认对话助手')
+const unavailableLabel = computed(() => language.value === 'en-US' ? 'Assistant unavailable' : '对话助手不可用')
 const selected = computed(() => props.value ?? defaultValue)
 const options = computed(() => {
   const active = buddies.value.filter(buddy => buddy.kind === 'actor' && buddy.enabled && !buddy.deletedAt)
@@ -29,5 +29,5 @@ function renderLabel(option: SelectOption) {
 </script>
 
 <template>
-  <DesktopSelect :value="selected" :options="options" :render-label="renderLabel" :disabled="disabled || !ready" filterable :aria-label="language === 'en-US' ? 'Actor' : '主角'" @update:show="(show: boolean) => show && refresh()" @update:value="emit('update:value', $event === defaultValue ? null : $event)" />
+  <DesktopSelect :value="selected" :options="options" :render-label="renderLabel" :disabled="disabled || !ready" filterable :aria-label="language === 'en-US' ? 'Conversation assistant' : '对话助手'" @update:show="(show: boolean) => show && refresh()" @update:value="emit('update:value', $event === defaultValue ? null : $event)" />
 </template>

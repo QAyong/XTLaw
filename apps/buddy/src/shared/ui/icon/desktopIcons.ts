@@ -14,6 +14,7 @@ import navigationSettingsUrl from './assets/navigation-settings.svg'
 import navigationTaskUrl from './assets/navigation-task.svg'
 import notificationMarkAllReadUrl from './assets/notification-mark-all-read.svg'
 import pinOffUrl from './assets/pin-off.svg'
+import pluginAddUrl from './assets/plugin-add.svg'
 import sidebarChevronUrl from './assets/sidebar-chevron.svg'
 import spaceNoneUrl from './assets/space-none.svg'
 import toolCreateFileUrl from './assets/tool-create-file.svg'
@@ -43,6 +44,7 @@ export const DESKTOP_ICON_URLS = {
   navigationTask: navigationTaskUrl,
   notificationMarkAllRead: notificationMarkAllReadUrl,
   pinOff: pinOffUrl,
+  pluginAdd: pluginAddUrl,
   sidebarChevron: sidebarChevronUrl,
   spaceNone: spaceNoneUrl,
   toolCreateFile: toolCreateFileUrl,

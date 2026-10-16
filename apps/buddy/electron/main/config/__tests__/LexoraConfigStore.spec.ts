@@ -139,7 +139,7 @@ keep=true
     expect((await store.read()).desktop.updateNotificationsEnabled).toBe(true)
     await store.update({ desktop: { updateNotificationsEnabled: false } })
     await store.update({ desktop: { language: 'en-US' } })
-    expect((await new LexoraConfigStore({ configPath }).read()).desktop).toMatchObject({ updateNotificationsEnabled: false, notificationsEnabled: false, theme: { id: 'lexora.themes.classic-dark' } })
+    expect((await new LexoraConfigStore({ configPath }).read()).desktop).toMatchObject({ updateNotificationsEnabled: false, notificationsEnabled: false, theme: { id: 'xtlaw.themes.paper-dark' } })
     expect(await readFile(configPath, 'utf8')).toContain('keep = true')
   })
 

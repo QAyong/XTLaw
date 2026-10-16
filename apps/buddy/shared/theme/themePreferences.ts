@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { defaultThemeId } from './defaultTheme.ts'
 
 export const DESKTOP_ACCENT_COLORS = ['default', 'green', 'violet', 'rose', 'amber'] as const
 
@@ -27,6 +28,5 @@ export function migrateThemePreference(preference: ThemePreference | z.infer<typ
     return { ...DEFAULT_THEME_PREFERENCE }
   if (typeof preference !== 'string')
     return { id: preference[mode] }
-  const name = accent === 'default' ? 'classic' : accent
-  return { id: `lexora.themes.${name}-${mode}` }
+  return { id: accent === 'default' ? defaultThemeId(mode) : `lexora.themes.${accent}-${mode}` }
 }

@@ -13,6 +13,7 @@ import { z } from 'zod'
 import { safeDiagnosticReporter } from '../../shared/diagnostics/applicationDiagnostic'
 import { Emitter } from '../../shared/events/Emitter'
 import { copyEventSnapshot } from '../../shared/events/eventSnapshot'
+import { defaultThemeId } from '../../shared/theme/defaultTheme'
 import { fallbackTheme, resolveTheme } from '../../shared/theme/resolveTheme'
 import { themeArchiveSchema, themeRequestSchema } from '../../shared/theme/themeApi'
 import { describeTheme, themeAssetPaths, themeDocumentSchema } from '../../shared/theme/themeDocument'
@@ -99,7 +100,7 @@ export class ThemeService {
 
   #buildSnapshot(): ThemeSnapshot {
     const system = this.#preference.id === 'system'
-    const requested = system ? `lexora.themes.classic-${this.#systemDark ? 'dark' : 'light'}` : this.#preference.id
+    const requested = system ? defaultThemeId(this.#systemDark ? 'dark' : 'light') : this.#preference.id
     const entry = this.#entry(requested)
     const preview = this.#preview
     const active = preview?.entry.resolved ?? entry?.resolved ?? this.#fallbacks[(system ? this.#systemDark : this.#fallbackDark) ? 'dark' : 'light']

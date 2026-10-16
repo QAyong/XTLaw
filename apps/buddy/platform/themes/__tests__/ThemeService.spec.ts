@@ -11,6 +11,7 @@ import { DEFAULT_THEME_PREFERENCE } from '../../../shared/theme/themePreferences
 import { ExtensionPackageStore } from '../../extensions/ExtensionPackageStore'
 import { bundledThemeFiles, seedBundledThemes } from '../bundledThemes'
 import { ThemeService } from '../ThemeService'
+import { seedXtlawThemes } from '../xtlawThemes'
 
 const archive: ThemeArchiveInput = { schemaVersion: 1, label: 'Ocean', appearance: 'light', document: { schemaVersion: 1, colors: { accent: '#207cba' } } }
 
@@ -248,12 +249,14 @@ describe('theme data and lifecycle', () => {
     const store = new ExtensionPackageStore(join(home, 'extensions'), '0.10.2')
     await store.load()
     await seedBundledThemes(store)
+    await seedXtlawThemes(store)
     const pkg = store.installed['lexora.themes']!.current
-    const packages = [{ package: pkg, root: store.packageRoot(pkg) }]
+    const paper = store.installed['xtlaw.themes']!.current
+    const packages = [{ package: pkg, root: store.packageRoot(pkg) }, { package: paper, root: store.packageRoot(paper) }]
     await service.refresh(packages)
-    expect(service.snapshot.active.descriptor.id).toBe('lexora.themes.classic-light')
+    expect(service.snapshot.active.descriptor.id).toBe('xtlaw.themes.paper-light')
     service.setSystemDark(true)
-    expect(service.snapshot.active.descriptor.id).toBe('lexora.themes.classic-dark')
+    expect(service.snapshot.active.descriptor.id).toBe('xtlaw.themes.paper-dark')
     await service.request('desktop', { action: 'preference', preference: { id: 'lexora.themes.violet-dark' } })
     service.setSystemDark(false)
     expect(service.snapshot.active.descriptor.id).toBe('lexora.themes.violet-dark')
@@ -267,7 +270,7 @@ describe('theme data and lifecycle', () => {
     await service.refresh(packages)
     expect(service.snapshot.unavailable).toBe('lexora.themes.violet-dark')
     await service.request('desktop', { action: 'preference', preference: DEFAULT_THEME_PREFERENCE })
-    expect(service.snapshot.active.descriptor.id).toBe('lexora.themes.classic-light')
+    expect(service.snapshot.active.descriptor.id).toBe('xtlaw.themes.paper-light')
     await service.refresh([])
     service.setSystemDark(true)
     expect(service.snapshot.active.descriptor.appearance).toBe('dark')

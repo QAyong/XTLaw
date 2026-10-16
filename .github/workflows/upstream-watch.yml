@@ -24,7 +24,6 @@ jobs:
       # 否则退回默认令牌，分支和 PR 照常创建，但不会触发 CI。
       GH_TOKEN: ${{ secrets.UPSTREAM_BOT_TOKEN || github.token }}
       HAS_BOT_TOKEN: ${{ secrets.UPSTREAM_BOT_TOKEN != '' }}
-      OUT_DIR: ${{ runner.temp }}/upstream-watch
     steps:
       - name: Checkout master
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -40,6 +39,7 @@ jobs:
 
       - name: Fetch upstream
         run: |
+          echo "OUT_DIR=$RUNNER_TEMP/upstream-watch" >> "$GITHUB_ENV"
           git remote add upstream https://github.com/useLexora/Lexora.git
           git fetch upstream --prune
 

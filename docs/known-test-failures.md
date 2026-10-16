@@ -15,7 +15,7 @@
 
 第四类在干净基线上同样失败，原因各不相同（Windows 路径分隔符、文件模式位、本地用例与现状不一致等），附上首行错误便于比对。
 
-### 符号链接权限（EPERM）（27）
+### 符号链接权限（EPERM）（28）
 
 | 测试文件 | 用例 |
 | --- | --- |
@@ -46,6 +46,7 @@
 | `service/src/skills/__tests__/SkillService.spec.ts` | skillService rejects a cached document replaced by a symlink outside its source |
 | `service/src/skills/__tests__/SkillService.spec.ts` | skillService unloads revoked Space skills and rejects symlink escapes |
 | `service/src/storage/__tests__/StorageSnapshots.spec.ts` | creates portable snapshots without credentials or recursive backups and restores in place with a recovery copy |
+| `service/src/agent/extensions/__tests__/mutationToolExecution.spec.ts` | authorized mutation execution serializes overlapping grants across different working directories and preserves root, child and resumed root diffs |
 
 ### Unix 套接字（10）
 
@@ -75,7 +76,7 @@
 | `electron/main/runtime/__tests__/buddyServiceProcess.spec.ts` | buddyServiceProcess records stderr across chunks when the utility stream reaches EOF |
 | `service/src/sandbox/__tests__/sandboxPermissions.spec.ts` | isolated shell permissions builds a private shell environment without provider secrets, host sockets or proxy inheritance |
 
-### 其他（干净基线即失败）（13）
+### 其他（干净基线即失败）（15）
 
 | 测试文件 | 用例 |
 | --- | --- |
@@ -92,3 +93,5 @@
 | `service/src/storage/__tests__/BuddyDataPaths.spec.ts` | buddyDataPaths keeps every durable conversation resource under one conversation directory<br>`AssertionError: expected 'D:\home\user\.lexora\buddy\conversati…' to be '/home/user/.lexora/buddy/conversation…' // Object.is equality` |
 | `service/src/web/__tests__/WebCapabilityService.spec.ts` | web capability routing bounds concurrent cache retention without crossing conversation boundaries<br>`AssertionError: expected 438 to be 384 // Object.is equality` |
 | `src/modules/tasks/widgets/transcript/__tests__/messageLinkRouting.spec.ts` | markdown link destinations routes nested anchor clicks in narration mode<br>`AssertionError: expected "vi.fn()" to be called with arguments: [ 'https://example.com' ]` |
+| `src/modules/settings/state/__tests__/useWebSettingsCapability.spec.ts` | web settings UI state immediately reorders, persists plain IPC data and preserves subsequent toggles<br>`AssertionError: expected [ 'brave', 'native', 'google', …(3) ] to deeply equal [ 'brave', 'native', 'google', …(2) ]`（本地新增搜狗微信搜索源后断言未更新） |
+| `service/src/permissions/__tests__/PermissionEngine.spec.ts` | permissionEngine forces confirmation for unknown capabilities and recognizable system mutations<br>`AssertionError: expected { type: 'allow' } to match object { type: 'ask', … }`（Windows 上 `lexora_host_shell` 走 PowerShell 策略，识别不到 `sudo`、`shutdown now`） |

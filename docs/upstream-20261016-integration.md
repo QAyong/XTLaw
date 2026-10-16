@@ -12,7 +12,7 @@
 |---|---|---|
 | A | `a69cfc6a` 数据迁移与备份恢复 | 已移植（本地 `daa6aa4d`） |
 | B | `f2971e99`、`d7b00bf3`、`3f040626` 任务引用与引用链（含迁移 v29） | 已移植（`76f710ff`、`4e5eb234`、`42a011c7`） |
-| C | `603a8114`、`0e3ff0b3`、`cc38b967`、`ebe499ad`、`8a2b8e8f`、`913f2085`、`073d1a43` | 待做 |
+| C | `0e3ff0b3`、`cc38b967`、`ebe499ad`、`8a2b8e8f`、`913f2085`、`073d1a43` | 已移植（`ed8ce3c3`、`8c1efbb3`、`baf7d99b`、`f02025fa`、`3b4aae86`、`15f5655f`）；`603a8114` 按你的决定跳过 |
 | D | `f6e2818a` 文件管理与图标扩展（219 个文件，含 Rust） | 待评估 |
 | E | `25fc399f`、`195ab25e`、`585ac20a`、`98b6e3ca`、`2593a182`、`a8ce94f7` | 待做 |
 | F | `0469b6bc`、`1c2c9db4`、`6ec391eb` 选区引用 | 待做，按差异同步，不逐个 cherry-pick |
@@ -96,3 +96,35 @@
 - 会话、存储、共享、任务相关测试 174 个文件、1305 个用例：1302 通过，1 跳过，2 失败。2 个失败都已在 `docs/known-test-failures.md`：`BuddyDataPaths.spec.ts`（POSIX 路径）和 `StorageSnapshots.spec.ts`（符号链接权限）。
 - 没有启动开发预览，所以迁移 v29 还没有在真实开发库 `.xtlaw-dev/buddy/buddy.sqlite3` 上运行。只有 `schema.spec.ts` 里的 v28 到 v29 升级用例验证了迁移本身。升级后旧版本很可能无法再打开该库，需要时用 `~/.xtlaw-migration-backups/20261016-a-round`，但它在升级前，之后的数据不在里面。
 - 没有运行 e2e，没有在窗口里查看画布折叠和引用相关界面。
+
+## C 轮：资源面板、通知、授权与迁移界面
+
+### 跳过
+
+- `603a8114`（资源面板按钮图标换成上游自绘 SVG）：按你的决定跳过。它只改标题栏图标，与后续提交没有依赖。
+
+### 移植内容
+
+- `0e3ff0b3` 子任务通知：新增“子任务通知”开关（`subtaskNotificationsEnabled`，默认开）；通知服务按 `executions.list` 识别子任务，标题为“子任务 #N · 任务名”。本地 `844cf7d0` 的通知清理逻辑（`dispose`、点击保留、关闭与失败回收）原样保留。本地的 `settingsControls.e2e.mjs` 已删除，保持删除。
+- `cc38b967` 完全访问下不重复授权：权限引擎在完全访问下不再强制二次确认沙箱绕过，`lexora_host_shell` 按平台映射到 bash 或 PowerShell 策略。
+- `ebe499ad` 资源面板操作聚合：连续的“打开/收起资源面板”提示合并为“资源面板操作 N 次”，新增 `BuddyChatPanelGroup.vue`。本地对话流有自己的折叠结构，保留，只把面板行换成分组组件。
+- `8a2b8e8f` 关闭最后一个可见标签后自动收起面板：新增设置“自动收起空资源面板”（`contextPanelAutoCollapse`，默认关）。你本地早先的实现（`71bdbf30`）始终开启，按上游同步后变成默认关闭的可选项，使用的人需要在设置里打开。
+- `913f2085` Windows 旧版退出：安装器判断已安装版本是否支持“请求退出”，不支持则提示从托盘手动退出。
+- `073d1a43` 数据迁移窗口：改进进度、失败原因和诊断导出。
+
+### 与上游不同的处理
+
+- `8a2b8e8f`：本地有“按会话记住面板开关”，关闭时沿用本地的开关恢复逻辑，同时调用 `control.close(原始来源)`，让“用户关闭面板”的记录带上原始来源（上游测试要求）。`useTaskResourcePanelClose.spec.ts` 中“不在可见范围外收起”一条断言原本是“面板仍打开”，本地切换到未保存过状态的任务时面板本来就会收起，改为比较关闭操作的次数。
+- `913f2085`：安装器的版本门槛由上游的 `0.11.1.0` 改为 `0.1.2.0`。XTLaw 已发布的 0.1.1 不支持“请求退出”，下一个版本才有。**如果下一个 XTLaw 发布版本号不是 0.1.2，这里必须同步修改**，否则新安装包会对支持的版本也走手动退出，或对不支持的版本发退出请求。
+- `073d1a43`：上游页面从 `shared/theme` 取颜色和字体，本地没有这套主题模块。颜色改为 `storageMigrationColors.ts` 里的静态色值（取自本地 `src/theme/buddyTheme.ts` 的亮色与暗色），字体用 `typographyPreferences.ts` 里的默认字体栈。不能直接 import `src/theme`，那会把渲染进程的 DOM 和 naive-ui 类型带进 Electron 主进程的类型检查，已经因此出过一次 `attachmentProtocol.ts` 类型错误。
+- `073d1a43`：反馈地址 `github.com/useLexora/Lexora/issues` 改为 `github.com/QAyong/XTLaw/issues`。
+- 测试：`DesktopNotificationService.spec.ts` 和 `LexoraConfigStore.spec.ts` 本地与上游分叉很大，保留本地版本，只补子任务通知的用例和新增配置项；`BuddyChatActivities.spec.ts` 并入上游的面板分组用例。
+
+### 验证
+
+- 本轮按“少跑检查”执行：每个提交只跑改动相关的测试，整轮结束后跑一次 `vue-tsc -b` 和 ESLint，均通过。
+- 失败的测试都不是本轮引入：
+  - 符号链接权限：`mutationToolExecution.spec.ts` 一条，已补进 `docs/known-test-failures.md`。
+  - Windows 平台差异：`PermissionEngine.spec.ts` 的“forces confirmation…”，Windows 上 `lexora_host_shell` 走 PowerShell 策略，识别不到 `sudo`、`shutdown now`，已补进清单。
+  - 本地搜狗微信搜索源（`b6139b74`）新增后断言未更新：`useWebSettingsCapability.spec.ts`，已补进清单。
+- 未验证：没有运行 e2e，没有在窗口里查看资源面板分组、新增的两个设置开关和数据迁移窗口，没有触发过真实的子任务通知。

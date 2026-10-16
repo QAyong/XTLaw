@@ -11,7 +11,7 @@ import type { SpaceFileByteChunk, SpaceFileByteRequest, SpaceFileTarget, SpaceSa
 import type { JsonValue } from '../../../shared/workbench/workbenchState'
 import { join } from 'node:path'
 import process from 'node:process'
-import { app, dialog, ipcMain, Notification, powerMonitor, session } from 'electron'
+import { app, dialog, ipcMain, Notification, powerMonitor, session, shell } from 'electron'
 import { z } from 'zod'
 import { BundledExtensionCatalog } from '../../../platform/extensions/BundledExtensionCatalog'
 import { ExtensionPackageStore } from '../../../platform/extensions/ExtensionPackageStore'
@@ -32,6 +32,7 @@ export function registerExtensionIpc(options: {
   themes: ThemeService
   version: string
   getWindow: () => BrowserWindow | null
+  readResource: (target: SpaceFileTarget, signal: AbortSignal) => Promise<Response>
   readText: (target: SpaceFileTarget, signal: AbortSignal) => Promise<string>
   readBytes: (input: SpaceFileByteRequest, signal: AbortSignal) => Promise<SpaceFileByteChunk>
   saveBytes: (input: SpaceSaveBytes, signal: AbortSignal) => Promise<SpaceSaveBytesResult>
@@ -80,6 +81,8 @@ export function registerExtensionIpc(options: {
     readText: options.readText,
     readBytes: options.readBytes,
     saveBytes: options.saveBytes,
+    readResource: options.readResource,
+    openExternal: url => shell.openExternal(url),
     agentRequest: options.agentRequest,
     conditionRuntime: options.conditionRuntime,
     get: options.get,

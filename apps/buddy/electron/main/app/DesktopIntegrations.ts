@@ -27,6 +27,7 @@ import { registerContextPanelIpc } from '../context-panel/registerContextPanelIp
 import { createDesktopCommandExecutor } from '../desktopCommands'
 import { DesktopNotificationService } from '../DesktopNotificationService'
 import { ApplicationLogReader } from '../diagnostics/ApplicationLogReader'
+import { readSpaceFileResource } from '../extensions/readSpaceFileResource'
 import { registerExtensionIpc } from '../extensions/registerExtensionIpc'
 import { createFeedbackIssueUrl } from '../feedbackIssue'
 import { registerDesktopIpc } from '../ipc'
@@ -130,7 +131,8 @@ export class DesktopIntegrations {
       taskActions: async () => extensionActionRpc.list.response.parse(await service.request(extensionActionRpc.list.method, {})),
       invokeTaskAction: async input => extensionActionRpc.invoke.response.parse(await service.request(extensionActionRpc.invoke.method, input, { timeoutMs: null })),
       agentChanged: catalog => service.notify(extensionAgentRpc.changed, catalog),
-      agentRequest: async (input, signal) => extensionJsonSchema.parse(await service.request(extensionAgentRpc.request, input, { signal, timeoutMs: 120000 })),
+      agentRequest: async (input, signal) => extensionJsonSchema.parse(await service.request(extensionAgentRpc.request, input, { signal, timeoutMs: null })),
+      readResource: (target, signal) => readSpaceFileResource(target, signal, async input => spaceFilesRpc.locate.response.parse(await service.request(spaceFilesRpc.locate.method, input, { signal }))),
       readText: async (target, signal) => spaceTextDocumentSchema.parse(await service.request('spaceFiles.readDocument', target, { signal })).text,
       readBytes: async (input, signal) => spaceFilesRpc.readBytes.response.parse(await service.request(spaceFilesRpc.readBytes.method, input, { signal })),
       saveBytes: async (input, signal) => spaceFilesRpc.saveBytes.response.parse(await service.request(spaceFilesRpc.saveBytes.method, input, { signal, timeoutMs: 60000 })),

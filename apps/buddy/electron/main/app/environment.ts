@@ -59,7 +59,7 @@ export function prepareDesktopEnvironment(): DesktopEnvironment {
   const releaseStorage = acquireStorageRootLease(storage.state.activeRoot, storage.leaseDirectory, storage.privateDirectoriesExecutable)
   app.once('will-quit', releaseStorage)
   const paths = unifiedStoragePaths(legacyPaths, storage.state.activeRoot)
-  if (process.env.LEXORA_BUDDY_PET_STATE_PATH)
+  if (process.env.XTLAW_BUDDY_PET_STATE_PATH)
     paths.nativePetState = legacyPaths.nativePetState
   if (app.commandLine.hasSwitch('user-data-dir'))
     paths.userData = legacyPaths.userData

@@ -57,5 +57,14 @@
 - 相关测试 35 个文件、249 个用例：237 通过、3 跳过、9 失败。9 个失败都是符号链接权限（`EPERM`）：
   - 8 个已在 `docs/known-test-failures.md` 中（技能相关）。
   - 1 个是新增的 `StorageSnapshots.spec.ts`“创建可移植快照…”，在准备夹具时创建符号链接失败，同类原因，清单尚未收录。
-- 未验证：没有运行 e2e（`storage.e2e.mjs`、`settings.e2e.mjs`）；没有在桌面窗口中查看数据整理窗口和设置页；没有用真实 XTLaw 数据（含 `C:\Users\Lenovo\.xtlaw-dev`）验证首次启动整理。
-- 已知风险：已有 XTLaw 数据会在升级后的首次启动被整理搬迁。合并前建议先在备份过的开发数据上试一次。
+- 首次启动整理已在开发档位的真实数据（`C:\Users\Lenovo\.xtlaw-dev`）上实测。测试前先备份到 `~/.xtlaw-migration-backups/20261016-a-round`，包含 `.xtlaw-dev`、Roaming 和 Local 下的 `XTLaw Dev` 三份，文件数与字节数核对一致：
+  - 新建 `storage.json` 和 `device/`（`electron`、`chromium`、`state`、`crashes`），主目录下出现 `.xtlaw-locations`（定位文件与锁）。
+  - 整理是复制，不是搬迁：原 `buddy` 数据、Roaming/Local 下的旧目录没有文件丢失或大小变化，只多了 SQLite 的 `-wal`、`-shm` 与 `lockfile`。
+  - 凭据密钥 `Local State` 复制到 `device/chromium`，哈希与原文件一致。日志里有 `runtime.ready`，没有 `credential.decrypt.failed`，没有 error 或 warn。
+  - 二次启动：`storage.json`（`dataId`）不变，没有重复整理，同样有 `runtime.ready` 且无 error 或 warn。
+  - 实测前发现并修复一处漏改：存储启动流程读 `LEXORA_BUDDY_PET_STATE_PATH`，本地的覆盖变量是 `XTLAW_BUDDY_PET_STATE_PATH`（`a7f41318`）。
+- 仍未验证：
+  - 没有运行 e2e（`storage.e2e.mjs`、`settings.e2e.mjs`）。
+  - 没有在窗口里查看数据整理窗口、设置里的数据与云备份页，也没有实际执行备份、恢复、更改数据目录和云备份。
+  - 稳定档位（`~/.xtlaw`，约 800 MB）没有试。
+- 注意：整理后旧的 Roaming/Local `XTLaw Dev` 目录仍在原位，后续运行使用 `device/` 下的副本，两边会逐渐分叉。清理旧目录需另行确认。

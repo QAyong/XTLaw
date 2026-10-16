@@ -6,7 +6,7 @@ import type {
 import type { DesktopCommandId } from '@buddy-electron/shared/desktopCommands'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import { DESKTOP_COMMAND_REGISTRY, getDesktopCommand } from '@buddy-electron/shared/desktopCommands'
-import { ArrowSwap20Regular, PanelRightContract20Regular, PanelRightExpand20Regular } from '@vicons/fluent'
+import { PanelRightContract20Regular, PanelRightExpand20Regular } from '@vicons/fluent'
 import { NTooltip, useMessage } from 'naive-ui'
 import { computed, nextTick, onBeforeUnmount, onMounted, onScopeDispose, shallowRef } from 'vue'
 import { useRouter } from 'vue-router'
@@ -155,6 +155,23 @@ async function runWindowAction(action: () => Promise<DesktopWindowState>) {
 async function toggleContextPosition(event: MouseEvent) {
   const button = event.currentTarget as HTMLButtonElement
   const restoreFocus = button.matches(':focus-visible')
+  const arrows = button.querySelectorAll('svg path')
+  if (typeof arrows[0]?.animate === 'function' && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    arrows.forEach((arrow, index) => {
+      const start = getComputedStyle(arrow).transform
+      for (const animation of arrow.getAnimations())
+        animation.cancel()
+      const direction = index === 0 ? 1 : -1
+      const fromY = props.contextSwapped ? direction * 7 : 0
+      const toY = props.contextSwapped ? 0 : direction * 7
+      arrow.animate([
+        { transform: start, opacity: 1 },
+        { transform: `translate(${direction * 20}px, ${fromY}px)`, opacity: 0, offset: 0.45 },
+        { transform: `translate(${-direction * 20}px, ${toY}px)`, opacity: 0, offset: 0.46 },
+        { transform: `translate(0, ${toY}px)`, opacity: 1 },
+      ], { duration: 280, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' })
+    })
+  }
   emit('toggleContextPosition')
   await nextTick()
   if (restoreFocus)
@@ -194,7 +211,12 @@ function applyWindowState(state: DesktopWindowState) {
               type="button"
               @click="toggleContextPosition"
             >
-              <DesktopIcon :component="ArrowSwap20Regular" />
+              <DesktopIcon>
+                <svg class="desktop-title-bar__swap-icon" :class="{ 'is-swapped': contextSwapped }" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <path class="desktop-title-bar__swap-arrow is-right" d="M12.146 3.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708-.708L14.293 7H4.5a.5.5 0 0 1 0-1h9.793l-2.147-2.146a.5.5 0 0 1 0-.708Z" />
+                  <path class="desktop-title-bar__swap-arrow is-left" d="M7.854 10.146a.5.5 0 0 1 0 .708L5.707 13H15.5a.5.5 0 0 1 0 1H5.707l2.147 2.146a.5.5 0 0 1-.708.708l-3-3a.5.5 0 0 1 0-.708l3-3a.5.5 0 0 1 .708 0Z" />
+                </svg>
+              </DesktopIcon>
             </button>
           </template>
           {{ t('desktop.context.swapPosition') }}
@@ -285,6 +307,18 @@ function applyWindowState(state: DesktopWindowState) {
   flex: none;
   align-self: center;
   -webkit-app-region: no-drag;
+}
+
+.desktop-title-bar__swap-arrow {
+  transform: translateY(0);
+}
+
+.desktop-title-bar__swap-icon.is-swapped .is-right {
+  transform: translateY(7px);
+}
+
+.desktop-title-bar__swap-icon.is-swapped .is-left {
+  transform: translateY(-7px);
 }
 
 .desktop-title-bar__control {

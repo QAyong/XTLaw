@@ -1,13 +1,14 @@
 {
   "schemaVersion": 1,
   "id": "lexora.themes",
-  "name": "XTLaw 官方主题",
+  "name": "XTLaw 主题",
   "author": "XTLaw",
   "description": "经典、森林、鸢尾、玫瑰与琥珀，各含浅色和深色。",
-  "version": "1.0.0",
+  "version": "1.0.1",
+  "icon": "icon.svg",
   "apiVersion": 3,
   "engines": {
-    "lexora": ">=0.10.1"
+    "lexora": ">=0.1.0"
   },
   "categories": [
     "themes"

@@ -141,7 +141,7 @@ export class DesktopRuntimeHost {
       isPackaged: app.isPackaged,
       resourcesPath: process.resourcesPath,
     }
-    const credentials = createCredentialVault({ buddyHome: environment.paths.buddyHome })
+    const credentials = createCredentialVault({ buddyHome: environment.paths.buddyHome, reportDiagnostic: environment.events.publish })
     this.#credentials = credentials
     const config = await this.configStore.read()
     this.#config = config
@@ -200,16 +200,7 @@ export class DesktopRuntimeHost {
             createAdapterLease: input => this.#browser.adapter.issueLease(input),
             getHost: () => this.#browser.host,
           }),
-          registerCredentialHostRpc(peer, credentials, {
-            onFailure: failure => environment.events.publish({
-              event: `credential.${failure.phase}.failed`,
-              component: 'desktop.credentials',
-              level: 'warn',
-              method: failure.method,
-              errorCode: failure.errorCode,
-              errorType: failure.errorType,
-            }),
-          }),
+          registerCredentialHostRpc(peer, credentials),
           ...this.#features.map(feature => feature.bindPeer(peer)),
         ]
         return () => disposers.forEach(dispose => dispose())

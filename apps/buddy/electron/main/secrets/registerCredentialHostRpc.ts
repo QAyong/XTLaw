@@ -13,9 +13,17 @@ import {
   providerCredentialWriteParamsSchema,
 } from '../../../shared/runtime/credentialProtocol'
 
-import { CredentialStoreUnavailableError } from './CredentialVault'
+import { CredentialStoreUnavailableError, CredentialVaultError } from './CredentialVault'
+
+export interface CredentialHostFailure {
+  method: string
+  phase: CredentialVaultError['phase'] | 'unknown'
+  errorCode: string
+  errorType: string
+}
 
 export interface RegisterCredentialHostRpcOptions {
+  onFailure?: (failure: CredentialHostFailure) => void
   openExternal?: (url: string) => Promise<unknown>
 }
 
@@ -25,17 +33,20 @@ export function registerCredentialHostRpc(
   options: RegisterCredentialHostRpcOptions = {},
 ): () => void {
   const openExternal = options.openExternal ?? (url => shell.openExternal(url))
+  const runHostOperation = <T, R>(method: string, operation: () => Promise<T>, success: (value: T) => R) => runReportedHostOperation(method, operation, success, options.onFailure)
   const disposers = [
     peer.onRequest('host.credentials.read', async (params) => {
       const parsed = providerCredentialParamsSchema.safeParse(params)
       if (!parsed.success)
         return credentialReadResultSchema.parse(validationFailure())
       return runHostOperation(
+        'host.credentials.read',
         () => vault.read('providers', parsed.data.providerId),
         value => credentialReadResultSchema.parse({ ok: true, value }),
       )
     }),
     peer.onRequest('host.credentials.list', async () => runHostOperation(
+      'host.credentials.list',
       () => vault.listProviders(),
       providers => credentialProviderListResultSchema.parse({ ok: true, providers }),
     )),
@@ -44,6 +55,7 @@ export function registerCredentialHostRpc(
       if (!parsed.success)
         return credentialMutationResultSchema.parse(validationFailure())
       return runHostOperation(
+        'host.credentials.write',
         () => vault.write('providers', parsed.data.providerId, parsed.data.credential),
         () => credentialMutationResultSchema.parse({ ok: true }),
       )
@@ -53,6 +65,7 @@ export function registerCredentialHostRpc(
       if (!parsed.success)
         return credentialMutationResultSchema.parse(validationFailure())
       return runHostOperation(
+        'host.credentials.delete',
         () => vault.delete('providers', parsed.data.providerId),
         () => credentialMutationResultSchema.parse({ ok: true }),
       )
@@ -62,6 +75,7 @@ export function registerCredentialHostRpc(
       if (!parsed.success)
         return credentialReadResultSchema.parse(validationFailure())
       return runHostOperation(
+        'host.secrets.read',
         () => vault.read(parsed.data.namespace, parsed.data.id),
         value => credentialReadResultSchema.parse({ ok: true, value }),
       )
@@ -71,6 +85,7 @@ export function registerCredentialHostRpc(
       if (!parsed.success)
         return credentialMutationResultSchema.parse(validationFailure())
       return runHostOperation(
+        'host.secrets.write',
         () => vault.write(parsed.data.namespace, parsed.data.id, parsed.data.value),
         () => credentialMutationResultSchema.parse({ ok: true }),
       )
@@ -80,6 +95,7 @@ export function registerCredentialHostRpc(
       if (!parsed.success)
         return credentialMutationResultSchema.parse(validationFailure())
       return runHostOperation(
+        'host.secrets.delete',
         () => vault.delete(parsed.data.namespace, parsed.data.id),
         () => credentialMutationResultSchema.parse({ ok: true }),
       )
@@ -107,16 +123,29 @@ export function isAllowedExternalUrl(value: string): boolean {
   }
 }
 
-async function runHostOperation<T, R>(
+async function runReportedHostOperation<T, R>(
+  method: string,
   operation: () => Promise<T>,
   success: (value: T) => R,
+  onFailure?: (failure: CredentialHostFailure) => void,
 ): Promise<R | ReturnType<typeof credentialFailure>> {
   try {
     return success(await operation())
   }
   catch (error) {
-    return credentialFailure(error)
+    const result = credentialFailure(error)
+    try {
+      onFailure?.(describeFailure(method, result.error.code, error))
+    }
+    catch {}
+    return result
   }
+}
+
+function describeFailure(method: string, code: string, error: unknown): CredentialHostFailure {
+  if (error instanceof CredentialVaultError)
+    return { method, phase: error.phase, errorCode: error.causeCode ?? code, errorType: error.causeType }
+  return { method, phase: 'unknown', errorCode: code, errorType: error instanceof Error ? error.name : 'UnknownError' }
 }
 
 function credentialFailure(error: unknown): {

@@ -1,7 +1,7 @@
 import type { SecretCipher } from '../CredentialVault'
 import { Buffer } from 'node:buffer'
 import { EventEmitter } from 'node:events'
-import { readdir, readFile, stat } from 'node:fs/promises'
+import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { createTemporaryDirectory } from '@buddy-tests/temporaryDirectories'
 
@@ -10,6 +10,7 @@ import { RuntimeRpcPeer } from '../../../../platform/ipc/runtimeRpcPeer'
 import {
   createCredentialVault,
   CredentialStoreUnavailableError,
+  CredentialVaultError,
   isSafeStorageBackendSecure,
 } from '../CredentialVault'
 import { isAllowedExternalUrl, registerCredentialHostRpc } from '../registerCredentialHostRpc'
@@ -88,10 +89,38 @@ describe('credentialVault', () => {
     expect(isSafeStorageBackendSecure({ backend, encryptionAvailable, platform })).toBe(secure)
   })
 
+  const failingDecrypts: ReadonlyArray<readonly [string, SecretCipher['decrypt'], string]> = [
+    ['decrypt', () => { throw new Error('native decrypt failed') }, 'Error'],
+    ['parse', () => '{"key":"fixture-private-credential"', 'SyntaxError'],
+    ['validate', () => JSON.stringify({ version: 1, id: 'other', value: { type: 'api_key', key: 'fixture-private-credential' } }), 'Error'],
+  ]
+
+  it.each(failingDecrypts)('reports the %s phase without keeping credential text', async (phase, decrypt, causeType) => {
+    const buddyHome = await createTemporaryDirectory('lexora-buddy-vault-')
+    const vault = createCredentialVault({ buddyHome, cipher: { ...reversibleCipher, decrypt } })
+    await vault.write('providers', 'fixture', { type: 'api_key', key: 'fixture-private-credential' })
+
+    const error = await vault.read('providers', 'fixture').catch((value: unknown) => value)
+    expect(error).toBeInstanceOf(CredentialVaultError)
+    expect(error).toMatchObject({ phase, causeType, causeCode: null })
+    expect(JSON.stringify({ ...(error as object), message: (error as Error).message, cause: (error as Error).cause })).not.toContain('fixture-private-credential')
+  })
+
+  it('keeps the system error code when a credential file cannot be read', async () => {
+    const buddyHome = await createTemporaryDirectory('lexora-buddy-vault-')
+    const vault = createCredentialVault({ buddyHome, cipher: reversibleCipher })
+    await vault.write('providers', 'fixture', { type: 'api_key', key: 'fixture-private-credential' })
+    const blocked = join(buddyHome, 'secrets', 'providers', 'blocked.credential')
+    await mkdir(blocked)
+    await writeFile(join(blocked, 'placeholder'), '')
+
+    await expect(vault.listProviders()).rejects.toMatchObject({ phase: 'read_file', causeCode: 'EISDIR' })
+  })
+
   it.each([
-    { available: false, code: 'CREDENTIAL_STORE_UNAVAILABLE' },
-    { available: true, code: 'CREDENTIAL_STORE_FAILURE' },
-  ])('returns only a safe RPC error when encryption fails: $code', async ({ available, code }) => {
+    { available: false, code: 'CREDENTIAL_STORE_UNAVAILABLE', failure: { method: 'host.credentials.write', phase: 'unknown', errorCode: 'CREDENTIAL_STORE_UNAVAILABLE', errorType: 'CredentialStoreUnavailableError' } },
+    { available: true, code: 'CREDENTIAL_STORE_FAILURE', failure: { method: 'host.credentials.write', phase: 'encrypt', errorCode: 'CREDENTIAL_STORE_FAILURE', errorType: 'Error' } },
+  ])('returns only a safe RPC error when encryption fails: $code', async ({ available, code, failure }) => {
     const buddyHome = await createTemporaryDirectory('lexora-buddy-vault-')
     const secret = 'fixture-private-credential'
     const vault = createCredentialVault({
@@ -115,7 +144,8 @@ describe('credentialVault', () => {
         },
       },
     })
-    const dispose = registerCredentialHostRpc(peer, vault)
+    const failures: unknown[] = []
+    const dispose = registerCredentialHostRpc(peer, vault, { onFailure: value => failures.push(value) })
     try {
       incoming.emit('message', {
         jsonrpc: '2.0',
@@ -129,6 +159,8 @@ describe('credentialVault', () => {
         result: { ok: false, error: { code } },
       }]))
       expect(await readdir(join(buddyHome, 'secrets', 'providers')).catch(() => [])).toEqual([])
+      expect(failures).toEqual([failure])
+      expect(JSON.stringify(failures)).not.toContain(secret)
     }
     finally {
       dispose()

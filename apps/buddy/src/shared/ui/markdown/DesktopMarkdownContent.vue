@@ -7,6 +7,7 @@ import { computed } from 'vue'
 import { useDesktopUi } from '@/shared/ui/desktopUiContext'
 import { desktopThemeSnapshot } from '@/theme/desktopThemeState'
 import { markdownThemeVariables } from '@/theme/markdownTheme'
+import { markdownCustomId } from './markdownRenderers'
 import 'katex/dist/katex.min.css'
 import 'markstream-vue/index.css'
 
@@ -32,6 +33,10 @@ const { isDark } = useDesktopUi()
 const disableImages: NonNullable<NodeRendererProps['customMarkdownIt']> = md => md.disable('image')
 const themeVariables = computed(() => markdownThemeVariables(desktopThemeSnapshot.value.active.colors))
 const codeBlockProps = computed<NonNullable<NodeRendererProps['codeBlockProps']>>(() => ({
+  clipboardWriter: props.writeClipboardText,
+}))
+const mermaidProps = computed(() => ({
+  fitPreviewHeight: true,
   clipboardWriter: props.writeClipboardText,
 }))
 
@@ -82,6 +87,7 @@ function handleLinkClick(event: MouseEvent) {
       class="buddy-chat-markdown"
       :batch-rendering="animateStreaming"
       :content="content"
+      :custom-id="markdownCustomId"
       :custom-markdown-it="allowImages ? undefined : disableImages"
       :code-block-options="codeOverflow ? { overflow: codeOverflow } : undefined"
       :code-block-props="codeBlockProps"
@@ -90,6 +96,7 @@ function handleLinkClick(event: MouseEvent) {
       html-policy="escape"
       :is-dark="isDark"
       :max-live-nodes="animateStreaming ? 0 : undefined"
+      :mermaid-props="mermaidProps"
       mode="chat"
       :parse-coalesce-ms="32"
       :render-batch-budget-ms="4"

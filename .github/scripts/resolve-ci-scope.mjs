@@ -59,6 +59,8 @@ const buddyPrefixes = [
   'patches/',
 ]
 const inactivePrefixes = [
+  'legacy/',
+  '.playwright/scripts/community',
   'apps/agent/',
   'apps/api/',
   'apps/web/',

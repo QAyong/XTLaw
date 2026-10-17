@@ -11,7 +11,6 @@ import { resourceKey } from '@/workbench/common/workbench'
 interface Options {
   api: Pick<LocalChatApi['spaces'], 'mutateFile'>
   spaces: () => readonly LocalSpace[]
-  writeClipboardText: (text: string) => Promise<void>
   copies: WorkingCopyService
   controller: WorkbenchController
   flush: () => Promise<unknown>
@@ -34,13 +33,6 @@ export class FileOperationService {
     const pending = this.#pending.catch(() => {}).then(() => this.#execute(snapshot))
     this.#pending = pending
     return pending
-  }
-
-  async copyPath(target: SpaceFileTarget): Promise<void> {
-    if (this.#stopped)
-      throw new Error('FILE_OPERATIONS_STOPPED')
-    const path = absolute(this.root(target), target.path)
-    await this.#options.writeClipboardText(/^[a-z]:\//i.test(path) || path.startsWith('//') ? path.replaceAll('/', '\\') : path)
   }
 
   async dispose(): Promise<void> {

@@ -10,7 +10,7 @@ import { explorerLabels } from './explorerLabels'
 export function useExplorerCommands(options: {
   target: () => SpaceFileTarget
   language: () => string
-  api: Pick<LocalChatApi['spaces'], 'revealFile' | 'cancelFileOperation'>
+  api: Pick<LocalChatApi['spaces'], 'revealFile' | 'copyFilePath' | 'cancelFileOperation'>
   refresh: () => Promise<void>
 }) {
   const operations = useFileOperations()
@@ -79,19 +79,20 @@ export function useExplorerCommands(options: {
     const parent = node?.kind === 'directory' ? node.key : node?.key.split('/').slice(0, -1).join('/') ?? ''
     const path = node?.key ?? ''
     if (command === 'copy' || command === 'cut') {
-      if (node) {
-        const source = { ...target, path }
-        operations.clipboard.value = { target: source, move: command === 'cut' }
-        if (command === 'copy') {
-          error.value = ''
-          try {
-            await operations.copyPath(source)
-          }
-          catch (cause) {
-            if (!stopped)
-              error.value = failureMessage(cause instanceof Error ? parseLocalChatPublicError(cause.message)?.code ?? cause.message : '')
-          }
-        }
+      if (node)
+        operations.clipboard.value = { target: { ...target, path }, move: command === 'cut' }
+      return
+    }
+    if (command === 'copyPath') {
+      if (!node)
+        return
+      error.value = ''
+      try {
+        await options.api.copyFilePath({ ...target, path })
+      }
+      catch {
+        if (!stopped)
+          error.value = labels.value.copyPathFailure
       }
       return
     }

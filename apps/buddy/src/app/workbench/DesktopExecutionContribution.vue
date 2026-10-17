@@ -5,14 +5,14 @@ import { executionTargetSchema } from '@buddy-shared/executions/executionPresent
 import { useMessage } from 'naive-ui'
 import { computed } from 'vue'
 import { translateBuddy } from '@/i18n/buddyI18n'
-import { createMessageWebLinkOpener, useProvideChatContent, useTaskEnvironment } from '@/modules/tasks'
+import { useProvideChatContent, useTaskEnvironment } from '@/modules/tasks'
 import { DesktopExecutionDetail } from '@/modules/tasks/ui'
 import { useDesktopWorkbenchContext } from './desktopWorkbenchContext'
 
 const props = defineProps<{ view: WorkbenchView, visible: boolean }>()
 const message = useMessage()
 const workbench = useDesktopWorkbenchContext()
-const { browser, clipboard, resources } = useTaskEnvironment()
+const { clipboard, resources } = useTaskEnvironment()
 const target = computed<ExecutionTarget | null>((previous) => {
   const value = executionTargetSchema.safeParse(props.view.resource.data)
   if (!value.success)
@@ -20,15 +20,10 @@ const target = computed<ExecutionTarget | null>((previous) => {
   return previous && Object.entries(previous).every(([key, field]) => value.data[key as keyof ExecutionTarget] === field) ? previous : value.data
 })
 useProvideChatContent({
-  openWebLink: createMessageWebLinkOpener({
-    browser,
-    conversationId: () => target.value?.conversationId === workbench.activeTaskId.value ? target.value.conversationId : null,
-    openBrowser: resources.openBrowser,
-    retainBrowserSession: resources.retainBrowserSession,
-    updateBrowserState: resources.updateBrowserState,
-    openExternal: href => window.open(href, '_blank', 'noopener,noreferrer'),
-    onError: () => message.error(translateBuddy(workbench.language.value, 'desktop.context.browserPageFailed')),
-  }),
+  openWebLink: (url) => {
+    if (target.value)
+      void resources.openWebLink(url, { conversationId: target.value.conversationId, runId: target.value.runId })
+  },
   writeClipboardText: clipboard.writeText,
   canPreviewFile: path => target.value?.conversationId === workbench.activeTaskId.value && resources.canPreviewFile(path),
   previewFile: (path) => {

@@ -19,7 +19,6 @@ import {
   CredentialVaultError,
   isSafeStorageBackendSecure,
 } from '../CredentialVault'
-import type { CredentialHostFailure } from '../registerCredentialHostRpc'
 import { isAllowedExternalUrl, registerCredentialHostRpc } from '../registerCredentialHostRpc'
 
 const reversibleCipher: SecretCipher = {
@@ -115,7 +114,9 @@ describe('credentialVault', () => {
 
     const error = await vault.read('providers', 'fixture').catch((value: unknown) => value)
     expect(error).toBeInstanceOf(CredentialVaultError)
-    expect(error).toMatchObject({ phase, reason, causeCode: null, causeType: phase === 'parse' ? 'SyntaxError' : phase === 'decrypt' ? 'Error' : 'UnknownError' })
+    expect(error).toMatchObject({ phase, reason })
+    expect(error).not.toHaveProperty('causeType')
+    expect(error).not.toHaveProperty('causeCode')
     expect(events).toEqual([expect.objectContaining({ failure: { kind: 'credential_vault', operation: 'read', namespace: 'providers', phase, reason } })])
     expect(JSON.stringify({ ...(error as object), message: (error as Error).message, cause: (error as Error).cause })).not.toContain('fixture-private-credential')
   })
@@ -129,14 +130,14 @@ describe('credentialVault', () => {
     await mkdir(blocked)
     await writeFile(join(blocked, 'placeholder'), '')
 
-    await expect(vault.listProviders()).rejects.toMatchObject({ phase: 'read_file', systemCode: 'EISDIR', causeCode: 'EISDIR' })
+    await expect(vault.listProviders()).rejects.toMatchObject({ phase: 'read_file', systemCode: 'EISDIR' })
     expect(events).toEqual([expect.objectContaining({ errorCode: 'CREDENTIAL_STORE_FAILURE', failure: { kind: 'credential_vault', operation: 'list', namespace: 'providers', phase: 'read_file', reason: 'operation_failed', systemCode: 'EISDIR' } })])
   })
 
   it.each([
     { available: false, code: 'CREDENTIAL_STORE_UNAVAILABLE', phase: 'availability', reason: 'unavailable' },
     { available: true, code: 'CREDENTIAL_STORE_FAILURE', phase: 'encrypt', reason: 'operation_failed' },
-  ])('returns only a safe RPC error when encryption fails: $code', async ({ available, code, phase, reason }) => {
+  ])('reports an RPC failure exactly once and returns only a safe error: $code', async ({ available, code, phase, reason }) => {
     const buddyHome = await createTemporaryDirectory('lexora-buddy-vault-')
     const secret = 'fixture-private-credential'
     const failures: ApplicationDiagnostic[] = []
@@ -162,8 +163,7 @@ describe('credentialVault', () => {
         },
       },
     })
-    const hostFailures: CredentialHostFailure[] = []
-    const dispose = registerCredentialHostRpc(peer, vault, { onFailure: failure => hostFailures.push(failure) })
+    const dispose = registerCredentialHostRpc(peer, vault)
     try {
       incoming.emit('message', {
         jsonrpc: '2.0',
@@ -178,8 +178,7 @@ describe('credentialVault', () => {
       }]))
       expect(await readdir(join(buddyHome, 'secrets', 'providers')).catch(() => [])).toEqual([])
       expect(failures).toEqual([{ event: `credential.${phase}.failed`, component: 'desktop.credentials', level: 'warn', errorCode: code, failure: { kind: 'credential_vault', operation: 'write', namespace: 'providers', phase, reason } }])
-      expect(hostFailures).toEqual([{ method: 'host.credentials.write', phase: available ? 'encrypt' : 'unknown', errorCode: code, errorType: available ? 'Error' : 'CredentialStoreUnavailableError' }])
-      expect(JSON.stringify({ failures, hostFailures })).not.toContain(secret)
+      expect(JSON.stringify(failures)).not.toContain(secret)
     }
     finally {
       dispose()

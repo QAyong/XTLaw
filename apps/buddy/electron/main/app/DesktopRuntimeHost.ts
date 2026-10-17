@@ -202,16 +202,7 @@ export class DesktopRuntimeHost {
             createAdapterLease: input => this.#browser.adapter.issueLease(input),
             getHost: () => this.#browser.host,
           }),
-          registerCredentialHostRpc(peer, credentials, {
-            onFailure: failure => environment.events.publish({
-              event: `credential.${failure.phase}.failed`,
-              component: 'desktop.credentials',
-              level: 'warn',
-              method: failure.method,
-              errorCode: failure.errorCode,
-              errorType: failure.errorType,
-            }),
-          }),
+          registerCredentialHostRpc(peer, credentials),
           ...this.#features.map(feature => feature.bindPeer(peer)),
         ]
         return () => disposers.forEach(dispose => dispose())

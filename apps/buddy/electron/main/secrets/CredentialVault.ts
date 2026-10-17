@@ -65,8 +65,6 @@ export type CredentialVaultPhase = CredentialVaultFailure['phase']
 
 export class CredentialVaultError extends Error {
   readonly code = 'CREDENTIAL_VAULT_FAILED'
-  readonly causeCode: string | null
-  readonly causeType: string
   readonly systemCode: CredentialVaultFailure['systemCode']
   readonly phase: CredentialVaultPhase
   readonly reason: CredentialVaultFailure['reason']
@@ -78,8 +76,6 @@ export class CredentialVaultError extends Error {
     this.reason = reason
     const code = credentialVaultSystemCodeSchema.safeParse((cause as NodeJS.ErrnoException | undefined)?.code)
     this.systemCode = code.success ? code.data : undefined
-    this.causeCode = this.systemCode ?? null
-    this.causeType = cause instanceof Error ? cause.name : 'UnknownError'
   }
 }
 

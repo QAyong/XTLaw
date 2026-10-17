@@ -47,4 +47,43 @@
 
 ## 状态
 
-`docs/upstream-baseline.json` 的 `lastChecked` 已推进到 `da16402ebc9a4f0d78a5da030b55fd7b5d395c25`。本轮经用户明确确认，以 merge commit 合并到 `master`，包含 8 个移植提交、集成记录和后续清理提交 `5f5ab848`。未打包、未发布，未修改远程 Issue。
+`docs/upstream-baseline.json` 的 `lastChecked` 已推进到 `da16402ebc9a4f0d78a5da030b55fd7b5d395c25`。本轮经用户明确确认，以合并提交 `8028db96` 合并到 `master` 并推送，包含 8 个移植提交、集成记录和后续清理提交 `5f5ab848`。随后按用户要求远端发布 XTLaw 0.2.2，结果见下文。未在本地打包，未修改远程 Issue。
+
+## XTLaw 0.2.2 远端发布日志
+
+核对时间：2026-10-17 20:16（北京时间，UTC+8）。以下状态来自 GitHub Actions、Release 和标签 API，不以本地等待命令是否结束判断远端结果。
+
+### 版本与来源
+
+- 版本提交：`e9975b05c551f04b508e4effc9088d3632e0bfae`，提交说明为 `Prepare XTLaw v0.2.2 release (准备 XTLaw v0.2.2 发布)`，已推送到 `origin/master`。
+- 仅更新 5 个版本文件及构建时间戳：根 `package.json`、`apps/buddy/package.json`、`apps/buddy/buddy.version.json`、`apps/buddy/native/pet/Cargo.toml`、`apps/buddy/native/Cargo.lock`，不含依赖变更。
+- 版本一致性、发布标签匹配、递增版本迁移检查均通过；迁移检查使用完整的前后提交 SHA。
+- 发布标签：`xtlaw-v0.2.2`，已核对指向上述版本提交。
+- [发版工作流 39030004517](https://github.com/QAyong/XTLaw/actions/runs/39030004517)：`completed / success`。
+- [正式发布页面](https://github.com/QAyong/XTLaw/releases/tag/xtlaw-v0.2.2)：名称 `XTLaw 0.2.2`，不是草稿，也不是预发布。
+
+### 时间与校验结果
+
+- 工作流创建：2026-10-17 19:46:59（北京时间）。
+- 正式发布：2026-10-17 20:09:05（北京时间）。
+- 工作流最终完成：2026-10-17 20:10:20（北京时间）。
+- 共 11 个任务全部成功：发布来源校验；Ubuntu x64 / ARM64 构建校验；Arch 构建及安装校验；Windows x64 / ARM64 构建校验；macOS 15 ARM64 安装及 macOS 26 ARM64 兼容校验；发布；公开文件校验。
+- `Verify public assets` 已通过，包含工作流配置中的公开安装包、校验和及来源证明校验。本次未另行下载所有安装包做本地安装测试。
+
+### 已公开文件
+
+GitHub Release 返回共 7 个文件，大小单位为字节。
+
+| 文件 | 大小 |
+| --- | ---: |
+| `XTLaw-0.2.2-windows-x64.exe` | 175460649 |
+| `XTLaw-0.2.2-windows-arm64.exe` | 167986046 |
+| `XTLaw-0.2.2-linux-amd64.deb` | 157402992 |
+| `XTLaw-0.2.2-linux-arm64.deb` | 150229956 |
+| `XTLaw-0.2.2-arch-x86_64.pkg.tar.zst` | 186244492 |
+| `XTLaw-0.2.2-macos-arm64.dmg` | 196851037 |
+| `SHA256SUMS.txt` | 574 |
+
+GitHub Release API 返回的 Windows x64 安装包 SHA256：`83d46b8276b05ca7ffc51ad7b019a6282b203b076919df380327a877f94f865c`；该值为远端资产元数据，本次未在本地重新计算。
+
+上述发布状态于 2026-10-17 20:16 核对并补记；日志核对时未创建提交或推送。后续日志提交不改变发布内容，不移动、不覆盖已发布标签。

@@ -220,7 +220,9 @@ describe('skill installation lifecycle', () => {
 
   it('keeps the application skill reserved when the developer tools state cannot be read', async () => {
     const f = await fixture()
-    const service = new SkillService({ ...f.options, developerToolsEnabled: async () => { throw new Error('host unavailable') } })
+    const service = new SkillService({ ...f.options, developerToolsEnabled: async () => {
+      throw new Error('host unavailable')
+    } })
     cleanup.push(() => service.dispose())
     const source = await f.source('app-workflow')
     await mkdir(join(f.builtin, 'app-workflow'))

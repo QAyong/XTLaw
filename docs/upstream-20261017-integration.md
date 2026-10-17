@@ -22,15 +22,18 @@
 | `c242d689` | 只改版本号的发版提交，XTLaw 不照搬上游版本号 |
 | `f7794178` | 简化上游 Issue 模板；含 `Lexora` 字样和上游安全公告链接，XTLaw 使用自己的模板 |
 
-## 延后（单独成轮）
+## 后续移植
 
-| 上游提交 | 原因 |
-|---|---|
-| `0223ed89` | 插件社区首次迁移：1246 个文件（约 1150 个是 `legacy/web-stack` 改名），含新迁移 `20261016000000_community` 和 `.github/workflows` 改动，不涉及 `apps/buddy`；新增行含 `Lexora` 字样。其余提交与它没有文件依赖 |
+| 上游提交 | 说明 | 处理 |
+|---|---|---|
+| `0223ed89` | 插件社区首次迁移 | 在其余提交之后按要求移植，不涉及 `apps/buddy`。冲突：`apps/web/vite.config.ts` 采用上游精简配置（本地改动只涉及被移除的旧配置），`pnpm-lock.yaml` 用 `pnpm install` 重新生成。迁移 `20261016000000_community` 是上游重置后的唯一迁移，不依赖被跳过的前序迁移；本地原有 43 个旧迁移随上游一起退出 `apps/api/prisma/migrations`（上游把旧 web 栈整体移入 `legacy/web-stack`，本地此前没有该目录） |
+
+品牌待定：新增代码中面向用户的 `Lexora` 文案（页面标题与描述、导航与页脚品牌、登录提示、兼容性标签、默认用户名）保持上游原样未改；`X-Lexora-Request` 请求头与 `Lexora-Community` User-Agent 属于协议标识，也未改。
 
 ## 检查
 
 - 品牌：已移植提交的新增行不含 `Lexora` 字样。
 - 类型检查：`pnpm type-check`（apps/buddy）通过。
 - 相关测试：extensionModelCapabilities、navigationPolicy、BuddyChatActivities、transcript 模型共 16 个文件、203 个用例通过。
+- 0223ed89 按要求不跑测试，也未做类型检查。
 - 未跑全量测试；机器人 PR #9 的 `Workspace checks` 失败（`DesktopWindowHost`、`requestThroughHost` 共 6 个用例）尚未查清，合并前需处理。

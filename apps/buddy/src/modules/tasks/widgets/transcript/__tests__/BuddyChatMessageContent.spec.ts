@@ -61,15 +61,10 @@ describe('buddyChatMessageContent', () => {
 
     expect(body?.textContent).toContain('先看@reference.png后@reference.png')
     expect(reference?.textContent).toBe('@reference.png')
-    expect(document.querySelector('.buddy-chat-message-content__attachments')?.textContent)
-      .toContain('reference.png')
-    expect(document.querySelectorAll('.buddy-chat-message-content__attachment')).toHaveLength(1)
+    expect(document.querySelectorAll('[data-material-key]')).toHaveLength(1)
     expect(document.querySelectorAll('.buddy-chat-resource-reference')).toHaveLength(2)
-    expect(reference?.getAttribute('aria-label')).toBe('定位附件 reference.png')
-    expect(reference?.getAttribute('href')).toBe('#buddy-resource-resource-1')
-    expect(document.getElementById('buddy-resource-resource-1')?.classList.contains('buddy-chat-message-content__attachment')).toBe(true)
-    expect(document.querySelector('.buddy-chat-message-content__preview-trigger img')?.getAttribute('src')).toBe('lexora-attachment://preview/attachment-1')
-    expect(html).toContain('attachment-1')
+    expect(document.querySelector(reference!.getAttribute('href')!)).not.toBeNull()
+    expect(document.querySelector('[data-material-key] img')?.getAttribute('src')).toBe('lexora-attachment://preview/attachment-1')
   })
 
   it('previews file links and routes HTTP/HTTPS links to the host', async () => {

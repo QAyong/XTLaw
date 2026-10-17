@@ -60,7 +60,7 @@ describe('file excerpt snapshots', () => {
     expect(first.result).toBe('added')
     expect(appendBuddyResourceQuote(first.content, { ...quote, id: 'another' }).result).toBe('duplicate')
     expect(appendBuddyResourceQuote(first.content, { ...quote, id: 'another', range: { ...quote.range!, startLineNumber: 25, endLineNumber: 25 } }).result).toBe('added')
-    expect(first.content.body).toEqual(createBuddyUserContent('Keep latest input').body)
+    expect(first.content.body[0]!.content.at(-1)).toEqual({ type: 'quote_ref', quoteKind: 'resource', quoteId: quote.id })
   })
 
   it('enforces per-quote, combined count and total text limits without losing accepted snapshots', () => {

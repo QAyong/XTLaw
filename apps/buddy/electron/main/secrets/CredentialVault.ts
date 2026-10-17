@@ -1,4 +1,6 @@
 import type { Buffer } from 'node:buffer'
+import type { ApplicationDiagnosticReporter } from '../../../shared/diagnostics/applicationDiagnostic'
+import type { CredentialVaultFailure } from '../../../shared/diagnostics/credentialVaultFailure'
 import type { CredentialNamespace } from '../../../shared/runtime/credentialProtocol'
 import { createHash, randomUUID } from 'node:crypto'
 import {
@@ -14,6 +16,8 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
 import { safeStorage } from 'electron'
+import { safeDiagnosticReporter } from '../../../shared/diagnostics/applicationDiagnostic'
+import { credentialVaultSystemCodeSchema } from '../../../shared/diagnostics/credentialVaultFailure'
 import { OPERATING_SYSTEM } from '../../../shared/platform/identifiers'
 
 type LocalCredentialNamespace = CredentialNamespace | 'sync' | 'backup'
@@ -39,6 +43,7 @@ export interface CredentialVault {
 export interface CreateCredentialVaultOptions {
   buddyHome?: string
   cipher?: SecretCipher
+  reportDiagnostic?: ApplicationDiagnosticReporter
 }
 
 interface VaultEnvelope {
@@ -56,25 +61,64 @@ export class CredentialStoreUnavailableError extends Error {
   }
 }
 
+export type CredentialVaultPhase = CredentialVaultFailure['phase']
+
+export class CredentialVaultError extends Error {
+  readonly code = 'CREDENTIAL_VAULT_FAILED'
+  readonly systemCode: CredentialVaultFailure['systemCode']
+  readonly phase: CredentialVaultPhase
+  readonly reason: CredentialVaultFailure['reason']
+
+  constructor(phase: CredentialVaultPhase, cause?: unknown, reason: CredentialVaultFailure['reason'] = 'operation_failed') {
+    super(`Lexora Buddy credential vault failed during ${phase}`)
+    this.name = 'CredentialVaultError'
+    this.phase = phase
+    this.reason = reason
+    const code = credentialVaultSystemCodeSchema.safeParse((cause as NodeJS.ErrnoException | undefined)?.code)
+    this.systemCode = code.success ? code.data : undefined
+  }
+}
+
 export function createCredentialVault(
   options: CreateCredentialVaultOptions = {},
 ): CredentialVault {
   const root = join(options.buddyHome ?? join(homedir(), '.lexora', 'buddy'), 'secrets')
   const cipher = options.cipher ?? createSafeStorageCipher()
+  const report = safeDiagnosticReporter(options.reportDiagnostic)
+  const run = async <T>(operation: CredentialVaultFailure['operation'], namespace: LocalCredentialNamespace, action: () => Promise<T>): Promise<T> => {
+    try {
+      assertAvailable(cipher)
+      return await action()
+    }
+    catch (error) {
+      const failure = error instanceof CredentialStoreUnavailableError || error instanceof CredentialVaultError
+        ? error
+        : new CredentialVaultError('unknown', error)
+      const unavailable = failure instanceof CredentialStoreUnavailableError
+      const detail: CredentialVaultFailure = {
+        kind: 'credential_vault',
+        operation,
+        namespace,
+        phase: unavailable ? 'availability' : failure.phase,
+        reason: unavailable ? 'unavailable' : failure.reason,
+        ...(!unavailable && failure.systemCode ? { systemCode: failure.systemCode } : {}),
+      }
+      report({ event: `credential.${detail.phase}.failed`, component: 'desktop.credentials', level: 'warn', errorCode: unavailable ? 'CREDENTIAL_STORE_UNAVAILABLE' : 'CREDENTIAL_STORE_FAILURE', failure: detail })
+      throw failure
+    }
+  }
 
   return {
-    async delete(namespace, id) {
-      assertAvailable(cipher)
+    delete: (namespace, id) => run('delete', namespace, async () => {
       try {
         await unlink(resolveSecretPath(root, namespace, id))
       }
       catch (error) {
         if (!isFileNotFound(error))
-          throw error
+          throw new CredentialVaultError('delete_file', error)
       }
-    },
-    async listProviders() {
-      assertAvailable(cipher)
+    }),
+    listProviders: () => run('list', 'providers', async () => {
       const directory = resolveNamespacePath(root, 'providers')
       let files: string[]
       try {
@@ -83,46 +127,48 @@ export function createCredentialVault(
       catch (error) {
         if (isFileNotFound(error))
           return []
-        throw error
+        throw new CredentialVaultError('list_directory', error)
       }
 
       const providers = await Promise.all(files
         .filter(file => file.endsWith(SECRET_FILE_SUFFIX))
         .sort()
         .map(async (file) => {
-          const envelope = decryptEnvelope(cipher, await readFile(join(directory, file)))
+          const envelope = decryptEnvelope(cipher, await vaultStep('read_file', () => readFile(join(directory, file))))
           const type = readCredentialType(envelope.value)
           if (!type)
-            throw new Error('Lexora Buddy provider credential is invalid')
+            throw new CredentialVaultError('validate', undefined, 'invalid_credential_type')
           return { providerId: envelope.id, type }
         }))
       return providers.sort((left, right) => left.providerId.localeCompare(right.providerId))
-    },
-    async read(namespace, id) {
-      assertAvailable(cipher)
+    }),
+    read: (namespace, id) => run('read', namespace, async () => {
+      let encrypted: Buffer
       try {
-        const encrypted = await readFile(resolveSecretPath(root, namespace, id))
-        const envelope = decryptEnvelope(cipher, encrypted)
-        if (envelope.id !== id)
-          throw new Error('Lexora Buddy credential identifier does not match its vault entry')
-        return envelope.value
+        encrypted = await readFile(resolveSecretPath(root, namespace, id))
       }
       catch (error) {
         if (isFileNotFound(error))
           return null
-        throw error
+        throw new CredentialVaultError('read_file', error)
       }
-    },
-    async write(namespace, id, value) {
-      assertAvailable(cipher)
+      const envelope = decryptEnvelope(cipher, encrypted)
+      if (envelope.id !== id)
+        throw new CredentialVaultError('validate', undefined, 'identifier_mismatch')
+      return envelope.value
+    }),
+    write: (namespace, id, value) => run('write', namespace, async () => {
       const directory = resolveNamespacePath(root, namespace)
-      await ensurePrivateDirectory(root)
-      await ensurePrivateDirectory(directory)
+      await vaultStep('prepare_directory', async () => {
+        await ensurePrivateDirectory(root)
+        await ensurePrivateDirectory(directory)
+      })
 
       const destination = resolveSecretPath(root, namespace, id)
       const temporary = join(directory, `.${randomUUID()}.tmp`)
       const envelope: VaultEnvelope = { id, value, version: 1 }
-      const encrypted = cipher.encrypt(JSON.stringify(envelope))
+      const text = syncVaultStep('serialize', () => JSON.stringify(envelope))
+      const encrypted = syncVaultStep('encrypt', () => cipher.encrypt(text))
       let handle
       try {
         handle = await open(temporary, 'wx', 0o600)
@@ -136,9 +182,9 @@ export function createCredentialVault(
       catch (error) {
         await handle?.close().catch(() => {})
         await unlink(temporary).catch(() => {})
-        throw error
+        throw new CredentialVaultError('write_file', error)
       }
-    },
+    }),
   }
 }
 
@@ -165,7 +211,7 @@ export function isSafeStorageBackendSecure(input: {
 }
 
 function assertAvailable(cipher: SecretCipher): void {
-  if (!cipher.available())
+  if (!syncVaultStep('availability', () => cipher.available()))
     throw new CredentialStoreUnavailableError()
 }
 
@@ -183,14 +229,35 @@ function resolveSecretPath(root: string, namespace: LocalCredentialNamespace, id
   return join(resolveNamespacePath(root, namespace), `${name}${SECRET_FILE_SUFFIX}`)
 }
 
+async function vaultStep<T>(phase: CredentialVaultPhase, operation: () => T | Promise<T>): Promise<T> {
+  try {
+    return await operation()
+  }
+  catch (error) {
+    throw new CredentialVaultError(phase, error)
+  }
+}
+
+function syncVaultStep<T>(phase: CredentialVaultPhase, operation: () => T): T {
+  try {
+    return operation()
+  }
+  catch (error) {
+    throw new CredentialVaultError(phase, error)
+  }
+}
+
 function decryptEnvelope(cipher: SecretCipher, encrypted: Buffer): VaultEnvelope {
-  const value: unknown = JSON.parse(cipher.decrypt(encrypted))
+  const text = syncVaultStep('decrypt', () => cipher.decrypt(encrypted))
+  const value: unknown = syncVaultStep('parse', () => JSON.parse(text))
   if (!value || typeof value !== 'object' || Array.isArray(value))
-    throw new Error('Lexora Buddy credential envelope is invalid')
+    throw new CredentialVaultError('validate', undefined, 'invalid_envelope')
 
   const envelope = value as Partial<VaultEnvelope>
-  if (envelope.version !== 1 || typeof envelope.id !== 'string' || !('value' in envelope))
-    throw new Error('Lexora Buddy credential envelope is invalid')
+  if (typeof envelope.version !== 'number' || typeof envelope.id !== 'string' || !envelope.id || !('value' in envelope))
+    throw new CredentialVaultError('validate', undefined, 'invalid_envelope')
+  if (envelope.version !== 1)
+    throw new CredentialVaultError('validate', undefined, 'unsupported_version')
   return envelope as VaultEnvelope
 }
 

@@ -141,7 +141,7 @@ export class DesktopRuntimeHost {
       isPackaged: app.isPackaged,
       resourcesPath: process.resourcesPath,
     }
-    const credentials = createCredentialVault({ buddyHome: environment.paths.buddyHome })
+    const credentials = createCredentialVault({ buddyHome: environment.paths.buddyHome, reportDiagnostic: environment.events.publish })
     this.#credentials = credentials
     const config = await this.configStore.read()
     this.#config = config

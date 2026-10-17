@@ -498,6 +498,12 @@ function renderScopeLabel(option: DropdownOption) {
   line-height: var(--buddy-chat-caption-line-height);
 }
 
+.desktop-approval-card__details,
+.desktop-approval-card__review {
+  max-height: min(24rem, 40vh);
+  overflow-y: auto;
+}
+
 .desktop-approval-card__review {
   border: 1px solid var(--buddy-border-subtle);
   border-radius: 0.5rem;

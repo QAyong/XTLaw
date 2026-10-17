@@ -11,7 +11,7 @@ const upstreamRef = process.env.UPSTREAM_REF ?? 'upstream/master'
 const outDir = process.env.OUT_DIR ?? join(tmpdir(), 'upstream-watch')
 const repository = process.env.GITHUB_REPOSITORY ?? 'QAyong/XTLaw'
 const maxFiles = 100
-const maxPendingAssessed = 60
+const maxPendingAssessed = 300
 
 const versionFilePattern = /(?:^|\/)(?:package\.json|Cargo\.toml|Cargo\.lock|buddy\.version\.json|CHANGELOG[^/]*)$/
 const versionLinePattern = /^\s*"?(?:version|sourceDateEpoch)"?\s*[:=]/
@@ -86,11 +86,29 @@ function buildMessage(info) {
   return { author, text: `${english} (${chinese})\n\n(cherry picked from commit ${info.sha})` }
 }
 
-function conflictCount(info, tip) {
+// 只读试合并：不碰工作区和索引。成功时 tree 是合并结果。
+function trialMerge(info, tip) {
   const result = tryGit(['merge-tree', '--write-tree', `--merge-base=${info.sha}^`, tip, info.sha])
   if (result.ok)
-    return 0
-  return result.out.split('\n').filter(line => line.startsWith('CONFLICT')).length
+    return { ok: true, conflicts: 0, tree: result.out.split('\n')[0] }
+  return { ok: false, conflicts: result.out.split('\n').filter(line => line.startsWith('CONFLICT')).length, tree: '' }
+}
+
+function conflictCount(info, tip) {
+  return trialMerge(info, tip).conflicts
+}
+
+// 把试合并结果落成一个悬空提交，作为下一个提交的试合并起点（只写对象库，不动任何引用）。
+function advanceTip(tip, tree) {
+  return git(['commit-tree', tree, '-p', tip, '-m', 'trial'], {
+    env: {
+      ...process.env,
+      GIT_AUTHOR_NAME: 'upstream-watch',
+      GIT_AUTHOR_EMAIL: 'upstream-watch@users.noreply.github.com',
+      GIT_COMMITTER_NAME: 'upstream-watch',
+      GIT_COMMITTER_EMAIL: 'upstream-watch@users.noreply.github.com',
+    },
+  })
 }
 
 mkdirSync(outDir, { recursive: true })
@@ -146,13 +164,69 @@ for (; index < commits.length; index++) {
   lastHandled = info.sha
 }
 
-const pending = commits.slice(stopped ? index + 1 : index).map((sha, order) => {
-  if (order >= maxPendingAssessed)
-    return { sha, short: sha.slice(0, 8), subject: git(['show', '-s', '--format=%s', sha]), files: [], reasons: [], conflicts: null }
-  const info = inspect(sha)
-  const reasons = info.releaseOnly ? ['发版提交，只改版本号，届时自动跳过'] : info.reasons
-  return { ...info, reasons, conflicts: conflictCount(info, 'HEAD') }
-})
+// 停下之后只读评估后面的提交，不移植、不推进基线。
+// 阻塞集合 = 停下的提交，加上后面所有需人工、冲突或在等待的提交；
+// 改动文件与阻塞集合重叠的提交一律「等待」，这个关系会往后传递。
+// 其余提交逐个对「当前分支 + 前面已判可移植的提交」试合并，得出建议。
+const blockers = new Map()
+function block(info) {
+  for (const file of info.files) {
+    if (!blockers.has(file))
+      blockers.set(file, new Set())
+    blockers.get(file).add(info.short)
+  }
+}
+
+const pending = []
+if (stopped) {
+  block(stopped)
+  let tip = 'HEAD'
+  for (const [order, sha] of commits.slice(index + 1).entries()) {
+    if (order >= maxPendingAssessed) {
+      pending.push({ sha, short: sha.slice(0, 8), subject: git(['show', '-s', '--format=%s', sha]), files: [], verdict: 'unassessed', note: `超出评估上限 ${maxPendingAssessed} 个` })
+      continue
+    }
+    const info = inspect(sha)
+    if (info.releaseOnly) {
+      pending.push({ ...info, verdict: 'auto-skip', note: '发版提交，只改版本号，届时自动跳过' })
+      continue
+    }
+    const dependsOn = new Set()
+    for (const file of info.files) {
+      for (const short of blockers.get(file) ?? [])
+        dependsOn.add(short)
+    }
+    if (dependsOn.size > 0) {
+      block(info)
+      const extra = info.reasons.length > 0 ? `；另有：${info.reasons.join('；')}` : ''
+      pending.push({ ...info, verdict: 'wait', note: `改动文件与 ${[...dependsOn].map(short => `\`${short}\``).join('、')} 重叠，需等它们先处理${extra}` })
+      continue
+    }
+    if (info.reasons.length > 0) {
+      block(info)
+      pending.push({ ...info, verdict: 'manual', note: info.reasons.join('；') })
+      continue
+    }
+    const trial = trialMerge(info, tip)
+    if (!trial.ok) {
+      block(info)
+      pending.push({ ...info, verdict: 'conflict', note: `与当前分支试合并冲突 ${trial.conflicts} 处` })
+      continue
+    }
+    tip = advanceTip(tip, trial.tree)
+    pending.push({ ...info, verdict: 'portable', note: '与停下的提交无文件重叠，试合并无冲突' })
+  }
+}
+
+const verdictLabel = {
+  'portable': '可移植',
+  'wait': '等待',
+  'manual': '需人工',
+  'conflict': '冲突',
+  'auto-skip': '自动跳过',
+  'unassessed': '未评估',
+}
+const verdictCount = Object.fromEntries(Object.keys(verdictLabel).map(key => [key, pending.filter(info => info.verdict === key).length]))
 
 const compareBase = `https://github.com/${repository}/commit`
 const link = info => `[\`${info.short}\`](${compareBase}/${info.sha})`
@@ -162,7 +236,7 @@ report.push('')
 report.push(`- 已按顺序移植：${picked.length} 个`)
 report.push(`- 自动跳过：${skipped.length} 个`)
 report.push(`- 停下待人工处理：${stopped ? `1 个（${stopped.short}）` : '无'}`)
-report.push(`- 停下后未处理：${pending.length} 个`)
+report.push(`- 停下后只读评估：${pending.length} 个（可移植 ${verdictCount.portable}、等待 ${verdictCount.wait}、需人工 ${verdictCount.manual}、冲突 ${verdictCount.conflict}、自动跳过 ${verdictCount['auto-skip']}、未评估 ${verdictCount.unassessed}）`)
 
 if (picked.length > 0) {
   report.push('', '## 已移植（等你审查）', '')
@@ -185,15 +259,14 @@ if (stopped) {
     report.push(`- 冲突文件：${stopped.conflictFiles.slice(0, 10).join('、')}`)
   if (stopped.conflicts)
     report.push(`- 试合并冲突数：${stopped.conflicts}`)
-  report.push('', '后面的提交可能依赖它，所以不再往下自动处理。处理完后更新 `docs/upstream-baseline.json`。')
+  report.push('', '后面的提交不会自动移植（可能依赖它），基线停在它之前。处理完后更新 `docs/upstream-baseline.json`。')
 }
 if (pending.length > 0) {
-  report.push('', '## 停下后未处理（仅预评估，不保证可按序移植）', '')
-  report.push('| 上游提交 | 说明 | 试合并冲突 | 需关注 |', '|---|---|---|---|')
-  for (const info of pending) {
-    const conflicts = info.conflicts == null ? '未评估' : String(info.conflicts)
-    report.push(`| ${link(info)} | ${info.subject} | ${conflicts} | ${info.reasons.join('；') || '—'} |`)
-  }
+  report.push('', '## 停下后的提交评估（只读，供确认“移植 / 跳过”清单）', '')
+  report.push('「可移植」只表示与停下的提交没有文件重叠、对前面可移植的提交试合并无冲突；语义依赖（调用了前面新增的类型或接口）无法机械判断，仍需你确认，并以类型检查为准。', '')
+  report.push('| 上游提交 | 说明 | 建议 | 依据 |', '|---|---|---|---|')
+  for (const info of pending)
+    report.push(`| ${link(info)} | ${info.subject} | ${verdictLabel[info.verdict]} | ${info.note} |`)
 }
 
 let branch = ''
@@ -221,5 +294,7 @@ finish({
   skipped: skipped.map(info => info.short),
   stoppedAt: stopped?.short ?? '',
   pending: pending.map(info => info.short),
+  assessment: verdictCount,
+  portableAfterStop: pending.filter(info => info.verdict === 'portable').map(info => info.short),
   signature: `${upstreamHead}:${stopped?.sha ?? ''}`,
 }, `${report.join('\n')}\n`)

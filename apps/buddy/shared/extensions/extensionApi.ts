@@ -182,9 +182,16 @@ export interface ExtensionApi {
   replyWorkbench: (requestId: string, viewId: string | null) => void
 }
 
+const extensionModelFailureSchema = z.object({
+  data: z.object({ code: z.enum(['EXTENSION_MODEL_TRUNCATED', 'EXTENSION_MODEL_FAILED']) }),
+})
+
 export function extensionError(error: unknown): string {
   if (error instanceof z.ZodError)
     return 'EXTENSION_INVALID_ARGUMENT'
+  const modelFailure = extensionModelFailureSchema.safeParse(error)
+  if (modelFailure.success)
+    return modelFailure.data.data.code
   const message = error instanceof Error ? error.message : ''
   return /^EXTENSION_[A-Z_]+$/.test(message) ? message : 'EXTENSION_OPERATION_FAILED'
 }

@@ -23,8 +23,10 @@ export function createExtensionModelCapabilities(models: Pick<ProviderExecutionM
         await usage.record({ ...record, purpose: 'tool', runId: context.runId })
       context.signal.throwIfAborted()
       task.assertCurrent()
-      if (result.stopReason === 'error' || result.stopReason === 'aborted' || result.stopReason === 'length')
-        throw new Error('EXTENSION_MODEL_FAILED')
+      if (result.stopReason === 'length')
+        throw Object.assign(new Error('EXTENSION_MODEL_TRUNCATED'), { code: 'EXTENSION_MODEL_TRUNCATED' })
+      if (result.stopReason === 'error' || result.stopReason === 'aborted')
+        throw Object.assign(new Error('EXTENSION_MODEL_FAILED'), { code: 'EXTENSION_MODEL_FAILED' })
       return { text: result.content.filter(block => block.type === 'text').map(block => block.text).join(''), model: { providerId: model.provider, modelId: model.id } }
     }),
   }

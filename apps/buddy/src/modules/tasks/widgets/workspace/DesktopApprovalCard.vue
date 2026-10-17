@@ -454,6 +454,12 @@ function renderScopeLabel(option: DropdownOption) {
 </template>
 
 <style scoped>
+.desktop-approval-card__details,
+.desktop-approval-card__review {
+  max-height: min(24rem, 40vh);
+  overflow-y: auto;
+}
+
 .desktop-approval-card {
   display: grid;
   gap: 0.7rem;

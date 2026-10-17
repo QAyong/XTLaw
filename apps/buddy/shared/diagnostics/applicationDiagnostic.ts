@@ -4,6 +4,7 @@ import { extensionDiagnosticSchema } from '../extensions/extensionDiagnostic'
 import { extensionIdSchema } from '../extensions/extensionManifest'
 import { readLifecycleFailure } from '../lifecycle/lifecycleFailure'
 import { sandboxProcessStateSchema } from '../permissions/sandboxLifecycle'
+import { credentialVaultFailureSchema } from './credentialVaultFailure'
 import { desktopBootstrapFailureSchema, processExitSchema, rendererLoadFailureSchema } from './desktopStartupDiagnostic'
 import { networkStartupFailureSchema } from './networkStartupFailure'
 import { cpuProfileSummarySchema, performanceSampleSchema } from './performanceDiagnostic'
@@ -45,7 +46,7 @@ export const applicationDiagnosticSchema = z.object({
   durationMs: z.number().finite().nonnegative().optional(),
   errorCode: diagnosticCodeSchema.optional(),
   errorType: z.string().regex(/^[a-z]\w{0,95}$/i).optional(),
-  failure: z.union([privateDirectoryFailureSchema, desktopBootstrapFailureSchema, networkStartupFailureSchema]).optional(),
+  failure: z.union([privateDirectoryFailureSchema, desktopBootstrapFailureSchema, networkStartupFailureSchema, credentialVaultFailureSchema]).optional(),
   providerRequest: providerRequestDiagnosticSchema.optional(),
   extensionRequest: extensionDiagnosticSchema.optional(),
   performanceSample: performanceSampleSchema.optional(),

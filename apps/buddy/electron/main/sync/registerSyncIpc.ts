@@ -15,7 +15,7 @@ export async function registerSyncIpc(root: string, network: DesktopNetwork, get
     if (window && !window.isDestroyed())
       window.webContents.send(SYNC_CHANGED, state())
   }
-  const hub = new SyncHub(root, createCredentialVault({ buddyHome: join(root, 'buddy') }), network.request, publish, privateDirectoriesExecutable)
+  const hub = new SyncHub(root, createCredentialVault({ buddyHome: join(root, 'buddy'), reportDiagnostic: backups.environment.events.publish }), network.request, publish, privateDirectoriesExecutable)
   const scheduler = new BackupScheduler(root, backups, hub, hub.credentials, publish)
   function state() {
     return { ...hub.state(), schedules: scheduler.state(), scheduleError: scheduler.unavailable }

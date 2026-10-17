@@ -114,7 +114,7 @@ export class StorageBackupService {
           bytes.push(chunk)
         })
         const value = await decryptBackupCredentials(Buffer.concat(bytes), options.password!)
-        await stageBackupCredentials(stage, value, options.scopes)
+        await stageBackupCredentials(stage, value, options.scopes, this.environment.events.publish)
       }
       await store.request('restore', (await store.read()).activeRoot, [], id, options.scopes, options.credentials, operationId)
     }

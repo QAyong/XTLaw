@@ -1,3 +1,4 @@
+import type { ApplicationDiagnosticReporter } from '../../../shared/diagnostics/applicationDiagnostic'
 import type { BackupScope } from '../../../shared/storage/backupScope'
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -32,9 +33,9 @@ export async function exportBackupCredentials(home: string, selected: readonly B
   }
   return credentials
 }
-export async function stageBackupCredentials(home: string, value: unknown, selected: readonly BackupScope[]): Promise<void> {
+export async function stageBackupCredentials(home: string, value: unknown, selected: readonly BackupScope[], reportDiagnostic?: ApplicationDiagnosticReporter): Promise<void> {
   const credentials = z.array(credentialSchema).max(10000).parse(value)
-  const vault = createCredentialVault({ buddyHome: home })
+  const vault = createCredentialVault({ buddyHome: home, reportDiagnostic })
   for (const item of credentials) {
     if (selected.includes(scopes[item.namespace]))
       await vault.write(item.namespace, item.id, item.value)

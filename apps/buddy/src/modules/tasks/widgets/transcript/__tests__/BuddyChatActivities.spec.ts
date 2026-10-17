@@ -302,7 +302,7 @@ describe('activity disclosure', () => {
 
   it.each(['reasoning', 'tool'] as const)('preserves a manually closed %s when the next tool forms a group', async (kind) => {
     const node: ChatAgentTurnNode = kind === 'reasoning'
-      ? { id: 'thought', contentIndex: 0, kind, status: 'running', text: 'Checking the layout' }
+      ? { id: 'thought', contentIndex: 0, kind, messageId: 'reply', status: 'running', text: 'Checking the layout' }
       : readTool('one', 'running')
     const { root, turn } = mountTurn([node])
     const header = root.querySelector<HTMLButtonElement>(kind === 'reasoning' ? '.buddy-chat-reasoning-entry__header' : '.buddy-chat-tool__header')!

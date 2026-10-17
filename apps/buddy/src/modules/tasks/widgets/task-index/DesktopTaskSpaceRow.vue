@@ -11,7 +11,6 @@ import {
   ApprovalsApp20Regular,
   ChevronDown16Regular,
   ChevronRight16Regular,
-  Edit20Regular,
   FolderOpen20Regular,
   MoreHorizontal20Regular,
   SpinnerIos20Regular,
@@ -79,7 +78,7 @@ const menuOptions = computed<DropdownOption[]>(() => [
     label: t('desktop.skills.manage'),
   },
   {
-    icon: () => h(DesktopIcon, { component: Edit20Regular, size: 14 }),
+    icon: () => h(DesktopIcon, { name: 'edit', size: 14 }),
     key: 'edit',
     label: t('common.edit'),
   },

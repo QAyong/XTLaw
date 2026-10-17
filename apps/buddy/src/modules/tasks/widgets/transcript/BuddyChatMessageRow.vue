@@ -101,7 +101,7 @@ const messageText = computed(() => (props.actionMessages ?? [props.message]).map
       {{ roleLabel }}
     </span>
     <div v-if="editing" class="buddy-chat-message__editing-state" role="status">
-      <DesktopIcon name="messageEdit" />
+      <DesktopIcon name="edit" />
       <span>{{ t('desktop.chat.editingMessage') }}</span>
     </div>
     <BuddyChatMessageBody

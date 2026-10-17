@@ -7,7 +7,6 @@ import type { BuddyLocale } from '@/i18n/buddyI18n'
 import type { DesktopTaskPinnedDropPosition } from '@/modules/tasks/widgets/task-index/taskPinnedItems'
 import {
   ApprovalsApp20Regular,
-  Edit20Regular,
   MoreHorizontal20Regular,
   SpinnerIos20Regular,
 } from '@vicons/fluent'
@@ -95,12 +94,8 @@ const actions = computed<DropdownOption[]>(() => [
     label: pinLabel.value,
     show: props.pinMode !== undefined,
   },
-  { icon: () => hIcon(Edit20Regular), key: 'rename', label: t('desktop.tasks.renameTask') },
+  { icon: () => h(DesktopIcon, { name: 'edit' }), key: 'rename', label: t('desktop.tasks.renameTask') },
 ])
-
-function hIcon(component: typeof Edit20Regular) {
-  return h(DesktopIcon, { component })
-}
 
 function handleAction(action: string | number) {
   selectTaskAction(action)

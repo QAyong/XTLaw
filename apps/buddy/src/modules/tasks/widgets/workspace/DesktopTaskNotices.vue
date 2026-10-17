@@ -48,7 +48,7 @@ const resolvingApprovalActions = computed(() => props.execution.resolvingApprova
   />
 
   <article v-if="editingMessageId" class="desktop-chat-page__editing" role="status">
-    <DesktopIcon class="desktop-chat-page__editing-icon" name="messageEdit" />
+    <DesktopIcon class="desktop-chat-page__editing-icon" name="edit" />
     <strong>{{ t('desktop.chat.editingHistoryMessage') }}</strong>
     <NButton
       class="buddy-icon-button"

@@ -1,3 +1,4 @@
+import type { DesktopSiteNotification } from '@buddy-electron/shared/siteFeed'
 import type { LocalNotification } from '@buddy-shared/notifications/notificationApi'
 import type { DesktopNotification } from '@/modules/notifications/contracts'
 import { deferred } from '@buddy-tests/deferred'
@@ -37,6 +38,7 @@ async function fixture(ready = Promise.resolve(), isReady?: () => boolean) {
       select(id)
   })
   const errors: unknown[] = []
+  const openSiteNotice = vi.fn(async (_itemId: string) => {})
   const scope = effectScope()
   scopes.push(scope)
   const navigation = scope.run(() => useDesktopNavigation({
@@ -47,10 +49,11 @@ async function fixture(ready = Promise.resolve(), isReady?: () => boolean) {
     activateRunBranch,
     notifications: { markSeen },
     openUpdate: async () => {},
+    openSiteNotice,
     onError: error => errors.push(error),
     session: { activeTaskId, spaceId, navigationVersion: () => version, openTask, startTask: async id => select(null, id) },
   }))!
-  return { activeBranchId, activateRunBranch, activeTaskId, errors, getRun, markSeen, navigation, openTask, router, scope, select }
+  return { activeBranchId, activateRunBranch, activeTaskId, errors, getRun, markSeen, navigation, openSiteNotice, openTask, router, scope, select }
 }
 
 function notification(id: string): LocalNotification {
@@ -69,7 +72,37 @@ function notification(id: string): LocalNotification {
   }
 }
 
+function siteNotification(itemId: string): DesktopSiteNotification {
+  return {
+    id: `site.${itemId}`,
+    revision: '1',
+    attention: 'unseen',
+    origin: 'site',
+    occurredAt: '2026-09-08T00:00:00.000Z',
+    kind: 'site.notice',
+    action: { type: 'open-site-link' },
+    payload: { itemId, category: 'tutorial', title: itemId, summary: '' },
+  }
+}
+
 describe('desktop navigation intent', () => {
+  it('opens a website notice through the main process by id and leaves the task untouched', async () => {
+    const f = await fixture()
+    await f.navigation.openNotification(siteNotification('first-task'))
+    expect(f.openSiteNotice).toHaveBeenCalledWith('first-task')
+    expect(f.markSeen).not.toHaveBeenCalled()
+    expect(f.openTask).not.toHaveBeenCalled()
+    expect(f.errors).toEqual([])
+  })
+
+  it('reports a website notice that can no longer be opened', async () => {
+    const f = await fixture()
+    const failure = new Error('SITE_FEED_ITEM_UNAVAILABLE')
+    f.openSiteNotice.mockRejectedValueOnce(failure)
+    await f.navigation.openNotification(siteNotification('expired'))
+    expect(f.errors).toEqual([failure])
+  })
+
   it('opens the latest notification without waiting for mark-seen persistence', async () => {
     const f = await fixture()
     const marking = deferred<boolean>()

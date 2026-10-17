@@ -12,6 +12,7 @@ import type { DesktopChatWelcomeItem, DesktopChatWelcomePreference } from './des
 import type { DesktopCommandId, DesktopPlatform } from './desktopCommands'
 import type { DesktopUpdateApi, DesktopUpdateCapabilities, DesktopUpdateCheckResult } from './desktopUpdates'
 import type { LocalChatApi } from './localChatApi'
+import type { SiteFeedApi } from './siteFeed'
 import { BUDDY_DEFAULT_PERMISSION_MODE } from '../../shared/permissions/permissionMode'
 import { DEFAULT_DESKTOP_CHAT_WELCOME_ITEMS } from './desktopChatWelcome'
 
@@ -43,6 +44,11 @@ export const DESKTOP_IPC_CHANNELS = {
   appUpdatesChanged: 'lexora:app:updates:changed',
   appUpdatesAcknowledge: 'lexora:app:updates:acknowledge',
   appUpdatesTakeReminder: 'lexora:app:updates:take-reminder',
+  appSiteFeedState: 'lexora:app:site-feed:state',
+  appSiteFeedChanged: 'lexora:app:site-feed:changed',
+  appSiteFeedMarkSeen: 'lexora:app:site-feed:mark-seen',
+  appSiteFeedMarkAllSeen: 'lexora:app:site-feed:mark-all-seen',
+  appSiteFeedOpen: 'lexora:app:site-feed:open',
   appGetInfo: 'lexora:app:get-info',
   appGetSandboxStatus: 'lexora:app:get-sandbox-status',
   appSetupSandbox: 'lexora:app:setup-sandbox',
@@ -257,6 +263,7 @@ export interface LexoraDesktopApi {
       reportLifecycle: (report: RendererLifecycleReport) => Promise<void>
     }
     updates: DesktopUpdateApi
+    siteFeed: SiteFeedApi
     checkForUpdates: () => Promise<DesktopUpdateCheckResult>
     getInfo: () => Promise<DesktopAppInfo>
     getSandboxStatus: () => Promise<SandboxEnvironmentStatus>

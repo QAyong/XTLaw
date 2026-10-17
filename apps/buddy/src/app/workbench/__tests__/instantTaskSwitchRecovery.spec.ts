@@ -164,6 +164,7 @@ describe('instant task switching', () => {
       ready: Promise.resolve(),
       notifications: { markSeen: async () => true },
       openUpdate: async () => {},
+      openSiteNotice: async () => {},
       onError: error => f.errors.push(error),
       getRun: async () => ({ conversationId: 'b', branchId: 'notified-branch', triggeringMessageId: 'target-message' }),
       activateRunBranch: async (run) => {

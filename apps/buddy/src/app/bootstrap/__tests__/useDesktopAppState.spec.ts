@@ -140,7 +140,7 @@ describe('useDesktopAppState', () => {
 })
 
 function emptyUpdateApp() {
-  return { updates: { onChanged: () => () => {}, getState: async () => ({ revision: 0, enabled: true, checking: false, lastCheckedAt: null, ignoredVersion: null, result: null, notification: null, reminderDueAt: null }) } }
+  return { siteFeed: { onChanged: () => () => {}, getState: async () => ({ revision: 0, notifications: [] }) }, updates: { onChanged: () => () => {}, getState: async () => ({ revision: 0, enabled: true, checking: false, lastCheckedAt: null, ignoredVersion: null, result: null, notification: null, reminderDueAt: null }) } }
 }
 
 function emptyNotificationApi() {

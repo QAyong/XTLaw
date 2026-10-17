@@ -10,6 +10,7 @@ import type { BackupConfiguration, SyncConnectionInput, SyncState } from '../../
 import type { DesktopAppInfo, DesktopOpenTarget, DesktopOpenTargetRequest, DesktopOpenTargetResult, DesktopWindowState, LexoraConfigPatch, LexoraDesktopApi } from '../shared/desktopApi'
 import type { DesktopCommandId } from '../shared/desktopCommands'
 import type { DesktopUpdateAction, DesktopUpdateState } from '../shared/desktopUpdates'
+import type { SiteFeedState } from '../shared/siteFeed'
 import { ipcRenderer, webUtils } from 'electron'
 import { STORAGE_CHANGED, STORAGE_CHANNEL } from '../../shared/storage/storageApi'
 import { SYNC_CHANGED, SYNC_CHANNEL } from '../../shared/sync/syncApi'
@@ -88,6 +89,13 @@ export function createDesktopApi(): Pick<LexoraDesktopApi, 'app' | 'clipboard' |
         onChanged: (listener: (state: DesktopUpdateState) => void) => subscribe(DESKTOP_IPC_CHANNELS.appUpdatesChanged, listener),
         acknowledge: (input: DesktopUpdateAction) => ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.appUpdatesAcknowledge, { version: input.version, action: input.action, ...(input.action === 'snooze' ? { delay: input.delay } : {}) }),
         takeReminder: () => ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.appUpdatesTakeReminder),
+      }),
+      siteFeed: Object.freeze({
+        getState: () => ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.appSiteFeedState),
+        onChanged: (listener: (state: SiteFeedState) => void) => subscribe(DESKTOP_IPC_CHANNELS.appSiteFeedChanged, listener),
+        markSeen: (itemId: string, revision: string) => ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.appSiteFeedMarkSeen, { itemId, revision }),
+        markAllSeen: () => ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.appSiteFeedMarkAllSeen),
+        open: (itemId: string) => ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.appSiteFeedOpen, { itemId }),
       }),
       checkForUpdates: () => ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.appCheckForUpdates),
       getInfo: (): Promise<DesktopAppInfo> => ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.appGetInfo),

@@ -237,6 +237,7 @@ const navigation = useDesktopNavigation({
   },
   notifications: stores.notifications,
   openUpdate: stores.updates.openDetails,
+  openSiteNotice: stores.siteFeed.open,
   getRun: api.localChat.runs.get,
   activateRunBranch: async (run) => {
     const task = selectedTask.value

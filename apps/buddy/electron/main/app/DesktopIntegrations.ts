@@ -32,6 +32,7 @@ import { registerExtensionIpc } from '../extensions/registerExtensionIpc'
 import { createFeedbackIssueUrl } from '../feedbackIssue'
 import { registerDesktopIpc } from '../ipc'
 import { registerLocalChatIpc } from '../localChatIpc'
+import { registerSiteFeed } from '../site-feed/registerSiteFeed'
 import { registerStorageIpc } from '../storage/registerStorageIpc'
 import { StorageBackupService } from '../storage/StorageBackupService'
 import { registerSyncIpc } from '../sync/registerSyncIpc'
@@ -214,6 +215,8 @@ export class DesktopIntegrations {
     this.#subscriptions.push(() => notifications.dispose())
     const updates = registerDesktopUpdates(this.#environment, runtime, windows, this.#requestInstall)
     this.#subscriptions.push(updates.dispose)
+    const siteFeed = registerSiteFeed(this.#environment, runtime, windows)
+    this.#subscriptions.push(siteFeed.dispose)
     const backups = new StorageBackupService(this.#environment, () => windows.window, runtime)
     this.#subscriptions.push(() => backups.dispose())
     this.#subscriptions.push(await registerSyncIpc(paths.lexoraHome, runtime.network, () => windows.window, backups, this.#environment.storage.privateDirectoriesExecutable))

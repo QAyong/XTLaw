@@ -1,7 +1,7 @@
 import type { LexoraDesktopApi } from '@buddy-electron/shared/desktopApi'
 import type { ServiceHost } from '@buddy-shared/lifecycle/ServiceHost'
 import { useModelProvidersStore } from '@/modules/models'
-import { useNotificationCenterStore } from '@/modules/notifications'
+import { useNotificationCenterStore, useSiteFeed } from '@/modules/notifications'
 import { useApplicationSettingsStore, useStorageStore, useStorageUsageStore, useUsageStore } from '@/modules/settings'
 import { useDesktopUpdates } from '@/modules/updates'
 import { useRuntimeSupervisorStore } from '@/platform/runtime/useRuntimeSupervisorStore'
@@ -14,7 +14,8 @@ export interface UseDesktopAppStateOptions {
 export function useDesktopAppState(options: UseDesktopAppStateOptions) {
   const applicationSettings = useApplicationSettingsStore(options.api.settings)
   const updates = useDesktopUpdates(options.api.app)
-  const notifications = useNotificationCenterStore(options.api.localChat, updates)
+  const siteFeed = useSiteFeed(options.api.app)
+  const notifications = useNotificationCenterStore(options.api.localChat, updates, siteFeed)
   const modelProviders = useModelProvidersStore({
     api: options.api.localChat.providers,
     language: applicationSettings.language,
@@ -33,6 +34,7 @@ export function useDesktopAppState(options: UseDesktopAppStateOptions) {
     modelProviders,
     notifications,
     runtimeSupervisor,
+    siteFeed,
     storageUsage,
     storage: useStorageStore(options.api.storage, options.api.sync, storageUsage),
     updates,
@@ -54,6 +56,7 @@ export function useDesktopAppState(options: UseDesktopAppStateOptions) {
 
   async function loadInitialState(): Promise<boolean> {
     void updates.load().catch(() => {})
+    void siteFeed.load().catch(() => {})
     const results = await Promise.allSettled([
       applicationSettings.load(),
       runtimeSupervisor.loadStatus(),
@@ -79,6 +82,7 @@ export function useDesktopAppState(options: UseDesktopAppStateOptions) {
     modelProviders.dispose()
     notifications.dispose()
     updates.dispose()
+    siteFeed.dispose()
     runtimeSupervisor.dispose()
     stores.storage.dispose()
   }

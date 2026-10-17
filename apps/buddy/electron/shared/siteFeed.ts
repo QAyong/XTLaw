@@ -27,6 +27,10 @@ const siteFeedEnvelopeSchema = z.object({
   items: z.array(z.unknown()).max(200),
 })
 
+export function isSiteFeedItemActive(item: Pick<SiteFeedItem, 'expiresAt' | 'publishedAt'>, now: number): boolean {
+  return Date.parse(item.publishedAt) <= now && (item.expiresAt === null || Date.parse(item.expiresAt) > now)
+}
+
 /**
  * Returns the usable items of a feed: unknown schema versions yield nothing, invalid or
  * duplicate items are skipped one by one, expired items are dropped, newest first.
@@ -41,8 +45,7 @@ export function parseSiteFeed(input: unknown, now = Date.now()): SiteFeedItem[] 
     const parsed = siteFeedItemSchema.safeParse(candidate)
     if (!parsed.success || seen.has(parsed.data.id))
       continue
-    const { expiresAt, publishedAt } = parsed.data
-    if (Date.parse(publishedAt) > now || (expiresAt !== null && Date.parse(expiresAt) <= now))
+    if (!isSiteFeedItemActive(parsed.data, now))
       continue
     seen.add(parsed.data.id)
     items.push(parsed.data)
@@ -50,4 +53,39 @@ export function parseSiteFeed(input: unknown, now = Date.now()): SiteFeedItem[] 
   return items
     .sort((left, right) => Date.parse(right.publishedAt) - Date.parse(left.publishedAt) || left.id.localeCompare(right.id))
     .slice(0, SITE_FEED_MAX_ITEMS)
+}
+
+// What the renderer sees. The link itself never crosses the bridge: the main process
+// resolves it from its own validated copy when the user opens the notification.
+export interface DesktopSiteNotification {
+  readonly id: string
+  readonly revision: string
+  readonly kind: 'site.notice'
+  readonly origin: 'site'
+  readonly attention: 'seen' | 'unseen'
+  readonly occurredAt: string
+  readonly action: { readonly type: 'open-site-link' }
+  readonly payload: {
+    readonly itemId: string
+    readonly category: SiteFeedItem['kind']
+    readonly title: string
+    readonly summary: string
+  }
+}
+
+export interface SiteFeedState {
+  readonly revision: number
+  readonly notifications: ReadonlyArray<DesktopSiteNotification>
+}
+
+export const siteFeedItemIdSchema = siteFeedItemSchema.shape.id
+export const siteFeedSeenInputSchema = z.object({ itemId: siteFeedItemIdSchema, revision: siteFeedItemSchema.shape.revision }).strict()
+export const siteFeedTargetSchema = z.object({ itemId: siteFeedItemIdSchema }).strict()
+
+export interface SiteFeedApi {
+  getState: () => Promise<SiteFeedState>
+  onChanged: (listener: (state: SiteFeedState) => void) => () => void
+  markSeen: (itemId: string, revision: string) => Promise<SiteFeedState>
+  markAllSeen: () => Promise<SiteFeedState>
+  open: (itemId: string) => Promise<void>
 }

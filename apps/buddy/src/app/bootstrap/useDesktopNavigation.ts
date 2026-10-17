@@ -14,6 +14,7 @@ interface DesktopNavigationOptions {
   session: Pick<TaskSession, 'activeTaskId' | 'spaceId' | 'navigationVersion' | 'openTask' | 'startTask'>
   notifications: Pick<NotificationCenterStore, 'markSeen'>
   openUpdate: () => Promise<void>
+  openSiteNotice: (itemId: string) => Promise<void>
   getRun: (runId: string) => Promise<RunTarget | null>
   activateRunBranch: (run: RunTarget) => Promise<boolean>
   onError: (error: unknown) => void
@@ -135,6 +136,15 @@ export function useDesktopNavigation(options: DesktopNavigationOptions) {
     if (notification.action.type === 'open-app-update') {
       try {
         await options.openUpdate()
+      }
+      catch (error) {
+        options.onError(error)
+      }
+      return
+    }
+    if (notification.kind === 'site.notice') {
+      try {
+        await options.openSiteNotice(notification.payload.itemId)
       }
       catch (error) {
         options.onError(error)

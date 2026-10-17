@@ -1,6 +1,7 @@
 import type { LocalChatApi } from '@buddy-electron/shared/localChatApi'
 import type { LocalNotification, LocalNotificationList } from '@buddy-shared/notifications/notificationApi'
 import type { DesktopNotification } from '../contracts'
+import type { SiteFeed } from './useSiteFeed'
 import type { DesktopUpdates } from '@/modules/updates/contracts'
 import { computed, readonly, shallowRef } from 'vue'
 
@@ -17,11 +18,11 @@ export function filterNotifications(
 
 export function useNotificationCenterStore(api: {
   notifications: LocalChatApi['notifications']
-}, updates: Pick<DesktopUpdates, 'state' | 'markSeen'>) {
+}, updates: Pick<DesktopUpdates, 'state' | 'markSeen'>, siteFeed: Pick<SiteFeed, 'state' | 'markSeen' | 'markAllSeen'>) {
   const localItems = shallowRef<ReadonlyArray<LocalNotification>>([])
   const items = computed<readonly DesktopNotification[]>(() => {
     const update = updates.state.value?.notification
-    return [...(update ? [update] : []), ...localItems.value]
+    return [...(update ? [update] : []), ...(siteFeed.state.value?.notifications ?? []), ...localItems.value]
       .sort(compareNotifications)
   })
   const unseenCount = computed(() => items.value.filter(item => item.attention === 'unseen').length)
@@ -129,10 +130,16 @@ export function useNotificationCenterStore(api: {
   async function markSeen(notification: DesktopNotification): Promise<boolean> {
     if (stopped)
       return false
-    if (notification.kind !== 'app.update-available')
-      return mutate(() => api.notifications.markSeen(notification.id, notification.revision))
+    if (notification.kind === 'app.update-available')
+      return markExternal(() => updates.markSeen(notification.revision))
+    if (notification.kind === 'site.notice')
+      return markExternal(() => siteFeed.markSeen(notification.payload.itemId, notification.revision))
+    return mutate(() => api.notifications.markSeen(notification.id, notification.revision))
+  }
+
+  async function markExternal(operation: () => Promise<void>): Promise<boolean> {
     try {
-      await updates.markSeen(notification.revision)
+      await operation()
       return true
     }
     catch (markError) {
@@ -147,6 +154,7 @@ export function useNotificationCenterStore(api: {
     const results = await Promise.all([
       mutate(() => api.notifications.markAllSeen()),
       update ? markSeen(update) : true,
+      markExternal(siteFeed.markAllSeen),
     ])
     return results.every(Boolean)
   }
@@ -178,9 +186,13 @@ export type NotificationCenterStore = ReturnType<typeof useNotificationCenterSto
 function compareNotifications(left: DesktopNotification, right: DesktopNotification): number {
   if (left.attention !== right.attention)
     return left.attention === 'unseen' ? -1 : 1
-  const leftActive = left.kind === 'app.update-available' || left.lifecycle === 'active'
-  const rightActive = right.kind === 'app.update-available' || right.lifecycle === 'active'
+  const leftActive = isActive(left)
+  const rightActive = isActive(right)
   if (leftActive !== rightActive)
     return leftActive ? -1 : 1
   return right.occurredAt.localeCompare(left.occurredAt) || right.id.localeCompare(left.id)
+}
+
+function isActive(notification: DesktopNotification): boolean {
+  return notification.kind === 'app.update-available' || (notification.kind !== 'site.notice' && notification.lifecycle === 'active')
 }

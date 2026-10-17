@@ -2,7 +2,7 @@
 import type { DesktopNotification } from '../contracts'
 
 import type { BuddyLocale } from '@/i18n/buddyI18n'
-import { ArrowDownload20Regular, Bot20Regular, CheckmarkCircle20Regular, Warning20Regular } from '@vicons/fluent'
+import { ArrowDownload20Regular, BookOpen20Regular, Bot20Regular, CheckmarkCircle20Regular, Heart20Regular, Megaphone20Regular, Warning20Regular } from '@vicons/fluent'
 import { computed } from 'vue'
 
 import { useBuddyI18n } from '@/i18n/buddyI18n'
@@ -23,6 +23,8 @@ const dateFormatter = computed(() => new Intl.DateTimeFormat(props.language, {
   month: 'short',
 }))
 const title = computed(() => {
+  if (props.notification.kind === 'site.notice')
+    return props.notification.payload.title
   if (props.notification.kind === 'app.update-available')
     return t('desktop.update.notificationTitle', { version: props.notification.payload.version })
   if (props.notification.kind === 'model.source-parameters-updated') {
@@ -33,6 +35,8 @@ const title = computed(() => {
   return props.notification.payload.automationName
 })
 const description = computed(() => {
+  if (props.notification.kind === 'site.notice')
+    return props.notification.payload.summary || t('desktop.notifications.siteOpenHint')
   if (props.notification.kind === 'app.update-available')
     return t('desktop.update.notificationDescription')
   if (props.notification.kind === 'model.source-parameters-updated')
@@ -41,7 +45,13 @@ const description = computed(() => {
     ? 'desktop.notifications.automationCompletedDescription'
     : 'desktop.notifications.automationFailedDescription')
 })
+const siteIcons = { announcement: Megaphone20Regular, sponsor: Heart20Regular, tutorial: BookOpen20Regular } as const
+const originLabel = computed(() => props.notification.kind === 'site.notice'
+  ? t(`desktop.notifications.siteCategory.${props.notification.payload.category}`)
+  : t(`desktop.notifications.origin.${props.notification.origin}`))
 const icon = computed(() => {
+  if (props.notification.kind === 'site.notice')
+    return siteIcons[props.notification.payload.category]
   if (props.notification.kind === 'app.update-available')
     return ArrowDownload20Regular
   if (props.notification.kind === 'automation.run.completed')
@@ -69,7 +79,7 @@ const icon = computed(() => {
       <strong>{{ title }}</strong>
       <span>{{ description }}</span>
       <small>
-        {{ t(`desktop.notifications.origin.${notification.origin}`) }}
+        {{ originLabel }}
         · {{ dateFormatter.format(new Date(notification.occurredAt)) }}
       </small>
     </span>

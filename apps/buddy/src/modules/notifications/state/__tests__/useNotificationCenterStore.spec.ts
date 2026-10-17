@@ -1,4 +1,5 @@
 import type { DesktopUpdateState } from '@buddy-electron/shared/desktopUpdates'
+import type { DesktopSiteNotification, SiteFeedState } from '@buddy-electron/shared/siteFeed'
 import type { LocalNotification, LocalNotificationList } from '@buddy-shared/notifications/notificationApi'
 import { deferred } from '@buddy-tests/deferred'
 import { describe, expect, it, vi } from 'vitest'
@@ -22,11 +23,58 @@ function fixture() {
     automations: { onChanged: () => () => {} },
   }
   const updates = { state: shallowRef<DesktopUpdateState | null>(null), markSeen: vi.fn(async (_version: string) => {}) }
-  const store = useNotificationCenterStore(api, updates)
-  return { api, store, updates, changed: () => changed({ revision: 1 }) }
+  const siteFeed = { state: shallowRef<SiteFeedState | null>(null), markSeen: vi.fn(async (_itemId: string, _revision: string) => {}), markAllSeen: vi.fn(async () => {}) }
+  const store = useNotificationCenterStore(api, updates, siteFeed)
+  return { api, store, updates, siteFeed, changed: () => changed({ revision: 1 }) }
+}
+
+function siteNotice(itemId: string, fields: Partial<DesktopSiteNotification> = {}): DesktopSiteNotification {
+  return {
+    id: `site.${itemId}`,
+    revision: '1',
+    kind: 'site.notice',
+    origin: 'site',
+    attention: 'unseen',
+    occurredAt: '2026-09-10T00:00:00.000Z',
+    action: { type: 'open-site-link' },
+    payload: { itemId, category: 'announcement', title: itemId, summary: '' },
+    ...fields,
+  }
 }
 
 describe('notification state ownership', () => {
+  it('shows website notices beside local ones, counts them as unread and sorts unread before read', async () => {
+    const f = fixture()
+    await f.store.load()
+    f.siteFeed.state.value = { revision: 1, notifications: [siteNotice('seen', { attention: 'seen', occurredAt: '2026-09-12T00:00:00.000Z' }), siteNotice('news')] }
+    expect(f.store.items.value.map(item => item.id)).toEqual(['catalog', 'site.news', 'site.seen'])
+    expect(f.store.unseenCount.value).toBe(2)
+    f.store.dispose()
+  })
+
+  it('marks a website notice seen through the website feed only', async () => {
+    const f = fixture()
+    await f.store.load()
+    expect(await f.store.markSeen(siteNotice('news', { revision: '3' }))).toBe(true)
+    expect(f.siteFeed.markSeen).toHaveBeenCalledWith('news', '3')
+    expect(f.api.notifications.markSeen).not.toHaveBeenCalled()
+    f.siteFeed.markSeen.mockRejectedValueOnce(new Error('unavailable'))
+    expect(await f.store.markSeen(siteNotice('news'))).toBe(false)
+    f.store.dispose()
+  })
+
+  it('marks website notices seen together with the other sources', async () => {
+    const f = fixture()
+    await f.store.load()
+    expect(await f.store.markAllSeen()).toBe(true)
+    expect(f.siteFeed.markAllSeen).toHaveBeenCalledTimes(1)
+    expect(f.api.notifications.markAllSeen).toHaveBeenCalledTimes(1)
+    f.siteFeed.markAllSeen.mockRejectedValueOnce(new Error('unavailable'))
+    expect(await f.store.markAllSeen()).toBe(false)
+    expect(f.api.notifications.markAllSeen).toHaveBeenCalledTimes(2)
+    f.store.dispose()
+  })
+
   it('preserves unread and active priority even without an update notification', async () => {
     const f = fixture()
     const item = list().items[0]!

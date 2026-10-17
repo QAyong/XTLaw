@@ -44,7 +44,7 @@ export function useExtensionContributions(options: { controller: WorkbenchContro
           scope.command({ id: command.id, label: command.title, slash: command.slash ? { ...command.slash, name: qualifyWorkbenchCommand(extensionCommandNamespace(id), command.slash.name), origin: { id, name: item.manifest.name, author: item.manifest.author, version: item.manifest.version, source: item.source?.artifact } } : undefined, enabled: () => matchesWorkbenchContext(command.when, controller.contextKeys.snapshot()), execute: async ({ view, pane, source, arguments: argumentsText }) => {
             if (source === 'slash')
               return api.executeSlash(id, command.id, argumentsText ?? '', pane?.id)
-            const parsed = view && ['file', 'file-preview'].includes(view.resource.scheme) ? spaceFileTargetSchema.safeParse(view.resource.data) : null
+            const parsed = view && ['file', 'file-preview'].includes(view.resource.scheme) ? spaceFileTargetSchema.strip().safeParse(view.resource.data) : null
             await api.execute(id, command.id, parsed?.success ? parsed.data : null)
           } })
         }

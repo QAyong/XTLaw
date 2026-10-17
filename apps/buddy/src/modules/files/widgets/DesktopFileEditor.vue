@@ -27,7 +27,7 @@ const quoteMenu = useTemplateRef<InstanceType<typeof ResourceSelectionQuoteMenu>
 const references = useSelectionReferences()
 const { t } = useBuddyI18n(() => props.language)
 function quoteSource(format: 'source' | 'markdown' = 'source'): BuddyFileQuote['source'] {
-  return { kind: 'file', title: props.view.title, file: spaceFileTargetSchema.parse(props.view.resource.data), format }
+  return { kind: 'file', title: props.view.title, file: spaceFileTargetSchema.strip().parse(props.view.resource.data), format }
 }
 function prepareQuote(quote: BuddyResourceQuote, x: number, y: number) {
   return quoteMenu.value?.prepare(quote, x, y) ?? null

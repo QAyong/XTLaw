@@ -7,6 +7,7 @@ import type { ResourceRef } from '@/workbench/common/workbench'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createApp, h, nextTick, provide, shallowRef } from 'vue'
 import DesktopFileLoading from '@/shared/ui/loading/DesktopFileLoading.vue'
+import { WorkbenchSelectionReferences, workbenchSelectionReferencesKey } from '@/shared/ui/selection/workbenchSelectionReferences'
 import { workbenchKey } from '@/workbench/browser/workbenchContext'
 import { workbenchLabels } from '@/workbench/common/workbenchLabels'
 import { ContributionRegistry } from '@/workbench/services/ContributionRegistry'
@@ -19,6 +20,8 @@ vi.mock('naive-ui', () => ({ NButton: { render: () => null } }))
 vi.mock('@/shared/ui/contributions/WorkbenchMenu.vue', () => ({ default: { render: () => null } }))
 vi.mock('@/shared/ui/files/DesktopDocumentToolbar.vue', () => ({ default: { render: () => null } }))
 vi.mock('@/shared/ui/monaco/desktopMonaco', () => ({ observeDesktopMonacoTheme: () => () => {} }))
+vi.mock('@/shared/ui/selection/ResourceSelectionQuoteMenu.vue', () => ({ default: { render: () => null } }))
+vi.mock('@/shared/ui/selection/useMonacoResourceQuote', () => ({ registerMonacoResourceQuote: () => {} }))
 vi.mock('@/shared/ui/markdown/DesktopMarkdownContent.vue', async () => {
   const { defineComponent, h } = await import('vue')
   return { default: defineComponent({
@@ -61,12 +64,12 @@ afterEach(async () => {
   for (const cleanup of cleanups.splice(0).reverse()) await cleanup()
 })
 function resource(path: string, revision = 1): ResourceRef {
-  return { scheme: 'file', id: JSON.stringify(['directory', revision, path]), data: { spaceId: 'space', directoryId: 'directory', revision, path } }
+  return { scheme: 'file', id: JSON.stringify(['directory', revision, path]), data: { spaceId: 'space', directoryId: 'directory', revision, path, canonicalRoot: 'D:/workspace' } }
 }
 function preview(text: string): LocalSpaceFilePreview {
   return { kind: 'text', text, sizeBytes: text.length, imageUrl: null }
 }
-async function mount(options: { deferredFirst?: boolean, preview?: boolean, readFile?: LocalChatApi['spaces']['readFile'] } = {}) {
+async function mount(options: { deferredFirst?: boolean, preview?: boolean, selectionReferences?: boolean, readFile?: LocalChatApi['spaces']['readFile'] } = {}) {
   const registry = new ContributionRegistry()
   registry.register('files', scope => scope.view({ id: 'files.editor', renderer: 'files.editor', label: 'File', locations: ['main'], multiple: true, supports: () => true }))
   const controller = new WorkbenchController(registry)
@@ -99,6 +102,8 @@ async function mount(options: { deferredFirst?: boolean, preview?: boolean, read
   const errors: unknown[] = []
   const app = createApp({ setup() {
     provide(workbenchKey, { controller, copies, labels: shallowRef(workbenchLabels('en-US')) } as WorkbenchContext)
+    if (options.selectionReferences)
+      provide(workbenchSelectionReferencesKey, new WorkbenchSelectionReferences({ targets: () => [], source: () => null, locate: async () => false }))
     return () => options.preview
       ? h(DesktopFilePreview, { view: view.value, files, language: 'en-US', writeClipboardText: async () => {}, visible: false })
       : h(DesktopFileEditor, { view: view.value, models, language: 'en-US', writeClipboardText: async () => {}, visible: false })
@@ -117,6 +122,13 @@ async function mount(options: { deferredFirst?: boolean, preview?: boolean, read
 }
 
 describe('file view semantic identity', () => {
+  it('renders file resources with canonicalRoot when selection references are enabled', async () => {
+    const f = await mount({ selectionReferences: true })
+    await vi.waitFor(() => expect(f.editors).toHaveLength(1))
+    expect(f.element.querySelector('textarea')?.value).toBe('first.md')
+    expect(f.element.querySelector('[role="alert"]')).toBeNull()
+  })
+
   it('keeps the editor and its input through cursor persistence and layout state snapshots', async () => {
     const f = await mount()
     await vi.waitFor(() => expect(f.editors).toHaveLength(1))

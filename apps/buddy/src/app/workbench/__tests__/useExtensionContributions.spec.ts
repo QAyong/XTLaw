@@ -40,7 +40,7 @@ function setup() {
   const show = (): Extract<ExtensionWorkbenchEvent, { kind: 'placement' }> => ({ kind: 'placement', requestId: crypto.randomUUID(), extensionId: status.manifest.id, generation: status.generation!, placementId: 'tests.music.dock', visible: true })
   return { setBeforeClose: (value: () => Promise<ViewCloseDecision>) => {
     beforeClose = value
-  }, installed, ready, controller, status, contributions, views, replies, show, checkpoints, receive: (event: ExtensionWorkbenchEvent) => receive(event) }
+  }, api, installed, ready, controller, status, contributions, views, replies, show, checkpoints, receive: (event: ExtensionWorkbenchEvent) => receive(event) }
 }
 async function settle() {
   for (let index = 0; index < 8; index++) await nextTick()
@@ -288,6 +288,27 @@ it('withdraws transient surfaces immediately and never restores an ended interac
   f.receive({ ...show, requestId: crypto.randomUUID() })
   await settle()
   expect(Object.values(f.controller.layout.views)).toHaveLength(0)
+})
+
+it.each(['file', 'file-preview'])('passes the selected %s target to plugin commands without host metadata', async (scheme) => {
+  const f = setup()
+  const execute = vi.fn().mockResolvedValue(undefined)
+  f.api.execute = execute
+  const commandId = 'tests.music.review'
+  f.installed.value = [{ ...f.status, revision: 'file-command', manifest: extensionManifestSchema.parse({ ...f.status.manifest, entry: 'host.js', contributes: { ...f.status.manifest.contributes, commands: [{ id: commandId, title: 'Review file' }] } }) }]
+  f.controller.registry.register('files', scope => scope.view({ id: 'files.test', renderer: 'files.test', label: 'File', locations: ['main'], multiple: true, supports: () => true }))
+  const target = { spaceId: 'space', directoryId: 'directory', revision: 1, path: 'notes.md' }
+  const viewId = (await f.controller.open({ scheme, id: 'file', data: { ...target, canonicalRoot: 'D:/workspace' } }, 'notes.md'))!
+  await f.controller.commands.execute(commandId)
+  expect(execute).toHaveBeenLastCalledWith(f.status.manifest.id, commandId, target)
+
+  f.controller.updateView(viewId, { resource: { scheme, id: 'invalid', data: { ...target, revision: 0, canonicalRoot: 'D:/workspace' } } })
+  await f.controller.commands.execute(commandId)
+  expect(execute).toHaveBeenLastCalledWith(f.status.manifest.id, commandId, null)
+
+  f.controller.updateView(viewId, { resource: { scheme: 'task', id: 'task', data: { ...target } } })
+  await f.controller.commands.execute(commandId)
+  expect(execute).toHaveBeenLastCalledWith(f.status.manifest.id, commandId, null)
 })
 
 it('exposes plugin short names as namespaces without publisher prefixes or global aliases', async () => {

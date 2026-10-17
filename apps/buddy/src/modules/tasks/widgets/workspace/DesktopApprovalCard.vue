@@ -361,7 +361,7 @@ function renderScopeLabel(option: DropdownOption) {
         </NDescriptionsItem>
       </NDescriptions>
     </section>
-    <div v-else-if="review?.card === 'paths'" class="border border-solid border-border rounded-2 bg-subtle py-[0.65rem] px-[0.7rem]">
+    <div v-else-if="review?.card === 'paths'" class="desktop-approval-card__review border border-solid border-border rounded-2 bg-subtle py-[0.65rem] px-[0.7rem]">
       <ul class="desktop-approval-card__paths">
         <li v-for="target in review.targets" :key="target.path">
           <code>{{ target.path }}</code>
@@ -395,7 +395,7 @@ function renderScopeLabel(option: DropdownOption) {
         </NDescriptionsItem>
       </NDescriptions>
     </section>
-    <p v-else class="border border-solid border-border rounded-2 bg-subtle py-[0.65rem] px-[0.7rem]">
+    <p v-else class="desktop-approval-card__review border border-solid border-border rounded-2 bg-subtle py-[0.65rem] px-[0.7rem]">
       {{ t('desktop.approval.unsupported') }}
     </p>
     <footer class="flex items-center justify-end gap-[0.6rem]">
@@ -454,6 +454,12 @@ function renderScopeLabel(option: DropdownOption) {
 </template>
 
 <style scoped lang="scss">
+.desktop-approval-card__details,
+.desktop-approval-card__review {
+  max-height: min(24rem, 40vh);
+  overflow-y: auto;
+}
+
 .desktop-approval-card__pending-icon {
   align-self: start;
   color: var(--buddy-status-warning-text);

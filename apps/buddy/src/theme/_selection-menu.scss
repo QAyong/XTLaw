@@ -1,7 +1,12 @@
-// Monaco rounds its context menu (and the rows in it) with --vscode-cornerRadius-*, which standalone Monaco never defines, so the editor's menu renders square.
-:root {
+.monaco-menu-container,
+.monaco-editor > .shadow-root-host {
   --vscode-cornerRadius-large: var(--buddy-menu-radius);
   --vscode-cornerRadius-medium: var(--buddy-menu-item-radius);
+}
+
+.resource-selection-menu.n-dropdown-menu .n-dropdown-option-body__label {
+  min-width: 0;
+  overflow: hidden;
 }
 
 // Shared reference menus follow the incumbent desktop window menu's visual treatment.

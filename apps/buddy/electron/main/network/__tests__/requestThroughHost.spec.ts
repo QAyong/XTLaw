@@ -14,7 +14,7 @@ vi.mock('electron', () => ({
         abort: () => {},
         end() {
           queueMicrotask(() => {
-            const response = Object.assign(new EventEmitter(), { statusCode: 200, headers: { 'content-type': 'text/html', 'set-cookie': ['SUID=fixture'] } })
+            const response = Object.assign(new EventEmitter(), { pause: () => {}, resume: () => {}, statusCode: 200, headers: { 'content-type': 'text/html', 'set-cookie': ['SUID=fixture'] } })
             request.emit('response', response)
             response.emit('end')
           })

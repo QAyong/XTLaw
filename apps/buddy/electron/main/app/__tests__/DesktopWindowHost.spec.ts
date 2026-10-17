@@ -22,6 +22,7 @@ async function fixture(beforeInitialize?: (host: DesktopWindowHost) => Promise<v
     webContents: Object.assign(new EventEmitter(), { send: vi.fn() }),
     isDestroyed: () => false,
     isMinimized: () => true,
+    setBackgroundColor: vi.fn(),
     restore: vi.fn(),
     show: vi.fn(),
     focus: vi.fn(),

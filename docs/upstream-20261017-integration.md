@@ -28,7 +28,7 @@
 |---|---|---|
 | `0223ed89` | 插件社区首次迁移 | 在其余提交之后按要求移植，不涉及 `apps/buddy`。冲突：`apps/web/vite.config.ts` 采用上游精简配置（本地改动只涉及被移除的旧配置），`pnpm-lock.yaml` 用 `pnpm install` 重新生成。迁移 `20261016000000_community` 是上游重置后的唯一迁移，不依赖被跳过的前序迁移；本地原有 43 个旧迁移随上游一起退出 `apps/api/prisma/migrations`（上游把旧 web 栈整体移入 `legacy/web-stack`，本地此前没有该目录） |
 
-品牌待定：新增代码中面向用户的 `Lexora` 文案（页面标题与描述、导航与页脚品牌、登录提示、兼容性标签、默认用户名）保持上游原样未改；`X-Lexora-Request` 请求头与 `Lexora-Community` User-Agent 属于协议标识，也未改。
+品牌：新增代码中面向用户的 `Lexora` 文案（页面标题与描述、导航与页脚品牌、登录提示、兼容性标签、OAuth 默认用户名）已改为 `XTLaw`；`X-Lexora-Request` 请求头、`Lexora-Community` User-Agent 和指向上游的 GitHub 链接属于协议标识或外部地址，保持不变。
 
 ## 检查
 

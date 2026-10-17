@@ -79,7 +79,7 @@ export function createProviders(config: Config): OAuthProviders {
         if (provider === 'google' && tokens.claims()?.sub !== subject)
           throw new ApiError(502, 'OAUTH_PROVIDER_FAILED')
         const name = [profile.name, profile.preferred_username, profile.username, profile.login].find(value => typeof value === 'string' && value.trim())
-        return { subject: String(subject), name: typeof name === 'string' ? name.slice(0, 80) : 'Lexora user' }
+        return { subject: String(subject), name: typeof name === 'string' ? name.slice(0, 80) : 'XTLaw user' }
       },
     }
   }

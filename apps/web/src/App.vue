@@ -14,7 +14,7 @@ const error = ref('')
 watch(locale, (value) => {
   document.documentElement.lang = value
   localStorage.setItem('lexora.locale', value)
-  document.title = `Lexora · ${t('community')}`
+  document.title = `XTLaw · ${t('community')}`
 }, { immediate: true })
 async function load() {
   try {
@@ -39,9 +39,9 @@ onMounted(load)
 <template>
   <header class="site-header">
     <div class="shell header-inner">
-      <RouterLink to="/" class="brand" aria-label="Lexora Plugins">
+      <RouterLink to="/" class="brand" aria-label="XTLaw Plugins">
         <img src="/favicon.png" alt="" width="34" height="34">
-        <span>Lexora<span class="brand-section">Plugins</span></span>
+        <span>XTLaw<span class="brand-section">Plugins</span></span>
       </RouterLink>
       <nav class="site-nav" :aria-label="t('community')">
         <RouterLink to="/" class="nav-explore">
@@ -77,7 +77,7 @@ onMounted(load)
     <RouterView />
   </main>
   <footer class="shell site-footer">
-    <span class="footer-brand">Lexora</span><span>{{ t('footer') }}</span>
+    <span class="footer-brand">XTLaw</span><span>{{ t('footer') }}</span>
     <a href="https://github.com/useLexora/plugins" target="_blank" rel="noopener noreferrer">GitHub</a>
   </footer>
 </template>

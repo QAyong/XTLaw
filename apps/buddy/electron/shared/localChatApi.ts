@@ -84,6 +84,7 @@ export const LOCAL_CHAT_IPC_CHANNELS = {
   spaceFilesList: 'lexora:buddy:space-files:list',
   spaceFilesRead: 'lexora:buddy:space-files:read',
   spaceFilesReveal: 'lexora:buddy:space-files:reveal',
+  spaceFilesCopyPath: 'lexora:buddy:space-files:copy-path',
   webSettingsRead: 'lexora:buddy:web:settings',
   webSettingsChanged: 'lexora:buddy:web:settings-changed',
   webSettingsSave: 'lexora:buddy:web:save-settings',
@@ -390,6 +391,7 @@ export interface LocalChatApi {
     listDirectory: (input: SpaceDirectoryRequest) => Promise<LocalSpaceDirectoryPage>
     readFile: (input: SpaceFileTarget) => Promise<LocalSpaceFilePreview>
     revealFile: (input: SpaceFileTarget) => Promise<void>
+    copyFilePath: (input: SpaceFileTarget) => Promise<void>
     create: (input: LocalSpaceCreateInput) => Promise<LocalSpace>
     delete: (spaceId: string) => Promise<LocalMutationResult>
     list: (limit?: number) => Promise<ReadonlyArray<LocalSpace>>

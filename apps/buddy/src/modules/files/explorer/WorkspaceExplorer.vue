@@ -21,7 +21,7 @@ const props = defineProps<{
   loadingKeys: ReadonlySet<string>
   target: SpaceFileTarget
   language: BuddyLocale
-  api: Pick<LocalChatApi['spaces'], 'revealFile' | 'fileHistory' | 'acknowledgeFileOperation' | 'cancelFileOperation' | 'onFilesChanged'>
+  api: Pick<LocalChatApi['spaces'], 'revealFile' | 'copyFilePath' | 'fileHistory' | 'acknowledgeFileOperation' | 'cancelFileOperation' | 'onFilesChanged'>
   load: (node: ExplorerNode) => Promise<void>
   refresh: () => Promise<void>
 }>()
@@ -53,6 +53,7 @@ const menuOptions = computed(() => [
   { key: 'newFolder', label: labels.value.newFolder },
   { key: 'rename', label: labels.value.rename, disabled: !menu.value?.node },
   { key: 'copy', label: labels.value.copy, disabled: !menu.value?.node },
+  { key: 'copyPath', label: labels.value.copyPath, disabled: !menu.value?.node },
   { key: 'cut', label: labels.value.cut, disabled: !menu.value?.node },
   { key: 'paste', label: labels.value.paste, disabled: !clipboard.value },
   { key: 'trash', label: labels.value.trash, disabled: !menu.value?.node },

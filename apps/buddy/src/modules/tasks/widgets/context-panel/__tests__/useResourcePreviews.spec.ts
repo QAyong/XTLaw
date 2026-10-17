@@ -307,7 +307,7 @@ function filesTab(): TaskFilesContextTab {
 }
 
 function openFiles(tab: Ref<TaskFilesContextTab | null>, listDirectory: WorkspaceFilesApi['listDirectory'], hasTab = () => true) {
-  return own(() => useWorkspaceFilePreview(tab, { listDirectory, readFile: vi.fn(), revealFile: vi.fn(), onFilesChanged: () => () => {}, fileHistory: async () => [], acknowledgeFileOperation: vi.fn(), cancelFileOperation: async () => null }, hasTab))
+  return own(() => useWorkspaceFilePreview(tab, { listDirectory, readFile: vi.fn(), revealFile: vi.fn(), copyFilePath: vi.fn(), onFilesChanged: () => () => {}, fileHistory: async () => [], acknowledgeFileOperation: vi.fn(), cancelFileOperation: async () => null }, hasTab))
 }
 
 function createArtifact(id: string): LocalArtifact {

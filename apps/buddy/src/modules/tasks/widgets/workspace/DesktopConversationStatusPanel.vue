@@ -125,10 +125,13 @@ const runRows = computed(() => {
               <span v-if="status.activity.tools.running" class="conversation-status__badge is-active">{{ t('desktop.chat.status.runningCount', { count: status.activity.tools.running }) }}</span>
             </span>
           </div>
-          <div v-if="status.activity.tools.top.length" class="conversation-status__row">
+          <div v-if="status.activity.tools.top.length" class="conversation-status__row is-tools">
             <span>{{ t('desktop.chat.status.toolsTop') }}</span>
             <span class="conversation-status__values">
-              <span v-for="entry in status.activity.tools.top" :key="entry.name">{{ entry.name }} × {{ entry.count }}</span>
+              <span v-for="entry in status.activity.tools.top" :key="entry.name" class="conversation-status__tool">
+                <span class="conversation-status__tool-name">{{ entry.name }}</span>
+                <span class="conversation-status__tool-count">× {{ entry.count }}</span>
+              </span>
             </span>
           </div>
           <div v-if="status.activity.compactions.count" class="conversation-status__row">
@@ -293,7 +296,37 @@ const runRows = computed(() => {
   color: var(--buddy-text-secondary);
   padding: 4px 2px;
 }
-.conversation-status__row.is-warming > span:last-child {
+.conversation-status__row.is-tools {
+  white-space: normal;
+
+  > .conversation-status__values {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+}
+
+.conversation-status__tool {
+  display: inline-flex;
+  max-width: 100%;
+  min-width: 0;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.conversation-status__tool-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conversation-status__tool-count {
+  flex: none;
+  white-space: nowrap;
+}
+
+.conversation-status__row.is-warming > span:last-child,
+.conversation-status__row.is-tools > span:last-child {
   flex: 1;
   min-width: 0;
   white-space: normal;

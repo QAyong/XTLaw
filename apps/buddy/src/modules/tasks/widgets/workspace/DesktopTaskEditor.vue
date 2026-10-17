@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ChatReadingPositions } from '../transcript/chatMessageViewport'
 import { Pulse20Regular } from '@vicons/fluent'
-import { NButton, NPopover, useMessage } from 'naive-ui'
+import { NButton, NPopover } from 'naive-ui'
 import { computed, shallowRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
@@ -19,7 +19,6 @@ import { desktopRouteLocations } from '@/shared/navigation/desktopRoutes'
 import { useDesktopUi } from '@/shared/ui/desktopUiContext'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import DesktopTaskPartners from './DesktopTaskPartners.vue'
-import { createMessageWebLinkOpener } from './openMessageWebLink'
 
 withDefaults(defineProps<{ readingPositions?: ChatReadingPositions, active?: boolean }>(), { active: true })
 const emit = defineEmits<{ ready: [] }>()
@@ -27,7 +26,6 @@ const router = useRouter()
 const {
   resources: contextActions,
   clipboard,
-  browser,
   tasks,
   notificationTargetMessageId,
   startTask: navigateDraft,
@@ -61,18 +59,8 @@ watch(notificationTargetMessageId, (messageId) => {
   if (messageId)
     viewMode.value = 'chat'
 }, { flush: 'sync' })
-const message = useMessage()
-const openWebLink = createMessageWebLinkOpener({
-  browser,
-  conversationId: () => chatSession.activeConversationId.value,
-  openBrowser: contextActions.openBrowser,
-  retainBrowserSession: contextActions.retainBrowserSession,
-  updateBrowserState: contextActions.updateBrowserState,
-  openExternal: href => window.open(href, '_blank', 'noopener,noreferrer'),
-  onError: () => message.error(t('desktop.context.browserPageFailed')),
-})
 useProvideChatContent({
-  openWebLink,
+  openWebLink: contextActions.openWebLink,
   canPreviewFile: contextActions.canPreviewFile,
   previewFile: contextActions.previewFile,
   writeClipboardText: text => clipboard.writeText(text),

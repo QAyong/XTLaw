@@ -12,6 +12,10 @@ const { t } = useBuddyI18n(() => props.language)
 const message = useMessage()
 const clearing = shallowRef(false)
 const pending = shallowRef(false)
+const linkOpeningOptions = computed(() => [
+  { label: t('desktop.browser.linkOpeningInApp'), value: 'in-app' },
+  { label: t('desktop.browser.linkOpeningSystem'), value: 'system' },
+])
 const screenshotOptions = computed(() => [
   { label: t('desktop.browser.screenshotFile'), value: 'file' },
   { label: t('desktop.browser.screenshotClipboard'), value: 'clipboard' },
@@ -35,6 +39,13 @@ async function update(patch: LexoraConfigPatch) {
     <section class="desktop-browser-settings__section">
       <h2>{{ t('desktop.browser.preferences') }}</h2>
       <div class="desktop-browser-settings__group">
+        <div class="desktop-browser-settings__row">
+          <div class="desktop-browser-settings__copy">
+            <strong>{{ t('desktop.browser.linkOpening') }}</strong>
+            <small>{{ t('desktop.browser.linkOpeningDescription') }}</small>
+          </div>
+          <NSelect :value="config.browser.linkOpening" :options="linkOpeningOptions" :disabled="pending" :aria-label="t('desktop.browser.linkOpening')" @update:value="update({ browser: { linkOpening: $event } })" />
+        </div>
         <div class="desktop-browser-settings__row">
           <div class="desktop-browser-settings__copy">
             <strong>{{ t('desktop.browser.screenshotDestination') }}</strong>

@@ -30,6 +30,8 @@ export interface BrowserPage extends BrowserSecurityPage {
   }>
   close: () => void
   focus: () => void
+  sendInputEvent: WebContents['sendInputEvent']
+  insertText: WebContents['insertText']
   getTitle: () => string
   getURL: () => string
   isDestroyed: () => boolean
@@ -112,6 +114,9 @@ export class BrowserPageSession {
   readonly descriptor: DesktopBrowserGuestDescriptor
   #listeners: Array<() => void> = []
   mainFrameCommitSequence: number | null = null
+  documentReadySequence: number | null = null
+  #activeOperations = 0
+  #backgroundThrottling = true
   documentVersion = 0
   elementPicker: BrowserElementPicker | null = null
   #activeDownloads = new Set<BrowserDownloadItem>()
@@ -268,6 +273,7 @@ export class BrowserPageSession {
   }
 
   updateActivity(): Promise<void> {
+    this.#updateBackgroundThrottling()
     return this.#activity?.update() ?? Promise.resolve()
   }
 
@@ -279,12 +285,30 @@ export class BrowserPageSession {
     return this.#activity?.resume() ?? Promise.resolve()
   }
 
-  runWhileActive<T>(operation: () => Promise<T>): Promise<T> {
-    return this.#activity?.run(operation) ?? operation()
+  async runWhileActive<T>(operation: () => Promise<T>): Promise<T> {
+    this.#activeOperations += 1
+    try {
+      this.#updateBackgroundThrottling()
+      return await (this.#activity?.run(operation) ?? operation())
+    }
+    finally {
+      this.#activeOperations -= 1
+      this.#updateBackgroundThrottling()
+    }
+  }
+
+  #updateBackgroundThrottling(): void {
+    const page = this.page
+    if (!page || page.isDestroyed())
+      return
+    const allowed = this.state.controller === 'agent' || this.#activeOperations > 0 ? false : this.#backgroundThrottling
+    if (page.getBackgroundThrottling() !== allowed)
+      page.setBackgroundThrottling(allowed)
   }
 
   attach(page: BrowserPage): void {
     this.page = page
+    this.#backgroundThrottling = page.getBackgroundThrottling()
     this.#connection = new BrowserDebugger(page.debugger)
     this.elementPicker = new BrowserElementPicker(this.#connection, () => page.getZoomFactor())
     this.#listen(page.debugger, 'message', (_event: unknown, method: string, params: Record<string, unknown>) => {
@@ -617,6 +641,10 @@ export class BrowserPageSession {
         this.state.status = 'loading'
       this.refreshPageState()
       this.publish()
+    })
+    this.#listen(page, 'dom-ready', () => {
+      if (this.mainFrameCommitSequence === this.navigationSequence)
+        this.documentReadySequence = this.navigationSequence
     })
     this.#listen(page, 'did-stop-loading', () => {
       this.removeBootstrapHistory()

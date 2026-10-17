@@ -1,4 +1,6 @@
 import type { Buffer } from 'node:buffer'
+import type { ApplicationDiagnosticReporter } from '../../../shared/diagnostics/applicationDiagnostic'
+import type { CredentialVaultFailure } from '../../../shared/diagnostics/credentialVaultFailure'
 import type { CredentialNamespace } from '../../../shared/runtime/credentialProtocol'
 import { createHash, randomUUID } from 'node:crypto'
 import {
@@ -14,6 +16,8 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
 import { safeStorage } from 'electron'
+import { safeDiagnosticReporter } from '../../../shared/diagnostics/applicationDiagnostic'
+import { credentialVaultSystemCodeSchema } from '../../../shared/diagnostics/credentialVaultFailure'
 import { OPERATING_SYSTEM } from '../../../shared/platform/identifiers'
 
 type LocalCredentialNamespace = CredentialNamespace | 'sync' | 'backup'
@@ -39,6 +43,7 @@ export interface CredentialVault {
 export interface CreateCredentialVaultOptions {
   buddyHome?: string
   cipher?: SecretCipher
+  reportDiagnostic?: ApplicationDiagnosticReporter
 }
 
 interface VaultEnvelope {
@@ -56,23 +61,21 @@ export class CredentialStoreUnavailableError extends Error {
   }
 }
 
-export type CredentialVaultPhase = 'list_directory' | 'read_file' | 'decrypt' | 'parse' | 'validate' | 'encrypt' | 'write_file' | 'delete_file'
+export type CredentialVaultPhase = CredentialVaultFailure['phase']
 
-// Records only the failing step, error type and system error code. The original
-// message is dropped because parse failures can echo decrypted credential text.
 export class CredentialVaultError extends Error {
   readonly code = 'CREDENTIAL_VAULT_FAILED'
-  readonly causeCode: string | null
-  readonly causeType: string
+  readonly systemCode: CredentialVaultFailure['systemCode']
   readonly phase: CredentialVaultPhase
+  readonly reason: CredentialVaultFailure['reason']
 
-  constructor(phase: CredentialVaultPhase, cause: unknown) {
+  constructor(phase: CredentialVaultPhase, cause?: unknown, reason: CredentialVaultFailure['reason'] = 'operation_failed') {
     super(`XTLaw credential vault failed during ${phase}`)
     this.name = 'CredentialVaultError'
     this.phase = phase
-    this.causeType = cause instanceof Error ? cause.name : 'UnknownError'
-    const code = (cause as NodeJS.ErrnoException | undefined)?.code
-    this.causeCode = typeof code === 'string' && /^[A-Z][A-Z0-9_]{0,95}$/.test(code) ? code : null
+    this.reason = reason
+    const code = credentialVaultSystemCodeSchema.safeParse((cause as NodeJS.ErrnoException | undefined)?.code)
+    this.systemCode = code.success ? code.data : undefined
   }
 }
 
@@ -81,10 +84,32 @@ export function createCredentialVault(
 ): CredentialVault {
   const root = join(options.buddyHome ?? join(homedir(), '.xtlaw', 'buddy'), 'secrets')
   const cipher = options.cipher ?? createSafeStorageCipher()
+  const report = safeDiagnosticReporter(options.reportDiagnostic)
+  const run = async <T>(operation: CredentialVaultFailure['operation'], namespace: LocalCredentialNamespace, action: () => Promise<T>): Promise<T> => {
+    try {
+      assertAvailable(cipher)
+      return await action()
+    }
+    catch (error) {
+      const failure = error instanceof CredentialStoreUnavailableError || error instanceof CredentialVaultError
+        ? error
+        : new CredentialVaultError('unknown', error)
+      const unavailable = failure instanceof CredentialStoreUnavailableError
+      const detail: CredentialVaultFailure = {
+        kind: 'credential_vault',
+        operation,
+        namespace,
+        phase: unavailable ? 'availability' : failure.phase,
+        reason: unavailable ? 'unavailable' : failure.reason,
+        ...(!unavailable && failure.systemCode ? { systemCode: failure.systemCode } : {}),
+      }
+      report({ event: `credential.${detail.phase}.failed`, component: 'desktop.credentials', level: 'warn', errorCode: unavailable ? 'CREDENTIAL_STORE_UNAVAILABLE' : 'CREDENTIAL_STORE_FAILURE', failure: detail })
+      throw failure
+    }
+  }
 
   return {
-    async delete(namespace, id) {
-      assertAvailable(cipher)
+    delete: (namespace, id) => run('delete', namespace, async () => {
       try {
         await unlink(resolveSecretPath(root, namespace, id))
       }
@@ -92,9 +117,8 @@ export function createCredentialVault(
         if (!isFileNotFound(error))
           throw new CredentialVaultError('delete_file', error)
       }
-    },
-    async listProviders() {
-      assertAvailable(cipher)
+    }),
+    listProviders: () => run('list', 'providers', async () => {
       const directory = resolveNamespacePath(root, 'providers')
       let files: string[]
       try {
@@ -113,13 +137,12 @@ export function createCredentialVault(
           const envelope = decryptEnvelope(cipher, await vaultStep('read_file', () => readFile(join(directory, file))))
           const type = readCredentialType(envelope.value)
           if (!type)
-            throw new CredentialVaultError('validate', new Error('XTLaw provider credential is invalid'))
+            throw new CredentialVaultError('validate', undefined, 'invalid_credential_type')
           return { providerId: envelope.id, type }
         }))
       return providers.sort((left, right) => left.providerId.localeCompare(right.providerId))
-    },
-    async read(namespace, id) {
-      assertAvailable(cipher)
+    }),
+    read: (namespace, id) => run('read', namespace, async () => {
       let encrypted: Buffer
       try {
         encrypted = await readFile(resolveSecretPath(root, namespace, id))
@@ -131,13 +154,12 @@ export function createCredentialVault(
       }
       const envelope = decryptEnvelope(cipher, encrypted)
       if (envelope.id !== id)
-        throw new CredentialVaultError('validate', new Error('XTLaw credential identifier does not match its vault entry'))
+        throw new CredentialVaultError('validate', undefined, 'identifier_mismatch')
       return envelope.value
-    },
-    async write(namespace, id, value) {
-      assertAvailable(cipher)
+    }),
+    write: (namespace, id, value) => run('write', namespace, async () => {
       const directory = resolveNamespacePath(root, namespace)
-      await vaultStep('write_file', async () => {
+      await vaultStep('prepare_directory', async () => {
         await ensurePrivateDirectory(root)
         await ensurePrivateDirectory(directory)
       })
@@ -145,7 +167,8 @@ export function createCredentialVault(
       const destination = resolveSecretPath(root, namespace, id)
       const temporary = join(directory, `.${randomUUID()}.tmp`)
       const envelope: VaultEnvelope = { id, value, version: 1 }
-      const encrypted = await vaultStep('encrypt', () => cipher.encrypt(JSON.stringify(envelope)))
+      const text = syncVaultStep('serialize', () => JSON.stringify(envelope))
+      const encrypted = syncVaultStep('encrypt', () => cipher.encrypt(text))
       let handle
       try {
         handle = await open(temporary, 'wx', 0o600)
@@ -161,7 +184,7 @@ export function createCredentialVault(
         await unlink(temporary).catch(() => {})
         throw new CredentialVaultError('write_file', error)
       }
-    },
+    }),
   }
 }
 
@@ -188,7 +211,7 @@ export function isSafeStorageBackendSecure(input: {
 }
 
 function assertAvailable(cipher: SecretCipher): void {
-  if (!cipher.available())
+  if (!syncVaultStep('availability', () => cipher.available()))
     throw new CredentialStoreUnavailableError()
 }
 
@@ -228,11 +251,13 @@ function decryptEnvelope(cipher: SecretCipher, encrypted: Buffer): VaultEnvelope
   const text = syncVaultStep('decrypt', () => cipher.decrypt(encrypted))
   const value: unknown = syncVaultStep('parse', () => JSON.parse(text))
   if (!value || typeof value !== 'object' || Array.isArray(value))
-    throw new CredentialVaultError('validate', new Error('XTLaw credential envelope is invalid'))
+    throw new CredentialVaultError('validate', undefined, 'invalid_envelope')
 
   const envelope = value as Partial<VaultEnvelope>
-  if (envelope.version !== 1 || typeof envelope.id !== 'string' || !('value' in envelope))
-    throw new CredentialVaultError('validate', new Error('XTLaw credential envelope is invalid'))
+  if (typeof envelope.version !== 'number' || typeof envelope.id !== 'string' || !envelope.id || !('value' in envelope))
+    throw new CredentialVaultError('validate', undefined, 'invalid_envelope')
+  if (envelope.version !== 1)
+    throw new CredentialVaultError('validate', undefined, 'unsupported_version')
   return envelope as VaultEnvelope
 }
 

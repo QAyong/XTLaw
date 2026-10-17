@@ -1,3 +1,4 @@
+import type { LexoraConfigPatch } from '../../../shared/desktopApi'
 import { constants } from 'node:fs'
 import { access, mkdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
@@ -21,6 +22,20 @@ async function createConfigStore() {
 }
 
 describe('lexoraConfigStore', () => {
+  it('defaults link opening to in-app and persists a validated system preference across restart', async () => {
+    const { configPath, store } = await createConfigStore()
+    expect((await store.read()).browser.linkOpening).toBe('in-app')
+    await mkdir(dirname(configPath), { recursive: true })
+    await writeFile(configPath, '[browser]\nfuture=true\n')
+    expect((await store.read()).browser.linkOpening).toBe('in-app')
+    await store.update({ browser: { linkOpening: 'system' } })
+    const saved = await readFile(configPath, 'utf8')
+    expect((await new LexoraConfigStore({ configPath }).read()).browser.linkOpening).toBe('system')
+    expect(saved).toContain('future = true')
+    await expect(store.update({ browser: { linkOpening: 'external' } } as unknown as LexoraConfigPatch)).rejects.toThrow()
+    expect(await readFile(configPath, 'utf8')).toBe(saved)
+  })
+
   it('migrates the old identity once, retains it on failure and keeps unrelated TOML', async () => {
     const { configPath, store } = await createConfigStore()
     await mkdir(dirname(configPath), { recursive: true })

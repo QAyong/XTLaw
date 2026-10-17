@@ -1,24 +1,36 @@
 <script setup lang="ts">
-import { NSelect } from 'naive-ui'
-import { shallowRef } from 'vue'
+import { NSelect, selectProps } from 'naive-ui'
+import { computed, shallowRef, useSlots } from 'vue'
 
-// Naive UI keeps a filterable select open when its trigger is clicked again: the search input only
-// refocuses. This wrapper makes the trigger toggle like a plain select, so the next click closes it.
 defineOptions({ inheritAttrs: false })
+const props = defineProps(selectProps)
+const emit = defineEmits<{ 'update:show': [value: boolean] }>()
+const slots = useSlots()
+const uncontrolledShow = shallowRef(false)
+const show = computed(() => props.show ?? uncontrolledShow.value)
+const forwardedProps = computed(() => ({ ...props, 'onUpdateShow': undefined, 'onUpdate:show': undefined }))
 
-const show = shallowRef(false)
+function updateShow(value: boolean) {
+  uncontrolledShow.value = value
+  for (const listener of [props.onUpdateShow].flat())
+    listener?.(value)
+  emit('update:show', value)
+}
 
 function closeOnTriggerClick(event: MouseEvent) {
-  if (!show.value || !(event.target instanceof Element) || !event.target.closest('.n-base-selection'))
+  const target = event.target
+  if (!show.value || !(target instanceof Element) || !target.closest('.n-base-selection'))
+    return
+  if (target.closest('input, button, a, [contenteditable], [role="button"], [data-clear], .n-tag'))
     return
   event.stopPropagation()
-  show.value = false
+  updateShow(false)
 }
 </script>
 
 <template>
-  <NSelect v-bind="$attrs" :show="show" @update:show="show = $event" @click.capture="closeOnTriggerClick">
-    <template v-for="(_, name) in $slots" #[name]="slotProps">
+  <NSelect v-bind="{ ...$attrs, ...forwardedProps }" :show="show" @update:show="updateShow" @click.capture="closeOnTriggerClick">
+    <template v-for="(_, name) in slots" #[name]="slotProps">
       <slot :name="name" v-bind="slotProps ?? {}" />
     </template>
   </NSelect>

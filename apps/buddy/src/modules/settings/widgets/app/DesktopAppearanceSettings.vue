@@ -4,7 +4,7 @@ import type {
 } from '@buddy-electron/shared/desktopApi'
 import type { ApplicationSettingsProps } from './typing'
 import { DESKTOP_CHAT_OUTLINE_POSITIONS } from '@buddy-electron/shared/desktopApi'
-import { NSelect, NSpin, useMessage } from 'naive-ui'
+import { NSelect, useMessage } from 'naive-ui'
 import { computed, shallowRef } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import DesktopFileIconSettings from './DesktopFileIconSettings.vue'
@@ -59,9 +59,9 @@ async function updateSetting(field: AppearanceSettingField, patch: LexoraConfigP
               :options="outlinePositionOptions"
               :value="config.desktop.chat.outlinePosition"
               :disabled="pendingFields.has('outlinePosition')"
+              :loading="pendingFields.has('outlinePosition')"
               @update:value="updateSetting('outlinePosition', { desktop: { chat: { outlinePosition: $event } } })"
             />
-            <NSpin v-if="pendingFields.has('outlinePosition')" size="small" />
           </div>
         </div>
       </div>
@@ -130,7 +130,7 @@ async function updateSetting(field: AppearanceSettingField, patch: LexoraConfigP
 
 .desktop-settings-row__control {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
   gap: 0.55rem;
 }

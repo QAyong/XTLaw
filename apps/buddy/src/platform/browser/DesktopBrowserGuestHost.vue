@@ -106,7 +106,7 @@ function createGuest(descriptor: DesktopBrowserGuestDescriptor): void {
     descriptor,
     element,
     frame,
-    layout: props.layout.attach(frame, { anchor: null, visible: false, interactive: true, childrenOnly: true, layer: 'content' }),
+    layout: props.layout.attach(frame, { anchor: null, visible: false, interactive: true, childrenOnly: true, retainSizeWhenHidden: true, layer: 'content' }),
     onReady: () => {
       if (guests.get(descriptor.sessionId)?.element !== element)
         return
@@ -157,8 +157,11 @@ function scheduleLayout(): void {
       visible: !!surface,
       interactive: true,
       childrenOnly: true,
+      retainSizeWhenHidden: true,
       layer: 'content',
       onLayout: (geometry) => {
+        if (!geometry.visible)
+          return
         const width = Number(surface?.element.dataset.browserViewportWidth)
         const height = Number(surface?.element.dataset.browserViewportHeight)
         const responsive = geometry.visible && width >= 240 && width <= 3_840 && height >= 240 && height <= 2_160

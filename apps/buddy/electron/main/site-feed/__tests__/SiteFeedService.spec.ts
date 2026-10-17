@@ -15,7 +15,7 @@ afterEach(async () => {
 })
 
 function item(id: string, fields: Partial<SiteFeedItem> = {}): SiteFeedItem {
-  return { id, kind: 'announcement', title: id, summary: '', url: `https://xtlaw.qayong.site/${id}`, publishedAt: '2026-10-16T09:00:00+08:00', expiresAt: null, revision: '1', ...fields }
+  return { id, kind: 'announcement', title: id, summary: '', body: '', url: `https://xtlaw.qayong.site/${id}`, publishedAt: '2026-10-16T09:00:00+08:00', expiresAt: null, revision: '1', ...fields }
 }
 
 // Fake timers cannot wait for real disk I/O, so scheduling tests keep the record in memory.
@@ -41,7 +41,7 @@ async function fixture(items: SiteFeedItem[] = [item('news')], options: { automa
 
 describe('siteFeedService', () => {
   it('starts empty and exposes fetched items as unseen site notifications without their links', async () => {
-    const f = await fixture([item('news', { kind: 'tutorial', title: '第一个任务', summary: '从一个小目标开始', revision: '2' })])
+    const f = await fixture([item('news', { kind: 'tutorial', title: '第一个任务', summary: '从一个小目标开始', body: '## 步骤\n\n1. 新建任务', revision: '2' })])
     expect((await f.service.getState()).notifications).toEqual([])
     await f.service.check()
     expect(f.service.state.notifications).toEqual([{
@@ -52,7 +52,7 @@ describe('siteFeedService', () => {
       attention: 'unseen',
       occurredAt: '2026-10-16T01:00:00.000Z',
       action: { type: 'open-site-link' },
-      payload: { itemId: 'news', category: 'tutorial', title: '第一个任务', summary: '从一个小目标开始' },
+      payload: { itemId: 'news', category: 'tutorial', title: '第一个任务', summary: '从一个小目标开始', body: '## 步骤\n\n1. 新建任务' },
     }])
     expect(JSON.stringify(f.service.state)).not.toContain('xtlaw.qayong.site')
   })

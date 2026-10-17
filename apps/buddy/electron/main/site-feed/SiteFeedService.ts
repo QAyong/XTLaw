@@ -50,7 +50,7 @@ export class SiteFeedService {
         attention: this.#record.seen[item.id] === item.revision ? 'seen' : 'unseen',
         occurredAt: new Date(item.publishedAt).toISOString(),
         action: { type: 'open-site-link' },
-        payload: { itemId: item.id, category: item.kind, title: item.title, summary: item.summary },
+        payload: { itemId: item.id, category: item.kind, title: item.title, summary: item.summary, body: item.body },
       }))
     return copyEventSnapshot({ revision: this.#revision, notifications })
   }

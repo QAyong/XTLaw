@@ -1,4 +1,5 @@
 import type { DesktopOpenTarget, DesktopOpenTargetResult } from '@buddy-electron/shared/desktopApi'
+import type { DesktopSiteNotification } from '@buddy-electron/shared/siteFeed'
 import type { LocalRun } from '@buddy-shared/runs/runApi'
 import type { RouteLocationRaw, Router } from 'vue-router'
 import type { NotificationCenterStore } from '@/modules/notifications'
@@ -14,7 +15,7 @@ interface DesktopNavigationOptions {
   session: Pick<TaskSession, 'activeTaskId' | 'spaceId' | 'navigationVersion' | 'openTask' | 'startTask'>
   notifications: Pick<NotificationCenterStore, 'markSeen'>
   openUpdate: () => Promise<void>
-  openSiteNotice: (itemId: string) => Promise<void>
+  showSiteNotice: (notification: DesktopSiteNotification) => void
   getRun: (runId: string) => Promise<RunTarget | null>
   activateRunBranch: (run: RunTarget) => Promise<boolean>
   onError: (error: unknown) => void
@@ -143,12 +144,8 @@ export function useDesktopNavigation(options: DesktopNavigationOptions) {
       return
     }
     if (notification.kind === 'site.notice') {
-      try {
-        await options.openSiteNotice(notification.payload.itemId)
-      }
-      catch (error) {
-        options.onError(error)
-      }
+      void options.notifications.markSeen(notification)
+      options.showSiteNotice(notification)
       return
     }
     void options.notifications.markSeen(notification)

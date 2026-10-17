@@ -37,7 +37,7 @@ function siteNotice(itemId: string, fields: Partial<DesktopSiteNotification> = {
     attention: 'unseen',
     occurredAt: '2026-09-10T00:00:00.000Z',
     action: { type: 'open-site-link' },
-    payload: { itemId, category: 'announcement', title: itemId, summary: '' },
+    payload: { itemId, category: 'announcement', title: itemId, summary: '', body: '' },
     ...fields,
   }
 }

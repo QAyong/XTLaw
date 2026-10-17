@@ -13,6 +13,7 @@ import { useProvideBuddiesContext } from '@/modules/buddies'
 import { ExtensionWindowStyleController, useExtensionState, useExtensionUiContributions, useExtensionViews, useProvideExtensionContext } from '@/modules/extensions'
 import { DesktopExtensionControl, DesktopExtensionFrameHost, DesktopExtensionMenu, DesktopExtensionOverlays, DesktopExtensionReviewHost, DesktopExtensionSlot } from '@/modules/extensions/ui'
 import { fileOperationsKey } from '@/modules/files/ui'
+import { DesktopSiteNoticeHost } from '@/modules/notifications/ui'
 import { resolveUserProfile, useCloudBackupFeedback, usePluginSettings, useProvideSettingsContext, useSettingsRegistry } from '@/modules/settings'
 import { useProvideSkillsContext } from '@/modules/skills'
 import { DesktopSkillReviewHost } from '@/modules/skills/ui'
@@ -237,7 +238,7 @@ const navigation = useDesktopNavigation({
   },
   notifications: stores.notifications,
   openUpdate: stores.updates.openDetails,
-  openSiteNotice: stores.siteFeed.open,
+  showSiteNotice: stores.siteFeed.show,
   getRun: api.localChat.runs.get,
   activateRunBranch: async (run) => {
     const task = selectedTask.value
@@ -372,5 +373,6 @@ watch(() => stores.applicationSettings.config.value?.desktop.language, (language
   <DesktopExtensionReviewHost />
   <DesktopSkillReviewHost />
   <DesktopUpdateHost :language="stores.applicationSettings.language.value" />
+  <DesktopSiteNoticeHost :language="stores.applicationSettings.language.value" :site-feed="stores.siteFeed" />
   <slot :shell="shellBindings" />
 </template>

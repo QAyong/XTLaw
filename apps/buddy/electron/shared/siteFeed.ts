@@ -14,6 +14,7 @@ export const siteFeedItemSchema = z.object({
   kind: z.enum(['announcement', 'tutorial', 'sponsor']),
   title: z.string().trim().min(1).max(80),
   summary: z.string().trim().max(200).default(''),
+  body: z.string().trim().max(4000).default(''),
   url: z.url().max(2048).refine(isOfficialSiteLink),
   publishedAt: timestampSchema,
   expiresAt: timestampSchema.nullable().default(null),
@@ -70,6 +71,7 @@ export interface DesktopSiteNotification {
     readonly category: SiteFeedItem['kind']
     readonly title: string
     readonly summary: string
+    readonly body: string
   }
 }
 

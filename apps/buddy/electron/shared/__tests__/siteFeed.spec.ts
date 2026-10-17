@@ -30,7 +30,7 @@ describe('parseSiteFeed', () => {
       ],
     }, now)
     expect(items.map(entry => entry.id)).toEqual(['newer', 'older'])
-    expect(items[0]).toMatchObject({ kind: 'tutorial', summary: '', expiresAt: null, revision: '1' })
+    expect(items[0]).toMatchObject({ kind: 'tutorial', summary: '', body: '', expiresAt: null, revision: '1' })
   })
 
   it('ignores feeds with an unknown schema version or shape', () => {
@@ -47,6 +47,7 @@ describe('parseSiteFeed', () => {
         item({ id: 'bad-kind', kind: 'ad' }),
         item({ id: 'empty-title', title: '   ' }),
         item({ id: 'long-title', title: 'x'.repeat(81) }),
+        item({ id: 'long-body', body: 'x'.repeat(4001) }),
         item({ id: 'bad time', publishedAt: 'yesterday' }),
         'not an object',
         item({ id: 'ok' }),

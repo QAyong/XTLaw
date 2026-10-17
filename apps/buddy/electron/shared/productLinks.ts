@@ -8,12 +8,23 @@ export const releaseTagUrl = (version: string) => `${repositoryUrl.href}/release
 export const releaseDownloadUrl = (version: string, name: string) => `${repositoryUrl.href}/releases/download/${RELEASE_TAG_PREFIX}${version}/${name}`
 export const RELEASES_API_URL = `https://api.github.com/repos${repositoryUrl.pathname}/releases?per_page=100`
 export const OFFICIAL_SITE_URL = 'https://xtlaw.qayong.site/'
+export const SITE_FEED_URL = new URL('feed/notices.json', OFFICIAL_SITE_URL).href
 export const FEEDBACK_ISSUE_URL = `${repositoryUrl.href}/issues/new`
 export const DOCUMENTATION_URL = new URL('guide/quick-start', buddyPackage.homepage).href
 
 export function isOfficialSiteUrl(value: string): boolean {
   try {
     return new URL(value).href === OFFICIAL_SITE_URL
+  }
+  catch {
+    return false
+  }
+}
+
+export function isOfficialSiteLink(value: string): boolean {
+  try {
+    const url = new URL(value)
+    return url.origin === new URL(OFFICIAL_SITE_URL).origin && !url.username && !url.password
   }
   catch {
     return false

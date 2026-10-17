@@ -29,5 +29,5 @@ function renderLabel(option: SelectOption) {
 </script>
 
 <template>
-  <DesktopSelect :value="selected" :options="options" :render-label="renderLabel" :disabled="disabled || !ready" filterable :aria-label="language === 'en-US' ? 'Actor' : '主角'" @update:show="(show: boolean) => show && refresh()" @update:value="emit('update:value', $event === defaultValue ? null : $event)" />
+  <DesktopSelect :value="selected" :options="options" :render-label="renderLabel" :disabled="disabled || !ready" filterable :aria-label="language === 'en-US' ? 'Actor' : '主角'" @update:show="show => show && refresh()" @update:value="emit('update:value', $event === defaultValue ? null : $event)" />
 </template>

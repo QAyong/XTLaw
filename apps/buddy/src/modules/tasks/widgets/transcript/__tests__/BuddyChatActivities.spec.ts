@@ -157,7 +157,7 @@ describe('activity disclosure', () => {
 
   it('collapses the complete process when a turn completes and keeps it visible while running', async () => {
     const { root, turn } = mountTurn([
-      { id: 'thought', contentIndex: 0, kind: 'reasoning', status: 'completed', text: 'Reviewing the task' },
+      { id: 'thought', contentIndex: 0, kind: 'reasoning', messageId: 'reply', status: 'completed', text: 'Reviewing the task' },
       readTool('one', 'completed'),
       { id: 'commentary', kind: 'text', messageId: 'commentary', text: 'I have finished checking.' },
     ], 'running', true)
@@ -183,7 +183,7 @@ describe('activity disclosure', () => {
   it('finishes a mixed group without borrowing progress from waiting tools or the model', async () => {
     const first = readTool('one', 'running')
     const second = readTool('two', 'completed')
-    const { root, turn } = mountTurn([{ id: 'thought', contentIndex: 0, kind: 'reasoning', status: 'completed', text: 'Checking output' }, first, second])
+    const { root, turn } = mountTurn([{ id: 'thought', contentIndex: 0, kind: 'reasoning', messageId: 'reply', status: 'completed', text: 'Checking output' }, first, second])
     expect(root.querySelector('.buddy-chat-run-activity')).not.toBeNull()
     const header = root.querySelector<HTMLButtonElement>('.buddy-chat-activity-group__header')!
     expect(header.textContent?.trim()).toBe('思考 · 读取 1 个文件')
@@ -214,7 +214,7 @@ describe('activity disclosure', () => {
 
   it('mounts expensive details only on request, keeps manual state through completion and group collapse', async () => {
     const node = readTool('one', 'running')
-    const { root, turn } = mountTurn([{ id: 'thought', contentIndex: 0, kind: 'reasoning', status: 'completed', text: '**A thought**' }, node])
+    const { root, turn } = mountTurn([{ id: 'thought', contentIndex: 0, kind: 'reasoning', messageId: 'reply', status: 'completed', text: '**A thought**' }, node])
     const group = () => root.querySelector<HTMLButtonElement>('.buddy-chat-activity-group__header')!
     expect(root.querySelector('.buddy-chat-tool')).toBeNull()
     expect(root.querySelector('.buddy-chat-reasoning-entry__body')).toBeNull()
@@ -242,7 +242,7 @@ describe('activity disclosure', () => {
 
   it('retains one open reasoning row while adjacent blocks stream, settle and are followed by tools', async () => {
     const title = 'Investigating image upload naming'
-    const thought: ChatAgentTurnNode = { id: 'thought', contentIndex: 0, kind: 'reasoning', status: 'completed', text: `**${title}**` }
+    const thought: ChatAgentTurnNode = { id: 'thought', contentIndex: 0, kind: 'reasoning', messageId: 'reply', status: 'completed', text: `**${title}**` }
     const { root, turn } = mountTurn([thought])
     expect(root.querySelector('.buddy-chat-reasoning-entry__body')).toBeNull()
     root.querySelector<HTMLButtonElement>('.buddy-chat-reasoning-entry__header')!.click()
@@ -274,7 +274,7 @@ describe('activity disclosure', () => {
   })
 
   it('keeps a manually closed reasoning row closed as more blocks arrive and interruption settles it', async () => {
-    const thought: ChatAgentTurnNode = { id: 'thought', contentIndex: 0, kind: 'reasoning', status: 'completed', text: 'First thought' }
+    const thought: ChatAgentTurnNode = { id: 'thought', contentIndex: 0, kind: 'reasoning', messageId: 'reply', status: 'completed', text: 'First thought' }
     const { root, turn } = mountTurn([thought])
     const header = root.querySelector<HTMLButtonElement>('.buddy-chat-reasoning-entry__header')!
     header.click()
@@ -318,8 +318,8 @@ describe('activity disclosure', () => {
 
   it('discloses long untitled thoughts independently and retains the reader choice through group changes', async () => {
     const text = `The beginning\n\n${'Reasoning detail. '.repeat(5_000)}\n\nThe end`
-    const thought: ChatAgentTurnNode = { id: 'long-thought', contentIndex: 0, kind: 'reasoning', status: 'completed', text }
-    const interrupted: ChatAgentTurnNode = { id: 'interrupted-thought', contentIndex: 0, kind: 'reasoning', status: 'interrupted', text: 'Partial reasoning' }
+    const thought: ChatAgentTurnNode = { id: 'long-thought', contentIndex: 0, kind: 'reasoning', messageId: 'reply', status: 'completed', text }
+    const interrupted: ChatAgentTurnNode = { id: 'interrupted-thought', contentIndex: 0, kind: 'reasoning', messageId: 'reply', status: 'interrupted', text: 'Partial reasoning' }
     const { root, turn } = mountTurn([thought, readTool('one', 'completed'), interrupted], 'completed')
     const group = root.querySelector<HTMLButtonElement>('.buddy-chat-activity-group__header')!
     group.click()
@@ -545,7 +545,7 @@ describe('current status and historical activity', () => {
     root.querySelector<HTMLButtonElement>('.buddy-chat-tool__header')!.click()
     await nextTick()
     const output = root.querySelector('.buddy-chat-tool-details')
-    const thought: ChatAgentTurnNode = { id: 'new-thought', kind: 'reasoning', contentIndex: 0, status: 'running', text: '**Reviewing the results**' }
+    const thought: ChatAgentTurnNode = { id: 'new-thought', kind: 'reasoning', messageId: 'reply', contentIndex: 0, status: 'running', text: '**Reviewing the results**' }
     turn.value = { ...turn.value, nodes: [...history, thought] }
     await nextTick()
     expect(group.textContent).toContain('思考 · 读取 1 个文件')
@@ -575,7 +575,7 @@ describe('current status and historical activity', () => {
   })
 
   it('shows real empty thinking without empty details and retains the open body through interruption and grouping', async () => {
-    const thought: ChatAgentTurnNode = { id: 'thought', kind: 'reasoning', contentIndex: 0, status: 'running', text: '' }
+    const thought: ChatAgentTurnNode = { id: 'thought', kind: 'reasoning', messageId: 'reply', contentIndex: 0, status: 'running', text: '' }
     const { root, turn } = mountTurn([thought])
     const header = root.querySelector<HTMLButtonElement>('.buddy-chat-reasoning-entry__header')!
     expect(header.disabled).toBe(true)

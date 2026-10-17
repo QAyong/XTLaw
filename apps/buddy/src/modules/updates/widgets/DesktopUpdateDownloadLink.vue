@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { OFFICIAL_SITE_URL } from '@buddy-electron/shared/productLinks'
 import { ArrowUpRight20Regular } from '@vicons/fluent'
 import { NButton } from 'naive-ui'
 import { satisfies } from 'semver'
@@ -22,7 +23,7 @@ async function download() {
       feedback.value = props.language === 'en-US' ? 'A suitable app update is not available yet. Please try again later.' : '暂时没有可用的应用新版本，请稍后再试。'
       return
     }
-    await api.app.openReleasePage(result.releaseUrl)
+    await api.app.openReleasePage(OFFICIAL_SITE_URL)
   }
   catch {
     feedback.value = props.language === 'en-US' ? 'Could not open the app download page. Please try again.' : '暂时无法打开应用下载页面，请重试。'

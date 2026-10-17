@@ -37,6 +37,12 @@ describe('desktop Preload API contract', () => {
     expect(releasePageInputSchema.parse({ url })).toEqual({ url })
   })
 
+  it('accepts the official site but no other page on it or other hosts', () => {
+    expect(releasePageInputSchema.parse({ url: 'https://xtlaw.qayong.site/' })).toEqual({ url: 'https://xtlaw.qayong.site/' })
+    expect(() => releasePageInputSchema.parse({ url: 'https://xtlaw.qayong.site/download' })).toThrow()
+    expect(() => releasePageInputSchema.parse({ url: 'https://xtlaw.qayong.site.evil.example/' })).toThrow()
+  })
+
   it('limits feedback text before it crosses the desktop bridge', () => {
     expect(feedbackIssueInputSchema.parse({ feedback: '建议' })).toEqual({ feedback: '建议' })
     expect(() => feedbackIssueInputSchema.parse({ feedback: 'x'.repeat(4_001) })).toThrow()

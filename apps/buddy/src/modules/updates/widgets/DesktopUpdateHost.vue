@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { BuddyLocale } from '@/i18n/buddyI18n'
+import { OFFICIAL_SITE_URL } from '@buddy-electron/shared/productLinks'
 import { useDocumentVisibility, useWindowFocus } from '@vueuse/core'
 import { useMessage } from 'naive-ui'
 import { computed, shallowRef, watch } from 'vue'
@@ -98,7 +99,7 @@ function versionedAction(operation: (version: string) => Promise<unknown>) {
     :manual-installation="!!manualInstallation"
     :write-clipboard-text="api.clipboard.writeText"
     @update:show="!$event && updates.closeDetails()"
-    @open-release="url => action(() => api.app.openReleasePage(url))"
+    @open-release="() => action(() => api.app.openReleasePage(OFFICIAL_SITE_URL))"
     @ignore="version => action(() => updates.ignore(version))"
     @restore="version => action(() => updates.restore(version))"
     @cancel-snooze="version => action(() => updates.cancelSnooze(version))"

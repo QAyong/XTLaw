@@ -16,7 +16,7 @@ import {
   DESKTOP_TASK_SIDEBAR_SECTIONS,
 } from './desktopApi'
 import { DESKTOP_CHAT_WELCOME_MAX_ITEMS, DESKTOP_CHAT_WELCOME_MAX_LENGTH, DESKTOP_CHAT_WELCOME_VARIANT_IDS } from './desktopChatWelcome'
-import { isLexoraReleaseUrl } from './productLinks'
+import { isLexoraReleaseUrl, isOfficialSiteUrl } from './productLinks'
 
 const taskSidebarPinnedItemSchema = z.discriminatedUnion('kind', [
   z.object({ id: z.string().min(1).max(128), kind: z.literal('conversation') }).strict(),
@@ -59,7 +59,7 @@ export const clipboardWriteTextInputSchema = z.object({
 }).strict()
 
 export const releasePageInputSchema = z.object({
-  url: z.url().refine(isLexoraReleaseUrl),
+  url: z.url().refine(url => isLexoraReleaseUrl(url) || isOfficialSiteUrl(url)),
 }).strict()
 
 export const desktopChatWelcomeItemSchema = z.discriminatedUnion('kind', [

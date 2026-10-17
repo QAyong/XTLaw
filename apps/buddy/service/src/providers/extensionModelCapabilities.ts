@@ -25,9 +25,9 @@ export function createExtensionModelCapabilities(models: Pick<ProviderExecutionM
       task.assertCurrent()
       // Text cut off by the output limit is never returned: a plugin cannot tell it from a complete answer.
       if (result.stopReason === 'length')
-        throw new Error('EXTENSION_MODEL_TRUNCATED')
+        throw Object.assign(new Error('EXTENSION_MODEL_TRUNCATED'), { code: 'EXTENSION_MODEL_TRUNCATED' })
       if (result.stopReason === 'error' || result.stopReason === 'aborted')
-        throw new Error('EXTENSION_MODEL_FAILED')
+        throw Object.assign(new Error('EXTENSION_MODEL_FAILED'), { code: 'EXTENSION_MODEL_FAILED' })
       return { text: result.content.filter(block => block.type === 'text').map(block => block.text).join(''), model: { providerId: model.provider, modelId: model.id } }
     }),
   }

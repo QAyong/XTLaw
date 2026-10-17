@@ -125,6 +125,14 @@ XTLaw 的开发参考并沿用了以下开源项目与技术：
 
 第三方组件的来源和许可按各自声明保留。
 
+## 贡献者
+
+<a href="https://github.com/QAyong/XTLaw/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=QAyong/XTLaw" alt="XTLaw 贡献者" />
+</a>
+
+名单随仓库的提交记录自动更新，包含上游 Lexora 的贡献者。详细数据见 [贡献者统计](https://github.com/QAyong/XTLaw/graphs/contributors)。
+
 ## 许可证
 
 [AGPL-3.0-only](LICENSE)

@@ -95,6 +95,14 @@ pnpm dev:website
 
 Found a rough edge? [Open an issue](https://github.com/QAyong/XTLaw/issues). If you have already turned an idea into an implementation, follow the [contribution guide](CONTRIBUTING.md) and send a PR to share your approach with the community.
 
+## Contributors
+
+<a href="https://github.com/QAyong/XTLaw/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=QAyong/XTLaw" alt="XTLaw contributors" />
+</a>
+
+The list updates automatically from the repository's commit history and includes contributors to the upstream Lexora. See the [contributor statistics](https://github.com/QAyong/XTLaw/graphs/contributors) for details.
+
 ## License
 
 [AGPL-3.0-only](LICENSE)

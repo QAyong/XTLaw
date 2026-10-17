@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { SelectOption } from 'naive-ui'
-import { NSelect } from 'naive-ui'
 import { computed, h } from 'vue'
 import { useDesktopUi } from '@/shared/ui/desktopUiContext'
+import DesktopSelect from '@/shared/ui/select/DesktopSelect.vue'
 import { useBuddiesContext } from '../buddiesContext'
 import BuddyAvatar from './BuddyAvatar.vue'
 
@@ -29,5 +29,5 @@ function renderLabel(option: SelectOption) {
 </script>
 
 <template>
-  <NSelect :value="selected" :options="options" :render-label="renderLabel" :disabled="disabled || !ready" filterable :aria-label="language === 'en-US' ? 'Actor' : '主角'" @update:show="show => show && refresh()" @update:value="emit('update:value', $event === defaultValue ? null : $event)" />
+  <DesktopSelect :value="selected" :options="options" :render-label="renderLabel" :disabled="disabled || !ready" filterable :aria-label="language === 'en-US' ? 'Actor' : '主角'" @update:show="show => show && refresh()" @update:value="emit('update:value', $event === defaultValue ? null : $event)" />
 </template>

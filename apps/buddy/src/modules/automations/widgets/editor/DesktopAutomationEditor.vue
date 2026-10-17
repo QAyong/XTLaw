@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import type { AutomationEditorEmits, AutomationEditorProps } from './typing'
-import { NAlert, NButton, NForm, NFormItem, NInput, NScrollbar, NSelect, NSpin } from 'naive-ui'
+import { NAlert, NButton, NForm, NFormItem, NInput, NScrollbar, NSpin } from 'naive-ui'
 import { shallowRef } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import { BuddyActorSelect } from '@/modules/buddies/ui'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
+import DesktopSelect from '@/shared/ui/select/DesktopSelect.vue'
 import DesktopAutomationPromptComposer from './DesktopAutomationPromptComposer.vue'
 import DesktopAutomationScheduleEditor from './DesktopAutomationScheduleEditor.vue'
 import DesktopAutomationSchedulePreview from './DesktopAutomationSchedulePreview.vue'
@@ -86,7 +87,7 @@ function close(): void {
 
             <div class="desktop-automation-editor__space-field grid gap-[4px]">
               <NFormItem :label="t('desktop.automations.editor.space')">
-                <NSelect
+                <DesktopSelect
                   v-model:value="form.spaceId"
                   clearable
                   filterable

@@ -53,6 +53,8 @@ test('typography follows the system by default and preserves independent font ch
   const uiSelect = desktop.page.getByTestId('typography-uiFont')
   await uiSelect.locator('.n-select').click()
   await uiSelect.locator('input').fill('Arial')
+  await uiSelect.locator('input').click()
+  await expect(uiSelect.locator('input')).toHaveValue('Arial')
   expect((await settings(desktop.page)).uiFont).toBe('')
   await uiSelect.locator('input').press('Enter')
   await expect.poll(() => settings(desktop.page)).toEqual({ uiFont: 'Arial', bodyFont, codeFont, bodySize: 15 })
@@ -142,7 +144,8 @@ async function openAppearance(page) {
 
 async function clear(page, field) {
   const control = page.getByTestId(`typography-${field}`)
-  await control.locator('.n-select').hover()
+  await control.locator('.n-select').click()
+  await expect(page.locator('.n-base-select-menu:visible')).toHaveCount(1)
   await control.locator('[data-clear]').click()
 }
 

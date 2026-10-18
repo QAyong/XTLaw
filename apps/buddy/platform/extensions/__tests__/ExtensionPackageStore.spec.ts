@@ -274,6 +274,14 @@ it('validates each content target size and menu command ownership with API compa
   expect(addedExtensionPermissions(previous.permissions, next.permissions)).toEqual(['selectedContent'])
 })
 
+it('treats WebAssembly as an opt-in permission that is surfaced to users when newly added', () => {
+  expect(manifest().permissions.webAssembly).toBe(false)
+  const previous = manifest()
+  const next = manifest({ permissions: { selectedResource: 'read', webAssembly: true } })
+  expect(addedExtensionPermissions(previous.permissions, next.permissions)).toEqual(['webAssembly'])
+  expect(addedExtensionPermissions(next.permissions, next.permissions)).toEqual([])
+})
+
 it('validates ASCII command names while allowing localized descriptions and system names inside plugin namespaces', () => {
   const base = manifest({ apiVersion: 3, contributes: { commands: [{ id: 'tests.reader.run', title: 'Run', slash: { name: 'read-file' } }] } })
   const command = base.contributes.commands[0]!

@@ -74,6 +74,7 @@
 | `selectedContent: true` | API 3；用户点击插件操作时获取当前草稿或该条消息文本，不订阅输入或读取对话历史 |
 | `localResources: true` | 用户通过系统窗口选择文件或目录，视图读取文本、二进制或受控 URL |
 | `resourceExport: true` | 用户通过系统另存为窗口确认目标后，保存插件提供的字节 |
+| `webAssembly: true` | 仅对插件视图放开 `'wasm-unsafe-eval'`（允许编译插件包内 `.wasm`，仍禁止 JS eval）和包内 Worker（`worker-src` 限定为插件包路径，不含 blob:）；`.wasm` 以 `application/wasm` 提供；安装时单独提示用户；宿主页（extension.js）不受影响 |
 | `network: ["https://example.com"]` | 通过宿主向列出的 HTTPS origin 发 GET 请求、下载文件或打开外链 |
 
 未声明权限默认为关闭。视图无法访问 Node、宿主 DOM、全局键盘、网络 fetch 或任意本地文件。资源和网络调用通过 API；用户在安装确认中查看权限。没有一般性消息订阅、系统剪贴板或屏幕截图接口。

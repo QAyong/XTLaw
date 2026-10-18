@@ -14,7 +14,7 @@ export const extensionSchemePrivileges: Electron.CustomScheme = {
 }
 
 interface ExtensionEndpoint { token: string, kind: 'host' | 'view', package: ExtensionPackage, abort: AbortController }
-const codeMime: Record<string, string> = { '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css' }
+const codeMime: Record<string, string> = { '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.wasm': 'application/wasm' }
 
 export class ExtensionProtocol {
   readonly #store: ExtensionPackageStore
@@ -52,7 +52,9 @@ export class ExtensionProtocol {
         return new Response(null, { status: 403 })
       const path = decodeURIComponent(url.pathname)
       const origin = `${EXTENSION_PROTOCOL}://${endpoint.token}`
-      const csp = `default-src 'none'; script-src ${origin}/__package/ ${origin}/__${kind}.js; style-src ${origin}/__package/ 'unsafe-inline'; img-src ${origin} data: blob:; font-src ${origin} data: blob:; media-src ${origin} blob:; connect-src ${origin}/__package/ ${origin}/__resource/; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; worker-src 'none'; ${kind === 'view' ? 'sandbox allow-scripts allow-forms; frame-ancestors lexora-app://renderer http://localhost:1420 http://127.0.0.1:1420' : 'frame-ancestors \'none\''}`
+      // WebAssembly and package workers are opt-in per extension and only for views; neither permits JS eval.
+      const wasm = kind === 'view' && endpoint.package.manifest.permissions.webAssembly
+      const csp = `default-src 'none'; script-src ${origin}/__package/ ${origin}/__${kind}.js${wasm ? ' \'wasm-unsafe-eval\'' : ''}; style-src ${origin}/__package/ 'unsafe-inline'; img-src ${origin} data: blob:; font-src ${origin} data: blob:; media-src ${origin} blob:; connect-src ${origin}/__package/ ${origin}/__resource/; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; worker-src ${wasm ? `${origin}/__package/` : '\'none\''}; ${kind === 'view' ? 'sandbox allow-scripts allow-forms; frame-ancestors lexora-app://renderer http://localhost:1420 http://127.0.0.1:1420' : 'frame-ancestors \'none\''}`
       const headers = { 'content-security-policy': csp, 'access-control-allow-origin': '*', 'x-content-type-options': 'nosniff', 'cache-control': 'no-store' }
       if (path.startsWith('/__resource/')) {
         if (kind !== 'view')

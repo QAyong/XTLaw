@@ -41,3 +41,45 @@ it('serves verified package media with range semantics and invalidates disposed 
   endpoint.dispose()
   expect((await respond(new Request(url))).status).toBe(403)
 })
+
+async function viewResponder(permissions: { webAssembly?: boolean }, kind: 'host' | 'view' = 'view') {
+  const { root, store } = await createStore()
+  roots.push(root)
+  const input = manifest({ permissions: { selectedResource: 'read', network: [], ...permissions } })
+  await store.install((await reviewPackage(root, store, input, { 'engine.wasm': '\0asm' })).token)
+  const protocol = new ExtensionProtocol(store)
+  const endpoint = protocol.register(store.installed['tests.reader']!.current, kind)
+  let respond!: (request: Request) => Promise<Response>
+  protocol.install({ protocol: { handle: (_scheme: string, handler: typeof respond) => {
+    respond = handler
+  } } } as unknown as Session, kind)
+  return { endpoint, respond }
+}
+
+it('keeps WebAssembly and workers blocked unless the extension declares the permission', async () => {
+  const { endpoint, respond } = await viewResponder({})
+  const csp = (await respond(new Request(new URL('/__view.html', endpoint.url)))).headers.get('content-security-policy')!
+  expect(csp).not.toContain('wasm-unsafe-eval')
+  expect(csp).toContain('worker-src \'none\'')
+})
+
+it('opens WebAssembly and package workers for views of extensions that declare webAssembly, without allowing eval or blob workers', async () => {
+  const { endpoint, respond } = await viewResponder({ webAssembly: true })
+  const origin = endpoint.url.slice(0, endpoint.url.lastIndexOf('/'))
+  const response = await respond(new Request(new URL('/__view.html', endpoint.url)))
+  const csp = response.headers.get('content-security-policy')!
+  expect(csp).toContain(`script-src ${origin}/__package/ ${origin}/__view.js 'wasm-unsafe-eval';`)
+  expect(csp).toContain(`worker-src ${origin}/__package/;`)
+  expect(csp.replaceAll('\'wasm-unsafe-eval\'', '')).not.toContain('unsafe-eval')
+  expect(csp).not.toMatch(/worker-src[^;]*blob:/)
+  expect(csp).toContain('sandbox allow-scripts allow-forms')
+  const wasm = await respond(new Request(new URL('/__package/engine.wasm', endpoint.url)))
+  expect(wasm.headers.get('content-type')).toBe('application/wasm')
+})
+
+it('never opens WebAssembly for the extension host page', async () => {
+  const { endpoint, respond } = await viewResponder({ webAssembly: true }, 'host')
+  const csp = (await respond(new Request(new URL('/__host.html', endpoint.url)))).headers.get('content-security-policy')!
+  expect(csp).not.toContain('wasm-unsafe-eval')
+  expect(csp).toContain('worker-src \'none\'')
+})

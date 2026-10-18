@@ -1,7 +1,12 @@
 import { expect, it } from 'vitest'
-import { isExtensionDocument } from '../extensionDocuments'
+import { isExtensionDocument, isQuotableExtensionDocument } from '../extensionDocuments'
 
-it('routes DOCX and PPTX to extension views regardless of case, and leaves other files alone', () => {
-  expect(['a/合同.docx', 'deck.PPTX', 'x.y/z.pptx'].every(isExtensionDocument)).toBe(true)
-  expect(['a.xlsx', 'deck.pptx.bak', 'pptx', 'notes.md'].some(isExtensionDocument)).toBe(false)
+it('routes DOCX, PPTX and XLSX to extension views regardless of case, and leaves other files alone', () => {
+  expect(['a/合同.docx', 'deck.PPTX', 'x.y/z.pptx', 'book.XLSX', 'a/报表.xlsx'].every(isExtensionDocument)).toBe(true)
+  expect(['a.xls', 'deck.pptx.bak', 'pptx', 'notes.md', 'book.xlsx.bak'].some(isExtensionDocument)).toBe(false)
+})
+
+it('keeps chat quoting limited to documents whose plugins capture text selections', () => {
+  expect(['a.docx', 'deck.pptx'].every(isQuotableExtensionDocument)).toBe(true)
+  expect(isQuotableExtensionDocument('book.xlsx')).toBe(false)
 })

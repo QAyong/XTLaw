@@ -14,7 +14,7 @@ import { chatComposerDocumentToUserContent, userContentToChatComposerDocument } 
 import { isMarkdownFile } from '@/shared/ui/files/fileDocumentPresentation'
 import { WorkbenchSelectionReferences } from '@/shared/ui/selection/workbenchSelectionReferences'
 import { panes } from '@/workbench/common/workbench'
-import { isExtensionDocument } from './extensionDocuments'
+import { isQuotableExtensionDocument } from './extensionDocuments'
 
 export function createDesktopSelectionReferences(options: {
   controller: WorkbenchController
@@ -77,7 +77,7 @@ export function createDesktopSelectionReferences(options: {
       const view = options.controller.layout.views[viewId]
       if (!view || !['file', 'file-preview', 'extension'].includes(view.resource.scheme))
         return null
-      if (view.resource.scheme === 'extension' && (!spaceFileTargetSchema.safeParse(view.resource.data.fileTarget).success || !isExtensionDocument(String((view.resource.data.fileTarget as { path?: string })?.path))))
+      if (view.resource.scheme === 'extension' && (!spaceFileTargetSchema.safeParse(view.resource.data.fileTarget).success || !isQuotableExtensionDocument(String((view.resource.data.fileTarget as { path?: string })?.path))))
         return null
       const tabId = typeof view.state.contextTabId === 'string' ? view.state.contextTabId : view.id
       const tab = options.resources().allTabs.value.find(tab => tab.id === tabId)

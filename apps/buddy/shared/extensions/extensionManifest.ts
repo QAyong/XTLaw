@@ -70,6 +70,7 @@ export const extensionPermissionsSchema = z.object({
   selectedContent: z.boolean().default(false),
   localResources: z.boolean().default(false),
   resourceExport: z.boolean().default(false),
+  webAssembly: z.boolean().default(false),
   themeManagement: z.boolean().default(false),
   network: z.array(z.string().url().max(512).refine((value) => {
     const url = new URL(value)
@@ -238,6 +239,7 @@ export function addedExtensionPermissions(previous: ExtensionPermissions | undef
     ...(next.selectedContent && !previous?.selectedContent ? ['selectedContent'] : []),
     ...(next.localResources && !previous?.localResources ? ['localResources'] : []),
     ...(next.resourceExport && !previous?.resourceExport ? ['resourceExport'] : []),
+    ...(next.webAssembly && !previous?.webAssembly ? ['webAssembly'] : []),
     ...next.network.filter(origin => !previous?.network.includes(origin)).map(origin => `network:${origin}`),
   ]
 }

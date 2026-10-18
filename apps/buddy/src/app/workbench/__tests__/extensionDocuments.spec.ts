@@ -23,9 +23,16 @@ function router(initial: ExtensionStatus[]) {
   let statuses = initial
   let changed: (() => void) | undefined
   const stop = vi.fn()
-  const api = { list: vi.fn(async () => statuses), onChanged: vi.fn((listener: () => void) => { changed = listener; return stop }) }
-  const documents = new ExtensionDocumentRouter(api)
-  return { documents, stop, update(next: ExtensionStatus[]) { statuses = next; changed?.() } }
+  const onChanged = (listener: () => void) => {
+    changed = listener
+    return stop
+  }
+  const documents = new ExtensionDocumentRouter({ list: async () => statuses, onChanged })
+  function update(next: ExtensionStatus[]) {
+    statuses = next
+    changed?.()
+  }
+  return { documents, stop, update }
 }
 
 describe('extension document routing', () => {
@@ -71,7 +78,10 @@ describe('extension document routing', () => {
   })
 
   it('keeps every file in the built-in preview when the plugin list cannot be read', async () => {
-    const documents = new ExtensionDocumentRouter({ list: async () => { throw new Error('unavailable') }, onChanged: () => () => {} })
+    const unavailable = async (): Promise<ExtensionStatus[]> => {
+      throw new Error('unavailable')
+    }
+    const documents = new ExtensionDocumentRouter({ list: unavailable, onChanged: () => () => {} })
     await documents.whenReady()
     expect(documents.loaded).toBe(true)
     expect(documents.isDocument('a.docx')).toBe(false)

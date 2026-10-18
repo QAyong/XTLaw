@@ -128,8 +128,9 @@ export function createDesktopSelectionReferences(options: {
         const view = options.controller.layout.views[id]
         if (!view)
           return false
-        if (quote.source.format === 'docx' || quote.source.format === 'pptx' || quote.source.format === 'xlsx')
-          return view.resource.scheme === 'extension'
+        // Documents opened by a plugin: the plugin places the selection itself, and a generic quote must reopen in the plugin that made it.
+        if (quote.source.format !== 'source' && quote.source.format !== 'markdown')
+          return view.resource.scheme === 'extension' && (quote.source.format !== 'extension' || view.resource.data.extensionId === quote.source.extension?.extensionId)
         options.controller.updateView(id, { state: { ...view.state, mode: quote.source.format === 'markdown' ? 'preview' : 'source' } })
         return await references.reveal(id, quote, () => current() && !!options.controller.layout.views[id])
       }

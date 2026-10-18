@@ -224,4 +224,38 @@ describe('desktop resource quote adapter', () => {
     expect(await f.host.locate(f.quote)).toBe(true)
     expect(f.locateFile).toHaveBeenCalledWith(f.quote.source.file)
   })
+
+  describe('documents opened by plugins', () => {
+    const hash = 'a'.repeat(64)
+    const file = { spaceId: 'space', directoryId: 'directory', revision: 1, path: 'data/table.csv' }
+    const extensionQuote = (extensionId: string, format: 'extension' | 'docx' = 'extension') => ({
+      id: 'plugin-quote',
+      text: '3,4',
+      source: format === 'extension'
+        ? { kind: 'file' as const, title: 'table.csv', file, format, extension: { extensionId, kind: 'range', hash, location: { row: 3 } } }
+        : { kind: 'file' as const, title: 'a.docx', file, format, docx: { hash, indexes: [0], from: 1, to: 2 } },
+    })
+    async function pluginFixture(scheme: 'extension' | 'file-preview') {
+      const f = await fixture()
+      f.controller.registry.register('plugin-view', (scope) => {
+        scope.view({ id: 'plugin', renderer: 'plugin', label: 'Plugin', locations: ['context'], multiple: true, supports: resource => resource.scheme === 'extension' || resource.scheme === 'file-preview' })
+      })
+      const id = (await f.controller.open({ scheme, id: 'doc', data: { extensionId: 'pabc.csv-sheet', fileTarget: file } }, 'table.csv', { state: { contextTabId: 'files-a' }, focus: false }))!
+      f.openFile.mockResolvedValue(id)
+      return f
+    }
+
+    it('reopens a generic quote only in the plugin that made it', async () => {
+      const f = await pluginFixture('extension')
+      expect(await f.host.locate(extensionQuote('pabc.csv-sheet'))).toBe(true)
+      expect(await f.host.locate(extensionQuote('pother.plugin'))).toBe(false)
+    })
+
+    it('reopens earlier DOCX quotes in any plugin view and fails when the file fell back to the built-in preview', async () => {
+      expect(await (await pluginFixture('extension')).host.locate(extensionQuote('pabc.csv-sheet', 'docx'))).toBe(true)
+      const preview = await pluginFixture('file-preview')
+      expect(await preview.host.locate(extensionQuote('pabc.csv-sheet'))).toBe(false)
+      expect(await preview.host.locate(extensionQuote('pabc.csv-sheet', 'docx'))).toBe(false)
+    })
+  })
 })

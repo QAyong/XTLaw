@@ -13,6 +13,7 @@ import type { ExtensionConfiguration, ExtensionConfigurationSnapshot } from './e
 import type { ExtensionWindowStyle } from './extensionWindowStyles'
 import { z } from 'zod'
 import { BUDDY_QUOTE_TEXT_LIMIT, xlsxQuoteCellsSchema } from '../conversation/buddyUserContent'
+import { extensionQuoteKindSchema, extensionQuoteLocationSchema } from '../conversation/extensionQuoteLocation'
 import { spaceFileTargetSchema } from '../spaces/spaceFileApi'
 import { themeTransportSchema } from '../theme/themeApi.ts'
 import { workbenchPanesSchema } from '../workbench/workbenchInteraction'
@@ -54,8 +55,10 @@ const extensionQuoteFields = {
   resourceId: z.string().uuid(),
   text: z.string().min(1).max(BUDDY_QUOTE_TEXT_LIMIT).refine(text => text.trim().length > 0),
 }
-// DOCX and PPTX report where in the document the text came from; XLSX reports the sheet and range of the selected cells.
+// A plugin reports where its excerpt came from as a type name plus bounded JSON; the host adds the plugin ID and never interprets either.
+// The DOCX/PPTX text positions and the XLSX cells below are the earlier shapes, kept for plugins that already send them.
 export const extensionQuoteInputSchema = z.union([
+  z.object({ ...extensionQuoteFields, kind: extensionQuoteKindSchema, location: extensionQuoteLocationSchema }).strict(),
   z.object({
     ...extensionQuoteFields,
     indexes: z.array(z.number().int().min(0).max(1000000)).max(64),

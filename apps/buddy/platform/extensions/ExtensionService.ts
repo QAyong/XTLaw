@@ -26,7 +26,7 @@ import { extensionError, extensionJsonSchema, extensionQuoteCaptureSchema, exten
 import { ExtensionCompatibilityError, extensionCompatibilityIssue } from '../../shared/extensions/extensionCompatibility'
 import { extensionConditionInvalidationSchema } from '../../shared/extensions/extensionConditions'
 import { extensionDiagnostic, ExtensionRequestError } from '../../shared/extensions/extensionDiagnostic'
-import { resolveFileHandler } from '../../shared/extensions/extensionFileHandlers'
+import { fileExtensionOf, resolveFileHandler } from '../../shared/extensions/extensionFileHandlers'
 import { extensionCompatible, extensionManifestSchema, extensionPathSchema } from '../../shared/extensions/extensionManifest'
 import { extensionDirectoryScanSchema, extensionResourceSelectionSchema } from '../../shared/extensions/extensionResources'
 import { extensionNotificationSchema, extensionScheduleIdSchema, extensionScheduleInputSchema } from '../../shared/extensions/extensionSchedule'
@@ -47,6 +47,7 @@ import { extensionActivationOrder } from './ExtensionPackageStore'
 import { ExtensionResourceWriter } from './ExtensionResourceWriter'
 import { ExtensionScheduler } from './ExtensionScheduler'
 import { ExtensionSelectedFileWriter } from './ExtensionSelectedFileWriter'
+import { legacyOfficeQuoteLocation } from './legacyOfficeQuote'
 
 export interface ExtensionHost {
   call: (method: string, params: JsonValue, signal?: AbortSignal) => Promise<JsonValue>
@@ -612,6 +613,12 @@ export class ExtensionService {
     await this.#executeCommand(running, command, target)
   }
 
+  // A plugin quotes only the file types its own view takes over.
+  #acceptsFile(view: { accepts?: { extensions: string[] } }, name: string): boolean {
+    const extension = fileExtensionOf(name)
+    return !!extension && !!view.accepts?.extensions.includes(extension)
+  }
+
   #fileHandler(path: string) {
     return resolveFileHandler(Object.values(this.store.installed).map(record => ({ enabled: record.enabled, compatible: extensionCompatible(record.current.manifest, this.store.appVersion), manifest: record.current.manifest })), path)
   }
@@ -816,7 +823,7 @@ export class ExtensionService {
       }, view.abort.signal, view.input.resource?.id ?? null)
     }
     else if (method === 'composer.captureQuote' || method === 'composer.addQuote') {
-      if (view.running.package.manifest.apiVersion < 4 || !view.running.package.manifest.permissions.composerReference || contribution.resource !== 'selected-file' || contribution.location !== 'context' || placement || !view.input.resource || !/\.(?:docx|pptx|xlsx)$/i.test(view.input.resource.name) || !view.readVersion || !view.readHash || !this.#ports.readBytes)
+      if (view.running.package.manifest.apiVersion < 4 || !view.running.package.manifest.permissions.composerReference || contribution.resource !== 'selected-file' || contribution.location !== 'context' || placement || !view.input.resource || !this.#acceptsFile(contribution, view.input.resource.name) || !view.readVersion || !view.readHash || !this.#ports.readBytes)
         throw new Error('EXTENSION_REFERENCE_DENIED')
       const target = await this.#resource(view.running, view.input.resource.id)
       const hash = view.readHash
@@ -842,13 +849,11 @@ export class ExtensionService {
         if (quotes.size >= 8)
           quotes.delete(quotes.keys().next().value!)
         const captureId = randomUUID()
-        // The reported location must fit the file type: cells for a workbook, text positions for a document or deck.
         const name = view.input.resource.name
-        if (/\.xlsx$/i.test(name) !== ('cells' in input))
-          throw new Error('EXTENSION_REFERENCE_DENIED')
-        const location = 'cells' in input
-          ? { format: 'xlsx' as const, xlsx: { hash, ...input.cells } }
-          : /\.pptx$/i.test(name) ? { format: 'pptx' as const, pptx: { hash, indexes: input.indexes, from: input.from, to: input.to } } : { format: 'docx' as const, docx: { hash, indexes: input.indexes, from: input.from, to: input.to } }
+        // The plugin ID comes from the capturing plugin itself; a plugin cannot quote on behalf of another.
+        const location = 'kind' in input
+          ? { format: 'extension' as const, extension: { extensionId: view.running.package.manifest.id, kind: input.kind, hash, location: input.location } }
+          : legacyOfficeQuoteLocation(name, hash, input)
         const reply = await this.#ports.workbench({ kind: 'quote-capture', requestId: randomUUID(), viewId: id, generation, token, captureId, quote: { id: randomUUID(), text: input.text, source: { kind: 'file', title: name, file: target, ...location } } }, signal)
         assertQuoteCurrent()
         if (!reply)

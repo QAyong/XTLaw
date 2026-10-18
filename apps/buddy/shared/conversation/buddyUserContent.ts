@@ -3,6 +3,7 @@ import { browserElementSnapshotSchema, browserSelectionSourceSchema } from '../b
 import { idSchema, timestampSchema } from '../runtime/apiValidation'
 import { skillReferenceSchema } from '../skills/skillApi'
 import { spaceFileTargetSchema } from '../spaces/spaceFileApi'
+import { extensionQuoteLocationLength, extensionQuoteSourceSchema } from './extensionQuoteLocation'
 import { buddyLocalResourceSchema } from './localResource'
 
 export const buddyResourceIdSchema = z.string().regex(/^[A-Z0-9][\w-]{0,127}$/i)
@@ -10,8 +11,9 @@ export const buddyResourceIdSchema = z.string().regex(/^[A-Z0-9][\w-]{0,127}$/i)
 export const BUDDY_QUOTE_COUNT_LIMIT = 16
 export const BUDDY_QUOTE_TEXT_LIMIT = 32_768
 export const BUDDY_QUOTE_TOTAL_TEXT_LIMIT = 131_072
-export function buddyQuoteSnapshotLength(quote: { text: string, element?: unknown }): number {
-  return quote.text.length + (quote.element ? JSON.stringify(quote.element).length : 0)
+export function buddyQuoteSnapshotLength(quote: { text: string, element?: unknown, source?: unknown }): number {
+  const extension = (quote.source as { extension?: { location: Parameters<typeof extensionQuoteLocationLength>[0] } } | undefined)?.extension
+  return quote.text.length + (quote.element ? JSON.stringify(quote.element).length : 0) + (extension ? extensionQuoteLocationLength(extension.location) : 0)
 }
 export const BUDDY_SESSION_REFERENCE_TITLE_LIMIT = 80
 export const buddySessionReferenceSchema = z.object({
@@ -83,12 +85,14 @@ const buddyFileQuoteSourceSchema = z.object({
   kind: z.literal('file'),
   title: z.string().trim().min(1).max(512),
   file: spaceFileTargetSchema.readonly(),
-  format: z.enum(['source', 'markdown', 'docx', 'pptx', 'xlsx']),
+  format: z.enum(['source', 'markdown', 'docx', 'pptx', 'xlsx', 'extension']),
   docx: officeQuoteLocationSchema.optional(),
   // PPTX: indexes are the 0-based slide numbers the excerpt came from; from/to span the excerpt text itself.
   pptx: officeQuoteLocationSchema.optional(),
   xlsx: xlsxQuoteLocationSchema.optional(),
-}).strict().readonly()
+  // Any other document plugin: the host fills in the plugin ID, the plugin defines the type name and the bounded JSON position.
+  extension: extensionQuoteSourceSchema.optional(),
+}).strict().refine(source => (source.format === 'extension') === (source.extension !== undefined), 'Extension quotes need an extension source').readonly()
 const buddyArtifactQuoteSourceSchema = z.object({
   kind: z.literal('artifact'),
   title: z.string().trim().min(1).max(512),
@@ -323,6 +327,7 @@ function sameResourceQuote(a: BuddyResourceQuote, b: BuddyResourceQuote): boolea
     && JSON.stringify(a.source.kind === 'file' ? a.source.docx : undefined) === JSON.stringify(b.source.kind === 'file' ? b.source.docx : undefined)
     && JSON.stringify(a.source.kind === 'file' ? a.source.pptx : undefined) === JSON.stringify(b.source.kind === 'file' ? b.source.pptx : undefined)
     && JSON.stringify(a.source.kind === 'file' ? a.source.xlsx : undefined) === JSON.stringify(b.source.kind === 'file' ? b.source.xlsx : undefined)
+    && JSON.stringify(a.source.kind === 'file' ? a.source.extension : undefined) === JSON.stringify(b.source.kind === 'file' ? b.source.extension : undefined)
     && a.text === b.text && a.textOffset === b.textOffset && JSON.stringify(a.range) === JSON.stringify(b.range)
 }
 

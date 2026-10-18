@@ -10,7 +10,7 @@ import { explorerLabels } from './explorerLabels'
 export function useExplorerCommands(options: {
   target: () => SpaceFileTarget
   language: () => string
-  api: Pick<LocalChatApi['spaces'], 'revealFile' | 'cancelFileOperation'>
+  api: Pick<LocalChatApi['spaces'], 'revealFile' | 'copyFilePath' | 'cancelFileOperation'>
   refresh: () => Promise<void>
 }) {
   const operations = useFileOperations()
@@ -81,6 +81,19 @@ export function useExplorerCommands(options: {
     if (command === 'copy' || command === 'cut') {
       if (node)
         operations.clipboard.value = { target: { ...target, path }, move: command === 'cut' }
+      return
+    }
+    if (command === 'copyPath') {
+      if (!node)
+        return
+      error.value = ''
+      try {
+        await options.api.copyFilePath({ ...target, path })
+      }
+      catch {
+        if (!stopped)
+          error.value = labels.value.copyPathFailure
+      }
       return
     }
     if (command === 'reveal') {

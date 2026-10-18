@@ -1,5 +1,5 @@
 import type { LocalChatIpcContext } from './registrar'
-import { shell } from 'electron'
+import { clipboard, shell } from 'electron'
 import { validationRequestSchemas } from '../../../shared/runtime/apiValidation'
 import { spacesRequestSchemas, spacesRpc } from '../../../shared/spaces/spaceApi'
 import { spaceDirectoryRequestSchema, spaceFilesRpc, spaceFileTargetSchema, spaceSaveDocumentSchema } from '../../../shared/spaces/spaceFileApi'
@@ -21,6 +21,10 @@ export function registerSpacesIpc(context: LocalChatIpcContext): void {
   handle(LOCAL_CHAT_IPC_CHANNELS.spaceDocumentSave, (_event, input) => request(spaceFilesRpc.saveDocument, spaceSaveDocumentSchema.parse(input)))
   handle(LOCAL_CHAT_IPC_CHANNELS.spaceFilesList, (_event, input) => request(spaceFilesRpc.list, spaceDirectoryRequestSchema.parse(input)))
   handle(LOCAL_CHAT_IPC_CHANNELS.spaceFilesRead, (_event, input) => request(spaceFilesRpc.read, spaceFileTargetSchema.parse(input)))
+  handle(LOCAL_CHAT_IPC_CHANNELS.spaceFilesCopyPath, async (_event, input) => {
+    const target = await request(spaceFilesRpc.locate, spaceFileTargetSchema.parse(input))
+    clipboard.writeText(target.path)
+  })
   handle(LOCAL_CHAT_IPC_CHANNELS.spaceFilesReveal, async (_event, input) => {
     const target = await request(spaceFilesRpc.locate, spaceFileTargetSchema.parse(input))
     if (target.kind === 'file') {

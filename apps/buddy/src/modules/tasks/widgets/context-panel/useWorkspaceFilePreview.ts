@@ -5,7 +5,7 @@ import type { ExplorerNode } from '@/shared/ui/explorer/treeCollection'
 import { computed, onScopeDispose, shallowReactive, watch, watchEffect } from 'vue'
 import { replaceChildren } from '@/shared/ui/explorer/treeCollection'
 
-export type WorkspaceFilesApi = Pick<LocalChatApi['spaces'], 'listDirectory' | 'readFile' | 'revealFile' | 'fileHistory' | 'acknowledgeFileOperation' | 'cancelFileOperation' | 'onFilesChanged'>
+export type WorkspaceFilesApi = Pick<LocalChatApi['spaces'], 'listDirectory' | 'readFile' | 'revealFile' | 'copyFilePath' | 'fileHistory' | 'acknowledgeFileOperation' | 'cancelFileOperation' | 'onFilesChanged'>
 interface FileView {
   generation: number
   tab: TaskFilesContextTab

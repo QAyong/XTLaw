@@ -69,6 +69,7 @@ describe('workspace explorer context menu position', () => {
         language: 'zh-CN',
         api: {
           revealFile: vi.fn(),
+          copyFilePath: vi.fn(),
           fileHistory: vi.fn().mockResolvedValue([]),
           acknowledgeFileOperation: vi.fn(),
           cancelFileOperation: vi.fn(),

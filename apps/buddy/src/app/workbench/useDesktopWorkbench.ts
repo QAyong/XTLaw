@@ -29,7 +29,7 @@ import { WorkingCopyService } from '@/workbench/services/WorkingCopyService'
 import { ActiveTaskProjection } from './ActiveTaskProjection'
 import { ContextTabProjection } from './ContextTabProjection'
 import { createDesktopSelectionReferences } from './createDesktopSelectionReferences'
-import { isExtensionDocument } from './extensionDocuments'
+import { ExtensionDocumentRouter } from './extensionDocuments'
 import { absolute, contains, FileOperationService } from './FileOperationService'
 import { registerDesktopContributions } from './registerDesktopContributions'
 import { restoreTaskInputViews } from './restoreTaskInputViews'
@@ -48,6 +48,7 @@ export function useDesktopWorkbench(options: { buddyCatalog?: Readonly<Ref<Buddy
   const backupError = shallowRef(false)
   const fileToolbarTargets = shallowReactive(new Map<string, HTMLElement>())
   const openingFiles = new Map<string, Promise<string | null | undefined>>()
+  const documents = new ExtensionDocumentRouter(api.extensions)
   const copies = new WorkingCopyService({
     read: resource => api.localChat.spaces.readDocument(spaceFileTargetSchema.strip().parse(resource.data)),
     save: (resource, document, operationId) => api.localChat.spaces.saveDocument({ ...spaceFileTargetSchema.strip().parse(resource.data), ...document, operationId }),
@@ -402,7 +403,12 @@ export function useDesktopWorkbench(options: { buddyCatalog?: Readonly<Ref<Buddy
   async function createFile(target: SpaceFileTarget, tabId?: string, current: () => boolean = () => true) {
     if (!current())
       return null
-    const extensionDocument = isExtensionDocument(target.path)
+    if (!documents.loaded) {
+      await documents.whenReady()
+      if (!current())
+        return null
+    }
+    const extensionDocument = documents.isDocument(target.path)
     const openDocument = async (fallback: string | null) => {
       if (!extensionDocument || !fallback)
         return fallback
@@ -644,6 +650,7 @@ export function useDesktopWorkbench(options: { buddyCatalog?: Readonly<Ref<Buddy
       }
       await release(() => controller.dispose())
       activity.dispose()
+      documents.dispose()
       contextTabs.dispose()
       resourceLifetime.dispose()
       await release(() => pool.flush())
@@ -671,8 +678,8 @@ export function useDesktopWorkbench(options: { buddyCatalog?: Readonly<Ref<Buddy
     await inputs.flush().catch(options.onError)
     return saved
   }
-  const selectionReferences = createDesktopSelectionReferences({ controller, pool, language, openFile: (target, current) => createFile(target, undefined, current), browser: api.browser, resources: options.resources, ready: () => initialized.value, independent: () => stores.applicationSettings.config.value?.desktop.contextPanelMode === 'independent', locateFile: target => api.localChat.spaces.readFile(target), navigationVersion: () => navigationVersion })
-  return { selectionReferences, api, renderers, fileOperations, fileToolbarTargets, fileView, closeContextFiles, readingPositions, discardTask, prepareTaskDeletion, activeTask, activeTaskId, activeResource: activity.resource, backupError, controller, copies, models, pool, persistence, initialize, flush, dispose, openTask, newTask, startTaskWithSkill, openFile, dropResource, language, get initialized() {
+  const selectionReferences = createDesktopSelectionReferences({ controller, pool, documents, language, openFile: (target, current) => createFile(target, undefined, current), browser: api.browser, resources: options.resources, ready: () => initialized.value, independent: () => stores.applicationSettings.config.value?.desktop.contextPanelMode === 'independent', locateFile: target => api.localChat.spaces.readFile(target), navigationVersion: () => navigationVersion })
+  return { selectionReferences, documents, api, renderers, fileOperations, fileToolbarTargets, fileView, closeContextFiles, readingPositions, discardTask, prepareTaskDeletion, activeTask, activeTaskId, activeResource: activity.resource, backupError, controller, copies, models, pool, persistence, initialize, flush, dispose, openTask, newTask, startTaskWithSkill, openFile, dropResource, language, get initialized() {
     return initialized.value
   }, get navigationVersion() {
     return navigationVersion

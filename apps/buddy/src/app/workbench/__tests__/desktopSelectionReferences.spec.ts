@@ -56,7 +56,7 @@ async function fixture() {
   const reveal = vi.fn(async () => true)
   const selectionScope = shallowRef('task:a')
   const resources = { allTabs, tabs: visibleTabs, activeTab, browserStates, selectTab, selectionScope, isOpen: shallowRef(true), findArtifact: () => selectionArtifact, openArtifact: async () => activeTab.value = artifactTab, setArtifactViewMode: (_id: string, mode: 'preview' | 'source') => artifactTab.viewMode = mode } as unknown as TaskResourcePanel
-  const host = createDesktopSelectionReferences({ controller, pool, language: shallowRef('zh-CN'), resources: () => resources, independent: () => independent, ready: () => true, locateFile, openFile, navigationVersion: () => version })
+  const host = createDesktopSelectionReferences({ controller, pool, documents: { isQuotable: () => true }, language: shallowRef('zh-CN'), resources: () => resources, independent: () => independent, ready: () => true, locateFile, openFile, navigationVersion: () => version })
   host.registerReveal(fileId, reveal)
   host.registerReveal(artifactTab.id, reveal)
   cleanups.push(() => {

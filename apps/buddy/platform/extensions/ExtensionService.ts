@@ -26,6 +26,7 @@ import { extensionError, extensionJsonSchema, extensionQuoteCaptureSchema, exten
 import { ExtensionCompatibilityError, extensionCompatibilityIssue } from '../../shared/extensions/extensionCompatibility'
 import { extensionConditionInvalidationSchema } from '../../shared/extensions/extensionConditions'
 import { extensionDiagnostic, ExtensionRequestError } from '../../shared/extensions/extensionDiagnostic'
+import { resolveFileHandler } from '../../shared/extensions/extensionFileHandlers'
 import { extensionCompatible, extensionManifestSchema, extensionPathSchema } from '../../shared/extensions/extensionManifest'
 import { extensionDirectoryScanSchema, extensionResourceSelectionSchema } from '../../shared/extensions/extensionResources'
 import { extensionNotificationSchema, extensionScheduleIdSchema, extensionScheduleInputSchema } from '../../shared/extensions/extensionSchedule'
@@ -611,17 +612,17 @@ export class ExtensionService {
     await this.#executeCommand(running, command, target)
   }
 
+  #fileHandler(path: string) {
+    return resolveFileHandler(Object.values(this.store.installed).map(record => ({ enabled: record.enabled, compatible: extensionCompatible(record.current.manifest, this.store.appVersion), manifest: record.current.manifest })), path)
+  }
+
   async openFile(target: SpaceFileTarget): Promise<string | null> {
     await this.initialize()
     await this.#mutating
-    const suffix = target.path.split('.').at(-1)?.toLowerCase()
-    const handlers = Object.values(this.store.installed).filter(record => record.enabled && extensionCompatible(record.current.manifest, this.store.appVersion)).flatMap(record =>
-      record.current.manifest.contributes.views.filter(view => suffix && view.accepts?.extensions.includes(suffix)).map(view => ({ id: record.current.manifest.id, view })),
-    )
-    // Ambiguous handlers leave the file in the built-in preview.
-    if (handlers.length !== 1 || !this.#ports.readBytes)
+    // Ambiguous or missing handlers leave the file in the built-in preview.
+    const handler = this.#fileHandler(target.path)
+    if (!handler || !this.#ports.readBytes)
       return null
-    const handler = handlers[0]!
     const running = await this.#activate(handler.id)
     await this.#ports.readBytes({ ...target, offset: 0, length: 1 }, running.abort.signal)
     this.#assertCurrent(running)

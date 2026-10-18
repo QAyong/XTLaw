@@ -17,3 +17,72 @@ body > main.sheets-shell { position: relative; display: flex; flex-direction: co
 .ribbon-group:has(.ai-entry) { display: none; }
 .ribbon-group:has(.ai-entry) + .ribbon-sep { display: none; }
 button:has(.ai-feature-icon) { display: none !important; }
+
+/* Like the DOCX and PPTX plugins: no File tab (Save is the toolbar button / Ctrl+S, Save As is Ctrl+Shift+S) and a compact command
+   row that is paged with two fixed arrows (office-toolbar-navigation.js) instead of a horizontal scrollbar. */
+.ribbon-tabs .ribbon-tab-file, .ribbon-tabs .file-tab-wrap { display: none !important; }
+/* The status line in the tab row repeats the status bar's text and was squeezed to nothing by the window-control inset. */
+.ribbon-tabs .workbook-status { display: none; }
+
+.excel-header .ribbon-tabs {
+  gap: 0;
+  padding: 2px 8px 0 !important;
+  flex-wrap: nowrap;
+  overflow: hidden;
+  min-width: 0;
+}
+.excel-header .ribbon-tabs > * { flex: 0 0 auto; }
+.excel-header .ribbon-tabs > button:not(.qa-btn) { padding: 5px 7px 4px; font-size: 12px; line-height: 18px; }
+.excel-header .ribbon-tabs > button:not(.qa-btn).active::after { left: 9px; right: 9px; }
+
+/* The editor's own compact density (Ctrl+Alt+K), applied always: tall buttons become icon-only and stacked rows become single rows. */
+.excel-header .ribbon {
+  box-sizing: border-box;
+  height: 48px;
+  padding: 2px 8px;
+  line-height: 1.2;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.excel-header .ribbon::-webkit-scrollbar { display: none; width: 0; height: 0; }
+.excel-header .ribbon-tool.large { gap: 0; padding: 1px 5px; }
+.excel-header .ribbon-tool.large .tool-icon-row { min-height: 22px; padding: 1px 3px; margin: 0 -2px; }
+.excel-header .ribbon-tool.large > span:not(.tool-icon-row) { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.excel-header .ribbon-group { padding: 0 4px; min-width: max-content; }
+.excel-header .ribbon-group-content { flex-wrap: nowrap; min-width: max-content; white-space: nowrap; }
+.excel-header .ribbon-rows, .excel-header .row-stack, .excel-header .styles-stack, .excel-header .check-column { display: flex; flex-direction: row; align-items: center; gap: 4px; }
+.excel-header .tool-stack { grid-auto-flow: column; }
+.excel-header .chart-grid { grid-template-columns: none; grid-template-rows: repeat(2, auto); grid-auto-flow: column; }
+
+/* Paging controls stay outside the command row and fixed; one full page of commands moves at a time. */
+.excel-header.pi-office-toolbar-host { display: grid; grid-template-columns: 32px minmax(0, 1fr) 32px; grid-template-rows: auto 48px; align-items: stretch; }
+.excel-header.pi-office-toolbar-host > .ribbon-tabs { grid-column: 1 / -1; grid-row: 1; }
+.excel-header.pi-office-toolbar-host > .ribbon { grid-column: 2; grid-row: 2; min-width: 0; }
+.excel-header.pi-office-toolbar-host > .pi-office-toolbar-nav {
+  position: static;
+  grid-row: 2;
+  align-self: stretch;
+  z-index: 2;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--surface);
+  color: var(--text-secondary, var(--text-primary));
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+.excel-header.pi-office-toolbar-host > .pi-office-toolbar-nav svg { width: 15px; height: 15px; }
+.excel-header.pi-office-toolbar-host > .pi-office-toolbar-nav:hover:not(:disabled) { background: var(--ribbon-hover); color: var(--text-primary); }
+.excel-header.pi-office-toolbar-host > .pi-office-toolbar-nav:disabled { opacity: 0.35; cursor: default; }
+.excel-header.pi-office-toolbar-host > .pi-office-toolbar-nav-previous { grid-column: 1; }
+.excel-header.pi-office-toolbar-host > .pi-office-toolbar-nav-next { grid-column: 3; }
+/* A command at a page boundary stays hidden until its page is shown, so no command is ever half visible. */
+.excel-header .ribbon .pi-office-toolbar-partial-item { visibility: hidden !important; pointer-events: none !important; }
+/* Pressing the active tab collapses the band (the editor's own behavior): the arrows go with it. */
+.excel-header.pi-office-toolbar-host.pi-office-ribbon-collapsed { grid-template-rows: auto; }
+.excel-header.pi-office-toolbar-host.pi-office-ribbon-collapsed > .pi-office-toolbar-nav { display: none !important; }
+.excel-header .ribbon .pi-office-clipboard-group { min-width: max-content; }

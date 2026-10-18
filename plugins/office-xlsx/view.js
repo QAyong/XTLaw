@@ -1,3 +1,4 @@
+import { installOfficeToolbarNavigation } from './office-toolbar-navigation.js'
 import { installSelectionMenu } from './selection-menu.js'
 import { readXlsx, validateXlsx } from './xlsx.js'
 
@@ -44,6 +45,7 @@ export async function render(context, container) {
   root.id = 'root'
   root.className = 'sheets-editor-root'
   container.append(root, status)
+  installOfficeToolbarNavigation(root, context.signal)
   const show = (text, alert = false) => {
     status.textContent = text
     status.setAttribute('role', alert ? 'alert' : 'status')

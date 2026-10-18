@@ -188,7 +188,7 @@ function getResources() {
 }
 const capabilities = createDesktopCapabilities({ api, stores, selectedModel: computed(() => selectedTask.value?.workspace.composer.selectedModel.value ?? null), onAutomationRunFailure: error => message.error(error) })
 function onSpaceCreated(id: string) {
-  return workbench.newTask(id)
+  return workbench.newTask({ spaceId: id })
 }
 function beforeTaskDelete(id: string) {
   return workbench.prepareTaskDeletion(id)
@@ -235,7 +235,7 @@ const navigation = useDesktopNavigation({
     spaceId: computed(() => selectedTask.value?.session.spaceId.value ?? (workbench.activeResource.value?.data.spaceId as string | null | undefined) ?? null),
     navigationVersion: () => workbench.navigationVersion,
     openTask: (id, signal) => workbench.openTask(id, { signal }),
-    startTask: spaceId => workbench.newTask(spaceId),
+    startTask: spaceId => workbench.newTask({ spaceId }),
   },
   notifications: stores.notifications,
   openUpdate: stores.updates.openDetails,

@@ -5,7 +5,7 @@
   "name": "Office PPTX",
   "author": "XTLaw官方",
   "description": "点击文件管理器中的 PPTX 即可用 Slides 编辑器打开、编辑并保存，选中内容后可右键引用到聊天；不含 AI 与 PDF 功能。",
-  "version": "0.4.1",
+  "version": "0.4.4",
   "icon": "icon.svg",
   "categories": ["办公"],
   "tags": ["PPTX", "PowerPoint", "幻灯片"],

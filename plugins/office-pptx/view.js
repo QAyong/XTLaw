@@ -1,4 +1,5 @@
 import { readPptx, validatePptx } from './pptx.js'
+import { installOfficeToolbarNavigation } from './office-toolbar-navigation.js'
 import { installSelectionMenu } from './selection-menu.js'
 
 const messages = {
@@ -58,6 +59,7 @@ export async function render(context, container) {
     status.hidden = !text
   }
   status.addEventListener('click', () => { status.hidden = true }, { signal: context.signal })
+  installOfficeToolbarNavigation(root, context.signal)
   let dialogs = []
   context.signal.addEventListener('abort', () => {
     for (const link of links) link.remove()

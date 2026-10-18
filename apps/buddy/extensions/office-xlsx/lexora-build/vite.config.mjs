@@ -59,14 +59,31 @@ function manualChunks(id, { getModuleInfo }) {
 }
 
 // Renderer modules the plugin replaces with a corrected copy (the upstream file stays untouched).
-const rendererFixes = { './sheet-context-menu': 'sheet-context-menu-fix.ts' }
+const rendererFixes = { './sheet-context-menu': 'sheet-context-menu-fix.ts', './control': 'control-fix.ts' }
 function fixRendererModules() {
   return {
     name: 'lexora-renderer-fixes',
     enforce: 'pre',
     resolveId(source, importer) {
-      const fix = rendererFixes[source]
+      const fix = rendererFixes[source] ?? (/^\.{1,2}\/i18n\/locale$/.test(source) ? 'locale-fix.ts' : undefined)
       return fix && importer?.replaceAll('\\', '/').includes('/apps/sheets/src/renderer/') ? shim(fix) : null
+    },
+  }
+}
+
+// The control hook only receives "is a file loaded"; the selection reader (shims/control-fix.ts) also needs the lazy workbook
+// state to refuse cells that have not streamed in yet. The call site is pinned by the upstream commit check in build.mjs.
+const controlCall = /(handleSheetsControl\(\s*req,\s*univerRef\.current\?\.univerAPI\.getActiveWorkbook\(\),\s*lazyWorkbookRef\.current !== null,)/
+function passLazyStateToControl() {
+  return {
+    name: 'lexora-control-state',
+    enforce: 'pre',
+    transform(code, id) {
+      if (!id.replaceAll('\\', '/').endsWith('/apps/sheets/src/renderer/App.tsx'))
+        return null
+      if (!controlCall.test(code))
+        throw new Error('The renderer no longer calls handleSheetsControl the way shims/control-fix.ts expects')
+      return code.replace(controlCall, '$1 lazyWorkbookRef.current,')
     },
   }
 }
@@ -74,7 +91,7 @@ function fixRendererModules() {
 export default defineConfig({
   root: here,
   base: './',
-  plugins: [pruneUniverLocales(), stubMainModules(), fixRendererModules(), react()],
+  plugins: [pruneUniverLocales(), stubMainModules(), fixRendererModules(), passLazyStateToControl(), react()],
   resolve: {
     alias: [
       { find: exact('electron'), replacement: shim('electron.ts') },

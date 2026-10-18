@@ -33,7 +33,7 @@ describe('office xlsx plugin', () => {
 
   it('declares the WebAssembly permission and ships a wasm engine inside the package limits', async () => {
     const manifest = JSON.parse(await readFile(new URL('extension.json', plugin), 'utf8'))
-    expect(manifest.permissions).toMatchObject({ webAssembly: true, selectedResource: 'read', selectedResourceWrite: true })
+    expect(manifest.permissions).toMatchObject({ webAssembly: true, selectedResource: 'read', selectedResourceWrite: true, composerReference: true, resourceExport: true })
     expect(manifest.contributes.views.some(view => view.accepts?.extensions?.includes('xlsx'))).toBe(true)
     const root = fileURLToPath(plugin)
     const files = []

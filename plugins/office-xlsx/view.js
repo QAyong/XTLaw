@@ -1,8 +1,9 @@
+import { installSelectionMenu } from './selection-menu.js'
 import { readXlsx, validateXlsx } from './xlsx.js'
 
 const messages = {
-  zh: { loading: '正在加载表格编辑器…', error: '操作失败，修改尚未保存。请重试。', invalid: '文件不是受支持的 XLSX，或超出安全限制', changed: '文件已被其他程序修改，尚未保存。请重新打开文件。', empty: '请从文件管理器选择一个 XLSX 文件。', cancelled: '保存已取消。', saveAsUnavailable: '暂不支持另存为，请使用保存（Ctrl+S）。', ok: '确定' },
-  en: { loading: 'Loading spreadsheet editor…', error: 'Operation failed. Changes have not been saved. Please retry.', invalid: 'Unsupported XLSX or file exceeds safety limits', changed: 'The file changed outside the editor. Changes have not been saved. Reopen the file.', empty: 'Select an XLSX file from the file manager.', cancelled: 'Save cancelled.', saveAsUnavailable: 'Save As is not supported yet. Use Save (Ctrl+S).', ok: 'OK' },
+  zh: { loading: '正在加载表格编辑器…', error: '操作失败，修改尚未保存。请重试。', invalid: '文件不是受支持的 XLSX，或超出安全限制', changed: '文件已被其他程序修改，尚未保存。请重新打开文件。', empty: '请从文件管理器选择一个 XLSX 文件。', cancelled: '保存已取消。', exportUnavailable: '暂不支持导出为 CSV。', ok: '确定' },
+  en: { loading: 'Loading spreadsheet editor…', error: 'Operation failed. Changes have not been saved. Please retry.', invalid: 'Unsupported XLSX or file exceeds safety limits', changed: 'The file changed outside the editor. Changes have not been saved. Reopen the file.', empty: 'Select an XLSX file from the file manager.', cancelled: 'Save cancelled.', exportUnavailable: 'Exporting to CSV is not supported yet.', ok: 'OK' },
 }
 
 // The sandbox has an opaque origin: keep editor preferences in bounded memory instead of weakening the iframe.
@@ -87,6 +88,16 @@ export async function render(context, container) {
           throw new Error(error?.message === 'OFFICE_SAVE_CANCELLED' ? copy.cancelled : describe(error))
         }
       },
+      // Save As leaves the open document untouched and exports a copy through the system dialog.
+      async exportCopy(name, data) {
+        context.signal.throwIfAborted()
+        try {
+          return !!(await context.resources.saveFile({ name: /\.xlsx$/i.test(name) ? name : resource.name, data: validateXlsx(data) }))
+        }
+        catch (error) {
+          throw new Error(describe(error))
+        }
+      },
       messageBox: options => new Promise((resolve) => {
         const dialog = document.createElement('dialog')
         const message = document.createElement('p')
@@ -117,11 +128,12 @@ export async function render(context, container) {
         buttons[0]?.focus()
       }),
       // The engine glue reports unsupported actions by code; the page owns the wording.
-      notify: (text, alert) => show(text === 'SHEETS_SAVE_AS_UNAVAILABLE' ? copy.saveAsUnavailable : text, alert),
+      notify: (text, alert) => show(text === 'SHEETS_EXPORT_UNAVAILABLE' ? copy.exportUnavailable : text, alert),
     }
     const editor = await import('./xlsx/sheets.js')
     await editor.ready
     context.signal.throwIfAborted()
+    installSelectionMenu(context)
     const appearance = context.onEnvironmentChange((environment) => {
       copy = messages[environment.language.startsWith('zh') ? 'zh' : 'en']
       globalThis.__lexoraSheets?.setLanguage(environment.language)

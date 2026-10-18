@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { createHash, randomUUID } from 'node:crypto'
 import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
-import { join, relative, resolve } from 'node:path'
+import { basename, join, relative, resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { writeOutput } from '../../shared/cli-output.mjs'
@@ -15,7 +15,9 @@ const fileLimit = 16 * 1024 * 1024
 const packageLimit = 64 * 1024 * 1024
 const hash = bytes => createHash('sha256').update(bytes).digest('hex')
 
-export async function prepareBundledExtensions({ sourceDirectory = resolve(buddy, '../../plugins/office'), outputDirectory = join(buddy, '.output/resources/bundled-extensions') } = {}) {
+const defaultSources = ['office', 'office-pptx'].map(name => resolve(buddy, '../../plugins', name))
+
+async function packPlugin(sourceDirectory) {
   const manifest = JSON.parse(await readFile(join(sourceDirectory, 'extension.json'), 'utf8'))
   assert(manifest.format === 'compiled', 'Bundled plugin must be precompiled')
   assert(typeof manifest.id === 'string' && typeof manifest.version === 'string', 'Invalid bundled plugin identity')
@@ -51,15 +53,24 @@ export async function prepareBundledExtensions({ sourceDirectory = resolve(buddy
     assert(files[entry], 'Bundled plugin entry is missing')
   const bytes = zipSync(files, { level: 6 })
   assert(bytes.length <= packageLimit, 'Bundled archive exceeds package limits')
-  const file = 'office.lexora-extension'
+  const file = `${basename(sourceDirectory)}.lexora-extension`
   const icon = manifest.icon ? files[manifest.icon]?.[0] : null
   assert(!manifest.icon || (icon && manifest.icon.endsWith('.svg') && icon.length <= 65536), 'Invalid bundled icon')
-  const catalog = { schemaVersion: 1, plugins: [{
+  const entry = {
     manifest,
     ...(icon ? { iconUrl: `data:image/svg+xml;base64,${icon.toString('base64')}` } : {}),
     repository: 'https://github.com/QAyong/XTLaw',
     artifact: { kind: 'bundled', file, sha256: hash(bytes), size: bytes.length },
-  }] }
+  }
+  return { entry, file, bytes, id: manifest.id, version: manifest.version, size: bytes.length, unpackedSize: total, files: names.size, sha256: hash(bytes) }
+}
+
+export async function prepareBundledExtensions({ sourceDirectories = defaultSources, outputDirectory = join(buddy, '.output/resources/bundled-extensions') } = {}) {
+  const packed = []
+  for (const sourceDirectory of sourceDirectories)
+    packed.push(await packPlugin(sourceDirectory))
+  assert(new Set(packed.map(item => item.id)).size === packed.length, 'Duplicate bundled plugin id')
+  const catalog = { schemaVersion: 1, plugins: packed.map(item => item.entry) }
   await mkdir(outputDirectory, { recursive: true })
   async function commit(name, content) {
     const path = join(outputDirectory, name)
@@ -70,9 +81,10 @@ export async function prepareBundledExtensions({ sourceDirectory = resolve(buddy
     }
     finally { await rm(temporary, { force: true }) }
   }
-  await commit(file, bytes)
+  for (const item of packed)
+    await commit(item.file, item.bytes)
   await commit('catalog.json', JSON.stringify(catalog))
-  return { directory: outputDirectory, file, id: manifest.id, version: manifest.version, size: bytes.length, unpackedSize: total, files: names.size, sha256: hash(bytes) }
+  return { directory: outputDirectory, plugins: packed.map(({ entry, bytes, ...item }) => item) }
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

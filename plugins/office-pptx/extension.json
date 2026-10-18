@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "format": "compiled",
+  "id": "pd2ec0b9018e6402d8ada6873f7fa8721.office-pptx",
+  "name": "Office PPTX",
+  "author": "XTLaw官方",
+  "description": "点击文件管理器中的 PPTX 即可用 Slides 编辑器打开、编辑并保存，选中内容后可右键引用到聊天；不含 AI 与 PDF 功能。",
+  "version": "0.4.1",
+  "icon": "icon.svg",
+  "categories": ["办公"],
+  "tags": ["PPTX", "PowerPoint", "幻灯片"],
+  "apiVersion": 4,
+  "engines": { "lexora": ">=0.1.0 <1.0.0" },
+  "entry": "extension.js",
+  "permissions": { "selectedResource": "read", "selectedResourceWrite": true, "composerReference": true, "localResources": true, "resourceExport": true },
+  "contributes": {
+    "views": [
+      { "id": "pd2ec0b9018e6402d8ada6873f7fa8721.office-pptx.viewer", "title": "Office PPTX", "entry": "view.js", "resource": "none", "location": "context" },
+      { "id": "pd2ec0b9018e6402d8ada6873f7fa8721.office-pptx.presentation", "title": "Office PPTX", "entry": "view.js", "resource": "selected-file", "accepts": { "extensions": ["pptx"] }, "location": "context" }
+    ]
+  }
+}

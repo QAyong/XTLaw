@@ -1,0 +1,11 @@
+{
+  "library": "pptx-preview",
+  "version": "1.0.7",
+  "license": "ISC",
+  "source": "https://www.npmjs.com/package/pptx-preview",
+  "bundledWith": "esbuild 0.28.2 --bundle --format=esm --minify --target=es2022 --legal-comments=none",
+  "bundledDependencies": ["jszip", "lodash", "uuid", "echarts", "tslib"],
+  "resources": [
+    { "name": "vendor/pptx-preview.js", "size": 1359963, "sha256": "0544cfc2f0608f1de97e63bbbfc32f0bc3b1bb6ae4d0f9def4d0da2fe7bd5c62" }
+  ]
+}

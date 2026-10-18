@@ -1,0 +1,32 @@
+html, body { height: 100%; overflow: hidden; }
+body > main.slides-shell { position: relative; display: flex; flex-direction: column; height: 100%; box-sizing: border-box; padding: 0; overflow: hidden; }
+.slides-editor-root { flex: 1; min-height: 0; overflow: hidden; }
+.slides-editor-root > .app { height: 100%; }
+.slides-status { position: absolute; inset: auto 12px 40px; z-index: 1000; margin: 0; padding: 8px 12px; border: 1px solid var(--lexora-border-subtle, ButtonBorder); border-radius: 6px; color: var(--lexora-text-primary, CanvasText); background: var(--lexora-surface-base, Canvas); font: 12px/1.5 system-ui, sans-serif; }
+.slides-status[hidden] { display: none; }
+.slides-status[role='alert'] { font-weight: 600; }
+
+/* The Genspark AI assistant, account and cloud features are not part of this plugin. */
+.ai-dock, .stage-ai-bar, .ai-entry, .ai-ask-trigger, .ai-ask-pop { display: none !important; }
+.ribbon-group:has(> .ribbon-group-items > .ai-entry) { display: none; }
+.ribbon-group:has(> .ribbon-group-items > .ai-entry) + .ribbon-sep { display: none; }
+button:has(.ai-feature-icon) { display: none !important; }
+
+/* Host dialogs (confirmations, errors) */
+.slides-shell > dialog { max-width: min(420px, calc(100vw - 48px)); border: 1px solid var(--lexora-border-subtle, ButtonBorder); border-radius: 8px; padding: 20px; color: var(--lexora-text-primary, CanvasText); background: var(--lexora-surface-base, Canvas); font: 14px/1.6 system-ui, sans-serif; }
+.slides-shell > dialog p { margin: 0 0 16px; }
+.slides-shell > dialog button { padding: 6px 10px; border: 1px solid var(--lexora-border-subtle, ButtonBorder); border-radius: 6px; background: var(--lexora-surface-base, ButtonFace); color: inherit; font: 13px system-ui, sans-serif; cursor: pointer; }
+.slides-shell > dialog button + button { margin-inline-start: 8px; }
+.slides-shell > dialog button:focus-visible { outline: 2px solid var(--lexora-accent, Highlight); outline-offset: 2px; }
+
+/* "Quote to chat" entry and its target submenu (selection-menu.js) */
+.ctx-menu.office-quote-submenu { position: fixed; z-index: 210; margin: 0; max-width: min(360px, calc(100vw - 16px)); max-height: calc(100vh - 16px); overflow: auto; }
+.ctx-menu.office-quote-submenu[hidden] { display: none; }
+.office-quote-submenu .ctx-item span:first-child { overflow: hidden; text-overflow: ellipsis; }
+
+/* Last-resort Simplified Chinese glyphs for systems without YaHei / PingFang (the editor's font stack ends with this family). */
+@font-face { font-family: 'Noto Sans CJK SC'; src: url('./fonts/NotoSansCJKsc-Regular-subset.woff2') format('woff2'); font-weight: 400; font-style: normal; font-display: swap; }
+
+/* File menu: keep Save and Save As. Open, PDF/image export and print have no host implementation here
+   (positions follow the pinned GenOffice commit, see provenance.json). */
+.file-menu > button:nth-child(1), .file-menu > button:nth-child(n+4) { display: none; }

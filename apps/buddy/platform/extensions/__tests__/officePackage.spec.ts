@@ -29,3 +29,20 @@ it('builds the real DOCX migration plugin under the 64 MiB contract without exec
     await writeFile(new URL(`office-${result.version}.lexora-extension`, directory), bytes, { flag: 'wx' })
   }
 }, 30000)
+
+it('builds the PPTX read-only preview plugin without executing it', async () => {
+  const source = fileURLToPath(new URL('../../../../../plugins/office-pptx/', import.meta.url))
+  const files = await readExtensionDirectory(source)
+  const input = Buffer.from(zipSync(Object.fromEntries(files), { level: 6 })).toString('base64')
+  const result = await buildExtensionPackage({ archive: input }, async () => {
+    throw new Error('Compiled package must not execute a compiler')
+  }, new AbortController().signal)
+  expect(result).toMatchObject({ ok: true, id: 'pd2ec0b9018e6402d8ada6873f7fa8721.office-pptx', name: 'Office PPTX', author: 'XTLaw官方', version: '0.4.1' })
+  if (!result.ok)
+    throw new Error(result.code)
+  const unpacked = unpackExtension(Buffer.from(result.archive, 'base64'))
+  validateExtensionFiles(unpacked)
+  expect(unpacked.has('view.js')).toBe(true)
+  expect(unpacked.has('slides/slides.js')).toBe(true)
+  expect(unpacked.has('vendor/pptx-preview.js')).toBe(true)
+}, 30000)

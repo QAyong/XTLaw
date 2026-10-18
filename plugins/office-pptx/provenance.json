@@ -1,0 +1,162 @@
+{
+  "upstream": "https://github.com/genspark-ai/genoffice/",
+  "commit": "1f306a2a496227cae9194097897212c93d00a4e6",
+  "bundledWith": "vite build via apps/buddy/extensions/office-pptx/build.mjs",
+  "resources": [
+    {
+      "name": "assets/Carlito-Bold-BhbXr__n.ttf",
+      "size": 686240,
+      "sha256": "ed778b78ce652f5b17647344fb9a4c4dcb2e6f8bafe75a0366300da7f8c199ac"
+    },
+    {
+      "name": "assets/Carlito-BoldItalic-0dXjwGA0.ttf",
+      "size": 812344,
+      "sha256": "0468067dde1d54111862f20f3fc4a5e8dcbc0ad4549e318c601b8ff7bdec935d"
+    },
+    {
+      "name": "assets/Carlito-Italic-KkZUqxJW.ttf",
+      "size": 619052,
+      "sha256": "de59348ac812a347537b90a3d70796cfd5369048ecf9c78f5bca79ab55dd28a7"
+    },
+    {
+      "name": "assets/Carlito-Regular-Cbe9FLjp.ttf",
+      "size": 631712,
+      "sha256": "cca497a63f1cf8111d2189424ec38b95002e43799efe4f1486ec7f8063bb93c1"
+    },
+    {
+      "name": "assets/attach-icon-CxQbF9G2.png",
+      "size": 1415,
+      "sha256": "39232dc0ae409b21ae3bbf08af7e63cb3baa3defe80da5219ece880d441f6352"
+    },
+    {
+      "name": "assets/canvas-BRJXZk8M.png",
+      "size": 22995,
+      "sha256": "ffa409fdaf31695bad36751fd490b09a4a7d84fe06bbd8f935b031bcaca614b2"
+    },
+    {
+      "name": "assets/cork-BseXy6tu.png",
+      "size": 29534,
+      "sha256": "31c68ae8cc7155f1e5d850061e2e7bf8913d3b9c528dc9c16d86ffa33d427e05"
+    },
+    {
+      "name": "assets/denim-DTrT_oct.png",
+      "size": 29174,
+      "sha256": "dcd536be5b70c7d264124bfa0b032bb814807d3aa29ebb78468ec9ddda2470cc"
+    },
+    {
+      "name": "assets/file-document-B2j6-IGZ.png",
+      "size": 618,
+      "sha256": "a4779861c9c39a3e64b59821543b291a73cf03827a57d5835b89a2dc310b1a55"
+    },
+    {
+      "name": "assets/file-excel-CIJe-48A.png",
+      "size": 706,
+      "sha256": "f2ff633623758cb6da134d5827b9165930aa73babbab8ea836542e19ada6e22a"
+    },
+    {
+      "name": "assets/file-general-BOT9NRxL.png",
+      "size": 539,
+      "sha256": "9e930544798c6154bc955cc17c7bccea7059b02286b09e213b98d7b154291ae2"
+    },
+    {
+      "name": "assets/file-image-D3xYWzWs.png",
+      "size": 753,
+      "sha256": "a204be7ec42f17fda12516180ba011e8f1e9b0d29a202f2e2f1a2d3a4fc58b76"
+    },
+    {
+      "name": "assets/file-pdf-C_c-oWwx.png",
+      "size": 778,
+      "sha256": "1041fc57a9335c35005d1d4b3a067f5ef5108ec96831e4fc0654545c3f92756d"
+    },
+    {
+      "name": "assets/file-ppt-Ce9pdEPV.png",
+      "size": 717,
+      "sha256": "37c2f583c1f7a989df942fa468ef57fb1e48ccc33d5ccee89476b837de671de6"
+    },
+    {
+      "name": "assets/file-video-ywgkEE5A.png",
+      "size": 715,
+      "sha256": "057f553841aa122f5054622280e2705edc00c8b3058d767561bfba03b57ed96d"
+    },
+    {
+      "name": "assets/file-voice-B72LqNto.png",
+      "size": 726,
+      "sha256": "a98c6d484fcb79c7017094850b84100a5dd0c6128f6f4c4e3e2626bd1ab89b6f"
+    },
+    {
+      "name": "assets/file-word-BcJkmmxu.png",
+      "size": 798,
+      "sha256": "9a52cd39002d6e7a1440ae69313207ad5df3552ec289096657af300eb7af0ebc"
+    },
+    {
+      "name": "assets/granite--1xJtYY3.png",
+      "size": 41092,
+      "sha256": "4504f393f0c30652310373f776ce8fd195eb0f1b2643c3ae0abcc1c1af2f7010"
+    },
+    {
+      "name": "assets/icon-crop-Bxxer-sJ.png",
+      "size": 499,
+      "sha256": "abfff5587621a2cc08e2f60c663d223a7142c211f6cb03ebe0c9a5b2053445bc"
+    },
+    {
+      "name": "assets/icon-spelling-ECCiP8ca.png",
+      "size": 1190,
+      "sha256": "0d6494934054b68a4d06f736cef83e1c3bee7a074cc720f069bff026291a44fe"
+    },
+    {
+      "name": "assets/icon-translate-BCfNo4d4.png",
+      "size": 1412,
+      "sha256": "71102857d6d4f97d071fe715b76ba7f3e6f707c7bd19133681afeddc393dbfc5"
+    },
+    {
+      "name": "assets/icon-transparency-CurELijI.png",
+      "size": 807,
+      "sha256": "f536725362f97a2b16acbb7d1d272a274e8c03c8cd3f121a8e0c8e81e7bcc2dc"
+    },
+    {
+      "name": "assets/marble-D7ttTB12.png",
+      "size": 9067,
+      "sha256": "0434af3f2f462731f4d81944931539733bc841665a1e6548d3c4c6152fb0539c"
+    },
+    {
+      "name": "assets/paper-DUijYpax.png",
+      "size": 19394,
+      "sha256": "c91102652bf97632c2dd4e3dfc84aac3e6022e59d521557750eaed6e1944e158"
+    },
+    {
+      "name": "assets/parchment-BKiptb7w.png",
+      "size": 17390,
+      "sha256": "f64b05df420bf21ebcb164aca4ef39a24d5b97792686f0a5979a83d3896619d7"
+    },
+    {
+      "name": "assets/send-enter-off-B0IfWMyy.png",
+      "size": 4247,
+      "sha256": "322f8180c5a9eddf9cc79b1147e8656e8537c61b4e458fed7fc476508a81ea69"
+    },
+    {
+      "name": "assets/send-enter-on-B3N44sVE.png",
+      "size": 3742,
+      "sha256": "9a52f62bc0192973cb8029b1260a8b7c18d151319aa6760f3b31bc1ef296f237"
+    },
+    {
+      "name": "assets/send-stop-CHrTASqG.png",
+      "size": 2875,
+      "sha256": "09de584fa4dfee00badf5c3df4d498db4f0388416dc22d23fdecdf5d264541e3"
+    },
+    {
+      "name": "assets/wood-D70XEBVa.png",
+      "size": 23402,
+      "sha256": "1f3735b67b527e90dbef8e9cc6632a1779a88019050fb87ebf77bc218c8410b8"
+    },
+    {
+      "name": "slides.css",
+      "size": 148391,
+      "sha256": "5ba2ed11f0390027faa6d47d4694869d9ad11fb6743c09010bb02d01b701b0ad"
+    },
+    {
+      "name": "slides.js",
+      "size": 4510871,
+      "sha256": "df2db61e7bfc4d525e4b288af76aba5578a74d0186369cb9d44b3ae7e7f5c96b"
+    }
+  ]
+}

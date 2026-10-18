@@ -129,12 +129,15 @@ it('packages and preinstalls the actual Office plugin with its view, icon and li
   const store = new ExtensionPackageStore(join(root, 'actual-installation'), buddyVersion.version)
   const service = new ExtensionService(store, { ...ports, bundled: provider })
   cleanup.push(() => service.dispose())
-  const [status] = await service.list()
+  const statuses = await service.list()
+  const status = statuses.find(item => item.manifest.name === 'Office DOCX')
+  expect(statuses.map(item => item.manifest.name).sort()).toEqual(['Office DOCX', 'Office PPTX'])
   expect(status).toMatchObject({ enabled: true, compatible: true, manifest: { name: 'Office DOCX', author: 'XTLaw官方', version: '0.1.2', apiVersion: 4 } })
+  expect(statuses.find(item => item.manifest.name === 'Office PPTX')).toMatchObject({ enabled: true, compatible: true, manifest: { author: 'XTLaw官方', version: '0.4.1', apiVersion: 4 } })
   const pkg = store.installed[status!.manifest.id]!.current
   for (const file of ['view.js', 'icon.svg', 'LICENSE', 'LICENSE-OFL.txt', 'LICENSE-UNICODE.txt', 'provenance.json'])
     expect((await store.asset(pkg, file)).length).toBeGreaterThan(0)
-  expect((await service.catalog.list()).plugins).toMatchObject([{ manifest: { id: status!.manifest.id }, artifact: { kind: 'bundled' } }])
+  expect((await service.catalog.list()).plugins.map(item => item.manifest.id).sort()).toEqual(statuses.map(item => item.manifest.id).sort())
 })
 
 it('does not allow a remote catalog to replace or spoof bundled plugins', async () => {

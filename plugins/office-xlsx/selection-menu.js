@@ -1,47 +1,45 @@
-// Adds one "Quote to chat" entry to the end of the Sheets editor's cell context menu. The quote is the displayed text of the
+// Shapes the Sheets editor's cell context menu and adds a "Quote to chat" entry to its end. The quote is the displayed text of the
 // selected cell range (one line per row, tab between cells); the host records the workbook, sheet and range it came from.
 const MAX_QUOTE_CHARS = 20000
 
-// The editor's cell menu lists every Excel-style action (about 25 entries) and has to scroll in an ordinary window. These rarely used
-// ones stay in the ribbon and are hidden from the right-click menu (zh and en wording; the plugin only follows those two languages).
-const HIDDEN_ENTRIES = new Set([
-  '选择性复制',
-  'Copy Special',
-  '粘贴图片/形状',
-  'Paste Picture or Shape',
-  '新建批注',
-  'New Comment',
-  '回复批注',
-  'Reply to Comment',
-  '删除批注',
-  'Delete Comment',
-  '解决批注',
-  'Resolve Comment',
-  '数字格式',
-  'Number Format',
-  '从下拉列表中选择…',
-  'Pick From Drop-down List…',
-  '定义名称…',
-  'Define Name…',
-  '插入函数…',
-  'Insert Function…',
-  '冻结',
-  'Freeze',
-  '保护行列',
-  'Protect Rows And Columns',
-])
+// The editor's cell menu lists every Excel-style action (about 25 entries) and has to scroll in an ordinary window. Like Google Sheets'
+// "more cell actions", the plain commands used now and then move into one "More actions" submenu (zh and en wording; the plugin only
+// follows those two languages), and submenu entries the ribbon already offers (View > Freeze, Review > Protect, the number format
+// drop-down) are hidden. The items are React-owned: they are hidden, not removed, and the submenu forwards its clicks to them.
+const MORE_ENTRIES = [
+  ['选择性粘贴…', 'Paste Special…'],
+  ['粘贴图片/形状', 'Paste Picture or Shape'],
+  ['从下拉列表中选择…', 'Pick From Drop-down List…'],
+  ['新建批注', 'New Comment'],
+  ['回复批注', 'Reply to Comment'],
+  ['删除批注', 'Delete Comment'],
+  ['解决批注', 'Resolve Comment'],
+  ['定义名称…', 'Define Name…'],
+  ['插入函数…', 'Insert Function…'],
+]
+const MORE_RANK = new Map(MORE_ENTRIES.flatMap((names, rank) => names.map(name => [name, rank])))
+const RIBBON_ENTRIES = new Set(['数字格式', 'Number Format', '冻结', 'Freeze', '保护行列', 'Protect Rows And Columns'])
 
-// Hides entries without removing them (the items are React-owned) and a group that ends up with nothing visible.
-function trimMenu(box) {
+const labelOf = element => element.querySelector('button')?.textContent.trim()
+
+// Hides entries and a group that ends up with nothing visible; returns the plain commands that go into "More actions".
+function reshapeMenu(box) {
+  const more = []
   for (const group of box.children) {
     const items = [...group.querySelectorAll(':scope > div.univer-relative')]
     for (const item of items) {
-      if (HIDDEN_ENTRIES.has(item.querySelector('button')?.textContent.trim()))
+      const label = labelOf(item)
+      if (MORE_RANK.has(label)) {
+        const button = item.querySelector('button')
+        more.push({ rank: MORE_RANK.get(label), label, disabled: button.disabled, pick: () => button.click() })
+      }
+      if (MORE_RANK.has(label) || RIBBON_ENTRIES.has(label))
         item.style.display = 'none'
     }
     if (items.length && items.every(item => item.style.display === 'none'))
       group.style.display = 'none'
   }
+  return more.sort((a, b) => a.rank - b.rank)
 }
 
 export function installSelectionMenu(context) {
@@ -50,19 +48,25 @@ export function installSelectionMenu(context) {
   let entry = null
   let sequence = 0
   let gridClick = false
-  const copy = () => context.environment.language.startsWith('zh')
-    ? { quote: '引用到聊天', loading: '正在读取目标聊天…', adding: '正在加入引用…', unavailable: '对话或文档已变化，请重新选中单元格。', noTarget: '请先打开聊天输入框', limit: '引用内容过多（最多 20000 个字符），请缩小选区或减少已有引用。', failed: '无法加入引用，请重新选择后重试。', multiple: '请只选中一个连续区域后再引用。', notLoaded: '选区超出已载入的范围（大表只能引用屏幕附近的单元格），请稍后重试或缩小选区。' }
-    : { quote: 'Quote to chat', loading: 'Loading chat targets…', adding: 'Adding quote…', unavailable: 'The chat or document changed. Select the cells again.', noTarget: 'Open a chat input first', limit: 'Too much content (20,000 characters at most). Select a smaller range or remove existing quotes.', failed: 'Could not add the quote. Select the cells and retry.', multiple: 'Select a single continuous range to quote.', notLoaded: 'The selection is outside the loaded data (in a large sheet only cells near the screen can be quoted). Retry shortly or select a smaller range.' }
-  // The submenu lives in the popup section (the scrolling box inside it would clip it), outside the entry.
-  let submenuElement = null
+  const zh = () => context.environment.language.startsWith('zh')
+  const copy = () => zh()
+    ? { quote: '引用到聊天', more: '更多操作', loading: '正在读取目标聊天…', adding: '正在加入引用…', unavailable: '对话或文档已变化，请重新选中单元格。', noTarget: '请先打开聊天输入框', limit: '引用内容过多（最多 20000 个字符），请缩小选区或减少已有引用。', failed: '无法加入引用，请重新选择后重试。', multiple: '请只选中一个连续区域后再引用。', notLoaded: '选区超出已载入的范围（大表只能引用屏幕附近的单元格），请稍后重试或缩小选区。' }
+    : { quote: 'Quote to chat', more: 'More actions', loading: 'Loading chat targets…', adding: 'Adding quote…', unavailable: 'The chat or document changed. Select the cells again.', noTarget: 'Open a chat input first', limit: 'Too much content (20,000 characters at most). Select a smaller range or remove existing quotes.', failed: 'Could not add the quote. Select the cells and retry.', multiple: 'Select a single continuous range to quote.', notLoaded: 'The selection is outside the loaded data (in a large sheet only cells near the screen can be quoted). Retry shortly or select a smaller range.' }
+  // The submenus live in the popup section (the scrolling box inside it would clip them), outside the entry.
+  let submenus = []
+  // Listeners put on the (possibly reused) menu elements end with the menu they were added for.
+  let menuListeners = new AbortController()
   function reset() {
+    menuListeners.abort()
+    menuListeners = new AbortController()
     sequence++
     candidate = null
     nativeMenu = null
     entry?.remove()
     entry = null
-    submenuElement?.remove()
-    submenuElement = null
+    for (const submenu of submenus)
+      submenu.element.remove()
+    submenus = []
   }
   const control = request => window.__genofficeControl?.(request)
   const selectionKey = () => {
@@ -150,6 +154,93 @@ export function installSelectionMenu(context) {
     submenu.style.left = `${Math.max(8, left) - owner.left}px`
     submenu.style.top = `${top - owner.top}px`
   }
+  // Turns an entry row into a submenu parent. Lines are { label, title?, disabled?, pick }.
+  function attachSubmenu(menu, wrapper, row, ariaLabel, lines) {
+    const box = menu.firstElementChild.firstElementChild
+    const arrow = document.createElement('span')
+    arrow.textContent = '▸'
+    arrow.style.opacity = '0.6'
+    row.append(arrow)
+    row.setAttribute('aria-haspopup', 'menu')
+    row.setAttribute('aria-expanded', 'false')
+    const element = document.createElement('div')
+    element.setAttribute('role', 'menu')
+    element.setAttribute('aria-label', ariaLabel)
+    // Not the hidden attribute: the menu box classes set display, which would override it.
+    element.style.display = 'none'
+    element.style.position = 'absolute'
+    element.style.zIndex = '1'
+    // Same look as the editor's own menu box.
+    element.className = box.className
+    element.style.maxHeight = '320px'
+    function hide() {
+      element.style.display = 'none'
+      row.setAttribute('aria-expanded', 'false')
+    }
+    for (const line of lines) {
+      const { wrapper: lineWrapper, element: button } = item(box, line.label)
+      if (line.title)
+        button.title = line.title
+      if (line.disabled) {
+        disable(button)
+      }
+      else {
+        button.addEventListener('click', () => {
+          hide()
+          line.pick()
+        })
+      }
+      element.append(lineWrapper)
+    }
+    // The popup section does not clip (overflow: visible), unlike the scrolling box inside it.
+    menu.append(element)
+    const show = () => {
+      if (row.disabled)
+        return
+      // One list at a time.
+      for (const other of submenus) {
+        if (other.element !== element)
+          other.hide()
+      }
+      element.style.display = 'grid'
+      row.setAttribute('aria-expanded', 'true')
+      positionSubmenu(element, menu, row)
+    }
+    row.addEventListener('click', show)
+    wrapper.addEventListener('mouseenter', show)
+    element.addEventListener('mouseenter', show)
+    wrapper.addEventListener('mouseleave', (event) => {
+      if (!element.contains(event.relatedTarget))
+        hide()
+    })
+    element.addEventListener('mouseleave', (event) => {
+      if (!wrapper.contains(event.relatedTarget))
+        hide()
+    })
+    row.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowRight') {
+        event.preventDefault()
+        show()
+        element.querySelector('button')?.focus()
+      }
+    })
+    element.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault()
+        hide()
+        row.focus()
+      }
+      else if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+        event.preventDefault()
+        const buttons = [...element.querySelectorAll('button')]
+        const index = buttons.indexOf(document.activeElement)
+        buttons[event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length].focus()
+      }
+    })
+    submenus.push({ element, wrapper, hide })
+    if (wrapper.matches(':hover'))
+      show()
+  }
   function attach(menu) {
     if (context.signal.aborted)
       return
@@ -157,11 +248,11 @@ export function installSelectionMenu(context) {
     if (!box || !box.children.length)
       return
     gridClick = false
-    trimMenu(box)
+    const more = reshapeMenu(box)
     const request = ++sequence
     nativeMenu = menu
     const snapshot = readSelection()
-    if (!snapshot) {
+    if (!snapshot && !more.length) {
       nativeMenu = null
       return
     }
@@ -170,26 +261,47 @@ export function installSelectionMenu(context) {
     group.className = 'univer-grid univer-gap-1 univer-py-1'
     group.dataset.lexoraQuote = ''
     // The previous last group has no divider: give it the one the other groups have.
-    const previous = box.lastElementChild
+    const previous = [...box.children].reverse().find(element => element.style.display !== 'none')
     if (previous && !previous.className.includes('univer-border-b'))
       previous.classList.add('univer-border-gray-200', 'univer-border-solid', 'univer-border-l-0', 'univer-border-b', 'univer-border-t-0', 'univer-border-r-0')
-    const { wrapper, element: row } = item(box, copy().quote)
-    group.append(wrapper)
-    // These handlers affect only the added item, not the editor's original menu.
+    // These handlers affect only the added items, not the editor's original menu.
     group.addEventListener('mousedown', event => event.preventDefault())
     entry = group
-    box.append(group)
+    if (more.length) {
+      const { wrapper, element: row } = item(box, copy().more)
+      group.append(wrapper)
+      box.append(group)
+      attachSubmenu(menu, wrapper, row, copy().more, more)
+    }
+    else {
+      box.append(group)
+    }
+    // A hovered item that is not ours (which may open the editor's own submenu, such as Sort) or a scrolling menu closes our lists.
+    menu.addEventListener('mouseover', (event) => {
+      for (const submenu of submenus) {
+        if (!submenu.wrapper.contains(event.target) && !submenu.element.contains(event.target))
+          submenu.hide()
+      }
+    }, { signal: menuListeners.signal })
+    box.addEventListener('scroll', () => {
+      for (const submenu of submenus)
+        submenu.hide()
+    }, { passive: true, signal: menuListeners.signal })
+    if (snapshot) {
+      const { wrapper, element: row } = item(box, copy().quote)
+      group.append(wrapper)
+      if (snapshot.blocked) {
+        disable(row, copy()[snapshot.blocked])
+      }
+      else {
+        disable(row, snapshot.tooLong ? copy().limit : copy().loading)
+        if (!snapshot.tooLong)
+          void capture(snapshot, request, group, row, wrapper, menu)
+      }
+    }
     const bounds = menu.getBoundingClientRect()
     if (bounds.bottom > window.innerHeight - 8)
       menu.style.top = `${Math.max(8, window.innerHeight - bounds.height - 8)}px`
-    if (snapshot.blocked) {
-      disable(row, copy()[snapshot.blocked])
-      return
-    }
-    disable(row, snapshot.tooLong ? copy().limit : copy().loading)
-    if (snapshot.tooLong)
-      return
-    void capture(snapshot, request, group, row, wrapper, menu)
   }
   async function capture(snapshot, request, group, row, wrapper, menu) {
     try {
@@ -212,94 +324,16 @@ export function installSelectionMenu(context) {
         return
       }
       // Keep one top-level command. Multiple visible chat inputs live below it.
-      const arrow = document.createElement('span')
-      arrow.textContent = '▸'
-      arrow.style.opacity = '0.6'
-      row.append(arrow)
-      row.setAttribute('aria-haspopup', 'menu')
-      row.setAttribute('aria-expanded', 'false')
-      const submenu = document.createElement('div')
-      submenu.setAttribute('role', 'menu')
-      submenu.setAttribute('aria-label', copy().quote)
-      // Not the hidden attribute: the menu box classes set display, which would override it.
-      submenu.style.display = 'none'
-      submenu.style.position = 'absolute'
-      submenu.style.zIndex = '1'
-      // Same look as the editor's own menu box.
-      submenu.className = menu.firstElementChild.firstElementChild.className
-      submenu.style.maxHeight = '320px'
       const preferred = result.targets.find(target => target.id === result.defaultId)
       const targets = [...(preferred ? [preferred] : []), ...result.targets.filter(target => target !== preferred)]
-      for (const target of targets) {
-        const { wrapper: line, element: button } = item(menu.firstElementChild.firstElementChild, target.label)
-        button.title = target.label
-        button.addEventListener('click', () => {
-          hide()
-          void add(snapshot, result, target.id, row)
-        })
-        submenu.append(line)
-      }
-      // The popup section does not clip (overflow: visible), unlike the scrolling box inside it.
-      menu.append(submenu)
-      submenuElement = submenu
-      const show = () => {
-        if (row.disabled)
-          return
-        submenu.style.display = 'grid'
-        row.setAttribute('aria-expanded', 'true')
-        positionSubmenu(submenu, menu, row)
-      }
-      function hide() {
-        submenu.style.display = 'none'
-        row.setAttribute('aria-expanded', 'false')
-      }
-      // Only the entry and its own list keep the list open: hovering any other item (which may open the editor's own
-      // submenu, such as Sort) or scrolling the menu closes it.
-      menu.addEventListener('mouseover', (event) => {
-        if (!wrapper.contains(event.target) && !submenu.contains(event.target))
-          hide()
-      })
-      menu.firstElementChild.firstElementChild.addEventListener('scroll', hide, { passive: true })
-      row.addEventListener('click', show)
-      wrapper.addEventListener('mouseenter', show)
-      submenu.addEventListener('mouseenter', show)
-      wrapper.addEventListener('mouseleave', (event) => {
-        if (!submenu.contains(event.relatedTarget))
-          hide()
-      })
-      submenu.addEventListener('mouseleave', (event) => {
-        if (!wrapper.contains(event.relatedTarget))
-          hide()
-      })
-      row.addEventListener('keydown', (event) => {
-        if (event.key === 'ArrowRight') {
-          event.preventDefault()
-          show()
-          submenu.querySelector('button')?.focus()
-        }
-      })
-      submenu.addEventListener('keydown', (event) => {
-        if (event.key === 'ArrowLeft') {
-          event.preventDefault()
-          hide()
-          row.focus()
-        }
-        else if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
-          event.preventDefault()
-          const buttons = [...submenu.querySelectorAll('button')]
-          const index = buttons.indexOf(document.activeElement)
-          buttons[event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length].focus()
-        }
-      })
-      if (wrapper.matches(':hover'))
-        show()
+      attachSubmenu(menu, wrapper, row, copy().quote, targets.map(target => ({ label: target.label, title: target.label, pick: () => void add(snapshot, result, target.id, row) })))
     }
     catch (error) {
       if (sequence === request && entry === group)
         row.title = errorText(error)
     }
   }
-  // Only menus opened from the grid (cells and row/column headers are all canvas) can carry a quote.
+  // Only menus opened from the grid (cells and row/column headers are all canvas) are reshaped and can carry a quote.
   document.addEventListener('contextmenu', (event) => {
     if (event.target.closest?.('.univer-popup'))
       return

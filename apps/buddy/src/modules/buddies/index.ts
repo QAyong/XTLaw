@@ -1,5 +1,5 @@
-export { buddyLabels } from './buddyLabels'
 export { useProvideBuddiesContext } from './buddiesContext'
+export { buddyLabels } from './buddyLabels'
 export { buddyAvatarPresets, buddyPresetAvatar } from './model/buddyAvatarPresets'
 export { readBuddyAvatar } from './state/readBuddyAvatar'
 export { useBuddyIdentity } from './state/useBuddyIdentity'

@@ -17,7 +17,8 @@ const { bindings } = defineProps<{ bindings: DesktopShellBindings }>()
 const route = useRoute()
 const router = useRouter()
 const { sidebarCollapsed, language } = useDesktopUi()
-const startupVisible = computed(() => !bindings.lifecycle.state.value.hasBeenReady && route.meta.settingsCategory !== 'logs')
+const hasBeenReady = computed(() => bindings.lifecycle.state.value.hasBeenReady)
+const startupVisible = computed(() => !hasBeenReady.value && route.meta.requiresRuntime !== false)
 const activeView = computed(() => bindings.pages.current.value)
 const activeTaskScope = computed(() => {
   const conversationId = bindings.workbench.activeTask.value?.workspace.session.activeConversationId.value
@@ -103,7 +104,7 @@ function toggleContextPosition() {
       :app-info="bindings.appInfo.value"
       :shortcut-bindings="bindings.shortcuts.bindings.value"
       :language="language"
-      :context-available="bindings.contextPanelGlobal.value || activeView === 'lexora.tasks'"
+      :context-available="hasBeenReady && (bindings.contextPanelGlobal.value || activeView === 'lexora.tasks')"
       :context-open="rightRegionOpen"
       :context-swap-available="activeView === 'lexora.tasks' && bindings.resources.isOpen.value"
       :context-swapped="contextOnLeft"
@@ -114,7 +115,7 @@ function toggleContextPosition() {
       @toggle-sidebar="bindings.toggleSidebar"
     />
     <div class="desktop-shell__body">
-      <WorkbenchHost :keybindings="bindings.shortcuts.bindings.value" :platform="bindings.shortcuts.platform.value" :active="activeView === 'lexora.tasks'" :main-visible="presentation.workspaceVisible.value" :controller="bindings.workbench.controller" :copies="bindings.workbench.copies" :language="language" :backup-error="bindings.workbench.backupError.value" @drop-resource="bindings.workbench.dropResource" @retry-backup="bindings.workbench.persistence.flush()" @task-drag-start="presentation.beginDrag" @task-drag-end="presentation.endDrag">
+      <WorkbenchHost :keybindings="bindings.shortcuts.bindings.value" :platform="bindings.shortcuts.platform.value" :active="hasBeenReady && activeView === 'lexora.tasks'" :main-visible="presentation.workspaceVisible.value" :controller="bindings.workbench.controller" :copies="bindings.workbench.copies" :language="language" :backup-error="bindings.workbench.backupError.value" @drop-resource="bindings.workbench.dropResource" @retry-backup="bindings.workbench.persistence.flush()" @task-drag-start="presentation.beginDrag" @task-drag-end="presentation.endDrag">
         <div class="desktop-shell__content" :class="{ 'is-starting': startupVisible }" :inert="startupVisible" :aria-hidden="startupVisible">
           <WorkbenchMountPoint target="workbench" class="desktop-shell__workbench">
             <DesktopWorkbenchArea :bindings="bindings" :tasks-visible="activeView === 'lexora.tasks'" :context-on-left="contextOnLeft" :chat-pane-hidden="presentation.contextMaximized.value" @toggle-context-maximize="toggleContextMaximize" />
@@ -125,7 +126,7 @@ function toggleContextPosition() {
         </template>
       </WorkbenchHost>
       <Transition name="desktop-startup-reveal">
-        <DesktopStartupScreen v-if="startupVisible" :failed="bindings.lifecycle.failed.value" :language="language" @retry="bindings.lifecycle.retry()" @open-logs="router.push(desktopRouteLocations.settings('logs'))" />
+        <DesktopStartupScreen v-if="startupVisible" :failed="bindings.lifecycle.failed.value" :language="language" @retry="bindings.lifecycle.retry()" @open-logs="router.push(desktopRouteLocations.settings('logs'))" @open-storage="router.push(desktopRouteLocations.settings('storage'))" />
       </Transition>
     </div>
   </div>

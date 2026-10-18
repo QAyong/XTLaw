@@ -18,7 +18,7 @@ describe('startup wordmark', () => {
       expect(root.querySelectorAll('.desktop-startup__loading-line')).toHaveLength(failed ? 0 : 1)
       if (!failed)
         expect(root.querySelector('.desktop-startup__loading-line')?.getAttribute('aria-hidden')).toBe('true')
-      expect(root.querySelectorAll('button')).toHaveLength(failed ? 2 : 0)
+      expect(root.querySelectorAll('button')).toHaveLength(failed ? 3 : 0)
     }
     finally {
       app.unmount()

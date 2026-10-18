@@ -5,7 +5,7 @@ import { useBuddyI18n } from '@/i18n/buddyI18n'
 import DesktopStartupArtwork from './DesktopStartupArtwork.vue'
 
 const props = defineProps<{ failed: boolean, language: BuddyLocale }>()
-const emit = defineEmits<{ retry: [], openLogs: [] }>()
+const emit = defineEmits<{ retry: [], openLogs: [], openStorage: [] }>()
 const { t } = useBuddyI18n(() => props.language)
 </script>
 
@@ -21,6 +21,9 @@ const { t } = useBuddyI18n(() => props.language)
       <div v-if="failed" class="desktop-startup__actions">
         <NButton size="small" secondary @click="emit('retry')">
           {{ t('desktop.loading.retry') }}
+        </NButton>
+        <NButton size="small" secondary @click="emit('openStorage')">
+          {{ t('desktop.loading.openStorage') }}
         </NButton>
         <NButton size="small" quaternary @click="emit('openLogs')">
           {{ t('applicationLogs.open') }}
@@ -101,6 +104,8 @@ const { t } = useBuddyI18n(() => props.language)
 
 .desktop-startup__actions {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 0.5rem;
   margin-top: 0.4rem;
 }

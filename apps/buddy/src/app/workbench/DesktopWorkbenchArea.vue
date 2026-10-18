@@ -17,6 +17,7 @@ import DesktopDirectoryFileSurface from './DesktopDirectoryFileSurface.vue'
 const props = defineProps<{ bindings: DesktopShellBindings, tasksVisible: boolean, contextOnLeft: boolean, chatPaneHidden: boolean }>()
 const emit = defineEmits<{ toggleContextMaximize: [] }>()
 const { controller, layout, revision, labels } = useWorkbench()
+const contextVisible = computed(() => props.bindings.lifecycle.state.value.hasBeenReady && (props.tasksVisible || props.bindings.contextPanelGlobal.value) && props.bindings.resources.isOpen.value)
 const pendingTaskIds = computed(() => {
   void revision.value
   return [...controller.navigation.entries.values()].filter(entry => entry.status === 'loading' && entry.view.resource.scheme === 'task').map(entry => entry.view.resource.id)
@@ -71,7 +72,7 @@ function navigate(id: string) {
 </script>
 
 <template>
-  <WorkbenchLayout v-model:sidebar-collapsed="collapsed" v-model:sidebar-width="width" :language="language" :context-visible="(tasksVisible || bindings.contextPanelGlobal.value) && bindings.resources.isOpen.value" :context-on-left="tasksVisible && contextOnLeft" :workspace-visible="!chatPaneHidden" :sidebar-collapsible="tasksVisible" :sidebar-resizable="tasksVisible">
+  <WorkbenchLayout v-model:sidebar-collapsed="collapsed" v-model:sidebar-width="width" :language="language" :context-visible="contextVisible" :context-on-left="tasksVisible && contextOnLeft" :workspace-visible="!chatPaneHidden" :sidebar-collapsible="tasksVisible" :sidebar-resizable="tasksVisible">
     <template v-if="tasksVisible" #sidebar>
       <WorkbenchMountPoint target="workbench.sidebar">
         <DesktopTaskIndexView :pending-task-ids="pendingTaskIds" :index="bindings.taskIndex" :active-task-id="bindings.workbench.activeTaskId.value" @open-task="bindings.workbench.openTask" @new-task="spaceId => bindings.workbench.newTask({ spaceId })">
@@ -97,15 +98,15 @@ function navigate(id: string) {
     <RouterView v-if="!tasksVisible" />
     <template #context>
       <div class="desktop-workbench-area__context" data-workbench-context @focusin="focusContext" @pointerdown="focusContext">
-        <DesktopTaskResourcePanel :maximized="chatPaneHidden" :panel="bindings.resources" :context="bindings.resourceContext" :language="language" :visible="(tasksVisible || bindings.contextPanelGlobal.value) && bindings.resources.isOpen.value" @toggle-maximize="emit('toggleContextMaximize')">
+        <DesktopTaskResourcePanel :maximized="chatPaneHidden" :panel="bindings.resources" :context="bindings.resourceContext" :language="language" :visible="contextVisible" @toggle-maximize="emit('toggleContextMaximize')">
           <template #view="{ viewId }">
-            <WorkbenchSurface :view-id="viewId" :visible="(tasksVisible || bindings.contextPanelGlobal.value) && bindings.resources.isOpen.value" />
+            <WorkbenchSurface :view-id="viewId" :visible="contextVisible" />
           </template>
           <template #file-toolbar="{ tab }">
             <div :ref="element => toolbarTarget(tab.id, element)" class="desktop-workbench-area__file-toolbar" />
           </template>
           <template #file="{ wrap, setWrap }">
-            <DesktopDirectoryFileSurface v-if="selectedFile" :view="selectedFile" :wrap="wrap" :visible="(tasksVisible || bindings.contextPanelGlobal.value) && bindings.resources.isOpen.value" @update-wrap="setWrap" />
+            <DesktopDirectoryFileSurface v-if="selectedFile" :view="selectedFile" :wrap="wrap" :visible="contextVisible" @update-wrap="setWrap" />
             <DesktopFileLoading v-else :key="fileTab?.target.path" :loading="true" :label="labels.loading" />
           </template>
         </DesktopTaskResourcePanel>

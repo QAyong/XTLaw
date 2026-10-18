@@ -1,4 +1,5 @@
 import { Buffer } from 'node:buffer'
+import { readFileSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
@@ -7,6 +8,9 @@ import { expect, it } from 'vitest'
 import { buildExtensionPackage } from '../buildExtensionPackage'
 import { readExtensionDirectory, unpackExtension, validateExtensionFiles } from '../extensionFiles'
 
+// Versions come from each plugin's own manifest, so releasing a plugin does not mean editing this test.
+const pluginVersion = (name: string): string => JSON.parse(readFileSync(fileURLToPath(new URL(`../../../../../plugins/${name}/extension.json`, import.meta.url)), 'utf8')).version
+
 it('builds the real DOCX migration plugin under the 64 MiB contract without executing it', async () => {
   const source = fileURLToPath(new URL('../../../../../plugins/office/', import.meta.url))
   const files = await readExtensionDirectory(source)
@@ -14,7 +18,7 @@ it('builds the real DOCX migration plugin under the 64 MiB contract without exec
   const result = await buildExtensionPackage({ archive: input }, async () => {
     throw new Error('Compiled package must not execute a compiler')
   }, new AbortController().signal)
-  expect(result).toMatchObject({ ok: true, id: 'pd2ec0b9018e6402d8ada6873f7fa8721.office', name: 'Office DOCX', author: 'XTLaw官方', version: '0.1.7' })
+  expect(result).toMatchObject({ ok: true, id: 'pd2ec0b9018e6402d8ada6873f7fa8721.office', name: 'Office DOCX', author: 'XTLaw官方', version: pluginVersion('office') })
   if (!result.ok)
     throw new Error(result.code)
   const bytes = Buffer.from(result.archive, 'base64')
@@ -37,7 +41,7 @@ it('builds the PPTX read-only preview plugin without executing it', async () => 
   const result = await buildExtensionPackage({ archive: input }, async () => {
     throw new Error('Compiled package must not execute a compiler')
   }, new AbortController().signal)
-  expect(result).toMatchObject({ ok: true, id: 'pd2ec0b9018e6402d8ada6873f7fa8721.office-pptx', name: 'Office PPTX', author: 'XTLaw官方', version: '0.4.9' })
+  expect(result).toMatchObject({ ok: true, id: 'pd2ec0b9018e6402d8ada6873f7fa8721.office-pptx', name: 'Office PPTX', author: 'XTLaw官方', version: pluginVersion('office-pptx') })
   if (!result.ok)
     throw new Error(result.code)
   const unpacked = unpackExtension(Buffer.from(result.archive, 'base64'))
@@ -54,7 +58,7 @@ it('builds the XLSX preview plugin without executing it and keeps the WebAssembl
   const result = await buildExtensionPackage({ archive: input }, async () => {
     throw new Error('Compiled package must not execute a compiler')
   }, new AbortController().signal)
-  expect(result).toMatchObject({ ok: true, id: 'pd2ec0b9018e6402d8ada6873f7fa8721.office-xlsx', name: 'Office XLSX', author: 'XTLaw官方', version: '0.3.12' })
+  expect(result).toMatchObject({ ok: true, id: 'pd2ec0b9018e6402d8ada6873f7fa8721.office-xlsx', name: 'Office XLSX', author: 'XTLaw官方', version: pluginVersion('office-xlsx') })
   if (!result.ok)
     throw new Error(result.code)
   const unpacked = unpackExtension(Buffer.from(result.archive, 'base64'))

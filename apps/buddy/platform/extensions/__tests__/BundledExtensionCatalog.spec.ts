@@ -1,6 +1,7 @@
 import type { ExtensionCatalogEntry } from '../../../shared/extensions/extensionCatalog'
 import type { ExtensionServicePorts } from '../ExtensionService'
 import { execFileSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import process from 'node:process'
@@ -15,6 +16,9 @@ import { sha256 } from '../extensionFiles'
 import { ExtensionPackageStore } from '../ExtensionPackageStore'
 import { ExtensionService } from '../ExtensionService'
 import { createStore, manifest, reviewPackage } from './fixtures'
+
+// Versions come from each plugin's own manifest, so releasing a plugin does not mean editing this test.
+const pluginVersion = (name: string): string => JSON.parse(readFileSync(fileURLToPath(new URL(`../../../../../plugins/${name}/extension.json`, import.meta.url)), 'utf8')).version
 
 const cleanup: Array<() => Promise<void>> = []
 afterEach(async () => {
@@ -132,9 +136,9 @@ it('packages and preinstalls the actual Office plugin with its view, icon and li
   const statuses = await service.list()
   const status = statuses.find(item => item.manifest.name === 'Office DOCX')
   expect(statuses.map(item => item.manifest.name).sort()).toEqual(['Office DOCX', 'Office PPTX', 'Office XLSX'])
-  expect(status).toMatchObject({ enabled: true, compatible: true, manifest: { name: 'Office DOCX', author: 'XTLaw官方', version: '0.1.7', apiVersion: 4 } })
-  expect(statuses.find(item => item.manifest.name === 'Office PPTX')).toMatchObject({ enabled: true, compatible: true, manifest: { author: 'XTLaw官方', version: '0.4.9', apiVersion: 4 } })
-  expect(statuses.find(item => item.manifest.name === 'Office XLSX')).toMatchObject({ enabled: true, compatible: true, manifest: { author: 'XTLaw官方', version: '0.3.12', apiVersion: 4 } })
+  expect(status).toMatchObject({ enabled: true, compatible: true, manifest: { name: 'Office DOCX', author: 'XTLaw官方', version: pluginVersion('office'), apiVersion: 4 } })
+  expect(statuses.find(item => item.manifest.name === 'Office PPTX')).toMatchObject({ enabled: true, compatible: true, manifest: { author: 'XTLaw官方', version: pluginVersion('office-pptx'), apiVersion: 4 } })
+  expect(statuses.find(item => item.manifest.name === 'Office XLSX')).toMatchObject({ enabled: true, compatible: true, manifest: { author: 'XTLaw官方', version: pluginVersion('office-xlsx'), apiVersion: 4 } })
   const pkg = store.installed[status!.manifest.id]!.current
   for (const file of ['view.js', 'icon.svg', 'LICENSE', 'LICENSE-OFL.txt', 'LICENSE-UNICODE.txt', 'provenance.json'])
     expect((await store.asset(pkg, file)).length).toBeGreaterThan(0)

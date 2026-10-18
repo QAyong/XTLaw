@@ -2,6 +2,7 @@ import searchTools from '../../../apps/buddy/platform/native/searchTools.json' w
 import shellSandbox from '../../../apps/buddy/platform/native/shellSandbox.json' with { type: 'json' }
 import definitions from '../../../apps/buddy/shared/platform/definitions.json' with { type: 'json' }
 import { CPU_ARCHITECTURE, OPERATING_SYSTEM } from '../../../apps/buddy/shared/platform/identifiers.ts'
+import { discoverBundledPlugins } from './bundled-plugins.mjs'
 import { nativeHostResources } from './native-host.mjs'
 
 const featureResources = {
@@ -17,9 +18,7 @@ export function platformResources(target) {
     ...definitions.skills.map(name => ({ from: `service/resources/skills/${name}`, to: `service/resources/skills/${name}` })),
     ...nativeHostResources(target).map(({ from, to }) => ({ from, to })),
     { from: '.output/resources/bundled-extensions/catalog.json', to: 'bundled-extensions/catalog.json' },
-    { from: '.output/resources/bundled-extensions/office.lexora-extension', to: 'bundled-extensions/office.lexora-extension' },
-    { from: '.output/resources/bundled-extensions/office-pptx.lexora-extension', to: 'bundled-extensions/office-pptx.lexora-extension' },
-    { from: '.output/resources/bundled-extensions/office-xlsx.lexora-extension', to: 'bundled-extensions/office-xlsx.lexora-extension' },
+    ...discoverBundledPlugins().map(({ file }) => ({ from: `.output/resources/bundled-extensions/${file}`, to: `bundled-extensions/${file}` })),
     { from: `${searchTools.resource.from}/${target.id}`, to: searchTools.resource.to },
     ...(target.platform === OPERATING_SYSTEM.Linux ? [{ from: `${shellSandbox.resource.from}/${target.id}`, to: shellSandbox.resource.to }] : []),
     ...target.features.flatMap(id => featureResources[id]),

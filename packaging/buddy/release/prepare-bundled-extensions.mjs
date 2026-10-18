@@ -6,6 +6,7 @@ import { basename, join, relative, resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { writeOutput } from '../../shared/cli-output.mjs'
+import { discoverBundledPlugins } from './bundled-plugins.mjs'
 
 const buddy = fileURLToPath(new URL('../../../apps/buddy/', import.meta.url))
 const require = createRequire(join(buddy, 'package.json'))
@@ -14,8 +15,6 @@ const { zipSync } = require('fflate')
 const fileLimit = 16 * 1024 * 1024
 const packageLimit = 64 * 1024 * 1024
 const hash = bytes => createHash('sha256').update(bytes).digest('hex')
-
-const defaultSources = ['office', 'office-pptx', 'office-xlsx'].map(name => resolve(buddy, '../../plugins', name))
 
 async function packPlugin(sourceDirectory) {
   const manifest = JSON.parse(await readFile(join(sourceDirectory, 'extension.json'), 'utf8'))
@@ -65,7 +64,7 @@ async function packPlugin(sourceDirectory) {
   return { entry, file, bytes, id: manifest.id, version: manifest.version, size: bytes.length, unpackedSize: total, files: names.size, sha256: hash(bytes) }
 }
 
-export async function prepareBundledExtensions({ sourceDirectories = defaultSources, outputDirectory = join(buddy, '.output/resources/bundled-extensions') } = {}) {
+export async function prepareBundledExtensions({ sourceDirectories = discoverBundledPlugins().map(plugin => plugin.directory), outputDirectory = join(buddy, '.output/resources/bundled-extensions') } = {}) {
   const packed = []
   for (const sourceDirectory of sourceDirectories)
     packed.push(await packPlugin(sourceDirectory))

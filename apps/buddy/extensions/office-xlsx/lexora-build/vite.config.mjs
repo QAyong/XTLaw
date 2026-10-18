@@ -58,10 +58,23 @@ function manualChunks(id, { getModuleInfo }) {
   return undefined
 }
 
+// Renderer modules the plugin replaces with a corrected copy (the upstream file stays untouched).
+const rendererFixes = { './sheet-context-menu': 'sheet-context-menu-fix.ts' }
+function fixRendererModules() {
+  return {
+    name: 'lexora-renderer-fixes',
+    enforce: 'pre',
+    resolveId(source, importer) {
+      const fix = rendererFixes[source]
+      return fix && importer?.replaceAll('\\', '/').includes('/apps/sheets/src/renderer/') ? shim(fix) : null
+    },
+  }
+}
+
 export default defineConfig({
   root: here,
   base: './',
-  plugins: [pruneUniverLocales(), stubMainModules(), react()],
+  plugins: [pruneUniverLocales(), stubMainModules(), fixRendererModules(), react()],
   resolve: {
     alias: [
       { find: exact('electron'), replacement: shim('electron.ts') },

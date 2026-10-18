@@ -2,6 +2,48 @@
 // selected cell range (one line per row, tab between cells); the host records the workbook, sheet and range it came from.
 const MAX_QUOTE_CHARS = 20000
 
+// The editor's cell menu lists every Excel-style action (about 25 entries) and has to scroll in an ordinary window. These rarely used
+// ones stay in the ribbon and are hidden from the right-click menu (zh and en wording; the plugin only follows those two languages).
+const HIDDEN_ENTRIES = new Set([
+  '选择性复制',
+  'Copy Special',
+  '粘贴图片/形状',
+  'Paste Picture or Shape',
+  '新建批注',
+  'New Comment',
+  '回复批注',
+  'Reply to Comment',
+  '删除批注',
+  'Delete Comment',
+  '解决批注',
+  'Resolve Comment',
+  '数字格式',
+  'Number Format',
+  '从下拉列表中选择…',
+  'Pick From Drop-down List…',
+  '定义名称…',
+  'Define Name…',
+  '插入函数…',
+  'Insert Function…',
+  '冻结',
+  'Freeze',
+  '保护行列',
+  'Protect Rows And Columns',
+])
+
+// Hides entries without removing them (the items are React-owned) and a group that ends up with nothing visible.
+function trimMenu(box) {
+  for (const group of box.children) {
+    const items = [...group.querySelectorAll(':scope > div.univer-relative')]
+    for (const item of items) {
+      if (HIDDEN_ENTRIES.has(item.querySelector('button')?.textContent.trim()))
+        item.style.display = 'none'
+    }
+    if (items.length && items.every(item => item.style.display === 'none'))
+      group.style.display = 'none'
+  }
+}
+
 export function installSelectionMenu(context) {
   let candidate = null
   let nativeMenu = null
@@ -115,6 +157,7 @@ export function installSelectionMenu(context) {
     if (!box || !box.children.length)
       return
     gridClick = false
+    trimMenu(box)
     const request = ++sequence
     nativeMenu = menu
     const snapshot = readSelection()

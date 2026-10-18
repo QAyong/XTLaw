@@ -32,7 +32,7 @@ API 3 支持一个插件提供多个完整主题、可选欢迎文字与图片�
 
 API 3 还支持原生设置模块、分组和单项，以及带权限的 Agent 指令、工具、模型请求和当前任务标题更新。先通过能力目录确认宿主支持，再声明最低应用版本；接口与示例见 [Agent 与设置](../service/resources/skills/plugin-creator/references/agent-settings.md)。
 
-API 4 普通文件视图可通过 `accepts.extensions` 声明 DOCX 匹配，从文件管理器直接打开并使用受控二进制读取。`selectedResourceWrite` 单独授权保存当前文件，基于已读版本检查冲突；`composerReference` 将 DOCX 选区接入工作台公共聊天引用，不读取草稿正文或自动发送。接口见 [插件协议](../service/resources/skills/plugin-creator/references/protocol.md)，开发版能力与未完成边界见 [Office DOCX 插件](../../../plugins/office/README.md)。PPTX 用同样的方式声明 `accepts.extensions`，由 [Office PPTX 插件](../../../plugins/office-pptx/README.md)（GenOffice Slides 编辑器，构建脚本在 `office-pptx/`）接管，选区引用的来源格式为 `pptx`。XLSX 由 [Office XLSX 插件](../../../plugins/office-xlsx/README.md)（GenOffice Sheets 界面，Rust 引擎编译为 WebAssembly，构建脚本在 `office-xlsx/`）接管；它声明 `permissions.webAssembly`，宿主只对声明该权限的视图开放 `'wasm-unsafe-eval'` 与 Worker（`blob:` 启动），支持编辑并保存当前文件（不支持另存为）。插件包最多 512 个文件、单文件 16 MiB、总量 64 MiB。
+文档插件（接管 DOCX、CSV、PDF 等文件格式）见下面的“文档插件”一节。内置的 [Office DOCX](../../../plugins/office/README.md)、[Office PPTX](../../../plugins/office-pptx/README.md)、[Office XLSX](../../../plugins/office-xlsx/README.md) 是同一套契约的官方实现，其中 XLSX 另声明 `permissions.webAssembly`。
 
 `format: "source"` 支持自包含 TS/JS 源码。Lexora 使用固定编译器，不执行 npm 安装、脚本或第三方构建配置。只能导入包内相对路径；含运行时 npm 依赖的插件需要作者预先打包为 `format: "compiled"`。已编译包直接安装，源码包确认权限后编译，失败不会替换已安装版本。
 
@@ -51,3 +51,56 @@ API 1 不开放 Node、shell 或任意 Desktop API。文件只读，仅能访问
 需要独立开发窗口时，先构建 Electron，再运行 `node extensions/tools.mjs dev /path/to/plugin`。开发窗口使用单独的临时配置；修改后重新加载构建目录并重启插件。SDK 快照可以通过 `node extensions/tools.mjs export-sdk /path/to/plugin-sdk/sdk` 导出。
 
 API 2 通过 `contributes.placements` 提供装饰、工作台面板与思考等级控件。API 3 增加可替换的内容区、操作菜单、独立分屏挂载、带插件命名空间的输入命令与可取消交互。创作时用 `lexora_plugin_capabilities` 按需查询当前宿主支持的位置。内容仍在隔离视图运行；清单和调用示例见 [插件协议](../service/resources/skills/plugin-creator/references/protocol.md)。插件自行提供配置交互，内容区及控件可由插件启停并交还宿主默认内容；具体用法见 [内容插槽](../service/resources/skills/plugin-creator/references/slots.md)。旧版插件继续可用。
+
+## 文档插件
+
+文档插件接管一种文件格式：用户在文件管理器点击该格式的文件时，由你的视图打开，可以读取、保存、另存为，并把选区引用到聊天。宿主不认识任何具体格式，新增格式只需要新增一个插件，不需要修改 XTLaw。
+
+**先读两点。** 完整契约（读写职责、校验、限额、权限矩阵、稳定性承诺）在 [文档处理器契约](../service/resources/skills/plugin-creator/references/document-processor.md)。这些是 **XTLaw 扩展能力**，不是上游 Lexora 的公开标准：上游目前只支持 API 1–3，本地用 `apiVersion: 4` 作为这组清单字段的开关，将来上游可能发布含义不同的 API 4。所以请按“能力名”声明和查询（`lexora_plugin_capabilities` 的 `runtime` 类别，下表），并让 `engines.lexora` 的下限不低于所用能力的首次出现版本，不要只看 `apiVersion` 数字。
+
+| 能力名 | 清单 | 首次出现 |
+| --- | --- | --- |
+| `documents.handler` | 视图 `accepts: { "extensions": ["csv"] }` | XTLaw 0.2.0 |
+| `documents.writeBack` | `permissions.selectedResourceWrite` | XTLaw 0.2.0 |
+| `documents.reference` | `permissions.composerReference`；通用引用格式 `{text,kind,location}` 需要 0.2.3 | XTLaw 0.2.0 / 0.2.3 |
+| `documents.export` | `permissions.resourceExport` | XTLaw 0.2.0 |
+| `documents.webAssembly` | `permissions.webAssembly` | XTLaw 0.2.3 |
+
+0.2.3 尚未发布，以实际发布的应用版本为准。
+
+### 开发
+
+1. 新建文件夹，写 `extension.json`：`apiVersion: 4`，`permissions.selectedResource: "read"`，一个 `resource: "selected-file"`、`location: "context"` 的视图并声明 `accepts.extensions`。需要引用、写回、另存为时再加对应权限，只声明实际用到的。
+2. 视图入口导出 `render(context, container)`，用 `context.resource` 和 `context.resources.readBytes` 读文件。**完整例子是 [`examples/csv-viewer`](examples/csv-viewer/)**：只读 CSV 查看器，选中单元格后引用到聊天，只用上表里已发布的能力。
+3. 可选的 [`document-kit`](document-kit/)：`read-file.js`（整文件读取并检测中途变化）、`zip-validate.js`（ZIP 类文档的安全校验，例如 DOCX、EPUB）、`quote.js`（通用引用，含与宿主一致的位置检查）。插件运行时必须自包含，所以用 `node extensions/document-kit/sync.mjs <插件文件夹>` 把它们复制进插件的 `document-kit/`，用 `--check` 可检查副本是否与原件一致。三个 Office 插件的工具栏分页等与具体编辑器绑定的代码不在共享范围内，各自保留。
+
+### 测试、打包、安装
+
+在 `apps/buddy` 中运行（`tools-run.mjs` 通过 Vite 加载宿主的 TypeScript，用法与 `tools.mjs` 相同；直接运行 `tools.mjs` 在当前仓库的 Node 下无法解析这些导入）：
+
+```sh
+node extensions/tools-run.mjs check /path/to/plugin
+node extensions/tools-run.mjs pack /path/to/plugin /path/to/plugin.lexora-extension
+```
+
+`check`、`build`、`pack` 会按清单规则校验，并额外列出插件依赖的文档能力及首次出现版本，对下面这些情况给出警告（只警告，不阻断）：`engines.lexora` 下限低于所用能力的首次出现版本；有 `composerReference` 却没有声明 `accepts` 的视图；同一插件的两个视图接管同一扩展名，或与内置插件接管的格式重叠（多个视图接管同一扩展名时，文件留在内置预览，宿主不替用户选择）；`webAssembly` 的 `.wasm` 超过第三方限额。
+
+在「插件 → 安装插件包」选择生成的 `.lexora-extension` 安装；「安装按钮右侧箭头」可加载开发目录，开发目录不受 `webAssembly` 限额约束。
+
+### 限额
+
+| 项目 | 限制 |
+| --- | --- |
+| 插件包 | 最多 512 个非图片文件、单文件 16 MiB、总量 64 MiB |
+| 读取文件 | 每次最多 128 KiB，文件最多 64 MiB；读取中文件变化则失败 |
+| 写回 / 另存为 | 最多 64 MiB；写回要求本视图已完整读过该文件，并检查版本与哈希，外部已修改则拒绝覆盖 |
+| 聊天引用 | 文字最多 32768 字符；`kind` 为 `^[a-z][a-z0-9-]{0,31}$`；`location` 为不超过 4096 字节的 JSON（深度 4、键 32、数组 64、字符串 512）；每条消息最多 16 条引用，文字合计 131072 字符 |
+| `.wasm`（第三方） | 最多 4 个、合计 24 MiB，超出时安装被拒绝（`EXTENSION_WEBASSEMBLY_LIMIT`）。数值由实现者定，可调整；内存、CPU 和 Worker 数量宿主不强制 |
+
+### 用户会看到的权限提示
+
+安装确认会列出每项权限；升级时新增的权限单独标“新增”。非内置来源的包声明 `selectedResourceWrite`（可覆盖它打开的文件）或 `webAssembly`（运行编译代码）时，对应权限旁显示“高风险”标记和说明。请只声明确实需要的权限。
+
+### 目前没有的能力
+
+点击聊天里的引用卡片会在生成它的同一插件中重新打开文件，但宿主还不会把保存的 `kind` 和 `location` 交给视图，视图不会自动定位到原位置。

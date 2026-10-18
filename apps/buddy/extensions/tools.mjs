@@ -41,7 +41,7 @@ async function bundledHandlers() {
   return handlers
 }
 
-async function run() {
+export async function run() {
   const buddy = fileURLToPath(new URL('../', import.meta.url))
   const version = JSON.parse(await fs.readFile(path.join(buddy, 'buddy.version.json'), 'utf8')).version
   const [command, input, output] = process.argv.slice(2)
@@ -183,7 +183,10 @@ async function run() {
     }
   }
 }
-void run().catch((error) => {
-  process.stderr.write(`${error.message}\n`)
-  process.exitCode = 1
-})
+// Run directly, or loaded by tools-run.mjs, which calls run itself and so is not the main script.
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  void run().catch((error) => {
+    process.stderr.write(`${error.message}\n`)
+    process.exitCode = 1
+  })
+}

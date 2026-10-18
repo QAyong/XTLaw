@@ -15,7 +15,7 @@ import { WorkingCopyService } from '@/workbench/services/WorkingCopyService'
 import DesktopFileEditor from '../DesktopFileEditor.vue'
 import DesktopFilePreview from '../DesktopFilePreview.vue'
 
-vi.mock('naive-ui', () => ({ NButton: { render: () => null } }))
+vi.mock('naive-ui', () => ({ NButton: { render: () => null }, useMessage: () => ({ success: vi.fn(), info: vi.fn(), warning: vi.fn() }) }))
 vi.mock('@/shared/ui/contributions/WorkbenchMenu.vue', () => ({ default: { render: () => null } }))
 vi.mock('@/shared/ui/files/DesktopDocumentToolbar.vue', () => ({ default: { render: () => null } }))
 vi.mock('@/shared/ui/monaco/desktopMonaco', () => ({ observeDesktopMonacoTheme: () => () => {} }))

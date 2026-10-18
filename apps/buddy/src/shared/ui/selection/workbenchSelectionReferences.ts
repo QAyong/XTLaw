@@ -22,6 +22,11 @@ export interface SelectionReferenceRequest {
 }
 export type SelectionReferenceResult = 'added' | 'duplicate' | 'limit' | 'unavailable'
 
+export function getDirectSelectionReferenceTarget(request: Pick<SelectionReferenceRequest, 'targets' | 'defaultId' | 'isSplit'>) {
+  const target = request.targets[0]
+  return !request.isSplit && request.targets.length === 1 && target?.id === request.defaultId ? target : undefined
+}
+
 /** Capture identities, never a global active input or stale draft body. */
 export class WorkbenchSelectionReferences {
   readonly #reveals = new Map<string, (quote: BuddyTextQuote, current: () => boolean) => Promise<boolean>>()

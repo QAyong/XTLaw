@@ -5,7 +5,7 @@ import type { Ref } from 'vue'
 import type { SelectionReferenceRequest } from '@/shared/ui/selection/workbenchSelectionReferences'
 import { useEventListener } from '@vueuse/core'
 import { onBeforeUnmount, shallowRef, watch } from 'vue'
-import { useSelectionReferences } from '@/shared/ui/selection/workbenchSelectionReferences'
+import { getDirectSelectionReferenceTarget, useSelectionReferences } from '@/shared/ui/selection/workbenchSelectionReferences'
 
 /** Guest viewport ratios avoid mixing page zoom / device pixels with workbench CSS pixels. */
 export function browserElementPickMenuPosition(anchor: BrowserElementPickAnchor, rect: Pick<DOMRect, 'left' | 'top' | 'width' | 'height'>) {
@@ -67,8 +67,9 @@ export function useBrowserElementReference(options: {
         options.feedback('unavailable')
         return
       }
-      if (request.defaultId && request.targets.length === 1)
-        options.feedback(references!.add(request, request.defaultId), targetLabel.value)
+      const target = getDirectSelectionReferenceTarget(request)
+      if (target)
+        options.feedback(references!.add(request, target.id), target.label)
       else
         options.choose(request, result.anchor)
     }

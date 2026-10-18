@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { LocalArtifact, LocalArtifactText } from '@buddy-shared/artifacts/artifactApi'
-import type { BuddyArtifactQuote, BuddyResourceQuote } from '@buddy-shared/conversation/buddyUserContent'
+import type { BuddyArtifactQuote } from '@buddy-shared/conversation/buddyUserContent'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import type { ArtifactViewMode } from '@/modules/tasks/model/context-panel/taskContextPanel'
 import { NSpin } from 'naive-ui'
@@ -11,7 +11,7 @@ import DesktopDocumentContent from '@/shared/ui/files/DesktopDocumentContent.vue
 import BuddyImagePreview from '@/shared/ui/media/BuddyImagePreview.vue'
 import ResourceSelectionQuoteMenu from '@/shared/ui/selection/ResourceSelectionQuoteMenu.vue'
 import { useResourceQuoteReveal } from '@/shared/ui/selection/useResourceQuoteReveal'
-import { useSelectionReferences } from '@/shared/ui/selection/workbenchSelectionReferences'
+import { useResourceSelectionQuote } from '@/shared/ui/selection/useResourceSelectionQuote'
 import { isMarkdownArtifact } from './artifactContextPresentation'
 import DesktopArtifactToolbar from './DesktopArtifactToolbar.vue'
 import { useArtifactPreview } from './useArtifactPreview'
@@ -25,9 +25,7 @@ const props = defineProps<{
   writeClipboardText: (text: string) => Promise<void>
 }>()
 const viewMode = defineModel<ArtifactViewMode>('viewMode', { required: true })
-const references = useSelectionReferences()
 const markdown = computed(() => isMarkdownArtifact(props.artifact))
-const quoteMenu = useTemplateRef<InstanceType<typeof ResourceSelectionQuoteMenu>>('quoteMenu')
 const quoteSource = computed<BuddyArtifactQuote['source']>(() => ({
   kind: 'artifact',
   artifactId: props.artifact.artifactId,
@@ -39,9 +37,12 @@ const quoteSource = computed<BuddyArtifactQuote['source']>(() => ({
   format: markdown.value && viewMode.value === 'preview' ? 'markdown' : 'source',
 }))
 const quoteOwnerKey = computed(() => JSON.stringify([props.tabId, props.artifact, viewMode.value]))
-function prepareQuote(quote: BuddyResourceQuote, x: number, y: number) {
-  return quoteMenu.value?.prepare(quote, x, y) ?? null
-}
+const selection = useResourceSelectionQuote({
+  viewId: () => props.tabId,
+  ownerKey: () => quoteOwnerKey.value,
+  visible: () => props.visible,
+  language: () => props.language,
+})
 
 const { t } = useBuddyI18n(() => props.language)
 const { refreshText, failImage, openPreview, previewIndex, previewOpen, previewSources, previewUrl, textPreview, textPreviewFailed, textPreviewLoading } = useArtifactPreview({
@@ -57,11 +58,11 @@ useResourceQuoteReveal({
   ready: () => !textPreviewLoading.value && !!document.value?.ready,
   reveal: quote => document.value?.reveal(quote) ?? false,
 })
-watch(textPreview, () => quoteMenu.value?.close(), { flush: 'sync' })
+watch(textPreview, selection.close, { flush: 'sync' })
 </script>
 
 <template>
-  <section class="desktop-artifact-context-surface flex min-w-0 min-h-0 flex-1 flex-col bg-surface" @scroll.capture="quoteMenu?.close()">
+  <section class="desktop-artifact-context-surface flex min-w-0 min-h-0 flex-1 flex-col bg-surface" @scroll.capture="selection.close">
     <DesktopArtifactToolbar v-model:view-mode="viewMode" :artifact="artifact" :language="language" :text-available="!!textPreview" />
     <BuddyImagePreview
       v-model:current="previewIndex"
@@ -92,7 +93,7 @@ watch(textPreview, () => quoteMenu.value?.close(), { flush: 'sync' })
       <DesktopDocumentContent
         v-else-if="textPreview"
         ref="document" :mode="markdown ? viewMode : 'source'" :name="artifact.name" :text="textPreview.text" :language="language" :write-clipboard-text="writeClipboardText"
-        :quote-source="references ? quoteSource : undefined" :prepare-quote="prepareQuote"
+        :quote-source="selection.enabled ? quoteSource : undefined" :prepare-quote="selection.prepare"
       />
       <div v-else class="desktop-artifact-context-surface__fallback grid max-w-96 gap-2 text-muted text-center">
         <FolderIcon
@@ -107,7 +108,7 @@ watch(textPreview, () => quoteMenu.value?.close(), { flush: 'sync' })
         <span v-else>{{ t(textPreviewFailed ? 'desktop.context.previewLoadFailed' : 'desktop.context.previewUnavailable') }}</span>
       </div>
     </div>
-    <ResourceSelectionQuoteMenu v-if="references && textPreview" ref="quoteMenu" :view-id="tabId" :owner-key="quoteOwnerKey" :language="language" :visible="visible" />
+    <ResourceSelectionQuoteMenu v-if="selection.enabled && textPreview" :selection="selection" :language="language" />
   </section>
 </template>
 

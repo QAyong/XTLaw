@@ -10,6 +10,7 @@ import { computed, shallowRef, toRef, useTemplateRef, watch } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import ResourceSelectionQuoteMenu from '@/shared/ui/selection/ResourceSelectionQuoteMenu.vue'
+import { useResourceSelectionQuote } from '@/shared/ui/selection/useResourceSelectionQuote'
 import { useSelectionReferences } from '@/shared/ui/selection/workbenchSelectionReferences'
 import WorkbenchPanelContent from '@/workbench/browser/WorkbenchPanelContent.vue'
 import DesktopBrowserToolbar from './DesktopBrowserToolbar.vue'
@@ -45,10 +46,15 @@ const browserView = useBrowserContextSurface({
 })
 const { address, openAddress, updateAddress } = useBrowserAddress(browserView.state, browserView.navigate)
 const browserState = browserView.state
-const quoteMenu = useTemplateRef<InstanceType<typeof ResourceSelectionQuoteMenu>>('quoteMenu')
 const selectionReferences = useSelectionReferences()
 const browserViewId = computed(() => `browser:${browserTab.value?.id ?? ''}`)
 const pickerOwner = computed(() => JSON.stringify([browserTab.value?.scope, browserState.value?.sessionId, browserState.value?.pageId, browserState.value?.documentVersion, browserState.value?.url]))
+const selection = useResourceSelectionQuote({
+  viewId: () => browserViewId.value,
+  ownerKey: () => pickerOwner.value,
+  visible: () => props.visible,
+  language: () => props.language,
+})
 const picker = useBrowserElementReference({
   api: props.api,
   state: browserState,
@@ -69,7 +75,7 @@ const picker = useBrowserElementReference({
       return
     }
     const position = browserElementPickMenuPosition(anchor, rect)
-    quoteMenu.value?.openRequest(request, position.x, position.y)
+    selection.openRequest(request, position.x, position.y)
   },
 })
 watch(() => selectionReferences?.captureScope(browserViewId.value)?.sourceIdentity, () => picker.cancel(), { flush: 'sync' })
@@ -118,7 +124,7 @@ function browserMenu(action: BrowserToolbarMenuActionKey) {
     <template #toolbar>
       <DesktopBrowserToolbar :picking="picker.picking.value" :pick-label="t('desktop.context.browserPickElement')" :pick-disabled="!selectionReferences || browserState?.status !== 'ready' || browserState?.controller === 'agent' || busyAction !== null" :address="address" :busy-action="busyAction" :language="language" :state="browserState" @back="browserView.goBack" @forward="browserView.goForward" @navigate="openAddress" @reload="browserView.reload" @stop="browserView.stop" @update:address="updateAddress" @menu="browserMenu" @zoom="setZoom" @pick="picker.toggle" />
     </template>
-    <ResourceSelectionQuoteMenu ref="quoteMenu" :view-id="browserViewId" :owner-key="pickerOwner" :language="language" :visible="visible" />
+    <ResourceSelectionQuoteMenu :selection="selection" :language="language" />
     <div v-if="browserView.failed.value" class="context-resource-state grid flex-1 min-w-0 min-h-0 p-[20px] text-[12px] text-muted" role="alert">
       {{ t('desktop.context.browserLoadFailed') }}
     </div>

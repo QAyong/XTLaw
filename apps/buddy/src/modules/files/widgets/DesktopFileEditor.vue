@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { BuddyFileQuote, BuddyResourceQuote, BuddyTextQuote } from '@buddy-shared/conversation/buddyUserContent'
+import type { BuddyFileQuote, BuddyTextQuote } from '@buddy-shared/conversation/buddyUserContent'
 import type { JsonValue } from '@buddy-shared/workbench/workbenchState'
 import type * as Monaco from 'monaco-editor/editor/editor.api.js'
 import type { TextModelPool } from '@/workbench/browser/TextModelPool'
@@ -17,20 +17,15 @@ import ResourceSelectionQuoteMenu from '@/shared/ui/selection/ResourceSelectionQ
 import { revealMonacoQuote } from '@/shared/ui/selection/revealMonacoQuote'
 import { registerMonacoResourceQuote } from '@/shared/ui/selection/useMonacoResourceQuote'
 import { useResourceQuoteReveal } from '@/shared/ui/selection/useResourceQuoteReveal'
-import { useSelectionReferences } from '@/shared/ui/selection/workbenchSelectionReferences'
+import { useResourceSelectionQuote } from '@/shared/ui/selection/useResourceSelectionQuote'
 import { useWorkbench } from '@/workbench/browser/workbenchContext'
 
 const props = withDefaults(defineProps<{ view: WorkbenchView, models: TextModelPool, language: 'zh-CN' | 'en-US', writeClipboardText: (text: string) => Promise<void>, toolbarTarget?: HTMLElement | null, visible?: boolean }>(), { visible: true })
 const { copies, controller, labels } = useWorkbench()
 const container = useTemplateRef<HTMLElement>('container')
-const quoteMenu = useTemplateRef<InstanceType<typeof ResourceSelectionQuoteMenu>>('quoteMenu')
-const references = useSelectionReferences()
 const { t } = useBuddyI18n(() => props.language)
 function quoteSource(format: 'source' | 'markdown' = 'source'): BuddyFileQuote['source'] {
   return { kind: 'file', title: props.view.title, file: spaceFileTargetSchema.strip().parse(props.view.resource.data), format }
-}
-function prepareQuote(quote: BuddyResourceQuote, x: number, y: number) {
-  return quoteMenu.value?.prepare(quote, x, y) ?? null
 }
 const failed = shallowRef(false)
 const editorReady = shallowRef(false)
@@ -46,6 +41,12 @@ function resourceIdentity(resource: ResourceRef): string {
   return JSON.stringify([scheme, id, data.spaceId, data.directoryId, data.revision, data.path])
 }
 const identity = computed(() => resourceIdentity(props.view.resource))
+const selection = useResourceSelectionQuote({
+  viewId: () => props.view.id,
+  ownerKey: () => JSON.stringify([props.view.id, identity.value, mode.value]),
+  visible: () => props.visible,
+  language: () => props.language,
+})
 function captureResource() {
   return { resource: spaceFileTargetSchema.strip().parse(props.view.resource.data) }
 }
@@ -128,8 +129,8 @@ watch([container, attempt, viewId, identity], async ([element, , viewId, key], _
       contextmenu: true,
     })
     editor = ownedEditor
-    if (references)
-      registerMonacoResourceQuote(ownedEditor, { source: () => quoteSource(), prepare: prepareQuote, label: t('desktop.chat.quoteSelection') })
+    if (selection.enabled)
+      registerMonacoResourceQuote(ownedEditor, { label: () => t('desktop.chat.quoteSelection'), source: () => quoteSource(), prepare: selection.prepare })
     stopTheme = observeDesktopMonacoTheme(lease.monaco, ownedEditor)
     if (props.view.state.editor)
       ownedEditor.restoreViewState(JSON.parse(JSON.stringify(props.view.state.editor)) as Monaco.editor.ICodeEditorViewState)
@@ -203,11 +204,11 @@ onScopeDispose(controller.configuration.subscribe(() => editor?.updateOptions({ 
         {{ labels.retry }}
       </button>
     </div>
-    <ResourceSelectionQuoteMenu v-if="references" ref="quoteMenu" :view-id="view.id" :owner-key="`${view.id}:${identity}:${mode}`" :language="language" :visible="visible" />
+    <ResourceSelectionQuoteMenu v-if="selection.enabled" :selection="selection" :language="language" />
     <DesktopDocumentContent
       ref="document" :source-ready="editorReady" :reveal-source="revealSource"
       :mode="mode" :name="view.title" :text="copy?.text ?? ''" :language="language" :write-clipboard-text="writeClipboardText"
-      :quote-source="references ? quoteSource('markdown') : undefined" :prepare-quote="prepareQuote" @scroll.capture="quoteMenu?.close()"
+      :quote-source="selection.enabled ? quoteSource('markdown') : undefined" :prepare-quote="selection.prepare" @scroll.capture="selection.close"
     >
       <template #source>
         <div ref="container" class="flex-1 min-h-0" data-testid="workbench-text-editor" />

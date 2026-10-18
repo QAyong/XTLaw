@@ -30,7 +30,6 @@ const showRefreshing = useDelayedLoading(() => props.loadingKeys.has('') && prop
 const { t } = useBuddyI18n(() => props.language)
 const expandedKeys = defineModel<string[]>('expandedKeys', { required: true })
 const menu = shallowRef<{ node: ExplorerNode | null } | null>(null)
-// Keep the anchor stable while the dropdown finishes its leave transition.
 const menuPosition = shallowRef({ x: 0, y: 0 })
 const recoveryOperations = shallowRef<SpaceFileOperation[]>([])
 const platform = shallowRef<string | null>(null)

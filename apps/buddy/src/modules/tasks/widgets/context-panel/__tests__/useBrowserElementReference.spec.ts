@@ -11,14 +11,14 @@ import { useBrowserElementReference } from '../useBrowserElementReference'
 
 const cleanups: (() => void)[] = []
 afterEach(() => cleanups.splice(0).forEach(cleanup => cleanup()))
-function fixture(multiple = false, owner: string | null = 'task:a') {
+function fixture(multiple = false, owner: string | null = 'task:a', split = multiple) {
   const body = shallowRef(createBuddyUserContent('Original'))
   const write = vi.fn(value => body.value = value)
   const targets: SelectionReferenceTarget[] = [{ id: 'a', identity: 'draft:a:branch:0', scope: 'task:a', label: 'A', read: () => body.value, write }]
   if (multiple)
     targets.push({ ...targets[0]!, id: 'b', identity: 'draft:b:branch:0', scope: 'task:b', label: 'B' })
   let sourceIdentity = 'page:1'
-  const references = new WorkbenchSelectionReferences({ targets: () => targets, source: () => ({ identity: sourceIdentity, owner }), locate: async () => false })
+  const references = new WorkbenchSelectionReferences({ targets: () => targets, source: () => ({ identity: sourceIdentity, owner }), isSplit: () => split, locate: async () => false })
   let resolve!: (result: BrowserPickResult) => void
   const api = { pickElement: vi.fn(() => new Promise<BrowserPickResult>(done => resolve = done)), cancelElementPick: vi.fn(async () => {}) } as unknown as DesktopBrowserApi
   const state = shallowRef<DesktopBrowserState>({ sessionId: 'session', pageId: 'page', documentVersion: 1, url: 'https://example.com/', status: 'ready', controller: 'human' } as DesktopBrowserState)
@@ -74,6 +74,18 @@ describe('browser element reference routing lifecycle', () => {
     expect(request.defaultId).toBeNull()
     expect(f.references.add(request, 'b')).toBe('unavailable')
     expect(f.write).not.toHaveBeenCalled()
+  })
+  it('requires an explicit target in a split even when only its owner is writable', async () => {
+    const f = fixture(false, 'task:a', true)
+    const pending = f.picker.toggle()
+    f.resolve()
+    await pending
+    expect(f.body.value.resourceQuotes).toBeUndefined()
+    const request = f.choose.mock.calls[0]![0]
+    expect(request.defaultId).toBe('a')
+    expect(request.isSplit).toBe(true)
+    expect(f.references.add(request, 'a')).toBe('added')
+    expect(f.body.value.resourceQuotes?.[0]).toMatchObject({ text: browserQuote.text })
   })
   it.each(['hide', 'navigate', 'escape'])('cancels on %s and ignores a late result', async (change) => {
     const f = fixture()

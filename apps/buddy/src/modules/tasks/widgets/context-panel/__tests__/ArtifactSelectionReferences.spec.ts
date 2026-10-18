@@ -9,6 +9,7 @@ vi.mock('naive-ui', async () => {
   const { defineComponent, h } = await import('vue')
   return {
     NSpin: defineComponent({ setup: () => () => h('span', 'Loading') }),
+    useMessage: () => ({ success: vi.fn(), info: vi.fn(), warning: vi.fn() }),
   }
 })
 vi.mock('../DesktopArtifactToolbar.vue', () => ({ default: defineComponent({ setup: () => () => null }) }))

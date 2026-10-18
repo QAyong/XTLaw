@@ -1,10 +1,13 @@
 // @vitest-environment jsdom
 import type { BuddyResourceQuote } from '@buddy-shared/conversation/buddyUserContent'
+import type { ResourceSelectionQuote } from '../useResourceSelectionQuote'
+import type { SelectionReferenceTarget } from '../workbenchSelectionReferences'
 import { createBuddyUserContent } from '@buddy-shared/conversation/buddyUserContent'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createApp, defineComponent, h, nextTick, provide, shallowRef } from 'vue'
 import ResourceQuoteStrip from '../ResourceQuoteStrip.vue'
 import ResourceSelectionQuoteMenu from '../ResourceSelectionQuoteMenu.vue'
+import { useResourceSelectionQuote } from '../useResourceSelectionQuote'
 import { WorkbenchSelectionReferences, workbenchSelectionReferencesKey } from '../workbenchSelectionReferences'
 
 const feedback = vi.hoisted(() => ({ success: vi.fn(), warning: vi.fn(), info: vi.fn() }))
@@ -30,21 +33,36 @@ const cleanups: (() => void)[] = []
 afterEach(() => {
   cleanups.splice(0).forEach(cleanup => cleanup())
 })
-async function mount(kind: 'menu' | 'strip', removable = true, multiple = false) {
+async function mount(kind: 'menu' | 'strip', options: { multiple?: boolean, split?: boolean, removable?: boolean } = {}) {
   const root = document.createElement('div')
   document.body.append(root)
-  let menu!: InstanceType<typeof ResourceSelectionQuoteMenu>
+  let selection!: ResourceSelectionQuote
   const content = shallowRef(createBuddyUserContent('Keep input'))
+  const extraContent = shallowRef(createBuddyUserContent('Other input'))
   const ownerKey = shallowRef('file:one')
+  const visible = shallowRef(true)
+  const source = shallowRef({ identity: 'file:one', owner: 'task:a' })
   const locate = vi.fn(async () => false)
   const remove = vi.fn()
-  const extraContent = shallowRef(createBuddyUserContent('Other input'))
-  const host = new WorkbenchSelectionReferences({ targets: () => [...(multiple ? [{ id: 'b', label: 'Pane 2 · Task B', identity: 'b:draft:epoch', scope: 'task:b', read: () => extraContent.value, write: (value: typeof extraContent.value) => extraContent.value = value }] : []), { id: 'a', label: 'Pane 1 · Task A', identity: 'a:draft:epoch', scope: 'task:a', read: () => content.value, write: value => content.value = value }], source: () => ({ identity: 'file:one', owner: 'task:a' }), locate })
+  const targets = shallowRef<SelectionReferenceTarget[]>([
+    ...(options.multiple ? [{ id: 'b', label: 'Pane 2 · Task B', identity: 'b:draft:epoch', scope: 'task:b', read: () => extraContent.value, write: (value: typeof extraContent.value) => extraContent.value = value }] : []),
+    { id: 'a', label: 'Pane 1 · Task A', identity: 'a:draft:epoch', scope: 'task:a', read: () => content.value, write: value => content.value = value },
+  ])
+  const host = new WorkbenchSelectionReferences({
+    targets: () => targets.value,
+    source: () => source.value,
+    locate,
+    isSplit: () => options.split ?? !!options.multiple,
+  })
+  const surface = defineComponent({ setup() {
+    selection = useResourceSelectionQuote({ viewId: () => 'file', ownerKey: () => ownerKey.value, visible: () => visible.value, language: () => 'zh-CN' })
+    return () => kind === 'menu'
+      ? h(ResourceSelectionQuoteMenu, { selection, language: 'zh-CN' })
+      : h(ResourceQuoteStrip, { quotes: [quote], language: 'zh-CN', removable: options.removable ?? true, onRemove: remove })
+  } })
   const app = createApp(defineComponent({ setup() {
     provide(workbenchSelectionReferencesKey, host)
-    return () => kind === 'menu'
-      ? h(ResourceSelectionQuoteMenu, { ref: value => menu = value as InstanceType<typeof ResourceSelectionQuoteMenu>, viewId: 'file', ownerKey: ownerKey.value, language: 'zh-CN', visible: true })
-      : h(ResourceQuoteStrip, { quotes: [quote], language: 'zh-CN', removable, onRemove: remove })
+    return () => h(surface)
   } }))
   app.mount(root)
   let mounted = true
@@ -57,71 +75,140 @@ async function mount(kind: 'menu' | 'strip', removable = true, multiple = false)
   }
   cleanups.push(unmount)
   await nextTick()
-  return { root, menu, host, content, extraContent, ownerKey, locate, remove, unmount }
+  return { root, selection, host, content, extraContent, targets, source, visible, ownerKey, locate, remove, unmount }
 }
 
 describe('resource reference UI', () => {
-  it('adds the selected snapshot through the current-conversation action', async () => {
+  it('requires a menu choice for a context-menu gesture, even with a sole default target', async () => {
     const f = await mount('menu')
-    f.menu.open(quote, 10, 20)
+    f.selection.prepare(quote, 10, 20, 'menu')!()
     await nextTick()
+    expect(f.content.value.resourceQuotes).toBeUndefined()
+    expect(f.root.textContent).toBe('引用到对话')
     f.root.querySelector('button')!.click()
-    await nextTick()
     expect(f.content.value.resourceQuotes).toEqual([quote])
+    expect(feedback.success).toHaveBeenCalledWith('已引用到「Pane 1 · Task A」')
   })
 
-  it('adds a Monaco quote directly without displaying the dropdown', async () => {
+  it('executes an explicit quote action directly only for a sole non-split default target', async () => {
     const f = await mount('menu')
-    const native = f.menu.captureMonaco(quote)!
-    expect(native.actions).toHaveLength(1)
-    native.actions[0]!.run()
+    const execute = f.selection.prepare(quote, 10, 20, 'quote')!
+    f.content.value = createBuddyUserContent('Latest input')
+    execute()
+    execute()
     await nextTick()
     expect(f.content.value.resourceQuotes).toEqual([quote])
+    expect(f.content.value.body[0]!.content).toContainEqual({ type: 'text', text: 'Latest input' })
     expect(f.root.querySelector('[role="menu"]')).toBeNull()
+    expect(feedback.success).toHaveBeenCalledTimes(1)
   })
 
-  it('orders the associated target first and quotes to the chosen split pane only', async () => {
-    const f = await mount('menu', true, true)
-    const native = f.menu.captureMonaco(quote)!
-    expect(native.actions.map(action => action.label)).toEqual(['Pane 1 · Task A', 'Pane 2 · Task B'])
-    native.actions[1]!.run()
+  it('keeps the associated target first and adds only to the explicitly chosen split pane', async () => {
+    const f = await mount('menu', { multiple: true })
+    f.selection.prepare(quote, 10, 20, 'quote')!()
     await nextTick()
+    const buttons = [...f.root.querySelectorAll('button')]
+    expect(buttons.map(button => button.textContent)).toEqual(['引用到「Pane 1 · Task A」', '引用到其他对话', 'Pane 2 · Task B'])
+    buttons[2]!.click()
     expect(f.content.value.resourceQuotes).toBeUndefined()
     expect(f.extraContent.value.resourceQuotes).toEqual([quote])
-    expect(f.root.querySelector('[role="menu"]')).toBeNull()
   })
 
-  it('rejects a captured native action after the source changes', async () => {
-    const f = await mount('menu')
-    const native = f.menu.captureMonaco(quote)!
-    f.ownerKey.value = 'file:two'
+  it.each([false, true])('never substitutes the only writable target for an unavailable owner (split: %s)', async (split) => {
+    const f = await mount('menu', { multiple: true, split })
+    f.targets.value = f.targets.value.filter(target => target.id === 'b')
+    f.selection.prepare(quote, 10, 20, 'quote')!()
     await nextTick()
-    native.actions[0]!.run()
+    expect(f.extraContent.value.resourceQuotes).toBeUndefined()
+    const buttons = [...f.root.querySelectorAll('button')]
+    expect(buttons.map(button => button.textContent)).toEqual(['引用到对话', 'Pane 2 · Task B'])
+    buttons[1]!.click()
+    expect(f.extraContent.value.resourceQuotes).toEqual([quote])
+  })
+
+  it('names the default target when a split has only one writable pane', async () => {
+    const f = await mount('menu', { split: true })
+    f.selection.prepare(quote, 10, 20, 'quote')!()
+    await nextTick()
     expect(f.content.value.resourceQuotes).toBeUndefined()
-    expect(feedback.warning).toHaveBeenCalled()
+    expect(f.root.textContent).toBe('引用到「Pane 1 · Task A」')
   })
 
-  it('closes the component menu when its source switches or unmounts', async () => {
+  it('retains the captured target identity while preserving newer input and ignoring title changes', async () => {
+    const f = await mount('menu', { multiple: true })
+    f.selection.prepare(quote, 10, 20, 'quote')!()
+    f.targets.value = f.targets.value.map(target => ({ ...target, label: 'Renamed' }))
+    f.extraContent.value = createBuddyUserContent('New input')
+    await nextTick()
+    f.selection.select('b')
+    expect(f.extraContent.value.resourceQuotes).toEqual([quote])
+    expect(f.extraContent.value.body[0]!.content).toContainEqual({ type: 'text', text: 'New input' })
+  })
+
+  it.each(['removed', 'replaced'])('rejects a captured target that is %s without rerouting', async (change) => {
+    const f = await mount('menu', { multiple: true })
+    f.selection.prepare(quote, 10, 20, 'quote')!()
+    f.targets.value = change === 'removed'
+      ? f.targets.value.filter(target => target.id !== 'b')
+      : f.targets.value.map(target => target.id === 'b' ? { ...target, identity: 'new-draft' } : target)
+    f.selection.select('b')
+    expect(f.content.value.resourceQuotes).toBeUndefined()
+    expect(f.extraContent.value.resourceQuotes).toBeUndefined()
+    expect(feedback.warning).toHaveBeenCalledTimes(1)
+  })
+
+  it.each(['owner', 'hidden', 'source'])('rejects a prepared action after %s changes', async (change) => {
     const f = await mount('menu')
-    f.menu.open(quote, 10, 20)
-    await nextTick()
+    const execute = f.selection.prepare(quote, 10, 20, 'quote')!
+    if (change === 'owner') {
+      f.ownerKey.value = 'file:two'
+      f.ownerKey.value = 'file:one'
+    }
+    else if (change === 'hidden') {
+      f.visible.value = false
+      f.visible.value = true
+    }
+    else {
+      f.source.value = { ...f.source.value, identity: 'file:two' }
+    }
+    execute()
+    expect(f.content.value.resourceQuotes).toBeUndefined()
+    expect(f.selection.pending.value).toBeNull()
+    expect(feedback.warning).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the last anchor on close and uses the new anchor on reopening', async () => {
+    const f = await mount('menu')
+    f.selection.prepare(quote, 10, 20, 'menu')!()
+    f.selection.close()
+    expect(f.selection.pending.value).toBeNull()
+    expect(f.selection.position.value).toEqual({ x: 10, y: 20 })
+    f.selection.prepare(quote, 30, 40, 'menu')!()
+    expect(f.selection.position.value).toEqual({ x: 30, y: 40 })
     f.ownerKey.value = 'file:two'
-    await nextTick()
-    expect(f.root.querySelector('[role="menu"]')).toBeNull()
+    expect(f.selection.pending.value).toBeNull()
+  })
+
+  it('rejects foreign pre-captured requests and ignores actions after disposal', async () => {
+    const f = await mount('menu')
+    f.selection.openRequest(f.host.capture('different-view', quote)!, 10, 20)
+    expect(f.selection.pending.value).toBeNull()
+    const execute = f.selection.prepare(quote, 10, 20, 'quote')!
     f.unmount()
+    execute()
     expect(f.content.value.resourceQuotes).toBeUndefined()
+    expect(feedback.warning).toHaveBeenCalledTimes(1)
   })
 
-  it('rejects a prepared menu operation when the source view switches', async () => {
+  it('shows a disabled empty state and reports invalid quote limits without writing', async () => {
     const f = await mount('menu')
-    const show = f.menu.prepare(quote, 10, 20)!
-    f.ownerKey.value = 'file:two'
+    f.targets.value = []
+    f.selection.prepare(quote, 10, 20, 'quote')!()
     await nextTick()
-    show()
-    await nextTick()
-    expect(f.root.querySelector('[role="menu"]')).toBeNull()
+    expect(f.root.querySelector('button')!.disabled).toBe(true)
+    f.selection.prepare({ ...quote, text: 'x'.repeat(100_000) }, 10, 20, 'quote')!()
     expect(f.content.value.resourceQuotes).toBeUndefined()
-    expect(feedback.warning).toHaveBeenCalled()
+    expect(feedback.warning).toHaveBeenCalledTimes(1)
   })
 
   it('keeps a safe frozen preview when locating fails and permits removal', async () => {
@@ -139,7 +226,7 @@ describe('resource reference UI', () => {
   })
 
   it('does not show removal in sent-message history', async () => {
-    const f = await mount('strip', false)
+    const f = await mount('strip', { removable: false })
     expect(f.root.querySelector('[aria-label="移除引用"]')).toBeNull()
     expect(f.root.querySelector('pre')!.textContent).toBe(quote.text)
   })

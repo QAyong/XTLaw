@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { LocalChatApi } from '@buddy-electron/shared/localChatApi'
-import type { BuddyFileQuote, BuddyResourceQuote } from '@buddy-shared/conversation/buddyUserContent'
+import type { BuddyFileQuote } from '@buddy-shared/conversation/buddyUserContent'
 import type { LocalSpaceFilePreview } from '@buddy-shared/spaces/spaceFileApi'
 import type { WorkbenchView } from '@/workbench/common/workbench'
 import { spaceFileTargetSchema } from '@buddy-shared/spaces/spaceFileApi'
@@ -12,20 +12,12 @@ import { fileDocumentModes, isMarkdownFile, resolveFileDocumentMode } from '@/sh
 import DesktopFileLoading from '@/shared/ui/loading/DesktopFileLoading.vue'
 import ResourceSelectionQuoteMenu from '@/shared/ui/selection/ResourceSelectionQuoteMenu.vue'
 import { useResourceQuoteReveal } from '@/shared/ui/selection/useResourceQuoteReveal'
-import { useSelectionReferences } from '@/shared/ui/selection/workbenchSelectionReferences'
+import { useResourceSelectionQuote } from '@/shared/ui/selection/useResourceSelectionQuote'
 import { useWorkbench } from '@/workbench/browser/workbenchContext'
 
 const props = withDefaults(defineProps<{ view: WorkbenchView, files: LocalChatApi['spaces'], language: 'zh-CN' | 'en-US', writeClipboardText: (text: string) => Promise<void>, toolbarTarget?: HTMLElement | null, visible?: boolean }>(), { visible: true })
 const { labels, controller } = useWorkbench()
 const preview = shallowRef<LocalSpaceFilePreview | null>(null)
-const quoteMenu = useTemplateRef<InstanceType<typeof ResourceSelectionQuoteMenu>>('quoteMenu')
-const references = useSelectionReferences()
-function captureMonacoQuote(quote: BuddyResourceQuote) {
-  return quoteMenu.value?.captureMonaco(quote) ?? null
-}
-function prepareQuote(quote: BuddyResourceQuote, x: number, y: number) {
-  return quoteMenu.value?.prepare(quote, x, y) ?? null
-}
 const failed = shallowRef(false)
 const modes = computed(() => fileDocumentModes({ preview: preview.value?.kind === 'image' || (preview.value?.kind === 'text' && isMarkdownFile(props.view.title)), source: preview.value?.kind === 'text', edit: false }))
 const mode = computed({ get: () => resolveFileDocumentMode(props.view.state.mode, modes.value), set: value => controller.updateView(props.view.id, { state: { ...props.view.state, mode: value } }) })
@@ -38,6 +30,12 @@ const quoteSource = computed<BuddyFileQuote['source']>(() => ({
 const identity = computed(() => {
   const { scheme, id, data } = props.view.resource
   return JSON.stringify([scheme, id, data.spaceId, data.directoryId, data.revision, data.path])
+})
+const selection = useResourceSelectionQuote({
+  viewId: () => props.view.id,
+  ownerKey: () => JSON.stringify([props.view.id, identity.value, mode.value]),
+  visible: () => props.visible,
+  language: () => props.language,
 })
 const attempt = shallowRef(0)
 watch([identity, attempt], async (_, __, onCleanup) => {
@@ -91,8 +89,8 @@ function captureResource() {
     <DesktopDocumentContent
       v-else
       ref="document" :mode="mode" :name="view.title" :text="preview?.text" :image-url="preview?.imageUrl" :wrap="view.state.wrap !== false" :language="language" :write-clipboard-text="writeClipboardText"
-      :quote-source="references ? quoteSource : undefined" :prepare-quote="prepareQuote" :capture-monaco-quote="captureMonacoQuote" @scroll.capture="quoteMenu?.close()"
+      :quote-source="selection.enabled ? quoteSource : undefined" :prepare-quote="selection.prepare" @scroll.capture="selection.close"
     />
-    <ResourceSelectionQuoteMenu v-if="references" ref="quoteMenu" :view-id="view.id" :owner-key="`${view.id}:${identity}:${mode}`" :language="language" :visible="visible" />
+    <ResourceSelectionQuoteMenu v-if="selection.enabled" :selection="selection" :language="language" />
   </div>
 </template>

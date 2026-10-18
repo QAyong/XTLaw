@@ -35,6 +35,27 @@ test('file explorer preserves edits and undo through rename, rejects copy confli
   const tree = page.getByTestId('context-file-tree')
   const row = name => tree.locator(`[data-path="${name}"]`)
   await expect(row('README.md')).toBeVisible()
+  await row('README.md').click({ button: 'right', position: { x: 30, y: 10 } })
+  const menu = page.locator('.n-dropdown-menu:visible').filter({ hasText: '重命名' })
+  await expect(menu).toBeVisible()
+  const anchor = await menu.evaluateHandle((element) => {
+    const follower = element.closest('.v-binder-follower-content')
+    if (!follower)
+      throw new Error('Missing menu positioning surface')
+    const positions = [follower.style.transform]
+    const observer = new MutationObserver(() => positions.push(follower.style.transform))
+    observer.observe(follower, { attributes: true, attributeFilter: ['style'] })
+    return { positions, observer }
+  })
+  await row('README.md').click()
+  await expect(menu).toBeHidden()
+  const positions = await anchor.evaluate(({ positions, observer }) => {
+    observer.disconnect()
+    return positions
+  })
+  await anchor.dispose()
+  expect(positions[0]).toMatch(/translate/)
+  expect(new Set(positions).size).toBe(1)
   await page.getByTestId('context-panel-maximize').click()
   await row('src').click()
   await expect(row('src/000.ts')).toBeVisible()

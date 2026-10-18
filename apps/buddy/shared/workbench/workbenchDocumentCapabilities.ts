@@ -23,7 +23,7 @@ export const workbenchDocumentCapabilities = {
   'documents.writeBack': {
     title: { 'zh-CN': '写回当前文件', 'en-US': 'Write back the current file' },
     scope: 'resource',
-    description: 'permissions.selectedResourceWrite lets the view that opened a file save it with resources.saveFile({name,data,resource:context.resource}), at most 64 MiB. The host requires the whole file to have been read first, checks directory authorization, file version and content hash on every save, refuses to overwrite a file changed outside the plugin, and allows only the file of that view. Third-party plugins may declare it; the install review lists it. See document-processor.md.',
+    description: 'permissions.selectedResourceWrite lets the view that opened a file save it with resources.saveFile({name,data,resource:context.resource}), at most 64 MiB. The host requires the whole file to have been read first, checks directory authorization, file version and content hash on every save, refuses to overwrite a file changed outside the plugin, and allows only the file of that view. Third-party plugins may declare it; the install review marks it high risk. See document-processor.md.',
     since: '0.2.0',
     requires: 'apiVersion 4; permissions.selectedResourceWrite true; permissions.selectedResource "read"',
   },
@@ -42,11 +42,11 @@ export const workbenchDocumentCapabilities = {
     requires: 'permissions.resourceExport true',
   },
   'documents.webAssembly': {
-    title: { 'zh-CN': 'WebAssembly（仅内置/官方插件）', 'en-US': 'WebAssembly (bundled/official plugins only)' },
+    title: { 'zh-CN': 'WebAssembly（第三方有限额）', 'en-US': 'WebAssembly (limited for third parties)' },
     scope: 'resource',
-    description: 'permissions.webAssembly adds script-src wasm-unsafe-eval and blob: workers to the plugin view page only; JS eval stays forbidden and .wasm files must ship in the package. Only bundled/official plugins may declare it: the install review rejects other sources with EXTENSION_WEBASSEMBLY_RESTRICTED, except development directories. Resource limits and third-party access are not defined yet. See document-processor.md.',
+    description: 'permissions.webAssembly adds script-src wasm-unsafe-eval and blob: workers to the plugin view page only; JS eval stays forbidden and .wasm files must ship in the package. Any plugin may declare it. Plugins that are not bundled/official (and not a development directory) may ship at most 4 .wasm files, 24 MiB in total; the install review rejects more with EXTENSION_WEBASSEMBLY_LIMIT. Memory, CPU and worker counts are not enforced by the host, and the install review marks the permission high risk for third parties. See document-processor.md.',
     since: '0.2.3',
-    requires: 'permissions.webAssembly true; bundled/official plugin or development directory',
+    requires: 'permissions.webAssembly true; third-party packages: at most 4 .wasm files and 24 MiB in total',
   },
 } as const satisfies Record<string, DocumentCapabilityDefinition>
 

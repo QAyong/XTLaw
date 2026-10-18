@@ -15,7 +15,7 @@ import { ExtensionCompatibilityError, extensionCompatibilityIssue } from '../../
 import { addedExtensionPermissions, extensionIdSchema, extensionManifestSchema, extensionMetadataSchema } from '../../shared/extensions/extensionManifest'
 import { extensionConfigurationSchema, resolveExtensionConfiguration } from '../../shared/extensions/extensionSettings'
 import { EXTENSION_UNO_STYLESHEET } from '../../shared/extensions/extensionStyles'
-import { extensionMayUseWebAssembly } from '../../shared/extensions/extensionTrust'
+import { assertExtensionWebAssemblyLimits } from '../../shared/extensions/extensionTrust'
 import { spaceFileTargetSchema } from '../../shared/spaces/spaceFileApi'
 import { validateFileIconThemeFiles } from '../icons/fileIconThemeAssets'
 import { validateThemeFiles } from '../themes/themeAssets'
@@ -141,9 +141,9 @@ export class ExtensionPackageStore {
         throw error
       throw new Error('EXTENSION_MANIFEST_INVALID')
     }
-    // WebAssembly widens the view page's CSP, so only bundled/official plugins and development directories may ask for it.
-    if (manifest.permissions.webAssembly && !extensionMayUseWebAssembly({ development, source }))
-      throw new Error('EXTENSION_WEBASSEMBLY_RESTRICTED')
+    // WebAssembly widens the view page's CSP; plugins that did not ship with XTLaw may bring only a bounded amount of it.
+    if (manifest.permissions.webAssembly)
+      assertExtensionWebAssemblyLimits(files, { development, source })
     for (const entry of [manifest.entry, ...manifest.contributes.views.map(view => view.entry)]) {
       if (entry && (!files.has(entry) || !(manifest.format === 'source' ? /\.m?[jt]s$/.test(entry) : /\.m?js$/.test(entry))))
         throw new Error('EXTENSION_ENTRY_MISSING')

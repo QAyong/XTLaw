@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ExtensionReview } from '@buddy-shared/extensions/extensionApi'
+import { extensionIsBundled } from '@buddy-shared/extensions/extensionTrust'
 import { Alert20Regular, Clock20Regular, Document20Regular, Globe20Regular } from '@vicons/fluent'
 import { NButton, NCheckbox, NEllipsis, NModal } from 'naive-ui'
 import { computed, shallowRef } from 'vue'
@@ -34,6 +35,16 @@ const permissions = computed(() => {
     ...permissions.network.map(origin => ({ key: `network:${origin}`, icon: Globe20Regular, title: `${labels.value.network} ${origin}`, description: english.value ? 'Send requests to this website and read its responses.' : '向此网站发送请求并读取响应。' })),
   ]
 })
+// Plugins that did not ship with XTLaw get a plain warning for the permissions that change files or run compiled code.
+function riskWarning(key: string): string | null {
+  if (extensionIsBundled(props.review.source))
+    return null
+  if (key === 'selectedResourceWrite')
+    return english.value ? 'This plugin can overwrite the files it opens. Install it only if you trust its author.' : '此插件可以覆盖它所打开的文件。只有信任作者时才安装。'
+  if (key === 'webAssembly')
+    return english.value ? 'This plugin runs compiled code that may use a lot of memory and CPU while its page is open.' : '此插件会运行编译代码，打开页面期间可能占用较多内存和处理器。'
+  return null
+}
 function isNewPermission(key: string): boolean {
   return key === 'controls'
     ? props.review.addedPermissions.some(permission => permission.startsWith('controls:'))
@@ -84,8 +95,12 @@ const sharesContent = computed(() => (props.review.manifest.permissions.selected
             <div class="extension-install-review__permission-title">
               <span>{{ permission.title }}</span>
               <span v-if="review.currentVersion && isNewPermission(permission.key)" class="extension-install-review__new">{{ english ? 'New' : '新增' }}</span>
+              <span v-if="riskWarning(permission.key)" class="extension-install-review__risk" data-testid="extension-permission-risk">{{ english ? 'High risk' : '高风险' }}</span>
             </div>
             <p>{{ permission.description }}</p>
+            <p v-if="riskWarning(permission.key)" class="extension-install-review__risk-text">
+              {{ riskWarning(permission.key) }}
+            </p>
           </div>
         </li>
       </ul>
@@ -156,6 +171,8 @@ const sharesContent = computed(() => (props.review.manifest.permissions.selected
 .extension-install-review__permission-title { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--buddy-text-primary); font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
 .extension-install-review__permissions li p { margin: 2px 0 0; color: var(--buddy-text-secondary); font-size: 12px; line-height: 1.6; }
 .extension-install-review__new { padding: 0 5px; border-radius: 4px; color: var(--buddy-nav-foreground); background: var(--buddy-nav-selected); font-size: 11px; }
+.extension-install-review__risk { padding: 0 5px; border-radius: 4px; color: var(--buddy-status-danger-text); background: var(--buddy-status-danger-surface); font-size: 11px; }
+.extension-install-review__permissions li p.extension-install-review__risk-text { color: var(--buddy-status-danger-text); }
 .extension-install-review__muted { margin: 0; color: var(--buddy-text-secondary); font-size: 12px; line-height: 1.6; }
 .extension-install-review__unchanged { margin-top: 12px; }
 .extension-install-review__dependencies { margin-top: 24px; }

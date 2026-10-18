@@ -2,7 +2,6 @@ import type { Session } from 'electron'
 import { rm } from 'node:fs/promises'
 import { afterEach, expect, it } from 'vitest'
 import { createStore, manifest, reviewPackage } from '../../../../platform/extensions/__tests__/fixtures'
-import { BUNDLED_EXTENSION_CATALOG_URL } from '../../../../shared/extensions/extensionCatalog'
 import { ExtensionProtocol } from '../ExtensionProtocol'
 
 const roots: string[] = []
@@ -43,12 +42,11 @@ it('serves verified package media with range semantics and invalidates disposed 
   expect((await respond(new Request(url))).status).toBe(403)
 })
 
-const bundled = { catalog: BUNDLED_EXTENSION_CATALOG_URL, artifact: `${BUNDLED_EXTENSION_CATALOG_URL}/tests.lexora-extension`, sha256: 'a'.repeat(64) }
 async function viewResponder(permissions: { webAssembly?: boolean }, kind: 'host' | 'view' = 'view') {
   const { root, store } = await createStore()
   roots.push(root)
   const input = manifest({ permissions: { selectedResource: 'read', network: [], ...permissions } })
-  await store.install((await reviewPackage(root, store, input, { 'engine.wasm': '\0asm' }, bundled)).token)
+  await store.install((await reviewPackage(root, store, input, { 'engine.wasm': '\0asm' })).token)
   const protocol = new ExtensionProtocol(store)
   const endpoint = protocol.register(store.installed['tests.reader']!.current, kind)
   let respond!: (request: Request) => Promise<Response>
@@ -76,24 +74,6 @@ it('opens WebAssembly and workers for views of extensions that declare webAssemb
   expect(csp).toContain('sandbox allow-scripts allow-forms')
   const wasm = await respond(new Request(new URL('/__package/engine.wasm', endpoint.url)))
   expect(wasm.headers.get('content-type')).toBe('application/wasm')
-})
-
-it('does not open WebAssembly for a package that declares it but is not from a trusted origin', async () => {
-  const { root, store } = await createStore()
-  roots.push(root)
-  const input = manifest({ permissions: { selectedResource: 'read', webAssembly: true } })
-  await store.install((await reviewPackage(root, store, input, { 'engine.wasm': '\0asm' }, bundled)).token)
-  // A record whose recorded origin is not trusted (for example an index edited by hand) must not keep the wider CSP.
-  const current = store.installed['tests.reader']!.current
-  const protocol = new ExtensionProtocol(store)
-  const endpoint = protocol.register({ ...current, source: { catalog: 'https://example.com/catalog.json', artifact: 'https://example.com/a.lexora-extension', sha256: 'b'.repeat(64) } }, 'view')
-  let respond!: (request: Request) => Promise<Response>
-  protocol.install({ protocol: { handle: (_scheme: string, handler: typeof respond) => {
-    respond = handler
-  } } } as unknown as Session, 'view')
-  const csp = (await respond(new Request(new URL('/__view.html', endpoint.url)))).headers.get('content-security-policy')!
-  expect(csp).not.toContain('wasm-unsafe-eval')
-  expect(csp).toContain('worker-src \'none\'')
 })
 
 it('never opens WebAssembly for the extension host page', async () => {

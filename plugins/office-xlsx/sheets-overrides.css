@@ -89,3 +89,8 @@ button:has(.ai-feature-icon) { display: none !important; }
 
 /* Quick-access buttons: Save As is Ctrl+Shift+S only (like DOCX and PPTX the toolbar keeps Save, Undo and Redo). */
 .excel-header .ribbon-tabs > .qa-btn[aria-label^='另存为'], .excel-header .ribbon-tabs > .qa-btn[aria-label^='Save As'] { display: none; }
+
+/* Paste and Paste Special both show a clipboard glyph and are indistinguishable without labels: Paste Special keeps its label, beside the icon. */
+.excel-header .ribbon-group.pi-office-clipboard-group .ribbon-tool.large:has(.menu-select-cover) { flex-direction: row; align-items: center; gap: 4px; padding: 1px 6px 1px 5px; }
+.excel-header .ribbon-group.pi-office-clipboard-group .ribbon-tool.large:has(.menu-select-cover) > span:not(.tool-icon-row) { position: static; width: auto; height: auto; margin: 0; overflow: visible; clip-path: none; }
+.excel-header .ribbon-group.pi-office-clipboard-group .ribbon-tool.large:has(.menu-select-cover) > span:not(.tool-icon-row) strong { font-size: 12px; }

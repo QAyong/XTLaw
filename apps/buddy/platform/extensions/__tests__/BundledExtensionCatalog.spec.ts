@@ -132,9 +132,9 @@ it('packages and preinstalls the actual Office plugin with its view, icon and li
   const statuses = await service.list()
   const status = statuses.find(item => item.manifest.name === 'Office DOCX')
   expect(statuses.map(item => item.manifest.name).sort()).toEqual(['Office DOCX', 'Office PPTX', 'Office XLSX'])
-  expect(status).toMatchObject({ enabled: true, compatible: true, manifest: { name: 'Office DOCX', author: 'XTLaw官方', version: '0.1.2', apiVersion: 4 } })
-  expect(statuses.find(item => item.manifest.name === 'Office PPTX')).toMatchObject({ enabled: true, compatible: true, manifest: { author: 'XTLaw官方', version: '0.4.4', apiVersion: 4 } })
-  expect(statuses.find(item => item.manifest.name === 'Office XLSX')).toMatchObject({ enabled: true, compatible: true, manifest: { author: 'XTLaw官方', version: '0.3.0', apiVersion: 4 } })
+  expect(status).toMatchObject({ enabled: true, compatible: true, manifest: { name: 'Office DOCX', author: 'XTLaw官方', version: '0.1.6', apiVersion: 4 } })
+  expect(statuses.find(item => item.manifest.name === 'Office PPTX')).toMatchObject({ enabled: true, compatible: true, manifest: { author: 'XTLaw官方', version: '0.4.8', apiVersion: 4 } })
+  expect(statuses.find(item => item.manifest.name === 'Office XLSX')).toMatchObject({ enabled: true, compatible: true, manifest: { author: 'XTLaw官方', version: '0.3.2', apiVersion: 4 } })
   const pkg = store.installed[status!.manifest.id]!.current
   for (const file of ['view.js', 'icon.svg', 'LICENSE', 'LICENSE-OFL.txt', 'LICENSE-UNICODE.txt', 'provenance.json'])
     expect((await store.asset(pkg, file)).length).toBeGreaterThan(0)

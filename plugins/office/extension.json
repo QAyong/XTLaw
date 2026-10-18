@@ -5,7 +5,7 @@
   "name": "Office DOCX",
   "author": "XTLaw官方",
   "description": "点击文件管理器中的 DOCX 即可预览和编辑，通过编辑器原有保存按钮保存当前文件，不包含 PDF。",
-  "version": "0.1.2",
+  "version": "0.1.6",
   "icon": "icon.svg",
   "categories": ["办公"],
   "tags": ["DOCX", "Word", "文档编辑"],

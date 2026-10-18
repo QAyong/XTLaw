@@ -1,6 +1,6 @@
 # Office XLSX 插件：Sheets 编辑器移植（阶段三：编辑、保存、另存为与引用到聊天）
 
-**版本：** 0.3.0（XTLaw 预装插件）。0.2.3 → 0.3.0 是次版本递增：新增两项用户可见能力和两项权限（`composerReference`、`resourceExport`），编辑器与引擎产物（wasm、Worker、字体、Univer 运行时块）未变。
+**版本：** 0.3.2（XTLaw 预装插件）。开发数据里曾手工安装过更高的 0.3.1，版本号提到 0.3.2 以便市场识别为更新；0.3.0 为同一功能集。0.2.3 → 0.3.0 是次版本递增：新增两项用户可见能力和两项权限（`composerReference`、`resourceExport`），编辑器与引擎产物（wasm、Worker、字体、Univer 运行时块）未变。
 
 ## 当前状态
 

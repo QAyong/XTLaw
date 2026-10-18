@@ -30,7 +30,7 @@ export const workbenchDocumentCapabilities = {
   'documents.reference': {
     title: { 'zh-CN': '选区引用到聊天', 'en-US': 'Selection reference to chat' },
     scope: 'resource',
-    description: 'permissions.composerReference lets the view call context.composer.captureQuote(resource,{text,kind,location}) then addQuote(id,targetId). text is at most 32768 characters; kind matches ^[a-z][a-z0-9-]{0,31}$; location is plain JSON of at most 4096 bytes, 4 levels, 32 keys, 64 items per array and 512 characters per string. The host adds the plugin ID, accepts only files the view accepts, and reopens the file in the same plugin when the quote card is clicked. The model sees the text, the file and the kind, never the location. DOCX/PPTX {indexes,from,to} and XLSX {cells} remain accepted. See document-processor.md.',
+    description: 'permissions.composerReference lets the view call context.composer.captureQuote(resource,{text,kind,location}) then addQuote(id,targetId). text is at most 32768 characters; kind matches ^[a-z][a-z0-9-]{0,31}$; location is plain JSON of at most 4096 bytes, 4 levels, 32 keys, 64 items per array and 512 characters per string. The host adds the plugin ID, accepts only files the view accepts, and reopens the file in the same plugin when the quote card is clicked (the stored kind and location are not handed back to the view yet). The model sees the text, the file and the kind, never the location. DOCX/PPTX {indexes,from,to} and XLSX {cells} remain accepted. See document-processor.md.',
     since: '0.2.0',
     requires: 'apiVersion 4; permissions.composerReference true; permissions.selectedResource "read"; the generic extension quote format needs XTLaw 0.2.3',
   },

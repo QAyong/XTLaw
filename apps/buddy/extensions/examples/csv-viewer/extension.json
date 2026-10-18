@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "format": "compiled",
+  "id": "pa7c3e1d09b2f4c5e8a6d2f4b1c9e7a35.csv-viewer",
+  "name": "CSV Viewer",
+  "author": "XTLaw Examples",
+  "description": "示例：只读查看 CSV，选中单元格引用到聊天。演示文档处理器契约。",
+  "version": "0.1.0",
+  "icon": "icon.svg",
+  "categories": ["示例"],
+  "tags": ["CSV", "示例"],
+  "apiVersion": 4,
+  "engines": { "lexora": ">=0.2.3 <1.0.0" },
+  "permissions": { "selectedResource": "read", "composerReference": true },
+  "contributes": {
+    "views": [
+      { "id": "pa7c3e1d09b2f4c5e8a6d2f4b1c9e7a35.csv-viewer.document", "title": "CSV Viewer", "entry": "view.js", "resource": "selected-file", "accepts": { "extensions": ["csv"] }, "location": "context" }
+    ]
+  }
+}

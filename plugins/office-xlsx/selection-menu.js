@@ -55,9 +55,13 @@ export function installSelectionMenu(context) {
   let submenus = []
   // Listeners put on the (possibly reused) menu elements end with the menu they were added for.
   let menuListeners = new AbortController()
+  let menuObservers = []
   function reset() {
     menuListeners.abort()
     menuListeners = new AbortController()
+    for (const observer of menuObservers)
+      observer.disconnect()
+    menuObservers = []
     sequence++
     candidate = null
     nativeMenu = null
@@ -152,6 +156,26 @@ export function installSelectionMenu(context) {
     // The menu is a fixed-position popup: place the submenu relative to it so it follows the menu.
     submenu.style.left = `${Math.max(8, left) - owner.left}px`
     submenu.style.top = `${top - owner.top}px`
+  }
+  // Univer places its popup from the size it measured before our changes (the added group makes it taller), so near the bottom of a
+  // short window the end of the menu would be cut off. Keep the popup inside the window, and let the box scroll when it cannot fit.
+  function fit(menu) {
+    const box = menu.firstElementChild?.firstElementChild
+    // Layout size and the style position: the bounding box is scaled while the popup animates in.
+    const height = menu.offsetHeight
+    const top = Number.parseFloat(menu.style.top)
+    // Still being measured off screen.
+    if (!box || !height || !Number.isFinite(top) || top < -1000)
+      return
+    const margin = 8
+    const room = window.innerHeight - margin * 2
+    if (height > room + 1) {
+      box.style.maxHeight = `${room}px`
+      menu.style.top = `${margin}px`
+    }
+    else if (top + height > window.innerHeight - margin + 1 || top < margin - 1) {
+      menu.style.top = `${Math.max(margin, window.innerHeight - margin - height)}px`
+    }
   }
   // Turns an entry row into a submenu parent. Lines are { label, title?, disabled?, pick }.
   function attachSubmenu(menu, wrapper, row, ariaLabel, lines) {
@@ -297,9 +321,12 @@ export function installSelectionMenu(context) {
           void capture(snapshot, request, group, row, wrapper, menu)
       }
     }
-    const bounds = menu.getBoundingClientRect()
-    if (bounds.bottom > window.innerHeight - 8)
-      menu.style.top = `${Math.max(8, window.innerHeight - bounds.height - 8)}px`
+    // Univer positions the popup after it is measured and again when it settles: fit it every time its place or size changes.
+    fit(menu)
+    const watchers = [new MutationObserver(() => fit(menu)), new ResizeObserver(() => fit(menu))]
+    watchers[0].observe(menu, { attributes: true, attributeFilter: ['style', 'class'] })
+    watchers[1].observe(menu)
+    menuObservers.push(...watchers)
   }
   async function capture(snapshot, request, group, row, wrapper, menu) {
     try {

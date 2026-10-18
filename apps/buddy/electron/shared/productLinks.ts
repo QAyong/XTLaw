@@ -2,6 +2,7 @@ import buddyPackage from '../../package.json'
 
 const repositoryUrl = new URL(buddyPackage.repository.url.replace(/^git\+/, '').replace(/\.git$/, ''))
 
+export const REPOSITORY_URL = repositoryUrl.href
 // XTLaw release tags are `xtlaw-v<version>`, keeping them apart from the source tags.
 export const RELEASE_TAG_PREFIX = 'xtlaw-v'
 export const releaseTagUrl = (version: string) => `${repositoryUrl.href}/releases/tag/${RELEASE_TAG_PREFIX}${version}`

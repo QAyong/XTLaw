@@ -48,8 +48,8 @@
 
 ```js
 const capture = await context.composer.captureQuote(context.resource, {
-  text: '选中的文字',          // 1–32768 个 UTF-16 字符，不能全是空白
-  kind: 'range',               // 插件自定义位置类型，^[a-z][a-z0-9-]{0,31}$
+  text: '选中的文字', // 1–32768 个 UTF-16 字符，不能全是空白
+  kind: 'range', // 插件自定义位置类型，^[a-z][a-z0-9-]{0,31}$
   location: { sheet: 'A', rows: [3, 5] }, // 受限 JSON
 })
 // capture: { id, defaultId, targets: [{ id, label }] }

@@ -29,6 +29,7 @@ import { WorkingCopyService } from '@/workbench/services/WorkingCopyService'
 import { ActiveTaskProjection } from './ActiveTaskProjection'
 import { ContextTabProjection } from './ContextTabProjection'
 import { createDesktopSelectionReferences } from './createDesktopSelectionReferences'
+import { isExtensionDocument } from './extensionDocuments'
 import { absolute, contains, FileOperationService } from './FileOperationService'
 import { registerDesktopContributions } from './registerDesktopContributions'
 import { restoreTaskInputViews } from './restoreTaskInputViews'
@@ -401,9 +402,9 @@ export function useDesktopWorkbench(options: { buddyCatalog?: Readonly<Ref<Buddy
   async function createFile(target: SpaceFileTarget, tabId?: string, current: () => boolean = () => true) {
     if (!current())
       return null
-    const docx = /\.docx$/i.test(target.path)
+    const extensionDocument = isExtensionDocument(target.path)
     const openDocument = async (fallback: string | null) => {
-      if (!docx || !fallback)
+      if (!extensionDocument || !fallback)
         return fallback
       const existing = Object.values(controller.layout.views).find(view => view.resource.scheme === 'extension' && controller.registry.views.has(view.type)
         && JSON.stringify(view.resource.data.fileTarget) === JSON.stringify(target))
@@ -428,7 +429,7 @@ export function useDesktopWorkbench(options: { buddyCatalog?: Readonly<Ref<Buddy
     let resource: ResourceRef = { scheme: 'file', id: JSON.stringify([target.directoryId, target.revision, target.path]), data: { ...target, canonicalRoot: fileOperations.root(target) } }
     const release = resourceLifetime.acquire(resource)
     try {
-      if (docx) {
+      if (extensionDocument) {
         resource = { ...resource, scheme: 'file-preview' }
       }
       else {

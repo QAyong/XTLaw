@@ -13,6 +13,7 @@ import WorkbenchLayoutNode from '@/workbench/browser/WorkbenchLayoutNode.vue'
 import WorkbenchSurface from '@/workbench/browser/WorkbenchSurface.vue'
 import DesktopSidebarFooter from '../shell/DesktopSidebarFooter.vue'
 import DesktopDirectoryFileSurface from './DesktopDirectoryFileSurface.vue'
+import { isExtensionDocument } from './extensionDocuments'
 
 const props = defineProps<{ bindings: DesktopShellBindings, tasksVisible: boolean, contextOnLeft: boolean, chatPaneHidden: boolean }>()
 const emit = defineEmits<{ toggleContextMaximize: [] }>()
@@ -30,14 +31,14 @@ const selectedFile = computed(() => {
   void revision.value
   return fileTab.value ? props.bindings.workbench.fileView(fileTab.value.target, fileTab.value.id) : null
 })
-const docxSelections = new Map<string, unknown>()
+const documentSelections = new Map<string, unknown>()
 watch(() => fileTab.value?.target, (target) => {
   if (target?.path && fileTab.value) {
-    if (/\.docx$/i.test(target.path)) {
+    if (isExtensionDocument(target.path)) {
       // Returning to the file-manager tab must not jump back to the editor.
-      if (docxSelections.get(fileTab.value.id) === target)
+      if (documentSelections.get(fileTab.value.id) === target)
         return
-      docxSelections.set(fileTab.value.id, target)
+      documentSelections.set(fileTab.value.id, target)
     }
     void props.bindings.workbench.openFile({ ...target }, fileTab.value.id)
   }

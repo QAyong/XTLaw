@@ -11,12 +11,16 @@ export function installSelectionMenu(context) {
   const copy = () => context.environment.language.startsWith('zh')
     ? { quote: '引用到聊天', loading: '正在读取目标聊天…', adding: '正在加入引用…', unavailable: '对话或文档已变化，请重新选中单元格。', noTarget: '请先打开聊天输入框', limit: '引用内容过多（最多 20000 个字符），请缩小选区或减少已有引用。', failed: '无法加入引用，请重新选择后重试。', multiple: '请只选中一个连续区域后再引用。', notLoaded: '选区超出已载入的范围（大表只能引用屏幕附近的单元格），请稍后重试或缩小选区。' }
     : { quote: 'Quote to chat', loading: 'Loading chat targets…', adding: 'Adding quote…', unavailable: 'The chat or document changed. Select the cells again.', noTarget: 'Open a chat input first', limit: 'Too much content (20,000 characters at most). Select a smaller range or remove existing quotes.', failed: 'Could not add the quote. Select the cells and retry.', multiple: 'Select a single continuous range to quote.', notLoaded: 'The selection is outside the loaded data (in a large sheet only cells near the screen can be quoted). Retry shortly or select a smaller range.' }
+  // The submenu lives in the popup section (the scrolling box inside it would clip it), outside the entry.
+  let submenuElement = null
   function reset() {
     sequence++
     candidate = null
     nativeMenu = null
     entry?.remove()
     entry = null
+    submenuElement?.remove()
+    submenuElement = null
   }
   const control = request => window.__genofficeControl?.(request)
   const selectionKey = () => {
@@ -174,7 +178,8 @@ export function installSelectionMenu(context) {
       const submenu = document.createElement('div')
       submenu.setAttribute('role', 'menu')
       submenu.setAttribute('aria-label', copy().quote)
-      submenu.hidden = true
+      // Not the hidden attribute: the menu box classes set display, which would override it.
+      submenu.style.display = 'none'
       submenu.style.position = 'absolute'
       submenu.style.zIndex = '1'
       // Same look as the editor's own menu box.
@@ -186,25 +191,32 @@ export function installSelectionMenu(context) {
         const { wrapper: line, element: button } = item(menu.firstElementChild.firstElementChild, target.label)
         button.title = target.label
         button.addEventListener('click', () => {
-          submenu.hidden = true
-          row.setAttribute('aria-expanded', 'false')
+          hide()
           void add(snapshot, result, target.id, row)
         })
         submenu.append(line)
       }
       // The popup section does not clip (overflow: visible), unlike the scrolling box inside it.
       menu.append(submenu)
+      submenuElement = submenu
       const show = () => {
         if (row.disabled)
           return
-        submenu.hidden = false
+        submenu.style.display = 'grid'
         row.setAttribute('aria-expanded', 'true')
         positionSubmenu(submenu, menu, row)
       }
-      const hide = () => {
-        submenu.hidden = true
+      function hide() {
+        submenu.style.display = 'none'
         row.setAttribute('aria-expanded', 'false')
       }
+      // Only the entry and its own list keep the list open: hovering any other item (which may open the editor's own
+      // submenu, such as Sort) or scrolling the menu closes it.
+      menu.addEventListener('mouseover', (event) => {
+        if (!wrapper.contains(event.target) && !submenu.contains(event.target))
+          hide()
+      })
+      menu.firstElementChild.firstElementChild.addEventListener('scroll', hide, { passive: true })
       row.addEventListener('click', show)
       wrapper.addEventListener('mouseenter', show)
       submenu.addEventListener('mouseenter', show)

@@ -1,7 +1,7 @@
 # Feature-033：文档插件统一契约
 
 **日期：** 2026-10-18
-**状态：** 第一、二步实现中（契约文档、本体去掉写死）；第三、四步未开始
+**状态：** 第一、二步已实现，待用户验收；第三、四步未开始
 
 ## 目标
 
@@ -53,6 +53,16 @@
 - PPTX 的 `localResources`：只有回退用的只读预览 `preview.js` 调用了 `pickFiles`，编辑器 `view.js` 没有。是否去掉，留给第三步。
 - 上游发布自己的 API 4 时，本地 `apiVersion` 数值需要重新协调；能力名保持不变。
 
-## 与上游同步的冲突点
+## 第二步落地的文件
 
-见第二步汇报与集成记录；原则是新逻辑放进新增文件，对上游已有文件只做小范围替换。
+新增：`shared/extensions/extensionFileHandlers.ts`（匹配函数）、`extensionTrust.ts`（内置/官方判定）、`shared/conversation/extensionQuoteLocation.ts`（受限 JSON）、`shared/workbench/workbenchDocumentCapabilities.ts`（能力登记）、`platform/extensions/legacyOfficeQuote.ts`（旧三种引用形状）、`packaging/buddy/release/bundled-plugins.mjs`（打包发现）。
+
+## 与上游同步的冲突点（上游已有、本地做了小改的文件）
+
+`ExtensionService.ts`（openFile 与引用捕获）、`ExtensionPackageStore.ts`（+4 行）、`ExtensionProtocol.ts`（CSP 条件）、`buddyUserContent.ts`、`buddyResourceQuoteText.ts`、`extensionApi.ts`、`extensionManifest.ts`（校验与升级对比改读登记）、`extensionAuthoring.ts`、`workbenchContributionCatalog.ts`（一行展开）、`useDesktopWorkbench.ts`、`DesktopWorkbenchArea.vue`、`createDesktopSelectionReferences.ts`、`platform-definition.mjs`，以及插件创作文档 `protocol.md`、`capabilities.md`、`api.d.ts`。原则是新逻辑放进新增文件，对上游已有文件只做小范围替换。
+
+## 已知风险
+
+- 开发目录加载（`development`）仍可声明 `webAssembly`：用户在插件管理里选择开发目录即可，视为作者本人的主动操作；第三步评估是否仅在开发构建中开放。
+- `buildExtensionPackage`（创作用的构建）不检查 `webAssembly` 来源限制，要到安装审查才报错。
+- 渲染层缓存已安装插件的 `accepts`，插件变化后靠 `onChanged` 刷新；刷新期间的一瞬间仍按旧结果判断。

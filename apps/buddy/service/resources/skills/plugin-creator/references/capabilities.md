@@ -8,6 +8,7 @@
 | 输入提交、对话成功完成或任务菜单点击后执行 | API 3；contributes.agent.actions，见 [任务动作事件](events.md#任务动作事件) 与 [Agent 与设置](agent-settings.md) | 独立调用绑定原任务；正文需要 taskMessages 权限，标题更新由宿主保护并发修改 |
 | 在原生设置页追加模块、分组或单项 | API 3；contributes.settings，见 [Agent 与设置](agent-settings.md) | 宿主保存配置并渲染控件；插件读取 configuration，不另存设置 |
 | 对当前文件提供阅读、统计或专用展示 | `selectedResource: "read"`；`resource: "selected-file"` 的视图；宿主可见命令将收到的 `resource` 传给 `views.open`，视图用 `resources.readText(context.resource)` 读取 | 用户先打开文件，再执行插件命令。句柄不包含任意路径，每次打开是独立实例；不能枚举目录、读其他视图的文件或写回文件 |
+| 接管一种文件格式（编辑、保存、引用到聊天） | API 4；视图 `accepts.extensions`、`selectedResource: "read"`，按需 `selectedResourceWrite`、`composerReference`、`resourceExport`，见 [文档处理器契约](document-processor.md) | 以 `documents.*` 能力名查询宿主是否支持（`lexora_plugin_capabilities` 的 `runtime`）；多个插件接管同一扩展名时留在内置预览；写回检查文件版本和哈希，不覆盖外部修改；`webAssembly` 仅内置/官方插件 |
 | 输入 `/插件名:命令` 执行插件动作 | API 3 命令声明 `slash`，并在 `activate` 注册处理函数；见 [注册命令](commands.md) | 精确匹配，包内校验注册，跨插件命名空间隔离，不请求模型 |
 | 需要真实分屏布局或临时覆盖交互 | API 3；见 [交互会话](interactions.md) | 订阅布局；稀疏点击区域或独占交互；宿主提供独立退出入口 |
 | 执行一次动作，无需常驻页面 | 宿主 `activate` 注册 `contributes.commands` 中的命令 | 可见命令进入命令面板和已安装插件卡片的“运行命令”菜单；命令收到的 `resource` 可能为空。只供自己视图调用的命令设为 `hidden: true` |

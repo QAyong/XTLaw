@@ -231,7 +231,11 @@ export interface ViewContext {
   readonly network: NetworkApi
   readonly commands: { execute: (command: string, args?: Json) => Promise<Json> }
   readonly composer: {
-    captureQuote: (resource: Resource, selection: { text: string, indexes: number[], from: number, to: number } | { text: string, cells: { sheetIndex: number, sheet: string, range: string } }) => Promise<{ id: string, defaultId: string | null, targets: { id: string, label: string }[] }>
+    /**
+     * Generic form: kind (^[a-z][a-z0-9-]{0,31}$) and location (bounded JSON, at most 4096 bytes UTF-8, depth 4, 32 keys) are plugin-defined;
+     * the host adds the plugin ID. The indexes/cells forms are retained for DOCX/PPTX/XLSX. See document-processor.md.
+     */
+    captureQuote: (resource: Resource, selection: { text: string, kind: string, location: Json } | { text: string, indexes: number[], from: number, to: number } | { text: string, cells: { sheetIndex: number, sheet: string, range: string } }) => Promise<{ id: string, defaultId: string | null, targets: { id: string, label: string }[] }>
     addQuote: (id: string, targetId: string) => Promise<'added' | 'duplicate' | 'limit' | 'unavailable'>
   }
   setPresentation: (presentation: ViewPresentation) => Promise<void>

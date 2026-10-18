@@ -70,11 +70,11 @@
 | `schedules: true` | 宿主持久间隔任务，需要宿主入口与已声明命令 |
 | `selectedResource: "read"` | 读取用户选择并明确分配的文件资源 |
 | `selectedResourceWrite: true` | API 4；独立授权普通文件视图保存当前已读文件，需 selectedResource 读取权限，宿主检查授权与版本冲突 |
-| `composerReference: true` | API 4；将当前 DOCX、PPTX 或 XLSX 的选区快照加入用户选择的聊天草稿，不读取草稿正文或发送消息，需要 selectedResource 读取权限 |
+| `composerReference: true` | API 4；将插件接管的文件的选区快照加入用户选择的聊天草稿，不读取草稿正文或发送消息，需要 selectedResource 读取权限；通用格式见 [文档处理器契约](document-processor.md#3-引用到聊天) |
 | `selectedContent: true` | API 3；用户点击插件操作时获取当前草稿或该条消息文本，不订阅输入或读取对话历史 |
 | `localResources: true` | 用户通过系统窗口选择文件或目录，视图读取文本、二进制或受控 URL |
 | `resourceExport: true` | 用户通过系统另存为窗口确认目标后，保存插件提供的字节 |
-| `webAssembly: true` | 仅对插件视图放开 `'wasm-unsafe-eval'`（允许编译插件包内 `.wasm`，仍禁止 JS eval）和 Worker（`worker-src` 为插件包路径加 `blob:`：沙箱视图是不透明源，不能按 URL 加载 Worker 脚本，需从 blob 启动）；`.wasm` 以 `application/wasm` 提供；安装时单独提示用户；宿主页（extension.js）不受影响 |
+| `webAssembly: true` | 仅对插件视图放开 `'wasm-unsafe-eval'`（允许编译插件包内 `.wasm`，仍禁止 JS eval）和 Worker（`worker-src` 为插件包路径加 `blob:`：沙箱视图是不透明源，不能按 URL 加载 Worker 脚本，需从 blob 启动）；`.wasm` 以 `application/wasm` 提供；安装时单独提示用户；宿主页（extension.js）不受影响；**仅内置/官方插件可用**，其他来源安装时被拒绝（开发目录加载除外），见 [文档处理器契约](document-processor.md#4-webassembly) |
 | `network: ["https://example.com"]` | 通过宿主向列出的 HTTPS origin 发 GET 请求、下载文件或打开外链 |
 
 未声明权限默认为关闭。视图无法访问 Node、宿主 DOM、全局键盘、网络 fetch 或任意本地文件。资源和网络调用通过 API；用户在安装确认中查看权限。没有一般性消息订阅、系统剪贴板或屏幕截图接口。
@@ -246,11 +246,13 @@ context.subscriptions.add(context.commands.register(`${context.extension.id}.ope
 
 该视图声明 `resource: "selected-file"`，插件声明 `selectedResource: "read"`；视图从 `context.resource` 取得同一资源，通过 `resources.readText` 读取。句柄不是文件路径。
 
-API 4 的 `selected-file`、`context` 视图可声明 `accepts: { "extensions": ["docx"] }`。文件管理器点击 DOCX 时，宿主在已启用且兼容的插件中选择唯一匹配视图，并将当前文件的只读句柄作为 `context.resource` 传入；没有匹配或存在多个匹配时保留普通预览。此句柄可通过 `resources.readBytes(context.resource,{offset,length})` 分段读取，单次最多 128 KiB、文件最多 64 MiB。每次读取重新检查目录授权，读取期间文件变化则失败；句柄仅供本视图读取，不能用来写回原文件。API 1–3 的选中文件接口仍只支持文本。使用系统选择器取得的本地文件句柄仍沿用 `localResources` 权限。
+文件格式接管、读取、写回、引用与 WebAssembly 的完整契约（限制、错误处理和版本承诺）见 [文档处理器契约](document-processor.md)；这些是 XTLaw 扩展能力，按能力名而非 `apiVersion` 数字判断。
+
+API 4 的 `selected-file`、`context` 视图可声明 `accepts: { "extensions": ["docx"] }`。文件管理器点击 DOCX 时，宿主在已启用且兼容的插件中选择唯一匹配视图，并将当前文件的只读句柄作为 `context.resource` 传入；没有匹配或存在多个匹配（含同一插件的多个视图）时保留普通预览。此句柄可通过 `resources.readBytes(context.resource,{offset,length})` 分段读取，单次最多 128 KiB、文件最多 64 MiB。每次读取重新检查目录授权，读取期间文件变化则失败；句柄仅供本视图读取，不能用来写回原文件。API 1–3 的选中文件接口仍只支持文本。使用系统选择器取得的本地文件句柄仍沿用 `localResources` 权限。
 
 API 4 插件另外声明 `selectedResourceWrite: true` 后，该普通文件视图可用 `resources.saveFile({name,data,resource:context.resource})` 保存当前文件（最多 64 MiB）。宿主使用同一视图的已读文件版本检查冲突、逐次检查目录授权，并通过原生文件写入组件替换文件；文件在外部变化时拒绝保存。句柄不能用于保存其他文件或其他视图的文件。省略 `resource` 则仍要求 `resourceExport` 权限，并弹出系统另存为窗口。
 
-API 4 的 selected-file 普通 DOCX 视图声明 `composerReference: true` 后，可调用 `context.composer.captureQuote(context.resource,{text,indexes,from,to})`。`indexes` 是最多 64 个 DOCX 正文块索引，`from/to` 是编辑器位置；文字最多 32768 个 UTF-16 字符。XLSX 视图改传 `{text,cells:{sheetIndex,sheet,range}}`（`sheetIndex` 为 0 起的工作表序号，`sheet` 为工作表名，`range` 为 A1 地址，如 `B3:D5`；`text` 是区域内的显示值，行内制表符分隔、行间换行），不传 `indexes/from/to`；`cells` 只用于 `.xlsx`，文本区间只用于 DOCX/PPTX，类型不符宿主拒绝。宿主绑定当前文件、已读内容哈希及版本，返回 `{id,defaultId,targets:[{id,label}]}`；不会返回聊天草稿内容。用户选择目标后调用 `context.composer.addQuote(id,targetId)`，返回 added / duplicate / limit / unavailable。捕获有效期为 2 分钟；加入前重新检查文件授权、文件版本、源视图和目标草稿身份。引用为文字快照，不写入文档、不替换草稿正文或发送消息。引用结果由主程序使用公共资源引用提示显示，成功文案带目标名称；插件保留自己的采集和菜单交互，不再额外弹出结果提示。
+API 4 的 selected-file 普通视图声明 `composerReference: true` 后，可调用 `context.composer.captureQuote(context.resource,selection)`。新插件使用通用格式 `{text,kind,location}`：`text` 最多 32768 个 UTF-16 字符；`kind` 是插件自定义的位置类型（`^[a-z][a-z0-9-]{0,31}$`）；`location` 是不超过 4096 字节的受限 JSON，由宿主校验深度、键数、数组长度和字符串长度，限制见 [文档处理器契约](document-processor.md#3-引用到聊天)。宿主把当前插件 ID 填入来源，插件不能冒用其他插件。兼容格式仍可用：DOCX/PPTX 传 `{text,indexes,from,to}`（`indexes` 是最多 64 个块或幻灯片索引），XLSX 传 `{text,cells:{sheetIndex,sheet,range}}`；两种兼容格式不能混用，通用格式不能与它们的字段同时出现。宿主绑定当前文件、已读内容哈希及版本，返回 `{id,defaultId,targets:[{id,label}]}`；不会返回聊天草稿内容。用户选择目标后调用 `context.composer.addQuote(id,targetId)`，返回 added / duplicate / limit / unavailable。捕获有效期为 2 分钟；加入前重新检查文件授权、文件版本、源视图和目标草稿身份。引用为文字快照，不写入文档、不替换草稿正文或发送消息；点击聊天中的引用卡片会重新打开源文件并交回同一插件定位。引用结果由主程序使用公共资源引用提示显示，成功文案带目标名称；插件保留自己的采集和菜单交互，不再额外弹出结果提示。
 
 后台提醒使用 `context.schedules.set({ id, command, enabled, intervalMinutes })`，间隔最少 1 分钟；不要用页面 setInterval 代替跨页面提醒。XTLaw 退出后暂停，重启继续，错过的提醒不会补发。
 

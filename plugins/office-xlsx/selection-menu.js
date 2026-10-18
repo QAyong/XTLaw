@@ -47,7 +47,6 @@ export function installSelectionMenu(context) {
   let nativeMenu = null
   let entry = null
   let sequence = 0
-  let gridClick = false
   const zh = () => context.environment.language.startsWith('zh')
   const copy = () => zh()
     ? { quote: '引用到聊天', more: '更多操作', loading: '正在读取目标聊天…', adding: '正在加入引用…', unavailable: '对话或文档已变化，请重新选中单元格。', noTarget: '请先打开聊天输入框', limit: '引用内容过多（最多 20000 个字符），请缩小选区或减少已有引用。', failed: '无法加入引用，请重新选择后重试。', multiple: '请只选中一个连续区域后再引用。', notLoaded: '选区超出已载入的范围（大表只能引用屏幕附近的单元格），请稍后重试或缩小选区。' }
@@ -247,7 +246,6 @@ export function installSelectionMenu(context) {
     const box = menu.firstElementChild?.firstElementChild
     if (!box || !box.children.length)
       return
-    gridClick = false
     const more = reshapeMenu(box)
     const request = ++sequence
     nativeMenu = menu
@@ -333,13 +331,8 @@ export function installSelectionMenu(context) {
         row.title = errorText(error)
     }
   }
-  // Only menus opened from the grid (cells and row/column headers are all canvas) are reshaped and can carry a quote.
-  document.addEventListener('contextmenu', (event) => {
-    if (event.target.closest?.('.univer-popup'))
-      return
-    reset()
-    gridClick = event.target.tagName === 'CANVAS' && !!event.target.closest?.('#univer-container')
-  }, { capture: true, signal: context.signal })
+  // Univer opens its menu from the pointer events and the browser's contextmenu event follows, so nothing here may depend on that
+  // event (it can arrive after the menu is already on screen): any menu with the copy / cut / paste trio is reshaped as it appears.
   // The copy / cut / paste trio opens the cell, row and column menus; stale hidden submenu popups lack it.
   const isCellMenu = element => !!element.querySelector('.univer-grid-cols-3')
   const observer = new MutationObserver(() => {
@@ -347,7 +340,7 @@ export function installSelectionMenu(context) {
       reset()
       return
     }
-    if (nativeMenu || !gridClick)
+    if (nativeMenu)
       return
     const menu = [...document.querySelectorAll('section.univer-popup')].find(element => live(element) && isCellMenu(element) && !element.querySelector('[data-lexora-quote]'))
     if (menu)

@@ -127,7 +127,7 @@ export function createDesktopSelectionReferences(options: {
         const view = options.controller.layout.views[id]
         if (!view)
           return false
-        if (quote.source.format === 'docx' || quote.source.format === 'pptx')
+        if (quote.source.format === 'docx' || quote.source.format === 'pptx' || quote.source.format === 'xlsx')
           return view.resource.scheme === 'extension'
         options.controller.updateView(id, { state: { ...view.state, mode: quote.source.format === 'markdown' ? 'preview' : 'source' } })
         return await references.reveal(id, quote, () => current() && !!options.controller.layout.views[id])

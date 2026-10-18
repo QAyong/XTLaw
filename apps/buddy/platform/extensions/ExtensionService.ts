@@ -815,7 +815,7 @@ export class ExtensionService {
       }, view.abort.signal, view.input.resource?.id ?? null)
     }
     else if (method === 'composer.captureQuote' || method === 'composer.addQuote') {
-      if (view.running.package.manifest.apiVersion < 4 || !view.running.package.manifest.permissions.composerReference || contribution.resource !== 'selected-file' || contribution.location !== 'context' || placement || !view.input.resource || !/\.(?:docx|pptx)$/i.test(view.input.resource.name) || !view.readVersion || !view.readHash || !this.#ports.readBytes)
+      if (view.running.package.manifest.apiVersion < 4 || !view.running.package.manifest.permissions.composerReference || contribution.resource !== 'selected-file' || contribution.location !== 'context' || placement || !view.input.resource || !/\.(?:docx|pptx|xlsx)$/i.test(view.input.resource.name) || !view.readVersion || !view.readHash || !this.#ports.readBytes)
         throw new Error('EXTENSION_REFERENCE_DENIED')
       const target = await this.#resource(view.running, view.input.resource.id)
       const hash = view.readHash
@@ -841,7 +841,14 @@ export class ExtensionService {
         if (quotes.size >= 8)
           quotes.delete(quotes.keys().next().value!)
         const captureId = randomUUID()
-        const reply = await this.#ports.workbench({ kind: 'quote-capture', requestId: randomUUID(), viewId: id, generation, token, captureId, quote: { id: randomUUID(), text: input.text, source: { kind: 'file', title: view.input.resource.name, file: target, ...(/\.pptx$/i.test(view.input.resource.name) ? { format: 'pptx' as const, pptx: { hash, indexes: input.indexes, from: input.from, to: input.to } } : { format: 'docx' as const, docx: { hash, indexes: input.indexes, from: input.from, to: input.to } }) } } }, signal)
+        // The reported location must fit the file type: cells for a workbook, text positions for a document or deck.
+        const name = view.input.resource.name
+        if (/\.xlsx$/i.test(name) !== ('cells' in input))
+          throw new Error('EXTENSION_REFERENCE_DENIED')
+        const location = 'cells' in input
+          ? { format: 'xlsx' as const, xlsx: { hash, ...input.cells } }
+          : /\.pptx$/i.test(name) ? { format: 'pptx' as const, pptx: { hash, indexes: input.indexes, from: input.from, to: input.to } } : { format: 'docx' as const, docx: { hash, indexes: input.indexes, from: input.from, to: input.to } }
+        const reply = await this.#ports.workbench({ kind: 'quote-capture', requestId: randomUUID(), viewId: id, generation, token, captureId, quote: { id: randomUUID(), text: input.text, source: { kind: 'file', title: name, file: target, ...location } } }, signal)
         assertQuoteCurrent()
         if (!reply)
           throw new Error('EXTENSION_REFERENCE_UNAVAILABLE')

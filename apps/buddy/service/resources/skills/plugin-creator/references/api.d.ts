@@ -231,7 +231,7 @@ export interface ViewContext {
   readonly network: NetworkApi
   readonly commands: { execute: (command: string, args?: Json) => Promise<Json> }
   readonly composer: {
-    captureQuote: (resource: Resource, selection: { text: string, indexes: number[], from: number, to: number }) => Promise<{ id: string, defaultId: string | null, targets: { id: string, label: string }[] }>
+    captureQuote: (resource: Resource, selection: { text: string, indexes: number[], from: number, to: number } | { text: string, cells: { sheetIndex: number, sheet: string, range: string } }) => Promise<{ id: string, defaultId: string | null, targets: { id: string, label: string }[] }>
     addQuote: (id: string, targetId: string) => Promise<'added' | 'duplicate' | 'limit' | 'unavailable'>
   }
   setPresentation: (presentation: ViewPresentation) => Promise<void>

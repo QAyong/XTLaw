@@ -69,14 +69,25 @@ const officeQuoteLocationSchema = z.object({
   from: z.number().int().nonnegative(),
   to: z.number().int().nonnegative(),
 }).strict().refine(value => value.to > value.from).readonly()
+// XLSX: the sheet and A1 range the cells came from. The range is where the user selected; the text holds the displayed values of that range.
+export const xlsxQuoteCellsSchema = z.object({
+  sheetIndex: z.number().int().nonnegative().max(1000),
+  sheet: z.string().min(1).max(255).refine(name => ![...name].some(char => char.charCodeAt(0) < 32)),
+  range: z.string().regex(/^[A-Z0-9:$]{1,64}$/i),
+}).strict()
+const xlsxQuoteLocationSchema = z.object({
+  hash: z.string().regex(/^[a-f0-9]{64}$/),
+  ...xlsxQuoteCellsSchema.shape,
+}).strict().readonly()
 const buddyFileQuoteSourceSchema = z.object({
   kind: z.literal('file'),
   title: z.string().trim().min(1).max(512),
   file: spaceFileTargetSchema.readonly(),
-  format: z.enum(['source', 'markdown', 'docx', 'pptx']),
+  format: z.enum(['source', 'markdown', 'docx', 'pptx', 'xlsx']),
   docx: officeQuoteLocationSchema.optional(),
   // PPTX: indexes are the 0-based slide numbers the excerpt came from; from/to span the excerpt text itself.
   pptx: officeQuoteLocationSchema.optional(),
+  xlsx: xlsxQuoteLocationSchema.optional(),
 }).strict().readonly()
 const buddyArtifactQuoteSourceSchema = z.object({
   kind: z.literal('artifact'),
@@ -311,6 +322,7 @@ function sameResourceQuote(a: BuddyResourceQuote, b: BuddyResourceQuote): boolea
   return sameSource && a.source.format === b.source.format
     && JSON.stringify(a.source.kind === 'file' ? a.source.docx : undefined) === JSON.stringify(b.source.kind === 'file' ? b.source.docx : undefined)
     && JSON.stringify(a.source.kind === 'file' ? a.source.pptx : undefined) === JSON.stringify(b.source.kind === 'file' ? b.source.pptx : undefined)
+    && JSON.stringify(a.source.kind === 'file' ? a.source.xlsx : undefined) === JSON.stringify(b.source.kind === 'file' ? b.source.xlsx : undefined)
     && a.text === b.text && a.textOffset === b.textOffset && JSON.stringify(a.range) === JSON.stringify(b.range)
 }
 

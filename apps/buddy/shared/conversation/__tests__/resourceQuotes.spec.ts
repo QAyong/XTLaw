@@ -170,4 +170,28 @@ describe('input material identity and quote placements', () => {
     expect(buddyResourceQuoteSchema.safeParse(pptx(0)).success).toBe(true)
     expect(buddyResourceQuoteSchema.safeParse({ ...pptx(0), source: { ...pptx(0).source, pptx: { hash, indexes: [0], from: 4, to: 4 } } }).success).toBe(false)
   })
+
+  it('keeps XLSX excerpts apart by sheet and range and tells the model where the cells are', () => {
+    const hash = 'b'.repeat(64)
+    const text = '项目\t金额\n差旅\t1,200.00'
+    const xlsx = (sheetIndex: number, sheet: string, range: string): BuddyFileQuote => ({
+      id: `xlsx-${sheetIndex}-${range.replace(/[^A-Z0-9]/gi, '_')}`,
+      text,
+      source: { kind: 'file', title: '预算.xlsx', file: { spaceId: 'space', directoryId: 'directory', revision: 1, path: '预算.xlsx' }, format: 'xlsx', xlsx: { hash, sheetIndex, sheet, range } },
+    })
+    const first = appendBuddyResourceQuote(createBuddyUserContent(), xlsx(0, '汇总', 'A1:B2'))
+    expect(first.result).toBe('added')
+    expect(appendBuddyResourceQuote(first.content, xlsx(0, '汇总', 'A1:B2')).result).toBe('duplicate')
+    expect(appendBuddyResourceQuote(first.content, xlsx(0, '汇总', 'A1:B3')).result).toBe('added')
+    expect(appendBuddyResourceQuote(first.content, xlsx(1, '明细', 'A1:B2')).result).toBe('added')
+    expect(buddyResourceQuoteSchema.safeParse(xlsx(0, '汇总', 'A1:B2')).success).toBe(true)
+    expect(buddyResourceQuoteSchema.safeParse(xlsx(0, '汇总', 'A1 B2')).success).toBe(false)
+    expect(buddyResourceQuoteSchema.safeParse(xlsx(0, '', 'A1:B2')).success).toBe(false)
+    const withExtra = xlsx(0, '汇总', 'A1:B2')
+    expect(buddyResourceQuoteSchema.safeParse({ ...withExtra, source: { ...withExtra.source, xlsx: { hash, sheetIndex: 0, sheet: '汇总', range: 'A1:B2', extra: 1 } } }).success).toBe(false)
+    const projected = projectBuddyUserContent(first.content, () => {
+      throw new Error('Quote sources must not be read')
+    }, () => '')
+    expect(JSON.parse(projected.prompt.split('\n')[1]!)[0]).toEqual({ source: { title: '预算.xlsx', path: '预算.xlsx', format: 'xlsx', cells: { sheet: '汇总', range: 'A1:B2' } }, text })
+  })
 })

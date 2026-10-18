@@ -2,7 +2,7 @@
 export const extensionDocumentPattern = /\.(?:docx|pptx|xlsx)$/i
 
 // Only these documents support quoting selections into chat.
-export const quotableDocumentPattern = /\.(?:docx|pptx)$/i
+export const quotableDocumentPattern = /\.(?:docx|pptx|xlsx)$/i
 
 export function isExtensionDocument(path: string): boolean {
   return extensionDocumentPattern.test(path)

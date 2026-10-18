@@ -6,7 +6,7 @@ it('routes DOCX, PPTX and XLSX to extension views regardless of case, and leaves
   expect(['a.xls', 'deck.pptx.bak', 'pptx', 'notes.md', 'book.xlsx.bak'].some(isExtensionDocument)).toBe(false)
 })
 
-it('keeps chat quoting limited to documents whose plugins capture text selections', () => {
-  expect(['a.docx', 'deck.pptx'].every(isQuotableExtensionDocument)).toBe(true)
-  expect(isQuotableExtensionDocument('book.xlsx')).toBe(false)
+it('allows chat quoting from documents whose plugins capture selections', () => {
+  expect(['a.docx', 'deck.pptx', 'book.XLSX'].every(isQuotableExtensionDocument)).toBe(true)
+  expect(['book.xls', 'book.xlsx.bak'].some(isQuotableExtensionDocument)).toBe(false)
 })

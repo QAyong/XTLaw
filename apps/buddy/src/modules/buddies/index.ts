@@ -1,4 +1,7 @@
+export { buddyLabels } from './buddyLabels'
 export { useProvideBuddiesContext } from './buddiesContext'
+export { buddyAvatarPresets, buddyPresetAvatar } from './model/buddyAvatarPresets'
+export { readBuddyAvatar } from './state/readBuddyAvatar'
 export { useBuddyIdentity } from './state/useBuddyIdentity'
 export { default as BuddyAvatar } from './widgets/BuddyAvatar.vue'
 export { default as BuddySelector } from './widgets/BuddySelector.vue'

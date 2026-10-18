@@ -23,6 +23,7 @@ const semanticColorTokens = {
   'strong': '--buddy-text-strong',
   'muted': '--buddy-text-secondary',
   'disabled': '--buddy-text-disabled',
+  'canvas': '--buddy-surface-canvas',
   'raised': '--buddy-surface-raised',
   'subtle': '--buddy-surface-subtle',
   'workspace-sidebar': '--buddy-surface-workspace-sidebar',
@@ -84,6 +85,7 @@ export default defineConfig({
   },
   theme: {
     colors: themeColors,
+    boxShadow: { overlay: 'var(--buddy-shadow-overlay)' },
     borderRadius: { 'micro': 'var(--buddy-radius-micro, 6px)', 'menu-item': 'var(--buddy-menu-item-radius, 3px)' },
     width: { 'workspace-sidebar': 'var(--buddy-workspace-sidebar-width, 15.5rem)' },
     height: { 'region-header': 'var(--buddy-region-header-height, 2.75rem)' },

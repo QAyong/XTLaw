@@ -4,6 +4,7 @@ import { computed, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import DesktopStartupScreen from '@/app/bootstrap/DesktopStartupScreen.vue'
 import DesktopTitleBar from '@/app/shell/window/DesktopTitleBar.vue'
+import { DesktopFeatureDiscovery, DesktopOnboardingScreen } from '@/modules/onboarding/ui'
 import { desktopRouteLocations } from '@/shared/navigation/desktopRoutes'
 import { useDesktopUi } from '@/shared/ui/desktopUiContext'
 import WorkbenchMountPoint from '@/workbench/browser/mounts/WorkbenchMountPoint.vue'
@@ -19,6 +20,9 @@ const router = useRouter()
 const { sidebarCollapsed, language } = useDesktopUi()
 const hasBeenReady = computed(() => bindings.lifecycle.state.value.hasBeenReady)
 const startupVisible = computed(() => !hasBeenReady.value && route.meta.requiresRuntime !== false)
+const onboardingPending = bindings.onboarding.pending
+const onboardingVisible = computed(() => onboardingPending.value && hasBeenReady.value)
+const blocked = computed(() => startupVisible.value || onboardingVisible.value)
 const activeView = computed(() => bindings.pages.current.value)
 const activeTaskScope = computed(() => {
   const conversationId = bindings.workbench.activeTask.value?.workspace.session.activeConversationId.value
@@ -102,9 +106,10 @@ function toggleContextPosition() {
   <div class="desktop-shell">
     <DesktopTitleBar
       :app-info="bindings.appInfo.value"
+      :minimal="onboardingVisible"
       :shortcut-bindings="bindings.shortcuts.bindings.value"
       :language="language"
-      :context-available="hasBeenReady && (bindings.contextPanelGlobal.value || activeView === 'lexora.tasks')"
+      :context-available="hasBeenReady && !onboardingPending && (bindings.contextPanelGlobal.value || activeView === 'lexora.tasks')"
       :context-open="rightRegionOpen"
       :context-swap-available="activeView === 'lexora.tasks' && bindings.resources.isOpen.value"
       :context-swapped="contextOnLeft"
@@ -115,8 +120,8 @@ function toggleContextPosition() {
       @toggle-sidebar="bindings.toggleSidebar"
     />
     <div class="desktop-shell__body">
-      <WorkbenchHost :keybindings="bindings.shortcuts.bindings.value" :platform="bindings.shortcuts.platform.value" :active="hasBeenReady && activeView === 'lexora.tasks'" :main-visible="presentation.workspaceVisible.value" :controller="bindings.workbench.controller" :copies="bindings.workbench.copies" :language="language" :backup-error="bindings.workbench.backupError.value" @drop-resource="bindings.workbench.dropResource" @retry-backup="bindings.workbench.persistence.flush()" @task-drag-start="presentation.beginDrag" @task-drag-end="presentation.endDrag">
-        <div class="desktop-shell__content" :class="{ 'is-starting': startupVisible }" :inert="startupVisible" :aria-hidden="startupVisible">
+      <WorkbenchHost :keybindings="bindings.shortcuts.bindings.value" :platform="bindings.shortcuts.platform.value" :active="hasBeenReady && !onboardingPending && activeView === 'lexora.tasks'" :main-visible="presentation.workspaceVisible.value" :controller="bindings.workbench.controller" :copies="bindings.workbench.copies" :language="language" :backup-error="bindings.workbench.backupError.value" @drop-resource="bindings.workbench.dropResource" @retry-backup="bindings.workbench.persistence.flush()" @task-drag-start="presentation.beginDrag" @task-drag-end="presentation.endDrag">
+        <div class="desktop-shell__content" :class="{ 'is-starting': blocked }" :inert="blocked" :aria-hidden="blocked">
           <WorkbenchMountPoint target="workbench" class="desktop-shell__workbench">
             <DesktopWorkbenchArea :bindings="bindings" :tasks-visible="activeView === 'lexora.tasks'" :context-on-left="contextOnLeft" :chat-pane-hidden="presentation.contextMaximized.value" @toggle-context-maximize="toggleContextMaximize" />
           </WorkbenchMountPoint>
@@ -125,10 +130,12 @@ function toggleContextPosition() {
           <DesktopWorkbenchView :view="view" :visible="visible" />
         </template>
       </WorkbenchHost>
+      <DesktopOnboardingScreen v-if="onboardingVisible && !startupVisible" :controller="bindings.onboarding" :app-info="bindings.appInfo.value" />
       <Transition name="desktop-startup-reveal">
         <DesktopStartupScreen v-if="startupVisible" :failed="bindings.lifecycle.failed.value" :language="language" @retry="bindings.lifecycle.retry()" @open-logs="router.push(desktopRouteLocations.settings('logs'))" @open-storage="router.push(desktopRouteLocations.settings('storage'))" />
       </Transition>
     </div>
+    <DesktopFeatureDiscovery v-if="!blocked" :controller="bindings.featureDiscovery" :language="language" :can-remind="hasBeenReady && bindings.taskIndex.tasks.value.every(task => task.activity === 'idle')" />
   </div>
 </template>
 

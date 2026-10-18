@@ -147,6 +147,23 @@ keep=true
     expect((await new LexoraConfigStore({ configPath }).read()).desktop.theme).toEqual(original.desktop.theme)
   })
 
+  it('treats existing profiles as onboarded and persists feature discovery state across restart', async () => {
+    const { configPath, store } = await createConfigStore()
+    expect((await store.read()).desktop).toMatchObject({
+      onboardingCompleted: true,
+      featureAnnouncementsEnabled: true,
+      featureDiscovery: { version: '', pending: [], notified: [] },
+    })
+    await store.update({ desktop: { featureAnnouncementsEnabled: false, featureDiscovery: { version: '0.2.3', pending: ['npc-team'], notified: ['npc-team'] } } })
+    expect((await new LexoraConfigStore({ configPath }).read()).desktop).toMatchObject({
+      featureAnnouncementsEnabled: false,
+      featureDiscovery: { version: '0.2.3', pending: ['npc-team'], notified: ['npc-team'] },
+    })
+    const saved = await readFile(configPath, 'utf8')
+    await expect(store.update({ desktop: { featureDiscovery: { version: 'not-a-version', pending: [], notified: [] } } })).rejects.toThrow()
+    expect(await readFile(configPath, 'utf8')).toBe(saved)
+  })
+
   it('enables update notifications for old profiles and preserves an opt-out across other settings and restart', async () => {
     const { store, configPath } = await createConfigStore()
     await mkdir(dirname(configPath), { recursive: true })
@@ -335,6 +352,8 @@ keep=true
       contextPanelMode: 'task',
       contextPanelGlobal: false,
       contextPanelAutoCollapse: false,
+      featureAnnouncementsEnabled: true,
+      featureDiscovery: { version: '', pending: [], notified: [] },
       fileIconTheme: { id: 'lexora.material' },
       localBackupLimit: 3,
       minimizeToTrayOnClose: false,
@@ -358,6 +377,7 @@ keep=true
       updateNotificationsEnabled: true,
       autoDownloadUpdates: true,
       notifyWhenFocused: false,
+      onboardingCompleted: true,
       profile: {
         avatar: '',
         deviceName: '',

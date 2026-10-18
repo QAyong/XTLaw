@@ -13,6 +13,7 @@ import { copyEventSnapshot } from '../../../shared/events/eventSnapshot'
 import { extensionAuthorSchema } from '../../../shared/extensions/extensionIdentity'
 import { BUILTIN_FILE_ICON_THEME, fileIconPreferenceSchema } from '../../../shared/icons/fileIconTheme'
 import { DEFAULT_PROXY_SETTINGS, proxySettingsSchema } from '../../../shared/network/proxySettings'
+import { EMPTY_FEATURE_DISCOVERY, featureDiscoverySchema } from '../../../shared/onboarding/featureDiscovery'
 import { BUDDY_PERMISSION_MODES } from '../../../shared/permissions/permissionMode'
 import { DEFAULT_RUNTIME_PREFERENCES, runtimePreferencesSchema } from '../../../shared/runtime/runtimePreferences'
 import { keybindingsSchema } from '../../../shared/shortcuts/keybindingSchema'
@@ -60,6 +61,9 @@ const taskSidebarConfigSchema = z.object({
 })
 
 const desktopConfigSchema = z.object({
+  feature_discovery: featureDiscoverySchema.default(EMPTY_FEATURE_DISCOVERY),
+  feature_announcements_enabled: z.boolean().default(true),
+  onboarding_completed: z.boolean().default(true),
   plugin_author: extensionAuthorSchema.default(''),
   background_close_notice_shown: z.boolean().default(false),
   chat: z.object({
@@ -111,6 +115,9 @@ const desktopConfigSchema = z.object({
   theme: z.union([themePreferenceSchema, legacyThemePreferenceSchema, z.enum(['system', 'light', 'dark'])]).default('system'),
   accent_color: z.enum(DESKTOP_ACCENT_COLORS).default('default'),
 }).passthrough().default({
+  feature_discovery: EMPTY_FEATURE_DISCOVERY,
+  feature_announcements_enabled: true,
+  onboarding_completed: true,
   background_close_notice_shown: false,
   plugin_author: '',
   chat: {
@@ -374,6 +381,9 @@ function decodeConfig(value: unknown): LexoraConfig {
     },
     proxy: config.proxy,
     desktop: {
+      featureDiscovery: config.desktop.feature_discovery,
+      featureAnnouncementsEnabled: config.desktop.feature_announcements_enabled,
+      onboardingCompleted: config.desktop.onboarding_completed,
       backgroundCloseNoticeShown: config.desktop.background_close_notice_shown,
       pluginAuthor: config.desktop.plugin_author,
       chat: {
@@ -443,6 +453,9 @@ function encodeConfig(config: LexoraConfig) {
     },
     proxy: config.proxy,
     desktop: {
+      feature_discovery: config.desktop.featureDiscovery,
+      feature_announcements_enabled: config.desktop.featureAnnouncementsEnabled,
+      onboarding_completed: config.desktop.onboardingCompleted,
       background_close_notice_shown: config.desktop.backgroundCloseNoticeShown,
       plugin_author: config.desktop.pluginAuthor,
       chat: {
@@ -508,6 +521,7 @@ function mergeConfig(current: LexoraConfig, patch: LexoraConfigPatch): LexoraCon
     desktop: {
       ...current.desktop,
       ...patch.desktop,
+      featureDiscovery: featureDiscoverySchema.parse(patch.desktop?.featureDiscovery ?? current.desktop.featureDiscovery),
       localBackupLimit: localBackupLimitSchema.parse(patch.desktop?.localBackupLimit ?? current.desktop.localBackupLimit),
       fileIconTheme: fileIconPreferenceSchema.parse(patch.desktop?.fileIconTheme ?? current.desktop.fileIconTheme),
       theme: themePreferenceSchema.parse(patch.desktop?.theme ?? current.desktop.theme),

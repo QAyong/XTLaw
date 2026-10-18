@@ -20,6 +20,7 @@ import { desktopRouteLocations } from '@/shared/navigation/desktopRoutes'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 
 const props = defineProps<{
+  minimal?: boolean
   appInfo: DesktopAppInfo | null
   contextAvailable: boolean
   contextOpen: boolean
@@ -186,7 +187,9 @@ function applyWindowState(state: DesktopWindowState) {
 <template>
   <header class="desktop-title-bar" @dblclick="toggleMaximize">
     <div class="desktop-title-bar__safe-area">
+      <span v-if="minimal" class="desktop-title-bar__welcome">{{ t('onboarding.welcome') }}</span>
       <DesktopWindowMenuBar
+        v-else
         :language="language"
         :shortcut-bindings="shortcutBindings"
         :platform="platform"
@@ -299,6 +302,12 @@ function applyWindowState(state: DesktopWindowState) {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.desktop-title-bar__welcome {
+  padding: 0 1rem;
+  color: var(--buddy-text-secondary);
+  font-size: 12px;
 }
 
 .desktop-title-bar__controls {

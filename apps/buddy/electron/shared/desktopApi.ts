@@ -201,6 +201,9 @@ export interface LexoraConfig {
   browser: import('../../shared/browser/browserPreferences').BrowserPreferences
   proxy: import('../../shared/network/proxySettings').ProxySettings
   desktop: {
+    featureDiscovery: import('../../shared/onboarding/featureDiscovery').FeatureDiscoveryState
+    featureAnnouncementsEnabled: boolean
+    onboardingCompleted: boolean
     backgroundCloseNoticeShown: boolean
     chat: DesktopChatPreferences
     contextPanelMode: DesktopContextPanelMode

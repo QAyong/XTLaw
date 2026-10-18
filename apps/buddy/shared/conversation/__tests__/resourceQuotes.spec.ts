@@ -155,4 +155,19 @@ describe('input material identity and quote placements', () => {
     expect(projected.resources).toEqual([])
     expect(JSON.parse(projected.prompt.split('\n')[1]!)[0]).not.toHaveProperty('id')
   })
+
+  it('keeps PPTX excerpts apart by slide and rejects an inverted text span', () => {
+    const hash = 'a'.repeat(64)
+    const pptx = (slide: number, text = '季度汇报'): BuddyFileQuote => ({
+      id: `pptx-${slide}`,
+      text,
+      source: { kind: 'file', title: '汇报.pptx', file: { spaceId: 'space', directoryId: 'directory', revision: 1, path: '汇报.pptx' }, format: 'pptx', pptx: { hash, indexes: [slide], from: 0, to: text.length } },
+    })
+    const first = appendBuddyResourceQuote(createBuddyUserContent(), pptx(0))
+    expect(first.result).toBe('added')
+    expect(appendBuddyResourceQuote(first.content, pptx(0)).result).toBe('duplicate')
+    expect(appendBuddyResourceQuote(first.content, pptx(2)).result).toBe('added')
+    expect(buddyResourceQuoteSchema.safeParse(pptx(0)).success).toBe(true)
+    expect(buddyResourceQuoteSchema.safeParse({ ...pptx(0), source: { ...pptx(0).source, pptx: { hash, indexes: [0], from: 4, to: 4 } } }).success).toBe(false)
+  })
 })

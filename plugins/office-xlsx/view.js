@@ -3,12 +3,14 @@ import { installSelectionMenu } from './selection-menu.js'
 import { readXlsx, validateXlsx } from './xlsx.js'
 
 const messages = {
-  zh: { loading: '正在加载表格编辑器…', error: '操作失败，修改尚未保存。请重试。', invalid: '文件不是受支持的 XLSX，或超出安全限制', changed: '文件已被其他程序修改，尚未保存。请重新打开文件。', empty: '请从文件管理器选择一个 XLSX 文件。', cancelled: '保存已取消。', exportUnavailable: '暂不支持导出为 CSV。', ok: '确定' },
-  en: { loading: 'Loading spreadsheet editor…', error: 'Operation failed. Changes have not been saved. Please retry.', invalid: 'Unsupported XLSX or file exceeds safety limits', changed: 'The file changed outside the editor. Changes have not been saved. Reopen the file.', empty: 'Select an XLSX file from the file manager.', cancelled: 'Save cancelled.', exportUnavailable: 'Exporting to CSV is not supported yet.', ok: 'OK' },
+  zh: { loading: '正在加载表格编辑器…', error: '操作失败，修改尚未保存。请重试。', invalid: '文件不是受支持的 XLSX，或超出安全限制', changed: '文件已被其他程序修改，尚未保存。请重新打开文件。', empty: '请从文件管理器选择一个 XLSX 文件。', cancelled: '保存已取消。', exportUnavailable: '暂不支持导出为 CSV。', preferences: '自动保存开关的设置未能记住。重新打开后请检查开关。', ok: '确定' },
+  en: { loading: 'Loading spreadsheet editor…', error: 'Operation failed. Changes have not been saved. Please retry.', invalid: 'Unsupported XLSX or file exceeds safety limits', changed: 'The file changed outside the editor. Changes have not been saved. Reopen the file.', empty: 'Select an XLSX file from the file manager.', cancelled: 'Save cancelled.', exportUnavailable: 'Exporting to CSV is not supported yet.', preferences: 'The AutoSave preference could not be remembered. Check the switch after reopening.', ok: 'OK' },
 }
 
+const AUTO_SAVE_KEY = 'ai-sheets-auto-save'
+
 // The sandbox has an opaque origin: keep editor preferences in bounded memory instead of weakening the iframe.
-function memoryStorage() {
+function memoryStorage(onAutoSaveChange = () => {}) {
   const values = new Map()
   return {
     get length() { return values.size },
@@ -20,6 +22,14 @@ function memoryStorage() {
       if (key.length + value.length > 16384 || (!values.has(key) && values.size >= 256))
         return
       values.set(key, value)
+      if (key === AUTO_SAVE_KEY) {
+        try {
+          const on = value === '1' ? true : value === '0' ? false : JSON.parse(value)?.on
+          if (typeof on === 'boolean')
+            onAutoSaveChange(on)
+        }
+        catch {}
+      }
     },
     removeItem: key => values.delete(String(key)),
     clear: () => values.clear(),
@@ -70,7 +80,20 @@ export async function render(context, container) {
       : context.resource
     const bytes = await readXlsx(context.resources, resource, context.signal)
     context.signal.throwIfAborted()
-    Object.defineProperty(window, 'localStorage', { configurable: true, value: memoryStorage() })
+    // AutoSave is on unless the user turned it off in this file's view; the choice is kept with the view state, like the PPTX plugin.
+    const viewState = context.state && typeof context.state === 'object' && !Array.isArray(context.state) ? { ...context.state } : {}
+    let preferenceSave = Promise.resolve()
+    Object.defineProperty(window, 'localStorage', { configurable: true, value: memoryStorage((on) => {
+      viewState.autoSave = on
+      const nextState = { ...viewState }
+      preferenceSave = preferenceSave.then(() => {
+        context.signal.throwIfAborted()
+        return context.setState(nextState)
+      }).catch(() => {
+        if (!context.signal.aborted)
+          show(copy.preferences, true)
+      })
+    }) })
     Object.defineProperty(window, 'sessionStorage', { configurable: true, value: memoryStorage() })
     // Editor-only identity, never a local path; the host resolves the authorized file.
     globalThis.__lexoraSheetsHost = {
@@ -78,6 +101,7 @@ export async function render(context, container) {
       bytes,
       language: context.environment.language,
       theme: context.environment.colorScheme === 'dark' ? 'dark' : 'light',
+      autoSave: viewState.autoSave !== false,
       // The host checks the file version, directory grant and content hash before writing; a conflict rejects here.
       async save(data) {
         context.signal.throwIfAborted()

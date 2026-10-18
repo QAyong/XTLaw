@@ -16,6 +16,8 @@ export interface SheetsHost {
   bytes: Uint8Array
   language: string
   theme: 'light' | 'dark'
+  /** AutoSave starts on (the plugin remembers an explicit choice per view). */
+  autoSave?: boolean
   /** Writes the workbook back to the selected file; rejects with a user-facing message when refused. Absent: saving is refused. */
   save?: (bytes: Uint8Array) => Promise<void>
   /** Exports a copy through the host's save dialog; false when the user cancels. Absent: Save As is unavailable. */
@@ -61,7 +63,7 @@ createSheetsView({ includeAiHandlers: false, openingWorkbook: true })
 let aiPrefs = { side: 'left', fontSize: 'default', customFontSize: 14, spellcheck: true, openInNewDocs: false, showAiSidebar: false }
 handle('app:get-theme', () => host?.theme ?? 'light')
 handle('app:get-document-theme', () => 'follow')
-handle('app:get-auto-save-default', () => ({ on: false, updatedAt: 0 }))
+handle('app:get-auto-save-default', () => ({ on: host?.autoSave ?? false, updatedAt: 0 }))
 handle('app:get-author-name', () => 'XTLaw')
 // The AI panel is not part of the plugin; the renderer only needs a record to hold.
 handle('ai:get-settings', () => ({}))

@@ -86,3 +86,8 @@ button:has(.ai-feature-icon) { display: none !important; }
 .excel-header.pi-office-toolbar-host.pi-office-ribbon-collapsed { grid-template-rows: auto; }
 .excel-header.pi-office-toolbar-host.pi-office-ribbon-collapsed > .pi-office-toolbar-nav { display: none !important; }
 .excel-header .ribbon .pi-office-clipboard-group { min-width: max-content; }
+
+/* Quick-access buttons: Save As is Ctrl+Shift+S only (like DOCX and PPTX the toolbar keeps Save, Undo and Redo), and the rest sit a little tighter. */
+.excel-header .ribbon-tabs > .qa-btn[aria-label^='另存为'], .excel-header .ribbon-tabs > .qa-btn[aria-label^='Save As'] { display: none; }
+.excel-header .ribbon-tabs > .qa-btn { width: 26px; height: 26px; }
+.excel-header .ribbon-tabs > .qa-sep { margin: 0 4px; }

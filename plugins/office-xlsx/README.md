@@ -1,6 +1,6 @@
 # Office XLSX 插件：Sheets 编辑器移植（阶段二：编辑与保存）
 
-**版本：** 0.2.0（尚未预装；用「安装插件包」或加载开发目录安装）
+**版本：** 0.2.2（尚未预装；用「安装插件包」或加载开发目录安装）
 
 ## 当前状态
 
@@ -15,7 +15,7 @@
 
 ## 权限
 
-清单声明 `selectedResource: read`、`selectedResourceWrite: true`（保存当前文件）和 `webAssembly: true`。后者是宿主新增的按插件开放的权限：视图页 CSP 加 `'wasm-unsafe-eval'`（只允许编译随包的 `.wasm`，仍禁止 JS eval）和限定在插件包路径的 `worker-src`（不含 `blob:`）；安装确认里会单独提示。
+清单声明 `selectedResource: read`、`selectedResourceWrite: true`（保存当前文件）和 `webAssembly: true`。后者是宿主新增的按插件开放的权限：视图页 CSP 加 `'wasm-unsafe-eval'`（只允许编译随包的 `.wasm`，仍禁止 JS eval）和 `worker-src`（插件包路径加 `blob:`：沙箱页是不透明源，Worker 脚本不能按 URL 加载，页面把脚本取回后从 blob 启动；Worker 起不来时引擎退回页内运行）；安装确认里会单独提示。
 
 ## 实现方式
 

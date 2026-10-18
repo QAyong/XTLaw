@@ -120,28 +120,39 @@ function handle(line: string): string {
   return text
 }
 
-globalThis.onmessage = async (event: MessageEvent<WorkerRequest & { line?: string }>) => {
-  const request = event.data
-  const reply = (response: Omit<WorkerResponse, 'id'>) => (globalThis as any).postMessage({ id: request.id, ...response })
-  try {
-    if (request.type === 'init') {
-      await init(request.wasm!)
-      return reply({ ok: true })
+/** The message endpoint the engine answers on: a worker's own scope, or one end of a MessageChannel. */
+export interface EnginePort {
+  onmessage: ((event: MessageEvent<any>) => void) | null
+  postMessage: (message: unknown) => void
+}
+
+export function serve(port: EnginePort) {
+  port.onmessage = async (event: MessageEvent<WorkerRequest & { line?: string }>) => {
+    const request = event.data
+    const reply = (response: Omit<WorkerResponse, 'id'>) => port.postMessage({ id: request.id, ...response })
+    try {
+      if (request.type === 'init') {
+        await init(request.wasm!)
+        return reply({ ok: true })
+      }
+      for (const file of request.put ?? []) put(file.path, file.bytes)
+      for (const path of request.mkdirs ?? []) {
+        const { root, parts } = roots(`${path}/x`)
+        directory(root, parts.slice(0, -1), true)
+      }
+      const line = handle(request.line!)
+      const files: { path: string, bytes: Uint8Array }[] = []
+      for (const item of request.pull ?? []) collect(item.path, item.kind, files)
+      for (const path of request.drop ?? []) forget(path)
+      // Structured clone copies the bytes: the guest file system keeps its own.
+      reply({ ok: true, line, files })
     }
-    for (const file of request.put ?? []) put(file.path, file.bytes)
-    for (const path of request.mkdirs ?? []) {
-      const { root, parts } = roots(`${path}/x`)
-      directory(root, parts.slice(0, -1), true)
-    }
-    const line = handle(request.line!)
-    const files: { path: string, bytes: Uint8Array }[] = []
-    for (const item of request.pull ?? []) collect(item.path, item.kind, files)
-    for (const path of request.drop ?? []) forget(path)
-    // Structured clone copies the bytes: the guest file system keeps its own.
-    reply({ ok: true, line, files })
-  }
-  catch (error) {
+    catch (error) {
     // Rust panics abort the instance (no unwinding on wasm): the page must start a fresh worker.
-    reply({ ok: false, error: error instanceof Error ? error.message : String(error), trapped: error instanceof WebAssembly.RuntimeError })
+      reply({ ok: false, error: error instanceof Error ? error.message : String(error), trapped: error instanceof WebAssembly.RuntimeError })
+    }
   }
 }
+
+if (typeof WorkerGlobalScope !== 'undefined' && globalThis instanceof WorkerGlobalScope)
+  serve(globalThis as unknown as EnginePort)

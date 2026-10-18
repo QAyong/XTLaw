@@ -15,7 +15,7 @@ const fileLimit = 16 * 1024 * 1024
 const packageLimit = 64 * 1024 * 1024
 const hash = bytes => createHash('sha256').update(bytes).digest('hex')
 
-const defaultSources = ['office', 'office-pptx'].map(name => resolve(buddy, '../../plugins', name))
+const defaultSources = ['office', 'office-pptx', 'office-xlsx'].map(name => resolve(buddy, '../../plugins', name))
 
 async function packPlugin(sourceDirectory) {
   const manifest = JSON.parse(await readFile(join(sourceDirectory, 'extension.json'), 'utf8'))

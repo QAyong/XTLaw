@@ -19,6 +19,7 @@ export function platformResources(target) {
     { from: '.output/resources/bundled-extensions/catalog.json', to: 'bundled-extensions/catalog.json' },
     { from: '.output/resources/bundled-extensions/office.lexora-extension', to: 'bundled-extensions/office.lexora-extension' },
     { from: '.output/resources/bundled-extensions/office-pptx.lexora-extension', to: 'bundled-extensions/office-pptx.lexora-extension' },
+    { from: '.output/resources/bundled-extensions/office-xlsx.lexora-extension', to: 'bundled-extensions/office-xlsx.lexora-extension' },
     { from: `${searchTools.resource.from}/${target.id}`, to: searchTools.resource.to },
     ...(target.platform === OPERATING_SYSTEM.Linux ? [{ from: `${shellSandbox.resource.from}/${target.id}`, to: shellSandbox.resource.to }] : []),
     ...target.features.flatMap(id => featureResources[id]),

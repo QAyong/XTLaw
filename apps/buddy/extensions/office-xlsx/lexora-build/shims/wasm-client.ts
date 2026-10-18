@@ -4,6 +4,7 @@
  * bytes a command needs into the worker's in-memory file system and copies the files a command writes back.
  */
 import type { WorkerRequest, WorkerResponse } from './engine.worker'
+import workerUrl from './engine.worker.ts?worker&url'
 import { vfs } from './vfs'
 
 const PROTOCOL_VERSION = 1
@@ -29,11 +30,16 @@ interface Pending {
   timeout: ReturnType<typeof setTimeout>
 }
 interface Mounted { bytes: Uint8Array, guest: string }
+interface EngineChannel {
+  postMessage: (message: unknown) => void
+  terminate: () => void
+  attach: (listener: (event: MessageEvent<WorkerResponse>) => void) => void
+}
 
 const extensionOf = (path: string) => /\.[a-z0-9]{1,8}$/i.exec(path)?.[0] ?? ''
 
 export class XlsxSidecarClient {
-  private worker: Worker | null = null
+  private worker: EngineChannel | null = null
   private ready: Promise<void> | null = null
   private nextId = 1
   private nextGuest = 1
@@ -131,32 +137,60 @@ export class XlsxSidecarClient {
   private async ensureStarted(): Promise<void> {
     if (this.worker && this.ready)
       return this.ready
-    const worker = new Worker(new URL('./engine.worker.ts', import.meta.url), { type: 'module' })
-    this.worker = worker
-    worker.onmessage = (event: MessageEvent<WorkerResponse>) => {
+    const ready = (async () => {
+      const wasm = await (await fetch(new URL('./xlsx_engine.wasm', import.meta.url))).arrayBuffer()
+      // A sandboxed extension page has an opaque origin, so a worker cannot load its script by URL: the script is
+      // fetched and started from a blob. If workers are unavailable the engine runs in the page instead.
+      let channel = await this.startWorker(wasm).catch(() => null)
+      if (!channel) {
+        const { serve } = await import('./engine.worker')
+        const { port1, port2 } = new MessageChannel()
+        serve(port1)
+        channel = { postMessage: message => port2.postMessage(message), terminate: () => port2.close(), attach: listener => void (port2.onmessage = listener) }
+        this.attach(channel)
+        const reply = await this.post({ type: 'init', wasm }, REQUEST_TIMEOUT_MS)
+        if (!reply.ok)
+          throw new Error(reply.error ?? 'XLSX engine failed to start.')
+      }
+    })()
+    this.ready = ready
+    ready.catch(() => {
+      this.teardown(new Error('XLSX engine failed to start.'), false)
+    })
+    return ready
+  }
+
+  private async startWorker(wasm: ArrayBuffer): Promise<EngineChannel | null> {
+    const code = await (await fetch(workerUrl)).text()
+    const url = URL.createObjectURL(new Blob([code], { type: 'text/javascript' }))
+    const worker = new Worker(url)
+    const channel: EngineChannel = { postMessage: message => worker.postMessage(message), terminate: () => worker.terminate(), attach: listener => void (worker.onmessage = listener) }
+    worker.onerror = (event) => {
+      event.preventDefault()
+      this.teardown(new Error(`XLSX engine stopped: ${event.message}`), true)
+    }
+    this.attach(channel)
+    const reply = await this.post({ type: 'init', wasm }, 15_000).catch(() => null)
+    URL.revokeObjectURL(url)
+    if (!reply?.ok) {
+      worker.onerror = null
+      worker.terminate()
+      this.worker = null
+      return null
+    }
+    return channel
+  }
+
+  private attach(channel: EngineChannel): void {
+    this.worker = channel
+    channel.attach((event: MessageEvent<WorkerResponse>) => {
       const pending = this.pending.get(event.data.id)
       if (!pending)
         return
       clearTimeout(pending.timeout)
       this.pending.delete(event.data.id)
       pending.resolve(event.data)
-    }
-    worker.onerror = (event) => {
-      event.preventDefault()
-      this.teardown(new Error(`XLSX engine stopped: ${event.message}`), true)
-    }
-    const ready = (async () => {
-      const wasm = await (await fetch(new URL('./xlsx_engine.wasm', import.meta.url))).arrayBuffer()
-      const reply = await this.post({ type: 'init', wasm }, REQUEST_TIMEOUT_MS)
-      if (!reply.ok)
-        throw new Error(reply.error ?? 'XLSX engine failed to start.')
-    })()
-    this.ready = ready
-    ready.catch(() => {
-      if (this.worker === worker)
-        this.teardown(new Error('XLSX engine failed to start.'), false)
     })
-    return ready
   }
 
   private post(message: Omit<WorkerRequest, 'id'> & { line?: string }, timeoutMs: number): Promise<WorkerResponse> {

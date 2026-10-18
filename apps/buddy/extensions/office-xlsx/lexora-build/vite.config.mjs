@@ -85,7 +85,8 @@ export default defineConfig({
     ],
   },
   define: { 'process.env.NODE_ENV': '"production"', '__dirname': '"/virtual"' },
-  worker: { format: 'es', rollupOptions: { output: { entryFileNames: 'assets/[name]-[hash].js' } } },
+  // A classic script: module workers started from a blob URL are refused inside the sandbox's opaque origin.
+  worker: { format: 'iife', rollupOptions: { output: { entryFileNames: 'assets/[name]-[hash].js' } } },
   build: {
     outDir: process.env.SHEETS_OUT ?? path.join(here, 'dist'),
     emptyOutDir: true,

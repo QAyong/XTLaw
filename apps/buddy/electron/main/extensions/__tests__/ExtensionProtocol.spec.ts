@@ -63,15 +63,14 @@ it('keeps WebAssembly and workers blocked unless the extension declares the perm
   expect(csp).toContain('worker-src \'none\'')
 })
 
-it('opens WebAssembly and package workers for views of extensions that declare webAssembly, without allowing eval or blob workers', async () => {
+it('opens WebAssembly and workers for views of extensions that declare webAssembly, without allowing eval', async () => {
   const { endpoint, respond } = await viewResponder({ webAssembly: true })
   const origin = endpoint.url.slice(0, endpoint.url.lastIndexOf('/'))
   const response = await respond(new Request(new URL('/__view.html', endpoint.url)))
   const csp = response.headers.get('content-security-policy')!
   expect(csp).toContain(`script-src ${origin}/__package/ ${origin}/__view.js 'wasm-unsafe-eval';`)
-  expect(csp).toContain(`worker-src ${origin}/__package/;`)
+  expect(csp).toContain(`worker-src ${origin}/__package/ blob:;`)
   expect(csp.replaceAll('\'wasm-unsafe-eval\'', '')).not.toContain('unsafe-eval')
-  expect(csp).not.toMatch(/worker-src[^;]*blob:/)
   expect(csp).toContain('sandbox allow-scripts allow-forms')
   const wasm = await respond(new Request(new URL('/__package/engine.wasm', endpoint.url)))
   expect(wasm.headers.get('content-type')).toBe('application/wasm')

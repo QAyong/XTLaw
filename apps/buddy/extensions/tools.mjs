@@ -8,13 +8,38 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { zipSync } from 'fflate'
 import { build } from 'vite'
+import { discoverBundledPlugins } from '../../../packaging/buddy/release/bundled-plugins.mjs'
 import { compileExtensionSource } from '../platform/extensions/compileExtensionSource.ts'
 import { EXTENSION_FILE_LIMIT, EXTENSION_PACKAGE_LIMIT, validateExtensionFiles } from '../platform/extensions/extensionFiles.ts'
 import { fileIconAssetPaths, readFileIconTheme, validateFileIconThemeFiles } from '../platform/icons/fileIconThemeAssets.ts'
 import { validateThemeFiles } from '../platform/themes/themeAssets.ts'
+import { documentContractReport } from '../shared/extensions/extensionDocumentContract.ts'
 import { extensionCompatible, extensionManifestSchema, extensionPathSchema } from '../shared/extensions/extensionManifest.ts'
 import { validateExtensionFileCounts } from '../shared/extensions/extensionPackageLimits.ts'
 import { themeAssetPaths, themeDocumentSchema } from '../shared/theme/themeDocument.ts'
+
+// Sizes of the files under the plugin folder, for checks that need them before packing.
+async function listFiles(folder, root = folder) {
+  const files = []
+  for (const entry of await fs.readdir(folder, { withFileTypes: true })) {
+    const absolute = path.join(folder, entry.name)
+    if (entry.isDirectory())
+      files.push(...await listFiles(absolute, root))
+    else if (entry.isFile())
+      files.push({ path: path.relative(root, absolute).split(path.sep).join('/'), size: (await fs.stat(absolute)).size })
+  }
+  return files
+}
+async function bundledHandlers() {
+  const handlers = []
+  for (const plugin of discoverBundledPlugins()) {
+    const bundled = JSON.parse(await fs.readFile(path.join(plugin.directory, 'extension.json'), 'utf8'))
+    const extensions = (bundled.contributes?.views ?? []).flatMap(view => view.accepts?.extensions ?? [])
+    if (extensions.length)
+      handlers.push({ id: bundled.id, name: bundled.name, extensions })
+  }
+  return handlers
+}
 
 async function run() {
   const buddy = fileURLToPath(new URL('../', import.meta.url))
@@ -48,7 +73,13 @@ async function run() {
       themeFiles.set(asset, await fs.readFile(path.join(source, asset)))
   }
   validateThemeFiles(themeFiles, manifest.contributes.themes)
+  // Document-processor contract: capability names and warnings only; nothing here stops a check, build or pack.
+  const contract = documentContractReport(manifest, { files: await listFiles(source), development: command === 'dev', bundledHandlers: await bundledHandlers() })
+  for (const warning of contract.warnings)
+    process.stderr.write(`warning: ${warning}\n`)
   if (command === 'check') {
+    if (contract.capabilities.length)
+      process.stdout.write(`Document capabilities: ${contract.capabilities.map(({ name, since }) => `${name} (XTLaw ${since}+)`).join(', ')}. These are XTLaw extension capabilities, not upstream API numbers.\n`)
     process.stdout.write(`${manifest.id}@${manifest.version}: compatible with Lexora ${version}, API ${manifest.apiVersion}` + '\n')
   }
   else if (command === 'pack') {

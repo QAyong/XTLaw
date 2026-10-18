@@ -38,7 +38,7 @@ button:has(.ai-feature-icon) { display: none !important; }
 /* The editor's own compact density (Ctrl+Alt+K), applied always: tall buttons become icon-only and stacked rows become single rows. */
 .excel-header .ribbon {
   box-sizing: border-box;
-  height: 48px;
+  height: 44px;
   padding: 2px 8px;
   line-height: 1.2;
   overflow-x: hidden;
@@ -56,7 +56,7 @@ button:has(.ai-feature-icon) { display: none !important; }
 .excel-header .chart-grid { grid-template-columns: none; grid-template-rows: repeat(2, auto); grid-auto-flow: column; }
 
 /* Paging controls stay outside the command row and fixed; one full page of commands moves at a time. */
-.excel-header.pi-office-toolbar-host { display: grid; grid-template-columns: 32px minmax(0, 1fr) 32px; grid-template-rows: auto 48px; align-items: stretch; }
+.excel-header.pi-office-toolbar-host { display: grid; grid-template-columns: 32px minmax(0, 1fr) 32px; grid-template-rows: auto 44px; align-items: stretch; }
 .excel-header.pi-office-toolbar-host > .ribbon-tabs { grid-column: 1 / -1; grid-row: 1; }
 .excel-header.pi-office-toolbar-host > .ribbon { grid-column: 2; grid-row: 2; min-width: 0; }
 .excel-header.pi-office-toolbar-host > .pi-office-toolbar-nav {
@@ -87,7 +87,5 @@ button:has(.ai-feature-icon) { display: none !important; }
 .excel-header.pi-office-toolbar-host.pi-office-ribbon-collapsed > .pi-office-toolbar-nav { display: none !important; }
 .excel-header .ribbon .pi-office-clipboard-group { min-width: max-content; }
 
-/* Quick-access buttons: Save As is Ctrl+Shift+S only (like DOCX and PPTX the toolbar keeps Save, Undo and Redo), and the rest sit a little tighter. */
+/* Quick-access buttons: Save As is Ctrl+Shift+S only (like DOCX and PPTX the toolbar keeps Save, Undo and Redo). */
 .excel-header .ribbon-tabs > .qa-btn[aria-label^='另存为'], .excel-header .ribbon-tabs > .qa-btn[aria-label^='Save As'] { display: none; }
-.excel-header .ribbon-tabs > .qa-btn { width: 26px; height: 26px; }
-.excel-header .ribbon-tabs > .qa-sep { margin: 0 4px; }

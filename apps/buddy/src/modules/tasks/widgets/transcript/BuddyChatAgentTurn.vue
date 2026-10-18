@@ -148,6 +148,7 @@ const actionCopyText = computed(() => resultNoticeText.value ?? statusLabel.valu
     >
       {{ resultNoticeText }}
     </p>
+    <slot name="before-actions" />
     <BuddyChatActionToolbar
       v-if="showActions"
       :actions="actions"

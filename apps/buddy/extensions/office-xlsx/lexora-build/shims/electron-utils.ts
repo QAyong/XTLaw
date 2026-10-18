@@ -28,4 +28,8 @@ export async function fetchRemoteImage() {
 }
 export const readBodyCapped = fetchRemoteImage
 export const showOpenDialogWithMemory = async () => ({ canceled: true, filePaths: [] as string[] })
-export const showSaveDialogWithMemory = async () => ({ canceled: true })
+// Save As would bind the editor to a file the host never granted; the page explains instead.
+export async function showSaveDialogWithMemory() {
+  ;(globalThis as { __lexoraSheetsHost?: { notify?: (text: string, alert?: boolean) => void } }).__lexoraSheetsHost?.notify?.('SHEETS_SAVE_AS_UNAVAILABLE', true)
+  return { canceled: true }
+}

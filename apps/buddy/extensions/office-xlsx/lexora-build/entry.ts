@@ -6,7 +6,7 @@ import { handlerRegistry, sender } from './shims/electron'
 import { vfs } from './shims/vfs'
 // Upstream preload: exposes window.desktopApi over the in-page ipcRenderer.
 import '../apps/sheets/src/preload/index'
-import { configureSheetsRuntime, createSheetsView, queueWorkbookForView } from '../apps/sheets/src/main/sheets-main'
+import { configureSheetsRuntime, createSheetsView, queueWorkbookForView, sendSheetsMenuAction } from '../apps/sheets/src/main/sheets-main'
 /* eslint-enable perfectionist/sort-imports */
 
 /** What the plugin view hands over before loading this bundle. */
@@ -60,12 +60,8 @@ handle('app:get-author-name', () => 'XTLaw')
 handle('ai:get-settings', () => ({}))
 handle('app:get-ai-panel-prefs', () => aiPrefs)
 handle('app:set-ai-panel-prefs', (_event, patch: object) => (aiPrefs = { ...aiPrefs, ...patch, showAiSidebar: false }))
-// Read-only preview: no save path is wired to the host yet. A save attempt says so instead of writing anywhere,
-// and the periodic crash-recovery copy (which would serialize the whole workbook in memory) is skipped.
-handle('workbook:save', () => {
-  host?.notify?.('SHEETS_SAVE_UNAVAILABLE', true)
-  return { canceled: true }
-})
+// Save writes through vfs.onWrite to the host. The periodic crash-recovery copy would serialize the whole
+// workbook in memory, and a recovery file in the virtual file system is useless after a reload, so it is skipped.
 handle('workbook:write-recovery', () => ({ ok: false }))
 if (host)
   queueWorkbookForView(sender, host.path)
@@ -79,6 +75,14 @@ globals.__lexoraSheets = {
   },
   setTheme: (theme: 'light' | 'dark') => handlerRegistry.broadcast('app:theme-changed', theme),
 }
+
+// In Electron the application menu owns the file accelerators; here they become the same menu actions.
+window.addEventListener('keydown', (event) => {
+  if (!(event.ctrlKey || event.metaKey) || event.altKey || event.key.toLowerCase() !== 's')
+    return
+  event.preventDefault()
+  sendSheetsMenuAction(event.shiftKey ? 'save-as' : 'save')
+}, true)
 
 // The renderer mounts into #root when imported; the host page creates it first.
 export const ready = import('../apps/sheets/src/renderer/main')

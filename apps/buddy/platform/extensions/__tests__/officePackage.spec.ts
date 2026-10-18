@@ -54,7 +54,7 @@ it('builds the XLSX preview plugin without executing it and keeps the WebAssembl
   const result = await buildExtensionPackage({ archive: input }, async () => {
     throw new Error('Compiled package must not execute a compiler')
   }, new AbortController().signal)
-  expect(result).toMatchObject({ ok: true, id: 'pd2ec0b9018e6402d8ada6873f7fa8721.office-xlsx', name: 'Office XLSX', author: 'XTLaw官方', version: '0.1.0' })
+  expect(result).toMatchObject({ ok: true, id: 'pd2ec0b9018e6402d8ada6873f7fa8721.office-xlsx', name: 'Office XLSX', author: 'XTLaw官方', version: '0.2.0' })
   if (!result.ok)
     throw new Error(result.code)
   const unpacked = unpackExtension(Buffer.from(result.archive, 'base64'))

@@ -66,9 +66,11 @@ export class XlsxSidecarClient {
     const guest = this.mounted.get(path)?.guest
     if (typeof result?.sessionId === 'string' && guest)
       this.sessionGuests.set(result.sessionId, path)
-    // The engine names the workbook after its guest file; the user opened the original.
+    // The engine names the workbook after the file it streams from (the session's snapshot copy); the user
+    // opened the plugin's selected file, so that name is what the editor shows.
+    const hostPath = (globalThis as { __lexoraSheetsHost?: { path?: string } }).__lexoraSheetsHost?.path ?? path
     if (result && typeof (result as { name?: unknown }).name === 'string')
-      (result as { name: string }).name = path.slice(path.lastIndexOf('/') + 1)
+      (result as { name: string }).name = hostPath.slice(hostPath.lastIndexOf('/') + 1)
     return result
   }
 

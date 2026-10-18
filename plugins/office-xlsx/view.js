@@ -1,8 +1,8 @@
-import { readXlsx } from './xlsx.js'
+import { readXlsx, validateXlsx } from './xlsx.js'
 
 const messages = {
-  zh: { loading: '正在加载表格编辑器…', error: '操作失败，请重试。', invalid: '文件不是受支持的 XLSX，或超出安全限制', changed: '文件已被其他程序修改，请重新打开。', empty: '请从文件管理器选择一个 XLSX 文件。', readonly: '当前为只读预览：可浏览与计算，修改暂不能保存。', saveBlocked: '当前版本不能保存修改，请在其他软件中编辑并保存。', ok: '确定', crashed: '表格引擎意外停止，请重新打开文件。' },
-  en: { loading: 'Loading spreadsheet editor…', error: 'Operation failed. Please retry.', invalid: 'Unsupported XLSX or file exceeds safety limits', changed: 'The file changed outside the editor. Reopen it.', empty: 'Select an XLSX file from the file manager.', readonly: 'Read-only preview: you can browse and calculate, but changes cannot be saved yet.', saveBlocked: 'This version cannot save changes. Edit and save in another application.', ok: 'OK', crashed: 'The spreadsheet engine stopped unexpectedly. Reopen the file.' },
+  zh: { loading: '正在加载表格编辑器…', error: '操作失败，修改尚未保存。请重试。', invalid: '文件不是受支持的 XLSX，或超出安全限制', changed: '文件已被其他程序修改，尚未保存。请重新打开文件。', empty: '请从文件管理器选择一个 XLSX 文件。', cancelled: '保存已取消。', saveAsUnavailable: '暂不支持另存为，请使用保存（Ctrl+S）。', ok: '确定' },
+  en: { loading: 'Loading spreadsheet editor…', error: 'Operation failed. Changes have not been saved. Please retry.', invalid: 'Unsupported XLSX or file exceeds safety limits', changed: 'The file changed outside the editor. Changes have not been saved. Reopen the file.', empty: 'Select an XLSX file from the file manager.', cancelled: 'Save cancelled.', saveAsUnavailable: 'Save As is not supported yet. Use Save (Ctrl+S).', ok: 'OK' },
 }
 
 // The sandbox has an opaque origin: keep editor preferences in bounded memory instead of weakening the iframe.
@@ -75,7 +75,18 @@ export async function render(context, container) {
       bytes,
       language: context.environment.language,
       theme: context.environment.colorScheme === 'dark' ? 'dark' : 'light',
-      // Read-only preview: no save path is wired to the host yet.
+      // The host checks the file version, directory grant and content hash before writing; a conflict rejects here.
+      async save(data) {
+        context.signal.throwIfAborted()
+        try {
+          const saved = await context.resources.saveFile({ name: resource.name, data: validateXlsx(data), resource: context.resource })
+          if (!saved)
+            throw new Error('OFFICE_SAVE_CANCELLED')
+        }
+        catch (error) {
+          throw new Error(error?.message === 'OFFICE_SAVE_CANCELLED' ? copy.cancelled : describe(error))
+        }
+      },
       messageBox: options => new Promise((resolve) => {
         const dialog = document.createElement('dialog')
         const message = document.createElement('p')
@@ -105,8 +116,8 @@ export async function render(context, container) {
         dialog.showModal()
         buttons[0]?.focus()
       }),
-      // The engine glue reports a refused save by code; the page owns the wording.
-      notify: (text, alert) => show(text === 'SHEETS_SAVE_UNAVAILABLE' ? copy.saveBlocked : text, alert),
+      // The engine glue reports unsupported actions by code; the page owns the wording.
+      notify: (text, alert) => show(text === 'SHEETS_SAVE_AS_UNAVAILABLE' ? copy.saveAsUnavailable : text, alert),
     }
     const editor = await import('./xlsx/sheets.js')
     await editor.ready
@@ -117,13 +128,7 @@ export async function render(context, container) {
       globalThis.__lexoraSheets?.setTheme(environment.colorScheme === 'dark' ? 'dark' : 'light')
     })
     context.signal.addEventListener('abort', () => appearance.dispose(), { once: true })
-    show(copy.readonly)
-    // The notice must not keep covering the sheet tabs; a refused save shows it again.
-    const hide = setTimeout(() => {
-      if (status.textContent === copy.readonly)
-        show('')
-    }, 8000)
-    context.signal.addEventListener('abort', () => clearTimeout(hide), { once: true })
+    show('')
   }
   catch (error) {
     if (context.signal.aborted)

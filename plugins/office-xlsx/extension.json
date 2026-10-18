@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "format": "compiled",
+  "id": "pd2ec0b9018e6402d8ada6873f7fa8721.office-xlsx",
+  "name": "Office XLSX",
+  "author": "XTLaw官方",
+  "description": "点击文件管理器中的 XLSX 即可用 Sheets 编辑器浏览，含样式、合并单元格与公式；当前为只读预览，修改暂不能保存；不含 AI 与 PDF 功能。",
+  "version": "0.1.0",
+  "icon": "icon.svg",
+  "categories": ["办公"],
+  "tags": ["XLSX", "Excel", "电子表格"],
+  "apiVersion": 4,
+  "engines": { "lexora": ">=0.1.0 <1.0.0" },
+  "entry": "extension.js",
+  "permissions": { "selectedResource": "read", "webAssembly": true },
+  "contributes": {
+    "views": [
+      { "id": "pd2ec0b9018e6402d8ada6873f7fa8721.office-xlsx.viewer", "title": "Office XLSX", "entry": "view.js", "resource": "none", "location": "context" },
+      { "id": "pd2ec0b9018e6402d8ada6873f7fa8721.office-xlsx.workbook", "title": "Office XLSX", "entry": "view.js", "resource": "selected-file", "accepts": { "extensions": ["xlsx"] }, "location": "context" }
+    ]
+  }
+}

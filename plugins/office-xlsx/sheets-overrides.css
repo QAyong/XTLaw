@@ -1,0 +1,19 @@
+html, body { height: 100%; overflow: hidden; }
+body > main.sheets-shell { position: relative; display: flex; flex-direction: column; height: 100%; box-sizing: border-box; padding: 0; overflow: hidden; }
+.sheets-editor-root { flex: 1; min-height: 0; overflow: hidden; }
+.sheets-editor-root > .app { height: 100%; }
+.sheets-status { position: absolute; inset: auto 12px 40px; z-index: 1000; margin: 0; padding: 8px 12px; border: 1px solid var(--lexora-border-subtle, ButtonBorder); border-radius: 6px; color: var(--lexora-text-primary, CanvasText); background: var(--lexora-surface-base, Canvas); font: 12px/1.5 system-ui, sans-serif; cursor: pointer; }
+.sheets-status[hidden] { display: none; }
+.sheets-status[role='alert'] { font-weight: 600; }
+
+/* Host dialogs (confirmations, errors) */
+.sheets-shell > dialog { max-width: min(420px, calc(100vw - 48px)); border: 1px solid var(--lexora-border-subtle, ButtonBorder); border-radius: 8px; padding: 20px; color: var(--lexora-text-primary, CanvasText); background: var(--lexora-surface-base, Canvas); font: 14px/1.6 system-ui, sans-serif; }
+.sheets-shell > dialog p { margin: 0 0 16px; }
+.sheets-shell > dialog button { padding: 6px 10px; border: 1px solid var(--lexora-border-subtle, ButtonBorder); border-radius: 6px; background: var(--lexora-surface-base, ButtonFace); color: inherit; font: 13px system-ui, sans-serif; cursor: pointer; }
+.sheets-shell > dialog button + button { margin-inline-start: 8px; }
+
+/* The Genspark AI assistant, account and cloud features are not part of this plugin. */
+.ai-dock, .ai-entry, .ai-ask-trigger, .ai-ask-pop, .copilot-panel { display: none !important; }
+.ribbon-group:has(.ai-entry) { display: none; }
+.ribbon-group:has(.ai-entry) + .ribbon-sep { display: none; }
+button:has(.ai-feature-icon) { display: none !important; }

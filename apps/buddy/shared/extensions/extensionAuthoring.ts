@@ -22,6 +22,8 @@ export const extensionCapabilitiesSchema = z.object({
     title: z.object({ 'zh-CN': z.string(), 'en-US': z.string() }).strict(),
     scope: z.enum(['application', 'page', 'pane', 'composer', 'resource', 'message']),
     description: z.string().optional(),
+    since: z.string().optional(),
+    requires: z.string().optional(),
     selection: z.enum(['single', 'multiple']).optional(),
     height: z.object({ min: z.number(), max: z.number(), default: z.number() }).strict().optional(),
   }).strict()),

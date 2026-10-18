@@ -4,6 +4,7 @@ import { fileIconThemeContributionSchema } from '../icons/fileIconTheme'
 import { themeContributionSchema } from '../theme/themeDocument'
 import { workbenchSlashSchema } from '../workbench/workbenchCommand'
 import { workbenchConditionSchema } from '../workbench/workbenchContext'
+import { addedDocumentPermissions, documentCapabilityIssues } from '../workbench/workbenchDocumentCapabilities'
 import { workbenchAnchorSchema, workbenchControls, workbenchControlSchema, workbenchMenuSchema, workbenchMountTargetSchema, workbenchPresentationSchema, workbenchSlots, workbenchSlotSchema } from '../workbench/workbenchUi'
 import { extensionAgentSchema } from './extensionAgent'
 import { extensionConditionDefinitionSchema } from './extensionConditions'
@@ -126,12 +127,8 @@ export const extensionManifestSchema = extensionMetadataSchema.extend({
     ids.add(contribution.id)
   }
   const issue = (message: string) => context.addIssue({ code: 'custom', message })
-  if (manifest.permissions.selectedResourceWrite && (manifest.apiVersion < 4 || manifest.permissions.selectedResource !== 'read'))
-    issue('Writing the selected file requires API 4 and selected-resource read permission')
-  if (manifest.permissions.composerReference && (manifest.apiVersion < 4 || manifest.permissions.selectedResource !== 'read'))
-    issue('Adding file references requires API 4 and selected-resource read permission')
-  if (manifest.contributes.views.some(view => view.accepts && (manifest.apiVersion < 4 || view.resource !== 'selected-file' || view.location !== 'context')))
-    issue('File handlers require API 4 and a selected-file context view')
+  // Document-processor fields (accepts, write-back, references, export, WebAssembly) follow the capability registry.
+  documentCapabilityIssues(manifest).forEach(issue)
   if (manifest.apiVersion < 3 && manifest.contributes.iconThemes.length)
     issue('Icon theme contributions require API 3')
   if (manifest.apiVersion < 3 && (manifest.contributes.themes.length || manifest.permissions.themeManagement))
@@ -234,12 +231,9 @@ export function addedExtensionPermissions(previous: ExtensionPermissions | undef
     ...(next.notifications && !previous?.notifications ? ['notifications'] : []),
     ...(next.schedules && !previous?.schedules ? ['schedules'] : []),
     ...(next.selectedResource === 'read' && previous?.selectedResource !== 'read' ? ['selectedResource:read'] : []),
-    ...(next.selectedResourceWrite && !previous?.selectedResourceWrite ? ['selectedResourceWrite'] : []),
-    ...(next.composerReference && !previous?.composerReference ? ['composerReference'] : []),
+    ...addedDocumentPermissions(previous, next),
     ...(next.selectedContent && !previous?.selectedContent ? ['selectedContent'] : []),
     ...(next.localResources && !previous?.localResources ? ['localResources'] : []),
-    ...(next.resourceExport && !previous?.resourceExport ? ['resourceExport'] : []),
-    ...(next.webAssembly && !previous?.webAssembly ? ['webAssembly'] : []),
     ...next.network.filter(origin => !previous?.network.includes(origin)).map(origin => `network:${origin}`),
   ]
 }

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { builtinSettingsModuleIds, publicSettingsGroups } from '../settings/settingsCatalog.ts'
+import { workbenchDocumentCapabilities } from './workbenchDocumentCapabilities.ts'
 import { workbenchRegions } from './workbenchRegions.ts'
 
 interface TargetDefinition {
@@ -76,7 +77,7 @@ function catalog<K extends string, T extends Record<string, TargetDefinition>>(k
 }
 export const workbenchUiTargetCatalog = [...catalog('control', workbenchControls), ...catalog('slot', workbenchSlots)]
 export type WorkbenchUiSelectionTarget = Pick<(typeof workbenchUiTargetCatalog)[number], 'kind' | 'target'>
-export const workbenchContributionCatalog = [...workbenchUiTargetCatalog.map(target => ({ ...target, description: `${target.description} Plugin-owned settings: enabled defaults to true; placements.show/hide toggles an owned contribution for the current host generation. ViewContext.setActive(false) yields native fallback without destroying the view. First available provider wins a single target; legacy order then contribution ID. See slots.md.` })), ...catalog('mount', workbenchMounts), ...catalog('menu', workbenchMenus), ...catalog('decoration', workbenchDecorations), ...catalog('runtime', workbenchRuntimeCapabilities)]
+export const workbenchContributionCatalog = [...workbenchUiTargetCatalog.map(target => ({ ...target, description: `${target.description} Plugin-owned settings: enabled defaults to true; placements.show/hide toggles an owned contribution for the current host generation. ViewContext.setActive(false) yields native fallback without destroying the view. First available provider wins a single target; legacy order then contribution ID. See slots.md.` })), ...catalog('mount', workbenchMounts), ...catalog('menu', workbenchMenus), ...catalog('decoration', workbenchDecorations), ...catalog('runtime', { ...workbenchRuntimeCapabilities, ...workbenchDocumentCapabilities })]
 export const workbenchCapabilityKinds = ['slot', 'control', 'mount', 'menu', 'decoration', 'runtime'] as const
 export const workbenchCapabilityQuerySchema = z.object({ kind: z.enum(workbenchCapabilityKinds).optional(), target: z.string().min(1).max(100).optional() }).strict()
 export function queryWorkbenchCapabilities(query: z.infer<typeof workbenchCapabilityQuerySchema>) {

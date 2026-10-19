@@ -152,6 +152,8 @@ pub(super) fn install() -> io::Result<i32> {
         stop_idle(&service)?;
     }
     super::metadata::recover()?;
+    super::acl_state::discard_unpublished()?;
+    super::account::repair()?;
     let source = std::env::current_exe()?;
     if target.exists() {
         protected_object(&target)?;
@@ -245,6 +247,7 @@ pub(super) fn install() -> io::Result<i32> {
     })?;
     let network = Network::open()?;
     network.install()?;
+    network.recover()?;
     super::security::at("network_configuration", network.verify())?;
     register_uninstaller(&target)?;
     Ok(0)
@@ -312,6 +315,9 @@ pub(super) fn uninstall() -> io::Result<i32> {
     )?;
     stop_idle(&service)?;
     super::metadata::recover()?;
+    super::acl_state::discard_unpublished()?;
+    super::acl_state::cleanup(None)?;
+    super::account::uninstall()?;
     Network::open()?.uninstall()?;
     // SAFETY: Only the fixed product service is removed, after its active leases have ended.
     boolean(unsafe { DeleteService(service.0) })?;

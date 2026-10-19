@@ -187,6 +187,8 @@ function captureDraft(): WorkbenchMenuSelection {
       <WorkbenchSlot target="composer.accessory" class="desktop-chat-composer__accessory" />
       <ChatInputMaterialStrip
         ref="resourceStrip"
+        class="desktop-chat-composer__materials"
+        :class="{ 'is-floating': !hasQueuedMessages }"
         :materials="materials"
         :language="language"
         :disabled="isSending"
@@ -390,7 +392,38 @@ function captureDraft(): WorkbenchMenuSelection {
 </template>
 
 <style scoped lang="scss">
+.desktop-chat-composer-wrap {
+  position: relative;
+}
+
 .desktop-chat-composer {
+  &__materials {
+    width: max-content;
+    max-width: 100%;
+
+    // Keep queued messages above the composer unobscured.
+    &.is-floating {
+      position: absolute;
+      bottom: 100%;
+      left: 0;
+      margin-bottom: 0.5rem;
+      pointer-events: none;
+
+      // Only cards and scrollbar controls should intercept the conversation.
+      :deep(.chat-input-material-card),
+      :deep(.n-scrollbar-rail) {
+        pointer-events: auto;
+      }
+
+      // The highlight tint is translucent; layer it on the solid card surface so the transcript does not show through.
+      :deep(.chat-input-material-card.is-highlighted) {
+        background:
+          linear-gradient(var(--buddy-accent-surface), var(--buddy-accent-surface)),
+          var(--buddy-surface-raised);
+      }
+    }
+  }
+
   &__context-usage,
   &__permission-mode,
   &__model-selector {

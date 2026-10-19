@@ -6,7 +6,7 @@
 
 | 上游提交 | 本地提交 | 内容与整合方式 |
 | --- | --- | --- |
-| `6a6de765` | `Port upstream 6a6de765` | 重构 Windows 沙盒并简化权限策略（67 个文件，含 Rust 原生代码，`Cargo.toml` 仅增加 `windows-sys` 的三个 feature，无依赖版本变化，无迁移）。冲突 4 处：`apps/website/src/guide/permissions.md` 本地已删除，保持删除；`shell_sandbox.windows.mjs` 取上游的租约目录断言，目录名改为 `XTLaw Sandbox`；`createBuddySystemPrompt.ts` 取上游的沙盒文案，保留本地的“外部网络授权”措辞和 “XTLaw service user”，并删除不再使用的 `hostIpc`；`PermissionEngine.ts` 两个 import 都保留。**偏离上游（品牌隔离）**：沙盒本地账户前缀 `Lexora` → `XTLaw`（`account.rs` 4 处）；全局命名对象 `Global\LexoraBuddySandbox{Acl,Root,Denials}` → `Global\XTLawBuddySandbox…`（`filesystem.rs` 3 处）。以后上游再改这些行会冲突，按此保留 XTLaw 前缀 |
+| `6a6de765` | `Port upstream 6a6de765` | 重构 Windows 沙盒并简化权限策略（67 个文件，含 Rust 原生代码，`Cargo.toml` 仅增加 `windows-sys` 的三个 feature，无依赖版本变化，无迁移）。冲突 4 处：`apps/website/src/guide/permissions.md` 本地已删除，保持删除；`shell_sandbox.windows.mjs` 取上游的租约目录断言，目录名改为 `XTLaw Sandbox`；`createBuddySystemPrompt.ts` 取上游的沙盒文案，保留本地的“外部网络授权”措辞和 “XTLaw service user”，并删除不再使用的 `hostIpc`；`PermissionEngine.ts` 两个 import 都保留。**偏离上游（品牌隔离）**：沙盒本地账户前缀 `Lexora` → `XTLaw`（`account.rs`；账户名长度校验改为按 `NAME_PREFIX` 计算，之前写死 18/20 位导致 CI 里全部账户被拒、沙盒报 `SANDBOX_UNAVAILABLE`，以后上游再改前缀或长度要一并检查 `valid_name`）。全局互斥锁 `Global\LexoraBuddySandbox{Acl,Root,Denials}` **保持上游名字不改**：源码注释说明两个产品有意共用它来串行化同一目录的 ACL 改写，改名会让两个产品互相看不到对方的锁 |
 
 ## 跳过
 

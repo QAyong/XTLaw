@@ -1,5 +1,7 @@
 import { z } from 'zod'
+import { automationApprovalAllowlistSchema } from '../automation/approvalAllowlist'
 import { BROWSER_ACTION_KINDS, BROWSER_PRESS_KEYS } from '../browser/primitives'
+import { BUDDY_APPROVAL_POLICIES, BUDDY_DEFAULT_APPROVAL_POLICY } from './approvalPolicy'
 import {
   BUDDY_DEFAULT_EXECUTION_PROFILE,
   BUDDY_EXECUTION_PROFILES,
@@ -179,6 +181,8 @@ export const approvalReviewPayloadSchema = z.discriminatedUnion('card', [
   }).strict(),
   z.object({
     allowForTurn: z.boolean().default(false),
+    approvalAllowlist: automationApprovalAllowlistSchema,
+    approvalPolicy: z.enum(BUDDY_APPROVAL_POLICIES).default(BUDDY_DEFAULT_APPROVAL_POLICY),
     card: z.literal('automation'),
     executionProfile: z.enum(BUDDY_EXECUTION_PROFILES).default(BUDDY_DEFAULT_EXECUTION_PROFILE),
     modelMode: z.string().trim().min(1).max(512),

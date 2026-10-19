@@ -4,6 +4,7 @@ import { NAlert, NButton, NForm, NFormItem, NInput, NScrollbar, NSpin } from 'na
 import { shallowRef } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import { BuddyActorSelect } from '@/modules/buddies/ui'
+import DesktopApprovalAllowlist from '@/shared/ui/approval-allowlist/DesktopApprovalAllowlist.vue'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import DesktopSelect from '@/shared/ui/select/DesktopSelect.vue'
 import DesktopAutomationPromptComposer from './DesktopAutomationPromptComposer.vue'
@@ -100,6 +101,7 @@ function close(): void {
 
             <NFormItem :label="t('desktop.automations.editor.prompt')" required>
               <DesktopAutomationPromptComposer
+                :approval-policy="form.approvalPolicy"
                 :execution-profile="form.executionProfile"
                 :language="language"
                 :models="models"
@@ -108,10 +110,20 @@ function close(): void {
                 :selected-effort="form.reasoning"
                 :selected-model-id="form.modelMode === 'pinned' ? form.pinnedModelKey : null"
                 @update-effort="form.reasoning = $event"
-                @update-execution-profile="form.executionProfile = $event"
                 @update-model="updatePinnedModel"
+                @update-permission-settings="form.approvalPolicy = $event.approvalPolicy; form.executionProfile = $event.executionProfile"
                 @update-prompt="form.prompt = $event"
               />
+            </NFormItem>
+
+            <NFormItem
+              v-if="form.approvalPolicy === 'policy' && form.executionProfile === 'workspace_write'"
+              :label="t('desktop.automations.editor.allowlist')"
+            >
+              <div class="desktop-automation-editor__allowlist">
+                <DesktopApprovalAllowlist :entries="form.approvalAllowlist" :language="language" />
+                <p>{{ t('desktop.automations.editor.allowlistHint') }}</p>
+              </div>
             </NFormItem>
 
             <NFormItem :label="language === 'en-US' ? 'Conversation assistant' : '对话助手'">
@@ -244,6 +256,18 @@ function close(): void {
 
 .desktop-automation-editor__form {
   display: grid;
+}
+
+.desktop-automation-editor__allowlist {
+  display: grid;
+  gap: 6px;
+
+  p {
+    margin: 0;
+    color: var(--buddy-text-muted);
+    font-size: 11px;
+    line-height: 1.5;
+  }
 }
 
 .desktop-automation-editor__space-field {

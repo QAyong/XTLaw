@@ -63,6 +63,7 @@ describe('harness tool authorization', () => {
     const options = {
       approvalService: approvals,
       approvalAvailable: true,
+      approvalAllowlist: [],
       approvalPolicy: 'policy' as const,
       executionProfile: 'workspace_write' as const,
       cwd: workspace,
@@ -212,7 +213,7 @@ describe('harness tool authorization', () => {
       ['lexora_browser_act', { action: { kind: 'click', ref: 'fixture' } }, { forceAsk: true, approval: { kind: 'browser', summary: 'Submit fixture', browser }, validateBeforeExecution: async () => null }],
       ['lexora_buddy_automation', { operation: 'pause', automationId: 'fixture' }, {
         forceAsk: true,
-        approval: { kind: 'automation', summary: 'Pause fixture', automation: { executionProfile: 'workspace_write', modelMode: 'default', name: 'Fixture', operation: 'pause', spaceId: null, promptSummary: 'Fixture', scheduleSummary: 'Daily', timezone: 'UTC' } },
+        approval: { kind: 'automation', summary: 'Pause fixture', automation: { approvalAllowlist: [], approvalPolicy: 'policy', executionProfile: 'workspace_write', modelMode: 'default', name: 'Fixture', operation: 'pause', spaceId: null, promptSummary: 'Fixture', scheduleSummary: 'Daily', timezone: 'UTC' } },
       }],
       ['read', { path: join(outside, '.env') }, {}],
       ['mcp__fixture__search', { query: 'fixture' }, { access: 'network', requireApproval: true, approval: { kind: 'mcp', summary: 'Search', reuse: { operation: ['fixture', 1, 'search'], source: ['fixture', 1] } } }],
@@ -231,6 +232,26 @@ describe('harness tool authorization', () => {
     const stale = f.authorization.authorize(f.call('lexora_browser_act', {}), f.run, { forceAsk: true, approval: { kind: 'browser', summary: 'Stale', browser }, validateBeforeExecution: async () => ({ blocked: true, reason: 'BROWSER_TARGET_STALE' }) })
     await expect(stale).resolves.toBe('BROWSER_TARGET_STALE')
     expect(f.records.size).toBe(1)
+  })
+
+  it('lets unattended smart-approval runs use only the allowlisted directories without asking', async () => {
+    const f = fixture()
+    const target = join(outside, 'report.txt')
+    const call = () => f.call('write', { path: target, content: 'fixture' })
+    const unattended = { ...f.options, approvalAvailable: false }
+    const allowlisted: Array<{ kind: string, runId: string }> = []
+
+    await expect(new ToolAuthorizationService(unattended).authorize(call(), f.run)).resolves.toBe('APPROVAL_UNAVAILABLE_IN_BACKGROUND')
+    await expect(new ToolAuthorizationService({ ...unattended, approvalAllowlist: [{ access: 'read', kind: 'directory', path: outside }] }).authorize(call(), f.run)).resolves.toBe('APPROVAL_UNAVAILABLE_IN_BACKGROUND')
+    await expect(new ToolAuthorizationService({ ...unattended, approvalAllowlist: [{ access: 'write', kind: 'directory', path: join(root, 'another') }] }).authorize(call(), f.run)).resolves.toBe('APPROVAL_UNAVAILABLE_IN_BACKGROUND')
+    await expect(new ToolAuthorizationService({ ...unattended, approvalAllowlist: [{ access: 'write', kind: 'directory', path: outside }], approvalPolicy: 'manual' }).authorize(call(), f.run)).resolves.toBe('APPROVAL_UNAVAILABLE_IN_BACKGROUND')
+    await expect(new ToolAuthorizationService({
+      ...unattended,
+      approvalAllowlist: [{ access: 'write', kind: 'directory', path: outside }],
+      onAllowlistApproval: approval => allowlisted.push(approval),
+    }).authorize(call(), f.run)).resolves.toBeNull()
+    expect(allowlisted).toEqual([{ kind: 'write', runId: 'run-1' }])
+    expect(f.records.size).toBe(0)
   })
 
   it('rejects a path replaced while waiting without granting its new target', async () => {

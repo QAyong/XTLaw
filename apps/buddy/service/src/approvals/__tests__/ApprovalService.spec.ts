@@ -81,6 +81,8 @@ describe('approvalService', () => {
       reuseScopes: [],
       arguments: { operation: 'upsert' },
       automation: {
+        approvalAllowlist: [],
+        approvalPolicy: 'policy',
         executionProfile: 'workspace_write',
         modelMode: 'default',
         name: 'Daily review',
@@ -319,6 +321,8 @@ describe('approvalService', () => {
       reuseScopes: [],
       arguments: { operation: 'upsert' },
       automation: {
+        approvalAllowlist: [],
+        approvalPolicy: 'policy',
         executionProfile: 'workspace_write',
         modelMode: 'default',
         name: 'Daily review',

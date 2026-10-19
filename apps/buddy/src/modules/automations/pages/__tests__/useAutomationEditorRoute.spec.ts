@@ -7,6 +7,8 @@ import { deferred } from '../../../../../__tests__/deferred'
 import { useAutomationEditorRoute } from '../useAutomationEditorRoute'
 
 const draft: AutomationDefinitionDraft = {
+  approvalAllowlist: [],
+  approvalPolicy: 'policy',
   executionProfile: 'workspace_write',
   model: { mode: 'default' },
   name: 'Example',

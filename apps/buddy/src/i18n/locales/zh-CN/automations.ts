@@ -36,6 +36,8 @@ export default {
   'desktop.automations.editor.name': '名称',
   'desktop.automations.editor.space': '空间（可选）',
   'desktop.automations.editor.spacePlaceholder': '选择空间',
+  'desktop.automations.editor.allowlist': '免确认范围',
+  'desktop.automations.editor.allowlistHint': '智能审批下，无人值守的运行只对这里列出的目录和域名免确认放行，其他需要确认的操作仍会被拒绝。由智能体创建自动化时设置。',
   'desktop.automations.editor.spaceHint': '未选择时，每次运行都创建独立任务，并使用该任务的 Buddy 本地工作目录。',
   'desktop.automations.editor.unavailableSpace': '{name}（不可用）',
   'desktop.automations.editor.unknownSpace': '不可用空间',

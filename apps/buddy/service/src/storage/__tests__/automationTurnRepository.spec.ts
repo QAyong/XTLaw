@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import { AutomationService } from '../../automations/AutomationService'
 import { createAutomationRepositories } from '../automationRepository'
+import { createAutomationRunAllowlistReader } from '../automationRunAllowlist'
 import {
   AutomationTurnBindingError,
   createAutomationTurnRepository,
@@ -27,7 +28,7 @@ describe('automationTurnRepository', () => {
     })
     const automation = service.create({
       requestId: 'create-1',
-      draft: { ...dailyDraft(), executionProfile: 'full_access' },
+      draft: { ...dailyDraft(), approvalAllowlist: [{ access: 'write' as const, kind: 'directory' as const, path: '/data/reports' }, { host: 'api.example.com', kind: 'domain' as const }], approvalPolicy: 'manual' as const, executionProfile: 'full_access' },
     })
     const occurrence = service.runNow({
       automationId: automation.id,
@@ -64,15 +65,17 @@ describe('automationTurnRepository', () => {
       status: 'bound',
     })
     expect(database.prepare(`
-      SELECT origin, deleted_at, execution_profile FROM conversations WHERE id = 'conversation-1'
+      SELECT origin, deleted_at, execution_profile, approval_policy FROM conversations WHERE id = 'conversation-1'
     `).get()).toEqual({
+      approval_policy: 'manual',
       deleted_at: null,
       execution_profile: 'full_access',
       origin: 'automation',
     })
     expect(database.prepare(`
-      SELECT purpose, status, execution_profile FROM runs WHERE id = 'run-1'
+      SELECT purpose, status, execution_profile, approval_policy FROM runs WHERE id = 'run-1'
     `).get()).toEqual({
+      approval_policy: 'manual',
       execution_profile: 'full_access',
       purpose: 'automation',
       status: 'queued',
@@ -80,6 +83,8 @@ describe('automationTurnRepository', () => {
     expect(database.prepare(`
       SELECT prompt, reasoning FROM run_inputs WHERE run_id = 'run-1'
     `).get()).toEqual({ prompt: 'Run daily', reasoning: 'high' })
+    expect(createAutomationRunAllowlistReader(database)('run-1')).toEqual([{ access: 'write', kind: 'directory', path: '/data/reports' }, { host: 'api.example.com', kind: 'domain' }])
+    expect(createAutomationRunAllowlistReader(database)('missing-run')).toEqual([])
     expect(database.prepare('SELECT actor_id, model_selection_json FROM conversation_members WHERE conversation_id = ?').get('conversation-1')).toEqual({ actor_id: 'default', model_selection_json: null })
   })
 
@@ -189,6 +194,8 @@ describe('automationTurnRepository', () => {
 
 function dailyDraft() {
   return {
+    approvalAllowlist: [],
+    approvalPolicy: 'policy' as const,
     executionProfile: 'workspace_write' as const,
     model: { mode: 'default' as const },
     name: 'Daily',

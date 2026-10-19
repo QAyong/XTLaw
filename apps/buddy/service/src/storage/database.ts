@@ -18,7 +18,7 @@ export interface OpenBuddyDatabaseOptions {
 }
 
 const BUDDY_CURRENT_SCHEMA_COLUMNS = {
-  automations: ['actor_id'],
+  automations: ['actor_id', 'approval_policy', 'approval_allowlist_json'],
   automation_occurrences: ['actor_snapshot_json'],
   runs: ['buddy_id', 'actor_snapshot_json', 'model_override_json', 'root_run_id', 'parent_run_id', 'execution_kind', 'thread_id', 'generation'],
   execution_state: ['run_id', 'phase', 'phase_version', 'request_key', 'request_hash', 'admitted_root_generation', 'admitted_parent_generation', 'result_mailbox_id', 'cancel_requested_at', 'cleanup_state', 'file_access_ceiling'],

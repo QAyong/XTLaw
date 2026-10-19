@@ -525,6 +525,8 @@ export class AutomationService {
       blockedReason: null,
       createdAt: input.createdAt,
       actorId: draft.actorId ?? null,
+      approvalAllowlist: draft.approvalAllowlist,
+      approvalPolicy: draft.approvalPolicy,
       executionProfile: draft.executionProfile,
       id: input.id,
       lastRunAt: input.lastRunAt,
@@ -623,6 +625,8 @@ function encodePage<T>(page: AutomationPageRecord<T>): AutomationPage<T> {
 
 function toDefinitionDraft(automation: Automation): AutomationDefinitionDraft {
   return {
+    approvalAllowlist: automation.approvalAllowlist,
+    approvalPolicy: automation.approvalPolicy,
     executionProfile: automation.executionProfile,
     model: automation.model,
     name: automation.name,

@@ -2,6 +2,7 @@ import type { BuddyApprovalPolicy } from '../../../shared/permissions/approvalPo
 import type { ApprovalReviewKind, ShellApprovalContext } from '../../../shared/permissions/approvalReviewPayload'
 import type { BuddyExecutionProfile } from '../../../shared/permissions/executionProfile'
 import type { SandboxDirectoryGrant } from '../../../shared/permissions/shellSandbox'
+import type { ApprovalAllowlistScope } from './approvalAllowlist'
 
 export type AccessKind
   = 'delete'
@@ -71,6 +72,7 @@ export type PermissionDecision
 
 export interface PermissionRequest {
   access?: AccessKind
+  allowlist?: ApprovalAllowlistScope
   approvalPolicy: BuddyApprovalPolicy
   approvalAvailable: boolean
   approval?: { kind?: ApprovalReviewKind, summary?: string }

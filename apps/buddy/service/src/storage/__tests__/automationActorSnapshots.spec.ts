@@ -31,6 +31,8 @@ function fixture(actorId: string | null = null) {
   const buddies = createBuddyRepository(database)
   const automation = service.create({ requestId: 'create', draft: {
     actorId,
+    approvalAllowlist: [],
+    approvalPolicy: 'policy',
     executionProfile: 'full_access',
     model: { mode: 'default' },
     name: 'Scheduled work',
@@ -116,9 +118,13 @@ describe('automation actor claim snapshots', () => {
         const row = f.database.prepare(`SELECT * FROM ${table}`).get()!
         delete row.actor_id
         delete row.actor_snapshot_json
+        delete row.approval_policy
+        delete row.approval_allowlist_json
         if (typeof row.execution_snapshot_json === 'string') {
           const snapshot = JSON.parse(row.execution_snapshot_json)
           delete snapshot.actorId
+          delete snapshot.approvalPolicy
+          delete snapshot.approvalAllowlist
           row.execution_snapshot_json = JSON.stringify(snapshot)
         }
         const columns = Object.keys(row)
@@ -238,7 +244,7 @@ describe('automation actor claim snapshots', () => {
   it('keeps an explicit actor despite default changes and skips binding if that actor has been disabled', () => {
     const f = fixture()
     const actor = f.buddies.create({ name: 'Explicit actor' })
-    const updated = f.service.update({ automationId: f.automation.id, expectedRevision: f.automation.revision, requestId: 'update', draft: { actorId: actor.id, executionProfile: f.automation.executionProfile, model: f.automation.model, name: f.automation.name, prompt: f.automation.prompt, spaceId: f.automation.spaceId, timing: f.automation.timing } })
+    const updated = f.service.update({ automationId: f.automation.id, expectedRevision: f.automation.revision, requestId: 'update', draft: { actorId: actor.id, approvalAllowlist: [], approvalPolicy: f.automation.approvalPolicy, executionProfile: f.automation.executionProfile, model: f.automation.model, name: f.automation.name, prompt: f.automation.prompt, spaceId: f.automation.spaceId, timing: f.automation.timing } })
     const queued = f.service.runNow({ automationId: updated.id, expectedRevision: updated.revision, requestId: 'explicit' }).occurrence
     expect(f.claim()[0]!.actorSnapshot?.id).toBe(actor.id)
     f.buddies.update({ buddyId: actor.id, expectedRevision: actor.revision, enabled: false })

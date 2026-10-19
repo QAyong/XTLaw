@@ -79,6 +79,8 @@ describe('automationOccurrenceLifecycleService', () => {
     })
     const automation = automations.create({
       draft: {
+        approvalAllowlist: [],
+        approvalPolicy: 'policy',
         executionProfile: 'workspace_write',
         model: { mode: 'default' },
         name: 'Automation',
@@ -148,6 +150,8 @@ describe('automationOccurrenceLifecycleService', () => {
     })
     const automation = automations.create({
       draft: {
+        approvalAllowlist: [],
+        approvalPolicy: 'policy',
         executionProfile: 'workspace_write',
         model: { mode: 'default' },
         name: 'Automation',
@@ -212,7 +216,7 @@ function createBoundFixture() {
   const database = openBuddyDatabase({ databasePath: ':memory:' })
   databases.push(database)
   const automations = new AutomationService({ clock: { now: () => Temporal.Instant.from('2026-08-24T00:00:00.000Z') }, repositories: createAutomationRepositories(database) })
-  const definition = automations.create({ requestId: 'create-recovery', draft: { executionProfile: 'workspace_write', model: { mode: 'default' }, name: 'Recovery', prompt: 'Run recovery fixture', spaceId: null, timing: { activeFrom: null, activeUntil: null, schedule: { cadence: 'daily', kind: 'calendar', localTime: '12:00' }, timezone: 'Asia/Shanghai' } } })
+  const definition = automations.create({ requestId: 'create-recovery', draft: { approvalAllowlist: [], approvalPolicy: 'policy', executionProfile: 'workspace_write', model: { mode: 'default' }, name: 'Recovery', prompt: 'Run recovery fixture', spaceId: null, timing: { activeFrom: null, activeUntil: null, schedule: { cadence: 'daily', kind: 'calendar', localTime: '12:00' }, timezone: 'Asia/Shanghai' } } })
   automations.runNow({ automationId: definition.id, expectedRevision: 1, requestId: 'run-recovery' })
   const occurrence = automations.leaseQueued({ now: '2026-08-24T00:00:00.000Z', leaseExpiresAt: '2026-08-24T00:01:00.000Z', limit: 1, owner: 'scheduler-recovery' })[0]!
   createAutomationTurnRepository(database).bind({ boundAt: '2026-08-24T00:00:10.000Z', branchId: 'branch-recovery', conversationId: 'conversation-recovery', contextWindow: 100_000, maxTokens: 8_000, executionContext: null, leaseOwner: 'scheduler-recovery', messageId: 'message-recovery', model: 'model', occurrenceId: occurrence.id, provider: 'provider', reasoning: null, runId: 'run-recovery', spaceId: null })

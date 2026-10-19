@@ -28,6 +28,8 @@ import { BUDDY_V27_PROVIDER_METADATA_SCHEMA_SQL } from './migrations/v27Provider
 import { BUDDY_V28_AVATARS_SCHEMA_SQL } from './migrations/v28BuddyAvatars'
 import { BUDDY_V29_SESSION_REFERENCES_SCHEMA_SQL } from './migrations/v29SessionReferences'
 import { BUDDY_V30_TASK_MODELS_SCHEMA_SQL } from './migrations/v30TaskModels'
+import { BUDDY_V31_AUTOMATION_APPROVAL_POLICY_SCHEMA_SQL } from './migrations/v31AutomationApprovalPolicy'
+import { BUDDY_V32_AUTOMATION_APPROVAL_ALLOWLIST_SCHEMA_SQL } from './migrations/v32AutomationApprovalAllowlist'
 
 export interface BuddySchemaMigration {
   foreignKeys?: 'off'
@@ -35,7 +37,7 @@ export interface BuddySchemaMigration {
   version: number
 }
 
-export const BUDDY_SCHEMA_VERSION = 30 as const
+export const BUDDY_SCHEMA_VERSION = 32 as const
 
 export const BUDDY_SCHEMA_MIGRATIONS: readonly BuddySchemaMigration[] = [
   { sql: BUDDY_V1_INITIAL_SCHEMA_SQL, version: 1 },
@@ -68,4 +70,6 @@ export const BUDDY_SCHEMA_MIGRATIONS: readonly BuddySchemaMigration[] = [
   { sql: BUDDY_V28_AVATARS_SCHEMA_SQL, version: 28 },
   { sql: BUDDY_V29_SESSION_REFERENCES_SCHEMA_SQL, version: 29 },
   { sql: BUDDY_V30_TASK_MODELS_SCHEMA_SQL, version: 30 },
+  { sql: BUDDY_V31_AUTOMATION_APPROVAL_POLICY_SCHEMA_SQL, version: 31 },
+  { sql: BUDDY_V32_AUTOMATION_APPROVAL_ALLOWLIST_SCHEMA_SQL, version: 32 },
 ]

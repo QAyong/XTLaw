@@ -186,6 +186,13 @@ function handleLinkClick(event: MouseEvent) {
   margin-inline: 0;
 }
 
+/* 浏览器默认的 <hr> 是上下各 1px 的 inset 边框（约 2px 粗），这里改成单条 1px 细线 */
+.buddy-chat-markdown-host :deep(.hr-node) {
+  height: 0;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--hr-border) 45%, transparent);
+}
+
 .buddy-chat-markdown-host :deep(.table-node tbody tr:nth-child(even)) {
   background-color: var(--buddy-table-stripe);
 }

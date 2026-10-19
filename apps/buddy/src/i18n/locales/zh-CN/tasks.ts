@@ -77,6 +77,8 @@ export default {
   'desktop.tasks.renameTask': '重命名',
   'desktop.tasks.copySessionReference': '复制会话引用',
   'desktop.tasks.copy': '复制',
+  'desktop.tasks.moveToSpace': '移动到空间',
+  'desktop.tasks.moveToSpaceEmpty': '暂无可用空间',
   'desktop.tasks.taskReference': '任务引用',
   'desktop.tasks.taskId': '任务 ID',
   'desktop.tasks.title': '标题',

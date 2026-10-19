@@ -79,6 +79,8 @@ export default {
   'desktop.tasks.renameTask': 'Rename',
   'desktop.tasks.copySessionReference': 'Copy session reference',
   'desktop.tasks.copy': 'Copy',
+  'desktop.tasks.moveToSpace': 'Move to space',
+  'desktop.tasks.moveToSpaceEmpty': 'No spaces available',
   'desktop.tasks.taskReference': 'Task reference',
   'desktop.tasks.taskId': 'Task ID',
   'desktop.tasks.title': 'Title',

@@ -75,6 +75,7 @@ export interface ConversationRepository
   addMember: (input: { id: string, buddyId: string, updatedAt: string }) => void
   removeMember: (input: { id: string, buddyId: string, updatedAt: string }) => void
   setBuddy: (input: { id: string, buddyId: string, updatedAt: string }) => ConversationRecord | null
+  setSpace: (input: { id: string, spaceId: string, updatedAt: string }) => ConversationRecord | null
   setModelSelection: (
     input: SetConversationModelSelectionInput,
   ) => ConversationRecord | null
@@ -109,6 +110,11 @@ export function createConversationRepository(database: DatabaseSync): Conversati
     UPDATE conversations
     SET deleted_at = ?, updated_at = ?
     WHERE id = ? AND deleted_at IS NULL
+  `)
+  const moveToSpace = database.prepare(`
+    UPDATE conversations
+    SET space_id = ?, updated_at = ?
+    WHERE id = ? AND space_id IS NULL AND deleted_at IS NULL
   `)
   const history = createConversationHistoryStore(database)
   const index = createConversationIndexRepository(database)
@@ -247,6 +253,11 @@ export function createConversationRepository(database: DatabaseSync): Conversati
           return null
         return requireConversationRecord(findConversation.get(input.id), input.id)
       })
+    },
+    setSpace(input) {
+      if (!Number(moveToSpace.run(input.spaceId, input.updatedAt, input.id).changes))
+        return null
+      return requireConversationRecord(findConversation.get(input.id), input.id)
     },
     setModelSelection(input) {
       const current = findConversation.get(input.id) as ConversationRow | undefined

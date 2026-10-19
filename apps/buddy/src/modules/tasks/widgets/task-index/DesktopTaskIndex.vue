@@ -9,7 +9,7 @@ import type { BuddyLocale } from '@/i18n/buddyI18n'
 import type { TaskSpaceInput } from '@/modules/tasks/state/task-index/typing'
 import { Tag20Regular } from '@vicons/fluent'
 import { NAlert, NButton, NInput, NModal, NTooltip } from 'naive-ui'
-import { shallowRef, toRef } from 'vue'
+import { computed, shallowRef, toRef } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import DesktopSpaceDialog from '@/modules/tasks/widgets/task-index/DesktopSpaceDialog.vue'
 import DesktopTaskRow from '@/modules/tasks/widgets/task-index/DesktopTaskRow.vue'
@@ -46,6 +46,7 @@ const emit = defineEmits<{
   deleteTask: [conversationId: string]
   newTask: [spaceId: string | null]
   openSpaceDirectory: [spaceId: string]
+  moveTask: [conversationId: string, spaceId: string]
   openTask: [conversationId: string]
   renameTask: [conversationId: string, title: string]
   updatePinnedItems: [items: DesktopTaskPinnedItem[]]
@@ -66,6 +67,15 @@ function markBindings(conversationId: string) {
     onSetRead: (read: boolean) => props.marks.setRead(conversationId, read),
     onManageMarks: () => marksOpen.value = true,
   }
+}
+// 只有无空间的任务可以移入空间；运行中或等待确认时置灰。
+const moveTargets = computed(() => props.spaces
+  .filter(space => !space.revokedAt)
+  .map(space => ({ id: space.id, name: space.name })))
+function moveBindings(task: LocalConversationSummary) {
+  return task.spaceId === null
+    ? { moveTargets: moveTargets.value, movable: task.activity === 'idle', onMoveToSpace: (spaceId: string) => emit('moveTask', task.id, spaceId) }
+    : {}
 }
 const sidebarLayoutStyle = {
   '--buddy-task-sidebar-row-height': `${DESKTOP_TASK_SIDEBAR_ROW_HEIGHT}px`,
@@ -213,7 +223,7 @@ function openSearchSpace(spaceId: string) {
               :task-id="item.task.id"
               :active="item.task.id === activeConversationId"
               :activity="item.task.activity"
-              v-bind="markBindings(item.task.id)"
+              v-bind="{ ...markBindings(item.task.id), ...moveBindings(item.task) }"
               :dragging="item.pinnedTopLevel && draggedPinnedItemKey === item.pinKey"
               :drop-position="item.pinnedTopLevel ? getPinnedDropPosition(item.pinKey) : undefined"
               :language="language"
@@ -258,6 +268,7 @@ function openSearchSpace(spaceId: string) {
                 :activity="spaceActivities.get(item.space.id)"
                 :space="item.space"
                 @menu="selectSpaceMenuAction(item.space, $event)"
+                @move-task="emit('moveTask', $event, item.space.id)"
                 @pin="pinSpace(item.space.id)"
                 @toggle="toggleSpace(item.space.id)"
               />
@@ -312,7 +323,7 @@ function openSearchSpace(spaceId: string) {
               :task-id="item.task.id"
               :active="item.task.id === activeConversationId"
               :activity="item.task.activity"
-              v-bind="markBindings(item.task.id)"
+              v-bind="{ ...markBindings(item.task.id), ...moveBindings(item.task) }"
               :language="language"
               :now="relativeTimeNow"
               :occurred-at="item.task.automationOccurrence?.scheduledFor ?? item.task.updatedAt"

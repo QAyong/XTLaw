@@ -1,6 +1,6 @@
 import type { AutomationApprovalAllowlistEntry } from '../../../shared/automation/approvalAllowlist'
 import type { PermissionDecision } from './permissionContract'
-import { isAbsolute, relative, resolve, sep } from 'node:path'
+import { containsCanonicalPath } from '../../../platform/filesystem/filePaths'
 
 export interface ApprovalAllowlistScope {
   entries: readonly AutomationApprovalAllowlistEntry[]
@@ -35,7 +35,7 @@ function isDirectoryAllowed(
 ): boolean {
   return entries.some(entry => entry.kind === 'directory'
     && (entry.access === 'write' || access === 'read')
-    && isWithin(entry.path, target))
+    && containsCanonicalPath(entry.path, target))
 }
 
 function isDomainAllowed(entries: readonly AutomationApprovalAllowlistEntry[], host: string): boolean {
@@ -49,7 +49,3 @@ function isDomainAllowed(entries: readonly AutomationApprovalAllowlistEntry[], h
   })
 }
 
-function isWithin(root: string, target: string): boolean {
-  const difference = relative(resolve(root), resolve(target))
-  return difference === '' || (difference !== '..' && !difference.startsWith(`..${sep}`) && !isAbsolute(difference))
-}

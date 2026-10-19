@@ -48,4 +48,3 @@ function isDomainAllowed(entries: readonly AutomationApprovalAllowlistEntry[], h
       : normalized === entry.host
   })
 }
-

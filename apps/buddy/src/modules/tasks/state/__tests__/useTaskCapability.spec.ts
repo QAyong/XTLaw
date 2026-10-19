@@ -1000,6 +1000,7 @@ function createDesktopApi() {
     sync: { onChanged: () => () => {} },
     app: {
       getInfo: vi.fn(),
+      siteFeed: { onChanged: () => () => {}, getState: async () => ({ revision: 0, notifications: [] }) },
       updates: { onChanged: () => () => {}, getState: async () => ({ revision: 0, enabled: true, checking: false, lastCheckedAt: null, ignoredVersion: null, result: null, notification: null, reminderDueAt: null }) },
     },
     lifecycle: { quit: vi.fn() },

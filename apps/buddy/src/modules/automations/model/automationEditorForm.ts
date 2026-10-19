@@ -17,6 +17,8 @@ export function buildAutomationDraft(
     return null
   const result = automationDefinitionDraftSchema.safeParse({
     actorId: value.actorId,
+    approvalAllowlist: value.approvalAllowlist,
+    approvalPolicy: value.approvalPolicy,
     executionProfile: value.executionProfile,
     model,
     name: value.name,
@@ -126,6 +128,8 @@ export function createAutomationEditorForm(currentTime: Temporal.ZonedDateTime):
     .with({ minute: 0, second: 0, millisecond: 0, microsecond: 0, nanosecond: 0 })
   return {
     actorId: null,
+    approvalAllowlist: [],
+    approvalPolicy: 'policy',
     activeFrom: null,
     activeUntil: null,
     anchorLocal: formatWallTime(now),
@@ -158,6 +162,8 @@ export function automationEditorFormFromDefinition(
   next.actorId = automation.actorId ?? null
   next.activeFrom = automation.timing.activeFrom
   next.activeUntil = automation.timing.activeUntil
+  next.approvalAllowlist = automation.approvalAllowlist.map(entry => ({ ...entry }))
+  next.approvalPolicy = automation.approvalPolicy
   next.executionProfile = automation.executionProfile
   next.modelMode = automation.model.mode
   next.name = automation.name

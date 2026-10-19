@@ -133,6 +133,8 @@ function dailyDraft(
   overrides: Partial<AutomationDefinitionDraft> = {},
 ): AutomationDefinitionDraft {
   return {
+    approvalAllowlist: [],
+    approvalPolicy: 'policy',
     executionProfile: 'workspace_write',
     model: { mode: 'default' },
     name: 'Automation',

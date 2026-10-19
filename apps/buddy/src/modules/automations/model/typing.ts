@@ -1,4 +1,6 @@
+import type { AutomationApprovalAllowlistEntry } from '@buddy-shared/automation/approvalAllowlist'
 import type { BuddyThinkingLevel } from '@buddy-shared/conversation/modelSelection'
+import type { BuddyApprovalPolicy } from '@buddy-shared/permissions/approvalPolicy'
 import type { BuddyExecutionProfile } from '@buddy-shared/permissions/executionProfile'
 
 export type AutomationCalendarCadence = 'daily' | 'weekly' | 'monthly' | 'yearly'
@@ -23,6 +25,8 @@ export interface AutomationScheduleForm {
 
 export interface AutomationEditorForm extends AutomationScheduleForm {
   actorId: string | null
+  approvalAllowlist: AutomationApprovalAllowlistEntry[]
+  approvalPolicy: BuddyApprovalPolicy
   executionProfile: BuddyExecutionProfile
   modelMode: 'default' | 'pinned'
   name: string

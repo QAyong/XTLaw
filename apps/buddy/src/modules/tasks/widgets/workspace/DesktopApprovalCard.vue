@@ -1,16 +1,18 @@
 <script setup lang="ts">
 import type { LocalApproval } from '@buddy-shared/permissions/approvalApi'
 import type { ApprovalGrantScope, ApprovalReuseScope, ApprovalReviewPayload } from '@buddy-shared/permissions/approvalReviewPayload'
-import type { BuddyExecutionProfile } from '@buddy-shared/permissions/executionProfile'
+import type { BuddyPermissionMode } from '@buddy-shared/permissions/permissionMode'
 import type { DropdownOption } from 'naive-ui'
 import type { CSSProperties } from 'vue'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import type { ChatApprovalDecision } from '@/modules/tasks/model/runs/typing'
 import { approvalReviewPayloadSchema } from '@buddy-shared/permissions/approvalReviewPayload'
+import { resolveBuddyPermissionMode } from '@buddy-shared/permissions/permissionMode'
 import { ChevronUp16Regular, ShieldError20Regular, Warning20Regular } from '@vicons/fluent'
 import { NButton, NDescriptions, NDescriptionsItem, NDropdown } from 'naive-ui'
 import { computed, h, shallowRef } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
+import DesktopApprovalAllowlist from '@/shared/ui/approval-allowlist/DesktopApprovalAllowlist.vue'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import { translateSystemAction, translateSystemInterruption } from '../../model/approvals/systemActionPresentation'
 import { useExecutionTree } from '../../state/runs/chatExecutionContext'
@@ -51,10 +53,11 @@ const browserEffectKeys = {
   'send': 'desktop.approval.browser.effect.send',
   'submit': 'desktop.approval.browser.effect.submit',
 } as const
-const executionProfileKeys: Record<BuddyExecutionProfile, 'desktop.chat.permissionModePolicy' | 'desktop.chat.executionProfileFull' | 'desktop.chat.executionProfileReadOnly'> = {
+const permissionModeKeys: Record<BuddyPermissionMode, 'desktop.chat.permissionModeManual' | 'desktop.chat.permissionModePolicy' | 'desktop.chat.executionProfileFull' | 'desktop.chat.executionProfileReadOnly'> = {
   full_access: 'desktop.chat.executionProfileFull',
+  manual_approval: 'desktop.chat.permissionModeManual',
+  policy_approval: 'desktop.chat.permissionModePolicy',
   read_only: 'desktop.chat.executionProfileReadOnly',
-  workspace_write: 'desktop.chat.permissionModePolicy',
 }
 const review = computed<ApprovalReviewPayload | null>(() => {
   const parsed = approvalReviewPayloadSchema.safeParse(props.approval.payload)
@@ -239,7 +242,13 @@ function renderScopeLabel(option: DropdownOption) {
           {{ review.modelMode }}
         </NDescriptionsItem>
         <NDescriptionsItem :label="t('desktop.approval.automation.executionProfile')">
-          {{ t(executionProfileKeys[review.executionProfile]) }}
+          {{ t(permissionModeKeys[resolveBuddyPermissionMode(review)]) }}
+        </NDescriptionsItem>
+        <NDescriptionsItem
+          v-if="review.approvalPolicy === 'policy' && review.executionProfile === 'workspace_write'"
+          :label="t('desktop.approval.automation.allowlist')"
+        >
+          <DesktopApprovalAllowlist :entries="review.approvalAllowlist" :language="language" />
         </NDescriptionsItem>
       </NDescriptions>
     </section>

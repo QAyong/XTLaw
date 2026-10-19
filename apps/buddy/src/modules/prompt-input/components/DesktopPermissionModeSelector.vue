@@ -32,6 +32,7 @@ const emit = defineEmits<{
 
 const permissionOptions = [
   {
+    backgroundDescription: 'desktop.chat.permissionModeReadOnlyDescription',
     description: 'desktop.chat.permissionModeReadOnlyDescription',
     sandboxDescription: 'desktop.chat.permissionModeReadOnlySandboxDescription',
     icon: LockClosed20Regular,
@@ -39,6 +40,7 @@ const permissionOptions = [
     value: 'read_only',
   },
   {
+    backgroundDescription: 'desktop.chat.permissionModeManualBackgroundDescription',
     description: 'desktop.chat.permissionModeManualDescription',
     sandboxDescription: 'desktop.chat.permissionModeManualSandboxDescription',
     icon: HandLeft20Regular,
@@ -46,6 +48,7 @@ const permissionOptions = [
     value: 'manual_approval',
   },
   {
+    backgroundDescription: 'desktop.chat.permissionModePolicyBackgroundDescription',
     description: 'desktop.chat.permissionModePolicyDescription',
     sandboxDescription: 'desktop.chat.permissionModePolicySandboxDescription',
     icon: ShieldTask20Regular,
@@ -53,6 +56,7 @@ const permissionOptions = [
     value: 'policy_approval',
   },
   {
+    backgroundDescription: 'desktop.chat.permissionModeFullDescription',
     description: 'desktop.chat.permissionModeFullDescription',
     sandboxDescription: 'desktop.chat.permissionModeFullDescription',
     icon: LockOpen20Regular,
@@ -70,9 +74,6 @@ const fullAccessConfirmationText = computed(() => ({
   title: t('desktop.chat.executionProfileFullConfirmTitle'),
 }))
 const isBackground = computed(() => props.sessionMode === 'automation_background')
-const availableOptions = computed(() => permissionOptions.filter(
-  option => !isBackground.value || option.value !== 'manual_approval',
-))
 const confirmationOpen = shallowRef(false)
 const popoverOpen = shallowRef(false)
 const setupOpen = shallowRef(false)
@@ -83,6 +84,12 @@ const selected = computed(() => permissionOptions.find(
   option => option.value === props.permissionMode,
 ) ?? permissionOptions[2])
 const isFullAccess = computed(() => props.permissionMode === 'full_access')
+
+function optionDescription(option: typeof permissionOptions[number]) {
+  if (isBackground.value)
+    return t(option.backgroundDescription)
+  return t(availability.value.isolated ? option.sandboxDescription : option.description)
+}
 
 function selectMode(value: BuddyPermissionMode) {
   if (value === props.permissionMode) {
@@ -159,7 +166,7 @@ async function confirmSetup() {
       </header>
       <div class="grid gap-[0.15rem]" role="menu">
         <button
-          v-for="option in availableOptions"
+          v-for="option in permissionOptions"
           :key="option.value"
           class="desktop-permission-mode-selector__option grid w-full grid-cols-[1.1rem_minmax(0,_1fr)] items-center border-0 rounded-menu-item py-[0.36rem] px-[0.35rem] bg-transparent text-fg gap-x-2 cursor-pointer text-left ui-focus-ring disabled:cursor-not-allowed disabled:opacity-55"
           :class="{
@@ -178,7 +185,7 @@ async function confirmSetup() {
           />
           <span class="desktop-permission-mode-selector__option-copy grid min-w-0 gap-[0.05rem]">
             <strong>{{ t(option.label) }}</strong>
-            <small>{{ t(availability.isolated ? option.sandboxDescription : option.description) }}</small>
+            <small>{{ optionDescription(option) }}</small>
           </span>
         </button>
       </div>

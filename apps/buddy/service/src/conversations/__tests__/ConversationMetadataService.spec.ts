@@ -7,6 +7,7 @@ import { createConversationMemberRepository } from '../../storage/conversationMe
 import { createConversationRepository } from '../../storage/conversationRepository'
 import { openBuddyDatabase } from '../../storage/database'
 import { createRunRepository } from '../../storage/runRepository'
+import { createSpaceRepository } from '../../storage/spaceRepository'
 import { ConversationMetadataService } from '../ConversationMetadataService'
 
 const databases: DatabaseSync[] = []
@@ -152,6 +153,27 @@ describe('conversation metadata ownership', () => {
     expect(f.runs.findById('run-1')).toMatchObject({ status: 'completed', modelOverride: selection })
   })
 
+  it('moves a space-less task into an active space once and releases its sessions', async () => {
+    const f = fixture()
+    const changes: ConversationMetadataCommit[] = []
+    f.service.onDidCommit(event => changes.push(event))
+    await expect(f.service.moveToSpace({ id: 'task-1', spaceId: 'space-1' })).resolves.toMatchObject({ id: 'task-1', spaceId: 'space-1' })
+    expect(f.repository.findById('task-1')?.spaceId).toBe('space-1')
+    expect(changes.map(event => event.kind)).toEqual(['space'])
+    expect(f.invalidate).toHaveBeenCalledWith('task-1')
+    await expect(f.service.moveToSpace({ id: 'task-1', spaceId: 'space-2' })).rejects.toMatchObject({ code: 'VALIDATION_FAILED' })
+    expect(f.repository.findById('task-1')?.spaceId).toBe('space-1')
+  })
+
+  it('refuses to move a task into a revoked space or while it has an active run', async () => {
+    const f = fixture()
+    await expect(f.service.moveToSpace({ id: 'task-1', spaceId: 'revoked' })).rejects.toMatchObject({ code: 'SPACE_UNAVAILABLE' })
+    f.runs.create({ id: 'run-1', conversationId: 'task-1', branchId: 'branch-1', triggeringMessageId: 'message-1', provider: 'fixture', model: 'model-1', purpose: 'chat', status: 'running', piSessionFile: null, approvalPolicy: 'policy', executionProfile: 'workspace_write', startedAt: '2026-10-11T00:00:00.000Z' })
+    await expect(f.service.moveToSpace({ id: 'task-1', spaceId: 'space-1' })).rejects.toMatchObject({ code: 'VALIDATION_FAILED' })
+    expect(f.repository.findById('task-1')?.spaceId).toBeNull()
+    expect(f.invalidate).not.toHaveBeenCalled()
+  })
+
   it('revalidates a target disabled during model validation and records explicit provenance for an unchanged legacy value', async () => {
     const f = fixture()
     const other = f.buddies.create({ name: 'Other' })
@@ -181,6 +203,10 @@ function fixture() {
   const resolveModel = vi.fn(async (selection: NonNullable<ReturnType<typeof repository.findById>>['modelSelection']) => selection!)
   const runs = createRunRepository(database)
   const buddies = createBuddyRepository(database)
-  const service = new ConversationMetadataService({ buddies, runs, repository, resolveModelSelection: resolveModel, sessions: { invalidateConversation: invalidate } })
+  const seedSpace = database.prepare(`INSERT INTO spaces (id, name, memory_scope, revoked_at, created_at, updated_at) VALUES (?, ?, 'personal_and_space', ?, '2026-09-06T00:00:00.000Z', '2026-09-06T00:00:00.000Z')`)
+  seedSpace.run('space-1', 'Space 1', null)
+  seedSpace.run('space-2', 'Space 2', null)
+  seedSpace.run('revoked', 'Revoked', '2026-09-07T00:00:00.000Z')
+  const service = new ConversationMetadataService({ buddies, runs, repository, spaces: createSpaceRepository(database), resolveModelSelection: resolveModel, sessions: { invalidateConversation: invalidate } })
   return { database, runs, service, repository, invalidate, resolveModel, buddies, members: createConversationMemberRepository(database) }
 }

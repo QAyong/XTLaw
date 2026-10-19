@@ -1,7 +1,7 @@
 import type { LocalTaskMark, LocalTaskMarkState } from '@buddy-shared/conversation/taskMarkApi'
 import type { DropdownOption } from 'naive-ui'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
-import { Copy20Regular, Settings20Regular, Tag20Regular, TagDismiss20Regular } from '@vicons/fluent'
+import { Copy20Regular, FolderArrowRight20Regular, Settings20Regular, Tag20Regular, TagDismiss20Regular } from '@vicons/fluent'
 import { useMessage } from 'naive-ui'
 import { computed, h } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
@@ -10,6 +10,9 @@ import { useTaskEnvironment } from '@/modules/tasks/taskContext'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import DesktopTaskMarkOption from './DesktopTaskMarkOption.vue'
 import DesktopTaskMarkSwatch from './DesktopTaskMarkSwatch.vue'
+
+// 下拉菜单挂在 body 上，作用域样式不生效，空间名过长时用内联样式限宽并省略。
+const spaceNameStyle = { display: 'block', maxWidth: '14rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
 
 interface TaskMenuSource {
   taskId: string | null
@@ -26,6 +29,10 @@ export function useTaskMenuActions(options: {
   clearMarks: (taskId: string) => void
   setRead: (taskId: string, read: boolean) => void
   manageMarks?: () => void
+  /** 仅无空间任务传入；为空数组时菜单项置灰。 */
+  moveTargets?: () => ReadonlyArray<{ id: string, name: string }> | undefined
+  movable?: () => boolean
+  moveToSpace?: (taskId: string, spaceId: string) => void
 }) {
   const { t } = useBuddyI18n(options.language)
   const { clipboard } = useTaskEnvironment()
@@ -65,8 +72,24 @@ export function useTaskMenuActions(options: {
           { key: 'copy-title', label: t('desktop.tasks.title') },
         ],
       },
+      ...moveActions(),
     ]
   })
+
+  function moveActions(): DropdownOption[] {
+    const targets = options.moveTargets?.()
+    if (!targets)
+      return []
+    return [{
+      key: 'move-to-space',
+      icon: () => h(DesktopIcon, { component: FolderArrowRight20Regular }),
+      label: t('desktop.tasks.moveToSpace'),
+      disabled: !options.movable?.() || targets.length === 0,
+      children: targets.length
+        ? targets.map(space => ({ key: `move:${space.id}`, label: () => h('span', { title: space.name, style: spaceNameStyle }, space.name) }))
+        : [{ key: 'move-empty', label: t('desktop.tasks.moveToSpaceEmpty'), disabled: true }],
+    }]
+  }
 
   function select(action: string | number) {
     const task = options.task()
@@ -80,6 +103,8 @@ export function useTaskMenuActions(options: {
       options.manageMarks?.()
     if (typeof action === 'string' && action.startsWith('mark:'))
       options.assignMark(task.taskId, action.slice(5))
+    if (typeof action === 'string' && action.startsWith('move:'))
+      options.moveToSpace?.(task.taskId, action.slice(5))
     const copyText = action === 'copy-task-reference'
       ? formatSessionReferenceClipboard({ id: task.taskId, title: task.title.slice(0, 80) })
       : action === 'copy-task-id' ? task.taskId : action === 'copy-title' ? task.title : null

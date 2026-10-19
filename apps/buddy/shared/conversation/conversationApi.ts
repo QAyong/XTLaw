@@ -146,6 +146,7 @@ export const conversationRequestSchemas = {
     executionProfile: executionProfileSchema,
   }).strict(),
   conversationBuddy: z.object({ conversationId: idSchema, buddyId: idSchema }).strict(),
+  conversationMoveToSpace: z.object({ conversationId: idSchema, spaceId: idSchema }).strict(),
   conversationModelSelection: z.object({
     conversationId: idSchema,
     actorId: idSchema.optional(),
@@ -192,6 +193,7 @@ export const conversationsRpc = {
   rename: { method: 'conversations.rename', input: conversationRequestSchemas.conversationRename, response: conversationResponseSchemas.conversation },
   setPermissionSettings: { method: 'conversations.setPermissionSettings', input: conversationRequestSchemas.conversationPermissionSettings, response: conversationResponseSchemas.conversation },
   setBuddy: { method: 'conversations.setBuddy', input: conversationRequestSchemas.conversationBuddy, response: conversationResponseSchemas.conversation },
+  moveToSpace: { method: 'conversations.moveToSpace', input: conversationRequestSchemas.conversationMoveToSpace, response: conversationResponseSchemas.conversation },
   setModelSelection: { method: 'conversations.setModelSelection', input: conversationRequestSchemas.conversationModelSelection, response: conversationResponseSchemas.conversation },
   listTimeline: { method: 'conversations.listTimeline', input: conversationRequestSchemas.conversationTimeline, response: conversationResponseSchemas.timelinePage },
 } as const satisfies Record<string, RuntimeRequestContract>

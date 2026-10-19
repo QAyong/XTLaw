@@ -28,6 +28,9 @@ const props = defineProps<{
   markState?: LocalTaskMarkState
   marksBusy: boolean
   activity: LocalConversationSummary['activity']
+  /** 仅无空间任务传入。 */
+  moveTargets?: ReadonlyArray<{ id: string, name: string }>
+  movable?: boolean
   dragging?: boolean
   dropPosition?: DesktopTaskPinnedDropPosition
   language: BuddyLocale
@@ -46,6 +49,7 @@ const emit = defineEmits<{
   clearMarks: []
   setRead: [read: boolean]
   manageMarks: []
+  moveToSpace: [spaceId: string]
   dragEnd: []
   dragOver: [position: DesktopTaskPinnedDropPosition]
   dragStart: []
@@ -85,6 +89,9 @@ const { actions: taskActions, select: selectTaskAction } = useTaskMenuActions({
   clearMarks: () => emit('clearMarks'),
   setRead: (_, read) => emit('setRead', read),
   manageMarks: () => emit('manageMarks'),
+  moveTargets: () => props.moveTargets,
+  movable: () => props.movable,
+  moveToSpace: (_, spaceId) => emit('moveToSpace', spaceId),
 })
 const actions = computed<DropdownOption[]>(() => [
   ...taskActions.value,
@@ -100,6 +107,19 @@ function handleAction(action: string | number) {
     emit('delete')
 }
 
+// 右键行弹出与“更多”相同的菜单，位置跟随鼠标。
+// 位置单独保存：关闭时保留最后的坐标，菜单才会在原位消失，而不是飞到左上角。
+const contextMenuOpen = shallowRef(false)
+const contextMenuPosition = shallowRef({ x: 0, y: 0 })
+function openContextMenu(event: MouseEvent) {
+  contextMenuPosition.value = { x: event.clientX, y: event.clientY }
+  contextMenuOpen.value = true
+}
+function handleContextAction(action: string | number) {
+  contextMenuOpen.value = false
+  handleAction(action)
+}
+
 const dragId = useId()
 const element = useTemplateRef<HTMLElement>('row')
 const handle = useTemplateRef<HTMLElement>('handle')
@@ -108,7 +128,12 @@ useTaskHistoryDrag({
   element,
   handle,
   type: 'workbench-task',
-  data: () => ({ title: props.title, resource: { scheme: 'task', id: props.taskId, data: {} } }),
+  data: () => ({
+    title: props.title,
+    resource: { scheme: 'task', id: props.taskId, data: {} },
+    // 置顶区的任务拖拽用于排序，不参与“拖入空间”。
+    moveTaskId: props.moveTargets && props.movable && !props.reorderable ? props.taskId : null,
+  }),
   disabled: () => false,
   reorderable: () => !!props.reorderable,
   reorderTarget: () => !!props.reorderTarget,
@@ -133,7 +158,19 @@ useTaskHistoryDrag({
       'pl-[var(--buddy-task-sidebar-scrollbar-gutter,_0)]': !spaceTask,
       'is-reorderable cursor-grab': reorderable,
     }"
+    @contextmenu.prevent="openContextMenu"
   >
+    <NDropdown
+      class="buddy-spaced-submenus"
+      trigger="manual"
+      placement="bottom-start"
+      :show="contextMenuOpen"
+      :x="contextMenuPosition.x"
+      :y="contextMenuPosition.y"
+      :options="actions"
+      @clickoutside="contextMenuOpen = false"
+      @select="handleContextAction"
+    />
     <div
       class="desktop-task-row__surface relative flex h-full min-w-0 items-center pl-[6px] rounded-[var(--buddy-task-sidebar-state-radius,_8px)] transition-state-colors"
       :class="[active ? 'is-active bg-nav-selected text-nav-foreground hover:bg-nav-selected-hover active:bg-nav-pressed' : 'text-fg hover:bg-hover focus-within:bg-hover active:bg-pressed', { 'is-space': spaceTask }]"

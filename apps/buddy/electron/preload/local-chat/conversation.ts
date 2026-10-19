@@ -43,6 +43,7 @@ export function createConversationApi(): Pick<LocalChatApi, 'context' | 'workspa
       addMember: (conversationId, buddyId) => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.conversationsAddMember, { conversationId, buddyId }),
       removeMember: (conversationId, buddyId) => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.conversationsRemoveMember, { conversationId, buddyId }),
       setBuddy: (conversationId, buddyId) => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.conversationsSetBuddy, { conversationId, buddyId }),
+      moveToSpace: (conversationId, spaceId) => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.conversationsMoveToSpace, { conversationId, spaceId }),
       setModelSelection: (conversationId, modelSelection, target) => ipcRenderer.invoke(
         LOCAL_CHAT_IPC_CHANNELS.conversationsSetModelSelection,
         { conversationId, modelSelection, ...(target?.actorId ? { actorId: target.actorId } : {}), ...(target?.runId ? { targetRunId: target.runId } : {}) },

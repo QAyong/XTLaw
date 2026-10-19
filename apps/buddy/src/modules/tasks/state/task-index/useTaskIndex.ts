@@ -118,6 +118,18 @@ export function useTaskIndex(options: TaskIndexOptions) {
         return false
       }
     },
+    async moveTaskToSpace(id, spaceId) {
+      try {
+        const conversation = await api.conversations.moveToSpace(id, spaceId)
+        if (!disposed)
+          data.applyConversation(conversation)
+        return true
+      }
+      catch (error) {
+        setError(error)
+        return false
+      }
+    },
     async selectSpaceDirectory() {
       try {
         return await api.spaces.selectDirectory()

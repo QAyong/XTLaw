@@ -547,6 +547,7 @@ export async function startBuddyService(
         runInputs,
         runs,
         repository: conversations,
+        spaces: spacesRepository,
         sessions: {
           invalidateConversation: id => sessions.invalidateConversationWithResult(id),
           applyPermissionSettings: conversation => sessions.applyConversationPermissions(conversation.id, conversation),

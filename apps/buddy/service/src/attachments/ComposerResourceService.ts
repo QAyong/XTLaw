@@ -549,13 +549,15 @@ export class ComposerResourceService {
           .filter(grant => grant !== null)
       : this.#conversationGrants?.listActive(conversation.id) ?? []
     const ownerId = conversation.spaceId ?? conversation.id
+    // 任务移入空间前生成的产物仍记录在任务自己的工作区里，授权 ID 是任务 ID。
+    const ownedRoot = artifact.directoryGrantId === conversation.id
+      ? this.#paths.conversationWorkspace(conversation.id)
+      : artifact.directoryGrantId === ownerId
+        ? conversation.spaceId ? this.#paths.spaceWorkspace(ownerId) : this.#paths.conversationWorkspace(ownerId)
+        : null
     const grant = grants.find(item => item.id === artifact.directoryGrantId) ?? (
-      artifact.directoryGrantId === ownerId
-        ? {
-            canonicalRoot: await realpath(conversation.spaceId ? this.#paths.spaceWorkspace(ownerId) : this.#paths.conversationWorkspace(ownerId)),
-            id: ownerId,
-            root: conversation.spaceId ? this.#paths.spaceWorkspace(ownerId) : this.#paths.conversationWorkspace(ownerId),
-          }
+      ownedRoot
+        ? { canonicalRoot: await realpath(ownedRoot), id: artifact.directoryGrantId, root: ownedRoot }
         : null
     )
     if (!grant)

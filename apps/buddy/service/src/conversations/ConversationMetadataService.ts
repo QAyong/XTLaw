@@ -5,14 +5,16 @@ import type { ConversationRepository, RenameConversationInput, SetConversationPe
 import type { RunInputRepository } from '../storage/runInputRepository'
 import type { RunRecord } from '../storage/runRecord'
 import type { RunRepository } from '../storage/runRepository'
+import type { SpaceRepository } from '../storage/spaceRepository'
 import { randomUUID } from 'node:crypto'
 import { Emitter } from '../../../shared/events/Emitter'
 import { copyEventSnapshot } from '../../../shared/events/eventSnapshot'
 import { BuddyServiceError } from '../rpc/runtimeRequest'
+import { requireActiveSpace } from '../spaces/requireActiveSpace'
 
 export type ConversationMetadataCommit = EventSnapshot<{
   commitId: string
-  kind: 'title' | 'permissions' | 'model' | 'branch' | 'buddy'
+  kind: 'title' | 'permissions' | 'model' | 'branch' | 'buddy' | 'space'
   conversation: ConversationRecord
   actorId?: string
   titleRevision?: number
@@ -23,7 +25,8 @@ export interface ConversationMetadataServiceOptions {
   buddies?: Pick<BuddiesService, 'get'>
   runInputs?: Pick<RunInputRepository, 'findByRunId'>
   runs?: Pick<RunRepository, 'findById' | 'setModelSelection' | 'findActiveForConversation'>
-  repository: Pick<ConversationRepository, 'findById' | 'rename' | 'renameGenerated' | 'getTitleState' | 'setPermissionSettings' | 'setModelSelection' | 'findMember' | 'listMembers' | 'addMember' | 'removeMember' | 'setBuddy' | 'activateBranch'>
+  repository: Pick<ConversationRepository, 'findById' | 'rename' | 'renameGenerated' | 'getTitleState' | 'setPermissionSettings' | 'setModelSelection' | 'findMember' | 'listMembers' | 'addMember' | 'removeMember' | 'setBuddy' | 'setSpace' | 'activateBranch'>
+  spaces?: Pick<SpaceRepository, 'findById'>
   resolveModelSelection: (selection: ConversationModelSelection) => Promise<ConversationModelSelection>
   sessions: {
     invalidateConversation: (conversationId: string) => Promise<{ pending: number, degraded: number }>
@@ -113,6 +116,25 @@ export class ConversationMetadataService {
       throw new BuddyServiceError('VALIDATION_FAILED')
     if (current.buddyId !== conversation.buddyId)
       this.#publish('buddy', conversation)
+    return conversation
+  }
+
+  moveToSpace(input: { id: string, spaceId: string }): Promise<ConversationRecord> {
+    return this.#run(() => this.#moveToSpace(input))
+  }
+
+  async #moveToSpace(input: { id: string, spaceId: string }): Promise<ConversationRecord> {
+    const current = this.#requireActive(input.id)
+    if (!this.#options.spaces || current.spaceId !== null || this.#options.runs?.findActiveForConversation(input.id))
+      throw new BuddyServiceError('VALIDATION_FAILED')
+    requireActiveSpace(this.#options.spaces.findById(input.spaceId))
+    const conversation = this.#options.repository.setSpace({ ...input, updatedAt: new Date().toISOString() })
+    if (!conversation)
+      throw new BuddyServiceError('VALIDATION_FAILED')
+    this.#publish('space', conversation)
+    const result = await this.#options.sessions.invalidateConversation(input.id)
+    if (result.pending || result.degraded)
+      throw new ConversationSettingsApplicationError(result.degraded ? 'CONVERSATION_SETTINGS_FAILED' : 'CONVERSATION_SETTINGS_PENDING')
     return conversation
   }
 

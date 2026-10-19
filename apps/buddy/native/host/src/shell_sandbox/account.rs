@@ -132,10 +132,16 @@ impl Account {
     }
 }
 
+const NAME_PREFIX: &str = "XTLaw";
+const OWNER_NAME_LEN: usize = NAME_PREFIX.len() + 12;
+const FRESH_NAME_LEN: usize = NAME_PREFIX.len() + 14;
+
 fn valid_name(name: &str) -> bool {
-    name.starts_with("XTLaw")
-        && [18, 20].contains(&name.len())
-        && name[6..].bytes().all(|byte| byte.is_ascii_hexdigit())
+    name.starts_with(NAME_PREFIX)
+        && [OWNER_NAME_LEN, FRESH_NAME_LEN].contains(&name.len())
+        && name[NAME_PREFIX.len()..]
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit())
 }
 
 fn matches_sid(name: &str, expected: &str) -> io::Result<bool> {
@@ -152,7 +158,7 @@ fn matches_sid(name: &str, expected: &str) -> io::Result<bool> {
 fn owner_name(owner: &Sid) -> io::Result<String> {
     use sha2::{Digest, Sha256};
     let hash = format!("{:x}", Sha256::digest(sid_text(owner)?.as_bytes()));
-    Ok(format!("XTLaw{}", &hash[..12]))
+    Ok(format!("{NAME_PREFIX}{}", &hash[..12]))
 }
 
 pub(super) fn owner_matches(owner: &Sid) -> io::Result<bool> {
@@ -195,7 +201,10 @@ pub(super) fn for_owner(owner: &Sid) -> io::Result<Account> {
 }
 
 fn fresh_name() -> io::Result<String> {
-    Ok(format!("XTLaw{}", &unique_id()?.replace('-', "")[..14]))
+    Ok(format!(
+        "{NAME_PREFIX}{}",
+        &unique_id()?.replace('-', "")[..14]
+    ))
 }
 
 fn provision(path: &Path, mut account: Account) -> io::Result<Account> {
@@ -245,7 +254,7 @@ pub(super) fn repair() -> io::Result<()> {
         let Some(_) = path
             .file_stem()
             .and_then(|key| key.to_str())
-            .filter(|key| valid_name(key) && key.len() == 18)
+            .filter(|key| valid_name(key) && key.len() == OWNER_NAME_LEN)
         else {
             continue;
         };
@@ -428,7 +437,7 @@ pub(super) fn uninstall() -> io::Result<()> {
         let Some(_) = path
             .file_stem()
             .and_then(|key| key.to_str())
-            .filter(|key| valid_name(key) && key.len() == 18)
+            .filter(|key| valid_name(key) && key.len() == OWNER_NAME_LEN)
         else {
             continue;
         };

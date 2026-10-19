@@ -440,7 +440,7 @@ impl AclLock {
         {
             return Err(io::ErrorKind::InvalidInput.into());
         }
-        Self::named(user, &format!("Global\\XTLawBuddySandboxAcl-{user}"), None)
+        Self::named(user, &format!("Global\\LexoraBuddySandboxAcl-{user}"), None)
     }
 
     pub(super) fn for_root(grant: &Grant, cancellation: &Cancellation) -> io::Result<Self> {
@@ -454,7 +454,7 @@ impl AclLock {
         ));
         Self::named(
             &user,
-            &format!("Global\\XTLawBuddySandboxRoot-{user}-{key:x}"),
+            &format!("Global\\LexoraBuddySandboxRoot-{user}-{key:x}"),
             Some(cancellation),
         )
     }
@@ -463,7 +463,7 @@ impl AclLock {
         let user = sid_text(&process_user_sid(current_process())?)?;
         Self::named(
             &user,
-            &format!("Global\\XTLawBuddySandboxDenials-{user}"),
+            &format!("Global\\LexoraBuddySandboxDenials-{user}"),
             Some(cancellation),
         )
     }

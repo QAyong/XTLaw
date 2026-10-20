@@ -13,7 +13,11 @@ vi.mock('node:path', async (importOriginal) => {
   return { ...actual, ...actual.win32 }
 })
 vi.mock('node:fs/promises', () => ({
-  realpath: async (path: string) => path === 'Z:\\MappedTools' ? '\\\\server\\tools' : path,
+  realpath: async (path: string) => {
+    if (path === 'D:\\Locked')
+      throw Object.assign(new Error('EPERM: operation not permitted, realpath'), { code: 'EPERM' })
+    return path === 'Z:\\MappedTools' ? '\\\\server\\tools' : path
+  },
   stat: async () => ({ isDirectory: () => true, dev: 1n, ino: 2n }),
 }))
 
@@ -42,6 +46,15 @@ describe('windows sandbox policy assembly', () => {
     expect(policy.path.split(';')).toEqual(['C:\\PowerShell', 'C:\\Windows\\System32', 'C:\\search', 'D:\\Tools'])
     expect(policy.grants.filter(grant => grant.access === 'read').map(grant => grant.path)).toEqual(policy.path.split(';'))
     expect(sandboxCommandSchema.safeParse({ command: input.command, requestId: input.requestId, cwd: '\\\\server\\tools', roots: ['\\\\server\\tools'], readOnly: false }).success).toBe(false)
+  })
+
+  it('skips PATH entries the user cannot access instead of failing the whole preparation', async () => {
+    const policy = await createWindowsSandboxPolicy({ ...input, path: 'D:\\Locked;D:\\Tools' }, new AbortController().signal)
+    expect(policy.path.split(';')).toEqual(['C:\\PowerShell', 'C:\\Windows\\System32', 'C:\\search', 'D:\\Tools'])
+  })
+
+  it('still fails when a required directory cannot be inspected', async () => {
+    await expect(createWindowsSandboxPolicy({ ...input, searchDirectory: 'D:\\Locked' }, new AbortController().signal)).rejects.toMatchObject({ code: 'EPERM' })
   })
 
   it('protects redirected credentials on another volume and rejects them as workspace roots', async () => {

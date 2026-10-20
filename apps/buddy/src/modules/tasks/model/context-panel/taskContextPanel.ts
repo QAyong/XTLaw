@@ -50,6 +50,10 @@ export interface TaskFilesContextTab extends ContextTabSource {
   kind: 'files'
   target: SpaceFileTarget
   rootName: string
+  // A folder to open in the tree; a new token asks to expand it again after the user collapsed it.
+  expand?: { path: string, token: string }
+  // Shows or folds the tree pane; a new token applies it again after the user toggled the pane.
+  tree?: { visible: boolean, token: string }
 }
 
 export interface TaskViewContextTab extends ContextTabSource {

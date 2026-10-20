@@ -20,6 +20,7 @@ const props = defineProps<{
   nodes: readonly ExplorerNode[]
   loadingKeys: ReadonlySet<string>
   target: SpaceFileTarget
+  reveal?: { path: string, token: string }
   language: BuddyLocale
   api: Pick<LocalChatApi['spaces'], 'revealFile' | 'copyFilePath' | 'fileHistory' | 'acknowledgeFileOperation' | 'cancelFileOperation' | 'onFilesChanged'>
   load: (node: ExplorerNode) => Promise<void>
@@ -124,7 +125,7 @@ async function acknowledge(operation: SpaceFileOperation) {
     </div>
     <div class="relative flex min-h-0 flex-1 flex-col">
       <DesktopFileLoading v-if="!nodes.length && loadingKeys.has('')" class="absolute inset-0" :loading="true" tree :label="t('desktop.loading.pane')" />
-      <ExplorerTree v-model:expanded-keys="expandedKeys" :loading-keys="loadingKeys" :aria-busy="loadingKeys.has('')" :nodes="nodes" :selected-key="target.path || null" :language="language" :load="load" @select="emit('select', $event)" @contextmenu="contextmenu" @command="commands.command" />
+      <ExplorerTree v-model:expanded-keys="expandedKeys" :loading-keys="loadingKeys" :aria-busy="loadingKeys.has('')" :nodes="nodes" :selected-key="target.path || null" :reveal="reveal" :language="language" :load="load" @select="emit('select', $event)" @contextmenu="contextmenu" @command="commands.command" />
     </div>
     <ExplorerRecovery v-if="recoveryOperations.length" :operations="recoveryOperations" :language="language" :busy="!!busy" @acknowledge="acknowledge" />
     <NDropdown :show="!!menu" :x="menuPosition.x" :y="menuPosition.y" :options="menuOptions" trigger="manual" placement="bottom-start" @select="selectCommand" @clickoutside="menu = null" />

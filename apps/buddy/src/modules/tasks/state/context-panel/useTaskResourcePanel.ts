@@ -6,7 +6,7 @@ import type { Ref } from 'vue'
 import type { UseTaskContextPanelOptions } from './typing'
 import { computed, onScopeDispose, readonly, shallowRef, watch } from 'vue'
 import { browserTabId, contextTabSource, isBrowserArtifact } from '../../model/context-panel/taskContextPanel'
-import { resolveChatArtifactTarget } from '../../model/transcript/chatToolFileTarget'
+import { fitsSpaceFilePreview, resolveChatArtifactTarget } from '../../model/transcript/chatToolFileTarget'
 import { useTaskContextPanel } from './useTaskContextPanel'
 
 interface TaskResourcePanelOptions extends UseTaskContextPanelOptions {
@@ -172,7 +172,15 @@ export function useTaskResourcePanel(options: TaskResourcePanelOptions) {
       return
     const conversationId = artifact.conversationId
     if (!isBrowserArtifact(artifact)) {
-      act(() => taskContext.openArtifact(artifact))
+      // An output inside the task's space is just a space file: open it there so it gets the file preview, editing and document plugins.
+      const source = { conversationId, runId: artifact.runId }
+      const inSpace = conversationId === options.activeConversationId.value && fitsSpaceFilePreview(artifact)
+      if (inSpace && artifact.kind === 'directory' && taskContext.canOpenDirectory(artifact.path))
+        act(() => taskContext.openDirectory(artifact.path, source))
+      else if (inSpace && artifact.kind === 'file' && taskContext.canPreviewFile(artifact.path))
+        act(() => taskContext.previewFile(artifact.path, source, true))
+      else
+        act(() => taskContext.openArtifact(artifact))
       return
     }
     act(() => taskContext.openBrowser({ conversationId, runId: artifact.runId }))

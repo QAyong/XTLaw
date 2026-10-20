@@ -3,7 +3,7 @@ import type { VirtualListInst } from 'naive-ui'
 import type { ExplorerNode, ExplorerRow as TreeRow } from './treeCollection'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import { NVirtualList } from 'naive-ui'
-import { nextTick, useId, useTemplateRef } from 'vue'
+import { nextTick, useId, useTemplateRef, watch } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import ExplorerRow from './ExplorerRow.vue'
 import { useTreeNavigation } from './useTreeNavigation'
@@ -14,6 +14,8 @@ const props = defineProps<{
   selectedKey: string | null
   loadingKeys?: ReadonlySet<string>
   load?: (node: ExplorerNode) => Promise<void>
+  // A folder to open as if the user clicked down to it; a new token asks again.
+  reveal?: { path: string, token: string }
 }>()
 const emit = defineEmits<{ select: [key: string], contextmenu: [node: ExplorerNode | null, event: MouseEvent], command: [command: string, node: ExplorerNode | null] }>()
 const expandedKeys = defineModel<string[]>('expandedKeys', { required: true })
@@ -30,6 +32,28 @@ const navigation = useTreeNavigation({
   scroll: (key) => { void nextTick(() => list.value?.scrollTo({ key })) },
 })
 const { rows, expanded, focused, pending } = navigation
+let revealed: string | undefined
+// Clicks each closed folder on the way down; this runs again whenever the rows change, until the last folder is focused.
+watch([() => props.reveal, rows], () => {
+  const request = props.reveal
+  if (!request || revealed === request.token)
+    return
+  let key = ''
+  for (const segment of request.path.split('/').filter(Boolean)) {
+    key = key ? `${key}/${segment}` : segment
+    const row = rows.value.find(item => item.key === key)
+    if (!row)
+      return
+    if (!expanded.value.has(key)) {
+      activate(row)
+      return
+    }
+  }
+  revealed = request.token
+  navigation.focus(key)
+  // The focus outline only shows while the tree itself has focus, which a real click gives it.
+  tree.value?.focus({ preventScroll: true })
+}, { immediate: true })
 function statusLabel(node: ExplorerNode) {
   return node.changeType ? t(`desktop.context.changeType.${node.changeType}`) : undefined
 }

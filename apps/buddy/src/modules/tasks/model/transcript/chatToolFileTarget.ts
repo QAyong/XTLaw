@@ -1,6 +1,7 @@
 import type { LocalArtifact } from '@buddy-shared/artifacts/artifactApi'
 import type { LocalSpace } from '@buddy-shared/spaces/spaceApi'
 import type { SpaceFileTarget } from '@buddy-shared/spaces/spaceFileApi'
+import { isTextArtifactMimeType } from '@buddy-shared/artifacts/artifactApi'
 
 export function cleanChatToolFilePath(path: string): string {
   let cleaned = path.trim()
@@ -15,6 +16,18 @@ export function cleanChatToolFilePath(path: string): string {
   }
   catch {}
   return cleaned.split('#')[0]!.split('?')[0]!
+}
+
+// Space file previews read at most 1 MiB of text and 8 MiB of image; larger outputs stay on the artifact tab, which reads more.
+const SPACE_FILE_TEXT_PREVIEW_BYTES = 1024 * 1024
+const SPACE_FILE_IMAGE_PREVIEW_BYTES = 8 * 1024 * 1024
+
+export function fitsSpaceFilePreview(artifact: Pick<LocalArtifact, 'kind' | 'mimeType' | 'sizeBytes'>): boolean {
+  if (artifact.kind === 'directory')
+    return true
+  if (artifact.mimeType.startsWith('image/'))
+    return artifact.sizeBytes <= SPACE_FILE_IMAGE_PREVIEW_BYTES
+  return !isTextArtifactMimeType(artifact.mimeType) || artifact.sizeBytes <= SPACE_FILE_TEXT_PREVIEW_BYTES
 }
 
 export function resolveChatArtifactTarget(artifacts: readonly LocalArtifact[], path: string): LocalArtifact | null {
@@ -54,4 +67,17 @@ export function resolveChatToolFileTarget(space: LocalSpace | null, path: string
   if (!segments.length || segments.includes('..') || segments[0] === '~' || relative.includes(':'))
     return null
   return { spaceId: space.id, directoryId: directory.id, revision: directory.revision, path: segments.join('/') }
+}
+
+// Like resolveChatToolFileTarget, but the space root itself is a valid folder and resolves to the empty path.
+export function resolveChatToolDirectoryTarget(space: LocalSpace | null, path: string): SpaceFileTarget | null {
+  const target = resolveChatToolFileTarget(space, path)
+  const directory = space?.primaryDirectory
+  if (target || !space || space.revokedAt || !directory || directory.revokedAt || !path || path.includes('\0'))
+    return target
+  const candidate = cleanChatToolFilePath(path).replaceAll('\\', '/').replace(/\/+$/, '')
+  const roots = [directory.canonicalRoot, directory.root].map(root => root.replaceAll('\\', '/').replace(/\/+$/, ''))
+  const windows = /^[a-z]:/i.test(roots[0]!) || roots[0]!.startsWith('//')
+  const isRoot = roots.some(root => (windows ? root.toLowerCase() === candidate.toLowerCase() : root === candidate))
+  return isRoot ? { spaceId: space.id, directoryId: directory.id, revision: directory.revision, path: '' } : null
 }

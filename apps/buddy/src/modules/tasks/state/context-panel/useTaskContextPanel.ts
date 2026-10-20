@@ -1,13 +1,15 @@
 import type { LocalArtifact } from '@buddy-shared/artifacts/artifactApi'
 import type { LocalChangeSetSummary } from '@buddy-shared/changes/changeApi'
 import type { ContextPanelSource } from '@buddy-shared/context-panel/contextPanel'
-import type { ArtifactViewMode, TaskContextTab } from '../../model/context-panel/taskContextPanel'
+import type { LocalSpace } from '@buddy-shared/spaces/spaceApi'
+import type { SpaceFileTarget } from '@buddy-shared/spaces/spaceFileApi'
+import type { ArtifactViewMode, TaskContextTab, TaskFilesContextTab } from '../../model/context-panel/taskContextPanel'
 import type { UseTaskContextPanelOptions } from './typing'
 import { computed, readonly, watch } from 'vue'
 import { useContextPanelControl } from '@/platform/desktop/useContextPanelControl'
 import { readContextSelection, readContextTab } from '../../model/context-panel/readContextTab'
 import { artifactTabId, browserTabId, contextTabSource, spaceTaskBrowserTab, taskContextPanelScope } from '../../model/context-panel/taskContextPanel'
-import { resolveChatToolFileTarget } from '../../model/transcript/chatToolFileTarget'
+import { resolveChatToolDirectoryTarget, resolveChatToolFileTarget } from '../../model/transcript/chatToolFileTarget'
 import { useContextPanelTabs } from './useContextPanelTabs'
 
 export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
@@ -134,7 +136,8 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
     return Boolean(resolveChatToolFileTarget(options.activeSpace?.value ?? null, path))
   }
 
-  function previewFile(path: string, source?: ContextPanelSource) {
+  // collapseTree: the file is the point, so the tree starts folded away (the user can still open it).
+  function previewFile(path: string, source?: ContextPanelSource, collapseTree = false) {
     const space = options.activeSpace?.value ?? null
     const target = resolveChatToolFileTarget(space, path)
     if (!target || !space?.primaryDirectory)
@@ -147,14 +150,35 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
       && tab.target.path === target.path
       && (!source || tab.source?.runId === source.runId),
     )
+    const tree = collapseTree ? { visible: false, token: crypto.randomUUID() } : undefined
     if (exactTab) {
+      if (tree)
+        updateFilesTab(exactTab.id, { tree })
       store.select(exactTab.id)
       void control.open()
       return
     }
 
+    const spaceTab = findSpaceFilesTab(target, source)
+    if (spaceTab) {
+      selectFile(spaceTab.id, target.path)
+      if (tree)
+        updateFilesTab(spaceTab.id, { tree })
+      store.select(spaceTab.id)
+      openPanel()
+      return
+    }
+
+    openTab({ ...newFilesTab(space, target, source), tree })
+  }
+
+  function updateFilesTab(tabId: string, change: Partial<Pick<TaskFilesContextTab, 'expand' | 'tree'>>) {
+    store.update(tab => tab.id === tabId && tab.kind === 'files' ? { ...tab, ...change } : tab)
+  }
+
+  function findSpaceFilesTab(target: SpaceFileTarget, source?: ContextPanelSource) {
     const active = store.activeTab.value
-    const spaceTab = (active?.kind === 'files' && active.target.spaceId === target.spaceId && active.target.directoryId === target.directoryId && (!source || active.source?.runId === source.runId))
+    return (active?.kind === 'files' && active.target.spaceId === target.spaceId && active.target.directoryId === target.directoryId && (!source || active.source?.runId === source.runId))
       ? active
       : store.tabs.value.find(tab =>
           tab.kind === 'files'
@@ -162,22 +186,39 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
           && tab.target.directoryId === target.directoryId
           && (!source || tab.source?.runId === source.runId),
         )
+  }
 
+  function newFilesTab(space: LocalSpace, target: SpaceFileTarget, source?: ContextPanelSource): TaskFilesContextTab {
+    return {
+      id: `files:${source ? taskContextPanelScope(source.conversationId) : store.scope.value}:${target.spaceId}:${target.directoryId}:${source?.runId ?? 'preview'}`,
+      scope: source ? taskContextPanelScope(source.conversationId) : store.scope.value,
+      kind: 'files',
+      rootName: space.primaryDirectory!.root.split(/[\\/]/).filter(Boolean).at(-1) ?? space.primaryDirectory!.root,
+      target,
+      source: source ?? currentSource(),
+    }
+  }
+
+  function canOpenDirectory(path: string) {
+    return Boolean(resolveChatToolDirectoryTarget(options.activeSpace?.value ?? null, path))
+  }
+
+  // Shows a folder in the file manager's tree without changing the file already open in the tab.
+  function openDirectory(path: string, source?: ContextPanelSource) {
+    const space = options.activeSpace?.value ?? null
+    const target = resolveChatToolDirectoryTarget(space, path)
+    if (!target || !space?.primaryDirectory)
+      return
+    const expand = target.path ? { path: target.path, token: crypto.randomUUID() } : undefined
+    const tree = { visible: true, token: crypto.randomUUID() }
+    const spaceTab = findSpaceFilesTab(target, source)
     if (spaceTab) {
-      selectFile(spaceTab.id, target.path)
+      updateFilesTab(spaceTab.id, { expand, tree })
       store.select(spaceTab.id)
       void control.open()
       return
     }
-
-    openTab({
-      id: `files:${source ? taskContextPanelScope(source.conversationId) : store.scope.value}:${target.spaceId}:${target.directoryId}:${source?.runId ?? 'preview'}`,
-      scope: source ? taskContextPanelScope(source.conversationId) : store.scope.value,
-      kind: 'files',
-      rootName: space.primaryDirectory.root.split(/[\\/]/).filter(Boolean).at(-1) ?? space.primaryDirectory.root,
-      target,
-      source: source ?? currentSource(),
-    })
+    openTab({ ...newFilesTab(space, { ...target, path: '' }, source), expand, tree })
   }
 
   function isAvailable(tab: TaskContextTab): boolean {
@@ -229,6 +270,7 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
     adoptDraft: store.adoptDraft,
     discardDraft: store.discardDraft,
     addBrowser,
+    canOpenDirectory,
     canPreviewFile,
     closeTab: store.close,
     discardConversation: (id: string) => store.discard(taskContextPanelScope(id)),
@@ -236,6 +278,7 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
     openArtifact,
     openBrowser,
     openChanges,
+    openDirectory,
     openFiles,
     previewFile,
     selectFile,

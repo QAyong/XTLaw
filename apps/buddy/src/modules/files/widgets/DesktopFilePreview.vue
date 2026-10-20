@@ -3,6 +3,7 @@ import type { LocalChatApi } from '@buddy-electron/shared/localChatApi'
 import type { BuddyFileQuote, BuddyResourceQuote } from '@buddy-shared/conversation/buddyUserContent'
 import type { LocalSpaceFilePreview } from '@buddy-shared/spaces/spaceFileApi'
 import type { WorkbenchView } from '@/workbench/common/workbench'
+import { parseLocalChatPublicError } from '@buddy-shared/runtime/localChatError'
 import { spaceFileTargetSchema } from '@buddy-shared/spaces/spaceFileApi'
 import { computed, shallowRef, useTemplateRef, watch } from 'vue'
 import WorkbenchMenu from '@/shared/ui/contributions/WorkbenchMenu.vue'
@@ -27,6 +28,7 @@ function prepareQuote(quote: BuddyResourceQuote, x: number, y: number) {
   return quoteMenu.value?.prepare(quote, x, y) ?? null
 }
 const failed = shallowRef(false)
+const missing = shallowRef(false)
 const modes = computed(() => fileDocumentModes({ preview: preview.value?.kind === 'image' || (preview.value?.kind === 'text' && isMarkdownFile(props.view.title)), source: preview.value?.kind === 'text', edit: false }))
 const mode = computed({ get: () => resolveFileDocumentMode(props.view.state.mode, modes.value), set: value => controller.updateView(props.view.id, { state: { ...props.view.state, mode: value } }) })
 const quoteSource = computed<BuddyFileQuote['source']>(() => ({
@@ -45,14 +47,17 @@ watch([identity, attempt], async (_, __, onCleanup) => {
   onCleanup(() => active = false)
   preview.value = null
   failed.value = false
+  missing.value = false
   try {
     const value = await props.files.readFile(spaceFileTargetSchema.strip().parse(props.view.resource.data))
     if (active)
       preview.value = value
   }
-  catch {
-    if (active)
+  catch (error) {
+    if (active) {
       failed.value = true
+      missing.value = error instanceof Error && parseLocalChatPublicError(error.message)?.code === 'FILE_NOT_FOUND'
+    }
   }
 }, { immediate: true })
 const document = useTemplateRef<InstanceType<typeof DesktopDocumentContent>>('document')
@@ -82,7 +87,7 @@ function captureResource() {
       </DesktopDocumentToolbar>
     </Teleport>
     <div v-if="failed" class="file-preview__notice" role="alert">
-      <span>{{ labels.failed }}</span>
+      <span>{{ missing ? labels.fileMissing : labels.failed }}</span>
       <button type="button" class="file-preview__retry" @click="loadPreview">
         {{ labels.retry }}
       </button>

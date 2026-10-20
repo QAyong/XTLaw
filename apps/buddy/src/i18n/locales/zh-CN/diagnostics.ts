@@ -77,6 +77,7 @@ export default {
   'desktop.error.credentialStore': '系统凭据加密服务不可用',
   'desktop.error.credentialStoreFailure': '系统凭据读取或保存失败',
   'desktop.error.directoryNotAuthorized': '请先授权这个目录',
+  'desktop.error.fileNotFound': '文件已被移动或删除',
   'desktop.error.taskRecoveryRequired': '此任务的记录无法读取，已暂停使用，其他任务不受影响。如需协助，可在日志中导出诊断信息。',
   'desktop.error.fileRecoveryRequired': '上次文件操作的结果尚未确认，相关写入已暂停。如需协助，可在日志中导出诊断信息。',
   'desktop.error.resourceRecoveryRequired': '上次操作的结果尚未确认，相关写入已暂停。可在日志中查看详情。',

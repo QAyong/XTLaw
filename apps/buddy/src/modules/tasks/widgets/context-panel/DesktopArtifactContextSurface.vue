@@ -47,7 +47,7 @@ function prepareQuote(quote: BuddyResourceQuote, x: number, y: number) {
 }
 
 const { t } = useBuddyI18n(() => props.language)
-const { refreshText, failImage, openPreview, previewIndex, previewOpen, previewSources, previewUrl, textPreview, textPreviewFailed, textPreviewLoading } = useArtifactPreview({
+const { refreshText, failImage, openPreview, previewIndex, previewOpen, previewSources, previewUrl, textPreview, textPreviewFailed, textPreviewLoading, textPreviewMissing } = useArtifactPreview({
   artifact: () => props.artifact,
   readText: () => props.readArtifactText,
 })
@@ -107,7 +107,7 @@ watch(textPreview, () => quoteMenu.value?.close(), { flush: 'sync' })
         <span v-if="artifact.kind === 'directory'" class="desktop-artifact-context-surface__path">
           {{ artifact.path }}
         </span>
-        <span v-else>{{ t(textPreviewFailed ? 'desktop.context.previewLoadFailed' : 'desktop.context.previewUnavailable') }}</span>
+        <span v-else>{{ t(textPreviewMissing ? 'desktop.context.previewFileMissing' : textPreviewFailed ? 'desktop.context.previewLoadFailed' : 'desktop.context.previewUnavailable') }}</span>
       </div>
     </div>
     <ResourceSelectionQuoteMenu v-if="references && textPreview" ref="quoteMenu" :view-id="tabId" :owner-key="quoteOwnerKey" :language="language" :visible="visible" />

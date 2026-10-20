@@ -239,6 +239,16 @@ describe('resource previews', () => {
     expect(state.textPreviewLoading.value).toBe(false)
   })
 
+  it('tells a moved or deleted file apart from other read failures', async () => {
+    const artifact = { ...createArtifact('moved'), name: 'moved.md', mimeType: 'text/markdown' }
+    const missing = own(() => useArtifactPreview({ artifact: () => artifact, readText: () => failWith('Error invoking remote method: Error: LEXORA_LOCAL_CHAT_ERROR:FILE_NOT_FOUND:0') }))
+    const broken = own(() => useArtifactPreview({ artifact: () => artifact, readText: () => failWith('LEXORA_LOCAL_CHAT_ERROR:LOCAL_CHAT_OPERATION_FAILED:0') }))
+    await vi.waitFor(() => expect(missing.state.textPreviewFailed.value).toBe(true))
+    await vi.waitFor(() => expect(broken.state.textPreviewFailed.value).toBe(true))
+    expect(missing.state.textPreviewMissing.value).toBe(true)
+    expect(broken.state.textPreviewMissing.value).toBe(false)
+  })
+
   it('ignores late text success and failure after switching artifacts or closing the preview', async () => {
     const first = deferred<LocalArtifactText>()
     const second = deferred<LocalArtifactText>()
@@ -315,6 +325,12 @@ describe('resource previews', () => {
     expect(state.current.value).toBeNull()
   })
 })
+
+function failWith(message: string) {
+  return async (): Promise<never> => {
+    throw new Error(message)
+  }
+}
 
 function filesTab(): TaskFilesContextTab {
   return { id: 'files:first', scope: 'task:first', kind: 'files', rootName: 'fixture', target: { spaceId: 'space', directoryId: 'directory', revision: 1, path: '' } }

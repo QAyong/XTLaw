@@ -36,6 +36,7 @@ export type BuddyServiceErrorCode
     | 'DIRECTORY_NOT_AUTHORIZED'
     | 'MODEL_INPUT_UNSUPPORTED'
     | 'MODEL_INPUT_TOO_LARGE'
+    | 'FILE_NOT_FOUND'
     | 'SPACE_UNAVAILABLE'
     | 'VALIDATION_FAILED'
 

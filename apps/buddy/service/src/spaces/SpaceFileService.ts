@@ -55,9 +55,9 @@ export class SpaceFileService {
   }
 
   async read(input: SpaceFileTarget): Promise<LocalSpaceFilePreview> {
-    const target = await this.resolve(input)
+    const target = await this.resolve(input).catch(rethrowMissingFile)
     this.requireDirectory(input)
-    const preview = await readFilePreview(target.root, target.path)
+    const preview = await readFilePreview(target.root, target.path).catch(rethrowMissingFile)
     this.requireDirectory(input)
     return preview
   }
@@ -297,4 +297,14 @@ export class SpaceFileService {
     this.requireDirectory(input)
     return { path: target.canonicalPath, root: directory.canonicalRoot }
   }
+}
+
+// A file moved or deleted after it was listed is reported on its own, so the preview can say so.
+function rethrowMissingFile(error: unknown): never {
+  for (let current = error, depth = 0; current && typeof current === 'object' && depth < 5; current = (current as { cause?: unknown }).cause, depth++) {
+    const code = (current as { code?: unknown }).code
+    if (code === 'ENOENT' || code === 'PATH_NOT_FOUND')
+      throw new BuddyServiceError('FILE_NOT_FOUND')
+  }
+  throw error
 }

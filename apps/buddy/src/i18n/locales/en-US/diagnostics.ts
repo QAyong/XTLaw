@@ -79,6 +79,7 @@ export default {
   'desktop.error.credentialStore': 'Encrypted credential storage is unavailable',
   'desktop.error.credentialStoreFailure': 'Could not read or save encrypted credentials',
   'desktop.error.directoryNotAuthorized': 'Authorize this directory first',
+  'desktop.error.fileNotFound': 'This file has been moved or deleted',
   'desktop.error.taskRecoveryRequired': 'This task’s records cannot be read, so it is unavailable. Other tasks are unaffected. Export diagnostics from Logs if you need help.',
   'desktop.error.fileRecoveryRequired': 'The outcome of an earlier file operation is unconfirmed, so related writes are paused. Export diagnostics from Logs if you need help.',
   'desktop.error.resourceRecoveryRequired': 'The outcome of an earlier operation is unconfirmed, so related writes are paused. See the logs for details.',

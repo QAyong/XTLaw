@@ -262,6 +262,7 @@ function openDetailChanges(id: string) {
       <footer v-show="composerVisible" class="desktop-chat-page__composer-dock" :data-composer-placement="composerVisible ? detailVisible ? 'detail' : 'bottom' : 'hidden'">
         <div class="desktop-chat-page__composer-stack">
           <DesktopTaskNotices
+            :change-recovery="workspace.changeRecovery"
             :execution="workspace.execution"
             :language="language"
             :restoration="workspace.restoration"

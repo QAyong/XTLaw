@@ -54,6 +54,7 @@ export interface BuddySessionExtensionServices {
   changeCaptureService: Pick<ChangeCaptureService, 'beginInvocation' | 'finishInvocation' | 'markPartial'>
   fileResources: FileResourceCoordinator
   mutations: MutationCoordinator
+  receiptDirectory?: string
   createCapabilities: BuddyCapabilityFactory
   directoryGrants: Pick<DirectoryGrantService, 'grant' | 'assertCurrent'>
   recordPermissions?: ApplicationDiagnosticReporter
@@ -189,6 +190,7 @@ export async function createBuddySessionExtensions(
       sandbox: services.shellSandbox,
       directoryPermissions: sandboxDirectories,
       mutations: services.mutations,
+      receiptDirectory: services.receiptDirectory,
       assertExecutionAllowed: ({ run }) => services.delegation?.assertShellExecutionAllowed(run.runId),
     }))
     if (services.delegation) {

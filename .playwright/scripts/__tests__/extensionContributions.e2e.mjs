@@ -12,7 +12,7 @@ test('plugin-owned preferences activate contributions, yield native content and 
   }
   const openModule = async (name) => {
     await backToTasks()
-    await page.locator('.desktop-sidebar-footer').getByRole('button', { name, exact: true }).click()
+    await page.locator('#desktop-task-sidebar').getByRole('button', { name, exact: true }).click()
   }
   const openPluginPage = async id => page.locator(`[data-extension-id="${id}"]`).getByRole('button', { name: '打开', exact: true }).click()
   const nativeFooter = () => page.locator('.desktop-chat-composer__disclaimer')

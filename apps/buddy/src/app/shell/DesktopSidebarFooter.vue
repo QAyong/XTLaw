@@ -1,36 +1,30 @@
 <script setup lang="ts">
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import type { DesktopNotification } from '@/modules/notifications/contracts'
-import type { DesktopNavigationEntry } from '@/shared/navigation/desktopPages'
 import { Alert20Regular } from '@vicons/fluent'
-import { NBadge, NPopover, NTooltip } from 'naive-ui'
-import { computed, shallowRef } from 'vue'
+import { NBadge, NPopover } from 'naive-ui'
+import { shallowRef } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import { DesktopNotificationCenter } from '@/modules/notifications/ui'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
-import DesktopPluginIcon from '@/shared/ui/icon/DesktopPluginIcon.vue'
 
 const props = defineProps<{
   language: BuddyLocale
-  navigation: readonly DesktopNavigationEntry[]
   notificationItems: ReadonlyArray<DesktopNotification>
   notificationLoading: boolean
   notificationUnseenCount: number
 }>()
 const emit = defineEmits<{
   markAllNotificationsSeen: []
-  navigate: [id: string]
   openNotification: [notification: DesktopNotification]
   refreshNotifications: []
 }>()
 
+defineSlots<{ account?: () => unknown }>()
+
 const { t } = useBuddyI18n(() => props.language)
 const showNotifications = shallowRef(false)
 const notificationPopoverThemeOverrides = { padding: '0' } as const
-const FOOTER_ENTRY_IDS = ['lexora.settings', 'lexora.extensions', 'lexora.automations', 'lexora.buddies'] as const
-const entries = computed(() => FOOTER_ENTRY_IDS
-  .map(id => props.navigation.find(entry => entry.id === id))
-  .filter((entry): entry is DesktopNavigationEntry => entry !== undefined))
 
 function updateNotificationVisibility(show: boolean) {
   showNotifications.value = show
@@ -46,25 +40,7 @@ function openNotification(notification: DesktopNotification) {
 
 <template>
   <footer class="desktop-sidebar-footer">
-    <NTooltip v-for="entry in entries" :key="entry.id">
-      <template #trigger>
-        <button
-          class="desktop-sidebar-footer__entry"
-          :class="{ 'is-active': entry.active }"
-          type="button"
-          :aria-current="entry.active ? 'page' : undefined"
-          :aria-label="entry.title"
-          :data-extension-navigation="entry.extensionId"
-          @click="emit('navigate', entry.id)"
-        >
-          <DesktopPluginIcon v-if="entry.icon.kind === 'plugin'" :src="entry.icon.url" />
-          <DesktopIcon v-else-if="entry.icon.kind === 'named'" :name="entry.icon.name" />
-          <DesktopIcon v-else :component="entry.icon.component" />
-        </button>
-      </template>
-      {{ entry.title }}
-    </NTooltip>
-
+    <slot name="account" />
     <div class="desktop-sidebar-footer__notification">
       <NPopover
         class="desktop-notification-popover"
@@ -151,7 +127,6 @@ function openNotification(notification: DesktopNotification) {
   outline-offset: -2px;
 }
 
-.desktop-sidebar-footer__entry.is-active,
 .desktop-sidebar-footer__entry.is-open {
   border-color: var(--buddy-accent-border);
   background: var(--buddy-accent-surface-subtle);

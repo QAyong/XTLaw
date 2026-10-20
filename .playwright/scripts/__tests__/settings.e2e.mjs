@@ -3,6 +3,7 @@ import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { expect, test, useSyntheticCredentialStorage } from '../fixtures/electron.mjs'
+import { openSettingsMenu } from '../shared.mjs'
 
 test('prompt previews copy the current source without changing configuration or tasks', async ({ buddy }) => {
   const instance = await buddy.createInstance('settings-prompts')
@@ -621,13 +622,13 @@ async function openPlugins(page) {
   const back = page.locator('.desktop-back-to-tasks')
   if (await back.count())
     await back.click()
-  await page.locator('.desktop-sidebar-footer').getByRole('button', { name: '插件', exact: true }).click()
+  await page.locator('#desktop-task-sidebar').getByRole('button', { name: '插件', exact: true }).click()
 }
 async function openSettings(page) {
   const back = page.locator('.desktop-back-to-tasks')
   if (await back.count())
     await back.click()
-  await page.locator('.desktop-sidebar-footer').getByRole('button', { name: '设置', exact: true }).click()
+  await openSettingsMenu(page)
   await page.locator('.desktop-settings-sidebar').getByRole('link', { name: '常规', exact: true }).click()
   await expect(page).toHaveURL(/#\/settings\/general$/)
 }

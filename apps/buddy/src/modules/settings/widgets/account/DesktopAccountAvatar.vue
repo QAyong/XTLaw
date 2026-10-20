@@ -8,7 +8,7 @@ const props = withDefaults(defineProps<{
   backgroundColor?: string
   initials?: string
   name?: string
-  size?: 'compact' | 'large' | 'medium' | 'small'
+  size?: 'compact' | 'large' | 'medium' | 'small' | 'tiny'
 }>(), {
   avatarUrl: null,
   backgroundColor: undefined,
@@ -60,6 +60,12 @@ const resolvedInitials = computed(() => {
   box-shadow: inset 0 0 0 1px var(--buddy-border-strong);
   color: var(--buddy-avatar-foreground);
   user-select: none;
+}
+
+.desktop-account-avatar.is-tiny {
+  width: 24px;
+  height: 24px;
+  font-size: 12px;
 }
 
 .desktop-account-avatar.is-compact {

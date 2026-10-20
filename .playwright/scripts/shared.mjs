@@ -13,3 +13,8 @@ export function attachPageDiagnostics(page) {
 export function serializeError(error) {
   return error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : { message: String(error) }
 }
+
+export async function openSettingsMenu(page) {
+  await page.locator('.desktop-sidebar-account').click()
+  await page.locator('.n-dropdown-menu').getByText('设置', { exact: true }).click()
+}

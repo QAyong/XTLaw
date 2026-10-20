@@ -689,5 +689,5 @@ async function openTasks(page) {
 
 async function openPlugins(page) {
   await openTasks(page)
-  await page.locator('.desktop-sidebar-footer').getByRole('button', { name: '插件', exact: true }).click()
+  await page.locator('#desktop-task-sidebar').getByRole('button', { name: '插件', exact: true }).click()
 }

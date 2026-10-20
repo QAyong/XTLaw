@@ -36,7 +36,7 @@ test('plugin updates apply separately from restart and preserve preferences and 
     const back = page.locator('.desktop-back-to-tasks')
     if (await back.count())
       await back.click()
-    await page.locator('.desktop-sidebar-footer').getByRole('button', { name: '插件', exact: true }).click()
+    await page.locator('#desktop-task-sidebar').getByRole('button', { name: '插件', exact: true }).click()
   }
   async function install(version, apply = true) {
     const file = await writePackage(directory, version)

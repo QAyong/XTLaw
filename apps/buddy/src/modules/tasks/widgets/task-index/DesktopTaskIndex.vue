@@ -25,7 +25,6 @@ import {
 } from '@/modules/tasks/widgets/task-index/taskSidebarLayout'
 import { useTaskIndexController } from '@/modules/tasks/widgets/task-index/useTaskIndexController'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
-import DesktopWorkspaceSidebarIdentity from '@/shared/ui/workspace-sidebar/DesktopWorkspaceSidebarIdentity.vue'
 import DesktopTaskMarkManager from './DesktopTaskMarkManager.vue'
 
 const props = defineProps<{
@@ -51,7 +50,7 @@ const emit = defineEmits<{
   renameTask: [conversationId: string, title: string]
   updatePinnedItems: [items: DesktopTaskPinnedItem[]]
 }>()
-defineSlots<{ footer?: () => unknown }>()
+defineSlots<{ footer?: () => unknown, navigation?: () => unknown }>()
 
 const { t } = useBuddyI18n(() => props.language)
 const marksOpen = shallowRef(false)
@@ -150,9 +149,10 @@ function openSearchSpace(spaceId: string) {
 <template>
   <aside id="desktop-task-sidebar" class="desktop-task-sidebar">
     <header class="desktop-task-sidebar__header">
-      <DesktopWorkspaceSidebarIdentity
-        :label="t('desktop.navigation.tasks')"
-      />
+      <button class="desktop-task-sidebar__search-trigger" type="button" :aria-label="t('desktop.search.title')" @click="searchOpen = true">
+        <DesktopIcon name="toolSearch" :size="14" />
+        <span>{{ t('desktop.search.title') }}</span>
+      </button>
       <NTooltip>
         <template #trigger>
           <button class="desktop-task-sidebar__marks-trigger" type="button" :aria-label="t('desktop.marks.manage')" @click="marksOpen = true">
@@ -161,15 +161,9 @@ function openSearchSpace(spaceId: string) {
         </template>
         {{ t('desktop.marks.manage') }}
       </NTooltip>
-      <NTooltip>
-        <template #trigger>
-          <button class="desktop-task-sidebar__search-trigger" type="button" :aria-label="t('desktop.search.title')" @click="searchOpen = true">
-            <DesktopIcon name="toolSearch" :size="16" />
-          </button>
-        </template>
-        {{ t('desktop.search.title') }}
-      </NTooltip>
     </header>
+
+    <slot name="navigation" />
 
     <NAlert v-if="marks.error.value && !marksOpen" type="error" :show-icon="false">
       {{ marks.error.value }}
@@ -462,13 +456,47 @@ function openSearchSpace(spaceId: string) {
   height: var(--buddy-region-header-height);
   flex: none;
   align-items: center;
-  justify-content: space-between;
   gap: 0.25rem;
-  border-bottom: 1px solid var(--buddy-border-subtle);
-  padding: 0 0.5rem 0 0.75rem;
+  padding: 0 0.5rem;
 }
 
-.desktop-task-sidebar__search-trigger,
+.desktop-task-sidebar__search-trigger {
+  display: flex;
+  min-width: 0;
+  height: 1.75rem;
+  flex: 1;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid var(--buddy-border-subtle);
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--buddy-text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  padding: 0 0.5rem;
+  text-align: left;
+  transition:
+    background-color var(--buddy-motion-state-duration) var(--buddy-motion-state-easing),
+    border-color var(--buddy-motion-state-duration) var(--buddy-motion-state-easing);
+
+  &:hover {
+    border-color: var(--buddy-border-strong);
+    background: var(--buddy-state-hover);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--buddy-focus-ring);
+    outline-offset: -2px;
+  }
+
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
 .desktop-task-sidebar__marks-trigger {
   display: grid;
   width: 1.75rem;
@@ -500,7 +528,7 @@ function openSearchSpace(spaceId: string) {
   min-height: 0;
   flex: 1;
   overflow: hidden;
-  padding: 0.5rem 0;
+  padding: 0.25rem 0 0.5rem;
 }
 
 .desktop-task-sidebar nav {

@@ -4,4 +4,5 @@ export { buddyAvatarPresets, buddyPresetAvatar } from './model/buddyAvatarPreset
 export { readBuddyAvatar } from './state/readBuddyAvatar'
 export { useBuddyIdentity } from './state/useBuddyIdentity'
 export { default as BuddyAvatar } from './widgets/BuddyAvatar.vue'
+export { default as BuddyIcon } from './widgets/BuddyIcon.vue'
 export { default as BuddySelector } from './widgets/BuddySelector.vue'

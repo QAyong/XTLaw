@@ -1,5 +1,6 @@
 import { Buffer } from 'node:buffer'
 import { expect, test } from '../fixtures/electron.mjs'
+import { openSettingsMenu } from '../shared.mjs'
 
 test('legacy caches and diagnostic logs alone do not trigger a startup migration', async ({ buddy }) => {
   const { mkdir, readFile, writeFile } = await import('node:fs/promises')
@@ -99,7 +100,7 @@ test('initial consolidation failure exports safe diagnostics and opens a prefill
 test('storage settings keep the active path and block backups until a pending move is cancelled', async ({ buddy }) => {
   const instance = await buddy.createInstance('storage')
   const { page, app } = await instance.launch()
-  await page.getByRole('button', { name: '设置', exact: true }).click()
+  await openSettingsMenu(page)
   await page.getByRole('link', { name: '数据存储', exact: true }).click()
   await expect(page.getByTestId('storage-current-root')).toHaveText(instance.home)
   const target = `${instance.home}-moved`
@@ -119,7 +120,7 @@ test('local backup limits defer deletion until confirmation or the next successf
   test.setTimeout(180000)
   const instance = await buddy.createInstance('backup-retention')
   let { page } = await instance.launch()
-  await page.getByRole('button', { name: '设置', exact: true }).click()
+  await openSettingsMenu(page)
   await page.getByRole('link', { name: '数据存储', exact: true }).click()
   let control = page.getByRole('spinbutton', { name: '本地备份保留数量', exact: true })
   const ids = await page.evaluate(async () => {
@@ -132,7 +133,7 @@ test('local backup limits defer deletion until confirmation or the next successf
   await expect.poll(catalog).toEqual(ids.toReversed())
   await page.reload()
   await page.waitForFunction(async () => (await window.lexoraDesktop.app.startup.getState()).status === 'ready')
-  await page.getByRole('button', { name: '设置', exact: true }).click()
+  await openSettingsMenu(page)
   await page.getByRole('link', { name: '数据存储', exact: true }).click()
   await control.fill('1')
   await control.press('Tab')
@@ -147,7 +148,7 @@ test('local backup limits defer deletion until confirmation or the next successf
   expect(await catalog()).toEqual(ids.toReversed())
   const next = await page.evaluate(() => window.lexoraDesktop.storage.snapshot({ scopes: ['tasks'], credentials: false }))
   await expect.poll(catalog).toEqual([next.id])
-  await page.getByRole('button', { name: '设置', exact: true }).click()
+  await openSettingsMenu(page)
   await page.getByRole('link', { name: '数据存储', exact: true }).click()
   control = page.getByRole('spinbutton', { name: '本地备份保留数量', exact: true })
   await expect(control).toHaveValue('1')
@@ -466,7 +467,7 @@ test('exports an encrypted selective backup and imports it into the configured r
   }, snapshot.id)
   expect(wrong).toContain('SNAPSHOT_PASSWORD_INVALID')
   expect((await receiving.page.evaluate(() => window.lexoraDesktop.storage.summary())).pending).toBeNull()
-  await receiving.page.getByRole('button', { name: '设置', exact: true }).click()
+  await openSettingsMenu(receiving.page)
   await receiving.page.getByRole('link', { name: '数据存储', exact: true }).click()
   await receiving.page.getByRole('button', { name: /^查看备份/ }).click()
   await receiving.page.getByRole('button', { name: '恢复备份', exact: true }).click()

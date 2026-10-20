@@ -11,7 +11,9 @@ import WorkbenchMountPoint from '@/workbench/browser/mounts/WorkbenchMountPoint.
 import { useWorkbench } from '@/workbench/browser/workbenchContext'
 import WorkbenchLayoutNode from '@/workbench/browser/WorkbenchLayoutNode.vue'
 import WorkbenchSurface from '@/workbench/browser/WorkbenchSurface.vue'
+import DesktopSidebarAccount from '../shell/DesktopSidebarAccount.vue'
 import DesktopSidebarFooter from '../shell/DesktopSidebarFooter.vue'
+import DesktopSidebarNavigation from '../shell/DesktopSidebarNavigation.vue'
 import DesktopDirectoryFileSurface from './DesktopDirectoryFileSurface.vue'
 
 const props = defineProps<{ bindings: DesktopShellBindings, tasksVisible: boolean, contextOnLeft: boolean, chatPaneHidden: boolean }>()
@@ -76,18 +78,23 @@ function navigate(id: string) {
     <template v-if="tasksVisible" #sidebar>
       <WorkbenchMountPoint target="workbench.sidebar">
         <DesktopTaskIndexView :pending-task-ids="pendingTaskIds" :index="bindings.taskIndex" :active-task-id="bindings.workbench.activeTaskId.value" @open-task="bindings.workbench.openTask" @new-task="spaceId => bindings.workbench.newTask({ spaceId })">
+          <template #navigation>
+            <DesktopSidebarNavigation :navigation="bindings.pages.navigation.value" @navigate="navigate" />
+          </template>
           <template #footer>
             <DesktopSidebarFooter
               :language="language"
-              :navigation="bindings.pages.navigation.value"
               :notification-items="bindings.notifications.items.value"
               :notification-loading="bindings.notifications.isLoading.value"
               :notification-unseen-count="bindings.notifications.unseenCount.value"
               @mark-all-notifications-seen="bindings.notifications.markAllSeen"
-              @navigate="navigate"
               @open-notification="bindings.navigation.openNotification"
               @refresh-notifications="bindings.notifications.load"
-            />
+            >
+              <template #account>
+                <DesktopSidebarAccount :language="language" @open-settings="navigate('lexora.settings')" />
+              </template>
+            </DesktopSidebarFooter>
           </template>
         </DesktopTaskIndexView>
       </WorkbenchMountPoint>

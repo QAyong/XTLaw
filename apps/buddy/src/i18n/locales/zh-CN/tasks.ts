@@ -168,6 +168,7 @@ export default {
   'desktop.context.sourceSwitchToPreview': '当前为源码，点击查看预览',
   'desktop.context.sourceLoadFailed': '无法加载源码查看器',
   'desktop.context.previewUnavailable': '暂不支持在此预览该文件',
+  'desktop.context.mediaFailed': '无法播放此文件，可能是当前不支持的编码格式。',
   'desktop.context.previewLoadFailed': '无法读取该文件预览',
   'desktop.context.previewFileMissing': '文件已被移动或删除',
   'desktop.context.tabCount': '增强能力页签，共 {count} 个',

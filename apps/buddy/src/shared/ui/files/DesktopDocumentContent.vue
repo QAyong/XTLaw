@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { BuddyTextQuote } from '@buddy-shared/conversation/buddyUserContent'
+import type { MediaKind } from '@buddy-shared/files/mediaFiles'
 import type { FileDocumentMode } from './fileDocumentPresentation'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import type { PrepareResourceQuote } from '@/shared/ui/selection/useResourceSelectionQuote'
@@ -7,9 +8,10 @@ import { computed, useTemplateRef } from 'vue'
 import DesktopMarkdownContent from '@/shared/ui/markdown/DesktopMarkdownContent.vue'
 import { readResourceTextSelection } from '@/shared/ui/selection/resourceQuoteSelection'
 import { useQuoteHighlight } from '@/shared/ui/selection/useQuoteHighlight'
+import DesktopMediaContent from './DesktopMediaContent.vue'
 import DesktopMonacoFile from './DesktopMonacoFile.vue'
 
-const props = withDefaults(defineProps<{ mode: FileDocumentMode | null, name: string, text?: string | null, imageUrl?: string | null, language: BuddyLocale, writeClipboardText: (text: string) => Promise<void>, wrap?: boolean, sourceReady?: boolean, revealSource?: (quote: BuddyTextQuote) => boolean, quoteSource?: BuddyTextQuote['source'], prepareQuote?: PrepareResourceQuote }>(), { wrap: true })
+const props = withDefaults(defineProps<{ mode: FileDocumentMode | null, name: string, text?: string | null, imageUrl?: string | null, mediaKind?: MediaKind | null, mediaUrl?: string | null, mediaFailedLabel?: string, language: BuddyLocale, writeClipboardText: (text: string) => Promise<void>, wrap?: boolean, sourceReady?: boolean, revealSource?: (quote: BuddyTextQuote) => boolean, quoteSource?: BuddyTextQuote['source'], prepareQuote?: PrepareResourceQuote }>(), { wrap: true })
 defineSlots<{ source?: () => unknown }>()
 const markdown = useTemplateRef<HTMLElement>('markdown')
 const monaco = useTemplateRef<InstanceType<typeof DesktopMonacoFile>>('monaco')
@@ -43,6 +45,7 @@ function quoteText(event: MouseEvent) {
     <div v-else-if="mode === 'preview' && imageUrl" class="desktop-document-content__image grid flex-1 min-h-0 overflow-auto p-[16px] place-items-center">
       <img :src="imageUrl" :alt="name">
     </div>
+    <DesktopMediaContent v-else-if="mode === 'preview' && mediaKind && mediaUrl" :kind="mediaKind" :url="mediaUrl" :name="name" :failed-label="mediaFailedLabel ?? ''" />
     <template v-else-if="(mode === 'source' || mode === 'edit') && text != null">
       <slot name="source">
         <DesktopMonacoFile ref="monaco" :language="language" :text="text" :path="name" :wrap="wrap" :quote-source="quoteSource" :prepare-quote="prepareQuote" />

@@ -8,6 +8,7 @@ import { computed, useTemplateRef, watch } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import { FileIcon, FolderIcon } from '@/shared/ui/file-icon'
 import DesktopDocumentContent from '@/shared/ui/files/DesktopDocumentContent.vue'
+import DesktopMediaContent from '@/shared/ui/files/DesktopMediaContent.vue'
 import BuddyImagePreview from '@/shared/ui/media/BuddyImagePreview.vue'
 import ResourceSelectionQuoteMenu from '@/shared/ui/selection/ResourceSelectionQuoteMenu.vue'
 import { useResourceQuoteReveal } from '@/shared/ui/selection/useResourceQuoteReveal'
@@ -45,7 +46,7 @@ const selection = useResourceSelectionQuote({
 })
 
 const { t } = useBuddyI18n(() => props.language)
-const { refreshText, failImage, openPreview, previewIndex, previewOpen, previewSources, previewUrl, textPreview, textPreviewFailed, textPreviewLoading, textPreviewMissing } = useArtifactPreview({
+const { refreshText, failImage, media, openPreview, previewIndex, previewOpen, previewSources, previewUrl, textPreview, textPreviewFailed, textPreviewLoading, textPreviewMissing } = useArtifactPreview({
   artifact: () => props.artifact,
   readText: () => props.readArtifactText,
 })
@@ -86,6 +87,7 @@ watch(textPreview, selection.close, { flush: 'sync' })
           @error="failImage"
         >
       </button>
+      <DesktopMediaContent v-else-if="media" :kind="media.kind" :url="media.url" :name="artifact.name" :failed-label="t('desktop.context.mediaFailed')" />
       <div v-else-if="textPreviewLoading" class="desktop-artifact-context-surface__fallback grid max-w-96 gap-2 text-muted text-center">
         <NSpin size="small" />
         <span>{{ t('common.loading') }}</span>

@@ -1,4 +1,5 @@
 import type { LocalArtifact, LocalArtifactText } from '@buddy-shared/artifacts/artifactApi'
+import { mediaKindOf } from '@buddy-shared/files/mediaFiles'
 import { parseLocalChatPublicError } from '@buddy-shared/runtime/localChatError'
 import { computed, readonly, shallowRef, watch } from 'vue'
 import { isMarkdownArtifact, isTextMimeType } from './artifactContextPresentation'
@@ -22,6 +23,12 @@ export function useArtifactPreview(options: ArtifactPreviewOptions) {
     return artifact.kind === 'file' && artifact.mimeType.startsWith('image/')
       ? `lexora-artifact://preview/${encodeURIComponent(artifact.artifactId)}?v=${encodeURIComponent(artifact.updatedAt)}`
       : null
+  })
+  // Audio and video play in place; the protocol serves them in ranges so seeking does not load the whole file.
+  const media = computed(() => {
+    const artifact = options.artifact()
+    const kind = artifact.kind === 'file' ? mediaKindOf(artifact.name) : null
+    return kind ? { kind, url: `lexora-artifact://preview/${encodeURIComponent(artifact.artifactId)}?v=${encodeURIComponent(artifact.updatedAt)}` } : null
   })
   const previewUrl = computed(() => previewFailed.value ? null : imageUrl.value)
   const previewSources = computed(() => previewUrl.value ? [previewUrl.value] : [])
@@ -77,6 +84,7 @@ export function useArtifactPreview(options: ArtifactPreviewOptions) {
   return {
     refreshText: () => revision.value++,
     failImage,
+    media,
     openPreview,
     previewIndex,
     previewOpen,

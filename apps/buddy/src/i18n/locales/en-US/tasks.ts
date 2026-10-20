@@ -170,6 +170,7 @@ export default {
   'desktop.context.sourceSwitchToPreview': 'Viewing source. Click to view preview',
   'desktop.context.sourceLoadFailed': 'Could not load the source viewer',
   'desktop.context.previewUnavailable': 'This file cannot be previewed here yet',
+  'desktop.context.mediaFailed': 'This file cannot be played. Its encoding may not be supported.',
   'desktop.context.previewLoadFailed': 'Could not load this file preview',
   'desktop.context.previewFileMissing': 'This file has been moved or deleted',
   'desktop.context.tabCount': 'Enhanced capability tabs, {count} total',

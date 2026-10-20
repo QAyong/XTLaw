@@ -74,6 +74,16 @@ describe('space file browsing', () => {
     expect(await f.files.read({ ...f.target, path: 'large.txt' })).toMatchObject({ kind: 'oversized', text: null })
   })
 
+  it('previews audio and video by type and size without reading their content', async () => {
+    const f = await fixture()
+    await writeFile(join(f.workspace, 'clip.MP4'), Buffer.alloc(2 * 1024 * 1024, 1))
+    await writeFile(join(f.workspace, 'song.mp3'), Buffer.from([1, 2, 3]))
+    expect(await f.files.read({ ...f.target, path: 'clip.MP4' })).toEqual({ kind: 'video', sizeBytes: 2 * 1024 * 1024, text: null, imageUrl: null })
+    expect(await f.files.read({ ...f.target, path: 'song.mp3' })).toEqual({ kind: 'audio', sizeBytes: 3, text: null, imageUrl: null })
+    await rm(join(f.workspace, 'song.mp3'))
+    await expect(f.files.read({ ...f.target, path: 'song.mp3' })).rejects.toMatchObject({ code: 'FILE_NOT_FOUND' })
+  })
+
   it('reports a file that was moved or deleted as not found', async () => {
     const f = await fixture()
     await writeFile(join(f.workspace, 'note.md'), '# note\n')

@@ -8,6 +8,8 @@ import { resolveBuddyFileReader } from '../../platform/native/nativeHost'
 import { artifactsRequestSchemas, artifactsResponseSchemas } from '../../shared/artifacts/artifactApi'
 import { attachmentsRequestSchemas } from '../../shared/conversation/attachmentApi'
 import { composerResourcesRpc } from '../../shared/conversation/composerApi'
+import { mediaKindOf } from '../../shared/files/mediaFiles'
+import { serveMediaFile } from './serveMediaFile'
 
 const ATTACHMENT_PROTOCOL = 'lexora-attachment'
 const ARTIFACT_PROTOCOL = 'lexora-artifact'
@@ -54,6 +56,9 @@ export function installAttachmentProtocol(runtime: BuddyServiceSupervisor): () =
       const preview = artifactsResponseSchemas.artifactPreview.parse(
         await runtime.request(method, input),
       )
+      // Audio and video are streamed in ranges instead of being read whole, so a long recording can be seeked.
+      if (scheme === ARTIFACT_PROTOCOL && mediaKindOf(preview.path))
+        return await serveMediaFile(preview.path, request.headers.get('range'), request.signal)
       const body = await readFile(preview.path)
       return new Response(body, {
         headers: {

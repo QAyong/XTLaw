@@ -74,6 +74,14 @@ describe('space file browsing', () => {
     expect(await f.files.read({ ...f.target, path: 'large.txt' })).toMatchObject({ kind: 'oversized', text: null })
   })
 
+  it('reports a file that was moved or deleted as not found', async () => {
+    const f = await fixture()
+    await writeFile(join(f.workspace, 'note.md'), '# note\n')
+    await expect(f.files.read({ ...f.target, path: 'note.md' })).resolves.toMatchObject({ kind: 'text' })
+    await rm(join(f.workspace, 'note.md'))
+    await expect(f.files.read({ ...f.target, path: 'note.md' })).rejects.toMatchObject({ code: 'FILE_NOT_FOUND' })
+  })
+
   it('saves UTF-8 content without changing its BOM, rejects stale etags and rechecks grants', async () => {
     const f = await fixture()
     const path = join(f.workspace, 'note.md')

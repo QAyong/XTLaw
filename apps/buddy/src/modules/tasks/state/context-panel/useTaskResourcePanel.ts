@@ -187,12 +187,14 @@ export function useTaskResourcePanel(options: TaskResourcePanelOptions) {
     const conversationId = artifact.conversationId
     if (!isBrowserArtifact(artifact)) {
       // An output inside the task's space is just a space file: open it there so it gets the file preview, editing and document plugins.
-      const asSpaceFile = conversationId === options.activeConversationId.value
-        && fitsSpaceFilePreview(artifact)
-        && taskContext.canPreviewFile(artifact.path)
-      act(() => asSpaceFile
-        ? taskContext.previewFile(artifact.path, { conversationId, runId: artifact.runId })
-        : taskContext.openArtifact(artifact))
+      const source = { conversationId, runId: artifact.runId }
+      const inSpace = conversationId === options.activeConversationId.value && fitsSpaceFilePreview(artifact)
+      if (inSpace && artifact.kind === 'directory' && taskContext.canOpenDirectory(artifact.path))
+        act(() => taskContext.openDirectory(artifact.path, source))
+      else if (inSpace && artifact.kind === 'file' && taskContext.canPreviewFile(artifact.path))
+        act(() => taskContext.previewFile(artifact.path, source, true))
+      else
+        act(() => taskContext.openArtifact(artifact))
       return
     }
     act(() => taskContext.openBrowser({ conversationId, runId: artifact.runId }))

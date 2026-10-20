@@ -45,6 +45,13 @@ export function useWorkspaceFilePreview(tab: Readonly<Ref<TaskFilesContextTab | 
     view.tab = value
   }, { immediate: true, flush: 'sync' })
 
+  // A card opens the tab with the tree shown or folded; the user can still toggle it afterwards.
+  watch(() => `${tab.value?.id}:${tab.value?.tree?.token}`, () => {
+    const request = tab.value?.tree
+    if (request && current.value)
+      current.value.treeVisible = request.visible
+  }, { immediate: true, flush: 'sync' })
+
   watch(() => [tab.value?.id, tab.value?.target.path], async (_, __, onCleanup) => {
     const value = tab.value
     const view = current.value

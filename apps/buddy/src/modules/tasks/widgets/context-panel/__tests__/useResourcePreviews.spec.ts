@@ -141,6 +141,20 @@ describe('resource previews', () => {
     await vi.waitFor(() => expect(state.current.value?.nodes[0]?.children?.[0]?.children?.[0]?.key).toBe('src/utils/math.ts'))
   })
 
+  it('folds or shows the tree when a card asks, and again on a new request after the user toggled it', async () => {
+    const value = filesTab()
+    const tab = shallowRef<TaskFilesContextTab | null>({ ...value, tree: { visible: false, token: 'one' } })
+    const { state } = openFiles(tab, vi.fn().mockResolvedValue({ entries: [], nextCursor: null }))
+    expect(state.current.value?.treeVisible).toBe(false)
+    state.current.value!.treeVisible = true
+    tab.value = { ...value, tree: { visible: false, token: 'one' }, target: { ...value.target, path: 'a.md' } }
+    await nextTick()
+    expect(state.current.value?.treeVisible).toBe(true)
+    tab.value = { ...value, tree: { visible: false, token: 'two' } }
+    await nextTick()
+    expect(state.current.value?.treeVisible).toBe(false)
+  })
+
   it('publishes directory pages before completion and preserves folders expanded during pagination', async () => {
     const value = filesTab()
     const tab = shallowRef<TaskFilesContextTab | null>(value)

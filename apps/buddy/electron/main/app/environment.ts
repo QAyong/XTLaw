@@ -14,6 +14,7 @@ import { OPERATING_SYSTEM } from '../../../shared/platform/identifiers'
 import { attachmentSchemePrivileges } from '../attachmentProtocol'
 import { DesktopDiagnosticLogger } from '../desktopDiagnostics'
 import { extensionSchemePrivileges } from '../extensions/ExtensionProtocol'
+import { mediaSchemePrivileges } from '../mediaProtocol'
 import { resolveBuddyLaunchOverrides, resolveBuddyRuntimePaths } from '../paths'
 import { desktopHosts } from '../platform/desktopHost'
 import { rendererSchemePrivileges } from '../rendererProtocol'
@@ -127,7 +128,7 @@ export function initializeDesktopEnvironment(environment: DesktopEnvironment): v
     }
   }
   bootstrapStep('register_protocols', () => {
-    protocol.registerSchemesAsPrivileged([...attachmentSchemePrivileges, rendererSchemePrivileges, extensionSchemePrivileges, fileIconSchemePrivileges, themeSchemePrivileges])
+    protocol.registerSchemesAsPrivileged([...attachmentSchemePrivileges, rendererSchemePrivileges, mediaSchemePrivileges, extensionSchemePrivileges, fileIconSchemePrivileges, themeSchemePrivileges])
   })
   bootstrapStep('desktop_identity', () => desktopHosts[currentPlatform.id].setIdentity?.(paths.desktopName))
 }

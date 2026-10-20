@@ -15,7 +15,7 @@ export const directoryPageSchema = z.object({
 }).strict()
 
 export const filePreviewSchema = z.object({
-  kind: z.enum(['text', 'image', 'binary', 'oversized']),
+  kind: z.enum(['text', 'image', 'audio', 'video', 'binary', 'oversized']),
   sizeBytes: z.number().int().nonnegative(),
   text: z.string().max(1024 * 1024).nullable(),
   imageUrl: z.string().max(12 * 1024 * 1024).nullable(),

@@ -3,6 +3,7 @@ import type { LocalChatApi } from '@buddy-electron/shared/localChatApi'
 import type { BuddyFileQuote, BuddyResourceQuote } from '@buddy-shared/conversation/buddyUserContent'
 import type { LocalSpaceFilePreview } from '@buddy-shared/spaces/spaceFileApi'
 import type { WorkbenchView } from '@/workbench/common/workbench'
+import { createMediaUrl } from '@buddy-shared/files/mediaFiles'
 import { parseLocalChatPublicError } from '@buddy-shared/runtime/localChatError'
 import { spaceFileTargetSchema } from '@buddy-shared/spaces/spaceFileApi'
 import { computed, shallowRef, useTemplateRef, watch } from 'vue'
@@ -29,7 +30,7 @@ function prepareQuote(quote: BuddyResourceQuote, x: number, y: number) {
 }
 const failed = shallowRef(false)
 const missing = shallowRef(false)
-const modes = computed(() => fileDocumentModes({ preview: preview.value?.kind === 'image' || (preview.value?.kind === 'text' && isMarkdownFile(props.view.title)), source: preview.value?.kind === 'text', edit: false }))
+const modes = computed(() => fileDocumentModes({ preview: preview.value?.kind === 'image' || preview.value?.kind === 'audio' || preview.value?.kind === 'video' || (preview.value?.kind === 'text' && isMarkdownFile(props.view.title)), source: preview.value?.kind === 'text', edit: false }))
 const mode = computed({ get: () => resolveFileDocumentMode(props.view.state.mode, modes.value), set: value => controller.updateView(props.view.id, { state: { ...props.view.state, mode: value } }) })
 const quoteSource = computed<BuddyFileQuote['source']>(() => ({
   kind: 'file',
@@ -42,6 +43,10 @@ const identity = computed(() => {
   return JSON.stringify([scheme, id, data.spaceId, data.directoryId, data.revision, data.path])
 })
 const attempt = shallowRef(0)
+const media = computed(() => {
+  const kind = preview.value?.kind
+  return kind === 'audio' || kind === 'video' ? { kind, url: createMediaUrl(spaceFileTargetSchema.strip().parse(props.view.resource.data), attempt.value) } : null
+})
 watch([identity, attempt], async (_, __, onCleanup) => {
   let active = true
   onCleanup(() => active = false)
@@ -95,7 +100,7 @@ function captureResource() {
     <DesktopFileLoading v-else-if="!preview" :loading="true" :label="labels.loading" />
     <DesktopDocumentContent
       v-else
-      ref="document" :mode="mode" :name="view.title" :text="preview?.text" :image-url="preview?.imageUrl" :wrap="view.state.wrap !== false" :language="language" :write-clipboard-text="writeClipboardText"
+      ref="document" :mode="mode" :name="view.title" :text="preview?.text" :image-url="preview?.imageUrl" :media-kind="media?.kind" :media-url="media?.url" :media-failed-label="labels.mediaFailed" :wrap="view.state.wrap !== false" :language="language" :write-clipboard-text="writeClipboardText"
       :quote-source="references ? quoteSource : undefined" :prepare-quote="prepareQuote" :capture-monaco-quote="captureMonacoQuote" @scroll.capture="quoteMenu?.close()"
     />
     <ResourceSelectionQuoteMenu v-if="references" ref="quoteMenu" :view-id="view.id" :owner-key="`${view.id}:${identity}:${mode}`" :language="language" :visible="visible" />

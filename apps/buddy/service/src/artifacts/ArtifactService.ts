@@ -19,6 +19,7 @@ import {
 import { relativeCanonicalPath } from '../../../platform/filesystem/filePaths'
 import { Emitter } from '../../../shared/events/Emitter'
 import { copyEventSnapshot } from '../../../shared/events/eventSnapshot'
+import { mediaMimeType } from '../../../shared/files/mediaFiles'
 import { resolveGrantedPath } from '../directories/resolveGrantedPath'
 
 export const BUDDY_ARTIFACT_COUNT_LIMIT = 512
@@ -368,7 +369,13 @@ export class ArtifactService {
 
   resolvePreview(id: string): { mimeType: string, path: string } {
     const artifact = this.#requireVisibleArtifact(id)
-    if (artifact.kind !== 'file' || !artifact.mimeType.startsWith('image/'))
+    if (artifact.kind !== 'file')
+      throw new ArtifactError('VALIDATION_FAILED')
+    // Audio and video are served in ranges by the protocol; their content type comes from the extension, which the artifact record does not map.
+    const mimeType = mediaMimeType(artifact.currentPath)
+    if (mimeType)
+      return { mimeType, path: artifact.currentPath }
+    if (!artifact.mimeType.startsWith('image/'))
       throw new ArtifactError('VALIDATION_FAILED')
     return { mimeType: artifact.mimeType, path: artifact.currentPath }
   }

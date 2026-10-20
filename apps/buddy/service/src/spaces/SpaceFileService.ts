@@ -8,6 +8,7 @@ import { isAbsolute, relative, resolve, sep } from 'node:path'
 import { readBoundedFile, readBoundedFileChunk } from '../../../platform/filesystem/boundedFile'
 import { saveBoundedBinaryFile } from '../../../platform/filesystem/saveBoundedTextFile'
 import { Emitter } from '../../../shared/events/Emitter'
+import { mediaKindOf } from '../../../shared/files/mediaFiles'
 import { resolveGrantedPath } from '../directories/resolveGrantedPath'
 import { readFilePreview } from '../files/readFilePreview'
 import { BuddyServiceError } from '../rpc/runtimeRequest'
@@ -57,6 +58,15 @@ export class SpaceFileService {
   async read(input: SpaceFileTarget): Promise<LocalSpaceFilePreview> {
     const target = await this.resolve(input).catch(rethrowMissingFile)
     this.requireDirectory(input)
+    const media = mediaKindOf(target.path)
+    if (media) {
+      // Audio and video are streamed by the media protocol, so the size limits that apply to inline previews do not.
+      const metadata = await stat(target.path).catch(rethrowMissingFile)
+      if (!metadata.isFile())
+        throw new BuddyServiceError('VALIDATION_FAILED')
+      this.requireDirectory(input)
+      return { kind: media, sizeBytes: metadata.size, text: null, imageUrl: null }
+    }
     const preview = await readFilePreview(target.root, target.path).catch(rethrowMissingFile)
     this.requireDirectory(input)
     return preview

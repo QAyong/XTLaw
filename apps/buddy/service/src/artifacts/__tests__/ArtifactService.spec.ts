@@ -111,6 +111,16 @@ describe('artifactService', () => {
     expect(fixture.service.listConversationArtifacts('conversation-1')).toHaveLength(2)
   })
 
+  it('resolves audio and video outputs for streaming but still refuses other binary files', async () => {
+    const fixture = await createFixture()
+    const paths = ['voice.MP3', 'clip.mp4', 'archive.zip'].map(name => join(fixture.workspace, name))
+    await Promise.all(paths.map(path => writeFile(path, Buffer.from([1, 2, 3]))))
+    const [voice, clip, archive] = await fixture.service.presentOutputs({ conversationId: 'conversation-1', cwd: fixture.workspace, grants: fixture.grants, paths })
+    expect(fixture.service.resolvePreview(voice!.id)).toEqual({ mimeType: 'audio/mpeg', path: voice!.currentPath })
+    expect(fixture.service.resolvePreview(clip!.id)).toEqual({ mimeType: 'video/mp4', path: clip!.currentPath })
+    expect(() => fixture.service.resolvePreview(archive!.id)).toThrow(/artifact operation failed/i)
+  })
+
   it('reports an output whose file was moved or deleted as not found', async () => {
     const fixture = await createFixture()
     const path = join(fixture.workspace, 'report.md')

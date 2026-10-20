@@ -29,6 +29,7 @@ import { LexoraConfigStore } from '../config/LexoraConfigStore'
 import { ContextPanelHost } from '../context-panel/ContextPanelHost'
 import { DesktopPerformanceMonitor } from '../diagnostics/DesktopPerformanceMonitor'
 import { registerExtensionAuthoringRpc } from '../extensions/registerExtensionAuthoringRpc'
+import { installMediaProtocol } from '../mediaProtocol'
 import { DesktopNetwork } from '../network/DesktopNetwork'
 import { registerWebHostRpc } from '../network/registerWebHostRpc'
 import { createDesktopFeatures } from '../platform/desktopFeatures'
@@ -280,6 +281,7 @@ export class DesktopRuntimeHost {
     service.start()
     this.performance.start()
     this.#subscriptions.push(installAttachmentProtocol(service))
+    this.#subscriptions.push(installMediaProtocol(service))
     this.#subscriptions.push(installRendererProtocol())
   }
 

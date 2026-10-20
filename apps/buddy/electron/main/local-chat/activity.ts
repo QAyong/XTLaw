@@ -1,6 +1,6 @@
 import type { LocalChatIpcContext } from './registrar'
 import { artifactOpenRequestSchema, artifactsRequestSchemas, artifactsRpc } from '../../../shared/artifacts/artifactApi'
-import { changeOverviewRequestSchema, changesRequestSchemas, changesRpc } from '../../../shared/changes/changeApi'
+import { changeOverviewRequestSchema, changesRecoveryRpc, changesRequestSchemas, changesRpc } from '../../../shared/changes/changeApi'
 import { notificationsRequestSchemas, notificationsRpc } from '../../../shared/notifications/notificationApi'
 import { approvalsRequestSchemas, approvalsRpc } from '../../../shared/permissions/approvalApi'
 import { conversationStatusRequestSchema, runsStatusRpc } from '../../../shared/runs/conversationStatusApi'
@@ -13,6 +13,9 @@ import { openArtifactEntry } from './artifactExternalOpen'
 
 export function registerActivityIpc(context: LocalChatIpcContext): void {
   const { handle, request } = context
+  handle(LOCAL_CHAT_IPC_CHANNELS.changesRecoveryList, (_event, input) => request(changesRecoveryRpc.list, changesRecoveryRpc.list.input.parse(input)))
+  handle(LOCAL_CHAT_IPC_CHANNELS.changesRecoveryRecheck, (_event, input) => request(changesRecoveryRpc.recheck, changesRecoveryRpc.recheck.input.parse(input)))
+  handle(LOCAL_CHAT_IPC_CHANNELS.changesRecoveryResolve, (_event, input) => request(changesRecoveryRpc.resolve, changesRecoveryRpc.resolve.input.parse(input)))
   handle(LOCAL_CHAT_IPC_CHANNELS.changesOverview, (_event, input) => request(changesRpc.overview, changeOverviewRequestSchema.parse(input)))
 
   handle(LOCAL_CHAT_IPC_CHANNELS.artifactsReadText, (_event, input) => request(artifactsRpc.readText, artifactsRequestSchemas.artifactText.parse(input)))

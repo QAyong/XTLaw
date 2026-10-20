@@ -43,7 +43,7 @@ function open(event: MouseEvent) {
 <template>
   <article
     class="execution-node relative grid h-full w-full min-w-0 content-center gap-1 p-[10px] border-1 border-solid border-border rounded-micro bg-raised select-none"
-    :class="[{ 'selected': selected && !actor, root, 'buddy-border-beam': busy }, tone]"
+    :class="[{ 'selected': selected && !actor, 'openable': !actor, root, 'buddy-border-beam': busy }, tone]"
     :data-execution-kind="execution.kind"
     :data-execution-id="execution.runId" :data-execution-status="execution.status" :data-execution-phase="execution.phase"
     :data-selected="selected && !actor"
@@ -92,27 +92,16 @@ function open(event: MouseEvent) {
   &.root {
     background: var(--buddy-surface-subtle);
   }
+
+  &.openable:hover {
+    background: var(--buddy-state-hover);
+  }
 }
 
 .execution-node__open {
-  &::after {
-    position: absolute;
-    inset: 0;
-    border-radius: var(--buddy-radius-micro);
-    content: '';
-  }
-
-  &:hover::after {
-    background: var(--buddy-state-hover);
-  }
-
   &:focus-visible {
-    outline: none;
-  }
-
-  &:focus-visible::after {
     outline: 2px solid var(--buddy-focus-ring);
-    outline-offset: -3px;
+    outline-offset: 2px;
   }
 }
 

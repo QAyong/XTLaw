@@ -1,6 +1,7 @@
 import type { LocalArtifact } from '@buddy-shared/artifacts/artifactApi'
 import type { LocalSpace } from '@buddy-shared/spaces/spaceApi'
 import type { SpaceFileTarget } from '@buddy-shared/spaces/spaceFileApi'
+import { isTextArtifactMimeType } from '@buddy-shared/artifacts/artifactApi'
 
 export function cleanChatToolFilePath(path: string): string {
   let cleaned = path.trim()
@@ -15,6 +16,18 @@ export function cleanChatToolFilePath(path: string): string {
   }
   catch {}
   return cleaned.split('#')[0]!.split('?')[0]!
+}
+
+// Space file previews read at most 1 MiB of text and 8 MiB of image; larger outputs stay on the artifact tab, which reads more.
+const SPACE_FILE_TEXT_PREVIEW_BYTES = 1024 * 1024
+const SPACE_FILE_IMAGE_PREVIEW_BYTES = 8 * 1024 * 1024
+
+export function fitsSpaceFilePreview(artifact: Pick<LocalArtifact, 'kind' | 'mimeType' | 'sizeBytes'>): boolean {
+  if (artifact.kind !== 'file')
+    return false
+  if (artifact.mimeType.startsWith('image/'))
+    return artifact.sizeBytes <= SPACE_FILE_IMAGE_PREVIEW_BYTES
+  return !isTextArtifactMimeType(artifact.mimeType) || artifact.sizeBytes <= SPACE_FILE_TEXT_PREVIEW_BYTES
 }
 
 export function resolveChatArtifactTarget(artifacts: readonly LocalArtifact[], path: string): LocalArtifact | null {

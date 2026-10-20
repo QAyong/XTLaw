@@ -65,7 +65,7 @@ describe('durable mutation recovery decisions', () => {
       lease.markHazard('OWNED_PROCESS_CLEANUP_UNCONFIRMED')
     }
     await f.mutations.dispose()
-    database.exec('DROP TABLE run_mutation_evidence; DROP TABLE run_mutation_executions; PRAGMA user_version = 30')
+    database.exec('DROP TABLE run_mutation_evidence; DROP TABLE run_mutation_executions; ALTER TABLE automations DROP COLUMN approval_policy; ALTER TABLE automations DROP COLUMN approval_allowlist_json; PRAGMA user_version = 30')
     database.close()
     database = openBuddyDatabase({ databasePath })
     f = setup(database)

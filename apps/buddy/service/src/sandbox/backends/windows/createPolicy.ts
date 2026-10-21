@@ -7,35 +7,35 @@ import { createSandboxFilesystemPolicy, existingSandboxPaths, inspectSandboxPath
 
 type WindowsSandboxPolicyInput = SandboxFilesystemPolicyInput & Pick<SandboxBackendInput<typeof SHELL_SANDBOX_BACKEND.Windows>, 'backend' | 'path' | 'searchDirectory'>
 
-function isAccessDenied(error: unknown): boolean {
-  return !!error && typeof error === 'object' && 'code' in error && ['EPERM', 'EACCES'].includes(String(error.code))
-}
-
 export async function createWindowsSandboxPolicy(input: WindowsSandboxPolicyInput, signal: AbortSignal) {
   const grants = await createSandboxFilesystemPolicy(input, signal)
-  const paths: string[] = []
+  const roots = new Set(await existingSandboxPaths([dirname(input.backend.shell), join(input.backend.systemRoot, 'System32'), input.searchDirectory]))
+  for (const root of roots)
+    grants.push(await inspectSandboxPath(root, 'read'))
+
   for (const entry of input.path.split(';')) {
+    signal.throwIfAborted()
+    let path: string
     try {
-      const path = validateWindowsFilePath(entry.replace(/^"|"$/g, ''))
-      if (/^[a-z]:\\/i.test(path))
-        paths.push(path)
+      path = validateWindowsFilePath(entry.replace(/^"|"$/g, ''))
     }
-    catch {}
-  }
-  const localPaths: string[] = []
-  for (const path of paths) {
+    catch {
+      continue
+    }
+    if (!/^[a-z]:\\/i.test(path))
+      continue
     try {
-      localPaths.push(...(await existingSandboxPaths([path])).filter(item => /^[a-z]:\\/i.test(item)))
+      const [root] = await existingSandboxPaths([path])
+      if (!root || !/^[a-z]:\\/i.test(root) || roots.has(root))
+        continue
+      const grant = await inspectSandboxPath(root, 'read')
+      roots.add(root)
+      grants.push(grant)
     }
     catch (error) {
-      // A PATH entry this user cannot read (for example under another user's profile) can be neither granted nor searched.
-      // Only PATH entries are skipped; the shell, system and search directories still fail closed.
-      if (!isAccessDenied(error))
+      if (!error || typeof error !== 'object' || !('code' in error) || !['EPERM', 'EACCES'].includes(String(error.code)))
         throw error
     }
   }
-  const roots = [...new Set([...await existingSandboxPaths([dirname(input.backend.shell), join(input.backend.systemRoot, 'System32'), input.searchDirectory]), ...localPaths])]
-  for (const root of roots)
-    grants.push(await inspectSandboxPath(root, 'read'))
-  return { grants, path: roots.join(';') }
+  return { grants, path: [...roots].join(';') }
 }

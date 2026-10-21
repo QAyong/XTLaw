@@ -1,7 +1,7 @@
 import type { SandboxProcessInput } from '../../../../shared/permissions/shellSandbox'
 import { Buffer } from 'node:buffer'
 import { randomUUID } from 'node:crypto'
-import { access, mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises'
+import { access, chmod, mkdir, mkdtemp, readFile, realpath, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import { createServer as createUnixServer } from 'node:net'
 import { homedir, tmpdir } from 'node:os'
@@ -106,6 +106,56 @@ describe.skipIf(process.platform !== 'linux')('linux shell enforcement', () => {
     expect(dispatch).toMatchObject({ kind: 'native-shell-dispatch', executionId: identity.executionId, dispatchId: identity.dispatchId })
     expect(processes.find(process => process.phase === 'exited')?.exitCode).toBe(0)
     expect(JSON.stringify(events)).not.toMatch(/synthetic-secret|example-allowed|printf/)
+  }, 15_000)
+
+  it.skipIf(process.getuid?.() === 0)('executes a PATH tool past an inaccessible optional directory without expanding writes', async () => {
+    const blocked = join(directory, 'blocked')
+    const inaccessible = join(blocked, 'bin')
+    const tools = join(directory, 'tools')
+    await mkdir(inaccessible, { recursive: true })
+    await mkdir(tools)
+    const tool = join(tools, 'lexora-path-probe')
+    await writeFile(tool, '#!/bin/sh\nprintf PATH_TOOL_OK\n')
+    await chmod(tool, 0o755)
+    try {
+      await chmod(blocked, 0)
+      await expect(realpath(inaccessible)).rejects.toMatchObject({ code: 'EACCES' })
+      const { result, output } = await execute(`set -e; lexora-path-probe; printf created > path-result; ! sh -c ${quote(`printf changed > ${quote(join(outside, 'preserved'))}`)}`, {}, {
+        path: `${inaccessible}:${tools}:${input.path}`,
+      })
+      expect(result, output).toEqual({ ok: true, exitCode: 0 })
+      expect(output).toContain('PATH_TOOL_OK')
+      expect(await readFile(join(workspace, 'path-result'), 'utf8')).toBe('created')
+      expect(await readFile(join(outside, 'preserved'), 'utf8')).toBe('outside-preserved')
+    }
+    finally {
+      await chmod(blocked, 0o700)
+    }
+  }, 15_000)
+
+  it.skipIf(process.getuid?.() === 0)('rejects inaccessible required roots before the shell command can run', async () => {
+    const blocked = join(directory, 'blocked')
+    const inaccessible = join(blocked, 'required')
+    await mkdir(inaccessible, { recursive: true })
+    try {
+      await chmod(blocked, 0)
+      await expect(realpath(inaccessible)).rejects.toMatchObject({ code: 'EACCES' })
+      const required: Partial<SandboxProcessInput>[] = [
+        { cwd: inaccessible, roots: [inaccessible], workspaceRoots: [inaccessible] },
+        { protectedRoots: [inaccessible] },
+        { sensitiveRoots: [inaccessible] },
+        { searchDirectory: inaccessible },
+      ]
+      for (const overrides of required) {
+        const { result, output } = await execute('printf must-not-run > path-forbidden; printf unexpected-command', {}, overrides)
+        expect(result).toMatchObject({ ok: false })
+        expect(output).not.toContain('unexpected-command')
+        await expect(access(join(workspace, 'path-forbidden'))).rejects.toThrow()
+      }
+    }
+    finally {
+      await chmod(blocked, 0o700)
+    }
   }, 15_000)
 
   it('recovers the native SRT command domain when final service persistence is lost', async () => {

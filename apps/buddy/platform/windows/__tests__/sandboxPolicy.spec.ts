@@ -1,8 +1,10 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { resolveSensitivePathRoots } from '../../../service/src/permissions/sensitivePaths'
 import { createWindowsSandboxPolicy } from '../../../service/src/sandbox/backends/windows/createPolicy'
 import { sandboxCommandSchema, sandboxProcessInputSchema } from '../../../shared/permissions/shellSandbox'
 import { SHELL_SANDBOX_BACKEND } from '../../../shared/platform/identifiers'
+
+const failures = vi.hoisted(() => ({ realpath: new Map<string, string>(), stat: new Map<string, string>() }))
 
 vi.mock('../../currentPlatform', async () => {
   const { resolveBuddyPlatform } = await import('../../../shared/platform')
@@ -14,11 +16,17 @@ vi.mock('node:path', async (importOriginal) => {
 })
 vi.mock('node:fs/promises', () => ({
   realpath: async (path: string) => {
-    if (path === 'D:\\Locked')
-      throw Object.assign(new Error('EPERM: operation not permitted, realpath'), { code: 'EPERM' })
+    const code = failures.realpath.get(path)
+    if (code)
+      throw Object.assign(new Error(code), { code })
     return path === 'Z:\\MappedTools' ? '\\\\server\\tools' : path
   },
-  stat: async () => ({ isDirectory: () => true, dev: 1n, ino: 2n }),
+  stat: async (path: string) => {
+    const code = failures.stat.get(path)
+    if (code)
+      throw Object.assign(new Error(code), { code })
+    return { isDirectory: () => true, dev: 1n, ino: 2n }
+  },
 }))
 
 const home = 'C:\\Users\\Fixture'
@@ -41,6 +49,11 @@ const input = {
 }
 
 describe('windows sandbox policy assembly', () => {
+  beforeEach(() => {
+    failures.realpath.clear()
+    failures.stat.clear()
+  })
+
   it('retains local PATH tools without turning UNC or device paths into mandatory grants', async () => {
     const policy = await createWindowsSandboxPolicy({ ...input, path: '"D:\\Tools";\\\\server\\tools;//server/share;\\\\?\\C:\\tools;C:relative;\\root-relative;C:\\NUL\\..\\tools;Z:\\MappedTools' }, new AbortController().signal)
     expect(policy.path.split(';')).toEqual(['C:\\PowerShell', 'C:\\Windows\\System32', 'C:\\search', 'D:\\Tools'])
@@ -48,13 +61,35 @@ describe('windows sandbox policy assembly', () => {
     expect(sandboxCommandSchema.safeParse({ command: input.command, requestId: input.requestId, cwd: '\\\\server\\tools', roots: ['\\\\server\\tools'], readOnly: false }).success).toBe(false)
   })
 
-  it('skips PATH entries the user cannot access instead of failing the whole preparation', async () => {
-    const policy = await createWindowsSandboxPolicy({ ...input, path: 'D:\\Locked;D:\\Tools' }, new AbortController().signal)
+  it.each([
+    ['realpath', 'EPERM'],
+    ['realpath', 'EACCES'],
+    ['stat', 'EPERM'],
+    ['stat', 'EACCES'],
+  ] as const)('skips inaccessible optional PATH entries during %s (%s)', async (operation, code) => {
+    failures[operation].set('D:\\Locked', code)
+    const policy = await createWindowsSandboxPolicy({ ...input, path: 'D:\\Locked;D:\\Tools;D:\\Tools' }, new AbortController().signal)
     expect(policy.path.split(';')).toEqual(['C:\\PowerShell', 'C:\\Windows\\System32', 'C:\\search', 'D:\\Tools'])
+    expect(policy.grants.filter(grant => grant.access === 'read').map(grant => grant.path)).toEqual(policy.path.split(';'))
+    expect(policy.grants.some(grant => grant.path === 'D:\\Locked')).toBe(false)
   })
 
-  it('still fails when a required directory cannot be inspected', async () => {
-    await expect(createWindowsSandboxPolicy({ ...input, searchDirectory: 'D:\\Locked' }, new AbortController().signal)).rejects.toMatchObject({ code: 'EPERM' })
+  it.each(['realpath', 'stat'] as const)('retains required directory failures during %s', async (operation) => {
+    const required = ['C:\\workspace', 'C:\\PowerShell', 'C:\\Windows\\System32', 'C:\\search', 'D:\\Roaming\\gcloud', 'C:\\protected']
+    for (const path of required) {
+      failures[operation].set(path, 'EPERM')
+      await expect(createWindowsSandboxPolicy({ ...input, path: 'D:\\Tools', protectedRoots: ['C:\\protected'] }, new AbortController().signal))
+        .rejects
+        .toMatchObject({ code: 'EPERM' })
+      failures[operation].clear()
+    }
+  })
+
+  it.each(['realpath', 'stat'] as const)('does not swallow unexpected PATH IO errors during %s', async (operation) => {
+    failures[operation].set('D:\\Broken', 'EIO')
+    await expect(createWindowsSandboxPolicy({ ...input, path: 'D:\\Broken;D:\\Tools' }, new AbortController().signal))
+      .rejects
+      .toMatchObject({ code: 'EIO' })
   })
 
   it('protects redirected credentials on another volume and rejects them as workspace roots', async () => {

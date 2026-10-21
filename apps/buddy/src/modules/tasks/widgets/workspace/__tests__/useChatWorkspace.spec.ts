@@ -202,6 +202,7 @@ function createOwner(name: string) {
         listDirectory: async () => { throw new Error('Unused fixture operation') },
         readFile: async () => { throw new Error('Unused fixture operation') },
         revealFile: async () => { throw new Error('Unused fixture operation') },
+        openFileExternal: async () => { throw new Error('Unused fixture operation') },
       },
       getChangeSet: async () => { throw new Error('Unused fixture operation') },
       readArtifactText: async () => { throw new Error('Unused fixture operation') },

@@ -4,6 +4,7 @@ import type { BuddyLocale } from '@/i18n/buddyI18n'
 import type { TaskChatWorkspace } from '@/modules/tasks/contracts'
 import type { ContextPanelTab } from '@/modules/tasks/model/context-panel/taskContextPanel'
 import type { TaskResourcePanel } from '@/modules/tasks/state/context-panel/useTaskResourcePanel'
+import type { WorkbenchView } from '@/workbench/common/workbench'
 import { getActiveSpaceDirectories } from '@buddy-shared/spaces/spaceApi'
 import { computed, shallowRef } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
@@ -23,6 +24,7 @@ const props = withDefaults(defineProps<{
   language: BuddyLocale
   visible: boolean
   maximized?: boolean
+  resourceView?: Pick<WorkbenchView, 'id' | 'resource'> | null
 }>(), { maximized: undefined })
 const emit = defineEmits<{ toggleMaximize: [] }>()
 const { t } = useBuddyI18n(() => props.language)
@@ -34,7 +36,7 @@ const filePickerSpaces = computed(() => {
 const { browser, browserGuests, clipboard } = useTaskEnvironment()
 const browserApi: DesktopBrowserApi = { ...browser, ensureSession: (conversationId, key) => props.panel.ensureBrowserSession(conversationId, key) }
 const activeTab = computed(() => props.panel.activeTab.value)
-const openTarget = computed(() => resourceOpenTarget(activeTab.value))
+const openTarget = computed(() => resourceOpenTarget(activeTab.value, props.resourceView))
 const tabs = computed<ContextPanelTab[]>(() => props.panel.tabs.value.map((tab) => {
   if (tab.kind === 'view')
     return { id: tab.id, title: tab.label, icon: 'file' }

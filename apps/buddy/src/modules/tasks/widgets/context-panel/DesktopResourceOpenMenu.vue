@@ -30,10 +30,11 @@ watch(() => props.target?.key, () => {
   menuOpen.value = false
   needsApplication.value = false
 }, { flush: 'sync' })
+const canChooseApplication = computed(() => props.target?.kind === 'file' || (props.target?.kind === 'artifact' && props.target.file))
 const options = computed<DropdownOption[]>(() => [
   { key: 'open', label: t('desktop.context.openExternal'), disabled: busy.value },
   { key: 'reveal', label: t('desktop.context.revealResource'), disabled: busy.value },
-  ...(needsApplication.value && props.target?.kind === 'artifact' && props.target.file
+  ...(needsApplication.value && canChooseApplication.value
     ? [{ key: 'choose-app', label: t('desktop.context.chooseApplication'), disabled: busy.value }]
     : []),
 ])
@@ -41,7 +42,7 @@ async function execute(action: string) {
   const target = props.target
   if (!target || busy.value || !['open', 'reveal', 'choose-app'].includes(action))
     return
-  if (action === 'choose-app' && (!needsApplication.value || target.kind !== 'artifact' || !target.file))
+  if (action === 'choose-app' && (!needsApplication.value || !canChooseApplication.value))
     return
   const version = generation
   menuOpen.value = false
@@ -51,7 +52,10 @@ async function execute(action: string) {
       await props.context.files.revealFile({ ...target.directory })
     }
     else {
-      const result = await props.context.openArtifact({ ...target.artifact, action: action as 'open' | 'reveal' | 'choose-app' })
+      const openAction = action as 'open' | 'reveal' | 'choose-app'
+      const result = target.kind === 'file'
+        ? await props.context.files.openFileExternal({ ...target.target, action: openAction })
+        : await props.context.openArtifact({ ...target.artifact, action: openAction })
       if (!disposed && version === generation) {
         if (result.status === 'choose-app') {
           needsApplication.value = true

@@ -34,7 +34,8 @@ function fixture(initial: ResourceOpenTarget | null) {
   const target = shallowRef(initial)
   const revealFile = vi.fn().mockResolvedValue(undefined)
   const openArtifact = vi.fn().mockResolvedValue({ status: 'opened' })
-  const context = { files: { revealFile, listDirectory: vi.fn(), readFile: vi.fn(), fileHistory: vi.fn(), acknowledgeFileOperation: vi.fn(), cancelFileOperation: vi.fn(), onFilesChanged: vi.fn(() => () => {}) }, openArtifact } satisfies Pick<TaskChatWorkspace['context'], 'files' | 'openArtifact'>
+  const openFileExternal = vi.fn().mockResolvedValue({ status: 'opened' })
+  const context = { files: { revealFile, openFileExternal, listDirectory: vi.fn(), readFile: vi.fn(), fileHistory: vi.fn(), acknowledgeFileOperation: vi.fn(), cancelFileOperation: vi.fn(), onFilesChanged: vi.fn(() => () => {}) }, openArtifact } satisfies Pick<TaskChatWorkspace['context'], 'files' | 'openArtifact'>
   const root = document.createElement('div')
   document.body.append(root)
   const app = createApp({ render: () => h(DesktopResourceOpenMenu, { target: target.value, context, language: 'zh-CN' }) })
@@ -43,7 +44,7 @@ function fixture(initial: ResourceOpenTarget | null) {
     app.unmount()
     root.remove()
   })
-  return { target, revealFile, openArtifact, root, action: (key: string) => root.querySelector<HTMLButtonElement>(`[data-action="${key}"]`) }
+  return { target, revealFile, openArtifact, openFileExternal, root, action: (key: string) => root.querySelector<HTMLButtonElement>(`[data-action="${key}"]`) }
 }
 const artifact: ResourceOpenTarget = { key: 'report-1', kind: 'artifact', artifact: { conversationId: 'conversation-1', artifactId: 'report-1' }, file: true }
 
@@ -64,6 +65,52 @@ it('shows two actions and opens the bound directory for both, without opening a 
   await flush()
   expect(f.revealFile.mock.calls).toEqual([[directory], [directory]])
   expect(f.openArtifact).not.toHaveBeenCalled()
+  expect(f.action('choose-app')).toBeNull()
+})
+
+it.each(['report.docx', 'slides.pptx', 'budget.xlsx'])('enables the menu and opens or reveals a plugin document: %s', async (path) => {
+  const target = { spaceId: 'space-1', directoryId: 'directory-1', revision: 1, path }
+  const f = fixture({ key: path, kind: 'file', target })
+  const trigger = f.root.querySelector<HTMLButtonElement>('[data-testid="resource-open-menu"]')!
+  expect(trigger.disabled).toBe(false)
+  trigger.click()
+  await flush()
+  expect(f.root.querySelector('[data-menu-open]')!.getAttribute('data-menu-open')).toBe('true')
+  f.action('open')!.click()
+  await flush()
+  expect(f.openFileExternal).toHaveBeenLastCalledWith({ ...target, action: 'open' })
+  f.action('reveal')!.click()
+  await flush()
+  expect(f.openFileExternal).toHaveBeenLastCalledWith({ ...target, action: 'reveal' })
+  expect(f.revealFile).not.toHaveBeenCalled()
+  expect(f.openArtifact).not.toHaveBeenCalled()
+})
+
+it('offers an application chooser for a plugin document and clears it on a tab switch', async () => {
+  const target = { spaceId: 'space-1', directoryId: 'directory-1', revision: 1, path: 'report.docx' }
+  const f = fixture({ key: 'plugin-file', kind: 'file', target })
+  f.openFileExternal.mockResolvedValueOnce({ status: 'choose-app' })
+  f.action('open')!.click()
+  await flush()
+  expect(messages.warning).toHaveBeenCalledOnce()
+  f.action('choose-app')!.click()
+  await flush()
+  expect(f.openFileExternal).toHaveBeenLastCalledWith({ ...target, action: 'choose-app' })
+  f.openFileExternal.mockResolvedValueOnce({ status: 'choose-app' })
+  f.action('open')!.click()
+  await flush()
+  f.target.value = null
+  await flush()
+  expect(f.action('choose-app')).toBeNull()
+  expect(f.root.querySelector<HTMLButtonElement>('[data-testid="resource-open-menu"]')!.disabled).toBe(true)
+})
+
+it('reports an unavailable plugin file without offering an application chooser', async () => {
+  const f = fixture({ key: 'plugin-file', kind: 'file', target: { spaceId: 'space-1', directoryId: 'directory-1', revision: 1, path: 'report.docx' } })
+  f.openFileExternal.mockRejectedValueOnce(new Error('FILE_NOT_FOUND'))
+  f.action('open')!.click()
+  await flush()
+  expect(messages.error).toHaveBeenCalledOnce()
   expect(f.action('choose-app')).toBeNull()
 })
 

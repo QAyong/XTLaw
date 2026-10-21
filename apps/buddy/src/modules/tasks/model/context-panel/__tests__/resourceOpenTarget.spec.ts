@@ -1,4 +1,4 @@
-import type { TaskArtifactContextTab, TaskFilesContextTab } from '../taskContextPanel'
+import type { TaskArtifactContextTab, TaskFilesContextTab, TaskViewContextTab } from '../taskContextPanel'
 import { expect, it } from 'vitest'
 import { resourceOpenTarget } from '../resourceOpenTarget'
 
@@ -19,7 +19,28 @@ it('uses the artifact own conversation and ID without exposing its path to the o
   expect(resourceOpenTarget({ ...tab, artifact: { ...tab.artifact, kind: 'directory' } })).toMatchObject({ file: false })
 })
 
-it('does not reuse any resource for browser, plugin or empty tabs', () => {
+it.each(['report.docx', 'slides.pptx', 'budget.xlsx'])('resolves an Office plugin file from its own workbench view: %s', (path) => {
+  const tab: TaskViewContextTab = { id: 'view-1', kind: 'view', scope: 'independent', label: path, viewId: 'view-1' }
+  const fileTarget = { spaceId: 'space-1', directoryId: 'directory-1', revision: 1, path }
+  const view = { id: tab.viewId, resource: { scheme: 'extension', id: 'plugin-resource', data: { fileTarget, resource: { id: 'opaque-plugin-file' } } } }
+  const target = resourceOpenTarget(tab, view)
+  expect(target).toMatchObject({ kind: 'file', target: fileTarget })
+  expect(resourceOpenTarget(tab, { ...view, resource: { ...view.resource, data: { fileTarget: { ...fileTarget, revision: 2 } } } })?.key).not.toBe(target?.key)
+  expect(resourceOpenTarget(tab, { ...view, id: 'other-view' })).toBeNull()
+  expect(resourceOpenTarget(tab, { ...view, resource: { ...view.resource, data: { resource: { path: 'C:\\arbitrary.docx' } } } })).toBeNull()
+  expect(resourceOpenTarget(tab, { ...view, resource: { ...view.resource, data: { fileTarget: { ...fileTarget, revision: 0 } } } })).toBeNull()
+  expect(resourceOpenTarget(tab, { ...view, resource: { ...view.resource, data: { fileTarget: { ...fileTarget, path: '' } } } })).toBeNull()
+})
+
+it.each(['file', 'file-preview'])('resolves a %s workbench view without leaking extra metadata', (scheme) => {
+  const tab: TaskViewContextTab = { id: 'view-1', kind: 'view', scope: 'independent', label: 'report.docx', viewId: 'view-1' }
+  const target = { spaceId: 'space-1', directoryId: 'directory-1', revision: 1, path: 'report.docx' }
+  const resolved = resourceOpenTarget(tab, { id: tab.viewId, resource: { scheme, id: 'file-1', data: { ...target, canonicalRoot: 'C:/workspace' } } })
+  expect(resolved).toMatchObject({ kind: 'file', target })
+  expect(JSON.stringify(resolved)).not.toContain('canonicalRoot')
+})
+
+it('does not reuse any resource for browser, resource-less plugin or empty tabs', () => {
   expect(resourceOpenTarget(null)).toBeNull()
   expect(resourceOpenTarget({ id: 'browser-1', kind: 'browser', scope: 'independent', conversationId: null })).toBeNull()
   expect(resourceOpenTarget({ id: 'view-1', kind: 'view', scope: 'independent', label: 'Plugin', viewId: 'view-1' })).toBeNull()

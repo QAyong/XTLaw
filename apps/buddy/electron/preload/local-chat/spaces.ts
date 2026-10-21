@@ -19,6 +19,7 @@ export function createSpacesApi(): Pick<LocalChatApi, 'spaces'> {
       listDirectory: input => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.spaceFilesList, { ...input }),
       readFile: input => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.spaceFilesRead, { ...input }),
       revealFile: input => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.spaceFilesReveal, { ...input }),
+      openFileExternal: input => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.spaceFilesOpenExternal, { ...input }),
       create: input => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.spacesCreate, input),
       delete: spaceId => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.spacesDelete, { spaceId }),
       list: limit => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.spacesList, { limit }),

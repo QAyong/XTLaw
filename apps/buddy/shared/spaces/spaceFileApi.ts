@@ -1,6 +1,7 @@
 import type { RuntimeRequestContract } from '../runtime/apiContract'
 import type { DeepReadonly } from '../runtime/apiValidation'
 import { z } from 'zod'
+import { artifactOpenRequestSchema } from '../artifacts/artifactApi'
 import { directoryPageSchema, fileEntrySchema, filePreviewSchema } from '../files/filePreview'
 import { idSchema } from '../runtime/apiValidation'
 
@@ -54,6 +55,8 @@ export const spaceFileLocationSchema = z.object({
   kind: z.enum(['directory', 'file']),
 }).strict()
 
+export const spaceFileOpenRequestSchema = spaceFileTargetSchema.extend({ action: artifactOpenRequestSchema.shape.action }).strict()
+export type SpaceFileOpenRequest = z.infer<typeof spaceFileOpenRequestSchema>
 export type SpaceFileTarget = z.infer<typeof spaceFileTargetSchema>
 export type LocalSpaceFileEntry = DeepReadonly<z.infer<typeof spaceFileEntrySchema>>
 export type LocalSpaceDirectoryPage = DeepReadonly<z.infer<typeof spaceDirectoryPageSchema>>

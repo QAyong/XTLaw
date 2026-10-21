@@ -29,6 +29,10 @@ const sidebar = props.bindings.taskIndex.sidebar
 const collapsed = computed({ get: () => sidebar.collapsed.value, set: value => void sidebar.setCollapsed(value) })
 const width = computed({ get: () => sidebar.width.value, set: value => void sidebar.setWidth(value) })
 const fileTab = computed(() => props.bindings.resources.activeTab.value?.kind === 'files' ? props.bindings.resources.activeTab.value : null)
+const resourceView = computed(() => {
+  const tab = props.bindings.resources.activeTab.value
+  return tab?.kind === 'view' ? layout.value.views[tab.viewId] ?? null : null
+})
 const selectedFile = computed(() => {
   void revision.value
   return fileTab.value ? props.bindings.workbench.fileView(fileTab.value.target, fileTab.value.id) : null
@@ -105,7 +109,7 @@ function navigate(id: string) {
     <RouterView v-if="!tasksVisible" />
     <template #context>
       <div class="desktop-workbench-area__context" data-workbench-context @focusin="focusContext" @pointerdown="focusContext">
-        <DesktopTaskResourcePanel :maximized="chatPaneHidden" :panel="bindings.resources" :context="bindings.resourceContext" :language="language" :visible="contextVisible" @toggle-maximize="emit('toggleContextMaximize')">
+        <DesktopTaskResourcePanel :maximized="chatPaneHidden" :panel="bindings.resources" :resource-view="resourceView" :context="bindings.resourceContext" :language="language" :visible="contextVisible" @toggle-maximize="emit('toggleContextMaximize')">
           <template #view="{ viewId }">
             <WorkbenchSurface :view-id="viewId" :visible="contextVisible" />
           </template>

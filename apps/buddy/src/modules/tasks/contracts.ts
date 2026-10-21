@@ -247,7 +247,7 @@ export interface TaskChatWorkspace {
   restoration: TaskDraftRestoration
   context: {
     getChangeOverview: LocalChatApi['changes']['overview']
-    files: Pick<LocalChatApi['spaces'], 'listDirectory' | 'readFile' | 'revealFile' | 'fileHistory' | 'acknowledgeFileOperation' | 'cancelFileOperation' | 'onFilesChanged'>
+    files: Pick<LocalChatApi['spaces'], 'listDirectory' | 'readFile' | 'revealFile' | 'openFileExternal' | 'fileHistory' | 'acknowledgeFileOperation' | 'cancelFileOperation' | 'onFilesChanged'>
     getNodeDetail: LocalChatApi['conversations']['getNodeDetail']
     getChangeSet: LocalChatApi['changes']['get']
     readArtifactText: LocalChatApi['artifacts']['readText']

@@ -83,8 +83,6 @@ describe('public run event projection', () => {
   it('publishes typed approval reviews without raw arguments or internal storage fields', () => {
     const review = {
       allowForTurn: false,
-      approvalAllowlist: [],
-      approvalPolicy: 'manual',
       card: 'automation',
       executionProfile: 'full_access',
       modelMode: 'pinned: offline-provider/offline-model',

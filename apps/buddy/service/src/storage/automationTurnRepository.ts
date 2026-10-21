@@ -97,8 +97,8 @@ export function createAutomationTurnRepository(database: DatabaseSync): Automati
   const insertConversation = database.prepare(`
     INSERT INTO conversations (
       id, space_id, title, active_branch_id, created_at, updated_at,
-      execution_profile, approval_policy, origin, deleted_at, buddy_id
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'automation', NULL, ?)
+      execution_profile, origin, deleted_at, buddy_id
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, 'automation', NULL, ?)
   `)
   const insertMember = database.prepare(`
     INSERT INTO conversation_members (conversation_id, actor_id, joined_at, model_selection_json, model_selection_source)
@@ -118,8 +118,8 @@ export function createAutomationTurnRepository(database: DatabaseSync): Automati
     INSERT INTO runs (
       id, conversation_id, branch_id, triggering_message_id, provider, model,
       context_window, max_tokens, purpose, status, pi_session_file, error_code,
-      started_at, completed_at, execution_profile, approval_policy, execution_context_json, buddy_id, actor_snapshot_json
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'automation', 'queued', NULL, NULL, ?, NULL, ?, ?, ?, ?, ?)
+      started_at, completed_at, execution_profile, execution_context_json, buddy_id, actor_snapshot_json
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'automation', 'queued', NULL, NULL, ?, NULL, ?, ?, ?, ?)
   `)
   const insertRunInput = database.prepare(`
     INSERT INTO run_inputs (
@@ -221,7 +221,6 @@ export function createAutomationTurnRepository(database: DatabaseSync): Automati
           input.boundAt,
           input.boundAt,
           executionProfile,
-          snapshot.approvalPolicy,
           actor.id,
         )
         insertMember.run(input.conversationId)
@@ -249,7 +248,6 @@ export function createAutomationTurnRepository(database: DatabaseSync): Automati
           input.maxTokens,
           input.boundAt,
           executionProfile,
-          snapshot.approvalPolicy,
           input.executionContext ? JSON.stringify(input.executionContext) : null,
           actor.id,
           JSON.stringify(acceptedDefinition),

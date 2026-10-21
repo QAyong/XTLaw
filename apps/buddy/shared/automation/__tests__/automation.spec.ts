@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  automationApprovalAllowlistSchema,
   automationExecutionSnapshotSchema,
   automationMutationRequestSchemas,
   automationSchema,
@@ -76,7 +75,7 @@ describe('automation shared contract', () => {
       timing: dailyTiming,
     })
 
-    expect(snapshot).toMatchObject({ approvalPolicy: 'policy', executionProfile: 'workspace_write' })
+    expect(snapshot).toMatchObject({ executionProfile: 'workspace_write' })
     expect(() => automationExecutionSnapshotSchema.parse({
       ...snapshot,
       credential: 'secret',
@@ -85,28 +84,6 @@ describe('automation shared contract', () => {
       ...snapshot,
       prompt: 'a'.repeat(32 * 1024 + 1),
     })).toThrow()
-  })
-
-  it('accepts only absolute directories and plain host names in an approval allowlist', () => {
-    const accepted = automationApprovalAllowlistSchema.parse([
-      { access: 'write', kind: 'directory', path: 'D:\\data\\reports' },
-      { access: 'read', kind: 'directory', path: '/srv/data' },
-      { host: 'API.Example.com', kind: 'domain' },
-      { host: '*.example.net', kind: 'domain' },
-    ])
-
-    expect(accepted[2]).toEqual({ host: 'api.example.com', kind: 'domain' })
-    expect(automationApprovalAllowlistSchema.parse(undefined)).toEqual([])
-    for (const entry of [
-      { access: 'write', kind: 'directory', path: 'relative/path' },
-      { access: 'write', kind: 'directory', path: '/srv/../etc' },
-      { access: 'execute', kind: 'directory', path: '/srv/data' },
-      { host: 'https://example.com/path', kind: 'domain' },
-      { host: '*', kind: 'domain' },
-      { kind: 'command', prefix: 'rm' },
-    ])
-      expect(() => automationApprovalAllowlistSchema.parse([entry])).toThrow()
-    expect(() => automationApprovalAllowlistSchema.parse(Array.from({ length: 17 }, (_, index) => ({ host: `h${index}.example.com`, kind: 'domain' })))).toThrow()
   })
 
   it('requires request identity and optimistic revisions for every mutation', () => {
@@ -135,8 +112,6 @@ describe('automation shared contract', () => {
 
   it('reserves blocked lifecycle reasons for persistent Space or pinned-model failures', () => {
     const automation = {
-      approvalAllowlist: [],
-      approvalPolicy: 'policy',
       blockedReason: 'AUTOMATION_SPACE_UNAVAILABLE',
       createdAt: '2026-08-24T01:00:00.000Z',
       executionProfile: 'workspace_write',

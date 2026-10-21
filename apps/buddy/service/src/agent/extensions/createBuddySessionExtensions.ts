@@ -1,5 +1,4 @@
 import type { ToolCallEvent } from '@earendil-works/pi-coding-agent'
-import type { AutomationApprovalAllowlistEntry } from '../../../../shared/automation/approvalAllowlist'
 import type { BuddySettings } from '../../../../shared/buddies/buddySettings'
 import type { BuddyServiceTier } from '../../../../shared/conversation/modelSelection'
 import type { ApplicationDiagnosticReporter } from '../../../../shared/diagnostics/applicationDiagnostic'
@@ -22,7 +21,6 @@ import type { BuddyCapability, BuddyCapabilityFactory, BuddyCapabilityResourceRe
 import type { BuddyExtensionRunContext, BuddyExtensionRunContextStore } from './BuddyExtensionRunContext'
 import type { BuddyInProcessExtension } from './BuddyInProcessExtension'
 import type { BuddyToolExposureResolver } from './discovery/toolDiscoveryContract'
-import { safeDiagnosticReporter } from '../../../../shared/diagnostics/applicationDiagnostic'
 import { copyEventSnapshot } from '../../../../shared/events/eventSnapshot'
 import { SessionDirectoryGrants } from '../../directories/SessionDirectoryGrants'
 import { observeSessionPermissions } from '../../permissions/observeSessionPermissions'
@@ -64,7 +62,6 @@ export interface BuddySessionExtensionServices {
 
 export interface CreateBuddySessionExtensionsOptions {
   actorKind?: 'actor' | 'npc'
-  approvalAllowlist?: readonly AutomationApprovalAllowlistEntry[]
   approvalPolicy: BuddyApprovalPolicy
   canonicalRoot: string
   conversationId: string
@@ -139,7 +136,6 @@ export async function createBuddySessionExtensions(
   try {
     creationSignal.addEventListener('abort', cancelCreation, { once: true })
     creationSignal.throwIfAborted()
-    const reportDiagnostic = safeDiagnosticReporter(services.recordPermissions)
     const authorization = new ToolAuthorizationService({
       applySandboxDirectory: (run, grant) => sandboxDirectories.grant(run, grant),
       getSandboxDirectories: run => sandboxDirectories.get(run),
@@ -148,16 +144,9 @@ export async function createBuddySessionExtensions(
         services.directoryGrants.assertCurrent(proposal.owner, mutation.grant.id)
         grants.apply(mutation)
       },
-      approvalAllowlist: options.approvalAllowlist,
       approvalAvailable: options.sessionMode === 'interactive',
       approvalPolicy: options.approvalPolicy,
       approvalService: services.approvalService,
-      onAllowlistApproval: approval => reportDiagnostic({
-        conversationId: options.conversationId,
-        event: `permission.allowlist.${approval.kind}`,
-        level: 'info',
-        runId: approval.runId,
-      }),
       cwd: options.canonicalRoot,
       executionPermissions,
       get executionProfile() { return getExecutionProfile() },

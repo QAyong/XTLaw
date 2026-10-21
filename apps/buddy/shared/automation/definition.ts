@@ -1,9 +1,7 @@
 import { z } from 'zod'
 import { BUDDY_THINKING_LEVELS } from '../conversation/modelSelection'
 import { spaceExecutionContextSchema } from '../conversation/space'
-import { BUDDY_APPROVAL_POLICIES, BUDDY_DEFAULT_APPROVAL_POLICY } from '../permissions/approvalPolicy'
 import { BUDDY_DEFAULT_EXECUTION_PROFILE, BUDDY_EXECUTION_PROFILES } from '../permissions/executionProfile'
-import { automationApprovalAllowlistSchema } from './approvalAllowlist'
 import { AUTOMATION_EXECUTION_SNAPSHOT_MAX_BYTES, AUTOMATION_PROMPT_MAX_BYTES, automationBlockedReasonSchema, automationLifecycleStatusSchema, automationNameSchema, idSchema, utcInstantSchema } from './primitives'
 import { automationTimingSchema } from './schedule'
 
@@ -19,8 +17,6 @@ export const automationModelTargetSchema = z.union([
 
 export const automationDefinitionShape = {
   actorId: idSchema.nullable().optional(),
-  approvalAllowlist: automationApprovalAllowlistSchema,
-  approvalPolicy: z.enum(BUDDY_APPROVAL_POLICIES).default(BUDDY_DEFAULT_APPROVAL_POLICY),
   executionProfile: z.enum(BUDDY_EXECUTION_PROFILES).default(BUDDY_DEFAULT_EXECUTION_PROFILE),
   model: automationModelTargetSchema,
   name: automationNameSchema,

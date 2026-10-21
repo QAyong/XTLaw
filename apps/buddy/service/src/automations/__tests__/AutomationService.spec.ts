@@ -427,8 +427,6 @@ function createFileService() {
 
 function dailyDraft(name: string) {
   return {
-    approvalAllowlist: [],
-    approvalPolicy: 'policy' as const,
     executionProfile: 'workspace_write' as const,
     model: { mode: 'default' as const },
     name,

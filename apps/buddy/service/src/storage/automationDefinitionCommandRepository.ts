@@ -55,15 +55,15 @@ export function createAutomationDefinitionCommandStore(
 ): AutomationDefinitionCommandStore {
   const insertAutomation = database.prepare(`
     INSERT INTO automations (
-      id, actor_id, name, prompt, space_id, execution_profile, approval_policy, approval_allowlist_json, model_mode, provider_id, model_id, reasoning,
+      id, actor_id, name, prompt, space_id, execution_profile, model_mode, provider_id, model_id, reasoning,
       schedule_kind, schedule_json, timezone, active_from, active_until,
       status, blocked_reason, next_run_at, last_run_at, deleted_at, revision,
       created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)
   `)
   const replaceAutomation = database.prepare(`
     UPDATE automations SET
-      actor_id = ?, name = ?, prompt = ?, space_id = ?, execution_profile = ?, approval_policy = ?, approval_allowlist_json = ?, model_mode = ?, provider_id = ?,
+      actor_id = ?, name = ?, prompt = ?, space_id = ?, execution_profile = ?, model_mode = ?, provider_id = ?,
       model_id = ?, reasoning = ?, schedule_kind = ?, schedule_json = ?,
       timezone = ?, active_from = ?, active_until = ?, status = ?,
       blocked_reason = ?, next_run_at = ?, deleted_at = ?, revision = ?, updated_at = ?
@@ -190,8 +190,6 @@ export function createAutomationDefinitionCommandStore(
             input.automation.prompt,
             input.automation.spaceId,
             input.automation.executionProfile,
-            input.automation.approvalPolicy,
-            JSON.stringify(input.automation.approvalAllowlist),
             input.automation.model.mode,
             input.automation.model.mode === 'pinned' ? input.automation.model.providerId : null,
             input.automation.model.mode === 'pinned' ? input.automation.model.modelId : null,
@@ -239,8 +237,6 @@ function persistAutomation(
     automation.prompt,
     automation.spaceId,
     automation.executionProfile,
-    automation.approvalPolicy,
-    JSON.stringify(automation.approvalAllowlist),
     automation.model.mode,
     automation.model.mode === 'pinned' ? automation.model.providerId : null,
     automation.model.mode === 'pinned' ? automation.model.modelId : null,

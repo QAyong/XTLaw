@@ -38,8 +38,6 @@ export default {
   'desktop.automations.editor.name': 'Name',
   'desktop.automations.editor.space': 'Space (optional)',
   'desktop.automations.editor.spacePlaceholder': 'Select a space',
-  'desktop.automations.editor.allowlist': 'Runs without asking',
-  'desktop.automations.editor.allowlistHint': 'With smart approval, unattended runs skip confirmation only for the directories and domains listed here; other operations that need confirmation are still denied. Set when the assistant creates the automation.',
   'desktop.automations.editor.spaceHint': 'If left empty, every run creates a separate task with its own local workspace.',
   'desktop.automations.editor.unavailableSpace': '{name} (unavailable)',
   'desktop.automations.editor.unknownSpace': 'Unavailable space',

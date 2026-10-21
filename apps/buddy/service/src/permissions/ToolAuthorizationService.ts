@@ -1,4 +1,3 @@
-import type { AutomationApprovalAllowlistEntry } from '../../../shared/automation/approvalAllowlist'
 import type { BuddySettings } from '../../../shared/buddies/buddySettings'
 import type { BuddyApprovalPolicy } from '../../../shared/permissions/approvalPolicy'
 import type { PathApprovalReviewInput } from '../../../shared/permissions/approvalReviewPayload'
@@ -16,7 +15,6 @@ import { PathClassificationError } from './classifyPath'
 import { PermissionEngine } from './PermissionEngine'
 
 export interface ToolAuthorizationOptions {
-  approvalAllowlist?: readonly AutomationApprovalAllowlistEntry[]
   approvalService: Pick<ApprovalService, 'request'>
   approvalAvailable: boolean
   approvalPolicy: BuddyApprovalPolicy
@@ -31,7 +29,6 @@ export interface ToolAuthorizationOptions {
   engine?: PermissionEngine
   fileAccessLimit?: BuddySettings['limits']['fileAccess']
   getToolScopeDenial?: (toolName: string) => string | null
-  onAllowlistApproval?: (approval: { kind: string, runId: string }) => void
 }
 
 export interface ToolAuthorizationCall {
@@ -134,9 +131,6 @@ export class ToolAuthorizationService {
       await run.flushProjectedEvents()
       const decision = await this.#engine.decide({
         access: declared.access,
-        allowlist: options.approvalAvailable || settings.approvalPolicy !== 'policy' || !options.approvalAllowlist?.length
-          ? undefined
-          : { entries: options.approvalAllowlist, networkHost: resource.network?.host },
         approvalAvailable: options.approvalAvailable,
         approvalPolicy: settings.approvalPolicy,
         approval: declared.approval,
@@ -157,11 +151,7 @@ export class ToolAuthorizationService {
         return decision.code
 
       let approvedOnce = false
-      if (decision.type === 'ask' && !options.approvalAvailable) {
-        // Unattended runs only reach this point when the automation's allowlist covers the operation.
-        options.onAllowlistApproval?.({ kind: decision.kind, runId: run.runId })
-      }
-      else if (decision.type === 'ask') {
+      if (decision.type === 'ask') {
         const approval = await options.approvalService.request({
           arguments: event.input,
           automation: declared.approval?.automation,

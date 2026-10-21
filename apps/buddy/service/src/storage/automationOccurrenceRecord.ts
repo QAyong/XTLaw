@@ -77,10 +77,18 @@ export function toAutomationOccurrenceRecord(
     actorSnapshot: row.actor_snapshot_json ? buddyConfigurationSnapshotSchema.parse(JSON.parse(row.actor_snapshot_json)) : null,
     dedupeKey: row.dedupe_key,
     executionSnapshot: automationExecutionSnapshotSchema.parse(
-      JSON.parse(row.execution_snapshot_json),
+      withoutLegacyApprovalFields(JSON.parse(row.execution_snapshot_json)),
     ),
     leaseExpiresAt: row.lease_expires_at,
     leaseOwner: row.lease_owner,
     requestId: row.request_id,
   }
+}
+
+// Snapshots saved by 0.3.0 carry the per-automation approval policy and allowlist, which are no longer used.
+function withoutLegacyApprovalFields(snapshot: unknown): unknown {
+  if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot))
+    return snapshot
+  const { approvalAllowlist: _allowlist, approvalPolicy: _policy, ...current } = snapshot as Record<string, unknown>
+  return current
 }

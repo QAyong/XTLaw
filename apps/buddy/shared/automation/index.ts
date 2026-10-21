@@ -1,7 +1,5 @@
 export { automationChangedNotificationSchema, automationListItemSchema, automationMutationRequestSchemas, automationPageSchema, automationRequestSchemas } from './api'
 export type { AutomationListItem, AutomationMutationTargetRequest, CreateAutomationRequest, UpdateAutomationRequest } from './api'
-export { AUTOMATION_APPROVAL_ALLOWLIST_MAX_ENTRIES, automationApprovalAllowlistEntrySchema, automationApprovalAllowlistSchema } from './approvalAllowlist'
-export type { AutomationApprovalAllowlist, AutomationApprovalAllowlistEntry } from './approvalAllowlist'
 export { automationDefinitionDraftSchema, automationExecutionSnapshotSchema, automationModelTargetSchema, automationSchema } from './definition'
 export type { Automation, AutomationDefinitionDraft, AutomationExecutionSnapshot, AutomationModelTarget } from './definition'
 export { automationOccurrencePageSchema, automationOccurrenceSchema, automationOccurrenceViewSchema, automationRunNowResultSchema } from './occurrences'

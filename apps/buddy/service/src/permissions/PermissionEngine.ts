@@ -16,7 +16,6 @@ import { containsCanonicalPath } from '../../../platform/filesystem/filePaths'
 import { sandboxDirectoryRequestSchema } from '../../../shared/permissions/shellSandbox'
 import { ShellPolicy } from '../approvals/ShellPolicy'
 import { validateSandboxDirectory } from '../sandbox/SandboxDirectoryPermissions'
-import { isAskCoveredByAllowlist } from './approvalAllowlist'
 import { classifyPath, PathClassificationError, toGrantRoot } from './classifyPath'
 import { lookupPermissionOutcome } from './decisionTable'
 import { allow, ask, deny } from './permissionContract'
@@ -474,11 +473,9 @@ function finalizeDecision(
         summary: request.approval?.summary ?? summaryFor(request.access ?? 'interaction'),
       })
     : decision
-  if (requiredDecision.type !== 'ask' || request.approvalAvailable)
-    return requiredDecision
-  return request.allowlist && isAskCoveredByAllowlist(requiredDecision, request.allowlist)
-    ? requiredDecision
-    : deny('APPROVAL_UNAVAILABLE_IN_BACKGROUND', 'profile')
+  return requiredDecision.type === 'ask' && !request.approvalAvailable
+    ? deny('APPROVAL_UNAVAILABLE_IN_BACKGROUND', 'profile')
+    : requiredDecision
 }
 
 function toDecisionPaths(

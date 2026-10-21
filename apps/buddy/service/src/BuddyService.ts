@@ -171,7 +171,6 @@ import { createApprovalRepository } from './storage/approvalRepository'
 import { createArtifactRepository } from './storage/artifactRepository'
 import { createAttachmentRepository } from './storage/attachmentRepository'
 import { createAutomationRepositories } from './storage/automationRepository'
-import { createAutomationRunAllowlistReader } from './storage/automationRunAllowlist'
 import { createAutomationTurnRepository } from './storage/automationTurnRepository'
 import { BuddyDataPaths } from './storage/BuddyDataPaths'
 import { createBuddyRepository } from './storage/buddyRepository'
@@ -1041,7 +1040,6 @@ export async function startBuddyService(
     })
     const sessionFactory = await host.start('runtime.session_factory', () => {
       const service = new BuddySessionFactory({
-        getApprovalAllowlist: createAutomationRunAllowlistReader(options.database),
         getRunPermissionCeiling,
         bindPreferences: apply => bindRuntimePreferences(options.rpc, apply),
         tree: conversationTree,

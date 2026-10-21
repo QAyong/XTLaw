@@ -85,24 +85,6 @@ const schedule = Type.Union([
 ])
 
 const draft = Type.Object({
-  approvalAllowlist: Type.Optional(Type.Array(Type.Union([
-    Type.Object({
-      access: Type.Union([Type.Literal('read'), Type.Literal('write')]),
-      kind: Type.Literal('directory'),
-      path: Type.String({ maxLength: 260 }),
-    }, { additionalProperties: false }),
-    Type.Object({
-      host: Type.String({ maxLength: 253 }),
-      kind: Type.Literal('domain'),
-    }, { additionalProperties: false }),
-  ]), {
-    description: 'Directories (absolute path, read or write) and network domains the unattended run may use without confirmation. Empty unless the task needs access outside its own workspace.',
-    maxItems: 16,
-  })),
-  approvalPolicy: Type.Optional(Type.Union([
-    Type.Literal('manual'),
-    Type.Literal('policy'),
-  ])),
   executionProfile: Type.Optional(Type.Union([
     Type.Literal('read_only'),
     Type.Literal('workspace_write'),
@@ -197,10 +179,6 @@ export function createAutomationTool(options: CreateAutomationToolOptions) {
       'Use list/get before mutating an existing automation so expectedRevision is current.',
       'For upsert, omit automationId and expectedRevision to create; provide both to update.',
       'executionProfile defaults to workspace_write; use read_only for inspection-only automations and full_access only when the user explicitly requests unrestricted local access.',
-      'Scheduled runs are unattended: nobody can confirm anything while they run, so any operation that needs confirmation is denied and the run cannot finish that step.',
-      'Before creating or updating an automation, decide whether its prompt needs to write or read directories outside its own workspace or reach external network domains. If it does, list each one in approvalAllowlist (kind directory with absolute path and read or write access, or kind domain with a host name such as api.example.com or *.example.com); if it does not, leave approvalAllowlist empty and do not add entries as a precaution.',
-      'approvalAllowlist only applies with approvalPolicy policy (the default) and workspace_write. It covers directory access and network access from sandboxed shell commands only; host shell commands, web and connector tools, and system actions cannot be pre-approved, so tell the user when the task depends on them. The user reviews the list on the confirmation card.',
-      'approvalPolicy manual denies every write, command, and external interaction in an unattended run, so use it only when the user asks for that.',
       'Calendar schedules support daily, weekly, monthly, and yearly cadences; interval and once schedules are also supported.',
       'Mutations always pause for a product confirmation card. Do not replace that confirmation with a conversational question.',
       'run_now only queues one occurrence and returns immediately.',
@@ -329,8 +307,6 @@ function createAutomationReview(
   automation: AutomationDefinitionDraft,
 ): AutomationApprovalReviewInput {
   return {
-    approvalAllowlist: automation.approvalAllowlist,
-    approvalPolicy: automation.approvalPolicy,
     executionProfile: automation.executionProfile,
     modelMode: automation.model.mode === 'default'
       ? 'default'

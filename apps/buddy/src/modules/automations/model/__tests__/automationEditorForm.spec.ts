@@ -63,14 +63,6 @@ describe('automation editor form', () => {
     expect(buildAutomationTiming(form, definition.timing)).toEqual(definition.timing)
   })
 
-  it('retains the manual approval policy chosen for an automation', () => {
-    const definition = { ...draft(schedules[1]!), approvalPolicy: 'manual' as const }
-    const form = automationEditorFormFromDefinition(definition, currentTime)
-
-    expect(form.approvalPolicy).toBe('manual')
-    expect(buildAutomationDraft(form, definition.timing)).toEqual(definition)
-  })
-
   it.each(BUDDY_EXECUTION_PROFILES)('retains %s permission, pinned model and space when renamed', (executionProfile) => {
     const definition = {
       ...draft(schedules[1]!),
@@ -196,8 +188,6 @@ describe('automation editor form', () => {
 function draft(schedule: AutomationSchedule): AutomationDefinitionDraft {
   return {
     actorId: null,
-    approvalAllowlist: [],
-    approvalPolicy: 'policy',
     executionProfile: 'workspace_write',
     model: {
       mode: 'pinned',

@@ -120,6 +120,17 @@ export interface ConditionApi {
   register: (id: string, evaluate: (context: ConditionContext, params: ReadonlyJsonObject) => boolean | ConditionResult | Promise<boolean | ConditionResult>) => Disposable
   invalidate: (input?: { condition?: string, scopeKey?: string }) => Promise<void>
 }
+export type ShellCandidateId = 'bash' | 'git-bash' | 'zsh' | 'sh' | 'powershell7' | 'powershell51' | 'cmd'
+export interface ShellCandidate {
+  id: ShellCandidateId
+  label: string
+  dialect: 'bash' | 'zsh' | 'sh' | 'powershell' | 'cmd'
+  executable: string
+  version: string
+  available: boolean
+  reason?: string
+}
+
 export interface ExtensionContext {
   readonly themes: ThemeApi
   readonly extension: { readonly id: string, readonly version: string, readonly apiVersion: 1 | 2 | 3 | 4 }
@@ -129,6 +140,7 @@ export interface ExtensionContext {
     onChange: (listener: (configuration: Readonly<Record<string, SettingValue>>) => void | Promise<void>) => Disposable
   }
   readonly conditions: ConditionApi
+  readonly shells: { detect: () => Promise<ShellCandidate[]> }
   readonly agent: {
     registerTool: (id: string, execute: (input: Record<string, string | number | boolean>, context: AgentToolContext) => Json | void | Promise<Json | void>) => Disposable
     registerAction: (id: string, execute: (context: AgentActionContext) => AgentActionResult | Promise<AgentActionResult>) => Disposable

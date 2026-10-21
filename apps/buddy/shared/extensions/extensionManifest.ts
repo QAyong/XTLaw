@@ -11,6 +11,7 @@ import { extensionConditionDefinitionSchema } from './extensionConditions'
 import { extensionAuthorSchema } from './extensionIdentity'
 import { extensionPathSchema } from './extensionPath'
 import { extensionSettingsGroups, extensionSettingsModules, extensionSettingsSchema, validateExtensionSetting } from './extensionSettings'
+import { extensionShellContributionSchema } from './extensionShell'
 
 export const EXTENSION_API_VERSION = 4
 export const EXTENSION_PROTOCOL = 'lexora-extension'
@@ -57,6 +58,7 @@ export const extensionPlacementSchema = z.discriminatedUnion('kind', [
 })
 export type ExtensionPlacement = z.infer<typeof extensionPlacementSchema>
 export const extensionPermissionsSchema = z.object({
+  shells: z.boolean().default(false),
   agent: z.boolean().default(false),
   models: z.boolean().default(false),
   tasks: z.enum(['none', 'read', 'title']).default('none'),
@@ -110,6 +112,7 @@ export const extensionManifestSchema = extensionMetadataSchema.extend({
     themes: z.array(themeContributionSchema).max(64).default([]),
     conditions: z.array(extensionConditionDefinitionSchema).max(32).default([]),
     agent: extensionAgentSchema.optional(),
+    shells: extensionShellContributionSchema.optional(),
     settings: extensionSettingsSchema.prefault({}),
     commands: z.array(z.object({ id: contributionId, title: z.string().min(1).max(100), hidden: z.boolean().default(false), slash: workbenchSlashSchema.optional(), when: workbenchConditionSchema.optional() }).strict()).max(64).default([]),
     menus: z.array(z.object({ id: contributionId, command: contributionId, target: workbenchMenuSchema, order: z.number().int().min(-1000).max(1000).default(0), when: workbenchConditionSchema.optional() }).strict()).max(32).default([]),
@@ -135,6 +138,24 @@ export const extensionManifestSchema = extensionMetadataSchema.extend({
     issue('Theme contributions and management require API 3')
   if (manifest.apiVersion < 3 && (manifest.contributes.conditions.length || agent || settings.modules.length || settings.groups.length || settings.items.length || manifest.permissions.agent || manifest.permissions.models || manifest.permissions.taskMessages || manifest.permissions.tasks !== 'none'))
     issue('Agent capabilities and settings require API 3')
+  const shells = manifest.contributes.shells
+  if ((shells || manifest.permissions.shells) && (manifest.apiVersion < 4 || !shells || !manifest.permissions.shells))
+    issue('Shell contributions require API 4 and shells permission')
+  if (shells?.settingsGroup && !settings.groups.some(group => group.id === shells.settingsGroup))
+    issue('Shell settingsGroup must reference an owned setting group')
+  for (const candidate of shells?.candidates ?? []) {
+    const enabled = settings.items.find(item => item.key === candidate.enabled)
+    const executable = settings.items.find(item => item.key === candidate.executable)
+    const priority = settings.items.find(item => item.key === candidate.priority)
+    if (shells?.settingsGroup && [enabled, executable, priority].some(item => item?.group !== shells.settingsGroup))
+      issue('Shell candidate settings must belong to settingsGroup')
+    if (enabled?.type !== 'boolean' || enabled.default !== false)
+      issue('Shell enabled must reference an initially disabled boolean setting')
+    if (executable?.type !== 'string' || executable.default !== '')
+      issue('Shell executable must reference an empty-default string setting')
+    if (priority?.type !== 'number' || priority.default !== 0 || priority.min !== 0 || priority.max !== 100)
+      issue('Shell priority must reference a number setting with default 0 and range 0-100')
+  }
   if (agent && (!manifest.entry || !manifest.permissions.agent))
     issue('Agent contributions require an entry and agent permission')
   if (typeof agent?.enabledWhen === 'string' && !settings.items.some(item => item.key === agent.enabledWhen && item.type === 'boolean'))
@@ -221,6 +242,7 @@ export function extensionCompatible(manifest: ExtensionManifest, version: string
 
 export function addedExtensionPermissions(previous: ExtensionPermissions | undefined, next: ExtensionPermissions): string[] {
   return [
+    ...(next.shells && !previous?.shells ? ['shells'] : []),
     ...(next.themeManagement && !previous?.themeManagement ? ['themeManagement'] : []),
     ...(next.taskMessages && !previous?.taskMessages ? ['taskMessages'] : []),
     ...(next.agent && !previous?.agent ? ['agent'] : []),

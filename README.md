@@ -120,6 +120,7 @@ pnpm dev:website
 XTLaw 的开发参考并沿用了以下开源项目与技术：
 
 - **[Lexora](https://github.com/useLexora/Lexora)**：XTLaw 是其二次开发版本，桌面运行时、任务系统、模型接入和工具与插件机制等基础能力来自该项目。保留上游贡献历史与许可声明，感谢原作者及所有贡献者。
+- **[GenOffice](https://github.com/genspark-ai/genoffice)**：Office DOCX、PPTX、XLSX 插件使用并适配了该项目的编辑器与相关能力，感谢原作者及贡献者。保留上游 Apache-2.0 许可声明，以及第三方组件和字体的来源与许可记录。
 - **[Pi](https://github.com/earendil-works/pi)**：项目使用的 Agent 执行循环与相关能力。
 - **[Vue](https://github.com/vuejs/core)**、**[Electron](https://github.com/electron/electron)**：桌面界面与应用运行环境。
 

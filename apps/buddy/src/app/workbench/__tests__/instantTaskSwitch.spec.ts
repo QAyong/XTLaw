@@ -13,6 +13,7 @@ describe('instant task view switching', () => {
 
     try {
       expect(controller.registry.views.get('tasks.editor')?.prepareBeforeOpen).toBe(false)
+      expect(controller.configuration.get('files.autoSave')).toBe('afterDelay')
 
       const first = await controller.open({ scheme: 'task', id: 'conversation-a', data: {} }, 'Conversation A')
       const second = await controller.open({ scheme: 'task', id: 'conversation-b', data: {} }, 'Conversation B')

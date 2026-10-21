@@ -25,11 +25,12 @@ const mode = defineModel<FileDocumentMode | null>({ required: true })
 </template>
 
 <style scoped>
-.desktop-document-toolbar { display: flex; min-width: 0; height: var(--buddy-context-toolbar-height); box-sizing: border-box; flex: none; flex-direction: column; justify-content: center; gap: 0; padding: 0 12px; border-bottom: 1px solid var(--buddy-border-subtle); }
+.desktop-document-toolbar { display: flex; min-width: 0; min-height: var(--buddy-context-toolbar-height); box-sizing: border-box; flex: none; flex-direction: column; justify-content: center; gap: 0; padding: 0 12px; border-bottom: 1px solid var(--buddy-border-subtle); }
 .desktop-document-toolbar.is-embedded { flex: 1; min-height: 0; padding: 0; border: 0; }
 .desktop-document-toolbar__row, .desktop-document-toolbar__metadata { display: flex; min-width: 0; align-items: center; gap: 10px; }
+.desktop-document-toolbar__row { flex-wrap: wrap; row-gap: 4px; }
 .desktop-document-toolbar__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 600; color: var(--buddy-text-strong); }
-.desktop-document-toolbar__actions { display: flex; flex: none; align-items: center; gap: 6px; }
+.desktop-document-toolbar__actions { display: flex; flex: 0 1 auto; max-width: 100%; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; }
 .desktop-document-toolbar__metadata { color: var(--buddy-text-muted); font-size: 10px; line-height: 12px; }
 .desktop-document-toolbar__path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--buddy-font-mono); }
 .desktop-document-toolbar__detail { max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -11,7 +11,8 @@
 
 - 市场目录地址 `EXTENSION_CATALOG_URL` 改为 `https://raw.githubusercontent.com/QAyong/xtlaw-plugins/main/catalog/v1/index.json`（`apps/buddy/shared/extensions/extensionCatalog.ts`）。
 - `registerExtensionIpc.ts` 去掉 `catalogUrl: null`，插件服务使用上述默认地址。
-- 内置 Office 插件照常预装。市场中与内置插件 ID 相同的条目会被隐藏，内置插件仍以本地目录为准。
+- 2026-10-21 决定：Office DOCX、PPTX、XLSX 改由市场按需下载，后续应用安装包不再携带和预装。`plugins/` 保留源码，但新增目录不再自动纳入应用；默认内置目录为空，已安装的插件、启用状态与配置不删除。
+- 三个 Office 插件沿用原 ID 与版本，市场安装继续经过下载哈希校验与权限审核，XLSX 的 WebAssembly 按非内置插件限额检查。旧版应用仍优先自己的内置目录；需要使用取消内置后的新版应用才能改从远程市场获取同 ID 插件。
 - 安装包下载只接受 HTTPS 地址，并按目录登记的 SHA256 和大小校验；安装前照常显示权限审核。
 
 ## 插件仓库
@@ -22,7 +23,7 @@
 - `catalog/v1/index.json`：市场目录，由 `scripts/build.mjs` 生成。
 - 安装包发布在同名 GitHub Release（`<name>-v<version>`）。
 
-构建脚本使用与 XTLaw 内置编译器相同的 TypeScript 选项，并固定压缩包内的文件时间，同一份源码生成相同的 SHA256。发布顺序：先上传 Release 安装包，再推送目录。
+构建脚本使用与 XTLaw 内置编译器相同的 TypeScript 选项，也支持直接打包已编译的 Office 插件；固定压缩包内的文件时间，同一份源码生成相同的 SHA256。发布顺序：先上传 Release 安装包，再推送目录。Office 的第三方许可证与来源记录完整保留。
 
 ## 标题自动生成（`lexora.auto-title` 1.2.2）
 

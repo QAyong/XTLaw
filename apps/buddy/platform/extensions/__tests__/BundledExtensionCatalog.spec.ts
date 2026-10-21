@@ -124,16 +124,38 @@ it('rejects unsafe bundled artifact paths and unreadable preinstall state', asyn
   expect(Object.keys(store.installed)).toEqual([])
 })
 
-it('packages and preinstalls the actual Office plugin with its view, icon and license files', async () => {
+it('offers actual Office packages in the remote market without preinstalling and preserves existing installations', async () => {
   const { root, ports } = await fixture()
   const directory = join(root, 'actual-office')
   const script = fileURLToPath(new URL('../../../../../packaging/buddy/release/prepare-bundled-extensions.mjs', import.meta.url))
   execFileSync(process.execPath, [script, '--output', directory], { stdio: 'pipe' })
   const provider = new BundledExtensionCatalog(directory)
+  expect(await provider.list()).toEqual([])
+  const packages = join(root, 'market-packages')
+  const prepareUrl = new URL('../../../../../packaging/buddy/release/prepare-bundled-extensions.mjs', import.meta.url)
+  const discoveryUrl = new URL('bundled-plugins.mjs', prepareUrl)
+  execFileSync(process.execPath, ['--input-type=module', '-e', `import { prepareBundledExtensions } from ${JSON.stringify(prepareUrl.href)}; import { discoverPluginSources } from ${JSON.stringify(discoveryUrl.href)}; await prepareBundledExtensions({ sourceDirectories: discoverPluginSources().map(plugin => plugin.directory), outputDirectory: ${JSON.stringify(packages)} });`], { stdio: 'pipe' })
+  const catalogUrl = 'https://example.com/office-catalog.json'
+  const catalog = JSON.parse(await readFile(join(packages, 'catalog.json'), 'utf8'))
+  const remote = { schemaVersion: 1, plugins: catalog.plugins.map((entry: ExtensionCatalogEntry) => {
+    if (!('kind' in entry.artifact))
+      throw new Error('Expected a locally prepared package')
+    return { ...entry, artifact: { url: `https://example.com/${entry.artifact.file}`, sha256: entry.artifact.sha256, size: entry.artifact.size } }
+  }) }
+  const get = async (url: string) => url === catalogUrl ? Response.json(remote) : new Response(new Uint8Array(await readFile(join(packages, new URL(url).pathname.slice(1)))))
   const store = new ExtensionPackageStore(join(root, 'actual-installation'), buddyVersion.version)
-  const service = new ExtensionService(store, { ...ports, bundled: provider })
+  const service = new ExtensionService(store, { ...ports, bundled: provider, catalogUrl, get })
   cleanup.push(() => service.dispose())
+  expect(await service.list()).toEqual([])
+  const listing = await service.catalog.list()
+  expect(listing.plugins).toHaveLength(3)
+  expect(listing.plugins.every(entry => entry.compatible)).toBe(true)
+  for (const entry of listing.plugins) {
+    const review = await service.reviewCatalog(entry.manifest.id, entry.manifest.version)
+    await service.install(review.token)
+  }
   const statuses = await service.list()
+  expect(statuses.every(status => status.source?.catalog === catalogUrl)).toBe(true)
   const status = statuses.find(item => item.manifest.name === 'Office DOCX')
   expect(statuses.map(item => item.manifest.name).sort()).toEqual(['Office DOCX', 'Office PPTX', 'Office XLSX'])
   expect(status).toMatchObject({ enabled: true, compatible: true, manifest: { name: 'Office DOCX', author: 'XTLaw官方', version: pluginVersion('office'), apiVersion: 4 } })
@@ -143,6 +165,12 @@ it('packages and preinstalls the actual Office plugin with its view, icon and li
   for (const file of ['view.js', 'icon.svg', 'LICENSE', 'LICENSE-OFL.txt', 'LICENSE-UNICODE.txt', 'provenance.json'])
     expect((await store.asset(pkg, file)).length).toBeGreaterThan(0)
   expect((await service.catalog.list()).plugins.map(item => item.manifest.id).sort()).toEqual(statuses.map(item => item.manifest.id).sort())
+  await store.enable(status!.manifest.id, false)
+  await store.saveData(status!.manifest.id, { retained: true }, 1)
+  const before = structuredClone(store.installed)
+  await preinstallBundledExtensions(store, provider)
+  expect(store.installed).toEqual(before)
+  expect(await store.data(status!.manifest.id)).toEqual({ version: 1, value: { retained: true } })
 })
 
 it('does not allow a remote catalog to replace or spoof bundled plugins', async () => {

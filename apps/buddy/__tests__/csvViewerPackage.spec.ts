@@ -80,7 +80,8 @@ describe('plugin tools', () => {
     await cp(folder, plugin, { recursive: true })
     const manifestPath = join(plugin, 'extension.json')
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
-    // The same csv plugin, but claiming to be older than its features, asking for WebAssembly, and sharing .docx with the bundled plugin.
+    // The same csv plugin, but claiming to be older than its features and asking for WebAssembly.
+    // Office is market-only, so accepting .docx must not report a bundled-handler conflict.
     manifest.engines.lexora = '>=0.2.0 <1.0.0'
     manifest.permissions.webAssembly = true
     manifest.contributes.views[0].accepts.extensions.push('docx')
@@ -92,7 +93,7 @@ describe('plugin tools', () => {
     expect(checked.stdout).toContain('Document capabilities: documents.handler (XTLaw 0.2.0+), documents.reference (XTLaw 0.2.0+), documents.webAssembly (XTLaw 0.2.3+)')
     expect(checked.stdout).toContain('not upstream API numbers')
     expect(checked.stderr).toContain('raise the minimum to at least 0.2.3')
-    expect(checked.stderr).toContain('Office DOCX (bundled) also accepts .docx')
+    expect(checked.stderr).not.toContain('Office DOCX (bundled) also accepts .docx')
     expect(checked.stderr).toContain('EXTENSION_WEBASSEMBLY_LIMIT')
   }, 170000)
 })

@@ -14,7 +14,7 @@ export async function createSandboxPolicy(input: SrtSandboxInput, signal: AbortS
   const { rg, srtRoot } = dependencies
   const system = dependencies.platform === OPERATING_SYSTEM.Linux ? await createLinuxSystemPolicy(dependencies) : createMacosSystemPolicy()
   const policy = await createSandboxFilesystemPolicy(input, signal)
-  const searchPaths = await existingSandboxPaths(input.path.split(delimiter).filter(path => path.startsWith('/')))
+  const searchPaths = input.path.split(delimiter).filter(path => path.startsWith('/'))
   const runtimePaths = await existingSandboxPaths([...system.readPaths, input.searchDirectory])
   const paths = (access: typeof policy[number]['access']) => policy.filter(grant => grant.access === access).map(grant => grant.path)
   return {

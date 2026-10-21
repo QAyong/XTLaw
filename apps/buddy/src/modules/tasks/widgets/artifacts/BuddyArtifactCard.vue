@@ -97,12 +97,17 @@ const detail = computed(() => props.artifact.kind === 'directory'
 
 .buddy-artifact-collection__preview {
   display: grid;
-  height: 7rem;
+  height: 4rem;
   place-items: center;
   overflow: hidden;
   border-bottom: 1px solid var(--buddy-border-subtle);
   background: var(--buddy-accent-surface-subtle);
   color: var(--buddy-text-muted);
+
+  :deep(.buddy-file-icon.is-preview) {
+    width: 2rem;
+    height: 2rem;
+  }
 
   .buddy-artifact-collection__image {
     display: block;
@@ -118,8 +123,8 @@ const detail = computed(() => props.artifact.kind === 'directory'
 }
 
 .buddy-artifact-collection__directory-icon {
-  width: 3.25rem;
-  height: 3.25rem;
+  width: 2rem;
+  height: 2rem;
   object-fit: contain;
 }
 

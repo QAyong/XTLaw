@@ -88,12 +88,12 @@ function findHorizontalScrollport(): HTMLElement | null {
 
 .buddy-artifact-collection__items {
   display: grid;
-  gap: 0.625rem;
+  gap: 0.5rem;
   padding: 0.125rem;
 
   &.is-strip {
     width: max-content;
-    grid-auto-columns: 17rem;
+    grid-auto-columns: 12rem;
     grid-auto-flow: column;
     padding-bottom: 0.5rem;
   }

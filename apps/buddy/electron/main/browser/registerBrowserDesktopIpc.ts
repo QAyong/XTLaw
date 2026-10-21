@@ -268,6 +268,5 @@ function requireBrowserHost(host: BrowserHost | null): BrowserHost {
 }
 
 function takeHumanControl(host: BrowserHost, sessionId: string): void {
-  if (host.getState(sessionId).controller === 'agent')
-    host.takeControl(sessionId)
+  host.takeControl(sessionId)
 }

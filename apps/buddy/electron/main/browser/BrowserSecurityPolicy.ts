@@ -1,10 +1,12 @@
 import type { BrowserFailureReason } from '../../../shared/browser'
 import type { DesktopBrowserErrorCode } from '../../../shared/browser/browserDesktopApi'
+import type { NetworkAuthorizer } from '../../../shared/network/networkAuthorization'
 import { isIP } from 'node:net'
 import { extname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { containsCanonicalPath } from '../../../platform/filesystem/filePaths'
 import { resolveFilePath } from '../../../platform/filesystem/resolveFilePath'
+import { isFileDownload } from '../../../shared/network/networkAuthorization'
 import { BrowserDebugger } from './BrowserDebugger'
 
 const CDP_FILE_CHOOSER_OPENED = 'Page.fileChooserOpened'
@@ -45,6 +47,7 @@ export interface BrowserSecuritySession {
     ) => void),
   ) => void
   webRequest: {
+    onHeadersReceived: (listener: HeadersReceivedListener | null) => void
     onBeforeRequest: {
       (listener: BeforeRequestListener | null): void
       (filter: { urls: string[] }, listener: BeforeRequestListener | null): void
@@ -54,6 +57,7 @@ export interface BrowserSecuritySession {
 
 interface BrowserSecurityPolicyOptions {
   allowDownload?: () => boolean
+  authorizeNetwork?: NetworkAuthorizer
   connection?: BrowserDebugger
   onCertificateError?: (details: BrowserCertificateErrorDetails) => void
   onDownloadBlocked?: () => void
@@ -71,6 +75,7 @@ interface BrowserRequestDetails {
   resourceType: string
   url: string
   webContentsId?: number
+  uploadData?: Array<{ file?: string, blobUUID?: string, bytes?: Uint8Array }>
 }
 
 interface BrowserCertificateErrorDetails {
@@ -122,8 +127,14 @@ type BeforeRequestListener = (
   callback: (response: { cancel: boolean }) => void,
 ) => void
 
+type HeadersReceivedListener = (
+  details: BrowserRequestDetails & { responseHeaders?: Record<string, string[]> },
+  callback: (response: { cancel: boolean }) => void,
+) => void
+
 interface BrowserSecurityRoute {
   allowDownload: () => boolean
+  authorizeDownload: (url: string) => Promise<void>
   isRequestAllowed: (details: BrowserRequestDetails) => Promise<boolean>
   onDownloadBlocked: () => void
   onDownloadStarted: (item: BrowserDownloadItem) => void
@@ -159,6 +170,27 @@ class BrowserSecuritySessionCoordinator {
         callback({ cancel: true })
       })
     }
+    this.#session.webRequest.onHeadersReceived((details, callback) => {
+      const route = details.webContentsId === undefined ? undefined : this.#routes.get(details.webContentsId)
+      if (!route) {
+        callback({ cancel: true })
+        return
+      }
+      const headers = new Headers()
+      for (const [key, values] of Object.entries(details.responseHeaders ?? {}))
+        headers.set(key, values.join(', '))
+      if (!isFileDownload(headers)) {
+        callback({ cancel: false })
+        return
+      }
+      void route.authorizeDownload(details.url).then(
+        () => callback({ cancel: false }),
+        () => {
+          route.onRequestBlocked(details)
+          callback({ cancel: true })
+        },
+      )
+    })
     this.#downloadListener = (event, item, webContents) => {
       const route = this.#routes.get(readWebContentsId(webContents))
       if (!route || !route.allowDownload()) {
@@ -175,7 +207,7 @@ class BrowserSecuritySessionCoordinator {
       this.#routes.get(readWebContentsId(webContents))?.onPermissionDenied()
     })
     this.#session.webRequest.onBeforeRequest(
-      { urls: ['*://*/*', 'file://*/*'] },
+      { urls: ['http://*/*', 'https://*/*', 'ws://*/*', 'wss://*/*', 'file://*/*'] },
       this.#beforeRequestListener,
     )
     this.#session.on('will-download', this.#downloadListener)
@@ -192,6 +224,7 @@ class BrowserSecuritySessionCoordinator {
       this.#session.setPermissionCheckHandler(null)
       this.#session.setPermissionRequestHandler(null)
       this.#session.webRequest.onBeforeRequest(null)
+      this.#session.webRequest.onHeadersReceived(null)
       this.#session.off('will-download', this.#downloadListener)
       return true
     }
@@ -260,6 +293,7 @@ export class BrowserSecurityPolicyError extends Error {
 
 export class BrowserSecurityPolicy {
   readonly #allowDownload: () => boolean
+  readonly #authorizeNetwork: NetworkAuthorizer | undefined
   readonly #certificateErrorListener: CertificateErrorListener
   readonly #onCertificateError: (details: BrowserCertificateErrorDetails) => void
   readonly #onDownloadBlocked: () => void
@@ -279,6 +313,7 @@ export class BrowserSecurityPolicy {
 
   constructor(options: BrowserSecurityPolicyOptions) {
     this.#allowDownload = options.allowDownload ?? (() => false)
+    this.#authorizeNetwork = options.authorizeNetwork
     this.#onCertificateError = options.onCertificateError ?? (() => {})
     this.#onDownloadBlocked = options.onDownloadBlocked ?? (() => {})
     this.#onDownloadStarted = options.onDownloadStarted ?? (() => {})
@@ -297,6 +332,7 @@ export class BrowserSecurityPolicy {
         isRequestAllowed: details => this.#isRequestAllowed(details),
         onDownloadBlocked: () => this.#onDownloadBlocked(),
         onDownloadStarted: item => this.#onDownloadStarted(item),
+        authorizeDownload: async (url) => { await this.#authorizeNetwork?.(url, 'download') },
         onPermissionDenied: () => this.#onPermissionDenied(),
         onRequestBlocked: details => this.#onRequestBlocked(details),
       },
@@ -465,6 +501,12 @@ export class BrowserSecurityPolicy {
 
     const isWebRequest = ['http:', 'https:', 'ws:', 'wss:'].includes(url.protocol)
     if (!isWebRequest || url.username || url.password)
+      return false
+    const upload = details.uploadData?.some(part => part.file || (part.bytes && /^content-disposition:\s*form-data;[^\r\n]*\bfilename\*?\s*=/im.test(new TextDecoder().decode(part.bytes.subarray(0, 64 * 1024)))))
+    if (upload)
+      return false
+    await this.#authorizeNetwork?.(url.href, 'access')
+    if (this.#disposed)
       return false
     if (details.resourceType === 'mainFrame')
       this.#localFileRoot = null

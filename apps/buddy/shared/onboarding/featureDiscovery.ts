@@ -3,6 +3,8 @@ import { z } from 'zod'
 
 export const FEATURE_GUIDES = [
   { id: 'npc-team', version: '0.2.3' },
+  { id: 'additional-directories', version: '0.3.1' },
+  { id: 'network-permissions', version: '0.3.1' },
 ] as const
 
 /** 引导功能上线前的最后一个 XTLaw 发布版本。从未记录过版本的老用户按它作为起点，升级后即可看到之后新增的功能。 */

@@ -1,7 +1,8 @@
 import type { LocalArtifact } from '@buddy-shared/artifacts/artifactApi'
-import type { LocalSpace } from '@buddy-shared/spaces/spaceApi'
+import type { LocalSpace, LocalSpaceAdditionalDirectory } from '@buddy-shared/spaces/spaceApi'
 import type { SpaceFileTarget } from '@buddy-shared/spaces/spaceFileApi'
 import { isTextArtifactMimeType } from '@buddy-shared/artifacts/artifactApi'
+import { getActiveSpaceDirectories } from '@buddy-shared/spaces/spaceApi'
 
 export function cleanChatToolFilePath(path: string): string {
   let cleaned = path.trim()
@@ -50,19 +51,25 @@ export function resolveChatArtifactTarget(artifacts: readonly LocalArtifact[], p
 }
 
 export function resolveChatToolFileTarget(space: LocalSpace | null, path: string): SpaceFileTarget | null {
-  const directory = space?.primaryDirectory
-  if (!space || space.revokedAt || !directory || directory.revokedAt || !path || path.includes('\0'))
+  if (!space || space.revokedAt || !path || path.includes('\0'))
     return null
+  let directory: LocalSpaceAdditionalDirectory | null = space.primaryDirectory
   let relative = cleanChatToolFilePath(path).replaceAll('\\', '/')
   if (relative.startsWith('/') || /^[a-z]:/i.test(relative)) {
-    const roots = [directory.canonicalRoot, directory.root].map(root => root.replaceAll('\\', '/').replace(/\/+$/, ''))
-    const windows = /^[a-z]:/i.test(roots[0]!) || roots[0]!.startsWith('//')
-    const root = roots.find(root => (windows ? relative.toLowerCase() : relative)
-      .startsWith(`${windows ? root.toLowerCase() : root}/`))
-    if (root === undefined)
+    const candidates = getActiveSpaceDirectories(space).flatMap(directory =>
+      [directory.canonicalRoot, directory.root].map(root => ({ directory, root: root.replaceAll('\\', '/').replace(/\/+$/, '') })),
+    ).sort((left, right) => right.root.length - left.root.length)
+    const match = candidates.find(({ root }) => {
+      const windows = /^[a-z]:/i.test(root) || root.startsWith('//')
+      return (windows ? relative.toLowerCase() : relative).startsWith(`${windows ? root.toLowerCase() : root}/`)
+    })
+    if (!match)
       return null
-    relative = relative.slice(root.length + 1)
+    directory = match.directory
+    relative = relative.slice(match.root.length + 1)
   }
+  if (!directory || directory.revokedAt)
+    return null
   const segments = relative.split('/').filter(segment => segment && segment !== '.')
   if (!segments.length || segments.includes('..') || segments[0] === '~' || relative.includes(':'))
     return null
@@ -72,12 +79,13 @@ export function resolveChatToolFileTarget(space: LocalSpace | null, path: string
 // Like resolveChatToolFileTarget, but the space root itself is a valid folder and resolves to the empty path.
 export function resolveChatToolDirectoryTarget(space: LocalSpace | null, path: string): SpaceFileTarget | null {
   const target = resolveChatToolFileTarget(space, path)
-  const directory = space?.primaryDirectory
-  if (target || !space || space.revokedAt || !directory || directory.revokedAt || !path || path.includes('\0'))
+  if (target || !space || space.revokedAt || !path || path.includes('\0'))
     return target
   const candidate = cleanChatToolFilePath(path).replaceAll('\\', '/').replace(/\/+$/, '')
-  const roots = [directory.canonicalRoot, directory.root].map(root => root.replaceAll('\\', '/').replace(/\/+$/, ''))
-  const windows = /^[a-z]:/i.test(roots[0]!) || roots[0]!.startsWith('//')
-  const isRoot = roots.some(root => (windows ? root.toLowerCase() === candidate.toLowerCase() : root === candidate))
-  return isRoot ? { spaceId: space.id, directoryId: directory.id, revision: directory.revision, path: '' } : null
+  const directory = getActiveSpaceDirectories(space).find((directory) => {
+    const roots = [directory.canonicalRoot, directory.root].map(root => root.replaceAll('\\', '/').replace(/\/+$/, ''))
+    const windows = /^[a-z]:/i.test(roots[0]!) || roots[0]!.startsWith('//')
+    return roots.some(root => (windows ? root.toLowerCase() === candidate.toLowerCase() : root === candidate))
+  })
+  return directory ? { spaceId: space.id, directoryId: directory.id, revision: directory.revision, path: '' } : null
 }

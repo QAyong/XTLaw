@@ -61,12 +61,14 @@ export function registerSpacesIpc(context: LocalChatIpcContext): void {
 
 function withSpaceDirectorySelection<SpaceInput extends {
   primaryDirectory: { root: string } | null
+  additionalDirectoryChanges?: { add: string[], remove: string[] }
 }>(
   input: SpaceInput,
   selections: SpaceDirectorySelectionLedger,
-): SpaceInput & { primaryDirectorySelectionVerified: boolean } {
+): SpaceInput & { primaryDirectorySelectionVerified: boolean, additionalDirectorySelectionsVerified: boolean } {
   return {
     ...input,
+    additionalDirectorySelectionsVerified: selections.consumeAll(input.additionalDirectoryChanges?.add ?? []),
     primaryDirectorySelectionVerified: input.primaryDirectory
       ? selections.consume(input.primaryDirectory.root)
       : false,

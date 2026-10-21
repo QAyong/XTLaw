@@ -339,6 +339,7 @@ class FakeBrowserSession extends EventEmitter {
   })
 
   readonly webRequest = {
+    onHeadersReceived: vi.fn(),
     onBeforeRequest: vi.fn(),
   }
 }

@@ -1,10 +1,11 @@
 import type { LocalArtifact } from '@buddy-shared/artifacts/artifactApi'
 import type { LocalChangeSetSummary } from '@buddy-shared/changes/changeApi'
 import type { ContextPanelSource } from '@buddy-shared/context-panel/contextPanel'
-import type { LocalSpace } from '@buddy-shared/spaces/spaceApi'
+import type { LocalSpaceAdditionalDirectory } from '@buddy-shared/spaces/spaceApi'
 import type { SpaceFileTarget } from '@buddy-shared/spaces/spaceFileApi'
 import type { ArtifactViewMode, TaskContextTab, TaskFilesContextTab } from '../../model/context-panel/taskContextPanel'
 import type { UseTaskContextPanelOptions } from './typing'
+import { getActiveSpaceDirectories } from '@buddy-shared/spaces/spaceApi'
 import { computed, readonly, watch } from 'vue'
 import { useContextPanelControl } from '@/platform/desktop/useContextPanelControl'
 import { readContextSelection, readContextTab } from '../../model/context-panel/readContextTab'
@@ -73,8 +74,7 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
       return
     store.setOpen(store.selectionScope.value, open)
   }, { flush: 'sync' })
-  const fileSpaces = computed(() => options.spaces.value.filter(space => space.revokedAt === null
-    && space.primaryDirectory && space.primaryDirectory.revokedAt === null))
+  const fileSpaces = computed(() => options.spaces.value.filter(space => getActiveSpaceDirectories(space).length > 0))
   const currentFileSpace = computed(() => fileSpaces.value.find(space => space.id === options.activeSpace?.value?.id) ?? null)
   const fileEntry = computed(() => {
     if (!linked.value)
@@ -159,9 +159,10 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
     openTab({ id: browserTabId(null, browserKey), scope: store.scope.value, kind: 'browser', conversationId: null, browserKey })
   }
 
-  function openFiles(spaceId: string) {
+  function openFiles(spaceId: string, directoryId?: string) {
     const space = fileSpaces.value.find(space => space.id === spaceId)
-    const directory = space?.primaryDirectory
+    const directories = getActiveSpaceDirectories(space)
+    const directory = directoryId ? directories.find(directory => directory.id === directoryId) : directories[0]
     if (!space || !directory)
       return
     openTab({
@@ -186,7 +187,8 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
   function previewFile(path: string, source?: ContextPanelSource, collapseTree = false) {
     const space = options.activeSpace?.value ?? null
     const target = resolveChatToolFileTarget(space, path)
-    if (!target || !space?.primaryDirectory)
+    const directory = getActiveSpaceDirectories(space).find(directory => directory.id === target?.directoryId)
+    if (!target || !directory)
       return
 
     const exactTab = store.tabs.value.find(tab =>
@@ -215,7 +217,7 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
       return
     }
 
-    openTab({ ...newFilesTab(space, target, source), tree })
+    openTab({ ...newFilesTab(directory, target, source), tree })
   }
 
   function updateFilesTab(tabId: string, change: Partial<Pick<TaskFilesContextTab, 'expand' | 'tree'>>) {
@@ -234,12 +236,12 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
         )
   }
 
-  function newFilesTab(space: LocalSpace, target: SpaceFileTarget, source?: ContextPanelSource): TaskFilesContextTab {
+  function newFilesTab(directory: LocalSpaceAdditionalDirectory, target: SpaceFileTarget, source?: ContextPanelSource): TaskFilesContextTab {
     return {
       id: `files:${source ? taskContextPanelScope(source.conversationId) : store.scope.value}:${target.spaceId}:${target.directoryId}:${source?.runId ?? 'preview'}`,
       scope: source ? taskContextPanelScope(source.conversationId) : store.scope.value,
       kind: 'files',
-      rootName: space.primaryDirectory!.root.split(/[\\/]/).filter(Boolean).at(-1) ?? space.primaryDirectory!.root,
+      rootName: directory.root.split(/[\\/]/).filter(Boolean).at(-1) ?? directory.root,
       target,
       source: source ?? currentSource(),
     }
@@ -253,7 +255,8 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
   function openDirectory(path: string, source?: ContextPanelSource) {
     const space = options.activeSpace?.value ?? null
     const target = resolveChatToolDirectoryTarget(space, path)
-    if (!target || !space?.primaryDirectory)
+    const directory = getActiveSpaceDirectories(space).find(directory => directory.id === target?.directoryId)
+    if (!target || !directory)
       return
     const expand = target.path ? { path: target.path, token: crypto.randomUUID() } : undefined
     const tree = { visible: true, token: crypto.randomUUID() }
@@ -264,13 +267,14 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
       openPanel()
       return
     }
-    openTab({ ...newFilesTab(space, { ...target, path: '' }, source), expand, tree })
+    openTab({ ...newFilesTab(directory, { ...target, path: '' }, source), expand, tree })
   }
 
   function isAvailable(tab: TaskContextTab): boolean {
     if (tab.kind !== 'files')
       return true
-    const directory = fileSpaces.value.find(space => space.id === tab.target.spaceId)?.primaryDirectory
+    const space = fileSpaces.value.find(space => space.id === tab.target.spaceId)
+    const directory = getActiveSpaceDirectories(space).find(directory => directory.id === tab.target.directoryId)
     return Boolean(directory && tab.target.directoryId === directory.id && tab.target.revision === directory.revision)
   }
 

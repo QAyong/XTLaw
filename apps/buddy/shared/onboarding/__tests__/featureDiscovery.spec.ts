@@ -34,6 +34,17 @@ describe('feature discovery across releases', () => {
     expect(advanceFeatureDiscovery(state, '0.14.0', false, features)).toEqual({ version: '0.14.0', pending: ['npc', 'next'], notified: ['layout', 'npc'] })
   })
 
+  it('introduces directory and domain permissions only when upgrading to 0.3.1', () => {
+    const ids = ['additional-directories', 'network-permissions']
+    expect(availableFeatureGuides('0.3.0').map(feature => feature.id)).not.toEqual(expect.arrayContaining(ids))
+    expect(availableFeatureGuides('0.3.1').filter(feature => feature.version === '0.3.1').map(feature => feature.id)).toEqual(ids)
+    expect(advanceFeatureDiscovery({ version: '0.3.0', pending: ['npc-team'], notified: [] }, '0.3.1', false)).toEqual({
+      version: '0.3.1',
+      pending: ['npc-team', ...ids],
+      notified: [],
+    })
+  })
+
   it('uses semantic versions and never introduces unreleased features', () => {
     expect(advanceFeatureDiscovery(EMPTY_FEATURE_DISCOVERY, 'unknown', false, features)).toEqual(EMPTY_FEATURE_DISCOVERY)
     expect(advanceFeatureDiscovery({ version: '0.9.0', pending: [], notified: [] }, '0.13.0-beta.1', false, features).pending).toEqual([])

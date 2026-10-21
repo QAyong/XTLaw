@@ -290,9 +290,13 @@ const featureDiscovery = useFeatureDiscovery({
   visit: async (id) => {
     const location = {
       'npc-team': desktopRouteLocations.buddies(buddyDirectory.catalog.value?.defaultBuddyId),
+      'additional-directories': desktopRouteLocations.tasks(),
+      'network-permissions': desktopRouteLocations.settings('browser'),
     }[id]
     await navigation.navigate(location)
-    return router.currentRoute.value.path === router.resolve(location).path
+    if (router.currentRoute.value.path !== router.resolve(location).path)
+      return false
+    return id === 'additional-directories' ? taskIndex.index.sidebar.setCollapsed(false) : true
   },
   onError: () => message.error(translateBuddy(stores.applicationSettings.language.value, 'desktop.command.failed')),
 })

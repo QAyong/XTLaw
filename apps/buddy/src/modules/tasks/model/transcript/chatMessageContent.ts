@@ -127,8 +127,9 @@ function normalizeLinkPath(value: string): string {
 }
 
 export function isVisibleChatMessage(message: LocalMessage): boolean {
+  const structured = getChatMessageUserContent(message)
   return message.role !== 'tool'
-    && (getChatMessageText(message).trim().length > 0 || message.attachments.length > 0 || Boolean(getChatMessageUserContent(message)?.userContent.quotes?.length) || Boolean(getChatMessageUserContent(message)?.userContent.resourceQuotes?.length) || Boolean(getChatMessageUserContent(message)?.userContent.sessionReferences?.length))
+    && (getChatMessageText(message).trim().length > 0 || message.attachments.length > 0 || Boolean(structured?.resourceSnapshots.length) || Boolean(structured?.userContent.quotes?.length) || Boolean(structured?.userContent.resourceQuotes?.length) || Boolean(structured?.userContent.sessionReferences?.length))
 }
 
 function escapeRegExp(value: string): string {

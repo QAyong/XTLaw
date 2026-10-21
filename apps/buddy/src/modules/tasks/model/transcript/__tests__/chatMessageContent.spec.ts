@@ -76,6 +76,23 @@ describe('chatMessageContent', () => {
     expect(isVisibleChatMessage(attachmentOnly)).toBe(true)
   })
 
+  it('keeps a user message that only carries panel local file references', () => {
+    const localOnly = message('user', {
+      resourceSnapshots: ['a', 'b'].map(id => ({
+        resourceId: id,
+        localReference: { kind: 'file', mimeType: 'text/plain', name: `${id}.txt`, path: `/workspace/${id}.txt`, sizeBytes: 10 },
+      })),
+      userContent: {
+        body: [{ type: 'paragraph', content: [] }],
+        panelResourceIds: ['a', 'b'],
+        version: 1,
+      },
+    })
+
+    expect(getChatMessageText(localOnly)).toBe('')
+    expect(isVisibleChatMessage(localOnly)).toBe(true)
+  })
+
   it('rejects a structured message whose resource snapshot does not cover its content', () => {
     const messageWithMissingSnapshot = message('user', {
       resourceSnapshots: [],

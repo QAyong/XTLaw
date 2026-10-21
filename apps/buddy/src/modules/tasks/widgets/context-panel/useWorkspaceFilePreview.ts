@@ -38,7 +38,7 @@ export function useWorkspaceFilePreview(tab: Readonly<Ref<TaskFilesContextTab | 
       return
     let view = views.get(value.id)
     if (!view || view.tab.target.directoryId !== value.target.directoryId || view.tab.target.revision !== value.target.revision || view.tab.target.spaceId !== value.target.spaceId) {
-      view = shallowReactive<FileView>({ generation: 0, tab: value, nodes: [], expandedKeys: [], treeVisible: true, treeWidth: 220, wrap: false, treeFailed: false, loadingKeys: shallowReactive(new Set<string>()), requests: new Map() })
+      view = shallowReactive<FileView>({ generation: 0, tab: value, nodes: [], expandedKeys: [], treeVisible: value.tree?.visible ?? true, treeWidth: 220, wrap: false, treeFailed: false, loadingKeys: shallowReactive(new Set<string>()), requests: new Map() })
       views.set(value.id, view)
       void refresh(value)
     }

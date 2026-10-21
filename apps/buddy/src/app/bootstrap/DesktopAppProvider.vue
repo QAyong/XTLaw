@@ -147,6 +147,7 @@ const resources = useTaskResourcePanel({
   browser: api.browser,
   closeView: async id => (await workbench.controller.close(id)).status === 'closed',
   closeFiles: workbench.closeContextFiles,
+  revealOpenOfficeDocument: workbench.revealOpenOfficeDocument,
   changeSets: computed(() => selectedTask.value?.workspace.transcript.changeSets.value ?? []),
   runOutputs: computed(() => selectedTask.value?.workspace.transcript.runOutputs.value ?? []),
   onError: () => message.error(translateBuddy(stores.applicationSettings.language.value, 'desktop.context.controlFailed')),

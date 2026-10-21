@@ -5,7 +5,7 @@ import type { Ref } from 'vue'
 import type { WorkspaceFilesApi } from '../useWorkspaceFilePreview'
 import type { TaskChangesContextTab, TaskFilesContextTab } from '@/modules/tasks/model/context-panel/taskContextPanel'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { computed, effectScope, nextTick, shallowRef } from 'vue'
+import { computed, effectScope, nextTick, shallowRef, watch } from 'vue'
 import { deferred } from '../../../../../../__tests__/deferred'
 import { useArtifactPreview } from '../useArtifactPreview'
 import { useContextChanges } from '../useContextChanges'
@@ -153,6 +153,42 @@ describe('resource previews', () => {
     tab.value = { ...value, tree: { visible: false, token: 'two' } }
     await nextTick()
     expect(state.current.value?.treeVisible).toBe(false)
+  })
+
+  it.each(['report.docx', 'report.xlsx', 'report.pptx'])('initializes the file tree folded for an Office card before publishing its view: %s', (path) => {
+    const value = filesTab()
+    const tab = shallowRef<TaskFilesContextTab | null>(null)
+    const { state } = openFiles(tab, vi.fn().mockResolvedValue({ entries: [], nextCursor: null }))
+    const visibility: boolean[] = []
+    const stop = watch(state.current, (view) => {
+      if (view)
+        visibility.push(view.treeVisible)
+    }, { flush: 'sync' })
+    tab.value = { ...value, target: { ...value.target, path }, tree: { visible: false, token: 'office-card' } }
+    stop()
+    expect(visibility).toEqual([false])
+    expect(state.current.value?.treeVisible).toBe(false)
+  })
+
+  it('keeps a card tree folded when its file view is recreated without a new tree request', async () => {
+    const value = filesTab()
+    const tab = shallowRef<TaskFilesContextTab | null>({ ...value, target: { ...value.target, path: 'report.docx' }, tree: { visible: false, token: 'office-card' } })
+    const { state } = openFiles(tab, vi.fn().mockResolvedValue({ entries: [], nextCursor: null }))
+    expect(state.current.value?.treeVisible).toBe(false)
+    const previous = state.current.value
+    tab.value = { ...tab.value!, target: { ...value.target, path: 'report.docx', revision: 2 } }
+    await nextTick()
+    expect(state.current.value).not.toBe(previous)
+    expect(state.current.value?.treeVisible).toBe(false)
+    state.current.value!.treeVisible = true
+    await state.refresh()
+    expect(state.current.value?.treeVisible).toBe(true)
+  })
+
+  it('still shows the tree by default when opening the file manager without a card request', () => {
+    const tab = shallowRef<TaskFilesContextTab | null>(filesTab())
+    const { state } = openFiles(tab, vi.fn().mockResolvedValue({ entries: [], nextCursor: null }))
+    expect(state.current.value?.treeVisible).toBe(true)
   })
 
   it('publishes directory pages before completion and preserves folders expanded during pagination', async () => {

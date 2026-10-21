@@ -60,6 +60,12 @@ describe('opening task outputs', () => {
     expect(panel.activeTab.value).toMatchObject({ kind: 'files', target: { path: 'brief.docx' } })
   })
 
+  it.each(['report.docx', 'report.xlsx', 'report.pptx'])('folds the tree for an Office path preview before its output card is registered: %s', async (name) => {
+    const { panel } = fixture()
+    await panel.previewFile(`/workspace/${name}`)
+    expect(panel.activeTab.value).toMatchObject({ kind: 'files', target: { path: name }, tree: { visible: false } })
+  })
+
   it('keeps the output tab when the task has no space', async () => {
     const { panel } = fixture(null)
     await panel.openArtifact(artifact())

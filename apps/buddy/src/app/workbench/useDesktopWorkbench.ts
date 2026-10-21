@@ -34,6 +34,7 @@ import { ExtensionDocumentRouter } from './extensionDocuments'
 import { absolute, contains, FileOperationService } from './FileOperationService'
 import { registerDesktopContributions } from './registerDesktopContributions'
 import { restoreTaskInputViews } from './restoreTaskInputViews'
+import { revealOpenOfficeDocument } from './revealOpenOfficeDocument'
 import { TaskWorkspacePool } from './TaskWorkspacePool'
 import { useTaskInputLifecycle } from './useTaskInputLifecycle'
 import { WorkbenchDiagnostics } from './WorkbenchDiagnostics'
@@ -701,7 +702,7 @@ export function useDesktopWorkbench(options: { buddyCatalog?: Readonly<Ref<Buddy
     return saved
   }
   const selectionReferences = createDesktopSelectionReferences({ controller, pool, documents, language, openFile: (target, current) => createFile(target, undefined, current), browser: api.browser, resources: options.resources, ready: () => initialized.value, independent: () => stores.applicationSettings.config.value?.desktop.contextPanelMode === 'independent', locateFile: target => api.localChat.spaces.readFile(target), navigationVersion: () => navigationVersion })
-  return { selectionReferences, documents, api, renderers, fileOperations, fileToolbarTargets, fileView, closeContextFiles, readingPositions, discardTask, prepareTaskDeletion, activeTask, activeTaskId, activeResource: activity.resource, backupError, controller, copies, models, pool, persistence, initialize, flush, dispose, openTask, newTask, startTaskWithSkill, openFile, dropResource, language, get initialized() {
+  return { revealOpenOfficeDocument: (target: SpaceFileTarget) => revealOpenOfficeDocument(controller, options.resources(), target), selectionReferences, documents, api, renderers, fileOperations, fileToolbarTargets, fileView, closeContextFiles, readingPositions, discardTask, prepareTaskDeletion, activeTask, activeTaskId, activeResource: activity.resource, backupError, controller, copies, models, pool, persistence, initialize, flush, dispose, openTask, newTask, startTaskWithSkill, openFile, dropResource, language, get initialized() {
     return initialized.value
   }, get navigationVersion() {
     return navigationVersion

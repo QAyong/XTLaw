@@ -2,11 +2,12 @@ import type { DesktopBrowserApi, DesktopBrowserState } from '@buddy-electron/sha
 import type { LocalArtifact } from '@buddy-shared/artifacts/artifactApi'
 import type { BrowserPreferences } from '@buddy-shared/browser/browserPreferences'
 import type { ContextPanelSource } from '@buddy-shared/context-panel/contextPanel'
+import type { SpaceFileTarget } from '@buddy-shared/spaces/spaceFileApi'
 import type { Ref } from 'vue'
 import type { UseTaskContextPanelOptions } from './typing'
 import { computed, onScopeDispose, readonly, shallowRef, watch } from 'vue'
 import { browserTabId, contextTabSource, isBrowserArtifact } from '../../model/context-panel/taskContextPanel'
-import { fitsSpaceFilePreview, resolveChatArtifactTarget } from '../../model/transcript/chatToolFileTarget'
+import { fitsSpaceFilePreview, resolveChatArtifactTarget, resolveChatToolFileTarget } from '../../model/transcript/chatToolFileTarget'
 import { useTaskContextPanel } from './useTaskContextPanel'
 
 interface TaskResourcePanelOptions extends UseTaskContextPanelOptions {
@@ -14,6 +15,7 @@ interface TaskResourcePanelOptions extends UseTaskContextPanelOptions {
   linkOpening: Readonly<Ref<BrowserPreferences['linkOpening']>>
   closeView?: (id: string) => Promise<boolean>
   closeFiles?: (tabId: string) => Promise<boolean>
+  revealOpenOfficeDocument?: (target: SpaceFileTarget) => boolean
   browser: Pick<DesktopBrowserApi, 'ensureSession' | 'close' | 'openArtifact' | 'onStateChanged' | 'navigate'>
 }
 
@@ -189,12 +191,19 @@ export function useTaskResourcePanel(options: TaskResourcePanelOptions) {
       // An output inside the task's space is just a space file: open it there so it gets the file preview, editing and document plugins.
       const source = { conversationId, runId: artifact.runId }
       const inSpace = conversationId === options.activeConversationId.value && fitsSpaceFilePreview(artifact)
-      if (inSpace && artifact.kind === 'directory' && taskContext.canOpenDirectory(artifact.path))
+      if (inSpace && artifact.kind === 'directory' && taskContext.canOpenDirectory(artifact.path)) {
         act(() => taskContext.openDirectory(artifact.path, source))
-      else if (inSpace && artifact.kind === 'file' && taskContext.canPreviewFile(artifact.path))
-        act(() => taskContext.previewFile(artifact.path, source, true))
-      else
+      }
+      else if (inSpace && artifact.kind === 'file' && taskContext.canPreviewFile(artifact.path)) {
+        act(() => {
+          const target = resolveChatToolFileTarget(options.activeSpace?.value ?? null, artifact.path)
+          if (!target || !options.revealOpenOfficeDocument?.(target))
+            taskContext.previewFile(artifact.path, source, true)
+        })
+      }
+      else {
         act(() => taskContext.openArtifact(artifact))
+      }
       return
     }
     act(() => taskContext.openBrowser({ conversationId, runId: artifact.runId }))
@@ -246,10 +255,14 @@ export function useTaskResourcePanel(options: TaskResourcePanelOptions) {
 
   async function previewFile(path: string, source?: ContextPanelSource) {
     const artifact = fileArtifact(path, source)
-    if (artifact)
+    if (artifact) {
       await openArtifact(artifact)
-    else
-      act(() => taskContext.previewFile(path, source))
+    }
+    else {
+      const target = resolveChatToolFileTarget(options.activeSpace?.value ?? null, path)
+      const collapseTree = !!target && /\.(?:docx|xlsx|pptx)$/i.test(target.path)
+      act(() => taskContext.previewFile(path, source, collapseTree))
+    }
   }
 
   return {

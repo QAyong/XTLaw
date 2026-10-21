@@ -1,4 +1,3 @@
-import type { AutomationApprovalAllowlistEntry } from '../../../../shared/automation/approvalAllowlist'
 import type { BuddyThinkingLevel } from '../../../../shared/conversation/modelSelection'
 import type { BuddyExecutionProfile } from '../../../../shared/permissions/executionProfile'
 import type { BuddyPermissionSettings } from '../../../../shared/permissions/permissionMode'
@@ -18,7 +17,6 @@ import { createBuddySession } from './createBuddySession'
 import { createReusableBuddySession } from './createReusableBuddySession'
 
 export interface BuddySessionFactoryOptions {
-  getApprovalAllowlist?: (runId: string) => readonly AutomationApprovalAllowlistEntry[]
   getRunPermissionCeiling: (runId: string) => BuddyExecutionProfile | undefined
   bindPreferences?: (apply: (preferences: RuntimePreferences) => void) => Promise<() => void>
   tree: BuddyConversationTree
@@ -104,7 +102,6 @@ export class BuddySessionFactory {
         actorKind: blueprint.actor?.kind,
         toolScope: run.purpose === 'conversation.compaction' ? { mode: 'none' } : blueprint.actor?.settings.tools,
         fileAccessLimit: this.#options.getRunPermissionCeiling(run.id) === 'read_only' ? 'read_only' : blueprint.actor?.settings.limits.fileAccess,
-        approvalAllowlist: run.purpose === 'automation' ? this.#options.getApprovalAllowlist?.(run.id) : undefined,
         approvalPolicy: blueprint.approvalPolicy,
         canonicalRoot: blueprint.canonicalRoot,
         conversationId: blueprint.conversationId,

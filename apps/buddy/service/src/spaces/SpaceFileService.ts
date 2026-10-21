@@ -3,7 +3,7 @@ import type { FileAction, NativeFileEngine, NativeFileOperation } from '../files
 import type { SpaceRepository } from '../storage/spaceRepository'
 import { Buffer } from 'node:buffer'
 import { createHash, randomUUID } from 'node:crypto'
-import { stat } from 'node:fs/promises'
+import { realpath, stat } from 'node:fs/promises'
 import { isAbsolute, relative, resolve, sep } from 'node:path'
 import { readBoundedFile, readBoundedFileChunk } from '../../../platform/filesystem/boundedFile'
 import { saveBoundedBinaryFile } from '../../../platform/filesystem/saveBoundedTextFile'
@@ -11,6 +11,7 @@ import { Emitter } from '../../../shared/events/Emitter'
 import { mediaKindOf } from '../../../shared/files/mediaFiles'
 import { resolveGrantedPath } from '../directories/resolveGrantedPath'
 import { readFilePreview } from '../files/readFilePreview'
+import { createSensitivePathMatcher } from '../permissions/sensitivePaths'
 import { BuddyServiceError } from '../rpc/runtimeRequest'
 import { requireActiveSpace } from './requireActiveSpace'
 
@@ -52,7 +53,9 @@ export class SpaceFileService {
     const root = await this.root(input)
     const result = await this.#engine.list(root, input.path, input.cursor)
     this.requireDirectory(input)
-    return result
+    const directory = this.requireDirectory(input)
+    const sensitive = createSensitivePathMatcher()
+    return { ...result, entries: result.entries.filter(entry => !sensitive.matches(resolve(directory.canonicalRoot, entry.path))) }
   }
 
   async read(input: SpaceFileTarget): Promise<LocalSpaceFilePreview> {
@@ -182,6 +185,8 @@ export class SpaceFileService {
       this.#operations.set(input.operationId, input)
       try {
         const root = await this.root(input)
+        if (input.action.kind === 'rename')
+          await this.resolve({ ...input, path: input.action.destination }, 'create')
         const action: FileAction = input.action.kind === 'copy' || input.action.kind === 'move'
           ? { kind: input.action.kind, destinationRoot: await this.root(input.action.destination), destination: input.action.destination.path }
           : input.action
@@ -255,6 +260,7 @@ export class SpaceFileService {
 
   private async root(input: SpaceFileTarget): Promise<string> {
     const directory = this.requireDirectory(input)
+    await this.resolve(input, 'create')
     const key = JSON.stringify([directory.id, directory.revision])
     await this.#engine.register(key, directory.canonicalRoot, true)
     this.requireDirectory(input)
@@ -283,8 +289,8 @@ export class SpaceFileService {
 
   private requireDirectory(input: SpaceFileTarget) {
     const space = requireActiveSpace(this.#spaces.findById(input.spaceId))
-    const directory = space.primaryDirectory
-    if (!directory || directory.id !== input.directoryId || directory.revision !== input.revision || directory.revokedAt)
+    const directory = [space.primaryDirectory, ...space.additionalDirectories].find(directory => directory?.id === input.directoryId)
+    if (!directory || directory.revision !== input.revision || directory.revokedAt)
       throw new BuddyServiceError('VALIDATION_FAILED')
     return directory
   }
@@ -294,16 +300,22 @@ export class SpaceFileService {
     return { size: Number(metadata.size), etag: createHash('sha256').update([metadata.dev, metadata.ino, metadata.size, metadata.mtimeNs, metadata.ctimeNs].join(':')).digest('hex') }
   }
 
-  private async resolve(input: SpaceFileTarget): Promise<{ path: string, root: string }> {
+  private async resolve(input: SpaceFileTarget, mode: 'existing' | 'create' = 'existing'): Promise<{ path: string, root: string }> {
     const directory = this.requireDirectory(input)
     if (isAbsolute(input.path) || input.path.includes('\\') || input.path.split('/').includes('..'))
       throw new BuddyServiceError('VALIDATION_FAILED')
+    if (await realpath(directory.root) !== directory.canonicalRoot)
+      throw new BuddyServiceError('VALIDATION_FAILED')
+    const requestedPath = resolve(directory.canonicalRoot, input.path)
     const target = await resolveGrantedPath([{
       canonicalRoot: directory.canonicalRoot,
       grantId: directory.id,
       kind: 'workspace',
       root: directory.root,
-    }], resolve(directory.canonicalRoot, input.path), 'existing')
+    }], requestedPath, mode)
+    const sensitive = createSensitivePathMatcher()
+    if (sensitive.matches(directory.root) || sensitive.matches(requestedPath) || sensitive.matches(target.canonicalPath))
+      throw new BuddyServiceError('VALIDATION_FAILED')
     this.requireDirectory(input)
     return { path: target.canonicalPath, root: directory.canonicalRoot }
   }

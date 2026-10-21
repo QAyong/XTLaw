@@ -1,6 +1,6 @@
 import type { LexoraConfigPatch } from './desktopApi'
 import { z } from 'zod'
-import { browserPreferencesSchema } from '../../shared/browser/browserPreferences'
+import { browserPreferencesPatchSchema } from '../../shared/browser/browserPreferences'
 import { extensionAuthorSchema } from '../../shared/extensions/extensionIdentity'
 import { fileIconPreferenceSchema } from '../../shared/icons/fileIconTheme'
 import { proxySettingsSchema } from '../../shared/network/proxySettings'
@@ -77,7 +77,7 @@ export const desktopChatWelcomeItemsSchema = z.array(desktopChatWelcomeItemSchem
 
 export const lexoraConfigPatchSchema: z.ZodType<LexoraConfigPatch> = z.object({
   runtime: runtimePreferencesSchema.partial().optional(),
-  browser: browserPreferencesSchema.partial().optional(),
+  browser: browserPreferencesPatchSchema.optional(),
   proxy: proxySettingsSchema.optional(),
   desktop: z.object({
     featureDiscovery: featureDiscoverySchema.optional(),

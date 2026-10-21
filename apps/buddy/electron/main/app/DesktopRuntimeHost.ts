@@ -19,6 +19,7 @@ import { resolveWindowsPowerShell } from '../../../platform/windows/powerShell'
 import { automationNotifications } from '../../../shared/automation/automationApi'
 import { contextPanelRpc, contextPanelSourceSchema } from '../../../shared/context-panel/contextPanel'
 import { extensionAgentInvocationSchema, extensionAgentRpc } from '../../../shared/extensions/extensionAgent'
+import { networkPermissionGrantSchema, networkPermissionsRpc } from '../../../shared/permissions/networkPermissionsRpc'
 import { isLinux } from '../../../shared/platform/identifiers'
 import { developerToolsRpc } from '../../../shared/runtime/developerTools'
 import { runtimePreferencesRpc } from '../../../shared/runtime/runtimePreferences'
@@ -206,6 +207,12 @@ export class DesktopRuntimeHost {
           }),
           peer.onRequest(runtimePreferencesRpc.get, () => this.#config!.runtime),
           peer.onRequest(developerToolsRpc.get, () => this.#config?.desktop.developerToolsEnabled ?? false),
+          peer.onRequest(networkPermissionsRpc.get, async () => (await this.configStore.read()).browser.networkPermissions),
+          peer.onRequest(networkPermissionsRpc.allow, async (params, signal) => {
+            const input = networkPermissionGrantSchema.parse(params)
+            await this.configStore.allowNetworkPermission(input.host, input.operation, () => signal?.throwIfAborted())
+            return {}
+          }),
           registerExtensionAuthoringRpc(peer, (id) => {
             if (!this.inspectExtension)
               throw new Error('EXTENSION_SERVICE_UNAVAILABLE')

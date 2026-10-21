@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import type { BuddyThinkingLevel } from '@buddy-shared/conversation/modelSelection'
 
-import type { BuddyApprovalPolicy } from '@buddy-shared/permissions/approvalPolicy'
 import type { BuddyExecutionProfile } from '@buddy-shared/permissions/executionProfile'
-import type { BuddyPermissionSettings } from '@buddy-shared/permissions/permissionMode'
 import type { LocalProvider, LocalRuntimeModelOption } from '@buddy-shared/providers/providerApi'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import { resolveBuddyPermissionMode, resolveBuddyPermissionSettings } from '@buddy-shared/permissions/permissionMode'
@@ -18,7 +16,6 @@ import { createChatComposerContentFromText } from '@/modules/prompt-input'
 import { DesktopChatComposerFrame, DesktopPermissionModeSelector } from '@/modules/prompt-input/ui'
 
 const props = defineProps<{
-  approvalPolicy: BuddyApprovalPolicy
   executionProfile: BuddyExecutionProfile
   language: BuddyLocale
   models: ReadonlyArray<LocalRuntimeModelOption>
@@ -30,7 +27,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   updateEffort: [value: BuddyThinkingLevel | null]
-  updatePermissionSettings: [value: BuddyPermissionSettings]
+  updateExecutionProfile: [value: BuddyExecutionProfile]
   updateModel: [value: string | null]
   updatePrompt: [value: string]
 }>()
@@ -38,7 +35,7 @@ const emit = defineEmits<{
 const { t } = useBuddyI18n(() => props.language)
 const themeVars = useThemeVars()
 const permissionMode = computed(() => resolveBuddyPermissionMode({
-  approvalPolicy: props.approvalPolicy,
+  approvalPolicy: 'policy',
   executionProfile: props.executionProfile,
 }))
 const availableModels = computed(() => props.models.filter(model => model.available && model.enabled))
@@ -105,7 +102,7 @@ watch(
         :language="language"
         :permission-mode="permissionMode"
         session-mode="automation_background"
-        @update-permission-mode="emit('updatePermissionSettings', resolveBuddyPermissionSettings($event))"
+        @update-permission-mode="emit('updateExecutionProfile', resolveBuddyPermissionSettings($event).executionProfile)"
       />
     </template>
 

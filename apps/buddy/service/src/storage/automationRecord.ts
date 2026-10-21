@@ -13,8 +13,6 @@ export interface AutomationRow {
   actor_id: string | null
   active_from: string | null
   active_until: string | null
-  approval_allowlist_json: string
-  approval_policy: Automation['approvalPolicy']
   blocked_reason: Automation['blockedReason']
   created_at: string
   deleted_at: string | null
@@ -44,8 +42,6 @@ export function createAutomationExecutionSnapshot(
   const automation = toAutomationRecord(row)
   return automationExecutionSnapshotSchema.parse({
     actorId: automation.actorId ?? null,
-    approvalAllowlist: automation.approvalAllowlist,
-    approvalPolicy: automation.approvalPolicy,
     executionProfile: automation.executionProfile,
     model: automation.model,
     name: automation.name,
@@ -66,8 +62,6 @@ export function requireAutomationRecord(value: unknown, id: string): Automation 
 export function toAutomationRecord(row: AutomationRow): Automation {
   return automationSchema.parse({
     actorId: row.actor_id ?? null,
-    approvalAllowlist: JSON.parse(row.approval_allowlist_json),
-    approvalPolicy: row.approval_policy,
     blockedReason: row.blocked_reason,
     createdAt: row.created_at,
     executionProfile: row.execution_profile,

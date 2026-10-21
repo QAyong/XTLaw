@@ -12,6 +12,7 @@ import { BrowserDebugger } from './BrowserDebugger'
 import { BrowserElementPicker } from './BrowserElementPicker'
 import { BrowserHostError } from './BrowserHostError'
 import { browserNoticeOrigin, fileChooserFilters } from './browserHumanActions'
+import { BrowserNetworkAuthorization } from './BrowserNetworkAuthorization'
 import { BrowserPageActivity } from './BrowserPageActivity'
 import { BrowserSecurityPolicy, isLoopbackBrowserUrl } from './BrowserSecurityPolicy'
 import { SemanticBrowserDriver } from './SemanticBrowserDriver'
@@ -108,6 +109,7 @@ const BLOCKED_NOTICE_DEDUPE_MS = 3_000
 const HUMAN_ACTION_TTL_MS = 1_000
 
 export class BrowserPageSession {
+  readonly networkAuthorization = new BrowserNetworkAuthorization()
   actionTail = Promise.resolve()
   activeNavigationSequence: number | null = null
   agentActionDepth = 0
@@ -339,6 +341,7 @@ export class BrowserPageSession {
     })
     this.securityPolicy = new BrowserSecurityPolicy({
       allowDownload: () => this.#consumeHumanGesture(true) !== null,
+      authorizeNetwork: this.networkAuthorization.authorize,
       connection: this.#connection,
       onDownloadBlocked: () => this.#reportBlocked('download', 'Download blocked: start it with a fresh click while you control the page'),
       onDownloadStarted: item => this.#trackDownload(item),
@@ -847,6 +850,7 @@ export class BrowserPageSession {
   }
 
   releasePage(): void {
+    this.networkAuthorization.dispose()
     this.cancelDownloads()
     this.state.viewport = null
     this.state.favicon = null

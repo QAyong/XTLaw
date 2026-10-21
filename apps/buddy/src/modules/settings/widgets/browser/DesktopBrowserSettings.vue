@@ -6,6 +6,7 @@ import { NButton, NInputNumber, NSelect, NSwitch, useMessage } from 'naive-ui'
 import { computed, shallowRef } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import DesktopBrowserClearDataDialog from './DesktopBrowserClearDataDialog.vue'
+import DesktopNetworkPermissions from './DesktopNetworkPermissions.vue'
 
 const props = defineProps<ApplicationSettingsProps & { browser: Pick<DesktopBrowserApi, 'getDataSummary' | 'clearData'> }>()
 const { t } = useBuddyI18n(() => props.language)
@@ -22,13 +23,15 @@ const screenshotOptions = computed(() => [
 ])
 const zoomOptions = BROWSER_ZOOM_FACTORS.map(value => ({ label: `${Math.round(value * 100)}%`, value }))
 
-async function update(patch: LexoraConfigPatch) {
+async function update(patch: LexoraConfigPatch): Promise<boolean> {
   if (pending.value)
-    return
+    return false
   pending.value = true
   try {
-    if (!await props.updateSettings(patch))
+    const saved = await props.updateSettings(patch)
+    if (!saved)
       message.error(t('desktop.settings.saveFailed'))
+    return saved
   }
   finally { pending.value = false }
 }
@@ -62,6 +65,7 @@ async function update(patch: LexoraConfigPatch) {
         </div>
       </div>
     </section>
+    <DesktopNetworkPermissions :value="config.browser.networkPermissions" :language="language" :pending="pending" :save="networkPermissions => update({ browser: { networkPermissions } })" />
     <section class="desktop-browser-settings__section">
       <h2>{{ t('desktop.browser.freezing') }}</h2>
       <p class="desktop-browser-settings__hint">

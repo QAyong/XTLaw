@@ -16,7 +16,6 @@ import { containsCanonicalPath } from '../../../platform/filesystem/filePaths'
 import { sandboxDirectoryRequestSchema } from '../../../shared/permissions/shellSandbox'
 import { ShellPolicy } from '../approvals/ShellPolicy'
 import { validateSandboxDirectory } from '../sandbox/SandboxDirectoryPermissions'
-import { isAskCoveredByAllowlist } from './approvalAllowlist'
 import { classifyPath, PathClassificationError, toGrantRoot } from './classifyPath'
 import { lookupPermissionOutcome } from './decisionTable'
 import { allow, ask, deny } from './permissionContract'
@@ -83,6 +82,8 @@ export class PermissionEngine {
 
   async #decide(request: PermissionRequest): Promise<PermissionDecision> {
     const access = request.access ?? BUILTIN_TOOL_ACCESS[request.toolName] ?? null
+    if (request.networkPermission === 'deny')
+      return deny('NETWORK_PERMISSION_DENIED', 'profile')
     if (request.shellBoundary === 'sandbox' && request.toolName === 'lexora_authorize_directory')
       return this.#decideSandboxDirectory(request)
     if (request.toolName === 'lexora_host_shell') {
@@ -134,7 +135,11 @@ export class PermissionEngine {
     )
     return finalizeDecision(
       request,
-      applyApprovalPolicy(request, access, classifications, decision),
+      applyApprovalPolicy(request, access, classifications, access === 'network' && request.networkPermission && decision.type !== 'deny'
+        ? request.networkPermission === 'allow' && !request.forceAsk
+          ? allow()
+          : ask({ kind: 'network', summary: request.approval?.summary ?? summaryFor('network') })
+        : decision),
     )
   }
 
@@ -474,11 +479,9 @@ function finalizeDecision(
         summary: request.approval?.summary ?? summaryFor(request.access ?? 'interaction'),
       })
     : decision
-  if (requiredDecision.type !== 'ask' || request.approvalAvailable)
-    return requiredDecision
-  return request.allowlist && isAskCoveredByAllowlist(requiredDecision, request.allowlist)
-    ? requiredDecision
-    : deny('APPROVAL_UNAVAILABLE_IN_BACKGROUND', 'profile')
+  return requiredDecision.type === 'ask' && !request.approvalAvailable
+    ? deny('APPROVAL_UNAVAILABLE_IN_BACKGROUND', 'profile')
+    : requiredDecision
 }
 
 function toDecisionPaths(

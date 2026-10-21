@@ -1,18 +1,16 @@
 <script setup lang="ts">
 import type { LocalApproval } from '@buddy-shared/permissions/approvalApi'
 import type { ApprovalGrantScope, ApprovalReuseScope, ApprovalReviewPayload } from '@buddy-shared/permissions/approvalReviewPayload'
-import type { BuddyPermissionMode } from '@buddy-shared/permissions/permissionMode'
+import type { BuddyExecutionProfile } from '@buddy-shared/permissions/executionProfile'
 import type { DropdownOption } from 'naive-ui'
 import type { CSSProperties } from 'vue'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import type { ChatApprovalDecision } from '@/modules/tasks/model/runs/typing'
 import { approvalReviewPayloadSchema } from '@buddy-shared/permissions/approvalReviewPayload'
-import { resolveBuddyPermissionMode } from '@buddy-shared/permissions/permissionMode'
 import { ChevronUp16Regular, ShieldError20Regular, Warning20Regular } from '@vicons/fluent'
 import { NButton, NDescriptions, NDescriptionsItem, NDropdown } from 'naive-ui'
 import { computed, h, shallowRef } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
-import DesktopApprovalAllowlist from '@/shared/ui/approval-allowlist/DesktopApprovalAllowlist.vue'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import { translateSystemAction, translateSystemInterruption } from '../../model/approvals/systemActionPresentation'
 import { useExecutionTree } from '../../state/runs/chatExecutionContext'
@@ -53,11 +51,10 @@ const browserEffectKeys = {
   'send': 'desktop.approval.browser.effect.send',
   'submit': 'desktop.approval.browser.effect.submit',
 } as const
-const permissionModeKeys: Record<BuddyPermissionMode, 'desktop.chat.permissionModeManual' | 'desktop.chat.permissionModePolicy' | 'desktop.chat.executionProfileFull' | 'desktop.chat.executionProfileReadOnly'> = {
+const executionProfileKeys: Record<BuddyExecutionProfile, 'desktop.chat.permissionModePolicy' | 'desktop.chat.executionProfileFull' | 'desktop.chat.executionProfileReadOnly'> = {
   full_access: 'desktop.chat.executionProfileFull',
-  manual_approval: 'desktop.chat.permissionModeManual',
-  policy_approval: 'desktop.chat.permissionModePolicy',
   read_only: 'desktop.chat.executionProfileReadOnly',
+  workspace_write: 'desktop.chat.permissionModePolicy',
 }
 const review = computed<ApprovalReviewPayload | null>(() => {
   const parsed = approvalReviewPayloadSchema.safeParse(props.approval.payload)
@@ -111,7 +108,8 @@ const browserAction = computed(() => {
   return t(`desktop.approval.browser.action.${review.value.action}`)
 })
 const approvalOperation = computed(() => (
-  systemEffect.value
+  (review.value?.card === 'network-permission' ? t(`desktop.approval.network.${review.value.operation}`) : '')
+  || systemEffect.value
   || browserEffect.value
   || (props.approval.kind === 'mcp' && props.approval.summary.trim())
   || t(`desktop.approval.kind.${props.approval.kind}`)
@@ -138,13 +136,26 @@ const approvalDescription = computed(() => (
               ? t('desktop.approval.paths.grantDescription')
               : t('desktop.approval.scopeReview')
 ))
-const approveActionLabel = computed(() => (
-  review.value?.card === 'sandbox-directory'
-    ? t('desktop.approval.sandbox.approveDirectory')
-    : review.value?.card === 'paths' && review.value.grant
-      ? t('desktop.approval.paths.approveAndGrantAction')
-      : t('approvalAction.approve')
-))
+const approveActionLabel = computed(() => review.value?.card === 'sandbox-directory'
+  ? t('desktop.approval.sandbox.approveDirectory')
+  : t('approvalAction.approve'))
+const canPersist = computed(() => {
+  const value = review.value
+  return value?.card === 'network-permission'
+    ? value.canPersist
+    : value?.card === 'paths'
+      ? Boolean(value.canPersist && value.grant)
+      : value?.card === 'sandbox-directory' && Boolean(value.persistentDirectory)
+})
+const persistentNotice = computed(() => {
+  const value = review.value
+  if (!canPersist.value || !value)
+    return ''
+  if (value.card === 'network-permission')
+    return t('desktop.approval.network.persistNotice', { host: value.host, operation: t(`desktop.approval.network.${value.operation}`) })
+  const grant = value.card === 'sandbox-directory' ? value.persistentDirectory : value.card === 'paths' ? value.grant : null
+  return grant ? t(grant.owner === 'space' ? 'desktop.approval.paths.grantSpace' : 'desktop.approval.paths.grantConversation', { root: grant.root }) : ''
+})
 const headingId = computed(() => `desktop-approval-${props.approval.id}-title`)
 const isResolving = computed(() => props.resolvingAction !== null)
 const scopeMenuOpen = shallowRef(false)
@@ -152,10 +163,27 @@ const reuseScopes = computed<readonly ApprovalReuseScope[]>(() => (
   review.value?.reuseScopes
   ?? (review.value?.allowForTurn ? ['turn'] : [])
 ))
-const reuseOptions = computed<DropdownOption[]>(() => reuseScopes.value.map(scope => ({
-  key: scope,
-  label: scopeLabel(scope),
-})))
+const reuseOptions = computed<DropdownOption[]>(() => [
+  ...(reuseScopes.value.length
+    ? [{
+        type: 'group' as const,
+        key: 'temporary',
+        label: t('approvalAction.temporary'),
+        children: reuseScopes.value.map(scope => ({ key: scope, label: scopeLabel(scope) })),
+      }]
+    : []),
+  ...(canPersist.value
+    ? [{
+        type: 'group' as const,
+        key: 'saved',
+        label: t('approvalAction.saved'),
+        children: [{
+          key: 'persistent',
+          label: t(review.value?.card === 'network-permission' ? 'approvalAction.saveWebsite' : 'approvalAction.saveDirectory'),
+        }],
+      }]
+    : []),
+])
 function scopeLabel(scope: ApprovalReuseScope) {
   if (scope === 'turn')
     return t('approvalAction.approveFor.turn')
@@ -165,6 +193,7 @@ function scopeLabel(scope: ApprovalReuseScope) {
     return t('approvalAction.approveFor.operation')
   }
   switch (review.value?.card) {
+    case 'network-permission': return t('approvalAction.reuse.networkTarget')
     case 'sandbox-network': return t('approvalAction.reuse.networkTarget')
     case 'network-target': return t('approvalAction.reuse.website')
     case 'web': return t(review.value.operation === 'search' ? 'approvalAction.reuse.searchProvider' : 'approvalAction.reuse.website')
@@ -177,7 +206,9 @@ function scopeLabel(scope: ApprovalReuseScope) {
   }
 }
 function approveForScope(scope: string | number) {
-  if (typeof scope === 'string' && reuseScopes.value.includes(scope as ApprovalReuseScope))
+  if (scope === 'persistent' && canPersist.value)
+    emit('approve', 'persistent')
+  else if (typeof scope === 'string' && reuseScopes.value.includes(scope as ApprovalReuseScope))
     emit('approve', scope as ApprovalReuseScope)
 }
 function renderScopeLabel(option: DropdownOption) {
@@ -215,6 +246,9 @@ function renderScopeLabel(option: DropdownOption) {
         </span>
       </div>
     </header>
+    <p v-if="persistentNotice" class="text-muted text-[length:var(--buddy-chat-caption-font-size)] leading-[var(--buddy-chat-caption-line-height)]">
+      {{ persistentNotice }}
+    </p>
     <section
       v-if="review?.card === 'automation'"
       class="desktop-approval-card__details"
@@ -242,13 +276,7 @@ function renderScopeLabel(option: DropdownOption) {
           {{ review.modelMode }}
         </NDescriptionsItem>
         <NDescriptionsItem :label="t('desktop.approval.automation.executionProfile')">
-          {{ t(permissionModeKeys[resolveBuddyPermissionMode(review)]) }}
-        </NDescriptionsItem>
-        <NDescriptionsItem
-          v-if="review.approvalPolicy === 'policy' && review.executionProfile === 'workspace_write'"
-          :label="t('desktop.approval.automation.allowlist')"
-        >
-          <DesktopApprovalAllowlist :entries="review.approvalAllowlist" :language="language" />
+          {{ t(executionProfileKeys[review.executionProfile]) }}
         </NDescriptionsItem>
       </NDescriptions>
     </section>
@@ -265,6 +293,19 @@ function renderScopeLabel(option: DropdownOption) {
         </NDescriptionsItem>
         <NDescriptionsItem :label="t('desktop.approval.reason')">
           {{ review.reason }}
+        </NDescriptionsItem>
+      </NDescriptions>
+    </section>
+    <section v-else-if="review?.card === 'network-permission'" class="desktop-approval-card__details">
+      <NDescriptions v-bind="detailsProps">
+        <NDescriptionsItem :label="t('desktop.approval.target')">
+          <code>{{ review.host }}<template v-if="review.port"> · {{ review.port }}</template></code>
+        </NDescriptionsItem>
+        <NDescriptionsItem :label="t('desktop.approval.effect')">
+          {{ t(`desktop.approval.network.${review.operation}`) }}
+        </NDescriptionsItem>
+        <NDescriptionsItem v-if="review.command" :label="t('desktop.approval.runCommand')">
+          <pre>{{ review.command }}</pre>
         </NDescriptionsItem>
       </NDescriptions>
     </section>

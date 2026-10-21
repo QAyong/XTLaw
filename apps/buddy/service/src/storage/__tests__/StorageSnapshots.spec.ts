@@ -36,7 +36,7 @@ it('creates portable snapshots without credentials or recursive backups and rest
   const database = openBuddyDatabase({ databasePath: join(root, 'buddy', 'buddy.sqlite3') })
   database.prepare('INSERT INTO provider_states (provider_id, enabled, created_at, updated_at, request_headers_json) VALUES (?, 1, ?, ?, ?)').run('fixture', 'now', 'now', '[{"name":"Authorization","value":"synthetic-token"}]')
   const automations = new AutomationService({ repositories: createAutomationRepositories(database) })
-  const automation = automations.create({ requestId: randomUUID(), draft: { approvalAllowlist: [], approvalPolicy: 'policy', executionProfile: 'workspace_write', model: { mode: 'default' }, name: 'Fixture', spaceId: null, prompt: 'Fixture task', timing: { activeFrom: null, activeUntil: null, schedule: { cadence: 'daily', kind: 'calendar', localTime: '09:30' }, timezone: 'UTC' } } })
+  const automation = automations.create({ requestId: randomUUID(), draft: { executionProfile: 'workspace_write', model: { mode: 'default' }, name: 'Fixture', spaceId: null, prompt: 'Fixture task', timing: { activeFrom: null, activeUntil: null, schedule: { cadence: 'daily', kind: 'calendar', localTime: '09:30' }, timezone: 'UTC' } } })
   const occurrence = automations.runNow({ automationId: automation.id, expectedRevision: 1, requestId: randomUUID() }).occurrence
   database.prepare('UPDATE automation_occurrences SET lease_owner = ?, lease_expires_at = ? WHERE id = ?').run('old-scheduler', '2099-01-01T00:00:00Z', occurrence.id)
   database.close()

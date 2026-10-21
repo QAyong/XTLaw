@@ -157,8 +157,6 @@ function createRpcHarness() {
 
 function dailyDraft(spaceId: string): AutomationDefinitionDraft {
   return {
-    approvalAllowlist: [],
-    approvalPolicy: 'policy',
     executionProfile: 'workspace_write',
     model: { mode: 'default' },
     name: 'Space automation',

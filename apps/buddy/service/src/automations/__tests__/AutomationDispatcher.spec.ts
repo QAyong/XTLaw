@@ -297,8 +297,6 @@ function createFixture() {
     }
     const automation = service.create({
       draft: {
-        approvalAllowlist: [],
-        approvalPolicy: 'policy',
         executionProfile: input.executionProfile ?? 'workspace_write',
         model: input.model,
         name: 'Automation',

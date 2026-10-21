@@ -223,8 +223,6 @@ function createFixture(initialTime: string) {
 
 function dailyDraft() {
   return {
-    approvalAllowlist: [],
-    approvalPolicy: 'policy' as const,
     executionProfile: 'workspace_write' as const,
     model: { mode: 'default' as const },
     name: 'Daily',
@@ -241,8 +239,6 @@ function dailyDraft() {
 
 function hourlyDraft(anchorAt: string) {
   return {
-    approvalAllowlist: [],
-    approvalPolicy: 'policy' as const,
     executionProfile: 'workspace_write' as const,
     model: { mode: 'default' as const },
     name: 'Hourly',
@@ -259,8 +255,6 @@ function hourlyDraft(anchorAt: string) {
 
 function onceDraft(runAt: string) {
   return {
-    approvalAllowlist: [],
-    approvalPolicy: 'policy' as const,
     executionProfile: 'workspace_write' as const,
     model: { mode: 'default' as const },
     name: 'Once',

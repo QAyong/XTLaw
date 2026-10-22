@@ -12,9 +12,6 @@ import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import DesktopTaskMarkOption from './DesktopTaskMarkOption.vue'
 import DesktopTaskMarkSwatch from './DesktopTaskMarkSwatch.vue'
 
-// 下拉菜单挂在 body 上，作用域样式不生效，空间名过长时用内联样式限宽并省略。
-const spaceNameStyle = { display: 'block', maxWidth: '14rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
-
 interface TaskMenuSource {
   taskId: string | null
   title: string
@@ -30,10 +27,8 @@ export function useTaskMenuActions(options: {
   clearMarks: (taskId: string) => void
   setRead: (taskId: string, read: boolean) => void
   manageMarks?: () => void
-  /** 仅无空间任务传入；为空数组时菜单项置灰。 */
-  moveTargets?: () => ReadonlyArray<{ id: string, name: string }> | undefined
-  movable?: () => boolean
-  moveToSpace?: (taskId: string, spaceId: string) => void
+  moveToSpaceAvailable?: () => boolean | undefined
+  moveToSpace?: (taskId: string) => void
 }) {
   const { t } = useBuddyI18n(options.language)
   const { clipboard, conversationExport } = useTaskEnvironment()
@@ -80,17 +75,14 @@ export function useTaskMenuActions(options: {
   })
 
   function moveActions(): DropdownOption[] {
-    const targets = options.moveTargets?.()
-    if (!targets)
+    const available = options.moveToSpaceAvailable?.()
+    if (available === undefined)
       return []
     return [{
       key: 'move-to-space',
       icon: () => h(DesktopIcon, { component: FolderArrowRight20Regular }),
       label: t('desktop.tasks.moveToSpace'),
-      disabled: !options.movable?.() || targets.length === 0,
-      children: targets.length
-        ? targets.map(space => ({ key: `move:${space.id}`, label: () => h('span', { title: space.name, style: spaceNameStyle }, space.name) }))
-        : [{ key: 'move-empty', label: t('desktop.tasks.moveToSpaceEmpty'), disabled: true }],
+      disabled: !available,
     }]
   }
 
@@ -127,8 +119,8 @@ export function useTaskMenuActions(options: {
       options.manageMarks?.()
     if (typeof action === 'string' && action.startsWith('mark:'))
       options.assignMark(task.taskId, action.slice(5))
-    if (typeof action === 'string' && action.startsWith('move:'))
-      options.moveToSpace?.(task.taskId, action.slice(5))
+    if (action === 'move-to-space' && options.moveToSpaceAvailable?.())
+      options.moveToSpace?.(task.taskId)
     const copyText = action === 'copy-task-reference'
       ? formatSessionReferenceClipboard({ id: task.taskId, title: task.title.slice(0, 80) })
       : action === 'copy-task-id' ? task.taskId : action === 'copy-title' ? task.title : null

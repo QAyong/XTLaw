@@ -18,6 +18,7 @@ interface TaskIndexOptions {
   applicationSettings: ApplicationSettings
   ready: Readonly<Ref<boolean>>
   beforeTaskDelete?: (id: string) => Promise<boolean>
+  beforeTaskMove?: (id: string) => Promise<boolean>
   onTaskDeleted?: (id: string) => void | Promise<void>
   onSpaceCreated?: (id: string) => Promise<void>
 }
@@ -119,16 +120,12 @@ export function useTaskIndex(options: TaskIndexOptions) {
       }
     },
     async moveTaskToSpace(id, spaceId) {
-      try {
-        const conversation = await api.conversations.moveToSpace(id, spaceId)
-        if (!disposed)
-          data.applyConversation(conversation)
-        return true
-      }
-      catch (error) {
-        setError(error)
+      if (options.beforeTaskMove && !await options.beforeTaskMove(id))
         return false
-      }
+      const conversation = await api.conversations.moveToSpace(id, spaceId)
+      if (!disposed)
+        data.applyConversation(conversation)
+      return true
     },
     async selectSpaceDirectory() {
       try {

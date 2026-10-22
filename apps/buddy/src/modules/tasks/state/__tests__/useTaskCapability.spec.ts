@@ -17,6 +17,25 @@ import { useTaskIndex } from '../task-index/useTaskIndex'
 import { useTaskCapability } from '../useTaskCapability'
 
 describe('useTaskCapability', () => {
+  it('updates the loaded conversation scope after a move without replacing its composer draft', async () => {
+    const api = createBranchingDesktopApi()
+    vi.stubGlobal('window', Object.assign(globalThis, { lexoraDesktop: api }))
+    const chat = createTestTask(api, { conversationId: 'conversation-1', branchId: 'branch-root', spaceId: null })
+    await chat.initialize()
+    chat.workspace.composer.updateComposerContent('Unsent work', { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Unsent work' }] }] })
+    await chat.flushDrafts()
+    const draftId = chat.workspace.composer.draftId.value
+    const current = chat.session.activeTask.value!
+    const listeners = vi.mocked(api.localChat.conversations.onChanged).mock.calls.map(call => call[0])
+    for (const listener of listeners)
+      listener({ ...current, spaceId: 'target-space' })
+    expect(chat.session.spaceId.value).toBe('target-space')
+    expect(chat.session.activeTask.value?.spaceId).toBe('target-space')
+    expect(chat.workspace.composer.draftId.value).toBe(draftId)
+    expect(JSON.stringify(chat.workspace.composer.composerContent.value)).toContain('Unsent work')
+    chat.dispose()
+  })
+
   it('loads conversation content while input restores even when branch loading fails', async () => {
     const api = createBranchingDesktopApi()
     vi.stubGlobal('window', Object.assign(globalThis, { lexoraDesktop: api }))
@@ -1137,7 +1156,7 @@ function createDesktopApi() {
       },
       conversations: {
         onTimelineChanged: vi.fn(() => () => {}),
-        onChanged: () => () => {},
+        onChanged: vi.fn(() => () => {}),
         activateBranch: vi.fn(),
         delete: vi.fn(),
         list: conversationsList,

@@ -71,6 +71,7 @@ const taskIndex = useTaskIndex({
   ready: computed(() => stores.runtimeSupervisor.runtimeState.value.status === 'ready'),
   onTaskDeleted,
   beforeTaskDelete,
+  beforeTaskMove,
   onSpaceCreated,
 })
 const diagnostics = createRendererDiagnostics(api.app.logs)
@@ -192,6 +193,9 @@ function getResources() {
 const capabilities = createDesktopCapabilities({ api, stores, selectedModel: computed(() => selectedTask.value?.workspace.composer.selectedModel.value ?? null), onAutomationRunFailure: error => message.error(error) })
 function onSpaceCreated(id: string) {
   return workbench.newTask({ spaceId: id })
+}
+async function beforeTaskMove(id: string) {
+  return await workbench.pool.peek({ scheme: 'task', id, data: {} })?.flushDrafts() ?? true
 }
 function beforeTaskDelete(id: string) {
   return workbench.prepareTaskDeletion(id)

@@ -3,15 +3,19 @@ import type { SandboxBackendInput } from '../../../../../shared/permissions/shel
 import type { SHELL_SANDBOX_BACKEND } from '../../../../../shared/platform/identifiers'
 import type { SandboxExecutionOptions } from '../../sandboxExecutionLifecycle'
 import { randomBytes } from 'node:crypto'
+import process from 'node:process'
 import { createHttpProxyServer } from '@anthropic-ai/sandbox-runtime/dist/sandbox/http-proxy.js'
 import { resolveParentProxy } from '@anthropic-ai/sandbox-runtime/dist/sandbox/parent-proxy.js'
 import { createResolvedAddressGuard } from '@anthropic-ai/sandbox-runtime/dist/sandbox/resolved-address-guard.js'
 import { createWindowsSandboxEnvironment } from '../../../../../platform/process/sandboxEnvironment'
+import { buildShellInvocation } from '../../../../../platform/process/shellPrograms'
 import { runWindowsSandboxProcess } from '../../../../../platform/process/windowsSandboxProcess'
 import { ShellSandboxError } from '../../../../../shared/permissions/shellSandbox'
 import { createWindowsSandboxPolicy } from './createPolicy'
 
 export async function runWindowsSandbox(input: SandboxBackendInput<typeof SHELL_SANDBOX_BACKEND.Windows>, options: SandboxExecutionOptions): Promise<number | null> {
+  const program = input.shell ?? { dialect: 'powershell' as const, executable: input.backend.shell }
+  buildShellInvocation(program, input.command)
   const { grants, path } = await createWindowsSandboxPolicy(input, options.signal)
   const token = randomBytes(32).toString('hex')
   const guard = createResolvedAddressGuard({ deniedResolvedAddresses: ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', '100.64.0.0/10', 'fc00::/7'] })
@@ -38,13 +42,16 @@ export async function runWindowsSandbox(input: SandboxBackendInput<typeof SHELL_
     return await runWindowsSandboxProcess(input.backend.executable, {
       command: input.command,
       cwd: input.cwd,
-      shell: input.backend.shell,
+      shell: program.executable,
+      ...(input.shell ? { dialect: program.dialect } : {}),
       privateRoot: input.privateRoot,
       grants,
       denyReadScope: input.backend.protectionScope,
       proxyPort: address.port,
-      environment: createWindowsSandboxEnvironment({
+      environment: createWindowsSandboxEnvironment(process.env, {
         ...input.backend,
+        shell: program.executable,
+        dialect: program.dialect,
         privateRoot: input.privateRoot,
         path,
         proxyUrl: `http://srt:${token}@127.0.0.1:${address.port}`,

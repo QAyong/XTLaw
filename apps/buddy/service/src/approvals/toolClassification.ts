@@ -9,6 +9,7 @@ import type { AccessKind, PermissionPath } from '../permissions/permissionContra
 import type { ApprovalAuthorizationOverride } from './approvalAuthorization'
 
 export interface BuddyToolClassification {
+  networkManaged?: boolean
   access?: AccessKind
   approval?: {
     automation?: AutomationApprovalReviewInput
@@ -22,6 +23,7 @@ export interface BuddyToolClassification {
   forceAsk?: boolean
   requireApproval?: boolean
   shellBoundary?: 'sandbox'
+  shellDialect?: import('../../../shared/shell/shellProgram').ShellDialect
   paths?: readonly PermissionPath[]
   validateBeforeExecution?: () => Promise<BuddyToolClassificationFailure | null>
 }

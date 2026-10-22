@@ -19,6 +19,7 @@ import { resolveWindowsPowerShell } from '../../../platform/windows/powerShell'
 import { automationNotifications } from '../../../shared/automation/automationApi'
 import { contextPanelRpc, contextPanelSourceSchema } from '../../../shared/context-panel/contextPanel'
 import { extensionAgentInvocationSchema, extensionAgentRpc } from '../../../shared/extensions/extensionAgent'
+import { networkPermissionGrantSchema, networkPermissionsRpc } from '../../../shared/permissions/networkPermissionsRpc'
 import { isLinux } from '../../../shared/platform/identifiers'
 import { runtimePreferencesRpc } from '../../../shared/runtime/runtimePreferences'
 import { installAttachmentProtocol } from '../attachmentProtocol'
@@ -28,6 +29,7 @@ import { LexoraConfigStore } from '../config/LexoraConfigStore'
 import { ContextPanelHost } from '../context-panel/ContextPanelHost'
 import { DesktopPerformanceMonitor } from '../diagnostics/DesktopPerformanceMonitor'
 import { registerExtensionAuthoringRpc } from '../extensions/registerExtensionAuthoringRpc'
+import { registerExtensionShellRpc } from '../extensions/registerExtensionShellRpc'
 import { DesktopNetwork } from '../network/DesktopNetwork'
 import { registerWebHostRpc } from '../network/registerWebHostRpc'
 import { createDesktopFeatures } from '../platform/desktopFeatures'
@@ -44,6 +46,8 @@ export class DesktopRuntimeHost {
   readonly performance: DesktopPerformanceMonitor
   inspectExtension: ((id: string) => Promise<ExtensionInspection>) | null = null
   extensionAgent: ReturnType<typeof registerExtensionIpc>['agent'] | null = null
+  extensionShells: ReturnType<typeof registerExtensionIpc>['shells'] | null = null
+  extensionStorage: Pick<ReturnType<typeof registerExtensionIpc>, 'withStoppedStorage'> | null = null
   readonly contextPanel: ContextPanelHost
   readonly configStore: LexoraConfigStore
   readonly #environment: DesktopEnvironment
@@ -78,6 +82,11 @@ export class DesktopRuntimeHost {
 
   get config(): LexoraConfig | null {
     return this.#config
+  }
+
+  withStoppedStorage<T>(operation: () => Promise<T>): Promise<T> {
+    const stopped = () => this.service.withStoppedStorage(operation)
+    return this.extensionStorage ? this.extensionStorage.withStoppedStorage(stopped) : stopped()
   }
 
   get language(): LexoraConfig['desktop']['language'] {
@@ -196,6 +205,7 @@ export class DesktopRuntimeHost {
           sandboxProcess: { phase: event.kind, pid: event.pid, exitCode: event.exitCode },
         }))
         const disposers = [
+          registerExtensionShellRpc(peer, () => this.extensionShells),
           peer.onRequest(extensionAgentRpc.list, () => this.extensionAgent?.list() ?? []),
           peer.onRequest(extensionAgentRpc.invoke, (input, signal) => {
             if (!this.extensionAgent)
@@ -203,6 +213,12 @@ export class DesktopRuntimeHost {
             return this.extensionAgent.invoke(extensionAgentInvocationSchema.parse(input), signal ?? new AbortController().signal)
           }),
           peer.onRequest(runtimePreferencesRpc.get, () => this.#config!.runtime),
+          peer.onRequest(networkPermissionsRpc.get, async () => (await this.configStore.read()).browser.networkPermissions),
+          peer.onRequest(networkPermissionsRpc.allow, async (params, signal) => {
+            const input = networkPermissionGrantSchema.parse(params)
+            await this.configStore.allowNetworkPermission(input.host, input.operation, () => signal?.throwIfAborted())
+            return {}
+          }),
           registerExtensionAuthoringRpc(peer, (id) => {
             if (!this.inspectExtension)
               throw new Error('EXTENSION_SERVICE_UNAVAILABLE')

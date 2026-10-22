@@ -541,21 +541,23 @@ export class ComposerResourceService {
     const conversation = this.#conversations?.findById(source.conversationId)
     if (!artifact || !conversation)
       throw new AttachmentError('ATTACHMENT_NOT_FOUND')
+    const conversationGrants = this.#conversationGrants?.listActive(conversation.id) ?? []
     const grants = conversation.spaceId
       ? (() => {
           const space = requireActiveSpace(this.#spaces?.findById(conversation.spaceId) ?? null)
-          return [space.primaryDirectory, ...space.additionalDirectories]
+          return [space.primaryDirectory, ...space.additionalDirectories, ...conversationGrants.filter(grant => grant.id === artifact.directoryGrantId)]
         })()
           .filter(grant => grant !== null)
-      : this.#conversationGrants?.listActive(conversation.id) ?? []
+      : conversationGrants
     const ownerId = conversation.spaceId ?? conversation.id
+    const ownedRoot = artifact.directoryGrantId === conversation.id
+      ? this.#paths.conversationWorkspace(conversation.id)
+      : artifact.directoryGrantId === ownerId
+        ? conversation.spaceId ? this.#paths.spaceWorkspace(ownerId) : this.#paths.conversationWorkspace(ownerId)
+        : null
     const grant = grants.find(item => item.id === artifact.directoryGrantId) ?? (
-      artifact.directoryGrantId === ownerId
-        ? {
-            canonicalRoot: await realpath(conversation.spaceId ? this.#paths.spaceWorkspace(ownerId) : this.#paths.conversationWorkspace(ownerId)),
-            id: ownerId,
-            root: conversation.spaceId ? this.#paths.spaceWorkspace(ownerId) : this.#paths.conversationWorkspace(ownerId),
-          }
+      ownedRoot
+        ? { canonicalRoot: await realpath(ownedRoot), id: artifact.directoryGrantId, root: ownedRoot }
         : null
     )
     if (!grant)

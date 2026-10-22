@@ -44,7 +44,7 @@ export interface RegisterConversationRpcOptions {
   attachments: Pick<AttachmentService, 'listForConversation'>
   changes: Pick<ChangeCaptureService, 'listSummariesForRuns'>
   conversations: ConversationRpcRepository
-  metadata: Pick<ConversationMetadataService, 'rename' | 'setPermissionSettings' | 'setModelSelection' | 'getModelControls' | 'listMembers' | 'addMember' | 'removeMember' | 'setBuddy' | 'activateBranch'>
+  metadata: Pick<ConversationMetadataService, 'rename' | 'setPermissionSettings' | 'setModelSelection' | 'getModelControls' | 'listMembers' | 'addMember' | 'removeMember' | 'setBuddy' | 'moveToSpace' | 'activateBranch'>
   deleteConversation: (conversationId: string) => Promise<boolean>
   eventLog: { listForRuns: (runIds: readonly string[]) => BuddyRunEvent[] } & Partial<Pick<RunEventAvailability, 'getRecoveryFailures'>>
   isDeleting: (conversationId: string) => boolean
@@ -82,6 +82,7 @@ export function registerConversationRpc(options: RegisterConversationRpcOptions)
     })
   }))
   disposers.push(registerRuntimeRequest(options.rpc, conversationsRpc.setBuddy, input => options.metadata.setBuddy({ id: input.conversationId, buddyId: input.buddyId })))
+  disposers.push(registerRuntimeRequest(options.rpc, conversationsRpc.moveToSpace, input => options.metadata.moveToSpace({ id: input.conversationId, spaceId: input.spaceId })))
   disposers.push(registerRuntimeRequest(options.rpc, conversationsRpc.setModelSelection, async (input) => {
     return options.metadata.setModelSelection({
       id: input.conversationId,

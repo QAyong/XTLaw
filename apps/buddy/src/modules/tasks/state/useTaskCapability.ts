@@ -216,6 +216,12 @@ export function useTaskCapability(options: UseTaskCapabilityOptions): TaskCapabi
     selectDefaultModel: () => draftModelBinding.restoreScope(),
     session: chatSession,
   })
+  const stopSpaceFollow = api.localChat.conversations.onChanged((conversation) => {
+    if (conversation.id !== activeConversationId.value)
+      return
+    applyConversation(conversation)
+    chatSession.setSpaceId(conversation.spaceId)
+  })
   const workspacePersistence = useTaskWorkspacePersistence({
     beforePersist: composerResources.whenAccepted,
     onDraftRestored: draftModelBinding.restoreOpenedDraft,
@@ -503,6 +509,7 @@ export function useTaskCapability(options: UseTaskCapabilityOptions): TaskCapabi
   }
 
   function dispose() {
+    stopSpaceFollow()
     composerResources.dispose()
     lifecycle.dispose()
     workspacePersistence.dispose()

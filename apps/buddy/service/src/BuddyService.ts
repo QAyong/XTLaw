@@ -9,6 +9,7 @@ import type { BuddyRuntime } from './BuddyRuntime'
 import type { RunEventLogPort } from './events/RunEventPorts'
 import type { BuddyServiceRpcServer } from './rpc/BuddyServiceRpcServer'
 import type { BuddyServiceErrorCode } from './rpc/runtimeRequest'
+import type { ConversationRecord } from './storage/conversationRecord'
 import { randomUUID } from 'node:crypto'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -114,6 +115,7 @@ import { ContextUsageSnapshotService } from './context/ContextUsageSnapshotServi
 import { registerContextRpc } from './context/registerContextRpc'
 import { ConversationLifecycleService } from './conversations/ConversationLifecycleService'
 import { ConversationMetadataService } from './conversations/ConversationMetadataService'
+import { ConversationMutationGuard } from './conversations/ConversationMutationGuard'
 import { createExtensionTaskCapabilities } from './conversations/extensionTaskCapabilities'
 import { ExtensionTaskContext } from './conversations/ExtensionTaskContext'
 import { registerConversationRpc } from './conversations/registerConversationRpc'
@@ -256,6 +258,20 @@ export async function startBuddyService(
     const conversations = createConversationRepository(options.database)
     const conversationHistory = createConversationHistoryStore(options.database)
     const runs = createRunRepository(options.database)
+    const conversationMutations = new ConversationMutationGuard()
+    const conversationAvailability = {
+      assertConversationWritable: (id: string) => {
+        conversationMutations.assertWritable(id)
+        options.eventLog.assertConversationWritable(id)
+      },
+      assertRunExecutable: (id: string) => {
+        const run = runs.findById(id)
+        if (run)
+          conversationMutations.assertWritable(run.conversationId)
+        options.eventLog.assertRunExecutable(id)
+      },
+    }
+    const chatQueue = createChatQueueRepository(options.database)
     const executionRecords = createExecutionRepository(options.database)
     const threads = createThreadBindingRepository(options.database)
     const treeRepository = createConversationTreeRepository(options.database)
@@ -301,7 +317,7 @@ export async function startBuddyService(
     const usageRepository = createUsageRepository(options.database)
     const workspace = createWorkspaceRepository(options.database)
     const turnRequests = await host.start('runtime.turn_requests', ({ defer }) => {
-      const service = new TurnRequestService(createTurnRequestRepository(options.database), () => record({ event: 'observer.failed', component: 'runtime.turn_requests', level: 'warn' }), options.eventLog)
+      const service = new TurnRequestService(createTurnRequestRepository(options.database), () => record({ event: 'observer.failed', component: 'runtime.turn_requests', level: 'warn' }), conversationAvailability)
       const notifications = service.onDidCommit((event) => {
         const conversation = conversations.findById(event.conversationId)
         if (conversation)
@@ -567,6 +583,13 @@ export async function startBuddyService(
         runInputs,
         runs,
         repository: conversations,
+        spaces: spacesRepository,
+        spaceMoves: {
+          mutations: conversationMutations,
+          hasPendingMessages: id => chatQueue.hasPending(id),
+          hasActiveExecution: id => runner.hasActiveExecution(id) || runner.hasDegradedCleanup(id),
+          validateTarget: validateSpaceMoveTarget,
+        },
         sessions: {
           invalidateConversation: id => sessions.invalidateConversationWithResult(id),
           applyPermissionSettings: conversation => sessions.applyConversationPermissions(conversation.id, conversation),
@@ -958,6 +981,18 @@ export async function startBuddyService(
       spaces: spacesRepository,
       skills: skillService,
     })
+    async function validateSpaceMoveTarget(conversation: ConversationRecord, spaceId: string): Promise<void> {
+      if (!conversation.activeBranchId)
+        throw new BuddyServiceError('VALIDATION_FAILED')
+      await sessionBlueprints.createForConversation({
+        approvalPolicy: conversation.approvalPolicy,
+        branchId: conversation.activeBranchId,
+        conversationId: conversation.id,
+        executionProfile: conversation.executionProfile,
+        sessionMode: 'interactive',
+        spaceId,
+      })
+    }
     const sessionRecovery = new BuddySessionRecoveryService({
       usage: usageRepository,
       attachments: attachmentService,
@@ -1006,7 +1041,7 @@ export async function startBuddyService(
     }
     const executionCoordinator = await host.start('runtime.execution_tree', ({ defer }) => {
       const service = new ExecutionCoordinator({
-        availability: options.eventLog,
+        availability: conversationAvailability,
         hostShellSupervision: currentPlatform.hostShellSupervision,
         executions: executionRecords,
         mailbox: createMailboxRepository(options.database),
@@ -1149,6 +1184,7 @@ export async function startBuddyService(
       const service = new ConversationLifecycleService({
         conversations,
         deletion: createConversationDeletionRepository(options.database),
+        assertWritable: id => conversationMutations.assertWritable(id),
         runner,
         cancelQueuedRuns: async (conversationId) => {
           try {
@@ -1246,7 +1282,7 @@ export async function startBuddyService(
     })
     const chatCommandService = await host.start('runtime.chat_commands', ({ defer }) => {
       const service = new ChatCommandService({
-        availability: options.eventLog,
+        availability: conversationAvailability,
         commands: commandRequests,
         conversationLifecycle,
         conversations,
@@ -1318,7 +1354,7 @@ export async function startBuddyService(
       return service
     })
     chatQueueService = await host.start('runtime.chat-queue', async ({ defer }) => {
-      const service = new ChatQueueService({ availability: options.eventLog, queue: createChatQueueRepository(options.database), turns: chatTurnService, requests: turnRequests, launcher: turnLauncher, runner, runs, runInputs, getRunPermissionCeiling, eventLog: options.eventLog, onObserverError: () => record({ event: 'queue.observer_failed', level: 'error' }) })
+      const service = new ChatQueueService({ availability: conversationAvailability, queue: chatQueue, turns: chatTurnService, requests: turnRequests, launcher: turnLauncher, runner, runs, runInputs, getRunPermissionCeiling, eventLog: options.eventLog, onObserverError: () => record({ event: 'queue.observer_failed', level: 'error' }) })
       const actionInputs = service.onDidChange((event) => {
         if (event.committed?.messageId && event.committed.runId)
           extensionActions.dispatch({ type: 'task:input:committed', data: { conversationId: event.scope.conversationId, branchId: event.scope.branchId, runId: event.committed.runId, messageId: event.committed.messageId, commitId: event.committed.commitId } })

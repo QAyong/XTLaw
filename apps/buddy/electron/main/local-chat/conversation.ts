@@ -51,6 +51,8 @@ export function registerConversationIpc(context: LocalChatIpcContext): void {
 
   handle(LOCAL_CHAT_IPC_CHANNELS.conversationsSetBuddy, (_event, input) => request(conversationsRpc.setBuddy, conversationRequestSchemas.conversationBuddy.parse(input)))
 
+  handle(LOCAL_CHAT_IPC_CHANNELS.conversationsMoveToSpace, (_event, input) => request(conversationsRpc.moveToSpace, conversationRequestSchemas.conversationMoveToSpace.parse(input)))
+
   handle(LOCAL_CHAT_IPC_CHANNELS.conversationsSetModelSelection, (_event, input) => request(conversationsRpc.setModelSelection, conversationRequestSchemas.conversationModelSelection.parse(input)))
 
   handle(LOCAL_CHAT_IPC_CHANNELS.conversationsListTimeline, (_event, input) => request(conversationsRpc.listTimeline, conversationRequestSchemas.conversationTimeline.parse(input)))

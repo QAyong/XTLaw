@@ -168,6 +168,7 @@ export const LOCAL_CHAT_IPC_CHANNELS = {
   conversationsAddMember: 'lexora:buddy:conversations:add-member',
   conversationsRemoveMember: 'lexora:buddy:conversations:remove-member',
   conversationsSetBuddy: 'lexora:local-chat:conversations:set-buddy',
+  conversationsMoveToSpace: 'lexora:buddy:conversations:move-to-space',
   conversationsSetModelSelection: 'lexora:buddy:conversations:set-model-selection',
   conversationsListTimeline: 'lexora:buddy:conversations:list-timeline',
   notificationsChanged: 'lexora:buddy:notifications:changed',
@@ -483,6 +484,7 @@ export interface LocalChatApi {
     addMember: (conversationId: string, buddyId: string) => Promise<readonly LocalConversationMember[]>
     removeMember: (conversationId: string, buddyId: string) => Promise<readonly LocalConversationMember[]>
     setBuddy: (conversationId: string, buddyId: string) => Promise<LocalConversation>
+    moveToSpace: (conversationId: string, spaceId: string) => Promise<LocalConversation>
     setModelSelection: (
       conversationId: string,
       modelSelection: LocalConversation['modelSelection'],

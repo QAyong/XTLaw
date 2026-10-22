@@ -38,6 +38,10 @@ export function useChatSession() {
     branches.value = []
   }
 
+  function setSpaceId(nextSpaceId: string | null) {
+    spaceId.value = nextSpaceId
+  }
+
   function acceptTurn(conversationId: string, branchId: string) {
     activeConversationId.value = conversationId
     activeBranchId.value = branchId
@@ -86,6 +90,7 @@ export function useChatSession() {
     spaceId: readonly(spaceId),
     replaceBranches,
     setActiveBranch,
+    setSpaceId,
     upsertBranch,
   }
 }

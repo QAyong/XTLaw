@@ -49,6 +49,17 @@ function fixture() {
 }
 
 describe('chat queue ownership and delivery', () => {
+  it('rejects an input prepared before a space move without consuming its draft', () => {
+    const f = fixture()
+    const prepared = f.input('late')
+    const draft = f.drafts.findById('draft')
+    f.database.exec(`INSERT INTO spaces (id, name, memory_scope, created_at, updated_at) VALUES ('target', 'Target', 'space_only', 'now', 'now')`)
+    f.database.exec(`UPDATE conversations SET space_id = 'target'`)
+    expect(() => f.queue.enqueue(prepared)).toThrow(expect.objectContaining({ code: 'CONVERSATION_SPACE_CONFLICT' }))
+    expect(f.queue.hasPending('conversation')).toBe(false)
+    expect(f.drafts.findById('draft')).toEqual(draft)
+  })
+
   it('atomically rejects changed definition scope even when actor and model still match the running input', () => {
     const f = fixture()
     const buddies = createBuddyRepository(f.database)

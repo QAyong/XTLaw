@@ -9,7 +9,7 @@ import type { BuddyLocale } from '@/i18n/buddyI18n'
 import type { TaskSpaceInput } from '@/modules/tasks/state/task-index/typing'
 import { Add20Regular, Tag20Regular } from '@vicons/fluent'
 import { NAlert, NButton, NInput, NModal, NTooltip } from 'naive-ui'
-import { shallowRef, toRef } from 'vue'
+import { computed, shallowRef, toRef } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import DesktopSpaceDialog from '@/modules/tasks/widgets/task-index/DesktopSpaceDialog.vue'
 import DesktopTaskRow from '@/modules/tasks/widgets/task-index/DesktopTaskRow.vue'
@@ -26,6 +26,7 @@ import { useTaskIndexController } from '@/modules/tasks/widgets/task-index/useTa
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import DesktopWorkspaceSidebarIdentity from '@/shared/ui/workspace-sidebar/DesktopWorkspaceSidebarIdentity.vue'
 import DesktopTaskMarkManager from './DesktopTaskMarkManager.vue'
+import DesktopTaskMoveToSpaceDialog from './DesktopTaskMoveToSpaceDialog.vue'
 
 const props = defineProps<{
   activeConversationId: string | null
@@ -38,6 +39,7 @@ const props = defineProps<{
   spaces: ReadonlyArray<LocalSpace>
   selectSpaceDirectory: () => Promise<string | null>
   createSpace: (input: TaskSpaceInput) => Promise<boolean>
+  moveTaskToSpace: (taskId: string, spaceId: string) => Promise<boolean>
   updateSpace: (input: TaskSpaceInput & { spaceId: string }) => Promise<boolean>
   tasks: ReadonlyArray<LocalConversationSummary>
 }>()
@@ -65,6 +67,24 @@ function markBindings(conversationId: string) {
     onSetRead: (read: boolean) => props.marks.setRead(conversationId, read),
     onManageMarks: () => marksOpen.value = true,
   }
+}
+const taskMoveTargetId = shallowRef<string | null>(null)
+const taskMoveTarget = computed(() => props.tasks.find(task => task.id === taskMoveTargetId.value) ?? null)
+const taskMoveBusy = computed(() => Boolean(taskMoveTargetId.value && props.pendingConversationIds?.includes(taskMoveTargetId.value)))
+const moveTargets = computed(() => props.spaces
+  .filter(space => space.revokedAt === null)
+  .map(space => ({ id: space.id, name: space.name })))
+function taskMenuBindings(task: LocalConversationSummary) {
+  return task.spaceId === null
+    ? {
+        moveToSpaceAvailable: moveTargets.value.length > 0 && task.activity === 'idle' && !props.pendingConversationIds?.includes(task.id),
+        onMoveToSpace: () => taskMoveTargetId.value = task.id,
+      }
+    : {}
+}
+function revealMovedTask(spaceId: string) {
+  void props.sidebar.setSectionExpanded('spaces', true)
+  void props.sidebar.setSpaceExpanded(spaceId, true)
 }
 const sidebarLayoutStyle = {
   '--buddy-task-sidebar-row-height': `${DESKTOP_TASK_SIDEBAR_ROW_HEIGHT}px`,
@@ -215,7 +235,7 @@ function openSearchSpace(spaceId: string) {
               :task-id="item.task.id"
               :active="item.task.id === activeConversationId"
               :activity="item.task.activity"
-              v-bind="markBindings(item.task.id)"
+              v-bind="{ ...markBindings(item.task.id), ...taskMenuBindings(item.task) }"
               :dragging="item.pinnedTopLevel && draggedPinnedItemKey === item.pinKey"
               :drop-position="item.pinnedTopLevel ? getPinnedDropPosition(item.pinKey) : undefined"
               :language="language"
@@ -273,7 +293,7 @@ function openSearchSpace(spaceId: string) {
               :now="relativeTimeNow"
               :occurred-at="item.task.automationOccurrence?.scheduledFor ?? item.task.updatedAt"
               :space-task="item.spaceTask"
-              v-bind="markBindings(item.task.id)"
+              v-bind="{ ...markBindings(item.task.id), ...taskMenuBindings(item.task) }"
               :title="getTaskTitle(item.task)"
               @delete="requestTaskDelete(item.task)"
               @open="emit('openTask', item.task.id)"
@@ -298,7 +318,7 @@ function openSearchSpace(spaceId: string) {
               :task-id="task.id"
               :active="task.id === activeConversationId"
               :activity="task.activity"
-              v-bind="markBindings(task.id)"
+              v-bind="{ ...markBindings(task.id), ...taskMenuBindings(task) }"
               :language="language"
               :now="relativeTimeNow"
               :occurred-at="task.automationOccurrence?.scheduledFor ?? task.updatedAt"
@@ -324,6 +344,17 @@ function openSearchSpace(spaceId: string) {
     />
 
     <DesktopTaskMarkManager v-model:show="marksOpen" :marks="marks" :language="language" />
+
+    <DesktopTaskMoveToSpaceDialog
+      :show="taskMoveTargetId !== null"
+      :task="taskMoveTarget"
+      :busy="taskMoveBusy"
+      :language="language"
+      :spaces="moveTargets"
+      :move-task-to-space="moveTaskToSpace"
+      @update:show="!$event && (taskMoveTargetId = null)"
+      @moved="revealMovedTask"
+    />
 
     <DesktopSpaceDialog
       v-model:show="spaceDialogOpen"

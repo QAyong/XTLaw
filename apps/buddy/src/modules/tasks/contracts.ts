@@ -68,6 +68,7 @@ export interface TaskIndex {
   deleteSpace: (spaceId: string) => Promise<boolean>
   deleteTask: (taskId: string) => Promise<void>
   renameTask: (taskId: string, title: string) => Promise<boolean>
+  moveTaskToSpace: (taskId: string, spaceId: string) => Promise<boolean>
   selectSpaceDirectory: () => Promise<string | null>
   openSpaceDirectory: (spaceId: string) => Promise<boolean>
   refresh: () => Promise<void>

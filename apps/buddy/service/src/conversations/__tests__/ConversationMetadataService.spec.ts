@@ -3,11 +3,14 @@ import type { ConversationMetadataCommit } from '../ConversationMetadataService'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { buddySettingsSchema } from '../../../../shared/buddies/buddySettings'
 import { createBuddyRepository } from '../../storage/buddyRepository'
+import { createChatQueueRepository } from '../../storage/chatQueueRepository'
 import { createConversationMemberRepository } from '../../storage/conversationMemberRepository'
 import { createConversationRepository } from '../../storage/conversationRepository'
 import { openBuddyDatabase } from '../../storage/database'
 import { createRunRepository } from '../../storage/runRepository'
+import { createSpaceRepository } from '../../storage/spaceRepository'
 import { ConversationMetadataService } from '../ConversationMetadataService'
+import { ConversationMutationGuard } from '../ConversationMutationGuard'
 
 const databases: DatabaseSync[] = []
 afterEach(() => {
@@ -152,6 +155,70 @@ describe('conversation metadata ownership', () => {
     expect(f.runs.findById('run-1')).toMatchObject({ status: 'completed', modelOverride: selection })
   })
 
+  it('moves a space-less task into an active space once and releases its sessions', async () => {
+    const f = fixture()
+    const changes: ConversationMetadataCommit[] = []
+    f.service.onDidCommit(event => changes.push(event))
+    await expect(f.service.moveToSpace({ id: 'task-1', spaceId: 'space-1' })).resolves.toMatchObject({ id: 'task-1', spaceId: 'space-1' })
+    expect(f.repository.findById('task-1')?.spaceId).toBe('space-1')
+    expect(changes.map(event => event.kind)).toEqual(['space'])
+    expect(f.invalidate).toHaveBeenCalledWith('task-1')
+    await expect(f.service.moveToSpace({ id: 'task-1', spaceId: 'space-2' })).rejects.toMatchObject({ code: 'CONVERSATION_SPACE_CONFLICT' })
+    expect(f.repository.findById('task-1')?.spaceId).toBe('space-1')
+    await expect(f.service.moveToSpace({ id: 'task-1', spaceId: 'space-1' })).resolves.toMatchObject({ spaceId: 'space-1' })
+    expect(changes).toHaveLength(1)
+  })
+
+  it('refuses to move a task into a revoked space or while it has an active run', async () => {
+    const f = fixture()
+    await expect(f.service.moveToSpace({ id: 'task-1', spaceId: 'revoked' })).rejects.toMatchObject({ code: 'SPACE_UNAVAILABLE' })
+    f.runs.create({ id: 'run-1', conversationId: 'task-1', branchId: 'branch-1', triggeringMessageId: 'message-1', provider: 'fixture', model: 'model-1', purpose: 'chat', status: 'running', piSessionFile: null, approvalPolicy: 'policy', executionProfile: 'workspace_write', startedAt: '2026-10-11T00:00:00.000Z' })
+    await expect(f.service.moveToSpace({ id: 'task-1', spaceId: 'space-1' })).rejects.toMatchObject({ code: 'CONVERSATION_BUSY' })
+    expect(f.repository.findById('task-1')?.spaceId).toBeNull()
+    expect(f.invalidate).not.toHaveBeenCalled()
+  })
+
+  it.each(['waiting', 'paused'])('keeps %s queue inputs unchanged and refuses to move across any branch', async (state) => {
+    const f = fixture()
+    f.database.prepare(`INSERT INTO chat_queue (id, conversation_id, branch_id, request_id, request_fingerprint, prepared_json, state, created_at) VALUES ('queued', 'task-1', 'branch-1', 'request', 'fingerprint', '{"spaceId":null}', ?, 'now')`).run(state)
+    await expect(f.service.moveToSpace({ id: 'task-1', spaceId: 'space-1' })).rejects.toMatchObject({ code: 'CONVERSATION_QUEUE_NOT_EMPTY' })
+    expect(f.database.prepare('SELECT state, prepared_json FROM chat_queue').get()).toEqual({ state, prepared_json: '{"spaceId":null}' })
+    expect(f.repository.findById('task-1')?.spaceId).toBeNull()
+  })
+
+  it('does not commit or publish a move when session cleanup fails and permits a safe retry', async () => {
+    const f = fixture()
+    const changes: ConversationMetadataCommit[] = []
+    f.service.onDidCommit(event => changes.push(event))
+    f.invalidate.mockRejectedValueOnce(new Error('Cleanup failed'))
+    await expect(f.service.moveToSpace({ id: 'task-1', spaceId: 'space-1' })).rejects.toThrow('Cleanup failed')
+    expect(f.repository.findById('task-1')?.spaceId).toBeNull()
+    expect(changes).toEqual([])
+    await expect(f.service.moveToSpace({ id: 'task-1', spaceId: 'space-1' })).resolves.toMatchObject({ spaceId: 'space-1' })
+    expect(changes).toHaveLength(1)
+  })
+
+  it('holds the shared admission barrier until cleanup and revalidates a revoked target before committing', async () => {
+    const f = fixture()
+    const gate = Promise.withResolvers<{ pending: number, degraded: number }>()
+    f.invalidate.mockImplementationOnce(() => gate.promise)
+    const pending = f.service.moveToSpace({ id: 'task-1', spaceId: 'space-1' })
+    expect(() => f.mutations.assertWritable('task-1')).toThrow(expect.objectContaining({ code: 'CONVERSATION_BUSY' }))
+    expect(() => f.mutations.assertWritable('unrelated')).not.toThrow()
+    f.database.prepare('UPDATE spaces SET revoked_at = ? WHERE id = ?').run('now', 'space-1')
+    gate.resolve({ pending: 0, degraded: 0 })
+    await expect(pending).rejects.toMatchObject({ code: 'SPACE_UNAVAILABLE' })
+    expect(f.repository.findById('task-1')?.spaceId).toBeNull()
+    expect(() => f.mutations.assertWritable('task-1')).not.toThrow()
+  })
+
+  it('refuses to switch while a terminal run still owns execution resources', async () => {
+    const f = fixture()
+    f.hasActiveExecution.mockReturnValueOnce(true)
+    await expect(f.service.moveToSpace({ id: 'task-1', spaceId: 'space-1' })).rejects.toMatchObject({ code: 'CONVERSATION_BUSY' })
+    expect(f.repository.findById('task-1')?.spaceId).toBeNull()
+  })
+
   it('revalidates a target disabled during model validation and records explicit provenance for an unchanged legacy value', async () => {
     const f = fixture()
     const other = f.buddies.create({ name: 'Other' })
@@ -181,6 +248,12 @@ function fixture() {
   const resolveModel = vi.fn(async (selection: NonNullable<ReturnType<typeof repository.findById>>['modelSelection']) => selection!)
   const runs = createRunRepository(database)
   const buddies = createBuddyRepository(database)
-  const service = new ConversationMetadataService({ buddies, runs, repository, resolveModelSelection: resolveModel, sessions: { invalidateConversation: invalidate } })
-  return { database, runs, service, repository, invalidate, resolveModel, buddies, members: createConversationMemberRepository(database) }
+  const seedSpace = database.prepare(`INSERT INTO spaces (id, name, memory_scope, revoked_at, created_at, updated_at) VALUES (?, ?, 'personal_and_space', ?, '2026-09-06T00:00:00.000Z', '2026-09-06T00:00:00.000Z')`)
+  seedSpace.run('space-1', 'Space 1', null)
+  seedSpace.run('space-2', 'Space 2', null)
+  seedSpace.run('revoked', 'Revoked', '2026-09-07T00:00:00.000Z')
+  const mutations = new ConversationMutationGuard()
+  const hasActiveExecution = vi.fn(() => false)
+  const service = new ConversationMetadataService({ buddies, runs, repository, spaces: createSpaceRepository(database), spaceMoves: { mutations, hasPendingMessages: id => createChatQueueRepository(database).hasPending(id), hasActiveExecution, validateTarget: async () => {} }, resolveModelSelection: resolveModel, sessions: { invalidateConversation: invalidate } })
+  return { database, runs, service, repository, invalidate, mutations, hasActiveExecution, resolveModel, buddies, members: createConversationMemberRepository(database) }
 }

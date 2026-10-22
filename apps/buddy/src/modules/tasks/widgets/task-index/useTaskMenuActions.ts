@@ -1,7 +1,7 @@
 import type { LocalTaskMark, LocalTaskMarkState } from '@buddy-shared/conversation/taskMarkApi'
 import type { DropdownOption } from 'naive-ui'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
-import { Copy20Regular, Settings20Regular, Tag20Regular, TagDismiss20Regular } from '@vicons/fluent'
+import { Copy20Regular, FolderArrowRight20Regular, Settings20Regular, Tag20Regular, TagDismiss20Regular } from '@vicons/fluent'
 import { useMessage } from 'naive-ui'
 import { computed, h } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
@@ -26,6 +26,8 @@ export function useTaskMenuActions(options: {
   clearMarks: (taskId: string) => void
   setRead: (taskId: string, read: boolean) => void
   manageMarks?: () => void
+  moveToSpaceAvailable?: () => boolean | undefined
+  moveToSpace?: (taskId: string) => void
 }) {
   const { t } = useBuddyI18n(options.language)
   const { clipboard } = useTaskEnvironment()
@@ -65,8 +67,21 @@ export function useTaskMenuActions(options: {
           { key: 'copy-title', label: t('desktop.tasks.title') },
         ],
       },
+      ...moveActions(),
     ]
   })
+
+  function moveActions(): DropdownOption[] {
+    const available = options.moveToSpaceAvailable?.()
+    if (available === undefined)
+      return []
+    return [{
+      key: 'move-to-space',
+      icon: () => h(DesktopIcon, { component: FolderArrowRight20Regular }),
+      label: t('desktop.tasks.moveToSpace'),
+      disabled: !available,
+    }]
+  }
 
   function select(action: string | number) {
     const task = options.task()
@@ -80,6 +95,8 @@ export function useTaskMenuActions(options: {
       options.manageMarks?.()
     if (typeof action === 'string' && action.startsWith('mark:'))
       options.assignMark(task.taskId, action.slice(5))
+    if (action === 'move-to-space' && options.moveToSpaceAvailable?.())
+      options.moveToSpace?.(task.taskId)
     const copyText = action === 'copy-task-reference'
       ? formatSessionReferenceClipboard({ id: task.taskId, title: task.title.slice(0, 80) })
       : action === 'copy-task-id' ? task.taskId : action === 'copy-title' ? task.title : null

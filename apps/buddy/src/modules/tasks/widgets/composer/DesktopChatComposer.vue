@@ -26,6 +26,7 @@ import WorkbenchSlot from '@/shared/ui/contributions/WorkbenchSlot.vue'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import ChatInputMaterialStrip from '../materials/ChatInputMaterialStrip.vue'
 import ChatComposerSourceMenu from './ChatComposerSourceMenu.vue'
+import ChatComposerSourcePicker from './ChatComposerSourcePicker.vue'
 import ComposerTextPreview from './ComposerTextPreview.vue'
 
 const props = defineProps<DesktopChatComposerProps>()

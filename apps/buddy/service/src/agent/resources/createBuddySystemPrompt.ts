@@ -49,22 +49,24 @@ export function createBuddySystemPrompt(options: CreateBuddySystemPromptOptions)
 
 export function createBuddyExecutionPrompt(executionProfile: BuddyExecutionProfile, platform?: NodeJS.Platform, activeToolNames?: readonly string[]): string {
   const execution = resolveShellExecution(executionProfile, platform)
-  const prompt = createExecutionProfilePrompt(executionProfile, execution.dialect, execution.boundary === 'sandbox', activeToolNames)
-  return execution.boundary === 'sandbox' && execution.backend === SHELL_SANDBOX_BACKEND.Windows && (activeToolNames?.includes(execution.dialect) ?? true)
+  const shellTool = activeToolNames?.includes('lexora_shell') ? 'lexora_shell' : execution.dialect
+  const prompt = createExecutionProfilePrompt(executionProfile, shellTool, execution.boundary === 'sandbox', execution.dialect === 'powershell', activeToolNames)
+  return execution.boundary === 'sandbox' && execution.backend === SHELL_SANDBOX_BACKEND.Windows && (activeToolNames?.includes(shellTool) ?? true)
     ? `${prompt}\n${WINDOWS_SANDBOX_FILESYSTEM_LIMITS}`
     : prompt
 }
 
 function createExecutionProfilePrompt(
   executionProfile: BuddyExecutionProfile,
-  shellTool: 'bash' | 'powershell',
+  shellTool: 'bash' | 'powershell' | 'lexora_shell',
   isolatedShell: boolean,
+  windowsShell: boolean,
   activeToolNames?: readonly string[],
 ): string {
   const hasTool = (name: string) => activeToolNames?.includes(name) ?? true
   const hasShell = hasTool(shellTool)
-  const shellName = shellTool === 'powershell' ? 'PowerShell' : 'bash'
-  const localNetwork = shellTool === 'powershell'
+  const shellName = shellTool === 'powershell' ? 'PowerShell' : shellTool
+  const localNetwork = windowsShell
     ? 'Loopback TCP connections and listeners, including host services, are allowed without separate network approval.'
     : ''
   const inspection = [

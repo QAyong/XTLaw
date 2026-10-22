@@ -8,6 +8,8 @@ import DesktopPluginModelSetting from './DesktopPluginModelSetting.vue'
 
 const props = defineProps<{
   item: ExtensionSettingItem
+  compact?: boolean
+  error?: string | null
   value: ExtensionSettingValue
   disabled: boolean
   saving?: boolean
@@ -21,6 +23,7 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ change: [value: ExtensionSettingValue], draft: [value: ExtensionSettingValue], retry: [] }>()
 const labelId = useId()
+const controlAttrs = { 'aria-labelledby': labelId, 'aria-describedby': undefined }
 const draft = shallowRef(props.value)
 watch([() => props.value, () => props.saving, () => props.item.id], ([value, saving]) => {
   if (!saving)
@@ -36,10 +39,10 @@ function commit(value: ExtensionSettingValue) {
 </script>
 
 <template>
-  <div class="plugin-setting-field" :data-setting-id="item.id">
+  <div class="plugin-setting-field" :class="{ 'is-compact': compact }" :data-setting-id="item.id">
     <div class="plugin-setting-field__copy">
-      <strong :id="labelId">{{ item.title }}</strong>
-      <small v-if="item.description">{{ item.description }}</small>
+      <strong :id="labelId" :class="{ 'sr-only': compact }">{{ item.title }}</strong>
+      <small v-if="item.description" :class="{ 'sr-only': compact }">{{ item.description }}</small>
       <small v-if="invalid" class="plugin-setting-field__issue" role="status">
         {{ language === 'zh-CN' ? '原值已保留，但不符合当前版本的要求。请修改此项或恢复默认值。' : 'The saved value is preserved but is incompatible with this version. Change this field or restore its default.' }}
         <NButton text size="tiny" :disabled="repairDisabled ?? disabled" @click="emit('change', item.default)">
@@ -54,11 +57,14 @@ function commit(value: ExtensionSettingValue) {
       </small>
     </div>
     <div class="plugin-setting-field__control" :class="{ 'is-toggle': item.type === 'boolean' }">
-      <NSwitch v-if="item.type === 'boolean'" :value="value === true" :round="false" :disabled="disabled" :aria-disabled="disabled" :aria-labelledby="labelId" @update:value="emit('change', $event)" />
-      <DesktopPluginModelSetting v-else-if="item.type === 'model'" :value="value && typeof value === 'object' ? value : null" :models="models" :providers="providers" :language="language" :disabled="disabled" :label-id="labelId" @change="emit('change', $event)" />
-      <NSelect v-else-if="item.type === 'select'" :value="typeof value === 'string' ? value : null" :options="item.options" :disabled="disabled" :aria-labelledby="labelId" @update:value="emit('change', $event)" />
-      <NInputNumber v-else-if="item.type === 'number'" :value="typeof draft === 'number' ? draft : null" :update-value-on-input="false" :min="item.min" :max="item.max" :disabled="disabled" :aria-labelledby="labelId" @update:value="$event !== null && commit($event)" />
-      <NInput v-else :value="String(draft ?? '')" :maxlength="8192" :disabled="disabled" :aria-labelledby="labelId" @update:value="draft = $event; emit('draft', $event)" @change="commit" @keydown.enter="!$event.isComposing && commit(String(draft ?? ''))" />
+      <slot name="control" :value="value" :disabled="disabled" :control-attrs="controlAttrs">
+        <NSwitch v-if="item.type === 'boolean'" :value="value === true" :round="false" :disabled="disabled" :aria-disabled="disabled" :aria-labelledby="labelId" @update:value="emit('change', $event)" />
+        <DesktopPluginModelSetting v-else-if="item.type === 'model'" :value="value && typeof value === 'object' ? value : null" :models="models" :providers="providers" :language="language" :disabled="disabled" :label-id="labelId" @change="emit('change', $event)" />
+        <NSelect v-else-if="item.type === 'select'" :value="typeof value === 'string' ? value : null" :options="item.options" :disabled="disabled" :aria-labelledby="labelId" @update:value="emit('change', $event)" />
+        <NInputNumber v-else-if="item.type === 'number'" :value="typeof draft === 'number' ? draft : null" :update-value-on-input="false" :min="item.min" :max="item.max" :disabled="disabled" :aria-labelledby="labelId" @update:value="$event !== null && commit($event)" />
+        <NInput v-else :value="String(draft ?? '')" :maxlength="8192" :disabled="disabled" :aria-labelledby="labelId" @update:value="draft = $event; emit('draft', $event)" @change="commit" @keydown.enter="!$event.isComposing && commit(String(draft ?? ''))" />
+      </slot>
+      <small v-if="error" class="plugin-setting-field__error" role="alert">{{ error }}</small>
     </div>
   </div>
 </template>
@@ -71,6 +77,8 @@ function commit(value: ExtensionSettingValue) {
 .plugin-setting-field__copy small { font-size: 0.7rem; line-height: 1.5; color: var(--buddy-text-secondary); }
 .plugin-setting-field__copy .plugin-setting-field__issue { color: var(--buddy-warning-color, var(--buddy-text-secondary)); }
 .plugin-setting-field__control { min-width: 0; }
+.plugin-setting-field__error { display: block; margin-top: 0.25rem; font-size: 0.7rem; line-height: 1.5; color: var(--buddy-status-danger-text, #b25252); }
+.plugin-setting-field.is-compact { grid-template-columns: minmax(0, 1fr); gap: 0.25rem; min-height: 0; padding: 0; border-bottom: 0; }
 .plugin-setting-field__control.is-toggle { justify-self: end; }
 @container (max-width: 560px) { .plugin-setting-field { grid-template-columns: minmax(0, 1fr); gap: 0.7rem; } }
 </style>

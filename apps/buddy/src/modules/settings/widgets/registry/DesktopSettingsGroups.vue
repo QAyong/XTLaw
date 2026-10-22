@@ -6,12 +6,17 @@ import { settingsText } from '../../model/settingsRegistry'
 import { useSettingsContext } from '../../settingsContext'
 import DesktopGeneralSettingField from '../app/DesktopGeneralSettingField.vue'
 import DesktopPluginSetting from '../plugins/DesktopPluginSetting.vue'
+import DesktopShellSettingsTable from '../runtime/DesktopShellSettingsTable.vue'
 
 defineProps<{ groups: readonly SettingsGroupNode[], fill?: boolean }>()
 defineSlots<{ default?: () => unknown, status?: () => unknown }>()
 const { applicationSettings: { language } } = useSettingsContext()
 const route = useRoute()
 const sections = useTemplateRef<HTMLElement[]>('sections')
+function remainingItems(group: SettingsGroupNode) {
+  const keys = new Set(group.shells?.candidates.flatMap(candidate => [candidate.enabled, candidate.executable, candidate.priority]))
+  return group.items.filter(item => item.kind !== 'plugin' || !keys.has(item.field.item.key))
+}
 let focused: HTMLElement | null = null
 watchPostEffect(() => {
   const target = sections.value?.find(section => section.dataset.settingsGroup === route.query.group)
@@ -27,11 +32,12 @@ watchPostEffect(() => {
   <div class="settings-groups" :class="{ 'is-fill': fill }">
     <slot name="status" />
     <section v-for="group in groups" :key="group.id" ref="sections" tabindex="-1" class="settings-group" :class="{ 'is-unframed': group.unframed }" :data-settings-group="group.id">
-      <h2 v-if="group.title">
+      <h2 v-if="group.title" :id="`${group.id}-heading`">
         {{ settingsText(group.title, language) }}
       </h2>
       <div class="settings-group__items">
-        <template v-for="item in group.items" :key="item.id">
+        <DesktopShellSettingsTable v-if="group.shells" :key="`${group.shells.extensionId}:${group.shells.revision}`" :settings="group.shells" :items="group.items" :labelled-by="`${group.id}-heading`" />
+        <template v-for="item in remainingItems(group)" :key="item.id">
           <slot v-if="item.kind === 'content'" />
           <DesktopGeneralSettingField v-else-if="item.kind === 'general'" :field="item.field" />
           <DesktopPluginSetting v-else :field="item.field" />

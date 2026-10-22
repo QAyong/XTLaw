@@ -37,6 +37,7 @@
 | `navigation` | 单个对象，必填 `title`、`view`，引用自己的无资源视图 |
 | `agent` | API 3；指令、工具、任务动作和可选的 enabledWhen，见 [Agent 与设置](agent-settings.md) |
 | `settings` | API 3；声明 modules/groups/items，由宿主渲染并保存，见 [Agent 与设置](agent-settings.md) |
+| `shells` | API 4；固定本机解释器候选与原生设置映射；可选 settingsGroup 将插件自有组渲染为一行一个 Shell 的原生表格，文件选择仅限原生设置，需独立 shells 权限，见 [命令解释器](shells.md) |
 
 插件 ID 使用小写字母开头的两段名称，中间以 `.` 分隔，每段可含小写字母、数字与 `-`；贡献 ID 在插件 ID 后追加由小写字母、数字、`.`、`-` 组成的后缀。声明文件路径使用包内相对路径，`.ts` 文件名直接指向源码，编译工具负责产出运行文件。
 
@@ -77,7 +78,7 @@
 | `webAssembly: true` | 仅对插件视图放开 `'wasm-unsafe-eval'`（允许编译插件包内 `.wasm`，仍禁止 JS eval）和 Worker（`worker-src` 为插件包路径加 `blob:`：沙箱视图是不透明源，不能按 URL 加载 Worker 脚本，需从 blob 启动）；`.wasm` 以 `application/wasm` 提供；安装时单独提示用户；宿主页（extension.js）不受影响；第三方插件的 `.wasm` 文件最多 4 个、合计 24 MiB，内置/官方插件与开发目录不受限，见 [文档处理器契约](document-processor.md#4-webassembly) |
 | `network: ["https://example.com"]` | 通过宿主向列出的 HTTPS origin 发 GET 请求、下载文件或打开外链 |
 
-未声明权限默认为关闭。视图无法访问 Node、宿主 DOM、全局键盘、网络 fetch 或任意本地文件。资源和网络调用通过 API；用户在安装确认中查看权限。没有一般性消息订阅、系统剪贴板或屏幕截图接口。
+未声明权限默认为关闭，清单只需列出实际申请的权限，SDK 打包时会省略默认值。宿主忽略清单顶层、`permissions` 和 `contributes` 中不认识的声明，不因此提供对应能力；已知字段仍按类型和权限校验。需要新版能力时，通过 `engines.lexora` 和 API 版本声明兼容范围。视图无法访问 Node、宿主 DOM、全局键盘、网络 fetch 或任意本地文件。资源和网络调用通过 API；用户在安装确认中查看权限。没有一般性消息订阅、系统剪贴板或屏幕截图接口。
 
 ## 窗口效果
 

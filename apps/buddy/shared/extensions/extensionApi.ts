@@ -1,4 +1,5 @@
 import type { BuddyFileQuote } from '../conversation/buddyUserContent'
+import type { ShellCandidate, ShellCandidateId } from '../shell/shellProgram'
 import type { WorkbenchHitRegion, WorkbenchPaneSnapshot } from '../workbench/workbenchInteraction'
 import type { JsonValue } from '../workbench/workbenchState'
 import type { ControlProposal, WorkbenchPresentation } from '../workbench/workbenchUi'
@@ -14,6 +15,7 @@ import type { ExtensionWindowStyle } from './extensionWindowStyles'
 import { z } from 'zod'
 import { BUDDY_QUOTE_TEXT_LIMIT, xlsxQuoteCellsSchema } from '../conversation/buddyUserContent'
 import { extensionQuoteKindSchema, extensionQuoteLocationSchema } from '../conversation/extensionQuoteLocation'
+import { shellCandidateIdSchema } from '../shell/shellProgram'
 import { spaceFileTargetSchema } from '../spaces/spaceFileApi'
 import { themeTransportSchema } from '../theme/themeApi.ts'
 import { workbenchPanesSchema } from '../workbench/workbenchInteraction'
@@ -143,6 +145,8 @@ export const extensionManagementSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('openFile'), resource: spaceFileTargetSchema }).strict(),
   z.object({ action: z.literal('list') }).strict(),
   z.object({ action: z.literal('unavailable') }).strict(),
+  z.object({ action: z.literal('detectShells'), id: extensionIdSchema }).strict(),
+  z.object({ action: z.literal('selectShellExecutable'), id: extensionIdSchema, candidate: shellCandidateIdSchema }).strict(),
   z.object({ action: z.literal('configuration'), id: extensionIdSchema }).strict(),
   z.object({ action: z.literal('configurationSnapshot'), id: extensionIdSchema }).strict(),
   z.object({ action: z.literal('settingConditions'), id: extensionIdSchema, items: z.array(z.string().max(180)).max(64), form: extensionConfigurationSchema.optional() }).strict(),
@@ -174,6 +178,8 @@ export const extensionManagementSchema = z.discriminatedUnion('action', [
 export type ExtensionManagementRequest = z.infer<typeof extensionManagementSchema>
 export interface ExtensionApi {
   openFile: (resource: import('../spaces/spaceFileApi').SpaceFileTarget) => Promise<string | null>
+  detectShells: (id: string) => Promise<ShellCandidate[]>
+  selectShellExecutable: (id: string, candidate: ShellCandidateId) => Promise<string | null>
   settingConditions: (id: string, items: string[], form?: ExtensionConfiguration) => Promise<Record<string, ExtensionConditionState>>
   onConditionsChanged: (listener: (event: ExtensionConditionsChanged) => void) => () => void
   taskActions: () => Promise<ExtensionTaskAction[]>

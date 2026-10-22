@@ -14,7 +14,7 @@ import { EXTENSION_FILE_LIMIT, EXTENSION_PACKAGE_LIMIT, validateExtensionFiles }
 import { fileIconAssetPaths, readFileIconTheme, validateFileIconThemeFiles } from '../platform/icons/fileIconThemeAssets.ts'
 import { validateThemeFiles } from '../platform/themes/themeAssets.ts'
 import { documentContractReport } from '../shared/extensions/extensionDocumentContract.ts'
-import { extensionCompatible, extensionManifestSchema, extensionPathSchema } from '../shared/extensions/extensionManifest.ts'
+import { extensionCompatible, extensionManifestSchema, extensionPackageManifest, extensionPathSchema } from '../shared/extensions/extensionManifest.ts'
 import { validateExtensionFileCounts } from '../shared/extensions/extensionPackageLimits.ts'
 import { themeAssetPaths, themeDocumentSchema } from '../shared/theme/themeDocument.ts'
 
@@ -110,6 +110,7 @@ export async function run() {
       }
     }
     await walk(source)
+    files['extension.json'] = new TextEncoder().encode(JSON.stringify(extensionPackageManifest(manifest)))
     const bytes = zipSync(files, { level: 6 })
     await fs.mkdir(path.dirname(path.resolve(output)), { recursive: true })
     await fs.writeFile(output, bytes)
@@ -156,7 +157,7 @@ export async function run() {
         await fs.rm(destination, { recursive: true, force: true })
       await fs.mkdir(destination, { recursive: true })
       const compiledManifest = { ...manifest, entry: manifest.entry?.replace(/\.[^.]+$/, '.js'), contributes: { ...manifest.contributes, views: manifest.contributes.views.map(view => ({ ...view, entry: view.entry.replace(/\.[^.]+$/, '.js') })) } }
-      await fs.writeFile(path.join(destination, 'extension.json'), JSON.stringify(compiledManifest, null, 2))
+      await fs.writeFile(path.join(destination, 'extension.json'), JSON.stringify(extensionPackageManifest(compiledManifest), null, 2))
     }
     for (const [name, bytes] of themeFiles) {
       await fs.mkdir(path.dirname(path.join(destination, name)), { recursive: true })

@@ -10,6 +10,7 @@
 
 ## 按日期查阅
 
+- [上游集成记录：2026-10-22（第六轮）](upstream-20261022-6-integration.md)
 - [上游集成记录：2026-10-22（第五轮）](upstream-20261022-5-integration.md)
 - [上游集成记录：2026-10-22（第四轮）](upstream-20261022-4-integration.md)
 - [上游集成记录：2026-10-22（第三轮）](upstream-20261022-3-integration.md)

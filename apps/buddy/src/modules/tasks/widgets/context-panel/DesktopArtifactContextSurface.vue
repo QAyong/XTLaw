@@ -8,12 +8,11 @@ import { computed, useTemplateRef, watch } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import { FileIcon, FolderIcon } from '@/shared/ui/file-icon'
 import DesktopDocumentContent from '@/shared/ui/files/DesktopDocumentContent.vue'
-import DesktopMediaContent from '@/shared/ui/files/DesktopMediaContent.vue'
 import BuddyImagePreview from '@/shared/ui/media/BuddyImagePreview.vue'
 import ResourceSelectionQuoteMenu from '@/shared/ui/selection/ResourceSelectionQuoteMenu.vue'
 import { useResourceQuoteReveal } from '@/shared/ui/selection/useResourceQuoteReveal'
 import { useSelectionReferences } from '@/shared/ui/selection/workbenchSelectionReferences'
-import { isMarkdownArtifact } from './artifactContextPresentation'
+import { artifactMediaKind, isMarkdownArtifact } from './artifactContextPresentation'
 import DesktopArtifactToolbar from './DesktopArtifactToolbar.vue'
 import { useArtifactPreview } from './useArtifactPreview'
 
@@ -29,6 +28,8 @@ const viewMode = defineModel<ArtifactViewMode>('viewMode', { required: true })
 const references = useSelectionReferences()
 const markdown = computed(() => isMarkdownArtifact(props.artifact))
 const quoteMenu = useTemplateRef<InstanceType<typeof ResourceSelectionQuoteMenu>>('quoteMenu')
+const mediaKind = computed(() => artifactMediaKind(props.artifact))
+const mediaUrl = computed(() => mediaKind.value ? `lexora-artifact://media/${encodeURIComponent(props.artifact.artifactId)}?v=${encodeURIComponent(props.artifact.updatedAt)}` : null)
 const quoteSource = computed<BuddyArtifactQuote['source']>(() => ({
   kind: 'artifact',
   artifactId: props.artifact.artifactId,
@@ -48,7 +49,7 @@ function prepareQuote(quote: BuddyResourceQuote, x: number, y: number) {
 }
 
 const { t } = useBuddyI18n(() => props.language)
-const { refreshText, failImage, media, openPreview, previewIndex, previewOpen, previewSources, previewUrl, textPreview, textPreviewFailed, textPreviewLoading, textPreviewMissing } = useArtifactPreview({
+const { refreshText, failImage, openPreview, previewIndex, previewOpen, previewSources, previewUrl, textPreview, textPreviewFailed, textPreviewLoading, textPreviewMissing } = useArtifactPreview({
   artifact: () => props.artifact,
   readText: () => props.readArtifactText,
 })
@@ -74,9 +75,10 @@ watch(textPreview, () => quoteMenu.value?.close(), { flush: 'sync' })
       :sources="previewSources"
     />
 
-    <div class="desktop-artifact-context-surface__viewport" :class="{ 'desktop-artifact-context-surface__viewport--document': textPreview }">
+    <div class="desktop-artifact-context-surface__viewport" :class="{ 'desktop-artifact-context-surface__viewport--document': textPreview || mediaKind }">
+      <DesktopDocumentContent v-if="mediaKind && mediaUrl" mode="preview" :name="artifact.name" :media-kind="mediaKind" :media-url="mediaUrl" :visible="visible" :language="language" :write-clipboard-text="writeClipboardText" />
       <button
-        v-if="previewUrl"
+        v-else-if="previewUrl"
         class="desktop-artifact-context-surface__preview-trigger"
         type="button"
         :aria-label="t('desktop.imagePreview.open', { name: artifact.name })"
@@ -89,7 +91,6 @@ watch(textPreview, () => quoteMenu.value?.close(), { flush: 'sync' })
           @error="failImage"
         >
       </button>
-      <DesktopMediaContent v-else-if="media" :kind="media.kind" :url="media.url" :name="artifact.name" :failed-label="t('desktop.context.mediaFailed')" />
       <div v-else-if="textPreviewLoading" class="desktop-artifact-context-surface__fallback">
         <NSpin size="small" />
         <span>{{ t('common.loading') }}</span>

@@ -49,6 +49,29 @@ async function fixture() {
 }
 
 describe('skill installation lifecycle', () => {
+  it('serves image metadata by scoped URL and rechecks scope, paths and removal before byte access', async () => {
+    const f = await fixture()
+    const source = await f.source('image-guide')
+    await writeFile(join(source, 'preview.png'), Uint8Array.of(137, 80, 78, 71))
+    const skill = await f.install(source, 'space-a')
+    const target = { spaceId: 'space-a', id: skill.id, path: 'preview.png' }
+    const preview = await f.service.readFile(target)
+    expect(preview).toMatchObject({ kind: 'image', text: null, sizeBytes: 4 })
+    const url = new URL(preview.imageUrl!)
+    expect(url.protocol).toBe('lexora-file:')
+    expect(url.hostname).toBe('skill-preview')
+    expect(Object.fromEntries(url.searchParams)).toMatchObject(target)
+    expect(JSON.stringify(preview).length).toBeLessThan(1024)
+    expect((await f.service.readFile(target)).imageUrl).not.toBe(preview.imageUrl)
+    expect(await f.service.resolveImage(target)).toMatchObject({ root: dirname(skill.filePath), path: join(dirname(skill.filePath), 'preview.png'), mimeType: 'image/png', sizeBytes: 4 })
+    await expect(f.service.resolveImage({ ...target, spaceId: null })).rejects.toMatchObject({ code: 'SKILL_NOT_FOUND' })
+    for (const path of ['../preview.png', join(source, 'preview.png'), 'SKILL.md'])
+      await expect(f.service.resolveImage({ ...target, path })).rejects.toMatchObject({ code: 'SKILL_INVALID' })
+    await f.service.remove({ spaceId: 'space-a', id: skill.id, revision: skill.revision })
+    await expect(f.service.resolveImage(target)).rejects.toMatchObject({ code: 'SKILL_NOT_FOUND' })
+    expect(await readFile(join(source, 'preview.png'))).toEqual(Buffer.from([137, 80, 78, 71]))
+  })
+
   it('preserves the complete document and previews files only within the selected package', async () => {
     const f = await fixture()
     const source = await f.source('writer', '# Writing\n\n## Steps\n\n- Read\n- Summarize', 'license: MIT\nmetadata:\n  author: Example\n  version: "1.0"\n')

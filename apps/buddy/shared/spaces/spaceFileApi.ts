@@ -3,6 +3,7 @@ import type { DeepReadonly } from '../runtime/apiValidation'
 import { z } from 'zod'
 import { artifactOpenRequestSchema } from '../artifacts/artifactApi'
 import { directoryPageSchema, fileEntrySchema, filePreviewSchema } from '../files/filePreview'
+import { mediaPreviewLocationSchema } from '../files/mediaPreview'
 import { idSchema } from '../runtime/apiValidation'
 
 export const spaceFileTargetSchema = z.object({
@@ -102,6 +103,7 @@ export type SpaceFilesChange = z.infer<typeof spaceFilesChanged.params>
 export const spaceFilesRpc = {
   saveBytes: { method: 'spaceFiles.saveBytes', input: spaceSaveBytesSchema, response: spaceSaveBytesResultSchema },
   readBytes: { method: 'spaceFiles.readBytes', input: spaceFileByteRequestSchema, response: spaceFileByteChunkSchema },
+  resolveMedia: { method: 'spaceFiles.resolveMedia', input: spaceFileTargetSchema, response: mediaPreviewLocationSchema },
   mutate: { method: 'spaceFiles.mutate', input: spaceFileMutationSchema, response: spaceFileOperationSchema },
   history: { method: 'spaceFiles.history', input: spaceFileTargetSchema, response: z.array(spaceFileOperationSchema) },
   query: { method: 'spaceFiles.query', input: spaceFileOperationRequestSchema, response: spaceFileOperationSchema.nullable() },

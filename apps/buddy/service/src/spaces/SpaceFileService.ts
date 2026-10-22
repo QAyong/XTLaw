@@ -9,10 +9,12 @@ import { isAbsolute, relative, resolve, sep } from 'node:path'
 import { BoundedFileReadError, readBoundedFile, readBoundedFileChunk } from '../../../platform/filesystem/boundedFile'
 import { saveBoundedBinaryFile } from '../../../platform/filesystem/saveBoundedTextFile'
 import { Emitter } from '../../../shared/events/Emitter'
-import { mediaKindOf } from '../../../shared/files/mediaFiles'
+import { FILE_IMAGE_PREVIEW_MAX_BYTES } from '../../../shared/files/filePreview'
+import { spaceFileMediaUrl } from '../../../shared/files/mediaPreview'
 import { isSpaceWorkspaceDirectoryId } from '../../../shared/spaces/spaceApi'
 import { GrantedPathError, resolveGrantedPath } from '../directories/resolveGrantedPath'
 import { readFilePreview } from '../files/readFilePreview'
+import { resolveMediaPreview } from '../files/resolveMediaPreview'
 import { createSensitivePathMatcher } from '../permissions/sensitivePaths'
 import { BuddyServiceError } from '../rpc/runtimeRequest'
 import { requireActiveSpace } from './requireActiveSpace'
@@ -69,17 +71,18 @@ export class SpaceFileService {
   async read(input: SpaceFileTarget): Promise<LocalSpaceFilePreview> {
     const target = await this.resolve(input).catch(rethrowMissingFile)
     this.requireDirectory(input)
-    const media = mediaKindOf(target.path)
-    if (media) {
-      // Audio and video are streamed by the media protocol, so the size limits that apply to inline previews do not.
-      const metadata = await stat(target.path).catch(error => rethrowMissingFile(error, target.path))
-      if (!metadata.isFile())
-        throw new BuddyServiceError('VALIDATION_FAILED')
-      this.requireDirectory(input)
-      return { kind: media, sizeBytes: metadata.size, text: null, imageUrl: null }
-    }
-    const preview = await readFilePreview(target.root, target.path).catch(error => rethrowMissingFile(error, target.path))
+    const url = spaceFileMediaUrl(input)
+    const preview = await readFilePreview(target.root, target.path, { image: url, media: url }).catch(error => rethrowMissingFile(error, target.path))
     this.requireDirectory(input)
+    return preview
+  }
+
+  async resolveMedia(input: SpaceFileTarget) {
+    const target = await this.resolve(input).catch(rethrowMissingFile)
+    const preview = await resolveMediaPreview(target.root, target.path, { imageBytesLimit: FILE_IMAGE_PREVIEW_MAX_BYTES }).catch(error => rethrowMissingFile(error, target.path))
+    const current = await this.resolve(input).catch(rethrowMissingFile)
+    if (current.path !== preview.path || current.root !== preview.root)
+      throw new BuddyServiceError('DIRECTORY_NOT_AUTHORIZED')
     return preview
   }
 

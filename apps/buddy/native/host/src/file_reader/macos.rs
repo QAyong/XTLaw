@@ -1,4 +1,4 @@
-use super::{ReadError, ReadRequest};
+use super::ReadError;
 use rustix::fs::{CWD, Mode, OFlags, getpath, openat};
 use std::{
     fs::File,
@@ -6,9 +6,14 @@ use std::{
     path::{Component, Path},
 };
 
-pub fn read(request: &ReadRequest) -> Result<Vec<u8>, ReadError> {
-    let root_path = Path::new(&request.root);
-    let path = Path::new(&request.path);
+pub fn with_file<T>(
+    root: &str,
+    path: &str,
+    _exact_path: bool,
+    operation: impl FnOnce(&mut File) -> Result<T, ReadError>,
+) -> Result<T, ReadError> {
+    let root_path = Path::new(root);
+    let path = Path::new(path);
     if !root_path.is_absolute()
         || !path.is_absolute()
         || root_path
@@ -33,7 +38,7 @@ pub fn read(request: &ReadRequest) -> Result<Vec<u8>, ReadError> {
     verify_path(&root, root_path)?;
     let mut parent = root.try_clone().map_err(|_| ReadError::ReadFailed)?;
     let mut parts = relative.components().peekable();
-    let target = loop {
+    let mut target = loop {
         let Some(Component::Normal(name)) = parts.next() else {
             return Err(ReadError::ReadFailed);
         };
@@ -55,14 +60,11 @@ pub fn read(request: &ReadRequest) -> Result<Vec<u8>, ReadError> {
     if !metadata.is_file() {
         return Err(ReadError::ReadFailed);
     }
-    if metadata.len() > request.max_bytes {
-        return Err(ReadError::OutputLimit);
-    }
     verify_path(&target, path)?;
-    let bytes = super::read_contents(&target, metadata, request)?;
+    let result = operation(&mut target)?;
     verify_path(&root, root_path)?;
     verify_path(&target, path)?;
-    Ok(bytes)
+    Ok(result)
 }
 
 fn open_directory(parent: impl std::os::fd::AsFd, path: &Path) -> Result<File, ReadError> {

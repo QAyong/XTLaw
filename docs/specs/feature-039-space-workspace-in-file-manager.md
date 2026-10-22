@@ -124,6 +124,7 @@ Spec-035 让“空间主目录内的产出”改走文件管理器。验收后�
 - 实现：`shared/spaces/spaceApi.ts`（`workspaceDirectory`、`spaceWorkspaceDirectoryId`、`isSpaceWorkspaceDirectoryId`，`getActiveSpaceDirectories` 追加默认文件夹）、`service/src/spaces/SpaceWorkspaceDirectories.ts`（新增，按空间 ID 派生目录、同步创建并缓存真实路径，不可用时返回空而不是让空间列表失败）、`SpaceFileService.ts`（识别默认文件夹目录编号，根层隐藏 `.attachments`）、`registerSpaceRpc.ts`（`create`/`update`/`list` 响应附带 `workspaceDirectory`）、`BuddyService.ts`（装配）、`DesktopFilesContextSurface.vue`、`DesktopFileSpacePicker.vue`、两份 `tasks.ts` 多语言（“默认文件夹”）。
 - `pnpm type-check`（`apps/buddy`）通过；改动文件 ESLint 通过。
 - 相关测试：`service/src/spaces`、`shared/spaces`、`src/modules/tasks`、`src/modules/files`、`src/shared/ui/explorer`、`src/app/workbench` 共 117 个文件，1033 通过、6 失败。6 个失败都在 `SpaceFileRecovery.spec.ts`（Windows 上 `EBUSY`），在未改动的基线上同样失败，与本次改动无关；`docs/known-test-failures.md` 里没有记录，需要时再补。
+- 补充修复（2026-10-22）：`resolveChatToolFileTarget` 的相对路径原先只按主目录解析，没选文件夹的空间里指向相对路径的文件链接打不开；现在没有主目录时回退到默认文件夹（`chatToolFileTarget.ts`，用例在 `chatToolDetails.spec.ts`）。
 - 开发预览手动验收：用户确认没有问题（2026-10-22）。
 - 未做：打包、Windows 之外的平台；Office 等文档插件经默认文件夹接手的完整流程没有单独验证。
 

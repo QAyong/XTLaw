@@ -373,7 +373,9 @@ export class ArtifactService {
     ) {
       throw new ArtifactError('VALIDATION_FAILED')
     }
-    const bytes = await readFile(artifact.currentPath)
+    const bytes = await readFile(artifact.currentPath).catch((error: NodeJS.ErrnoException) => {
+      throw error.code === 'ENOENT' || error.code === 'ENOTDIR' ? new ArtifactError('FILE_NOT_FOUND') : error
+    })
     if (bytes.byteLength > BUDDY_ARTIFACT_TEXT_BYTES_LIMIT)
       throw new ArtifactError('ARTIFACT_SIZE_LIMIT')
     let text: string

@@ -111,6 +111,27 @@ describe('artifactService', () => {
     expect(fixture.service.listConversationArtifacts('conversation-1')).toHaveLength(2)
   })
 
+  it('reports an output whose file was moved or deleted as not found', async () => {
+    const fixture = await createFixture()
+    const path = join(fixture.workspace, 'report.md')
+    await writeFile(path, '# report\n')
+    const [artifact] = await fixture.service.presentOutputs({ conversationId: 'conversation-1', cwd: fixture.workspace, grants: fixture.grants, paths: [path] })
+    await rm(path)
+    await expect(fixture.service.readText(artifact!.id)).rejects.toMatchObject({ code: 'FILE_NOT_FOUND' })
+  })
+
+  it('reports an output as missing when its parent has become a regular file', async () => {
+    const fixture = await createFixture()
+    const directory = join(fixture.workspace, 'reports')
+    const path = join(directory, 'report.md')
+    await mkdir(directory)
+    await writeFile(path, '# report\n')
+    const [artifact] = await fixture.service.presentOutputs({ conversationId: 'conversation-1', cwd: fixture.workspace, grants: fixture.grants, paths: [path] })
+    await rm(directory, { recursive: true })
+    await writeFile(directory, 'not a directory')
+    await expect(fixture.service.readText(artifact!.id)).rejects.toMatchObject({ code: 'FILE_NOT_FOUND' })
+  })
+
   it.each(['report.md', 'REPORT.MD', 'report.markdown'])('reads %s as Markdown without changing the file', async (name) => {
     const fixture = await createFixture()
     const path = join(fixture.workspace, name)

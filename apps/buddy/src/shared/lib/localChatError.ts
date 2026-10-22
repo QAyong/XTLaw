@@ -49,6 +49,7 @@ export function resolveLocalChatErrorMessage(error: unknown, language: BuddyLoca
     FILE_RECOVERY_REQUIRED: 'desktop.error.fileRecoveryRequired',
     FILE_OPERATION_CANCELLED: 'desktop.chat.unknownError',
     FILE_PERMISSION_REVOKED: 'desktop.error.directoryNotAuthorized',
+    FILE_NOT_FOUND: 'desktop.error.fileNotFound',
     FILE_UNSUPPORTED: 'desktop.chat.unknownError',
     FILE_ENGINE_INTERRUPTED: 'desktop.chat.unknownError',
     LOCAL_CHAT_OPERATION_FAILED: 'desktop.chat.unknownError',

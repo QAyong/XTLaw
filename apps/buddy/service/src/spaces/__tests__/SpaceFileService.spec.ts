@@ -125,6 +125,60 @@ describe('space file browsing', () => {
     expect(await f.files.read({ ...f.target, path: 'large.txt' })).toMatchObject({ kind: 'oversized', text: null })
   })
 
+  it.each(['note.md', 'image.png'])('reports a deleted %s and reads it again after restoration', async (name) => {
+    const f = await fixture()
+    const path = join(f.workspace, name)
+    const content = name.endsWith('.png') ? Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aT1kAAAAASUVORK5CYII=', 'base64') : Buffer.from('# note\n')
+    const target = { ...f.target, path: name }
+    await writeFile(path, content)
+    const original = await f.files.read(target)
+    await rm(path)
+    await expect(f.files.read(target)).rejects.toMatchObject({ code: 'FILE_NOT_FOUND' })
+    await writeFile(path, content)
+    expect(await f.files.read(target)).toEqual(original)
+  })
+
+  it('reports a deleted document without preventing a later read after restoration', async () => {
+    const f = await fixture()
+    const path = join(f.workspace, 'note.md')
+    const target = { ...f.target, path: 'note.md' }
+    await writeFile(path, '# original\n')
+    expect(await f.files.readDocument(target)).toMatchObject({ text: '# original\n' })
+    await rm(path)
+    await expect(f.files.readDocument(target)).rejects.toMatchObject({ code: 'FILE_NOT_FOUND' })
+    await writeFile(path, '# restored\n')
+    expect(await f.files.readDocument(target)).toMatchObject({ text: '# restored\n' })
+  })
+
+  it('reports a missing target when its former parent is now a regular file', async () => {
+    const f = await fixture()
+    const directory = join(f.workspace, 'reports')
+    await mkdir(directory)
+    await writeFile(join(directory, 'note.md'), '# note\n')
+    await rm(directory, { recursive: true })
+    await writeFile(directory, 'not a directory')
+    const target = { ...f.target, path: 'reports/note.md' }
+    await expect(f.files.read(target)).rejects.toMatchObject({ code: 'FILE_NOT_FOUND' })
+    await expect(f.files.readDocument(target)).rejects.toMatchObject({ code: 'FILE_NOT_FOUND' })
+  })
+
+  it('keeps an unavailable directory distinct from a missing file', async () => {
+    const f = await fixture()
+    await rm(f.workspace, { recursive: true })
+    const target = { ...f.target, path: 'note.md' }
+    await expect(f.files.read(target)).rejects.toMatchObject({ code: 'ENOENT' })
+    await expect(f.files.readDocument(target)).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('preserves reader failures instead of reporting an existing file as missing', async () => {
+    const f = await fixture()
+    const path = join(f.workspace, 'note.md')
+    await writeFile(path, '# retained\n')
+    vi.stubEnv('LEXORA_BUDDY_FILE_READER', join(f.root, 'missing-reader'))
+    await expect(f.files.read({ ...f.target, path: 'note.md' })).rejects.toMatchObject({ code: 'BOUNDED_FILE_READER_UNAVAILABLE' })
+    expect(await readFile(path, 'utf8')).toBe('# retained\n')
+  })
+
   it('saves UTF-8 content without changing its BOM, rejects stale etags and rechecks grants', async () => {
     const f = await fixture()
     const path = join(f.workspace, 'note.md')
@@ -151,7 +205,8 @@ describe('space file browsing', () => {
     expect((await f.files.list(f.target)).entries.find(entry => entry.name === 'escape')).toMatchObject({ unavailable: true })
     for (const path of ['../outside.txt', join(f.root, 'outside.txt'), 'escape'])
       await expect(f.files.read({ ...f.target, path })).rejects.toThrow()
-    await expect(f.files.read({ ...f.target, path: 'inside.txt', revision: 99 })).rejects.toThrow()
+    await expect(f.files.read({ ...f.target, path: 'inside.txt', revision: 99 })).rejects.toMatchObject({ code: 'VALIDATION_FAILED' })
+    await expect(f.files.readDocument({ ...f.target, path: 'inside.txt', revision: 99 })).rejects.toMatchObject({ code: 'VALIDATION_FAILED' })
     await f.spaces.delete(f.target.spaceId)
     await expect(f.files.list(f.target)).rejects.toThrow()
     await expect(f.files.read({ ...f.target, path: 'inside.txt' })).rejects.toThrow()

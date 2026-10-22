@@ -174,6 +174,7 @@ export default {
   'desktop.context.sourceLoadFailed': 'Could not load the source viewer',
   'desktop.context.previewUnavailable': 'This file cannot be previewed here yet',
   'desktop.context.previewLoadFailed': 'Could not load this file preview',
+  'desktop.context.previewFileMissing': 'This file has been moved or deleted',
   'desktop.context.tabCount': 'Enhanced capability tabs, {count} total',
   'desktop.search.taskCount': 'Tasks ({count})',
   'desktop.search.description': 'Search tasks and spaces',

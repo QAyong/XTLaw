@@ -172,6 +172,7 @@ export default {
   'desktop.context.sourceLoadFailed': '无法加载源码查看器',
   'desktop.context.previewUnavailable': '暂不支持在此预览该文件',
   'desktop.context.previewLoadFailed': '无法读取该文件预览',
+  'desktop.context.previewFileMissing': '文件已被移动或删除',
   'desktop.context.tabCount': '增强能力页签，共 {count} 个',
   'desktop.search.taskCount': '任务 ({count})',
   'desktop.search.description': '当前可以搜索任务和空间',

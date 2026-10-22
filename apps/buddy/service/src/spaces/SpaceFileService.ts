@@ -4,8 +4,9 @@ import type { SpaceRepository } from '../storage/spaceRepository'
 import { Buffer } from 'node:buffer'
 import { realpath, stat } from 'node:fs/promises'
 import { isAbsolute, relative, resolve, sep } from 'node:path'
+import { BoundedFileReadError } from '../../../platform/filesystem/boundedFile'
 import { Emitter } from '../../../shared/events/Emitter'
-import { resolveGrantedPath } from '../directories/resolveGrantedPath'
+import { GrantedPathError, resolveGrantedPath } from '../directories/resolveGrantedPath'
 import { readFilePreview } from '../files/readFilePreview'
 import { createSensitivePathMatcher } from '../permissions/sensitivePaths'
 import { BuddyServiceError } from '../rpc/runtimeRequest'
@@ -54,9 +55,9 @@ export class SpaceFileService {
   }
 
   async read(input: SpaceFileTarget): Promise<LocalSpaceFilePreview> {
-    const target = await this.resolve(input)
+    const target = await this.resolve(input).catch(rethrowMissingFile)
     this.requireDirectory(input)
-    const preview = await readFilePreview(target.root, target.path)
+    const preview = await readFilePreview(target.root, target.path).catch(error => rethrowMissingFile(error, target.path))
     this.requireDirectory(input)
     return preview
   }
@@ -71,7 +72,7 @@ export class SpaceFileService {
   }
 
   async readDocument(input: SpaceFileTarget): Promise<SpaceTextDocument> {
-    const root = await this.root(input)
+    const root = await this.root(input, 'existing').catch(rethrowMissingFile)
     const result = await this.#engine.read(root, input.path)
     this.requireDirectory(input)
     if (Buffer.byteLength(result.text) > 1024 * 1024)
@@ -190,9 +191,9 @@ export class SpaceFileService {
     return pending
   }
 
-  private async root(input: SpaceFileTarget): Promise<string> {
+  private async root(input: SpaceFileTarget, mode: 'existing' | 'create' = 'create'): Promise<string> {
     const directory = this.requireDirectory(input)
-    await this.resolve(input, 'create')
+    await this.resolve(input, mode)
     const key = JSON.stringify([directory.id, directory.revision])
     await this.#engine.register(key, directory.canonicalRoot, true)
     this.requireDirectory(input)
@@ -246,4 +247,13 @@ export class SpaceFileService {
     this.requireDirectory(input)
     return { path: target.canonicalPath, root: directory.canonicalRoot }
   }
+}
+
+function rethrowMissingFile(error: unknown, targetPath?: string): never {
+  if (error instanceof GrantedPathError && error.code === 'PATH_NOT_FOUND')
+    throw new BuddyServiceError('FILE_NOT_FOUND')
+  const failure = (error instanceof BoundedFileReadError && error.code === 'BOUNDED_FILE_READ_FAILED' ? error.cause : error) as NodeJS.ErrnoException | undefined
+  if (targetPath && failure?.path === targetPath && (failure.code === 'ENOENT' || failure.code === 'ENOTDIR'))
+    throw new BuddyServiceError('FILE_NOT_FOUND')
+  throw error
 }

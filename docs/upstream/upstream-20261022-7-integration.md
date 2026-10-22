@@ -7,6 +7,8 @@
 | 上游提交 | 内容与整合方式 |
 | --- | --- |
 | `aa856a3d2` | 修复 ChatGPT 登录误开放生图工具：9 个文件，无冲突，无迁移、依赖或 Rust |
+| `61a0e14fe` | 去掉 Windows ACL 测试里的管理员判断，改 1 个测试文件，无冲突。与 `5fd3e1012` 成对，后者把判断加回去，两者合起来的净效果等于 `5fd3e1012` 的版本 |
+| `5fd3e1012` | 修复 Windows ACL 验证：spec 的 ACL 恢复与清理改进、新增 `packaging/buddy/ci/test-windows-platform.ps1`，无冲突；两个 workflow 手改进 XTLaw CI，见下 |
 | `2f91fa803` | 完善产物卡片操作与媒体预览（useLexora/Lexora#428）：75 个文件，38 处冲突。**只移植媒体预览部分**（取代本地 #408）；产出卡片操作部分不移植，保留本地 #407，见下 |
 
 ## 跳过
@@ -15,14 +17,11 @@
 | --- | --- |
 | `f6d871837` | 发布 v0.15.0，只改版本号（`package.json`、`buddy.version.json`、`Cargo.lock`、`Cargo.toml`），不照搬上游版本号 |
 
-## 未决定（留给下一轮）
+### `5fd3e1012` 并进 XTLaw CI（2 处 workflow 冲突）
 
-| 上游提交 | 说明 |
-| --- | --- |
-| `61a0e14fe` | 去掉 Windows ACL 测试里的管理员判断，改 1 个测试文件，无冲突。与 `5fd3e1012` 配套，一起决定 |
-| `5fd3e1012` | 在 CI 新增 Windows ACL 无管理员权限测试（`ci.yml`、`buddy-build.yml`、`packaging/buddy/ci/test-windows-platform.ps1`）。本地 `ci.yml` 已改成 XTLaw CI，2 个 workflow 冲突；按规则不碰 `.github/workflows`，需要手改时再定 |
-
-基线只推进到 `f6d871837`（含），这两个提交仍待决定。
+- **`ci.yml`：** 新增 `windows-acl-checks` 作业（`github.event_name == 'pull_request'` 且 workspace 范围；矩阵 `windows-2025` 和 `windows-11-arm`；超时 15 分钟；用受限令牌运行 `sandboxPathPermissions.native.spec.ts`）。`ci-gate` 的 `needs` 加上它，并新增一条 `require_success "Windows ACL checks"`；`ci-gate` 的 `if` 保持本地的 `always() && …`，没有换成上游的 `!cancelled()`。作业用到的 action 固定哈希、`install-workspace-dependencies` 的 `packages` 输入本地都已有。
+- **`buddy-build.yml`：** `Test platform runtime` 保留本地的 `--maxWorkers=1` 和注释，并加 `--exclude '**/sandboxPathPermissions.native.spec.ts'`；之后新增 `Test Windows ACL denial without administrator privileges` 步骤，调用同一个脚本。上游写的是 `test:platform --exclude …`，本地原来就不是这个写法，所以没改回。
+- 这是 PR 里新增的两台 Windows 机器（每台最长 15 分钟），仓库是公开的，`windows-11-arm` 可用。作业只在 PR 触发，`push` 到 `master` 不跑。
 
 ## `2f91fa803`：媒体预览取上游，产出卡片保留本地
 
@@ -53,9 +52,15 @@
 
 ## 检查
 
-- 迁移：无。依赖：无变更。品牌：新增行里的 `Lexora` 都是协议名（`lexora-file`、`lexora-artifact`）、包名等标识，无用户可见文案。
+- 迁移：无。依赖：无变更。品牌：新增行里的 `Lexora` 都是协议名（`lexora-file`、`lexora-artifact`）、包名、脚本里的 `LexoraPlatformTestProcess`/`LexoraTests-` 窗口站名等内部标识，无用户可见文案。
 - 类型检查：`apps/buddy` 的 `vue-tsc -b` 通过。`eslint` 对全部改动文件无问题。
 - Rust：`cargo fmt --check` 通过；Windows 上 `bounded-file`（8 个，含上游新增的流式用例）和 `bounded-file-windows`（5 个通过、2 个因权限忽略）通过。另用 Node 脚本直接驱动新构建的 `file_reader --stream`，返回确认字节和正确的数据。Linux/macOS 的 `bounded_file_linux`/`macos` 未在本机跑，依赖 `XTLaw CI` 的 native checks。
 - vitest（本机 Windows，服务层、`shared/files`、`src/modules/tasks`、`src/shared/ui`、`src/modules/files`）：891 通过、17 失败，全部是 Windows 环境问题——符号链接 `EPERM`（包括上游新增的 `SpaceFileService` 媒体符号链接用例和 `ArtifactService` 任务工作区用例）、`EBUSY`；其中 `skillInstallation` 3 个、`SkillPackageCache` 与 `SpaceFileRecovery` 的若干个不在或不全在 `known-test-failures.md` 里，但对应文件本次没有改动，失败原因是 `EPERM`/`EBUSY`。
 - **`electron/main/__tests__/mediaProtocol.spec.ts` 没有跑通（18 个）：** 测试用的是 `.output/build/native/.../release/lexora-buddy-file-reader.exe`，那是旧版本，不认 `--stream`；重新生成需要 `node packaging/buddy/release/native-host.mjs`，但 `lexora-buddy-runtime-guard.exe` 被占用（os error 5），按约定没有强行处理。解除占用后重跑该 spec。
 - 未跑：Playwright E2E（含上游新增的 `media-preview`、`image-preview`）、开发预览、打包、真实窗口里的音视频播放。
+- **ACL 作业：** `ci.yml`、`buddy-build.yml` 都能被 YAML 解析，`test-windows-platform.ps1` 的 PowerShell 语法无错误，spec 通过 eslint 与 `vue-tsc`。**没有运行这个脚本，也没有触发这两个 workflow**——受限令牌、WindowStation 和 ACL 都只能靠 CI 验证。第一次 PR 上要看 `Windows ACL checks` 是否绿，若失败再按日志定位。
+- 发现的既有问题：`buddy-build.yml` 此前在管理员令牌的运行器上直接跑这个 spec，而 spec 里有“必须是普通用户令牌”的判断，所以那一步很可能一直靠不上；现在改走受限令牌脚本。
+
+## 基线
+
+`docs/upstream-baseline.json` 的 `lastChecked` 推进到 `5fd3e1012`，即上游 master 当前最新提交。`b74716ee6` 之后的 5 个提交都已决定：移植 `aa856a3d2`、`2f91fa803`（仅媒体预览）、`61a0e14fe`、`5fd3e1012`，跳过 `f6d871837`（发版）。

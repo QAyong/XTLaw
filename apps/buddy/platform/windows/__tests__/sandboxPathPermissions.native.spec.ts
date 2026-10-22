@@ -27,11 +27,19 @@ async function withDeniedPath(run: (fixture: { root: string, denied: string, inp
   const root = await realpath(await mkdtemp(join(tmpdir(), 'buddy-path-acl-')))
   const parent = join(root, 'denied')
   const denied = join(parent, 'child')
+  const errors: unknown[] = []
   try {
     await Promise.all(['workspace', 'home', 'shell', 'system/System32', 'search', 'normal-a', 'normal-b', 'denied/child', 'denied/System32'].map(path => mkdir(join(root, path), { recursive: true })))
     await powershell(root, `
       $identity=[Security.Principal.WindowsIdentity]::GetCurrent()
+      if([Security.Principal.WindowsPrincipal]::new($identity).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw 'An ordinary user token is required'}
       $paths=@('denied','denied\\child','denied\\System32')
+      foreach($relative in $paths){
+        $path=Join-Path $root $relative
+        $acl=Get-Acl -LiteralPath $path
+        $acl.SetSecurityDescriptorSddlForm($acl.Sddl,[Security.AccessControl.AccessControlSections]::Access)
+        Set-Acl -LiteralPath $path -AclObject $acl
+      }
       $saved=@($paths|ForEach-Object {@{relative=$_;sddl=(Get-Acl -LiteralPath (Join-Path $root $_)).Sddl}})
       ConvertTo-Json -InputObject $saved|Set-Content -LiteralPath (Join-Path $root 'acl.json') -Encoding utf8
       $path=Join-Path $root 'denied'
@@ -69,7 +77,10 @@ async function withDeniedPath(run: (fixture: { root: string, denied: string, inp
       },
     })
   }
-  finally {
+  catch (error) {
+    errors.push(error)
+  }
+  try {
     const saved = await readFile(join(root, 'acl.json'), 'utf8').catch((error: NodeJS.ErrnoException) => {
       if (error.code !== 'ENOENT')
         throw error
@@ -82,13 +93,21 @@ async function withDeniedPath(run: (fixture: { root: string, denied: string, inp
         $acl.SetSecurityDescriptorSddlForm($saved[0].sddl,[Security.AccessControl.AccessControlSections]::Access)
         Set-Acl -LiteralPath (Join-Path $root 'denied') -AclObject $acl
         foreach($entry in $saved){
-          if((Get-Acl -LiteralPath (Join-Path $root $entry.relative)).Sddl -cne $entry.sddl){throw 'Fixture SDDL was not restored'}
+          $actual=(Get-Acl -LiteralPath (Join-Path $root $entry.relative)).Sddl
+          if($actual -cne $entry.sddl){throw "Fixture SDDL was not restored for $($entry.relative): expected $($entry.sddl); received $actual"}
         }
       `)
       expect(await realpath(denied)).toBe(denied)
     }
     await rm(root, { recursive: true, force: true })
   }
+  catch (error) {
+    errors.push(error)
+  }
+  if (errors.length === 1)
+    throw errors[0]
+  if (errors.length > 1)
+    throw new AggregateError(errors, 'Windows ACL test and cleanup failed')
 }
 
 describe.skipIf(process.platform !== 'win32')('windows sandbox policy with real ACL denial', () => {

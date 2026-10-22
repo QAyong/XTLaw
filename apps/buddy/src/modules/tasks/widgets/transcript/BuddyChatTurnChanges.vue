@@ -24,6 +24,7 @@ const summary = computed(() => t('desktop.chat.turnChanges', {
 
 <template>
   <button
+    v-if="changeSet.fileCount > 0"
     class="buddy-chat-turn-changes"
     data-testid="chat-turn-changes"
     type="button"

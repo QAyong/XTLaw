@@ -5,11 +5,11 @@ import { Buffer } from 'node:buffer'
 import { createHash, randomUUID } from 'node:crypto'
 import { realpath, stat } from 'node:fs/promises'
 import { isAbsolute, relative, resolve, sep } from 'node:path'
-import { readBoundedFile, readBoundedFileChunk } from '../../../platform/filesystem/boundedFile'
+import { BoundedFileReadError, readBoundedFile, readBoundedFileChunk } from '../../../platform/filesystem/boundedFile'
 import { saveBoundedBinaryFile } from '../../../platform/filesystem/saveBoundedTextFile'
 import { Emitter } from '../../../shared/events/Emitter'
 import { mediaKindOf } from '../../../shared/files/mediaFiles'
-import { resolveGrantedPath } from '../directories/resolveGrantedPath'
+import { GrantedPathError, resolveGrantedPath } from '../directories/resolveGrantedPath'
 import { readFilePreview } from '../files/readFilePreview'
 import { createSensitivePathMatcher } from '../permissions/sensitivePaths'
 import { BuddyServiceError } from '../rpc/runtimeRequest'
@@ -64,13 +64,13 @@ export class SpaceFileService {
     const media = mediaKindOf(target.path)
     if (media) {
       // Audio and video are streamed by the media protocol, so the size limits that apply to inline previews do not.
-      const metadata = await stat(target.path).catch(rethrowMissingFile)
+      const metadata = await stat(target.path).catch(error => rethrowMissingFile(error, target.path))
       if (!metadata.isFile())
         throw new BuddyServiceError('VALIDATION_FAILED')
       this.requireDirectory(input)
       return { kind: media, sizeBytes: metadata.size, text: null, imageUrl: null }
     }
-    const preview = await readFilePreview(target.root, target.path).catch(rethrowMissingFile)
+    const preview = await readFilePreview(target.root, target.path).catch(error => rethrowMissingFile(error, target.path))
     this.requireDirectory(input)
     return preview
   }
@@ -85,7 +85,7 @@ export class SpaceFileService {
   }
 
   async readDocument(input: SpaceFileTarget): Promise<SpaceTextDocument> {
-    const root = await this.root(input)
+    const root = await this.root(input, 'existing').catch(rethrowMissingFile)
     const result = await this.#engine.read(root, input.path)
     this.requireDirectory(input)
     if (Buffer.byteLength(result.text) > 1024 * 1024)
@@ -258,9 +258,9 @@ export class SpaceFileService {
     return pending
   }
 
-  private async root(input: SpaceFileTarget): Promise<string> {
+  private async root(input: SpaceFileTarget, mode: 'existing' | 'create' = 'create'): Promise<string> {
     const directory = this.requireDirectory(input)
-    await this.resolve(input, 'create')
+    await this.resolve(input, mode)
     const key = JSON.stringify([directory.id, directory.revision])
     await this.#engine.register(key, directory.canonicalRoot, true)
     this.requireDirectory(input)
@@ -321,12 +321,11 @@ export class SpaceFileService {
   }
 }
 
-// A file moved or deleted after it was listed is reported on its own, so the preview can say so.
-function rethrowMissingFile(error: unknown): never {
-  for (let current = error, depth = 0; current && typeof current === 'object' && depth < 5; current = (current as { cause?: unknown }).cause, depth++) {
-    const code = (current as { code?: unknown }).code
-    if (code === 'ENOENT' || code === 'PATH_NOT_FOUND')
-      throw new BuddyServiceError('FILE_NOT_FOUND')
-  }
+function rethrowMissingFile(error: unknown, targetPath?: string): never {
+  if (error instanceof GrantedPathError && error.code === 'PATH_NOT_FOUND')
+    throw new BuddyServiceError('FILE_NOT_FOUND')
+  const failure = (error instanceof BoundedFileReadError && error.code === 'BOUNDED_FILE_READ_FAILED' ? error.cause : error) as NodeJS.ErrnoException | undefined
+  if (targetPath && failure?.path === targetPath && (failure.code === 'ENOENT' || failure.code === 'ENOTDIR'))
+    throw new BuddyServiceError('FILE_NOT_FOUND')
   throw error
 }

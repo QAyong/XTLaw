@@ -105,6 +105,49 @@ describe('working copy ownership and save facts', () => {
     await copies.dispose()
   })
 
+  it.each([
+    ['structured', Object.assign(new Error('Read failed'), { code: 'FILE_NOT_FOUND' }), 'FILE_NOT_FOUND'],
+    ['IPC', new Error('Error invoking remote method: Error: LEXORA_LOCAL_CHAT_ERROR:FILE_NOT_FOUND:0'), 'FILE_NOT_FOUND'],
+    ['unclassified', new Error('ENOENT: private diagnostic'), 'FILE_READ_FAILED'],
+  ])('classifies %s read failures without exposing diagnostics', async (_kind, failure, expected) => {
+    const copies = new WorkingCopyService({ ...provider(), read: async () => {
+      throw failure
+    } })
+    try {
+      expect(await copies.open(resource)).toMatchObject({ error: expected, loading: false, text: '' })
+    }
+    finally {
+      await copies.dispose()
+    }
+  })
+
+  it.each([false, true])('clears missing errors after an external refresh while preserving edits (dirty=%s)', async (dirty) => {
+    let missing = false
+    let document = { text: 'original', etag: 'a' }
+    const copies = new WorkingCopyService({ ...provider(), read: async () => {
+      if (missing)
+        throw new Error('LEXORA_LOCAL_CHAT_ERROR:FILE_NOT_FOUND:0')
+      return document
+    } })
+    try {
+      await copies.open(resource)
+      if (dirty)
+        copies.edit(resource, 'local edits')
+      missing = true
+      await copies.refresh(resource)
+      expect(copies.get(resource)).toMatchObject({ error: 'FILE_NOT_FOUND', text: dirty ? 'local edits' : 'original', dirty })
+      missing = false
+      document = { text: 'restored', etag: 'b' }
+      await copies.refresh(resource)
+      expect(copies.get(resource)).toMatchObject({ error: null, text: dirty ? 'local edits' : 'restored', dirty, conflict: dirty ? document : null })
+      if (dirty)
+        expect(copies.backups()).toMatchObject([{ text: 'local edits', baseText: 'original', etag: 'a' }])
+    }
+    finally {
+      await copies.dispose()
+    }
+  })
+
   it('does not replay older queued changes over a backup resync snapshot', async () => {
     const copies = new WorkingCopyService(provider())
     await copies.open(resource)
@@ -174,6 +217,8 @@ describe('working copy ownership and save facts', () => {
       expect(await copies.save(resource)).toMatchObject({ status: 'failed', error: 'FILE_SAVE_FAILED', dirtyAfter: true })
       expect(saved).toEqual([])
       expect(output.mock.calls).toEqual([['WORKING_COPY_OBSERVER_FAILED']])
+      expect(copies.get(resource)?.error).toBe('FILE_SAVE_FAILED')
+      await copies.refresh(resource)
       expect(copies.get(resource)?.error).toBe('FILE_SAVE_FAILED')
     }
     finally {

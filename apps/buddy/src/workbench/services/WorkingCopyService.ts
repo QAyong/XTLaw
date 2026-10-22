@@ -5,6 +5,7 @@ import type { ResourceRef } from '../common/workbench'
 import { Emitter, filterEvent } from '@buddy-shared/events/Emitter'
 import { copyEventSnapshot } from '@buddy-shared/events/eventSnapshot'
 import { ReadonlyMapView } from '@buddy-shared/events/ReadonlyMapView'
+import { parseLocalChatPublicError, readLocalChatErrorCode } from '@buddy-shared/runtime/localChatError'
 import { resourceKey } from '../common/workbench'
 
 export interface TextDocument { text: string, etag: string }
@@ -336,18 +337,20 @@ export class WorkingCopyService {
       if (this.#stopped || current?.incarnation !== started.incarnation)
         return copyEventSnapshot({ ...started, loading: false, error: 'WORKING_COPY_RELEASED' })
       this.#loading.delete(started.key)
+      const error = current.error === 'FILE_NOT_FOUND' || current.error === 'FILE_READ_FAILED' ? null : current.error
       if (current.dirty && current.etag)
-        return this.#commit('loaded', { ...current, loading: false, conflict: document.etag !== current.etag ? document : null }, { operationId })
+        return this.#commit('loaded', { ...current, loading: false, error, conflict: document.etag !== current.etag ? document : null }, { operationId })
       const text = current.dirty ? current.text : document.text
       const contentVersion = current.contentVersion + Number(text !== current.text)
-      return this.#commit('loaded', { ...current, text, contentVersion, savedVersion: text === document.text ? contentVersion : current.savedVersion, baseText: document.text, etag: document.etag, loading: false, conflict: null }, { operationId })
+      return this.#commit('loaded', { ...current, text, contentVersion, savedVersion: text === document.text ? contentVersion : current.savedVersion, baseText: document.text, etag: document.etag, loading: false, error, conflict: null }, { operationId })
     }
-    catch {
+    catch (error) {
       const current = this.#copies.get(started.key)
       if (this.#stopped || current?.incarnation !== started.incarnation)
         return copyEventSnapshot({ ...started, loading: false, error: 'WORKING_COPY_RELEASED' })
       this.#loading.delete(started.key)
-      return this.#commit('load-failed', { ...current, loading: false, error: 'FILE_READ_FAILED' }, { operationId })
+      const code = readLocalChatErrorCode(error) ?? (error instanceof Error ? parseLocalChatPublicError(error.message)?.code : null)
+      return this.#commit('load-failed', { ...current, loading: false, error: code === 'FILE_NOT_FOUND' ? code : 'FILE_READ_FAILED' }, { operationId })
     }
     finally {
       if (this.#loading.get(started.key) === promise)

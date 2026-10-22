@@ -28,6 +28,25 @@ async function fixture(processIds: string[]) {
 }
 
 describe('mutation recovery evidence', () => {
+  it('retains malformed dispatch identities instead of associating absent request identifiers', async () => {
+    const f = await fixture([JSON.stringify({ kind: 'sandbox-dispatch' }), native('old')])
+    f.mutations.recordOwnedProcessSettlement({ invocationId: 'invocation', processId: native('old'), settlement: 'released' })
+    const recovery = new MutationRecoveryService({ mutations: f.mutations, checkpoint: async () => null })
+    await recovery.recheck()
+    expect(f.repository.listUnreleased()).toHaveLength(1)
+  })
+
+  it('retains a child reported while verification was awaiting its original snapshot', async () => {
+    const f = await fixture([native('old')])
+    const recovery = new MutationRecoveryService({ mutations: f.mutations, verify: async () => {
+      f.mutations.recordOwnedProcessSettlement({ invocationId: 'invocation', processId: 'late-child', settlement: 'unknown' })
+      return { status: 'released', reason: 'supervisor_receipt' }
+    } })
+    await recovery.recheck()
+    expect(f.repository.listUnreleased()[0]?.processes).toContainEqual({ processId: 'late-child', settlement: 'unknown' })
+    expect(f.mutations.getHazards()).toHaveLength(1)
+  })
+
   it('releases dispatch and job together only after every associated process is proven released', async () => {
     const f = await fixture([dispatch('request'), JSON.stringify({ kind: 'native-shell-dispatch', nonce: 'nonce', requestId: 'request' }), native('nonce', 'request')])
     const recovery = new MutationRecoveryService({ mutations: f.mutations, verify: async () => ({ status: 'released', reason: 'boot_changed' }) })
@@ -37,11 +56,13 @@ describe('mutation recovery evidence', () => {
     writer.release()
   })
 
-  it('keeps live descendants, malformed identities, and unmatched dispatches protected', async () => {
+  it('retains observed descendants and malformed identities as warnings without blocking new work', async () => {
     const f = await fixture([dispatch('other-request'), native('nonce', 'request'), 'invalid'])
     const recovery = new MutationRecoveryService({ mutations: f.mutations, verify: async () => ({ status: 'active', reason: 'job_active' }), checkpoint: async () => null })
     await recovery.recheck()
-    await expect(f.mutations.acquire({ runId: 'next', invocationId: 'next', lifetime: 'runtime', claims: [{ kind: 'host' }], signal })).rejects.toMatchObject({ code: 'MUTATION_RESOURCE_UNSAFE' })
+    const next = await f.mutations.acquire({ runId: 'next', invocationId: 'next', lifetime: 'runtime', claims: [{ kind: 'host' }], signal })
+    next.release()
+    expect(f.mutations.getOwnedProcesses('invocation').every(item => item.settlement === 'unknown')).toBe(true)
     expect(f.repository.listUnreleased()).toHaveLength(1)
   })
 
@@ -49,6 +70,8 @@ describe('mutation recovery evidence', () => {
     const f = await fixture([])
     const recovery = new MutationRecoveryService({ mutations: f.mutations, verify: async () => ({ status: 'released', reason: 'boot_changed' }), checkpoint: async () => checkpoint })
     await recovery.recheck()
+    const next = await f.mutations.acquire({ runId: 'next', invocationId: 'next', lifetime: 'external', claims: [{ kind: 'host' }], signal })
+    next.release()
     expect(f.mutations.getOwnedProcesses('invocation')).toEqual([])
     expect(f.repository.listUnreleased()).toHaveLength(1)
   })

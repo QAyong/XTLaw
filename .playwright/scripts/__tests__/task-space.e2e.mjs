@@ -36,7 +36,8 @@ test('moving a task requires confirmation, preserves its draft and previous file
   await spaceDialog.getByRole('button', { name: '确定', exact: true }).click()
   await expect(spaceDialog).toBeHidden()
   const spaceId = await page.evaluate(async () => (await window.lexoraDesktop.localChat.spaces.list()).find(space => space.name === '目标项目').id)
-  const row = () => page.locator('[data-task-id="movable"]')
+  let rowSelector = '[data-task-id="movable"]'
+  const row = () => page.locator(rowSelector)
   await row().locator('.desktop-task-sidebar__task').click()
   const editor = () => page.locator('.desktop-chat-composer__prosemirror:visible')
   await editor().fill('移入后仍需保留的草稿')
@@ -48,7 +49,7 @@ test('moving a task requires confirmation, preserves its draft and previous file
     await expect(dialog).toBeVisible()
     await dialog.locator('.n-base-selection').click()
     await page.locator('.n-base-select-menu:visible').getByText('目标项目', { exact: true }).click()
-    await expect(dialog).toContainText(target)
+    await expect(dialog).toContainText('文件不搬迁')
     return dialog
   }
   let moveDialog = await openMoveDialog()
@@ -57,13 +58,33 @@ test('moving a task requires confirmation, preserves its draft and previous file
   await expect(editor()).toContainText('移入后仍需保留的草稿')
   moveDialog = await openMoveDialog()
   await page.screenshot({ path: path.join(instance.artifactDirectory, '01-move-confirmation.png'), animations: 'disabled' })
-  await moveDialog.getByRole('button', { name: '确认移入', exact: true }).click()
+  await moveDialog.getByRole('button', { name: '移入', exact: true }).click()
   await expect(moveDialog).toBeHidden()
   await expect.poll(() => page.evaluate(() => window.lexoraDesktop.localChat.conversations.get('movable'))).toMatchObject({ spaceId, activeBranchId: 'branch-movable' })
   await expect(row()).toBeVisible()
   await expect(editor()).toContainText('移入后仍需保留的草稿')
   expect(await fs.readFile(path.join(previous, 'unfinished.txt'), 'utf8')).toBe('Original unfinished work')
   expect(await fs.readdir(target)).toEqual([])
+  const expectMoveHidden = async () => {
+    await row().hover()
+    await row().getByRole('button', { name: '更多操作', exact: true }).click()
+    await expect(page.locator('.n-dropdown-menu:visible')).toBeVisible()
+    await expect(page.locator('.n-dropdown-menu:visible').getByText('移入空间', { exact: true })).toHaveCount(0)
+    await editor().click()
+    await expect(page.locator('.n-dropdown-menu:visible')).toHaveCount(0)
+    await row().click({ button: 'right' })
+    await expect(page.locator('.n-dropdown-menu:visible')).toBeVisible()
+    await expect(page.locator('.n-dropdown-menu:visible').getByText('移入空间', { exact: true })).toHaveCount(0)
+    await editor().click()
+    await expect(page.locator('.n-dropdown-menu:visible')).toHaveCount(0)
+  }
+  await expectMoveHidden()
+  const spaceRow = page.locator('.desktop-task-space-row').filter({ hasText: '目标项目' })
+  await spaceRow.hover()
+  await spaceRow.getByRole('button', { name: '置顶', exact: true }).click()
+  rowSelector = '.desktop-task-sidebar__pinned [data-task-id="movable"]'
+  await expect(row()).toBeVisible()
+  await expectMoveHidden()
   const queueError = await page.evaluate(async (spaceId) => {
     try {
       await window.lexoraDesktop.localChat.conversations.moveToSpace('paused', spaceId)

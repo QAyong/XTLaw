@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { NativeFileEngine } from '../../files/NativeFileEngine'
 import { openBuddyDatabase } from '../../storage/database'
 import { createSpaceRepository } from '../../storage/spaceRepository'
@@ -38,6 +38,57 @@ async function fixture() {
 }
 
 describe('space file browsing', () => {
+  it('browses, edits and copies additional files, then denies stale access after removal without deleting data', async () => {
+    const f = await fixture()
+    const extra = join(f.root, 'extra')
+    await mkdir(extra)
+    await writeFile(join(extra, 'note.txt'), 'original')
+    const before = f.spaces.list()[0]!
+    const configuration = { spaceId: before.id, name: before.name, memoryScope: before.memoryScope, primaryDirectory: { id: before.primaryDirectory!.id, root: before.primaryDirectory!.root }, primaryDirectorySelectionVerified: false }
+    const space = await f.spaces.update({ ...configuration, additionalDirectoryChanges: { add: [extra], remove: [] }, additionalDirectorySelectionsVerified: true })
+    const binding = space.additionalDirectories[0]!
+    const target = { spaceId: space.id, directoryId: binding.id, revision: binding.revision, path: 'note.txt' }
+    expect((await f.files.list({ ...target, path: '' })).entries).toMatchObject([{ name: 'note.txt' }])
+    expect(await f.files.read(target)).toMatchObject({ kind: 'text', text: 'original' })
+    const document = await f.files.readDocument(target)
+    const saved = await f.files.saveDocument({ ...target, operationId: randomUUID(), etag: document.etag, text: 'edited' })
+    expect(saved.status).toBe('saved')
+    await f.files.mutate({ ...target, operationId: randomUUID(), action: { kind: 'copy', destination: { ...f.target, path: 'copied.txt' } } })
+    expect(await readFile(join(f.workspace, 'copied.txt'), 'utf8')).toBe('edited')
+    await f.spaces.update({ ...configuration, additionalDirectoryChanges: { add: [], remove: [binding.id] } })
+    await expect(f.files.list({ ...target, path: '' })).rejects.toThrow()
+    await expect(f.files.read(target)).rejects.toThrow()
+    await expect(f.files.saveDocument({ ...target, operationId: randomUUID(), etag: saved.document.etag, text: 'revoked' })).rejects.toThrow()
+    expect(await readFile(join(extra, 'note.txt'), 'utf8')).toBe('edited')
+    expect(await f.files.read({ ...f.target, path: 'copied.txt' })).toMatchObject({ text: 'edited' })
+  })
+
+  it('does not follow a replaced binding or expose sensitive descendants through an additional directory', async () => {
+    const f = await fixture()
+    const extra = join(f.root, 'extra')
+    const replacement = join(f.root, 'replacement')
+    const alias = join(f.root, 'alias')
+    await mkdir(extra)
+    await mkdir(replacement)
+    await symlink(extra, alias, 'junction')
+    const before = f.spaces.list()[0]!
+    const updated = await f.spaces.update({ spaceId: before.id, name: before.name, memoryScope: before.memoryScope, primaryDirectory: { id: before.primaryDirectory!.id, root: before.primaryDirectory!.root }, primaryDirectorySelectionVerified: false, additionalDirectoryChanges: { add: [alias], remove: [] }, additionalDirectorySelectionsVerified: true })
+    const binding = updated.additionalDirectories[0]!
+    const target = { spaceId: before.id, directoryId: binding.id, revision: binding.revision, path: '' }
+    const secret = join(extra, 'secret')
+    await mkdir(secret)
+    await writeFile(join(secret, 'credentials'), 'private')
+    vi.stubEnv('LEXORA_BUDDY_STORAGE_PROTECTION', JSON.stringify([secret]))
+    expect((await f.files.list(target)).entries).toEqual([])
+    await expect(f.files.readDocument({ ...target, path: 'secret/credentials' })).rejects.toThrow()
+    await expect(f.files.mutate({ ...target, path: 'secret/new.txt', operationId: randomUUID(), action: { kind: 'createFile' } })).rejects.toThrow()
+    await rm(alias)
+    await symlink(replacement, alias, 'junction')
+    await expect(f.files.list(target)).rejects.toThrow()
+    await expect(f.files.locate(target)).rejects.toThrow()
+    expect(await readFile(join(secret, 'credentials'), 'utf8')).toBe('private')
+  })
+
   it('reports a committed write before denying its response after authorization is revoked', async () => {
     const f = await fixture()
     const path = join(f.workspace, 'private-name.md')
@@ -74,6 +125,60 @@ describe('space file browsing', () => {
     expect(await f.files.read({ ...f.target, path: 'large.txt' })).toMatchObject({ kind: 'oversized', text: null })
   })
 
+  it.each(['note.md', 'image.png'])('reports a deleted %s and reads it again after restoration', async (name) => {
+    const f = await fixture()
+    const path = join(f.workspace, name)
+    const content = name.endsWith('.png') ? Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aT1kAAAAASUVORK5CYII=', 'base64') : Buffer.from('# note\n')
+    const target = { ...f.target, path: name }
+    await writeFile(path, content)
+    const original = await f.files.read(target)
+    await rm(path)
+    await expect(f.files.read(target)).rejects.toMatchObject({ code: 'FILE_NOT_FOUND' })
+    await writeFile(path, content)
+    expect(await f.files.read(target)).toEqual(original)
+  })
+
+  it('reports a deleted document without preventing a later read after restoration', async () => {
+    const f = await fixture()
+    const path = join(f.workspace, 'note.md')
+    const target = { ...f.target, path: 'note.md' }
+    await writeFile(path, '# original\n')
+    expect(await f.files.readDocument(target)).toMatchObject({ text: '# original\n' })
+    await rm(path)
+    await expect(f.files.readDocument(target)).rejects.toMatchObject({ code: 'FILE_NOT_FOUND' })
+    await writeFile(path, '# restored\n')
+    expect(await f.files.readDocument(target)).toMatchObject({ text: '# restored\n' })
+  })
+
+  it('reports a missing target when its former parent is now a regular file', async () => {
+    const f = await fixture()
+    const directory = join(f.workspace, 'reports')
+    await mkdir(directory)
+    await writeFile(join(directory, 'note.md'), '# note\n')
+    await rm(directory, { recursive: true })
+    await writeFile(directory, 'not a directory')
+    const target = { ...f.target, path: 'reports/note.md' }
+    await expect(f.files.read(target)).rejects.toMatchObject({ code: 'FILE_NOT_FOUND' })
+    await expect(f.files.readDocument(target)).rejects.toMatchObject({ code: 'FILE_NOT_FOUND' })
+  })
+
+  it('keeps an unavailable directory distinct from a missing file', async () => {
+    const f = await fixture()
+    await rm(f.workspace, { recursive: true })
+    const target = { ...f.target, path: 'note.md' }
+    await expect(f.files.read(target)).rejects.toMatchObject({ code: 'ENOENT' })
+    await expect(f.files.readDocument(target)).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  it('preserves reader failures instead of reporting an existing file as missing', async () => {
+    const f = await fixture()
+    const path = join(f.workspace, 'note.md')
+    await writeFile(path, '# retained\n')
+    vi.stubEnv('LEXORA_BUDDY_FILE_READER', join(f.root, 'missing-reader'))
+    await expect(f.files.read({ ...f.target, path: 'note.md' })).rejects.toMatchObject({ code: 'BOUNDED_FILE_READER_UNAVAILABLE' })
+    expect(await readFile(path, 'utf8')).toBe('# retained\n')
+  })
+
   it('saves UTF-8 content without changing its BOM, rejects stale etags and rechecks grants', async () => {
     const f = await fixture()
     const path = join(f.workspace, 'note.md')
@@ -100,7 +205,8 @@ describe('space file browsing', () => {
     expect((await f.files.list(f.target)).entries.find(entry => entry.name === 'escape')).toMatchObject({ unavailable: true })
     for (const path of ['../outside.txt', join(f.root, 'outside.txt'), 'escape'])
       await expect(f.files.read({ ...f.target, path })).rejects.toThrow()
-    await expect(f.files.read({ ...f.target, path: 'inside.txt', revision: 99 })).rejects.toThrow()
+    await expect(f.files.read({ ...f.target, path: 'inside.txt', revision: 99 })).rejects.toMatchObject({ code: 'VALIDATION_FAILED' })
+    await expect(f.files.readDocument({ ...f.target, path: 'inside.txt', revision: 99 })).rejects.toMatchObject({ code: 'VALIDATION_FAILED' })
     await f.spaces.delete(f.target.spaceId)
     await expect(f.files.list(f.target)).rejects.toThrow()
     await expect(f.files.read({ ...f.target, path: 'inside.txt' })).rejects.toThrow()

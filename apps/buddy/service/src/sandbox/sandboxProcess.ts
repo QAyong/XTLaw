@@ -1,6 +1,6 @@
 import process from 'node:process'
 import { z } from 'zod'
-import { sandboxProcessInputSchema } from '../../../shared/permissions/shellSandbox'
+import { sandboxProcessInputSchema, sandboxSettlementAckSchema } from '../../../shared/permissions/shellSandbox'
 import { BuddyServiceRpcServer } from '../rpc/BuddyServiceRpcServer'
 import { runSandboxCommand } from './runSandboxCommand'
 
@@ -10,7 +10,10 @@ if (!port)
 const peer = new BuddyServiceRpcServer({ port })
 const controller = new AbortController()
 let started = false
+let settled = false
 peer.onNotification((method) => {
+  if (method === 'sandbox.close' && settled)
+    process.exit(0)
   if (method === 'sandbox.cancel')
     controller.abort()
 })
@@ -21,6 +24,9 @@ peer.onRequest('sandbox.exec', async (params) => {
   const input = sandboxProcessInputSchema.parse(params)
   return runSandboxCommand(input, {
     signal: controller.signal,
+    async onSettlement(settlement) {
+      sandboxSettlementAckSchema.parse(await peer.request('sandbox.settlement', { ...settlement, requestId: input.requestId }, 60_000))
+    },
     onLifecycle: event => peer.notify('sandbox.lifecycle', { ...event, requestId: input.requestId }),
     onData(data) {
       for (let offset = 0; offset < data.length; offset += 64 * 1024)
@@ -30,5 +36,5 @@ peer.onRequest('sandbox.exec', async (params) => {
       const answer = z.object({ allowed: z.boolean() }).strict().parse(await peer.request('sandbox.network', { ...target, requestId: input.requestId }, 30 * 60 * 1_000))
       return answer.allowed
     },
-  })
+  }).finally(() => { settled = true })
 })

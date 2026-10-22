@@ -1,4 +1,5 @@
 import type { LocalArtifact, LocalArtifactText } from '@buddy-shared/artifacts/artifactApi'
+import { parseLocalChatPublicError } from '@buddy-shared/runtime/localChatError'
 import { computed, readonly, shallowRef, watch } from 'vue'
 import { isMarkdownArtifact, isTextMimeType } from './artifactContextPresentation'
 
@@ -14,6 +15,7 @@ export function useArtifactPreview(options: ArtifactPreviewOptions) {
   const previewOpen = shallowRef(false)
   const textPreview = shallowRef<LocalArtifactText | null>(null)
   const textPreviewFailed = shallowRef(false)
+  const textPreviewMissing = shallowRef(false)
   const textPreviewLoading = shallowRef(false)
   const imageUrl = computed(() => {
     const artifact = options.artifact()
@@ -41,6 +43,7 @@ export function useArtifactPreview(options: ArtifactPreviewOptions) {
     previewOpen.value = false
     textPreview.value = null
     textPreviewFailed.value = false
+    textPreviewMissing.value = false
     textPreviewLoading.value = kind === 'file' && (isTextMimeType(mimeType) || isMarkdownArtifact(options.artifact()))
     if (!textPreviewLoading.value)
       return
@@ -49,9 +52,11 @@ export function useArtifactPreview(options: ArtifactPreviewOptions) {
       if (active)
         textPreview.value = result
     }
-    catch {
-      if (active)
+    catch (error) {
+      if (active) {
         textPreviewFailed.value = true
+        textPreviewMissing.value = error instanceof Error && parseLocalChatPublicError(error.message)?.code === 'FILE_NOT_FOUND'
+      }
     }
     finally {
       if (active)
@@ -79,6 +84,7 @@ export function useArtifactPreview(options: ArtifactPreviewOptions) {
     previewUrl,
     textPreview: readonly(textPreview),
     textPreviewFailed: readonly(textPreviewFailed),
+    textPreviewMissing: readonly(textPreviewMissing),
     textPreviewLoading: readonly(textPreviewLoading),
   }
 }

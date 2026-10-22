@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { SHELL_SANDBOX_BACKEND } from '../platform/identifiers'
+import { shellProgramSchema } from '../shell/shellProgram'
 
 const pathSchema = z.string().min(1).max(4_096).refine(path => /^(?:\/|[a-z]:\\)/i.test(path) && !path.includes('\0'))
 
@@ -41,6 +42,7 @@ export type SandboxDirectoryGrant = z.infer<typeof sandboxDirectoryGrantSchema>
 
 export const sandboxCommandSchema = z.object({
   command: z.string().min(1).max(1024 * 1024),
+  shell: shellProgramSchema.optional(),
   cwd: pathSchema,
   readOnly: z.boolean(),
   roots: z.array(pathSchema).min(1).max(128),
@@ -48,6 +50,8 @@ export const sandboxCommandSchema = z.object({
   resourceReadRoots: z.array(pathSchema).max(512).default([]),
   additionalDirectories: z.array(sandboxDirectoryGrantSchema).max(128).default([]),
   requestId: z.uuid(),
+  executionId: z.uuid().optional(),
+  dispatchId: z.uuid().optional(),
   timeout: z.number().positive().max(86_400).optional(),
 }).strict()
 
@@ -60,6 +64,7 @@ export const sandboxPreparationSchema = z.object({
 export const sandboxProcessInputSchema = sandboxCommandSchema.extend({
   home: pathSchema,
   privateRoot: pathSchema,
+  receiptDirectory: pathSchema.optional(),
   protectedRoots: z.array(pathSchema).max(32),
   sensitiveRoots: z.array(pathSchema).max(128),
   searchDirectory: pathSchema,
@@ -98,6 +103,17 @@ export const sandboxResultSchema = z.discriminatedUnion('ok', [
   }).strict(),
 ])
 export type SandboxResult = z.infer<typeof sandboxResultSchema>
+
+export const sandboxSettlementSchema = z.object({
+  requestId: z.uuid(),
+  processId: z.string().min(1).max(8192),
+  settlement: z.enum(['pending', 'released', 'unknown']),
+  executionId: z.uuid(),
+  dispatchId: z.uuid(),
+  launchState: z.enum(['prepared', 'authorized', 'settled']),
+}).strict()
+
+export const sandboxSettlementAckSchema = z.object({ accepted: z.literal(true) }).strict()
 
 export const SANDBOX_RPC_TIMEOUT_MS = 25 * 60 * 60 * 1_000
 

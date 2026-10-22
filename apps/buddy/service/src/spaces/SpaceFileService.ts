@@ -2,11 +2,13 @@ import type { LocalSpaceDirectoryPage, LocalSpaceFilePreview, SpaceDirectoryRequ
 import type { FileAction, NativeFileEngine, NativeFileOperation } from '../files/NativeFileEngine'
 import type { SpaceRepository } from '../storage/spaceRepository'
 import { Buffer } from 'node:buffer'
-import { stat } from 'node:fs/promises'
+import { realpath, stat } from 'node:fs/promises'
 import { isAbsolute, relative, resolve, sep } from 'node:path'
+import { BoundedFileReadError } from '../../../platform/filesystem/boundedFile'
 import { Emitter } from '../../../shared/events/Emitter'
-import { resolveGrantedPath } from '../directories/resolveGrantedPath'
+import { GrantedPathError, resolveGrantedPath } from '../directories/resolveGrantedPath'
 import { readFilePreview } from '../files/readFilePreview'
+import { createSensitivePathMatcher } from '../permissions/sensitivePaths'
 import { BuddyServiceError } from '../rpc/runtimeRequest'
 import { requireActiveSpace } from './requireActiveSpace'
 
@@ -47,13 +49,15 @@ export class SpaceFileService {
     const root = await this.root(input)
     const result = await this.#engine.list(root, input.path, input.cursor)
     this.requireDirectory(input)
-    return result
+    const directory = this.requireDirectory(input)
+    const sensitive = createSensitivePathMatcher()
+    return { ...result, entries: result.entries.filter(entry => !sensitive.matches(resolve(directory.canonicalRoot, entry.path))) }
   }
 
   async read(input: SpaceFileTarget): Promise<LocalSpaceFilePreview> {
-    const target = await this.resolve(input)
+    const target = await this.resolve(input).catch(rethrowMissingFile)
     this.requireDirectory(input)
-    const preview = await readFilePreview(target.root, target.path)
+    const preview = await readFilePreview(target.root, target.path).catch(error => rethrowMissingFile(error, target.path))
     this.requireDirectory(input)
     return preview
   }
@@ -68,7 +72,7 @@ export class SpaceFileService {
   }
 
   async readDocument(input: SpaceFileTarget): Promise<SpaceTextDocument> {
-    const root = await this.root(input)
+    const root = await this.root(input, 'existing').catch(rethrowMissingFile)
     const result = await this.#engine.read(root, input.path)
     this.requireDirectory(input)
     if (Buffer.byteLength(result.text) > 1024 * 1024)
@@ -114,6 +118,8 @@ export class SpaceFileService {
       this.#operations.set(input.operationId, input)
       try {
         const root = await this.root(input)
+        if (input.action.kind === 'rename')
+          await this.resolve({ ...input, path: input.action.destination }, 'create')
         const action: FileAction = input.action.kind === 'copy' || input.action.kind === 'move'
           ? { kind: input.action.kind, destinationRoot: await this.root(input.action.destination), destination: input.action.destination.path }
           : input.action
@@ -185,8 +191,9 @@ export class SpaceFileService {
     return pending
   }
 
-  private async root(input: SpaceFileTarget): Promise<string> {
+  private async root(input: SpaceFileTarget, mode: 'existing' | 'create' = 'create'): Promise<string> {
     const directory = this.requireDirectory(input)
+    await this.resolve(input, mode)
     const key = JSON.stringify([directory.id, directory.revision])
     await this.#engine.register(key, directory.canonicalRoot, true)
     this.requireDirectory(input)
@@ -215,23 +222,38 @@ export class SpaceFileService {
 
   private requireDirectory(input: SpaceFileTarget) {
     const space = requireActiveSpace(this.#spaces.findById(input.spaceId))
-    const directory = space.primaryDirectory
-    if (!directory || directory.id !== input.directoryId || directory.revision !== input.revision || directory.revokedAt)
+    const directory = [space.primaryDirectory, ...space.additionalDirectories].find(directory => directory?.id === input.directoryId)
+    if (!directory || directory.revision !== input.revision || directory.revokedAt)
       throw new BuddyServiceError('VALIDATION_FAILED')
     return directory
   }
 
-  private async resolve(input: SpaceFileTarget): Promise<{ path: string, root: string }> {
+  private async resolve(input: SpaceFileTarget, mode: 'existing' | 'create' = 'existing'): Promise<{ path: string, root: string }> {
     const directory = this.requireDirectory(input)
     if (isAbsolute(input.path) || input.path.includes('\\') || input.path.split('/').includes('..'))
       throw new BuddyServiceError('VALIDATION_FAILED')
+    if (await realpath(directory.root) !== directory.canonicalRoot)
+      throw new BuddyServiceError('VALIDATION_FAILED')
+    const requestedPath = resolve(directory.canonicalRoot, input.path)
     const target = await resolveGrantedPath([{
       canonicalRoot: directory.canonicalRoot,
       grantId: directory.id,
       kind: 'workspace',
       root: directory.root,
-    }], resolve(directory.canonicalRoot, input.path), 'existing')
+    }], requestedPath, mode)
+    const sensitive = createSensitivePathMatcher()
+    if (sensitive.matches(directory.root) || sensitive.matches(requestedPath) || sensitive.matches(target.canonicalPath))
+      throw new BuddyServiceError('VALIDATION_FAILED')
     this.requireDirectory(input)
     return { path: target.canonicalPath, root: directory.canonicalRoot }
   }
+}
+
+function rethrowMissingFile(error: unknown, targetPath?: string): never {
+  if (error instanceof GrantedPathError && error.code === 'PATH_NOT_FOUND')
+    throw new BuddyServiceError('FILE_NOT_FOUND')
+  const failure = (error instanceof BoundedFileReadError && error.code === 'BOUNDED_FILE_READ_FAILED' ? error.cause : error) as NodeJS.ErrnoException | undefined
+  if (targetPath && failure?.path === targetPath && (failure.code === 'ENOENT' || failure.code === 'ENOTDIR'))
+    throw new BuddyServiceError('FILE_NOT_FOUND')
+  throw error
 }

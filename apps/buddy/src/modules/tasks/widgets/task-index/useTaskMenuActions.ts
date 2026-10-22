@@ -26,9 +26,7 @@ export function useTaskMenuActions(options: {
   clearMarks: (taskId: string) => void
   setRead: (taskId: string, read: boolean) => void
   manageMarks?: () => void
-  /** 仅无空间任务传入；为空数组时菜单项置灰。 */
-  moveTargets?: () => ReadonlyArray<{ id: string, name: string }> | undefined
-  movable?: () => boolean
+  moveToSpaceAvailable?: () => boolean | undefined
   moveToSpace?: (taskId: string) => void
 }) {
   const { t } = useBuddyI18n(options.language)
@@ -74,14 +72,14 @@ export function useTaskMenuActions(options: {
   })
 
   function moveActions(): DropdownOption[] {
-    const targets = options.moveTargets?.()
-    if (!targets)
+    const available = options.moveToSpaceAvailable?.()
+    if (available === undefined)
       return []
     return [{
       key: 'move-to-space',
       icon: () => h(DesktopIcon, { component: FolderArrowRight20Regular }),
       label: t('desktop.tasks.moveToSpace'),
-      disabled: !options.movable?.() || targets.length === 0,
+      disabled: !available,
     }]
   }
 
@@ -97,7 +95,7 @@ export function useTaskMenuActions(options: {
       options.manageMarks?.()
     if (typeof action === 'string' && action.startsWith('mark:'))
       options.assignMark(task.taskId, action.slice(5))
-    if (action === 'move-to-space' && options.movable?.() && options.moveTargets?.()?.length)
+    if (action === 'move-to-space' && options.moveToSpaceAvailable?.())
       options.moveToSpace?.(task.taskId)
     const copyText = action === 'copy-task-reference'
       ? formatSessionReferenceClipboard({ id: task.taskId, title: task.title.slice(0, 80) })

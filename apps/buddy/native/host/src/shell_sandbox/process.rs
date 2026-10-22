@@ -30,6 +30,7 @@ use super::{
     filesystem::{Access, Grant, Grants, inspect},
     security::{at, boolean, current_process, owned, require_host, wide},
     setup,
+    shell_program::Dialect,
 };
 
 #[derive(Deserialize)]
@@ -38,12 +39,15 @@ struct Request {
     command: String,
     cwd: String,
     shell: String,
+    #[serde(default)]
+    dialect: Dialect,
     private_root: String,
     environment: BTreeMap<String, String>,
     grants: Vec<Grant>,
     #[serde(default)]
     deny_read_scope: Option<String>,
     proxy_port: u16,
+    launch: crate::supervised_shell::receipt::Launch,
 }
 
 pub(super) fn run() -> io::Result<i32> {
@@ -60,9 +64,8 @@ pub(super) fn run() -> io::Result<i32> {
         return Err(io::ErrorKind::InvalidInput.into());
     }
     let request: Request = serde_json::from_slice(&bytes)?;
-    let cancellation = Cancellation::listen(input, Duration::from_secs(60));
-    cancellation.check()?;
     validate(&request)?;
+    request.launch.validate()?;
     let (preparation, account, group, job) = at(
         "job",
         Lease::account(
@@ -74,87 +77,119 @@ pub(super) fn run() -> io::Result<i32> {
                 .collect(),
         ),
     )?;
+    let mut identity = crate::supervised_shell::windows::identity(&job)?;
+    identity["version"] = serde_json::json!(3);
+    identity["executionId"] = serde_json::json!(request.launch.execution_id);
+    identity["dispatchId"] = serde_json::json!(request.launch.dispatch_id);
+    let receipt = crate::supervised_shell::receipt::Receipt::prepare(&request.launch, &identity)?;
     eprintln!(
         "{}",
-        serde_json::json!({"type":"supervisor","protocol":1,"identity":crate::supervised_shell::windows::identity(&job)?})
+        serde_json::json!({"type":"supervisor","protocol":1,"identity":identity})
     );
-    let mut policy = request.grants;
-    policy.push(inspect(&request.private_root, Access::Write)?);
-    eprintln!(
-        "{}",
-        serde_json::json!({"type":"diagnostic","phase":"filesystem_preparing","nativeCode":null})
-    );
-    let grants = at(
-        "filesystem",
-        Grants::apply(
-            &account,
-            &group,
-            &policy,
-            &cancellation,
-            request.deny_read_scope.as_deref().map(DenialUpdate::Merge),
-        ),
-    )?;
-    cancellation.check()?;
-    let script = Path::new(&request.private_root).join("command.ps1");
-    let mut script_file = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(&script)?;
-    script_file.write_all(
-        b"\xef\xbb\xbftry { [Console]::OutputEncoding=[System.Text.Encoding]::UTF8 } catch {}\n",
-    )?;
-    script_file.write_all(request.command.as_bytes())?;
-    script_file.write_all(
-        b"\nif (-not $?) { if ($LASTEXITCODE) { exit $LASTEXITCODE } else { exit 1 } }\n",
-    )?;
-    drop(script_file);
-    cancellation.check()?;
-    let (lease, child) = at(
-        "launch",
-        Lease::connect(LaunchRequest {
-            shell: request.shell,
-            script: script.to_string_lossy().into_owned(),
-            cwd: request.cwd,
-            environment: request.environment,
-            capabilities: grants.capabilities.clone(),
-            job: job.0.as_raw_handle() as usize,
-            // SAFETY: stdout belongs to the supervisor; the authenticated broker duplicates it without inheriting control input.
-            output: unsafe { GetStdHandle(STD_OUTPUT_HANDLE) } as usize,
-        }),
-    )?;
-    preparation.finish()?;
-    cancellation.check()?;
-    eprintln!(
-        "{}",
-        serde_json::json!({"type":"ready","protocol":super::PROTOCOL_VERSION})
-    );
-    // SAFETY: The process is still suspended, already confined to its restricted token and kill-on-close job.
-    if unsafe { ResumeThread(child.thread.as_raw_handle()) } == u32::MAX {
-        return Err(io::Error::last_os_error());
-    }
-    let deadline = Instant::now() + Duration::from_secs(86400);
-    let result = loop {
-        if cancellation.cancelled() || !lease.alive() || Instant::now() >= deadline {
-            break Err(io::ErrorKind::Interrupted.into());
+    let mut launch_sealed = true;
+    let result = (|| -> io::Result<i32> {
+        let mut ack = Vec::new();
+        (&mut input).take(1025).read_until(b'\n', &mut ack)?;
+        let accepted = serde_json::from_slice::<LaunchAck>(&ack).is_ok_and(|ack| {
+            ack.execution_id == request.launch.execution_id
+                && ack.dispatch_id == request.launch.dispatch_id
+        });
+        if !accepted || ack.len() > 1024 || ack.last() != Some(&b'\n') {
+            return Err(io::ErrorKind::Interrupted.into());
         }
-        // SAFETY: The process handle is live and queryable throughout this bounded wait.
-        if unsafe { WaitForSingleObject(child.process.as_raw_handle(), 25) } == WAIT_OBJECT_0 {
-            let mut code = 0;
-            // SAFETY: The process finished and the exit-code output is writable.
-            boolean(unsafe { GetExitCodeProcess(child.process.as_raw_handle(), &mut code) })?;
-            break Ok(code as i32);
+        let cancellation = Cancellation::listen(input, Duration::from_secs(60));
+        cancellation.check()?;
+        let mut policy = request.grants;
+        policy.push(inspect(&request.private_root, Access::Write)?);
+        eprintln!(
+            "{}",
+            serde_json::json!({"type":"diagnostic","phase":"filesystem_preparing","nativeCode":null})
+        );
+        let grants = at(
+            "filesystem",
+            Grants::apply(
+                &account,
+                &group,
+                &policy,
+                &cancellation,
+                request.deny_read_scope.as_deref().map(DenialUpdate::Merge),
+            ),
+        )?;
+        cancellation.check()?;
+        let script = Path::new(&request.private_root)
+            .join(format!("command.{}", request.dialect.extension()));
+        if request.dialect != Dialect::Cmd {
+            let mut script_file = OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&script)?;
+            script_file.write_all(&request.dialect.script(&request.command))?;
         }
-    };
+        cancellation.check()?;
+        launch_sealed = false;
+        let (lease, child) = at(
+            "launch",
+            Lease::connect(LaunchRequest {
+                shell: request.shell,
+                dialect: request.dialect,
+                command: (request.dialect == Dialect::Cmd).then_some(request.command),
+                script: script.to_string_lossy().into_owned(),
+                cwd: request.cwd,
+                environment: request.environment,
+                capabilities: grants.capabilities.clone(),
+                job: job.0.as_raw_handle() as usize,
+                // SAFETY: stdout belongs to the supervisor; the authenticated broker duplicates it without inheriting control input.
+                output: unsafe { GetStdHandle(STD_OUTPUT_HANDLE) } as usize,
+            }),
+        )?;
+        preparation.finish()?;
+        cancellation.check()?;
+        eprintln!(
+            "{}",
+            serde_json::json!({"type":"ready","protocol":super::PROTOCOL_VERSION})
+        );
+        // SAFETY: The process is still suspended, already confined to its restricted token and kill-on-close job.
+        if unsafe { ResumeThread(child.thread.as_raw_handle()) } == u32::MAX {
+            return Err(io::Error::last_os_error());
+        }
+        let deadline = Instant::now() + Duration::from_secs(86400);
+        let result = loop {
+            if cancellation.cancelled() || !lease.alive() || Instant::now() >= deadline {
+                break Err(io::ErrorKind::Interrupted.into());
+            }
+            // SAFETY: The process handle is live and queryable throughout this bounded wait.
+            if unsafe { WaitForSingleObject(child.process.as_raw_handle(), 25) } == WAIT_OBJECT_0 {
+                let mut code = 0;
+                // SAFETY: The process finished and the exit-code output is writable.
+                boolean(unsafe { GetExitCodeProcess(child.process.as_raw_handle(), &mut code) })?;
+                break Ok(code as i32);
+            }
+        };
+        job.finish()?;
+        drop(child);
+        lease.finish()?;
+        launch_sealed = true;
+        drop(grants);
+        result
+    })();
     job.finish()?;
-    eprintln!(
-        "{}",
-        serde_json::json!({"type":"processesReleased","protocol":1})
-    );
-    drop(child);
-    drop(job);
-    lease.finish()?;
-    drop(grants);
+    if launch_sealed {
+        if let Some(receipt) = &receipt {
+            receipt.release()?;
+        }
+        eprintln!(
+            "{}",
+            serde_json::json!({"type":"processesReleased","protocol":1})
+        );
+    }
     result
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct LaunchAck {
+    execution_id: String,
+    dispatch_id: String,
 }
 
 #[derive(Deserialize)]
@@ -233,13 +268,8 @@ fn validate(request: &Request) -> io::Result<()> {
             return Err(io::ErrorKind::InvalidInput.into());
         }
     }
-    let shell = Path::new(&request.shell)
-        .file_name()
-        .ok_or(io::ErrorKind::InvalidInput)?
-        .to_string_lossy();
-    if !["powershell.exe", "pwsh.exe"]
-        .iter()
-        .any(|name| name.eq_ignore_ascii_case(&shell))
+    request.dialect.validate(&request.shell)?;
+    if (request.dialect == Dialect::Cmd && request.command.contains(['\r', '\n']))
         || request.command.is_empty()
         || request.command.len() > 1024 * 1024
         || request.command.contains('\0')
@@ -385,6 +415,10 @@ impl Drop for Child {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(super) struct LaunchRequest {
     pub(super) shell: String,
+    #[serde(default)]
+    pub(super) dialect: Dialect,
+    #[serde(default)]
+    pub(super) command: Option<String>,
     pub(super) script: String,
     pub(super) cwd: String,
     pub(super) environment: BTreeMap<String, String>,
@@ -443,6 +477,15 @@ pub(super) fn launch(
     {
         return Err(io::ErrorKind::InvalidInput.into());
     }
+    request.dialect.validate(&request.shell)?;
+    let command_line = request.dialect.command_line(
+        &request.shell,
+        &request.script,
+        request.command.as_deref(),
+    )?;
+    if command_line.encode_utf16().count() >= 32767 {
+        return Err(io::ErrorKind::InvalidInput.into());
+    }
     let base = launch_phase("account_logon", account.logon())?;
     let owner = crate::windows_security::process_user_sid(client)?;
     let token = launch_phase(
@@ -493,10 +536,7 @@ pub(super) fn launch(
     startup.StartupInfo.hStdOutput = output.as_raw_handle();
     startup.StartupInfo.hStdError = output.as_raw_handle();
     startup.lpAttributeList = attribute_list.pointer();
-    let mut command = wide(&format!(
-        "\"{}\" -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"{}\"",
-        request.shell, request.script
-    ));
+    let mut command = wide(&command_line);
     let mut environment: Vec<u16> = request
         .environment
         .iter()

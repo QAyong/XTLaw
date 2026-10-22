@@ -21,6 +21,32 @@ afterEach(async () => {
 })
 
 describe('extension package contract', () => {
+  it('installs and reloads known contributions while ignoring unsupported declarations without granting them', async () => {
+    const { root, store } = await fixture()
+    const value = manifest()
+    const input = { ...value, futureMetadata: { enabled: true }, permissions: { ...value.permissions, inference: true, inferenceGpu: false, inferenceNetwork: ['https://example.com'], futureAccess: 'read', futureMetadata: { enabled: true } }, contributes: { ...value.contributes, futureProvider: { entry: 'future.js' } } }
+    const review = await reviewPackage(root, store, input)
+    expect(review.manifest.permissions).toEqual(value.permissions)
+    expect(review.manifest).toEqual(value)
+    expect(review.addedPermissions).toEqual(['selectedResource:read'])
+    await store.install(review.token)
+    const pkg = store.installed[value.id]!.current
+    expect(JSON.parse(await readFile(join(store.packageRoot(pkg), 'extension.json'), 'utf8')).permissions).toEqual(input.permissions)
+    const reloaded = new ExtensionPackageStore(store.root, '0.7.3')
+    await reloaded.load()
+    expect(reloaded.installed[value.id]!.current.manifest.permissions).toEqual(value.permissions)
+    expect(new TextDecoder().decode(await reloaded.asset(reloaded.installed[value.id]!.current, 'extension.js'))).toBe('export function activate() {}')
+  })
+  it.each([true, false, 'read', 'none', ['https://example.com'], [], 0, null, '', {}, [false]])('ignores unknown permissions regardless of their value: %j', (permission) => {
+    const value = manifest()
+    expect(extensionManifestSchema.parse({ ...value, permissions: { ...value.permissions, futureAccess: permission } })).toEqual(value)
+  })
+  it('still rejects malformed known permissions and contributions', () => {
+    const value = manifest()
+    expect(extensionManifestSchema.safeParse({ ...value, permissions: { ...value.permissions, network: false } }).success).toBe(false)
+    expect(extensionManifestSchema.safeParse({ ...value, permissions: { ...value.permissions, agent: [] } }).success).toBe(false)
+    expect(extensionManifestSchema.safeParse({ ...value, contributes: { ...value.contributes, commands: false } }).success).toBe(false)
+  })
   it('bounds state by UTF-8 bytes and requires permission for declared file views', () => {
     expect(extensionJsonSchema.safeParse('文'.repeat(90000)).success).toBe(false)
     expect(extensionManifestSchema.safeParse({ ...manifest(), permissions: { selectedResource: 'none', network: [] } }).success).toBe(false)
@@ -30,7 +56,7 @@ describe('extension package contract', () => {
   })
   it('rejects foreign contribution ownership, duplicate IDs, and unsupported API versions', () => {
     const value = manifest()
-    expect(extensionManifestSchema.safeParse({ ...value, apiVersion: 4 }).success).toBe(false)
+    expect(extensionManifestSchema.safeParse({ ...value, apiVersion: 5 }).success).toBe(false)
     expect(extensionManifestSchema.safeParse({ ...value, contributes: { ...value.contributes, commands: [{ id: 'another.reader.open', title: 'Open' }] } }).success).toBe(false)
     expect(extensionManifestSchema.safeParse({ ...value, contributes: { ...value.contributes, commands: [value.contributes.commands[0], value.contributes.commands[0]] } }).success).toBe(false)
   })
@@ -131,7 +157,7 @@ describe('extension package contract', () => {
     const path = join(store.root, 'installed.json')
     const index = JSON.parse(await readFile(path, 'utf8'))
     const future = structuredClone(index.installed[review.manifest.id])
-    future.current.manifest = { ...future.current.manifest, id: 'tests.future', apiVersion: 4, engines: { lexora: '*' }, contributes: { futureCapability: {} } }
+    future.current.manifest = { ...future.current.manifest, id: 'tests.future', apiVersion: 5, engines: { lexora: '*' }, contributes: { futureCapability: {} } }
     index.installed['tests.future'] = future
     await writeFile(path, JSON.stringify(index))
     const candidate = new ExtensionPackageStore(store.root, store.appVersion)
@@ -149,7 +175,7 @@ describe('extension package contract', () => {
     const path = join(store.root, 'installed.json')
     const index = JSON.parse(await readFile(path, 'utf8'))
     const record = index.installed[review.manifest.id]
-    const pending = { ...structuredClone(record.current), manifest: { ...record.current.manifest, apiVersion: 4, version: '2.0.0', engines: { lexora: '*' }, contributes: { futureCapability: {} } } }
+    const pending = { ...structuredClone(record.current), manifest: { ...record.current.manifest, apiVersion: 5, version: '2.0.0', engines: { lexora: '*' }, contributes: { futureCapability: {} } } }
     record.pending = pending
     await writeFile(path, JSON.stringify(index))
     const candidate = new ExtensionPackageStore(store.root, store.appVersion)

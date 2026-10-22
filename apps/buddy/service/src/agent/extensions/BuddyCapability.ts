@@ -1,7 +1,9 @@
 import type { ToolCallEvent } from '@earendil-works/pi-coding-agent'
 import type { BuddyExecutionProfile } from '../../../../shared/permissions/executionProfile'
+import type { NetworkOperation } from '../../../../shared/permissions/networkPermissions'
 import type { BuddySessionMode } from '../../../../shared/permissions/sessionMode'
 import type { BuddyToolClassification, BuddyToolClassificationResult } from '../../approvals/toolClassification'
+import type { CapturedFileWriterFactory } from '../../changes/CapturedFileWriter'
 import type { DirectoryGrant } from '../../directories/resolveGrantedPath'
 import type { BuddyInProcessExtension } from './BuddyInProcessExtension'
 import type { BuddyMutationEffect } from './changeCaptureExtension'
@@ -25,6 +27,8 @@ export interface BuddyCapability {
 }
 
 export interface BuddyCapabilityContext {
+  createFileWriter?: CapturedFileWriterFactory
+  authorizeNetwork?: (input: { toolCallId: string, toolName: string, url: string, operation?: NetworkOperation, signal?: AbortSignal }) => Promise<void>
   conversationId: string
   executionProfile: BuddyExecutionProfile
   cwd: string

@@ -20,7 +20,7 @@ import { formatTaskRelativeTime } from './taskRelativeTime'
 import { useTaskHistoryDrag } from './useTaskHistoryDrag'
 import { useTaskMenuActions } from './useTaskMenuActions'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   taskId: string
   active: boolean
   loading?: boolean
@@ -28,9 +28,7 @@ const props = defineProps<{
   markState?: LocalTaskMarkState
   marksBusy: boolean
   activity: LocalConversationSummary['activity']
-  /** 仅无空间任务传入。 */
-  moveTargets?: ReadonlyArray<{ id: string, name: string }>
-  movable?: boolean
+  moveToSpaceAvailable?: boolean
   dragging?: boolean
   dropPosition?: DesktopTaskPinnedDropPosition
   language: BuddyLocale
@@ -41,7 +39,9 @@ const props = defineProps<{
   reorderable?: boolean
   reorderTarget?: boolean
   title: string
-}>()
+}>(), {
+  moveToSpaceAvailable: undefined,
+})
 
 const emit = defineEmits<{
   delete: []
@@ -89,8 +89,7 @@ const { actions: taskActions, select: selectTaskAction } = useTaskMenuActions({
   clearMarks: () => emit('clearMarks'),
   setRead: (_, read) => emit('setRead', read),
   manageMarks: () => emit('manageMarks'),
-  moveTargets: () => props.moveTargets,
-  movable: () => props.movable,
+  moveToSpaceAvailable: () => props.moveToSpaceAvailable,
   moveToSpace: () => emit('moveToSpace'),
 })
 const actions = computed<DropdownOption[]>(() => [

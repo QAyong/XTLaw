@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 import type { LocalConversationSummary } from '@buddy-shared/conversation/conversationApi'
-import type { LocalSpace } from '@buddy-shared/spaces/spaceApi'
 import { NMessageProvider } from 'naive-ui'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApp, h, nextTick, shallowReactive } from 'vue'
@@ -20,92 +19,25 @@ vi.hoisted(() => {
 })
 
 const cleanups: (() => void)[] = []
-const timestamp = '2026-09-08T00:00:00.000Z'
 beforeEach(() => {
   Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value() {} })
-  vi.stubGlobal('matchMedia', (media: string) => ({
-    matches: false,
-    media,
-    onchange: null,
-    addListener() {},
-    removeListener() {},
-    addEventListener() {},
-    removeEventListener() {},
-    dispatchEvent: () => true,
-  }))
+  vi.stubGlobal('matchMedia', (media: string) => ({ matches: false, media, onchange: null, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {}, dispatchEvent: () => true }))
 })
 afterEach(() => cleanups.splice(0).forEach(cleanup => cleanup()))
 
-function space(id: string, name: string, root?: string): LocalSpace {
-  return {
-    id,
-    name,
-    icon: 'folder',
-    iconColor: 'default',
-    activeRunCount: 0,
-    additionalDirectories: [],
-    memoryScope: 'space_only',
-    primaryDirectory: root
-      ? {
-          id: `directory-${id}`,
-          root,
-          canonicalRoot: root,
-          spaceId: id,
-          revision: 1,
-          accessGrantedAt: timestamp,
-          resourcesTrustedAt: timestamp,
-          revokedAt: null,
-          createdAt: timestamp,
-          updatedAt: timestamp,
-        }
-      : null,
-    revokedAt: null,
-    createdAt: timestamp,
-    updatedAt: timestamp,
-  }
-}
 function task(): LocalConversationSummary {
-  return {
-    id: 'task-one',
-    title: 'A task to keep',
-    buddyId: 'buddy-one',
-    activeBranchId: 'branch-one',
-    approvalPolicy: 'manual',
-    executionProfile: 'workspace_write',
-    modelSelection: null,
-    spaceId: null,
-    activity: 'idle',
-    automationOccurrence: null,
-    createdAt: timestamp,
-    updatedAt: timestamp,
-    deletedAt: null,
-  }
+  return { id: 'task-one', title: 'A task to keep', buddyId: 'buddy-one', activeBranchId: 'branch-one', approvalPolicy: 'manual', executionProfile: 'workspace_write', modelSelection: null, spaceId: null, activity: 'idle', automationOccurrence: null, createdAt: '2026-09-08T00:00:00.000Z', updatedAt: '2026-09-08T00:00:00.000Z', deletedAt: null }
 }
 
 async function mount() {
-  const props = shallowReactive({
-    busy: false,
-    language: 'zh-CN' as const,
-    show: true,
-    spaces: [
-      space('home', 'Home'),
-      space('project', 'Project', '/work/project'),
-      { ...space('revoked', 'Revoked'), revokedAt: timestamp },
-    ] as readonly LocalSpace[],
-    task: task() as LocalConversationSummary | null,
-  })
+  const props = shallowReactive({ busy: false, language: 'zh-CN' as const, show: true, spaces: [{ id: 'home', name: 'Home' }, { id: 'project', name: 'Project' }], task: task() as LocalConversationSummary | null })
   const move = vi.fn<(taskId: string, spaceId: string) => Promise<boolean>>().mockResolvedValue(true)
   const moved: string[] = []
   const root = document.createElement('div')
   document.body.append(root)
   const app = createApp({
     setup: () => () => h(NMessageProvider, null, {
-      default: () => h(DesktopTaskMoveToSpaceDialog, {
-        ...props,
-        'moveTaskToSpace': move,
-        'onUpdate:show': (show: boolean) => props.show = show,
-        'onMoved': (spaceId: string) => moved.push(spaceId),
-      }),
+      default: () => h(DesktopTaskMoveToSpaceDialog, { ...props, 'moveTaskToSpace': move, 'onUpdate:show': (show: boolean) => props.show = show, 'onMoved': (spaceId: string) => moved.push(spaceId) }),
     }),
   })
   app.mount(root)
@@ -128,16 +60,12 @@ async function mount() {
 }
 
 describe('move task into a space dialog', () => {
-  it('requires a searchable explicit selection and explains retained files and the next environment', async () => {
+  it('requires a searchable explicit selection and explains the permission and file boundaries', async () => {
     const f = await mount()
-    expect(f.button('确认移入').disabled).toBe(true)
-    expect(f.dialog().textContent).toContain('保留对话历史、附件和产物')
-    expect(f.dialog().textContent).toContain('不会搬迁到目标目录')
-    expect(f.dialog().textContent).toContain('从下一轮执行起')
-    expect(f.dialog().textContent).toContain('Skills 和目录授权')
-    expect(f.dialog().textContent).toContain('临时授权和额外目录授权不再继续生效')
-    expect(f.dialog().textContent).toContain('暂不支持移出空间或在空间间互转')
-
+    expect(f.button('移入').disabled).toBe(true)
+    expect(f.dialog().textContent).toContain('原目录授权不再沿用')
+    expect(f.dialog().textContent).toContain('文件不搬迁')
+    expect(f.dialog().textContent).toContain('暂不支持移出空间')
     f.dialog().querySelector<HTMLElement>('.n-base-selection')!.click()
     await nextTick()
     const input = f.dialog().querySelector<HTMLInputElement>('input')!
@@ -148,35 +76,31 @@ describe('move task into a space dialog', () => {
     expect(options.map(option => option.textContent?.trim())).toEqual(['Project'])
     options[0]!.click()
     await nextTick()
-
-    expect(f.dialog().textContent).toContain('/work/project')
-    expect(f.button('确认移入').disabled).toBe(false)
+    expect(f.button('移入').disabled).toBe(false)
     expect(f.move.mock.calls).toEqual([])
   })
 
-  it('shows a managed directory without guessing a path and cancels without moving', async () => {
+  it('cancels without moving and requires a new selection when reopened', async () => {
     const f = await mount()
     await f.select('Home')
-    expect(f.dialog().querySelector('dd')?.textContent?.trim()).toBe('使用空间自有工作目录')
     f.button('取消').click()
     await nextTick()
     expect(f.props.show).toBe(false)
     expect(f.move.mock.calls).toEqual([])
-
     f.props.show = true
     await nextTick()
-    expect(f.button('确认移入').disabled).toBe(true)
+    expect(f.button('移入').disabled).toBe(true)
   })
 
-  it.each(['false', 'throw'] as const)('keeps the selected target on %s failure and succeeds only after an explicit retry', async (failure) => {
+  it.each(['false', 'throw'] as const)('keeps the selected target on %s failure and only retries explicitly', async (failure) => {
     const f = await mount()
     const pending = deferred<boolean>()
     f.move.mockReturnValueOnce(pending.promise)
     await f.select('Project')
-    f.button('确认移入').click()
-    f.button('确认移入').click()
+    f.button('移入').click()
+    f.button('移入').click()
     await nextTick()
-    expect(f.button('确认移入').disabled).toBe(true)
+    expect(f.button('移入').disabled).toBe(true)
     expect(f.button('取消').disabled).toBe(true)
     expect(f.move.mock.calls).toEqual([['task-one', 'project']])
     if (failure === 'false')
@@ -185,73 +109,68 @@ describe('move task into a space dialog', () => {
       pending.reject(new Error('LEXORA_LOCAL_CHAT_ERROR:CONVERSATION_QUEUE_NOT_EMPTY:0'))
     await pending.promise.catch(() => {})
     await nextTick()
-
     expect(f.props.show).toBe(true)
-    expect(f.dialog().textContent).toContain('/work/project')
-    expect(f.button('确认移入').disabled).toBe(false)
+    expect(f.dialog().textContent).toContain('Project')
+    expect(f.button('移入').disabled).toBe(false)
     expect(f.moved).toEqual([])
-    expect(document.body.textContent).toContain(failure === 'false' ? '移入空间失败，已保留所选空间，请重试。' : '任务还有未发送的待发消息，请先发送或取消后再移入空间')
-    expect(document.body.textContent).not.toContain('private backend details')
-    f.button('确认移入').click()
+    expect(document.body.textContent).toContain(failure === 'false' ? '移入失败，请重试' : '请先发送或取消待发消息')
+    f.button('移入').click()
     await nextTick()
     expect(f.props.show).toBe(false)
     expect(f.moved).toEqual(['project'])
     expect(f.move.mock.calls).toEqual([['task-one', 'project'], ['task-one', 'project']])
   })
 
-  it('revalidates busy status, task ownership, and target availability before moving', async () => {
+  it('revalidates busy status, task ownership, and target availability', async () => {
     const f = await mount()
     await f.select('Project')
     f.props.task = { ...task(), activity: 'running' }
     await nextTick()
-    expect(f.button('确认移入').disabled).toBe(true)
-    expect(f.dialog().textContent).toContain('任务正在运行或处理其他操作')
-    f.props.task = { ...task(), activity: 'awaiting_approval' }
-    await nextTick()
-    expect(f.button('确认移入').disabled).toBe(true)
+    expect(f.button('移入').disabled).toBe(true)
+    expect(f.dialog().textContent).toContain('任务正在执行')
     f.props.task = task()
     f.props.busy = true
     await nextTick()
-    expect(f.button('确认移入').disabled).toBe(true)
+    expect(f.button('移入').disabled).toBe(true)
     f.props.busy = false
     f.props.task = { ...task(), spaceId: 'another-space' }
     await nextTick()
-    expect(f.button('确认移入').disabled).toBe(true)
+    expect(f.button('移入').disabled).toBe(true)
     f.props.task = task()
     f.props.spaces = f.props.spaces.filter(item => item.id !== 'project')
     await nextTick()
-    expect(f.button('确认移入').disabled).toBe(true)
+    expect(f.button('移入').disabled).toBe(true)
     expect(f.move.mock.calls).toEqual([])
   })
 
-  it('disables confirmation when there are no active spaces', async () => {
+  it('disables the selector and confirmation when no target remains', async () => {
     const f = await mount()
-    f.props.spaces = f.props.spaces.filter(item => item.revokedAt !== null)
+    f.props.spaces = []
     await nextTick()
-    expect(f.button('确认移入').disabled).toBe(true)
+    expect(f.button('移入').disabled).toBe(true)
     expect(f.dialog().textContent).toContain('暂无可用空间')
-    f.button('确认移入').click()
+    f.button('移入').click()
     await nextTick()
     expect(f.move.mock.calls).toEqual([])
   })
 
-  it('refreshes the selected directory without clearing the selection for the same task', async () => {
+  it('keeps the selection when the task and space names update', async () => {
     const f = await mount()
     await f.select('Project')
     f.props.task = { ...task(), title: 'Updated task title' }
-    f.props.spaces = [space('project', 'Project updated', '/work/updated')]
+    f.props.spaces = [{ id: 'project', name: 'Project updated' }]
     await nextTick()
     expect(f.dialog().textContent).toContain('Updated task title')
-    expect(f.dialog().textContent).toContain('/work/updated')
-    expect(f.button('确认移入').disabled).toBe(false)
+    expect(f.dialog().textContent).toContain('Project updated')
+    expect(f.button('移入').disabled).toBe(false)
   })
 
-  it('does not close or report success for a replacement dialog after an old request completes', async () => {
+  it('ignores a completed request belonging to a replaced dialog', async () => {
     const f = await mount()
     const pending = deferred<boolean>()
     f.move.mockReturnValueOnce(pending.promise)
     await f.select('Project')
-    f.button('确认移入').click()
+    f.button('移入').click()
     await nextTick()
     f.props.task = { ...task(), id: 'task-two', title: 'Next task' }
     await nextTick()
@@ -260,7 +179,7 @@ describe('move task into a space dialog', () => {
     await nextTick()
     expect(f.props.show).toBe(true)
     expect(f.dialog().textContent).toContain('Next task')
-    expect(f.button('确认移入').disabled).toBe(true)
+    expect(f.button('移入').disabled).toBe(true)
     expect(f.moved).toEqual([])
   })
 })

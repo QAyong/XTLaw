@@ -10,6 +10,7 @@ import type { RunEventLogPort } from './events/RunEventPorts'
 import type { BuddyServiceRpcServer } from './rpc/BuddyServiceRpcServer'
 import type { BuddyServiceErrorCode } from './rpc/runtimeRequest'
 import type { ConversationRecord } from './storage/conversationRecord'
+import { randomUUID } from 'node:crypto'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import process from 'node:process'
@@ -28,6 +29,7 @@ import { CONVERSATION_CHANGED, conversationTimelineChanged } from '../../shared/
 import { executionsChanged } from '../../shared/executions/executionPresentationApi'
 import { extensionActionRpc } from '../../shared/extensions/extensionActionApi'
 import { extensionAgentRpc } from '../../shared/extensions/extensionAgent'
+import { extensionShellRpc } from '../../shared/extensions/extensionShell'
 import { ServiceHost } from '../../shared/lifecycle/ServiceHost'
 import { ServiceLifecycleSource } from '../../shared/lifecycle/ServiceLifecycleSource'
 import { webSettingsChanged } from '../../shared/network/webApi'
@@ -87,6 +89,7 @@ import { registerBuddiesRpc } from './buddies/registerBuddiesRpc'
 import { ChangeCaptureService } from './changes/ChangeCaptureService'
 import { createChangeSetRepository } from './changes/changeSetRepository'
 import { MutationCoordinator } from './changes/MutationCoordinator'
+import { createMutationEvidenceRepository } from './changes/mutationEvidenceRepository'
 import { MutationRecoveryService } from './changes/MutationRecoveryService'
 import { createMutationRepository } from './changes/mutationRepository'
 import { registerChangeRpc } from './changes/registerChangeRpc'
@@ -132,6 +135,7 @@ import { OpenAiImageGenerationService } from './images/OpenAiImageGenerationServ
 import { AttentionNotificationService } from './notifications/AttentionNotificationService'
 import { NotificationProjection } from './notifications/NotificationProjection'
 import { registerNotificationRpc } from './notifications/registerNotificationRpc'
+import { NetworkPermissionsClient } from './permissions/NetworkPermissionsClient'
 import { observePetActionDiagnostics } from './pet/observePetActionDiagnostics'
 import { PetActionService } from './pet/PetActionService'
 import { bindExtensionActions } from './plugins/bindExtensionActions'
@@ -147,13 +151,14 @@ import { ProviderDependents } from './providers/ProviderDependents'
 import { registerProviderRpc } from './providers/registerProviderRpc'
 import { resolveInteractiveModelSelection } from './providers/resolveInteractiveModelSelection'
 import { BuddyServiceError, registerRuntimeRequest } from './rpc/runtimeRequest'
-
 import { registerRunRpc } from './runs/registerRunRpc'
+
 import { RunContinuityService } from './runs/RunContinuityService'
 import { RunLifecycleService } from './runs/RunLifecycleService'
 import { RunRecoveryService } from './runs/RunRecoveryService'
 import { observeSandboxClient } from './sandbox/observeSandboxClient'
 import { ShellSandboxClient } from './sandbox/ShellSandboxClient'
+import { ExtensionShellRegistry } from './sandbox/ShellSelection'
 import { observeSkillDiagnostics, observeSkillNotifications } from './skills/observeSkillEvents'
 import {
   registerSkillServiceRpc,
@@ -439,16 +444,31 @@ export async function startBuddyService(
       })
       return service
     })
+    const mutationEvidence = createMutationEvidenceRepository(options.database)
+    const recoverySourceId = randomUUID()
+    let recoveryRevision = 0
+    const notifyRecovery = (runId: string) => {
+      const run = runs.findById(runId)
+      if (run)
+        options.rpc.notify(changesChanged.method, { sourceId: recoverySourceId, revision: ++recoveryRevision, conversationId: run.conversationId, runId })
+    }
     const mutations = await host.start('runtime.mutations', async ({ defer }) => {
-      const service = new MutationCoordinator({ repository: createMutationRepository(options.database), resources: fileResources })
+      const service = new MutationCoordinator({ repository: createMutationRepository(options.database), evidence: mutationEvidence, resources: fileResources })
+      const notices = service.onDidChange(event => notifyRecovery(event.runId))
+      defer(() => notices.dispose())
       defer(() => service.dispose())
       await service.initialize()
       return service
     }, ['runtime.file_engine'])
-    await host.step('runtime.mutation_recovery', async () => {
-      const recovery = new MutationRecoveryService({ mutations, record })
-      await recovery.recheck({ signal: AbortSignal.timeout(5_000) })
-    })
+    const mutationRecovery = await host.start('runtime.mutation_recovery', async ({ defer }) => {
+      const service = new MutationRecoveryService({ mutations, record, evidence: mutationEvidence, receiptDirectory: join(options.buddyHome, 'process-receipts'), context: { conversations, runs }, onChange: notifyRecovery })
+      defer(async () => {
+        mutations.stopAdmission()
+        await service.dispose()
+      })
+      await service.start()
+      return service
+    }, ['runtime.mutations'])
     const changeCaptureService = await host.start('runtime.change_capture', ({ defer }) => {
       const service = new ChangeCaptureService({ paths, repository: createChangeSetRepository(options.database), onListenerError: () => record({ event: 'observer.failed', component: 'runtime.change_capture', level: 'warn' }) })
       service.onDidChange(event => record({ event: `changes.${event.kind.replaceAll('-', '_')}`, level: event.errorCode ? 'warn' : 'info', producerInstanceId: event.sourceId, operationId: event.operationId, conversationId: event.conversationId, runId: event.runId, toolCallId: event.toolCallId, revision: event.revision, count: event.count, errorCode: event.errorCode }))
@@ -618,6 +638,8 @@ export async function startBuddyService(
         }
       })
       defer(options.rpc.onNotification((method) => {
+        if (method === extensionShellRpc.changed)
+          void sessions.invalidateAll().catch(() => record({ event: 'shells.sessions_invalidation.failed', level: 'warn', errorCode: 'EXTENSION_INVALIDATION_FAILED' }))
         if (method === extensionAgentRpc.changed)
           void sessions.invalidateMode('interactive').catch(() => record({ event: 'plugins.sessions_invalidation.failed', level: 'warn', errorCode: 'EXTENSION_INVALIDATION_FAILED' }))
       }))
@@ -877,6 +899,8 @@ export async function startBuddyService(
       return service
     })
     const sessionExtensionServices: BuddySessionExtensionServices = {
+      shells: new ExtensionShellRegistry(options.rpc),
+      networkPermissions: new NetworkPermissionsClient(options.rpc),
       fileResources,
       delegation: { pending: (...arguments_) => delegation.pending(...arguments_), execute: (...arguments_) => delegation.execute(...arguments_), assertShellExecutionAllowed: runId => delegation.assertShellExecutionAllowed(runId) },
       followUp: async (runId, signal) => { await chatQueueService?.followUp(runId, signal) },
@@ -917,6 +941,7 @@ export async function startBuddyService(
       attachmentService,
       changeCaptureService,
       mutations,
+      receiptDirectory: join(options.buddyHome, 'process-receipts'),
       directoryGrants,
       recordPermissions: record,
       createCapabilities: createBuddyCapabilityFactory(currentPlatform, {
@@ -983,6 +1008,7 @@ export async function startBuddyService(
         repository: treeRepository,
         threads,
         runs,
+        isRunHistoryAvailable: runId => !options.eventLog.getRecoveryFailures().some(failure => failure.runId === runId),
         recovery: sessionRecovery,
         onObserverError: () => record({ event: 'tree.observer_failed', level: 'warn' }),
       })
@@ -1023,6 +1049,7 @@ export async function startBuddyService(
         lifecycle: runLifecycleService,
         mutations,
         listIncomplete: () => runs.listIncomplete(),
+        recoverQuarantinedRun: runId => runRecoveryService.recoverQuarantinedRun(runId),
         getFileAccessCeiling: runId => getRunPermissionCeiling(runId) === 'read_only' ? 'read_only' : undefined,
         onObserverError: () => record({ event: 'execution.tree_observer_failed', level: 'error' }),
         readResult: runId => readExecutionResult(options.eventLog, runId),
@@ -1034,7 +1061,7 @@ export async function startBuddyService(
     })
     delegation = new ExecutionDelegationService({
       readResult: runId => readExecutionResult(options.eventLog, runId),
-      readToolOptions: signal => readBuddyToolOptions(sessionExtensionServices.createCapabilities, agentDirectory, signal),
+      readToolOptions: signal => readBuddyToolOptions(sessionExtensionServices.createCapabilities, agentDirectory, signal, sessionExtensionServices.shells),
       actorTargets: (rootRunId) => {
         const run = runs.findById(rootRunId)
         const content = run ? buddyUserMessageContentV1Schema.safeParse(conversationHistory.repository.findMessageById(run.triggeringMessageId)?.content) : null
@@ -1110,8 +1137,17 @@ export async function startBuddyService(
         sessions,
       })
       const quarantine = options.eventLog.onDidQuarantine(async (failure) => {
-        if (failure.conversationId)
-          await service.cancelAndWaitForConversation(failure.conversationId)
+        const run = runs.findById(failure.runId)
+        if (!run)
+          return
+        await sessions.invalidateMatching(identity => identity.conversationId === run.conversationId
+          && identity.branchId === run.branchId && identity.threadId === run.threadId)
+        const root = runs.findById(run.rootRunId)
+        if (root?.status === 'queued' || root?.status === 'running') {
+          chatQueueService?.pause(root)
+          await service.cancel(root.id, 'EVENT_LOG_CORRUPTED')
+        }
+        runRecoveryService.recoverQuarantinedRun(run.id)
       })
       defer(() => quarantine.dispose())
       const settledDiagnostics = service.onDidSettle(settled => record({
@@ -1447,6 +1483,7 @@ export async function startBuddyService(
           runs,
           rpc: options.rpc,
           service: changeCaptureService,
+          recovery: mutationRecovery,
         }),
       )
       register(
@@ -1454,9 +1491,11 @@ export async function startBuddyService(
           isBusy: () => {
             if (runner.hasActiveExecutions)
               return true
-            const quarantined = new Set(options.eventLog.getRecoveryFailures().map(failure => failure.conversationId))
-            return runs.listIncomplete().some(run => !quarantined.has(run.conversationId))
-              || approvalsRepository.listPending().some(approval => !quarantined.has(runs.findById(approval.runId)?.conversationId ?? null))
+            return runs.hasIncomplete()
+              || approvalsRepository.listPending().some((approval) => {
+                const run = runs.findById(approval.runId)
+                return run?.status === 'queued' || run?.status === 'running'
+              })
           },
           getCacheWarmingStatus: (conversationId) => {
             const conversation = conversations.findById(conversationId)
@@ -1515,7 +1554,7 @@ export async function startBuddyService(
           service: contextUsageService,
         }),
       )
-      register(registerBuddiesRpc(options.rpc, buddies, signal => readBuddyToolOptions(sessionExtensionServices.createCapabilities, agentDirectory, signal)))
+      register(registerBuddiesRpc(options.rpc, buddies, signal => readBuddyToolOptions(sessionExtensionServices.createCapabilities, agentDirectory, signal, sessionExtensionServices.shells)))
       register(registerTaskMarkRpc(options.rpc, taskMarks, taskAttention))
       register(registerConversationTreeRpc({
         database: options.database,

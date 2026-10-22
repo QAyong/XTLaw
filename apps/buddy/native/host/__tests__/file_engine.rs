@@ -109,6 +109,152 @@ fn id() -> String {
 }
 
 #[test]
+fn read_reports_missing_targets_and_reads_restored_files() {
+    let directory = tempfile::tempdir().unwrap();
+    let root = directory.path().join("root");
+    std::fs::create_dir(&root).unwrap();
+    let mut engine = Engine::new(&directory.path().join("journal"));
+    engine.register("root", &root);
+
+    for path in ["note.md", "missing/note.md"] {
+        assert_eq!(
+            engine.call(json!({"type":"read","root":"root","path":path}))["error"],
+            "FILE_NOT_FOUND"
+        );
+    }
+    assert_eq!(
+        engine.call(json!({"type":"list","root":"root","path":"missing"}))["error"],
+        "FILE_IO_FAILED"
+    );
+
+    std::fs::write(root.join("note.md"), "original").unwrap();
+    let original = engine.call(json!({"type":"read","root":"root","path":"note.md"}));
+    assert_eq!(original["result"]["text"], "original");
+    std::fs::remove_file(root.join("note.md")).unwrap();
+    assert_eq!(
+        engine.call(json!({"type":"read","root":"root","path":"note.md"}))["error"],
+        "FILE_NOT_FOUND"
+    );
+    std::fs::write(root.join("note.md"), "restored").unwrap();
+    let restored = engine.call(json!({"type":"read","root":"root","path":"note.md"}));
+    assert_eq!(restored["result"]["text"], "restored");
+    assert_ne!(restored["result"]["etag"], original["result"]["etag"]);
+}
+
+#[test]
+fn read_reports_missing_target_when_parent_becomes_a_file() {
+    let directory = tempfile::tempdir().unwrap();
+    let root = directory.path().join("root");
+    let parent = root.join("nested");
+    std::fs::create_dir_all(&parent).unwrap();
+    std::fs::write(parent.join("note.md"), "original").unwrap();
+    let mut engine = Engine::new(&directory.path().join("journal"));
+    engine.register("root", &root);
+    assert_eq!(
+        engine.call(json!({"type":"read","root":"root","path":"nested/note.md"}))["result"]["text"],
+        "original"
+    );
+
+    std::fs::remove_file(parent.join("note.md")).unwrap();
+    std::fs::remove_dir(&parent).unwrap();
+    std::fs::write(&parent, "not a directory").unwrap();
+    assert_eq!(
+        engine.call(json!({"type":"read","root":"root","path":"nested/note.md"}))["error"],
+        "FILE_NOT_FOUND"
+    );
+    assert_eq!(
+        engine.call(json!({"type":"acquire","leaseId":id(),"external":false,"claims":[{"root":"root","path":"nested/note.md","subtree":false}]}))["error"],
+        "FILE_IO_FAILED"
+    );
+
+    std::fs::remove_file(&parent).unwrap();
+    std::fs::create_dir(&parent).unwrap();
+    std::fs::write(parent.join("note.md"), "restored").unwrap();
+    assert_eq!(
+        engine.call(json!({"type":"read","root":"root","path":"nested/note.md"}))["result"]["text"],
+        "restored"
+    );
+}
+
+#[test]
+fn read_rejects_unknown_and_revoked_roots() {
+    let directory = tempfile::tempdir().unwrap();
+    let root = directory.path().join("root");
+    std::fs::create_dir(&root).unwrap();
+    let mut engine = Engine::new(&directory.path().join("journal"));
+    engine.register("root", &root);
+    engine.call(json!({"type":"revoke","key":"root"}));
+    for key in ["root", "unknown"] {
+        assert_eq!(
+            engine.call(json!({"type":"read","root":key,"path":"missing.md"}))["error"],
+            "FILE_PERMISSION_REVOKED"
+        );
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn read_does_not_classify_unavailable_or_replaced_roots_as_missing_targets() {
+    let directory = tempfile::tempdir().unwrap();
+    let root = directory.path().join("root");
+    let offline = directory.path().join("offline");
+    std::fs::create_dir(&root).unwrap();
+    std::fs::write(root.join("note.md"), "retained").unwrap();
+    let mut engine = Engine::new(&directory.path().join("journal"));
+    engine.register("root", &root);
+
+    std::fs::rename(&root, &offline).unwrap();
+    assert_eq!(
+        engine.call(json!({"type":"read","root":"root","path":"note.md"}))["error"],
+        "FILE_IO_FAILED"
+    );
+    std::fs::write(&root, "not a root directory").unwrap();
+    assert_eq!(
+        engine.call(json!({"type":"read","root":"root","path":"note.md"}))["error"],
+        "FILE_IO_FAILED"
+    );
+    std::fs::remove_file(&root).unwrap();
+    std::fs::rename(&offline, &root).unwrap();
+    assert_eq!(
+        engine.call(json!({"type":"read","root":"root","path":"note.md"}))["result"]["text"],
+        "retained"
+    );
+
+    std::fs::rename(&root, &offline).unwrap();
+    std::fs::create_dir(&root).unwrap();
+    assert_eq!(
+        engine.call(json!({"type":"read","root":"root","path":"missing.md"}))["error"],
+        "FILE_PERMISSION_REVOKED"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn read_preserves_permission_errors_for_files_and_inaccessible_parents() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let directory = tempfile::tempdir().unwrap();
+    let root = directory.path().join("root");
+    std::fs::create_dir_all(root.join("private")).unwrap();
+    std::fs::write(root.join("note.md"), "private").unwrap();
+    let mut engine = Engine::new(&directory.path().join("journal"));
+    engine.register("root", &root);
+
+    for (restricted, target) in [("note.md", "note.md"), ("private", "private/missing.md")] {
+        let path = root.join(restricted);
+        let permissions = std::fs::metadata(&path).unwrap().permissions();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o0)).unwrap();
+        let response = engine.call(json!({"type":"read","root":"root","path":target}));
+        std::fs::set_permissions(&path, permissions).unwrap();
+        assert_eq!(response["error"], "FILE_IO_FAILED");
+    }
+    assert_eq!(
+        engine.call(json!({"type":"read","root":"root","path":"note.md"}))["result"]["text"],
+        "private"
+    );
+}
+
+#[test]
 fn journal_deduplicates_mutations_and_never_overwrites_a_destination() {
     let directory = tempfile::tempdir().unwrap();
     let root = directory.path().join("root");
@@ -227,7 +373,7 @@ fn shared_roots_and_hardlinks_share_the_same_resource_lease() {
 }
 
 #[test]
-fn restart_preserves_unknown_outcomes_and_blocks_replay_until_reviewed() {
+fn restart_preserves_unknown_outcomes_without_blocking_new_operations() {
     let directory = tempfile::tempdir().unwrap();
     let root = directory.path().join("root");
     std::fs::create_dir(&root).unwrap();
@@ -263,25 +409,32 @@ fn restart_preserves_unknown_outcomes_and_blocks_replay_until_reviewed() {
             "root",
             "a",
             json!({"kind":"rename","destination":"b"})
-        )["error"],
-        "FILE_RECOVERY_REQUIRED"
+        )["result"]["status"],
+        "applied"
     );
-    assert!(root.join("a").exists());
-    assert!(!root.join("b").exists());
+    assert!(!root.join("a").exists());
+    assert!(root.join("b").exists());
+    assert_eq!(
+        engine.mutate(&operation, "root", "a", json!({"kind":"createFile"}))["result"]["status"],
+        "needs-recovery"
+    );
+    assert!(!root.join("a").exists());
+    assert_eq!(
+        engine.mutate(
+            &operation,
+            "root",
+            "a",
+            json!({"kind":"write","text":"replay"})
+        )["error"],
+        "FILE_OPERATION_ID_CONFLICT"
+    );
     assert_eq!(
         engine.call(json!({"type":"acknowledge","root":"root","operationId":operation}))["result"]
             ["status"],
         "acknowledged"
     );
-    assert_eq!(
-        engine.mutate(
-            &id(),
-            "root",
-            "a",
-            json!({"kind":"rename","destination":"b"})
-        )["result"]["status"],
-        "applied"
-    );
+    assert!(!root.join("a").exists());
+    assert!(root.join("b").exists());
 }
 
 #[cfg(unix)]
@@ -297,11 +450,20 @@ fn capabilities_reject_symlink_escape_and_revoked_roots() {
     std::os::unix::fs::symlink(root.join("inside"), root.join("alias")).unwrap();
     let mut engine = Engine::new(&directory.path().join("journal"));
     engine.register("root", &root);
-    assert!(
-        engine
-            .call(json!({"type":"read","root":"root","path":"alias/local"}))
-            .get("error")
-            .is_some()
+    for path in [
+        "alias/local",
+        "alias/missing",
+        "escape/outside",
+        "escape/missing",
+    ] {
+        assert_eq!(
+            engine.call(json!({"type":"read","root":"root","path":path}))["error"],
+            "FILE_UNSUPPORTED"
+        );
+    }
+    assert_eq!(
+        engine.call(json!({"type":"read","root":"root","path":"../missing"}))["error"],
+        "FILE_INVALID_REQUEST"
     );
     assert!(
         engine
@@ -427,6 +589,15 @@ fn queued_mutation_can_be_cancelled_without_modifying_the_file() {
     let cancel = engine.send(json!({"type":"cancel","operationId":operation}));
     assert_eq!(engine.response(queued)["error"], "FILE_OPERATION_CANCELLED");
     assert_eq!(engine.response(cancel)["result"], Value::Null);
+    assert_eq!(std::fs::read(root.join("a")).unwrap(), b"retained");
+    assert_eq!(
+        engine.call(json!({"type":"release","leaseId":lease,"hazard":false}))["result"],
+        Value::Null
+    );
+    assert_eq!(
+        engine.call(json!({"type":"query","operationId":operation}))["result"],
+        Value::Null
+    );
     assert_eq!(std::fs::read(root.join("a")).unwrap(), b"retained");
 }
 

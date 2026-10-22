@@ -77,8 +77,7 @@ const moveTargets = computed(() => props.spaces
 function taskMenuBindings(task: LocalConversationSummary) {
   return task.spaceId === null
     ? {
-        moveTargets: moveTargets.value,
-        movable: task.activity === 'idle' && !props.pendingConversationIds?.includes(task.id),
+        moveToSpaceAvailable: moveTargets.value.length > 0 && task.activity === 'idle' && !props.pendingConversationIds?.includes(task.id),
         onMoveToSpace: () => taskMoveTargetId.value = task.id,
       }
     : {}
@@ -131,6 +130,7 @@ const {
   unpinItem,
 } = useTaskIndexController({
   getUntitledLabel: () => t('desktop.tasks.untitled'),
+  markStates: () => props.marks.states.value,
   onCreateSpace: input => props.createSpace(input),
   onDeleteTask: conversationId => emit('deleteTask', conversationId),
   onDeleteSpace: spaceId => emit('deleteSpace', spaceId),
@@ -350,7 +350,7 @@ function openSearchSpace(spaceId: string) {
       :task="taskMoveTarget"
       :busy="taskMoveBusy"
       :language="language"
-      :spaces="spaces"
+      :spaces="moveTargets"
       :move-task-to-space="moveTaskToSpace"
       @update:show="!$event && (taskMoveTargetId = null)"
       @moved="revealMovedTask"

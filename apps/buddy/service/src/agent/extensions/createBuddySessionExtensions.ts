@@ -14,7 +14,9 @@ import type { MutationCoordinator } from '../../changes/MutationCoordinator'
 import type { DirectoryGrantService } from '../../directories/DirectoryGrantService'
 import type { DirectoryGrant } from '../../directories/resolveGrantedPath'
 import type { FileResourceCoordinator } from '../../files/FileResourceCoordinator'
+import type { NetworkPermissionsStore } from '../../permissions/NetworkPermissionsClient'
 import type { ShellSandboxClient } from '../../sandbox/ShellSandboxClient'
+import type { ExtensionShellRegistry } from '../../sandbox/ShellSelection'
 import type { BuddyInputReferenceStore } from '../context/BuddyInputReference'
 import type { ExecutionDelegationService } from '../execution/ExecutionDelegationService'
 import type { BuddyCapability, BuddyCapabilityFactory, BuddyCapabilityResourceRevision } from './BuddyCapability'
@@ -22,6 +24,7 @@ import type { BuddyExtensionRunContext, BuddyExtensionRunContextStore } from './
 import type { BuddyInProcessExtension } from './BuddyInProcessExtension'
 import type { BuddyToolExposureResolver } from './discovery/toolDiscoveryContract'
 import { copyEventSnapshot } from '../../../../shared/events/eventSnapshot'
+import { createCapturedFileWriter } from '../../changes/CapturedFileWriter'
 import { SessionDirectoryGrants } from '../../directories/SessionDirectoryGrants'
 import { observeSessionPermissions } from '../../permissions/observeSessionPermissions'
 import { ToolAuthorizationService } from '../../permissions/ToolAuthorizationService'
@@ -44,6 +47,7 @@ import { createModelSwitchExtension } from './modelSwitchExtension'
 import { createToolPolicyExtension } from './toolPolicyExtension'
 
 export interface BuddySessionExtensionServices {
+  networkPermissions?: NetworkPermissionsStore
   delegation?: Pick<ExecutionDelegationService, 'execute' | 'pending' | 'assertShellExecutionAllowed'>
   followUp?: (runId: string, signal: AbortSignal) => Promise<void>
   prepareForRun?: (signal: AbortSignal) => Promise<void>
@@ -52,11 +56,13 @@ export interface BuddySessionExtensionServices {
   changeCaptureService: Pick<ChangeCaptureService, 'beginInvocation' | 'finishInvocation' | 'markPartial'>
   fileResources: FileResourceCoordinator
   mutations: MutationCoordinator
+  receiptDirectory?: string
   createCapabilities: BuddyCapabilityFactory
   directoryGrants: Pick<DirectoryGrantService, 'grant' | 'assertCurrent'>
   recordPermissions?: ApplicationDiagnosticReporter
   resolveToolExposure?: BuddyToolExposureResolver
   shellSandbox?: Pick<ShellSandboxClient, 'exec'>
+  shells?: Pick<ExtensionShellRegistry, 'snapshot'>
 }
 
 export interface CreateBuddySessionExtensionsOptions {
@@ -136,6 +142,7 @@ export async function createBuddySessionExtensions(
     creationSignal.addEventListener('abort', cancelCreation, { once: true })
     creationSignal.throwIfAborted()
     const authorization = new ToolAuthorizationService({
+      networkPermissions: services.networkPermissions,
       applySandboxDirectory: (run, grant) => sandboxDirectories.grant(run, grant),
       getSandboxDirectories: run => sandboxDirectories.get(run),
       applyGrant: async (proposal) => {
@@ -157,6 +164,31 @@ export async function createBuddySessionExtensions(
         : { id: options.conversationId, kind: 'conversation' },
     })
     capabilities.push(codemode, ...await services.createCapabilities({
+      createFileWriter: (event) => {
+        const run = runContext.current
+        if (!run)
+          throw new Error('RUN_CONTEXT_UNAVAILABLE')
+        return createCapturedFileWriter({ conversationId: options.conversationId, cwd: options.canonicalRoot, run, event, authorization, mutations: services.mutations, changes: services.changeCaptureService, getGrants: () => [...grants.snapshot, ...executionPermissions.get(run, event.toolCallId)] })
+      },
+      authorizeNetwork: async (input) => {
+        const run = runContext.current
+        if (!run)
+          throw Object.assign(new Error('RUN_CONTEXT_UNAVAILABLE'), { toolCallBlockReason: 'RUN_CONTEXT_UNAVAILABLE' })
+        const url = new URL(input.url)
+        if (!['http:', 'https:', 'ws:', 'wss:'].includes(url.protocol))
+          throw Object.assign(new Error('NETWORK_TARGET_INVALID'), { toolCallBlockReason: 'NETWORK_TARGET_INVALID' })
+        const denial = await authorization.authorize({
+          toolCallId: input.toolCallId,
+          toolName: input.toolName,
+          input: { url: input.url },
+        }, run, { access: 'network', paths: [] }, {
+          network: { host: url.hostname, port: Number(url.port || (url.protocol === 'https:' || url.protocol === 'wss:' ? 443 : 80)) },
+          networkOperation: input.operation,
+          signal: input.signal,
+        })
+        if (denial)
+          throw Object.assign(new Error(denial), { toolCallBlockReason: denial })
+      },
       isCodemodeEnabled: () => codemodeEnabled,
       conversationId: options.conversationId,
       get executionProfile() { return getExecutionProfile() },
@@ -167,7 +199,9 @@ export async function createBuddySessionExtensions(
       sessionMode: options.sessionMode,
       signal: lifetime.signal,
     }))
+    const shells = await services.shells?.snapshot(lifetime.signal)
     capabilities.push(createShellCapability({
+      shells,
       cwd: options.canonicalRoot,
       execution: resolveShellExecution(getExecutionProfile()),
       getExecution: () => resolveShellExecution(getExecutionProfile()),
@@ -178,6 +212,7 @@ export async function createBuddySessionExtensions(
       sandbox: services.shellSandbox,
       directoryPermissions: sandboxDirectories,
       mutations: services.mutations,
+      receiptDirectory: services.receiptDirectory,
       assertExecutionAllowed: ({ run }) => services.delegation?.assertShellExecutionAllowed(run.runId),
     }))
     if (services.delegation) {

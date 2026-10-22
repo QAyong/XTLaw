@@ -169,6 +169,8 @@ pub enum Error {
     IdConflict,
     #[error("FILE_UNSUPPORTED")]
     Unsupported,
+    #[error("FILE_NOT_FOUND")]
+    NotFound,
     #[error(transparent)]
     NotApplied(Box<Error>),
     #[error("FILE_IO_FAILED")]

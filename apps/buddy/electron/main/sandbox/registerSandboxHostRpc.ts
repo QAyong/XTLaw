@@ -1,6 +1,6 @@
 import type { RuntimeRpcPeerContract } from '../../../shared/runtime/rpcPeer'
 import { rm } from 'node:fs/promises'
-import { homedir } from 'node:os'
+import { userInfo } from 'node:os'
 import { dirname } from 'node:path'
 import process from 'node:process'
 import { utilityProcess } from 'electron'
@@ -12,13 +12,14 @@ import { resolveSensitivePathRoots } from '../../../service/src/permissions/sens
 import sandboxProcessPath from '../../../service/src/sandbox/sandboxProcess?modulePath'
 import { Emitter } from '../../../shared/events/Emitter'
 import { sandboxLifecycleNotificationSchema } from '../../../shared/permissions/sandboxLifecycle'
-import { SANDBOX_RPC_TIMEOUT_MS, sandboxCancelSchema, sandboxCommandSchema, sandboxNetworkRequestSchema, sandboxOutputSchema, sandboxPreparationSchema } from '../../../shared/permissions/shellSandbox'
+import { SANDBOX_RPC_TIMEOUT_MS, sandboxCancelSchema, sandboxCommandSchema, sandboxNetworkRequestSchema, sandboxOutputSchema, sandboxPreparationSchema, sandboxSettlementAckSchema, sandboxSettlementSchema } from '../../../shared/permissions/shellSandbox'
 import { isLinux, isWindows, OPERATING_SYSTEM, SHELL_SANDBOX_BACKEND } from '../../../shared/platform/identifiers'
 import { BuddyServicePeer } from '../runtime/BuddyServicePeer'
 import { WindowsSandboxPreparation } from './WindowsSandboxPreparation'
 
 export interface SandboxHostOptions {
   buddyHome: string
+  receiptDirectory?: string
   protectedRoots?: string[]
   protectionScope?: string
   proxyUrl?: string
@@ -34,6 +35,7 @@ export function registerSandboxHostRpc(peer: RuntimeRpcPeerContract, options: Sa
   const publish = (event: Parameters<typeof changes.fire>[0]) => changes.fire(Object.freeze(event))
   const preparation = isWindows(process.platform) ? new WindowsSandboxPreparation({ ...options, protectedRoots: options.protectedRoots ?? [dirname(options.buddyHome)] }) : undefined
   const active = new Map<string, AbortController>()
+  const accepted = new Set<string>()
   let disposed = false
   const disposers = [
     peer.onRequest('host.sandbox.prepare', async (params) => {
@@ -54,14 +56,16 @@ export function registerSandboxHostRpc(peer: RuntimeRpcPeerContract, options: Sa
       const input = sandboxCommandSchema.parse(params)
       if (!Object.values<string>(OPERATING_SYSTEM).includes(process.platform))
         return { ok: false, code: 'SANDBOX_UNAVAILABLE', notStarted: true }
-      if (active.has(input.requestId))
+      if (accepted.has(input.requestId))
         return { ok: false, code: 'SANDBOX_BUSY' }
       if (disposed || active.size >= 8)
         return { ok: false, code: 'SANDBOX_BUSY', notStarted: true }
+      accepted.add(input.requestId)
       preparation?.start()
       const controller = new AbortController()
       active.set(input.requestId, controller)
       let dispatched = false
+      let responded = false
       let directory: string | undefined
       let child: Electron.UtilityProcess | undefined
       let pid: number | undefined
@@ -79,8 +83,22 @@ export function registerSandboxHostRpc(peer: RuntimeRpcPeerContract, options: Sa
       const release = async () => {
         publish({ requestId: input.requestId, kind: 'cleanup_requested', pid })
         try {
-          child?.kill()
-          await exited
+          if (responded && childPeer && isLinux(process.platform)) {
+            try {
+              childPeer.notify('sandbox.close', {})
+            }
+            catch { child?.kill() }
+            const deadline = setTimeout(() => child?.kill(), 1000)
+            deadline.unref()
+            try {
+              await exited
+            }
+            finally { clearTimeout(deadline) }
+          }
+          else {
+            child?.kill()
+            await exited
+          }
           childPeer?.close(new Error('Sandbox command finished'))
           if (directory)
             await rm(directory, { recursive: true, force: true })
@@ -143,6 +161,17 @@ export function registerSandboxHostRpc(peer: RuntimeRpcPeerContract, options: Sa
           if (output.requestId === input.requestId)
             peer.notify('host.sandbox.output', output)
         })
+        processPeer.onRequest('sandbox.settlement', async (params) => {
+          const record = sandboxSettlementSchema.parse(params)
+          if (disposed || record.requestId !== input.requestId || record.executionId !== input.executionId || record.dispatchId !== input.dispatchId
+            || (record.launchState === 'authorized' && controller.signal.aborted)) {
+            throw new Error('SANDBOX_CANCELLED')
+          }
+          const result = sandboxSettlementAckSchema.parse(await peer.request('sandbox.settlement', record, 60_000))
+          if (record.launchState === 'authorized' && (disposed || controller.signal.aborted))
+            throw new Error('SANDBOX_CANCELLED')
+          return result
+        })
         processPeer.onRequest('sandbox.network', async (params) => {
           const target = sandboxNetworkRequestSchema.parse(params)
           if (disposed || controller.signal.aborted || target.requestId !== input.requestId)
@@ -150,12 +179,13 @@ export function registerSandboxHostRpc(peer: RuntimeRpcPeerContract, options: Sa
           return peer.request('sandbox.network', target, 30 * 60 * 1_000)
         })
         dispatched = true
-        return await processPeer.request('sandbox.exec', {
+        const result = await processPeer.request('sandbox.exec', {
           ...input,
-          home: homedir(),
+          home: userInfo().homedir,
           sensitiveRoots: resolveSensitivePathRoots(),
           path: process.env.PATH ?? '',
           privateRoot: directory,
+          receiptDirectory: options.receiptDirectory,
           protectedRoots: options.protectedRoots ?? [dirname(options.buddyHome)],
           searchDirectory: options.searchDirectory,
           backend: windowsSandbox
@@ -164,6 +194,8 @@ export function registerSandboxHostRpc(peer: RuntimeRpcPeerContract, options: Sa
               ? { kind: SHELL_SANDBOX_BACKEND.Linux, sandboxDirectory: options.sandboxDirectory }
               : { kind: SHELL_SANDBOX_BACKEND.MacOS },
         }, SANDBOX_RPC_TIMEOUT_MS)
+        responded = true
+        return result
       }
       catch {
         return { ok: false, code: controller.signal.aborted ? 'SANDBOX_CANCELLED' : 'SANDBOX_UNAVAILABLE', ...(!dispatched ? { notStarted: true } : {}) }

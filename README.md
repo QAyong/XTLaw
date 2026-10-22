@@ -113,7 +113,7 @@ pnpm dev:website
 
 桌面界面使用 Vue 与 Electron，本地 Agent Runtime 使用 TypeScript，原生能力由 Rust 提供。部分包名和内部标识保留既有命名。`pnpm dev:website` 运行仓库内的网站源码，与当前独立部署的官网不同。
 
-贡献方式见 [CONTRIBUTING.md](CONTRIBUTING.md)。反馈时请说明系统、版本、复现步骤和期望结果。
+项目架构、功能规格和集成记录见 [文档索引](docs/README.md)。贡献方式见 [CONTRIBUTING.md](CONTRIBUTING.md)。反馈时请说明系统、版本、复现步骤和期望结果。
 
 ## 开源参考
 

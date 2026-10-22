@@ -13,7 +13,7 @@
 
 开合状态与选中标签使用 `ContextPanelSelectionScope`（含 `space:<id>`）保存和恢复，各模式的选择/开合记忆分离。空间模式不会把原任务模式的左右换位或最大化偏好迁移成新的空间所有权；拖放和页面导航造成的临时可见性由 `useContextPanePresentation.ts` 管理，不覆盖用户保存的偏好。
 
-新增 `apps/buddy/src/app/workbench/useTaskResourceSpaces.ts` 维护任务/草稿到空间的映射，`useSpaceContextPanel.spec.ts` 覆盖共享、成员变更、草稿提交、模式切换和空间开合恢复。当前 11 项通过；完整验证及边界见 [集成记录](../upstream-remaining-integration.md)。
+新增 `apps/buddy/src/app/workbench/useTaskResourceSpaces.ts` 维护任务/草稿到空间的映射，`useSpaceContextPanel.spec.ts` 覆盖共享、成员变更、草稿提交、模式切换和空间开合恢复。当前 11 项通过；完整验证及边界见 [集成记录](../upstream/upstream-remaining-integration.md)。
 
 ## 1. 背景
 

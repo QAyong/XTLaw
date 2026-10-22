@@ -55,7 +55,7 @@ XTLaw 通过前端临时展示提前响应点击，后台取消接口仍等待�
 - [x] 取消失败时恢复展示，重复停止不重复发起取消。
 - [x] 收尾期间可以提交下一条消息，取消完成后仍暂停，不自动调用启动接口。
 - [x] 同一运行取消去重，跨任务/分支隔离，旧运行取消不暂停新运行，失败后保护释放。
-- [x] 当前集成类型检查通过；`ChatQueueService.spec.ts` 34 项、`useChatTurnExecution.spec.ts` 16 项通过。完整验证边界见 [集成记录](../upstream-remaining-integration.md)。
+- [x] 当前集成类型检查通过；`ChatQueueService.spec.ts` 34 项、`useChatTurnExecution.spec.ts` 16 项通过。完整验证边界见 [集成记录](../upstream/upstream-remaining-integration.md)。
 - [ ] 在实际桌面应用中验证长命令中断时的按钮变化、暂停队列和明确继续。
 
 首版历史自动检查为 3 个相关测试文件、69 项通过，使用 `pnpm --filter @uselexora/lexora-buddy type-check`（桌面应用类型检查命令），以及以下相关测试文件：

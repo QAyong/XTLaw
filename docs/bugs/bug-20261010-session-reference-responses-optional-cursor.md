@@ -26,11 +26,11 @@
 - `messageOffset`（整数，≥ 0，0 或省略表示新搜索）取代 `beforeMessageId`；结果里的 `nextBeforeMessageId` 改为 `nextMessageOffset`。页面边界只在 `searchConversationHistory` 内部使用，模型无法填出一个无效值。
 - 偏移超过历史长度返回空页和 `nextMessageOffset: null`；最后一个命中恰为最旧一条时直接返回 `null`，不再多一次空翻页。
 - 修改文件：`sessionReferenceToolContract.ts`、`searchConversationHistory.ts`、`sessionReferenceExtension.ts`（均在 `apps/buddy/service/src/conversations/`）。UI 自己的消息翻页（`messagePageCursor.ts`）是另一套机制，未改。
-- 同时移除本地 `lexora_session_ask` 并让会话引用其余部分与上游一致，见 [第四轮集成记录](../upstream-round-4-integration.md) 的“后续调整”。
+- 同时移除本地 `lexora_session_ask` 并让会话引用其余部分与上游一致，见 [第四轮集成记录](../upstream/upstream-round-4-integration.md) 的“后续调整”。
 
 ### 与上游的差异
 
-有意偏离上游共三处，下次合并上游时这些文件保留本地版本（详见 [第四轮集成记录](../upstream-round-4-integration.md)）：
+有意偏离上游共三处，下次合并上游时这些文件保留本地版本（详见 [第四轮集成记录](../upstream/upstream-round-4-integration.md)）：
 
 1. **数字页码**：上游契约仍是 `beforeMessageId` / `nextBeforeMessageId`，同样的问题在上游会出现。
 2. **授权在同一对话内持续有效**：上游只对最新一条用户消息里附加的会话授权。

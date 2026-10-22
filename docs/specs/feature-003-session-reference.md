@@ -22,7 +22,7 @@
 
 实现入口为 `service/src/conversations/SessionReferenceService.ts`、`sessionReferenceExtension.ts`、`sessionReferenceChain.ts`、`sessionReferenceText.ts`、`sessionReferenceToolContract.ts`，以及 `src/modules/prompt-input/editor/chatComposerSessionEditing.ts`、`src/modules/tasks/widgets/references/`（均相对于 `apps/buddy/`）。
 
-新版自动验证覆盖授权、搜索/分页读取、来源撤销、composer 和冻结引用共存；全部集成验证为 62 个测试文件、617 通过、4 跳过，详见 [集成记录](../upstream-remaining-integration.md)。这不沿用首版用户预览验收来声称新版桌面交互已验收。2026-10-12 的会话引用修复（数字偏移、对话内持续授权、引用链）已由用户使用安装包实机验收通过，记录见 [Bug 记录](../bugs/bug-20261010-session-reference-responses-optional-cursor.md) 的“验收”一节。
+新版自动验证覆盖授权、搜索/分页读取、来源撤销、composer 和冻结引用共存；全部集成验证为 62 个测试文件、617 通过、4 跳过，详见 [集成记录](../upstream/upstream-remaining-integration.md)。这不沿用首版用户预览验收来声称新版桌面交互已验收。2026-10-12 的会话引用修复（数字偏移、对话内持续授权、引用链）已由用户使用安装包实机验收通过，记录见 [Bug 记录](../bugs/bug-20261010-session-reference-responses-optional-cursor.md) 的“验收”一节。
 
 ## 1. 背景
 

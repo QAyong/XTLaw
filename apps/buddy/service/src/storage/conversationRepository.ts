@@ -115,6 +115,9 @@ export function createConversationRepository(database: DatabaseSync): Conversati
     UPDATE conversations
     SET space_id = ?, updated_at = ?
     WHERE id = ? AND space_id IS NULL AND deleted_at IS NULL
+      AND EXISTS (SELECT 1 FROM spaces WHERE spaces.id = ? AND revoked_at IS NULL)
+      AND NOT EXISTS (SELECT 1 FROM runs WHERE conversation_id = conversations.id AND status IN ('queued', 'running'))
+      AND NOT EXISTS (SELECT 1 FROM chat_queue WHERE conversation_id = conversations.id AND state IN ('waiting', 'paused'))
   `)
   const history = createConversationHistoryStore(database)
   const index = createConversationIndexRepository(database)
@@ -255,7 +258,7 @@ export function createConversationRepository(database: DatabaseSync): Conversati
       })
     },
     setSpace(input) {
-      if (!Number(moveToSpace.run(input.spaceId, input.updatedAt, input.id).changes))
+      if (!Number(moveToSpace.run(input.spaceId, input.updatedAt, input.id, input.spaceId).changes))
         return null
       return requireConversationRecord(findConversation.get(input.id), input.id)
     },

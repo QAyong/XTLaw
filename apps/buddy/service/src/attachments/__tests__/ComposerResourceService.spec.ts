@@ -13,6 +13,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { BUDDY_ATTACHMENT_COUNT_LIMIT } from '../../../../shared/conversation/attachmentPolicy'
 import { createBuddyUserContent } from '../../../../shared/conversation/buddyUserContent'
 import { createBuddyInputReference } from '../../agent/context/BuddyInputReference'
+import { BuddySessionBlueprintService } from '../../agent/sessions/BuddySessionBlueprintService'
 import { BuddySessionRecoveryService } from '../../agent/sessions/recovery/BuddySessionRecoveryService'
 import { BuddyConversationTree } from '../../agent/sessions/tree/BuddyConversationTree'
 import { ArtifactService } from '../../artifacts/ArtifactService'
@@ -714,6 +715,44 @@ describe('composer resource import', () => {
       spaceId: null,
     })
     expect(afterRevocation.files.map(item => item.category)).toEqual(['history'])
+  })
+
+  it.each(['owned', 'external'])('retains %s outputs after moving without extending the new execution grants', async (location) => {
+    const fixture = await setup()
+    const timestamp = '2026-09-06T00:00:00.000Z'
+    fixture.conversations.create({ id: 'conversation-1', branchId: 'branch-1', spaceId: null, title: 'Original', approvalPolicy: 'policy', executionProfile: 'workspace_write', createdAt: timestamp })
+    const owned = fixture.paths.conversationWorkspace('conversation-1')
+    const external = join(fixture.root, 'external')
+    const target = join(fixture.root, 'target')
+    for (const path of [owned, external, target])
+      await mkdir(path, { recursive: true })
+    await writeFile(join(owned, 'unpublished.txt'), 'unfinished work')
+    fixture.conversationGrants.grant({ id: 'old-grant', conversationId: 'conversation-1', root: external, canonicalRoot: external, createdAt: timestamp })
+    const root = location === 'owned' ? owned : external
+    const artifactPath = join(root, 'result.txt')
+    await writeFile(artifactPath, 'old output')
+    fixture.run()
+    const [artifact] = await fixture.artifacts.presentOutputs({ conversationId: 'conversation-1', cwd: root, grants: [{ canonicalRoot: root, root, grantId: location === 'owned' ? 'conversation-1' : 'old-grant', kind: 'workspace' }], paths: [artifactPath] })
+    fixture.publish({ createdAt: timestamp, payload: { artifactIds: [artifact!.id], sourceToolCallId: 'output', sourceToolName: 'lexora_output_present' }, runId: 'run-1', sequence: 1, type: 'output.produced' })
+    fixture.spaces.create({ id: 'target', name: 'Target', memoryScope: 'space_only', createdAt: timestamp, primaryDirectory: { id: 'target-directory', root: target, canonicalRoot: target, accessGrantedAt: timestamp, resourcesTrustedAt: timestamp }, additionalDirectories: [] })
+    fixture.conversations.setSpace({ id: 'conversation-1', spaceId: 'target', updatedAt: timestamp })
+    const scope = { branchId: 'branch-1', conversationId: 'conversation-1', draftId: 'moved-draft', query: '', spaceId: 'target' }
+    const option = (await fixture.service.listSources(scope)).files.find(item => item.category === 'artifact')!
+    expect(option.path).toBe(artifactPath)
+    const selected = await fixture.service.selectSource({ draftId: scope.draftId, resourceId: 'old-result', source: option.source })
+    expect(await resolveInputs(fixture.service, scope.draftId, { ...createBuddyUserContent(), panelResourceIds: [selected.resourceId] }, scope)).toEqual([{ resourceId: selected.resourceId, localReference: { kind: 'file', mimeType: 'text/plain', name: 'result.txt', path: artifactPath, sizeBytes: 10 } }])
+    const blueprint = await new BuddySessionBlueprintService({ paths: fixture.paths, conversationGrants: fixture.conversationGrants, spaces: fixture.spaces, skills: { materializeForSpace: async () => [], loadForSpace: async spaceId => ({ diagnostics: [], readRoots: [], references: [], paths: [], skills: [], revision: `skills-${spaceId}` }) } }).createForConversation({ branchId: 'branch-1', conversationId: 'conversation-1', approvalPolicy: 'policy', executionProfile: 'workspace_write', sessionMode: 'interactive', spaceId: 'target' })
+    expect(blueprint.canonicalRoot).toBe(target)
+    expect(blueprint.grants.map(grant => grant.canonicalRoot)).toEqual([target, fixture.paths.spaceWorkspace('target')])
+    expect(await readFile(join(owned, 'unpublished.txt'), 'utf8')).toBe('unfinished work')
+    expect(await readFile(artifactPath, 'utf8')).toBe('old output')
+    expect(await readdir(target)).toEqual([])
+    if (location === 'external') {
+      fixture.conversationGrants.revokeAll('conversation-1', timestamp)
+      expect((await fixture.service.listSources(scope)).files.filter(item => item.category === 'artifact')).toEqual([])
+      await expect(fixture.service.selectSource({ draftId: scope.draftId, resourceId: 'revoked', source: option.source })).rejects.toMatchObject({ code: 'DIRECTORY_NOT_AUTHORIZED' })
+      expect((await fixture.artifacts.readText(artifact!.id)).text).toBe('old output')
+    }
   })
 
   it.each(['conversation', 'space', 'space-with-primary'])('keeps owned Artifacts and historical inputs available in %s', async (owner) => {

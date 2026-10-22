@@ -80,6 +80,9 @@ export function createChatQueueRepository(database: DatabaseSync) {
     enqueue(input: PrepareTurnRequestInput) {
       return withTransaction(database, () => {
         assertScope(input)
+        const conversation = database.prepare('SELECT space_id FROM conversations WHERE id = ?').get(input.conversationId)
+        if (conversation?.space_id !== input.spaceId)
+          throw new BuddyServiceError('CONVERSATION_SPACE_CONFLICT')
         assertTurnAttachmentBindings(input)
         const id = input.userMessageId
         if (input.followup)
@@ -121,6 +124,9 @@ export function createChatQueueRepository(database: DatabaseSync) {
           return { id, name: attachment.name, mimeType: attachment.mimeType, sizeBytes: attachment.sizeBytes }
         }) }
       })
+    },
+    hasPending(conversationId: string): boolean {
+      return Boolean(database.prepare('SELECT 1 FROM chat_queue WHERE conversation_id = ? AND state IN (\'waiting\', \'paused\') LIMIT 1').get(conversationId))
     },
     continuationScopes(): LocalChatQueueScope[] {
       return database.prepare(`SELECT DISTINCT q.conversation_id AS conversationId, q.branch_id AS branchId

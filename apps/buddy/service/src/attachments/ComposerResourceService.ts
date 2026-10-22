@@ -541,13 +541,14 @@ export class ComposerResourceService {
     const conversation = this.#conversations?.findById(source.conversationId)
     if (!artifact || !conversation)
       throw new AttachmentError('ATTACHMENT_NOT_FOUND')
+    const conversationGrants = this.#conversationGrants?.listActive(conversation.id) ?? []
     const grants = conversation.spaceId
       ? (() => {
           const space = requireActiveSpace(this.#spaces?.findById(conversation.spaceId) ?? null)
-          return [space.primaryDirectory, ...space.additionalDirectories]
+          return [space.primaryDirectory, ...space.additionalDirectories, ...conversationGrants.filter(grant => grant.id === artifact.directoryGrantId)]
         })()
           .filter(grant => grant !== null)
-      : this.#conversationGrants?.listActive(conversation.id) ?? []
+      : conversationGrants
     const ownerId = conversation.spaceId ?? conversation.id
     // 任务移入空间前生成的产物仍记录在任务自己的工作区里，授权 ID 是任务 ID。
     const ownedRoot = artifact.directoryGrantId === conversation.id

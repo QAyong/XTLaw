@@ -6,11 +6,13 @@ import type { RunInputRepository } from '../storage/runInputRepository'
 import type { RunRecord } from '../storage/runRecord'
 import type { RunRepository } from '../storage/runRepository'
 import type { SpaceRepository } from '../storage/spaceRepository'
+import type { ConversationMutationGuard } from './ConversationMutationGuard'
 import { randomUUID } from 'node:crypto'
 import { Emitter } from '../../../shared/events/Emitter'
 import { copyEventSnapshot } from '../../../shared/events/eventSnapshot'
 import { BuddyServiceError } from '../rpc/runtimeRequest'
 import { requireActiveSpace } from '../spaces/requireActiveSpace'
+import { createSpaceExecutionContext, matchesSpaceExecutionContext } from '../spaces/spaceExecutionContext'
 
 export type ConversationMetadataCommit = EventSnapshot<{
   commitId: string
@@ -27,6 +29,12 @@ export interface ConversationMetadataServiceOptions {
   runs?: Pick<RunRepository, 'findById' | 'setModelSelection' | 'findActiveForConversation'>
   repository: Pick<ConversationRepository, 'findById' | 'rename' | 'renameGenerated' | 'getTitleState' | 'setPermissionSettings' | 'setModelSelection' | 'findMember' | 'listMembers' | 'addMember' | 'removeMember' | 'setBuddy' | 'setSpace' | 'activateBranch'>
   spaces?: Pick<SpaceRepository, 'findById'>
+  spaceMoves?: {
+    mutations: ConversationMutationGuard
+    hasPendingMessages: (conversationId: string) => boolean
+    hasActiveExecution: (conversationId: string) => boolean
+    validateTarget: (conversation: ConversationRecord, spaceId: string) => Promise<void>
+  }
   resolveModelSelection: (selection: ConversationModelSelection) => Promise<ConversationModelSelection>
   sessions: {
     invalidateConversation: (conversationId: string) => Promise<{ pending: number, degraded: number }>
@@ -124,18 +132,41 @@ export class ConversationMetadataService {
   }
 
   async #moveToSpace(input: { id: string, spaceId: string }): Promise<ConversationRecord> {
-    const current = this.#requireActive(input.id)
-    if (!this.#options.spaces || current.spaceId !== null || this.#options.runs?.findActiveForConversation(input.id))
+    const moves = this.#options.spaceMoves
+    const spaces = this.#options.spaces
+    if (!moves || !spaces)
       throw new BuddyServiceError('VALIDATION_FAILED')
-    requireActiveSpace(this.#options.spaces.findById(input.spaceId))
-    const conversation = this.#options.repository.setSpace({ ...input, updatedAt: new Date().toISOString() })
-    if (!conversation)
-      throw new BuddyServiceError('VALIDATION_FAILED')
-    this.#publish('space', conversation)
-    const result = await this.#options.sessions.invalidateConversation(input.id)
-    if (result.pending || result.degraded)
-      throw new ConversationSettingsApplicationError(result.degraded ? 'CONVERSATION_SETTINGS_FAILED' : 'CONVERSATION_SETTINGS_PENDING')
-    return conversation
+    return moves.mutations.run(input.id, async () => {
+      const current = this.#requireActive(input.id)
+      requireActiveSpace(spaces.findById(input.spaceId))
+      if (current.spaceId === input.spaceId)
+        return current
+      if (current.spaceId !== null)
+        throw new BuddyServiceError('CONVERSATION_SPACE_CONFLICT')
+      const assertIdle = () => {
+        if (this.#options.runs?.findActiveForConversation(input.id) || moves.hasActiveExecution(input.id))
+          throw new BuddyServiceError('CONVERSATION_BUSY')
+        if (moves.hasPendingMessages(input.id))
+          throw new BuddyServiceError('CONVERSATION_QUEUE_NOT_EMPTY')
+      }
+      assertIdle()
+      const target = createSpaceExecutionContext(requireActiveSpace(spaces.findById(input.spaceId)))
+      await moves.validateTarget(current, input.spaceId)
+      const result = await this.#options.sessions.invalidateConversation(input.id)
+      if (result.degraded)
+        throw new BuddyServiceError('MUTATION_RESOURCE_UNSAFE')
+      if (result.pending)
+        throw new BuddyServiceError('CONVERSATION_BUSY')
+      this.#requireActive(input.id)
+      assertIdle()
+      if (!matchesSpaceExecutionContext(requireActiveSpace(spaces.findById(input.spaceId)), target))
+        throw new BuddyServiceError('DIRECTORY_NOT_AUTHORIZED')
+      const conversation = this.#options.repository.setSpace({ ...input, updatedAt: new Date().toISOString() })
+      if (!conversation)
+        throw new BuddyServiceError('CONVERSATION_SPACE_CONFLICT')
+      this.#publish('space', conversation)
+      return conversation
+    })
   }
 
   getModelControls(conversationId: string, actorId?: string) {

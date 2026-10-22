@@ -309,7 +309,11 @@ jobs:
       - name: Test platform runtime
         # ACL fixtures launch PowerShell; serialize workers to avoid CPU-bound
         # startup timeouts on hosted runners without weakening assertions.
-        run: pnpm --filter @uselexora/lexora-buddy exec vitest run --project=platform --maxWorkers=1
+        run: pnpm --filter @uselexora/lexora-buddy exec vitest run --project=platform --maxWorkers=1 --exclude '**/sandboxPathPermissions.native.spec.ts'
+
+      - name: Test Windows ACL denial without administrator privileges
+        timeout-minutes: 6
+        run: ./packaging/buddy/ci/test-windows-platform.ps1 -TestFiles sandboxPathPermissions.native.spec.ts
 
       - name: Install built NSIS package
         id: install

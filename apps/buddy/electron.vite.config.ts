@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath, URL } from 'node:url'
 import vue from '@vitejs/plugin-vue'
-import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
+import { defineConfig } from 'electron-vite'
 import UnoCSS from 'unocss/vite'
 import { extensionRuntimePlugin } from './electron/extensionRuntimePlugin.ts'
 import { radiusTokensPlugin } from './electron/radiusTokensPlugin.ts'
@@ -35,8 +35,9 @@ const electronCacheRoot = fileURLToPath(
 export default defineConfig({
   main: {
     cacheDir: join(electronCacheRoot, 'main'),
-    plugins: [extensionRuntimePlugin(), externalizeDepsPlugin({ exclude: ['typescript'] })],
+    plugins: [extensionRuntimePlugin()],
     build: {
+      externalizeDeps: { exclude: ['typescript'] },
       outDir: join(electronOutputRoot, 'main'),
       rollupOptions: {
         external: ['electron', '@silvia-odwyer/photon-node', 'fflate/node', /^@earendil-works\/pi-/],
@@ -55,8 +56,8 @@ export default defineConfig({
   },
   preload: {
     cacheDir: join(electronCacheRoot, 'preload'),
-    plugins: [externalizeDepsPlugin()],
     build: {
+      externalizeDeps: false,
       outDir: join(electronOutputRoot, 'preload'),
       rollupOptions: {
         external: ['electron'],

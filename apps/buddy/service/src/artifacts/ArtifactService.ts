@@ -6,6 +6,7 @@ import type {
   ArtifactRecord,
   ArtifactRepository,
 } from '../storage/artifactRepository'
+import type { ArtifactFileAccess } from './ArtifactFileAccess'
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, realpath, stat, writeFile } from 'node:fs/promises'
 import {
@@ -20,8 +21,9 @@ import {
 import { relativeCanonicalPath } from '../../../platform/filesystem/filePaths'
 import { Emitter } from '../../../shared/events/Emitter'
 import { copyEventSnapshot } from '../../../shared/events/eventSnapshot'
-import { mediaMimeType } from '../../../shared/files/mediaFiles'
+import { inferFileMimeType, isImageMimeType } from '../../../shared/files/fileMimeTypes'
 import { resolveGrantedPath } from '../directories/resolveGrantedPath'
+import { resolveMediaPreview } from '../files/resolveMediaPreview'
 
 export const BUDDY_ARTIFACT_COUNT_LIMIT = 512
 export const BUDDY_ARTIFACT_TOTAL_BYTES_LIMIT = 32 * 1024 * 1024
@@ -92,6 +94,7 @@ interface GeneratedImagesInput {
 
 export class ArtifactService {
   readonly #repository: ArtifactRepository
+  readonly #fileAccess?: ArtifactFileAccess
   readonly #sourceId = randomUUID()
   readonly #changes: Emitter<ArtifactEvent>
   readonly onDidChange
@@ -99,8 +102,9 @@ export class ArtifactService {
   #revision = 0
   #disposed = false
 
-  constructor(options: { repository: ArtifactRepository, onListenerError?: (error: unknown) => void }) {
+  constructor(options: { repository: ArtifactRepository, fileAccess?: ArtifactFileAccess, onListenerError?: (error: unknown) => void }) {
     this.#repository = options.repository
+    this.#fileAccess = options.fileAccess
     this.#changes = new Emitter(options.onListenerError ?? (() => console.error('ARTIFACT_OBSERVER_FAILED')))
     this.onDidChange = this.#changes.event
   }
@@ -376,15 +380,21 @@ export class ArtifactService {
 
   resolvePreview(id: string): { mimeType: string, path: string } {
     const artifact = this.#requireVisibleArtifact(id)
-    if (artifact.kind !== 'file')
-      throw new ArtifactError('VALIDATION_FAILED')
-    // Audio and video are served in ranges by the protocol; their content type comes from the extension, which the artifact record does not map.
-    const mimeType = mediaMimeType(artifact.currentPath)
-    if (mimeType)
-      return { mimeType, path: artifact.currentPath }
-    if (!artifact.mimeType.startsWith('image/'))
+    if (artifact.kind !== 'file' || !artifact.mimeType.startsWith('image/'))
       throw new ArtifactError('VALIDATION_FAILED')
     return { mimeType: artifact.mimeType, path: artifact.currentPath }
+  }
+
+  async resolveMedia(id: string) {
+    const artifact = this.#requireVisibleArtifact(id)
+    if (artifact.kind !== 'file' || !this.#fileAccess)
+      throw new ArtifactError('DIRECTORY_NOT_AUTHORIZED')
+    const target = await this.#fileAccess.resolve(artifact)
+    const preview = await resolveMediaPreview(target.root, target.path, isImageMimeType(artifact.mimeType) ? { mimeType: artifact.mimeType } : {})
+    const current = await this.#fileAccess.resolve(this.#requireVisibleArtifact(id))
+    if (current.root !== preview.root || current.path !== preview.path)
+      throw new ArtifactError('DIRECTORY_NOT_AUTHORIZED')
+    return preview
   }
 
   async readText(id: string): Promise<{
@@ -547,37 +557,7 @@ function isSensitivePath(path: string): boolean {
 }
 
 export function inferArtifactMimeType(path: string): string {
-  return new Map([
-    ['.css', 'text/css'],
-    ['.csv', 'text/csv'],
-    ['.gif', 'image/gif'],
-    ['.htm', 'text/html'],
-    ['.html', 'text/html'],
-    ['.jpeg', 'image/jpeg'],
-    ['.jpg', 'image/jpeg'],
-    ['.js', 'text/javascript'],
-    ['.json', 'application/json'],
-    ['.md', 'text/markdown'],
-    ['.markdown', 'text/markdown'],
-    ['.pdf', 'application/pdf'],
-    ['.png', 'image/png'],
-    ['.py', 'text/x-python'],
-    ['.rs', 'text/x-rust'],
-    ['.scss', 'text/x-scss'],
-    ['.svg', 'image/svg+xml'],
-    ['.toml', 'application/toml'],
-    ['.ts', 'text/typescript'],
-    ['.tsx', 'text/typescript-jsx'],
-    ['.tsv', 'text/tab-separated-values'],
-    ['.txt', 'text/plain'],
-    ['.vue', 'text/x-vue'],
-    ['.webp', 'image/webp'],
-    ['.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
-    ['.xml', 'application/xml'],
-    ['.yaml', 'application/yaml'],
-    ['.yml', 'application/yaml'],
-    ['.zip', 'application/zip'],
-  ]).get(extname(path).toLowerCase()) ?? 'application/octet-stream'
+  return inferFileMimeType(path)
 }
 
 function isTextArtifact(mimeType: string): boolean {

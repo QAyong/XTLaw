@@ -2,7 +2,8 @@
 import type { TaskFilesContextTab } from '../../model/context-panel/taskContextPanel'
 import type { WorkspaceFilesApi } from './useWorkspaceFilePreview'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
-import { toRef } from 'vue'
+import { isSpaceWorkspaceDirectoryId } from '@buddy-shared/spaces/spaceApi'
+import { computed, toRef } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import { WorkspaceExplorer } from '@/modules/files/ui'
 import DesktopContextSplit from '@/shared/ui/files/DesktopContextSplit.vue'
@@ -21,12 +22,13 @@ const { t } = useBuddyI18n(() => props.language)
 const fileTab = toRef(() => props.tab)
 const filePreview = useWorkspaceFilePreview(fileTab, props.files, id => props.hasTab(id))
 const fileView = filePreview.current
+const rootName = computed(() => fileTab.value && isSpaceWorkspaceDirectoryId(fileTab.value.target.directoryId) ? t('desktop.context.defaultFolder') : fileTab.value?.rootName ?? '')
 </script>
 
 <template>
   <WorkbenchPanelContent v-if="fileTab && fileView">
     <template #toolbar>
-      <DesktopFileToolbar :path="fileTab.target.path" :root-name="fileTab.rootName" :language="language" :wrap="fileView.wrap" :tree-visible="fileView.treeVisible" @toggle-wrap="fileView.wrap = !fileView.wrap" @toggle-tree="fileView.treeVisible = !fileView.treeVisible" @refresh="filePreview.refresh()">
+      <DesktopFileToolbar :path="fileTab.target.path" :root-name="rootName" :language="language" :wrap="fileView.wrap" :tree-visible="fileView.treeVisible" @toggle-wrap="fileView.wrap = !fileView.wrap" @toggle-tree="fileView.treeVisible = !fileView.treeVisible" @refresh="filePreview.refresh()">
         <template v-if="fileTab.target.path" #default>
           <slot name="file-toolbar" :tab="fileTab" />
         </template>

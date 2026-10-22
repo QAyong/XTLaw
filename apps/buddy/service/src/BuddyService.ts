@@ -65,6 +65,7 @@ import { inspectCommittedPiCompaction } from './agent/sessions/recovery/inspectC
 import { BuddyConversationTree } from './agent/sessions/tree/BuddyConversationTree'
 import { ApprovalService } from './approvals/ApprovalService'
 import { registerApprovalRpc } from './approvals/registerApprovalRpc'
+import { ArtifactFileAccess } from './artifacts/ArtifactFileAccess'
 import { ArtifactService } from './artifacts/ArtifactService'
 import { reconcileLegacyArtifactOutputs } from './artifacts/LegacyArtifactRecovery'
 import { registerArtifactRpc } from './artifacts/registerArtifactRpc'
@@ -172,6 +173,7 @@ import { SpaceDependents } from './spaces/SpaceDependents'
 import { matchesSpaceExecutionContext } from './spaces/spaceExecutionContext'
 import { SpaceFileService } from './spaces/SpaceFileService'
 import { SpaceService } from './spaces/SpaceService'
+import { SpaceWorkspaceDirectories } from './spaces/SpaceWorkspaceDirectories'
 import { createApprovalRepository } from './storage/approvalRepository'
 import { createArtifactRepository } from './storage/artifactRepository'
 import { createAttachmentRepository } from './storage/attachmentRepository'
@@ -245,6 +247,7 @@ export async function startBuddyService(
   const stopLifecycleDiagnostics = options.lifecycle ? () => {} : observeLifecycleDiagnostics(host.lifecycle, events)
   try {
     const paths = new BuddyDataPaths(options.buddyHome)
+    const spaceWorkspaces = new SpaceWorkspaceDirectories(spaceId => paths.spaceWorkspace(spaceId))
     const agentDirectory = join(options.buddyHome, 'agent')
     await host.step('runtime.filesystem', async () => {
       if (currentPlatform.shell === 'powershell')
@@ -367,7 +370,7 @@ export async function startBuddyService(
     })
     const fileResources = new FileResourceCoordinator(fileEngine)
     const spaceFiles = await host.start('runtime.space_files', ({ defer }) => {
-      const service = new SpaceFileService(spacesRepository, fileEngine)
+      const service = new SpaceFileService(spacesRepository, fileEngine, spaceWorkspaces)
       const notices = service.onDidChange(event => options.rpc.notify(spaceFilesChanged.method, event))
       const revoked = spaceService.onDidCommit(event => service.revoke(event.revokedDirectoryIds))
       defer(() => {
@@ -513,7 +516,7 @@ export async function startBuddyService(
     })
     const artifactsRepository = createArtifactRepository(options.database)
     const artifactService = await host.start('runtime.artifact_catalogue', ({ defer }) => {
-      const service = new ArtifactService({ repository: artifactsRepository, onListenerError: () => record({ event: 'observer.failed', component: 'runtime.artifact_catalogue', level: 'warn' }) })
+      const service = new ArtifactService({ repository: artifactsRepository, fileAccess: new ArtifactFileAccess({ conversations, conversationGrants: conversationDirectoryGrants, spaces: spacesRepository, paths }), onListenerError: () => record({ event: 'observer.failed', component: 'runtime.artifact_catalogue', level: 'warn' }) })
       service.onDidChange(event => record({ event: `artifact.${event.receipt.cause}.${event.kind.replaceAll('-', '_')}${event.kind === 'batch-settled' ? `.${event.receipt.outcome}.${event.receipt.stage}` : ''}`, level: event.errorCode ? 'warn' : 'info', producerInstanceId: event.sourceId, operationId: event.receipt.operationId, conversationId: event.receipt.conversationId, revision: event.revision, count: event.kind === 'file-written' ? event.receipt.written : event.receipt.artifactIds.length, errorCode: event.errorCode }))
       service.onDidChange((event) => {
         if (event.kind === 'catalogue-committed')
@@ -575,6 +578,7 @@ export async function startBuddyService(
     const executionModels = providerService.executionModels
     const imageGenerationGateway = new OpenAiImageGenerationService({
       modelRuntime: executionModels.getRuntime(),
+      resolveCredentialMetadata: providerId => providerService.getCredentialMetadata(providerId),
       resolveSourceProviderId: providerId => executionModels.resolveSourceProviderId(providerId),
     })
     const sessions = await host.start('runtime.sessions', () => new BuddySessionRegistry<ReusableBuddySession>())
@@ -1059,6 +1063,7 @@ export async function startBuddyService(
         readResult: runId => readExecutionResult(options.eventLog, runId),
         launchChild: id => turnLauncher.launch(id),
         stopExecution: id => runner.interruptExecution(id),
+        followUp: (runId, signal) => chatQueueService?.followUp(runId, signal) ?? Promise.resolve(false),
       })
       defer(() => service.dispose())
       return service
@@ -1360,6 +1365,11 @@ export async function startBuddyService(
     chatQueueService = await host.start('runtime.chat-queue', async ({ defer }) => {
       const service = new ChatQueueService({ availability: conversationAvailability, queue: chatQueue, turns: chatTurnService, requests: turnRequests, launcher: turnLauncher, runner, runs, runInputs, getRunPermissionCeiling, eventLog: options.eventLog, onObserverError: () => record({ event: 'queue.observer_failed', level: 'error' }) })
       const actionInputs = service.onDidChange((event) => {
+        if (event.kind === 'enqueued' || event.kind === 'cancelled') {
+          const active = chatQueue.activeRun(event.scope)
+          if (active)
+            executionCoordinator.notifyQueuedInput(active.id)
+        }
         if (event.committed?.messageId && event.committed.runId)
           extensionActions.dispatch({ type: 'task:input:committed', data: { conversationId: event.scope.conversationId, branchId: event.scope.branchId, runId: event.committed.runId, messageId: event.committed.messageId, commitId: event.committed.commitId } })
       })
@@ -1614,6 +1624,7 @@ export async function startBuddyService(
         registerSpaceRpc({
           rpc: options.rpc,
           service: spaceService,
+          workspaces: spaceWorkspaces,
         }),
       )
       register(registerSpaceFileRpc(options.rpc, spaceFiles))

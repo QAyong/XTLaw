@@ -1,7 +1,9 @@
 # Spec-036：文件管理器预览音频和视频
 
 **日期：** 2026-10-20  
-**状态：** 已实现，自动化测试通过；尚未在真实 Electron 窗口中验收
+**状态：** 已被上游取代（2026-10-22）。本规格的 `lexora-media` 协议与 Node 流式读取在移植上游 `2f91fa803`（useLexora/Lexora#428）时撤销，改用上游方案；以下正文保留为历史记录。
+
+**取代方案：** 不再新增协议，复用 `lexora-file://media/`（空间文件）、`lexora-artifact://media/`（产出）和 `lexora-file://skill-preview/`（技能图片）；服务进程的 `resolveMedia` 返回受授权的位置与文件身份，主进程用原生 `file_reader --stream` 按 Range 流式读取，开流后再校验一次身份，防止读取期间文件被替换；图片同样走这条路径，不再读成 data URL。播放器是 `DesktopMediaPreview`。本地保留的 `range` 读取（Office 预览用）与 `--save-binary` 不受影响。
 
 **相关：** [Spec-035：任务产出在文件管理器中打开](./feature-035-artifact-open-in-file-manager.md)
 

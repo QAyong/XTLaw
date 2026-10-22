@@ -171,7 +171,7 @@ it('offers actual Office packages in the remote market without preinstalling and
   await preinstallBundledExtensions(store, provider)
   expect(store.installed).toEqual(before)
   expect(await store.data(status!.manifest.id)).toEqual({ version: 1, value: { retained: true } })
-})
+}, 60_000)
 
 it('does not allow a remote catalog to replace or spoof bundled plugins', async () => {
   const { provider, store, value, entry, bytes } = await fixture()

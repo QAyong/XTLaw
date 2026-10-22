@@ -304,7 +304,7 @@ Office 迁移范围见第 4.7 节：仅 DOCX，保留字体，排除 PDF 及依�
 
 | 能力 | 当前实现 |
 |---|---|
-| Office 包 | `plugins/office` 保存 DOCX 编辑器、33 个配套字体及许可；`apps/buddy/extensions/office/migrate.mjs` 校验参考资源并移除 PDF 功能，来源与哈希见 `provenance.json` |
+| Office 包 | `plugins/office` 保存 DOCX 编辑器、38 个配套字体及许可；`apps/buddy/extensions/office/build.mjs` 从上游源码构建编辑器并去掉 PDF 功能，来源与哈希见 `provenance.json` |
 | 插件容量 | 已统一调整为 512 个文件、单文件 16 MiB、包总量 64 MiB；压缩输入与实际解压后的包内容均受限 |
 | 文件管理器打开 | API 4 普通 `selected-file` 视图声明 `accepts: {extensions:["docx"]}`；点击 DOCX 时选择唯一已启用且兼容的匹配插件，再次打开回到已有编辑页。无匹配或多匹配时保留普通预览 |
 | 二进制读取 | 当前空间文件通过已授权句柄分片读取；插件拿不到任意路径读取能力。DOCX 原文件最大 64 MiB，解析前校验 ZIP，实际解压合计最大 128 MiB、单条目最大 64 MiB、最多 10000 个条目，不支持 ZIP64 或加密文档 |

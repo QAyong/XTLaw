@@ -15,6 +15,10 @@ export function createOfficeBridge(context, ui) {
   let saveWaiter = null
   let disposed = false
   let opening = false
+  // Bytes handed to the editor by URL (see takeDocBytes); each entry is served once.
+  const handoff = new Map()
+  // The file the editor consumes at boot (consumePendingOpenDocx), staged while the editor code is still loading.
+  let staging = null
   let saving = false
   const subscriptions = []
   let preferences = { side: 'left', fontSize: 'default', customFontSize: 14, spellcheck: true }
@@ -47,6 +51,55 @@ export function createOfficeBridge(context, ui) {
       closeCheck()
     })
   }
+  async function hashOf(bytes) {
+    try {
+      const digest = await crypto.subtle.digest('SHA-256', bytes)
+      return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('')
+    }
+    catch {
+      return ''
+    }
+  }
+  // The editor reads the document from a one-shot URL. A page cannot fetch a blob: URL under the view CSP,
+  // so the bytes are held here and fetchDocBytes asks for them through takeDocBytes.
+  async function describeFile(resource, bytes) {
+    const dataUrl = `lexora-doc://${crypto.randomUUID()}`
+    handoff.set(dataUrl, bytes)
+    // This is an editor-only identity, not a local file path.
+    return { path: `document/${resource.id}/${resource.name}`, name: resource.name, dataUrl, hash: await hashOf(bytes) }
+  }
+  function takeDocBytes(url) {
+    const bytes = handoff.get(url)
+    handoff.delete(url)
+    return bytes
+  }
+  async function readResource(selectedResource) {
+    let resource = selectedResource
+    if (resource.size === undefined) {
+      const metadata = await context.resources.readBytes(resource, { offset: 0, length: 1 })
+      resource = { ...resource, size: metadata.size }
+    }
+    return { resource, bytes: await readDocx(context.resources, resource, context.signal) }
+  }
+  // Starts reading the selected file before the editor has loaded; consumePendingOpenDocx hands it over at boot,
+  // so the document opens directly instead of after a blank one.
+  function stage(selectedResource) {
+    staging = (async () => {
+      try {
+        const { resource, bytes } = await readResource(selectedResource)
+        assertActive()
+        const file = await describeFile(resource, bytes)
+        current = { resource, file }
+        return file
+      }
+      catch (error) {
+        if (!disposed)
+          ui.error(error)
+        return null
+      }
+    })()
+    return staging
+  }
   async function openFile(selectedResource = null) {
     assertActive()
     if (opening || saving)
@@ -67,11 +120,8 @@ export function createOfficeBridge(context, ui) {
       assertActive()
       if (!resource)
         return
-      if (resource.size === undefined) {
-        const metadata = await context.resources.readBytes(resource, { offset: 0, length: 1 })
-        resource = { ...resource, size: metadata.size }
-      }
-      const bytes = await readDocx(context.resources, resource, context.signal)
+      let bytes
+      ;({ resource, bytes } = await readResource(resource))
       assertActive()
       if (!openHandler) {
         await new Promise((resolve) => {
@@ -85,8 +135,8 @@ export function createOfficeBridge(context, ui) {
       if (!openHandler)
         throw new Error('OFFICE_EDITOR_NOT_READY')
       const previous = current
-      // This is an editor-only identity, not a local file path.
-      const file = { path: `document/${resource.id}/${resource.name}`, name: resource.name, data: bytes.buffer }
+      const file = await describeFile(resource, bytes)
+      assertActive()
       current = { resource, file }
       try {
         await openHandler(file)
@@ -161,6 +211,25 @@ export function createOfficeBridge(context, ui) {
     getTheme: async () => context.environment.colorScheme,
     onLanguageChanged: listener => changed('language', listener),
     onThemeChanged: listener => changed('theme', listener),
+    // Document page theme follows the interface; the plugin has no separate page-theme setting.
+    getDocumentTheme: async () => 'follow',
+    onDocumentThemeChanged: unsubscribe,
+    getAuthorName: async () => 'XTLaw',
+    onAuthorNameChanged: unsubscribe,
+    getSystemLocale: async () => (typeof navigator === 'undefined' ? language() : navigator.language),
+    // Asked before New / Open replaces the document: true only when nothing unsaved would be lost or the reader agrees.
+    confirmDocumentReplace: async () => {
+      const state = await queryState()
+      if (!state)
+        return false
+      return !state.dirty || ui.confirmDiscard()
+    },
+    // PDF and image export are not part of the plugin; the editor has no route to them, and an answer of null means 'no target chosen'.
+    pickExportImagesTarget: async () => null,
+    // One document per view: there is no tab strip to list or switch.
+    listDocsTabs: async () => [],
+    openNewTab: async () => {},
+    focusDocsTab: async () => {},
     getAutoSaveDefault: async () => ({ on: !!context.resource, updatedAt: 0 }),
     onAutoSaveDefaultChanged: unsubscribe,
     getAiPanelPrefs: async () => preferences,
@@ -170,12 +239,17 @@ export function createOfficeBridge(context, ui) {
     },
     onAiPanelPrefsChanged: unsubscribe,
     getCurrentDocxPath: () => current?.file.path ?? null,
-    consumePendingOpenDocx: async () => null,
+    consumePendingOpenDocx: async () => {
+      const file = await staging
+      staging = null
+      return file ?? null
+    },
     consumeNewBlankDoc: async () => false,
     consumeAiDocContent: async () => null,
     consumeHeadlessExport: async () => null,
     openDocx: async () => null,
-    openDocxPath: async path => path === current?.file.path ? current.file : null,
+    // The view opens exactly the file it was given; the editor has no other path it may open.
+    openDocxPath: async () => null,
     openDocxDecrypt: denied,
     onOpenDocx: (listener) => {
       openHandler = listener
@@ -239,10 +313,11 @@ export function createOfficeBridge(context, ui) {
     saveWaiter?.(false)
     for (const subscription of subscriptions) subscription.dispose()
     current = null
+    handoff.clear()
     openHandler = null
     closeCheck = null
     closeSave = null
   }
   context.signal.addEventListener('abort', dispose, { once: true })
-  return { desktop, openFile, saveCopy, queryState, dispose }
+  return { desktop, openFile, stage, takeDocBytes, saveCopy, queryState, dispose }
 }

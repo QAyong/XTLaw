@@ -1,6 +1,6 @@
 # Office DOCX 插件：迁移验证版
 
-**版本：** 0.1.7（XTLaw 预装插件，仍未完成完整 Office 接入）。0.1.7：商店卡片上的简介缩短到两行以内：简介过长时卡片会弹出完整简介的悬浮提示，与其他插件不一致；完整功能说明见本文件。
+**版本：** 0.1.8（XTLaw 预装插件，仍未完成完整 Office 接入）。0.1.8：编辑器从上游 GenOffice 的 `d1280d15` 升到 `58dfd0b5`（约 170 个与 DOCX 相关的上游提交，包括大量单引号属性、`sectPr`、页眉页脚引用、MERGEFIELD、水印、字体保存等文件保真修复，以及非连续多选、状态栏选中字数、单元格斜线边框、文档属性读写等新功能）。构建方式改为从上游源码构建（`apps/buddy/extensions/office/build.mjs`），不再对已构建产物打补丁；PDF 导出、导出为图片、打印、转换分组、「对 AI 隐藏所选内容」在构建时去掉，`pdfjs-dist` 用空桩替换。文件现在在编辑器代码加载的同时并行读取，启动时直接交给编辑器，不再先显示空白文档。只做了构建、包校验与模拟宿主页面的冒烟，没有在桌面实机验收。0.1.7：商店卡片上的简介缩短到两行以内：简介过长时卡片会弹出完整简介的悬浮提示，与其他插件不一致；完整功能说明见本文件。
 
 本版调整宿主兼容范围以支持 XTLaw 独立起始版本 `0.1.0`，API 4 与权限要求不变。已安装的 0.1.1 不会被启动预装逻辑自动替换；重设宿主版本后，需在插件市场安装 0.1.2 并按提示重启插件。
 
@@ -16,7 +16,7 @@
 - 文件管理器打开的 DOCX 默认开启自动保存，可通过原工具栏开关关闭；当前页的开关选择随页状态保存。沿用原编辑器每 30 秒及失去焦点时检查修改的机制，正在输入法组合输入或编辑表格单元格、文本框时暂缓。自动保存和手动保存共用当前文件写入与冲突检查，不会弹出另存为窗口。
 - 编辑器的「另存为」仍通过系统保存窗口导出副本。
 - 选中文档正文后右键，在原编辑器菜单中选择新增的唯一一项「引用到聊天」；复制、剪切、粘贴、字体、段落等原有菜单项保留。只有一个聊天输入框时直接加入引用；多个聊天窗格时该项展开目标子菜单。右键时记录选区快照，文档或目标对话变化会拒绝加入；不触发文档保存、不替换输入框正文、不发送消息。单次选区最多 20000 个 UTF-16 字符，并沿用宿主的引用数量与总长度限制。
-- 不包含 PDF 资源、PDF 导出或经 PDF 导出图片；保留全部 33 个配套字体文件。
+- 不包含 PDF 资源、PDF 导出、导出为图片、打印和「转换」分组（HTML、Markdown 导出同样依赖主进程，也一并隐藏）；随包 38 个字体文件。
 - 引用成功、重复或失败的结果由 Lexora 主程序显示，与其他资源引用共用提示样式和文案；Office 插件只保留菜单内的加载状态和不可用原因。
 - 在解析前核查 DOCX ZIP 条目、声明与实际解压大小、文件名及耗时预算。
 - 读取最大 64 MiB，实际解压内容合计最大 128 MiB，单条目最大 64 MiB、条目不超过 10000。暂不支持 ZIP64 或加密文档。
@@ -42,15 +42,25 @@ XTLaw 开发版和后续发行构建随应用携带本插件。首次启动在�
 
 ## 来源与可重现迁移
 
-历史迁移参考工程为 `D:\code\XTLaw`，迁移脚本不回写该参考工程；本插件当前维护于 `D:\code\Lexora\plugins\office`，作为本仓库 XTLaw 的预装插件。GenOffice 上游采用 Apache-2.0；锁定提交与资源哈希记录在 `provenance.json`（来源及校验记录）中。
+本插件维护于 `D:\code\Lexora\plugins\office`，作为本仓库 XTLaw 的预装插件。GenOffice 上游采用 Apache-2.0；锁定提交与资源哈希记录在 `provenance.json`（来源及校验记录）中。
 
-当前迁移使用 XTLaw 已构建的浏览器资源，不冒称从上游源码完成了重构建。迁移脚本校验固定输入哈希，再按语法树移除 PDF 功能实现、入口及调用；上游版本变化时主动失败，必须重新审核。可从 Lexora 仓库根目录运行：
+0.1.8 起编辑器从上游源码构建（0.1.7 及以前是对 XTLaw 已构建产物按语法树打补丁，参考工程 `D:\code\XTLaw` 已不在，`migrate.mjs` 随之删除）。上游渲染层几乎不依赖主进程，不需要像 PPTX、XLSX 那样的 Electron 垫片，只有 `lexora-build/vite.config.mjs` 里几处带断言的源码改写：
+
+- `main.tsx`：让 `ready` 在首次渲染后落定，并提供卸载钩子。
+- `doc-bytes.ts`：文档字节由桥接层按一次性 URL 交给编辑器（视图的 CSP 不允许 fetch `blob:`）。
+- `Ribbon.tsx`、`App.tsx`：去掉导出 PDF、导出为图片、打印的入口，隐藏「转换」分组，去掉「对 AI 隐藏」菜单项。
+- `parse-off-thread.ts`：沙箱里模块 Worker 起不来，直接页内解析。
+- `pdfjs-dist` 换成 `shims/pdfjs.ts` 空桩。
+
+任何一处文本在上游找不到，构建都会失败，必须重新审核。重新生成：
 
 ```powershell
-node apps/buddy/extensions/office/migrate.mjs D:\code\XTLaw\apps\desktop\resources\plugins\pi.office plugins/office
+git clone https://github.com/genspark-ai/genoffice.git; cd genoffice; git checkout 58dfd0b5b5eb3710efac0029b0452c61dba69035
+npm ci --ignore-scripts
+cd <Lexora>; node apps/buddy/extensions/office/build.mjs <genoffice 路径> plugins/office
 ```
 
-该命令只更新本插件的参考资源与来源记录，不写入 XTLaw；不要将未知参考版本直接替换后跳过哈希检查。
+构建会重写 `editor/` 和 `provenance.json`，不会改动其他文件。
 
 | 文件 | 中文说明 |
 |---|---|
@@ -58,7 +68,8 @@ node apps/buddy/extensions/office/migrate.mjs D:\code\XTLaw\apps\desktop\resourc
 | `bridge.js` | 将编辑器操作适配为 Lexora 的受控读取、当前文件保存、自动保存与另存为 |
 | `selection-menu.js` | 给 Office 原有右键菜单追加一个引用项及分屏目标子菜单，将选区快照交给 Lexora 的聊天引用机制 |
 | `docx.js` | 在编辑器解析前执行有界 ZIP 校验与读取 |
-| `assets/` | DOCX 编辑器、样式及保留的字体资源 |
+| `editor/` | 构建产物：`editor.js`、`editor.css`、字体与图标（由 `build.mjs` 生成，勿手改） |
+| `vendor-overrides.css` | 隐藏 AI 入口、文件面板和「转换」分组等外壳样式 |
 | `LICENSE`、`LICENSE-OFL.txt`、`LICENSE-UNICODE.txt` | 上游与字体许可记录 |
 | `vendor/fflate.js`、`vendor/fflate-LICENSE.txt` | fflate 0.8.3 的浏览器解压校验代码及 MIT 许可 |
 

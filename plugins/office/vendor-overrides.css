@@ -552,3 +552,9 @@
 .pi-office-selection-actions-status[data-state="failed"] {
   color: var(--danger);
 }
+
+/* The Convert group (PDF, HTML, Markdown, images) needs the desktop app's main process; build.mjs tags the group. */
+.ribbon-group.lexora-convert-group,
+.ribbon-group.lexora-convert-group + .ribbon-sep {
+  display: none !important;
+}

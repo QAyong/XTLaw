@@ -39,7 +39,7 @@ export async function render(context, container) {
   let copy = messages[context.environment.language.startsWith('zh') ? 'zh' : 'en']
   container.className = 'office-shell'
   const links = []
-  for (const file of ['assets/index-JQsJMU5H.css', 'vendor-overrides.css', 'office.css']) {
+  for (const file of ['editor/editor.css', 'vendor-overrides.css', 'office.css']) {
     const link = document.createElement('link')
     link.rel = 'stylesheet'
     link.href = new URL(`./${file}`, import.meta.url).href
@@ -135,14 +135,17 @@ export async function render(context, container) {
     appearance.dispose()
     bridge.dispose()
     window.__lexoraOfficeUnmount?.()
+    delete window.__lexoraTakeDocBytes
     for (const link of links) link.remove()
   }, { once: true })
-  const editor = await import('./assets/index-CiXp5RFk.js')
+  // Read the file while the editor code loads; the editor consumes it at boot.
+  window.__lexoraTakeDocBytes = bridge.takeDocBytes
+  const staged = context.resource ? bridge.stage(context.resource) : null
+  const editor = await import('./editor/editor.js')
   await editor.ready
   context.signal.throwIfAborted()
   installSelectionMenu(context)
-  if (context.resource)
-    await bridge.openFile(context.resource)
-  else
+  // A failed read leaves its error on screen; otherwise the editor is up and the loading note goes away.
+  if (!staged || await staged)
     status.hidden = true
 }

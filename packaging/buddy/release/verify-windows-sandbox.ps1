@@ -48,7 +48,7 @@ try {
     throw "Standard user NSIS installation failed: `$(`$installer.ExitCode)"
   }
   `$installed = Join-Path `$env:LOCALAPPDATA 'Programs\Lexora Buddy'
-  & (Join-Path `$PWD 'payload\node.exe') '$desktopVerifier' `$installed --require-sandbox >> 'result.log' 2>&1
+  & `$env:ComSpec /d /c ('"payload\node.exe" "$desktopVerifier" "' + `$installed + '" --require-sandbox >> "result.log" 2>&1')
   if (`$LASTEXITCODE -ne 0) { throw "Installed standard user Desktop verification failed: `$LASTEXITCODE" }
 "@
   }
@@ -65,6 +65,12 @@ try {
   }
   `$profileKey = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList\' + `$identity.User.Value
   `$env:USERPROFILE = [Environment]::ExpandEnvironmentVariables((Get-ItemPropertyValue -LiteralPath `$profileKey -Name ProfileImagePath))
+  `$env:HOME = `$env:USERPROFILE
+  `$profileRoot = [IO.Path]::GetPathRoot(`$env:USERPROFILE)
+  `$env:HOMEDRIVE = `$profileRoot.TrimEnd('\')
+  `$env:HOMEPATH = `$env:USERPROFILE.Substring(`$env:HOMEDRIVE.Length)
+  `$env:CARGO_HOME = Join-Path `$env:USERPROFILE '.cargo'
+  `$env:NPM_CONFIG_USERCONFIG = Join-Path `$env:USERPROFILE '.npmrc'
   `$env:APPDATA = Join-Path `$env:USERPROFILE 'AppData\Roaming'
   `$env:LOCALAPPDATA = Join-Path `$env:USERPROFILE 'AppData\Local'
   `$env:TEMP = Join-Path `$env:LOCALAPPDATA 'Temp'

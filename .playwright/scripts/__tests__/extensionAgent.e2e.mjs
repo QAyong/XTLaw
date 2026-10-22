@@ -55,6 +55,8 @@ test('agent plugin uses the originating model, persists settings and protects ma
   const instance = await buddy.createInstance('agent-title')
   try {
     let { app, page, diagnostics } = await instance.launch()
+    await page.evaluate(() => window.lexoraDesktop.settings.update({ desktop: { featureAnnouncementsEnabled: false } }))
+    await expect(page.getByTestId('feature-discovery-reminder')).toHaveCount(0)
     await syntheticCredentials(app, page)
     await page.evaluate(async (baseUrl) => {
       const providers = window.lexoraDesktop.localChat.providers
@@ -140,7 +142,7 @@ test('agent plugin uses the originating model, persists settings and protects ma
     await taskPage()
     async function send(text, newTask = false) {
       if (newTask) {
-        await page.getByRole('button', { name: '新任务', exact: true }).click()
+        await page.locator('#desktop-task-history').getByRole('button', { name: '新任务', exact: true }).click()
         await expect(page.locator('.desktop-chat-workspace-header__copy:visible')).toHaveText('新任务')
         await expect(page.locator('.desktop-chat-page.is-empty:not(.is-loading):visible')).toBeVisible()
       }
@@ -154,7 +156,7 @@ test('agent plugin uses the originating model, persists settings and protects ma
       expect(rows(instance.home, 'SELECT id, error_code FROM runs WHERE status = \'failed\'')).toEqual([])
     }
     const latestTask = () => rows(instance.home, 'SELECT * FROM conversations ORDER BY created_at DESC LIMIT 1')[0]
-    await send('整理本周项目计划')
+    await send('整理本周项目计划', true)
     await settled()
     expect(latestTask()).toMatchObject({ title: '生成标题 1', title_source: 'generated' })
     expect(requests.filter(body => !body.tools?.length).map(body => body.model)).toEqual(['primary'])
@@ -376,6 +378,8 @@ test('background plugin actions join their reply flow while preserving protected
   const instance = await buddy.createInstance('background-title')
   try {
     const { app, page, diagnostics } = await instance.launch()
+    await page.evaluate(() => window.lexoraDesktop.settings.update({ desktop: { featureAnnouncementsEnabled: false } }))
+    await expect(page.getByTestId('feature-discovery-reminder')).toHaveCount(0)
     await syntheticCredentials(app, page)
     await page.evaluate(async (baseUrl) => {
       const providers = window.lexoraDesktop.localChat.providers
@@ -461,7 +465,7 @@ test('background plugin actions join their reply flow while preserving protected
     const latest = () => rows(instance.home, 'SELECT * FROM conversations ORDER BY created_at DESC LIMIT 1')[0]
     async function send(text, fresh = false) {
       if (fresh) {
-        await page.getByRole('button', { name: '新任务', exact: true }).click()
+        await page.locator('#desktop-task-history').getByRole('button', { name: '新任务', exact: true }).click()
         await expect(page.locator('.desktop-chat-workspace-header__copy:visible')).toHaveText('新任务')
         await expect(page.locator('.desktop-chat-page.is-empty:not(.is-loading):visible')).toBeVisible()
       }

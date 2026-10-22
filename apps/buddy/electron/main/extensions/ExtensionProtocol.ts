@@ -67,9 +67,11 @@ export class ExtensionProtocol {
       }
       if (path === `/__${kind}.js`)
         return new Response(kind === 'host' ? hostSource : viewSource, { headers: { ...headers, 'content-type': 'text/javascript; charset=utf-8' } })
-      if (!path.startsWith('/__package/'))
+      // Bundled CSS often references siblings by root-absolute URL (`url(/assets/font.woff2)`), which drops the `/__package/` prefix.
+      const packaged = path.startsWith('/__package/')
+      if (!packaged && path.startsWith('/__'))
         return new Response(null, { status: 404 })
-      const name = path.slice('/__package/'.length)
+      const name = path.slice(packaged ? '/__package/'.length : 1)
       const body = await this.#store.asset(endpoint.package, name)
       if (!this.#endpoints.has(endpoint.token))
         return new Response(null, { status: 410 })

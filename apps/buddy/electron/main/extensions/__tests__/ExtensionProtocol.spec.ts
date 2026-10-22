@@ -56,6 +56,15 @@ async function viewResponder(permissions: { webAssembly?: boolean }, kind: 'host
   return { endpoint, respond }
 }
 
+it('serves root-absolute package URLs but keeps reserved and unlisted paths closed', async () => {
+  const { endpoint, respond } = await viewResponder({})
+  const asset = await respond(new Request(new URL('/engine.wasm', endpoint.url)))
+  expect(asset.status).toBe(200)
+  expect(asset.headers.get('content-type')).toBe('application/wasm')
+  expect((await respond(new Request(new URL('/__unknown.js', endpoint.url)))).status).toBe(404)
+  expect((await respond(new Request(new URL('/missing.woff2', endpoint.url)))).status).toBe(403)
+})
+
 it('keeps WebAssembly and workers blocked unless the extension declares the permission', async () => {
   const { endpoint, respond } = await viewResponder({})
   const csp = (await respond(new Request(new URL('/__view.html', endpoint.url)))).headers.get('content-security-policy')!

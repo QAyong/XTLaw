@@ -11,6 +11,7 @@
 ## 按日期查阅
 
 - [上游集成记录：2026-10-22（第三轮）](upstream-20261022-3-integration.md)
+- [上游集成记录：2026-10-22（第二轮）](upstream-20261022-2-integration.md)
 - [上游集成记录：2026-10-22](upstream-20261022-integration.md)
 - [上游集成记录：2026-10-19](upstream-20261019-integration.md)
 - [上游集成记录：2026-10-19（第二轮）](upstream-20261019-2-integration.md)

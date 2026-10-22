@@ -246,7 +246,7 @@ onScopeDispose(controller.configuration.subscribe(() => editor?.updateOptions({ 
       </button>
     </section>
     <div v-if="(copy?.error && copy.error !== 'FILE_SAVE_FAILED') || failed" class="file-editor__error" role="alert">
-      {{ labels.failed }} <button type="button" @click="retry">
+      {{ copy?.error === 'FILE_NOT_FOUND' ? labels.fileMissing : labels.failed }} <button type="button" @click="retry">
         {{ labels.retry }}
       </button>
     </div>

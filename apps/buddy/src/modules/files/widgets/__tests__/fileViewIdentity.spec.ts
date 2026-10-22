@@ -85,7 +85,7 @@ function resource(path: string, revision = 1): ResourceRef {
 function preview(text: string): LocalSpaceFilePreview {
   return { kind: 'text', text, sizeBytes: text.length, imageUrl: null }
 }
-async function mount(options: { deferredFirst?: boolean, preview?: boolean, selectionReferences?: boolean, readFile?: LocalChatApi['spaces']['readFile'], autoSave?: boolean, visible?: boolean, recovered?: boolean, save?: WorkingCopyProvider['save'], duplicate?: boolean } = {}) {
+async function mount(options: { deferredFirst?: boolean, preview?: boolean, selectionReferences?: boolean, readFile?: LocalChatApi['spaces']['readFile'], autoSave?: boolean, visible?: boolean, recovered?: boolean, readDocument?: WorkingCopyProvider['read'], save?: WorkingCopyProvider['save'], duplicate?: boolean } = {}) {
   const registry = new ContributionRegistry()
   registry.register('files', (scope) => {
     scope.view({ id: 'files.editor', renderer: 'files.editor', label: 'File', locations: ['main'], multiple: true, supports: () => true })
@@ -96,7 +96,7 @@ async function mount(options: { deferredFirst?: boolean, preview?: boolean, sele
   controller.updateView(id, { state: { mode: options.preview ? 'preview' : 'edit' } })
   const view = shallowRef(controller.layout.views[id]!)
   const subscription = controller.onDidChangeLayout(() => view.value = controller.layout.views[id]!)
-  const copies = new WorkingCopyService({ read: async value => ({ text: String(value.data.path), etag: 'version' }), save: options.save ?? (async (_, value) => ({ status: 'saved', document: value })) })
+  const copies = new WorkingCopyService({ read: options.readDocument ?? (async value => ({ text: String(value.data.path), etag: 'version' })), save: options.save ?? (async (_, value) => ({ status: 'saved', document: value })) })
   const autoSave = options.autoSave ? new WorkingCopyAutoSave(copies, controller.configuration) : undefined
   if (options.recovered) {
     const target = resource('first.md')
@@ -155,6 +155,59 @@ describe('file view semantic identity', () => {
     expect(f.element.querySelector('[role="alert"]')).toBeNull()
   })
 
+  it.each(['FILE_NOT_FOUND', 'LOCAL_CHAT_OPERATION_FAILED'])('renders %s preview failures and recovers through retry', async (code) => {
+    let restored = false
+    const f = await mount({ preview: true, readFile: async () => {
+      if (!restored)
+        throw new Error(`Error invoking remote method: Error: LEXORA_LOCAL_CHAT_ERROR:${code}:0`)
+      return preview('restored preview')
+    } })
+    const labels = workbenchLabels('en-US')
+    await vi.waitFor(() => expect(f.element.querySelector('[role="alert"]')?.textContent).toContain(code === 'FILE_NOT_FOUND' ? labels.fileMissing : labels.failed))
+    restored = true
+    f.element.querySelector<HTMLButtonElement>('.file-preview__retry')!.click()
+    await vi.waitFor(() => expect(f.element.textContent).toContain('restored preview'))
+    expect(f.element.querySelector('[role="alert"]')).toBeNull()
+  })
+
+  it('shows a missing document without discarding edits and clears the error after external recovery', async () => {
+    let missing = false
+    let document = { text: 'original', etag: 'a' }
+    const f = await mount({ readDocument: async () => {
+      if (missing)
+        throw new Error('LEXORA_LOCAL_CHAT_ERROR:FILE_NOT_FOUND:0')
+      return document
+    } })
+    const target = f.controller.layout.views[f.id]!.resource
+    await vi.waitFor(() => expect(f.copies.get(target)?.etag).toBe('a'))
+    f.copies.edit(target, 'local edits')
+    missing = true
+    await f.copies.refresh(target)
+    await nextTick()
+    expect(f.element.querySelector('.file-editor__error')?.textContent).toContain(workbenchLabels('en-US').fileMissing)
+    expect(f.copies.get(target)).toMatchObject({ text: 'local edits', dirty: true })
+    missing = false
+    document = { text: 'restored disk', etag: 'b' }
+    await f.copies.refresh(target)
+    await nextTick()
+    expect(f.element.querySelector('.file-editor__error')).toBeNull()
+    expect(f.copies.get(target)).toMatchObject({ text: 'local edits', dirty: true, conflict: document, error: null })
+  })
+
+  it('retries an initially missing document and removes the error when the file returns', async () => {
+    let missing = true
+    const f = await mount({ readDocument: async () => {
+      if (missing)
+        throw new Error('LEXORA_LOCAL_CHAT_ERROR:FILE_NOT_FOUND:0')
+      return { text: 'restored document', etag: 'a' }
+    } })
+    await vi.waitFor(() => expect(f.element.querySelector('.file-editor__error')?.textContent).toContain(workbenchLabels('en-US').fileMissing))
+    missing = false
+    f.element.querySelector<HTMLButtonElement>('.file-editor__error button')!.click()
+    await vi.waitFor(() => expect(f.element.querySelector('.file-editor__error')).toBeNull())
+    expect(f.copies.get(f.controller.layout.views[f.id]!.resource)).toMatchObject({ text: 'restored document', error: null })
+  })
+
   it('keeps the editor and its input through cursor persistence and layout state snapshots', async () => {
     const f = await mount()
     await vi.waitFor(() => expect(f.editors).toHaveLength(1))
@@ -208,7 +261,7 @@ describe('file view semantic identity', () => {
     f.controller.updateView(f.id, { resource: { ...current.resource, data: { ...current.resource.data, revision: 2 } } })
     second.resolve(preview('current authorized content'))
     await vi.waitFor(() => expect(f.element.textContent).toContain('current authorized content'))
-    first.reject(new Error('retired request failure'))
+    first.reject(new Error('LEXORA_LOCAL_CHAT_ERROR:FILE_NOT_FOUND:0'))
     await new Promise(resolve => setTimeout(resolve, 0))
     await nextTick()
     expect(f.element.textContent).toContain('current authorized content')

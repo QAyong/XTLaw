@@ -19,10 +19,11 @@ pub fn digest(bytes: &[u8]) -> String {
 }
 
 pub fn read(root: &Root, path: &str) -> Result<Value> {
-    root.resolve(path)?;
+    root.resolve(path)
+        .map_err(|error| read_target_error(root, error))?;
     let path = relative(path)?;
     root.check()?;
-    let file = open_regular(&root.dir, &path)?;
+    let file = open_read(&root.dir, &path).map_err(|error| read_target_error(root, error))?;
     let metadata = file.metadata()?;
     if !metadata.is_file() || metadata.len() > MAX_TEXT as u64 {
         return Err(Error::Unsupported);
@@ -36,6 +37,23 @@ pub fn read(root: &Root, path: &str) -> Result<Value> {
     let etag = digest(&bytes);
     let text = String::from_utf8(bytes).map_err(|_| Error::Unsupported)?;
     Ok(json!({ "text": text, "etag": etag, "identity": identity(&metadata)? }))
+}
+
+fn read_target_error(root: &Root, error: Error) -> Error {
+    match error {
+        Error::Io(error)
+            if matches!(
+                error.kind(),
+                std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory
+            ) =>
+        {
+            match root.check() {
+                Ok(()) => Error::NotFound,
+                Err(error) => error,
+            }
+        }
+        error => error,
+    }
 }
 
 pub fn list(root: &Root, path: &str, cursor: Option<&str>) -> Result<Value> {
@@ -284,7 +302,7 @@ pub fn copy_entry(
     Ok(())
 }
 
-fn open_regular(dir: &Dir, path: &Path) -> Result<cap_std::fs::File> {
+fn open_read(dir: &Dir, path: &Path) -> Result<cap_std::fs::File> {
     let mut options = OpenOptions::new();
     options.read(true);
     #[cfg(unix)]
@@ -294,7 +312,11 @@ fn open_regular(dir: &Dir, path: &Path) -> Result<cap_std::fs::File> {
             (rustix::fs::OFlags::NONBLOCK | rustix::fs::OFlags::NOFOLLOW).bits() as i32,
         );
     }
-    let file = dir.open_with(path, &options)?;
+    Ok(dir.open_with(path, &options)?)
+}
+
+fn open_regular(dir: &Dir, path: &Path) -> Result<cap_std::fs::File> {
+    let file = open_read(dir, path)?;
     if !file.metadata()?.is_file() {
         return Err(Error::Unsupported);
     }

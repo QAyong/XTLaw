@@ -173,6 +173,7 @@ export default {
   'desktop.context.files': '文件',
   'desktop.context.selectFileSpace': '选择空间',
   'desktop.context.noFileSpaces': '暂无绑定工作目录的空间',
+  'desktop.context.defaultFolder': '默认文件夹',
   'desktop.context.addTab': '新建标签页',
   'desktop.context.maximize': '最大化资源面板',
   'desktop.context.restore': '还原资源面板',

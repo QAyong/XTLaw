@@ -25,6 +25,12 @@ function space(): LocalSpace {
   }
 }
 
+// A space created without a local folder: it works in its own default folder, which the service derives.
+function folderlessSpace(): LocalSpace {
+  const { primaryDirectory: _primaryDirectory, ...rest } = space()
+  return { ...rest, primaryDirectory: null, workspaceDirectory: { id: 'workspace:space', spaceId: 'space', root: '/data/spaces/space/workspace', canonicalRoot: '/data/spaces/space/workspace', revision: 1, accessGrantedAt: now, revokedAt: null, createdAt: now, updatedAt: now } }
+}
+
 function artifact(overrides: Partial<LocalArtifact> = {}): LocalArtifact {
   return { artifactId: 'artifact', conversationId: 'conversation', createdAt: now, kind: 'file', mimeType: 'text/markdown', name: 'report.md', path: '/workspace/docs/report.md', previewUrl: null, runId: 'run', sizeBytes: 100, sourceArtifactId: null, sourceToolCallId: 'tool', updatedAt: now, ...overrides }
 }
@@ -121,5 +127,33 @@ describe('opening task outputs', () => {
     const { panel } = fixture()
     await panel.openArtifact(artifact({ conversationId: 'other' }))
     expect(panel.allTabs.value).toMatchObject([{ kind: 'artifact', artifact: { conversationId: 'other' } }])
+  })
+
+  describe('in a space without a local folder', () => {
+    const output = (path: string) => artifact({ path: `/data/spaces/space/workspace/${path}` })
+
+    it('opens a file in its default folder as a space file with the tree folded', async () => {
+      const { panel } = fixture(folderlessSpace())
+      await panel.openArtifact(output('docs/report.md'))
+      expect(panel.activeTab.value).toMatchObject({ kind: 'files', target: { spaceId: 'space', directoryId: 'workspace:space', revision: 1, path: 'docs/report.md' }, tree: { visible: false } })
+    })
+
+    it('opens a folder in its default folder expanded and focused', async () => {
+      const { panel } = fixture(folderlessSpace())
+      await panel.openArtifact(folder({ path: '/data/spaces/space/workspace/docs/reports' }))
+      expect(panel.activeTab.value).toMatchObject({ kind: 'files', target: { directoryId: 'workspace:space', path: '' }, expand: { path: 'docs/reports' }, tree: { visible: true } })
+    })
+
+    it('keeps the output tab for another space default folder', async () => {
+      const { panel } = fixture(folderlessSpace())
+      await panel.openArtifact(artifact({ path: '/data/spaces/other/workspace/report.md' }))
+      expect(panel.activeTab.value).toMatchObject({ kind: 'artifact' })
+    })
+
+    it('goes back to the output tab once the space has a local folder', async () => {
+      const { panel } = fixture(space())
+      await panel.openArtifact(output('docs/report.md'))
+      expect(panel.activeTab.value).toMatchObject({ kind: 'artifact' })
+    })
   })
 })

@@ -78,11 +78,6 @@ export function useTaskCapability(options: UseTaskCapabilityOptions): TaskCapabi
     branches,
     spaceId,
   } = chatSession
-  // 任务被移入空间后，当前会话的空间随之更新。
-  const stopSpaceFollow = api.localChat.conversations.onChanged((conversation) => {
-    if (conversation.id === activeConversationId.value)
-      chatSession.setSpaceId(conversation.spaceId)
-  })
   const isSelectingFiles = shallowRef(false)
   const isClosing = shallowRef(false)
   const errorMessage = shallowRef<string | null>(null)
@@ -214,6 +209,12 @@ export function useTaskCapability(options: UseTaskCapabilityOptions): TaskCapabi
     runSync,
     selectDefaultModel: () => draftModelBinding.restoreScope(),
     session: chatSession,
+  })
+  const stopSpaceFollow = api.localChat.conversations.onChanged((conversation) => {
+    if (conversation.id !== activeConversationId.value)
+      return
+    applyConversation(conversation)
+    chatSession.setSpaceId(conversation.spaceId)
   })
   const workspacePersistence = useTaskWorkspacePersistence({
     beforePersist: composerResources.whenAccepted,

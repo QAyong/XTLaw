@@ -26,6 +26,7 @@ import { useTaskIndexController } from '@/modules/tasks/widgets/task-index/useTa
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import DesktopWorkspaceSidebarIdentity from '@/shared/ui/workspace-sidebar/DesktopWorkspaceSidebarIdentity.vue'
 import DesktopTaskMarkManager from './DesktopTaskMarkManager.vue'
+import DesktopTaskMoveToSpaceDialog from './DesktopTaskMoveToSpaceDialog.vue'
 
 const props = defineProps<{
   activeConversationId: string | null
@@ -38,13 +39,13 @@ const props = defineProps<{
   spaces: ReadonlyArray<LocalSpace>
   selectSpaceDirectory: () => Promise<string | null>
   createSpace: (input: TaskSpaceInput) => Promise<boolean>
+  moveTaskToSpace: (taskId: string, spaceId: string) => Promise<boolean>
   updateSpace: (input: TaskSpaceInput & { spaceId: string }) => Promise<boolean>
   tasks: ReadonlyArray<LocalConversationSummary>
 }>()
 const emit = defineEmits<{
   deleteSpace: [spaceId: string]
   deleteTask: [conversationId: string]
-  moveTask: [conversationId: string, spaceId: string]
   newTask: [spaceId: string | null]
   openSpaceDirectory: [spaceId: string]
   openTask: [conversationId: string]
@@ -67,14 +68,24 @@ function markBindings(conversationId: string) {
     onManageMarks: () => marksOpen.value = true,
   }
 }
-// 只有无空间的任务可以移入空间；运行中或等待确认时置灰。
+const taskMoveTargetId = shallowRef<string | null>(null)
+const taskMoveTarget = computed(() => props.tasks.find(task => task.id === taskMoveTargetId.value) ?? null)
+const taskMoveBusy = computed(() => Boolean(taskMoveTargetId.value && props.pendingConversationIds?.includes(taskMoveTargetId.value)))
 const moveTargets = computed(() => props.spaces
-  .filter(space => !space.revokedAt)
+  .filter(space => space.revokedAt === null)
   .map(space => ({ id: space.id, name: space.name })))
-function moveBindings(task: LocalConversationSummary) {
+function taskMenuBindings(task: LocalConversationSummary) {
   return task.spaceId === null
-    ? { moveTargets: moveTargets.value, movable: task.activity === 'idle', onMoveToSpace: (spaceId: string) => emit('moveTask', task.id, spaceId) }
+    ? {
+        moveTargets: moveTargets.value,
+        movable: task.activity === 'idle' && !props.pendingConversationIds?.includes(task.id),
+        onMoveToSpace: () => taskMoveTargetId.value = task.id,
+      }
     : {}
+}
+function revealMovedTask(spaceId: string) {
+  void props.sidebar.setSectionExpanded('spaces', true)
+  void props.sidebar.setSpaceExpanded(spaceId, true)
 }
 const sidebarLayoutStyle = {
   '--buddy-task-sidebar-row-height': `${DESKTOP_TASK_SIDEBAR_ROW_HEIGHT}px`,
@@ -224,7 +235,7 @@ function openSearchSpace(spaceId: string) {
               :task-id="item.task.id"
               :active="item.task.id === activeConversationId"
               :activity="item.task.activity"
-              v-bind="{ ...markBindings(item.task.id), ...moveBindings(item.task) }"
+              v-bind="{ ...markBindings(item.task.id), ...taskMenuBindings(item.task) }"
               :dragging="item.pinnedTopLevel && draggedPinnedItemKey === item.pinKey"
               :drop-position="item.pinnedTopLevel ? getPinnedDropPosition(item.pinKey) : undefined"
               :language="language"
@@ -269,7 +280,6 @@ function openSearchSpace(spaceId: string) {
                 :activity="spaceActivities.get(item.space.id)"
                 :space="item.space"
                 @menu="selectSpaceMenuAction(item.space, $event)"
-                @move-task="emit('moveTask', $event, item.space.id)"
                 @pin="pinSpace(item.space.id)"
                 @toggle="toggleSpace(item.space.id)"
               />
@@ -283,7 +293,7 @@ function openSearchSpace(spaceId: string) {
               :now="relativeTimeNow"
               :occurred-at="item.task.automationOccurrence?.scheduledFor ?? item.task.updatedAt"
               :space-task="item.spaceTask"
-              v-bind="markBindings(item.task.id)"
+              v-bind="{ ...markBindings(item.task.id), ...taskMenuBindings(item.task) }"
               :title="getTaskTitle(item.task)"
               @delete="requestTaskDelete(item.task)"
               @open="emit('openTask', item.task.id)"
@@ -308,7 +318,7 @@ function openSearchSpace(spaceId: string) {
               :task-id="task.id"
               :active="task.id === activeConversationId"
               :activity="task.activity"
-              v-bind="{ ...markBindings(task.id), ...moveBindings(task) }"
+              v-bind="{ ...markBindings(task.id), ...taskMenuBindings(task) }"
               :language="language"
               :now="relativeTimeNow"
               :occurred-at="task.automationOccurrence?.scheduledFor ?? task.updatedAt"
@@ -334,6 +344,17 @@ function openSearchSpace(spaceId: string) {
     />
 
     <DesktopTaskMarkManager v-model:show="marksOpen" :marks="marks" :language="language" />
+
+    <DesktopTaskMoveToSpaceDialog
+      :show="taskMoveTargetId !== null"
+      :task="taskMoveTarget"
+      :busy="taskMoveBusy"
+      :language="language"
+      :spaces="spaces"
+      :move-task-to-space="moveTaskToSpace"
+      @update:show="!$event && (taskMoveTargetId = null)"
+      @moved="revealMovedTask"
+    />
 
     <DesktopSpaceDialog
       v-model:show="spaceDialogOpen"

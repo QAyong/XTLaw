@@ -11,6 +11,7 @@ const conversationIdentityPattern = /^[A-Z0-9][\w-]{0,127}$/i
 export interface ConversationLifecycleServiceOptions {
   conversations: Pick<ConversationRepository, 'findById' | 'isDeleted'>
   deletion: ConversationDeletionRepository
+  assertWritable?: (conversationId: string) => void
   runner: { cancelAndWaitForConversation: (conversationId: string) => Promise<number> }
   cancelQueuedRuns: (conversationId: string) => Promise<void>
   sessions: { invalidateConversation: (conversationId: string) => Promise<{ pending: number, degraded: number }> }
@@ -52,6 +53,7 @@ export class ConversationLifecycleService {
       return current
     if (this.#completed.has(conversationId))
       return Promise.resolve(false)
+    this.#options.assertWritable?.(conversationId)
     const result = Promise.withResolvers<boolean>()
     this.#deleting.set(conversationId, result.promise)
     void this.#delete(conversationId, reason).then((deleted) => {

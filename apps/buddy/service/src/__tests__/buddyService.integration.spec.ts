@@ -1200,6 +1200,52 @@ describe('buddy runtime cross-subsystem contract', () => {
     }
   })
 
+  it('continues the same Pi history in the new space without moving previous work files', async () => {
+    const root = await realpath(await mkdtemp(join(tmpdir(), 'lexora-buddy-move-space-')))
+    directories.push(root)
+    const buddyHome = join(root, 'buddy')
+    const target = join(root, 'project')
+    await mkdir(target)
+    await writeFile(join(target, 'AGENTS.md'), 'Target project instruction marker: TARGET_PROJECT_CONTEXT_400')
+    const database = openTrackedDatabase(join(buddyHome, 'buddy.sqlite3'))
+    const eventLog = createRunEventLog({ conversationsDirectory: join(buddyHome, 'conversations'), database })
+    const provider = await startLocalModelProvider()
+    const harness = createRuntimeRpcHarness({ 'offline-provider': { key: 'test-api-key', type: 'api_key' } })
+    const diagnostics: ApplicationDiagnostic[] = []
+    const service = await startBuddyService({ buddyHome, builtinSkillsDirectories: [], database, eventLog, rpc: harness.rpc, record: event => diagnostics.push(event) })
+    try {
+      await harness.invoke('providers.upsertCustom', offlineProviderConfig(provider.baseUrl))
+      const first = await service.runtime.startTurn(await turnRequest(harness, { content: 'Remember the original task history', requestId: 'before-space-move' }))
+      expect((await waitForTerminalRun(harness, first.runId)).status).toBe('completed')
+      await expect.poll(() => diagnostics.find(event => event.event === 'execution.settled' && event.runId === first.runId)).toMatchObject({ level: 'info' })
+      const originalRun = createRunRepository(database).findById(first.runId)!
+      const journal = await readFile(originalRun.piSessionFile!, 'utf8')
+      const previous = join(buddyHome, 'conversations', first.conversationId, 'workspace')
+      await writeFile(join(previous, 'unfinished.txt'), 'Unpublished work')
+      const timestamp = new Date().toISOString()
+      createSpaceRepository(database).create({ id: 'target-space', name: 'Target', memoryScope: 'space_only', createdAt: timestamp, primaryDirectory: { id: 'target-directory', root: target, canonicalRoot: target, accessGrantedAt: timestamp, resourcesTrustedAt: timestamp }, additionalDirectories: [] })
+      const moved = await harness.invoke('conversations.moveToSpace', { conversationId: first.conversationId, spaceId: 'target-space' })
+      expect(moved).toMatchObject({ id: first.conversationId, activeBranchId: first.branchId, spaceId: 'target-space' })
+      expect(await readFile(originalRun.piSessionFile!, 'utf8')).toBe(journal)
+      const second = await service.runtime.startTurn(await turnRequest(harness, { conversationId: first.conversationId, branchId: first.branchId, content: 'Continue the same task in this project', requestId: 'after-space-move' }))
+      expect((await waitForTerminalRun(harness, second.runId)).status).toBe('completed')
+      expect(second).toMatchObject({ conversationId: first.conversationId, branchId: first.branchId })
+      expect(provider.requests).toHaveLength(2)
+      const request = JSON.stringify(provider.requests[1])
+      expect(request).toContain('Remember the original task history')
+      expect(request).toContain('TARGET_PROJECT_CONTEXT_400')
+      expect(request).toContain(JSON.stringify(target).slice(1, -1))
+      expect(JSON.stringify(provider.requests[0])).not.toContain('TARGET_PROJECT_CONTEXT_400')
+      expect(await readFile(join(previous, 'unfinished.txt'), 'utf8')).toBe('Unpublished work')
+      expect(createRunRepository(database).findById(first.runId)).toEqual(originalRun)
+      expect((await readFile(originalRun.piSessionFile!, 'utf8')).startsWith(journal)).toBe(true)
+    }
+    finally {
+      await service.dispose()
+      await eventLog.close()
+    }
+  })
+
   it('forks edited and regenerated chat turns while preserving idempotent replay', async () => {
     const root = await realpath(await mkdtemp(join(tmpdir(), 'lexora-buddy-chat-turns-')))
     directories.push(root)

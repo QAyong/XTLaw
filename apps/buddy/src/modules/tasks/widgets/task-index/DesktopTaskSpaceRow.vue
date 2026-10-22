@@ -6,7 +6,6 @@ import type { DropdownOption } from 'naive-ui'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import type { DesktopTaskPinnedDropPosition } from '@/modules/tasks/widgets/task-index/taskPinnedItems'
 import type { TaskSpaceMenuAction } from '@/modules/tasks/widgets/task-index/useTaskIndexManagement'
-import { useDragDropMonitor, useDroppable } from '@dnd-kit/vue'
 import {
   ApprovalsApp20Regular,
   ChevronDown16Regular,
@@ -43,7 +42,6 @@ const emit = defineEmits<{
   dragStart: []
   drop: [position: DesktopTaskPinnedDropPosition]
   menu: [action: TaskSpaceMenuAction]
-  moveTask: [taskId: string]
   pin: []
   toggle: []
 }>()
@@ -133,23 +131,6 @@ useTaskHistoryDrag({
   over: position => emit('dragOver', position),
   drop: position => emit('drop', position),
 })
-
-// 把无空间任务拖到空间行上松手即移入该空间；置顶区的空间行已用于排序，不接收。
-const moveDropId = `move-to:${props.space.id}`
-const { isDropTarget: isMoveTarget } = useDroppable({
-  id: moveDropId,
-  element,
-  // dnd-kit 的选项按 MaybeRefOrGetter 解包，函数会被当成 getter 调用，所以要再包一层返回过滤函数。
-  accept: () => (source: { type?: unknown, data?: Record<string, unknown> }) => source.type === 'workbench-task' && typeof source.data?.moveTaskId === 'string',
-  disabled: () => !!props.reorderTarget,
-})
-useDragDropMonitor({
-  onDragEnd(event) {
-    const taskId = event.operation.source?.data?.moveTaskId
-    if (!event.canceled && event.operation.target?.id === moveDropId && typeof taskId === 'string')
-      emit('moveTask', taskId)
-  },
-})
 </script>
 
 <template>
@@ -160,7 +141,6 @@ useDragDropMonitor({
       'is-dragging': dragging,
       'is-drop-after': dropPosition === 'after',
       'is-drop-before': dropPosition === 'before',
-      'is-move-target': isMoveTarget,
       'is-reorderable': reorderable,
     }"
     @contextmenu.prevent="openContextMenu"
@@ -247,12 +227,6 @@ useDragDropMonitor({
 
   &.is-dragging {
     opacity: 0.48;
-  }
-
-  &.is-move-target {
-    background: var(--buddy-nav-hover);
-    outline: 1px solid var(--buddy-accent-solid);
-    outline-offset: -1px;
   }
 
   &.is-drop-before::before,

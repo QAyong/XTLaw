@@ -49,7 +49,7 @@ const emit = defineEmits<{
   clearMarks: []
   setRead: [read: boolean]
   manageMarks: []
-  moveToSpace: [spaceId: string]
+  moveToSpace: []
   dragEnd: []
   dragOver: [position: DesktopTaskPinnedDropPosition]
   dragStart: []
@@ -91,7 +91,7 @@ const { actions: taskActions, select: selectTaskAction } = useTaskMenuActions({
   manageMarks: () => emit('manageMarks'),
   moveTargets: () => props.moveTargets,
   movable: () => props.movable,
-  moveToSpace: (_, spaceId) => emit('moveToSpace', spaceId),
+  moveToSpace: () => emit('moveToSpace'),
 })
 const actions = computed<DropdownOption[]>(() => [
   ...taskActions.value,
@@ -115,9 +115,12 @@ function openContextMenu(event: MouseEvent) {
   contextMenuPosition.value = { x: event.clientX, y: event.clientY }
   contextMenuOpen.value = true
 }
-function handleContextAction(action: string | number) {
+function closeContextMenu() {
   contextMenuOpen.value = false
+}
+function handleContextAction(action: string | number) {
   handleAction(action)
+  closeContextMenu()
 }
 
 const dragId = useId()
@@ -131,8 +134,6 @@ useTaskHistoryDrag({
   data: () => ({
     title: props.title,
     resource: { scheme: 'task', id: props.taskId, data: {} },
-    // 置顶区的任务拖拽用于排序，不参与“拖入空间”。
-    moveTaskId: props.moveTargets && props.movable && !props.reorderable ? props.taskId : null,
   }),
   disabled: () => false,
   reorderable: () => !!props.reorderable,
@@ -168,7 +169,7 @@ useTaskHistoryDrag({
       :x="contextMenuPosition.x"
       :y="contextMenuPosition.y"
       :options="actions"
-      @clickoutside="contextMenuOpen = false"
+      @clickoutside="closeContextMenu"
       @select="handleContextAction"
     />
     <div

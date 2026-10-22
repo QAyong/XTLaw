@@ -10,6 +10,9 @@ export const viewMenuTemplate = () => []
 export const windowMenuTemplate = () => []
 export async function writeJsonAtomic() {}
 export const appMenuLabels = () => ({})
+// The plugin has no application menu: the menu builders return nothing.
+export const appMenuTemplate = () => null
+export const settingsMenuItem = () => ({})
 export const contextMenuLabels = () => ({})
 export const helpMenuTemplate = () => []
 export const toggleDevToolsItem = () => ({})

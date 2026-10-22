@@ -1,6 +1,6 @@
 {
   "upstream": "https://github.com/genspark-ai/genoffice/",
-  "commit": "1f306a2a496227cae9194097897212c93d00a4e6",
+  "commit": "58dfd0b5b5eb3710efac0029b0452c61dba69035",
   "bundledWith": "vite build via apps/buddy/extensions/office-pptx/build.mjs",
   "resources": [
     {
@@ -22,11 +22,6 @@
       "name": "assets/Carlito-Regular-Cbe9FLjp.ttf",
       "size": 631712,
       "sha256": "cca497a63f1cf8111d2189424ec38b95002e43799efe4f1486ec7f8063bb93c1"
-    },
-    {
-      "name": "assets/attach-icon-CxQbF9G2.png",
-      "size": 1415,
-      "sha256": "39232dc0ae409b21ae3bbf08af7e63cb3baa3defe80da5219ece880d441f6352"
     },
     {
       "name": "assets/canvas-BRJXZk8M.png",
@@ -150,13 +145,13 @@
     },
     {
       "name": "slides.css",
-      "size": 148391,
-      "sha256": "5ba2ed11f0390027faa6d47d4694869d9ad11fb6743c09010bb02d01b701b0ad"
+      "size": 153174,
+      "sha256": "c449e83df22432ea444f42d1e9e5613fe4dbec1378e8a9822a03bf489879b20d"
     },
     {
       "name": "slides.js",
-      "size": 4510871,
-      "sha256": "df2db61e7bfc4d525e4b288af76aba5578a74d0186369cb9d44b3ae7e7f5c96b"
+      "size": 5358159,
+      "sha256": "82b098d29b22bc2b320927371c1104adb97754ad2914737428283da6ad672cd1"
     }
   ]
 }

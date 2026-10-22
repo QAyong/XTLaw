@@ -17,3 +17,5 @@ export class ProjectStore {}
 export async function atomicWriteFile(path: string, data: Uint8Array | string): Promise<void> {
   await vfs.write(path, typeof data === 'string' ? new TextEncoder().encode(data) : data)
 }
+// @genoffice/electron-utils/main-proxy (the plugin never opens a network connection of its own)
+export const createMainProcessProxyDispatcher = async () => undefined

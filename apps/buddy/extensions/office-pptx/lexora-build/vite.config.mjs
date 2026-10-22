@@ -48,6 +48,7 @@ export default defineConfig({
       { find: exact('@genoffice/electron-utils'), replacement: shim('electron-utils.ts') },
       { find: exact('@genoffice/electron-utils/atomic-write'), replacement: shim('stubs.ts') },
       { find: exact('@genoffice/ai-search'), replacement: shim('stubs.ts') },
+      { find: exact('@genoffice/electron-utils/main-proxy'), replacement: shim('stubs.ts') },
       { find: exact('@genoffice/pipelines/slides'), replacement: shim('stubs.ts') },
       { find: exact('@genoffice/project-store'), replacement: shim('stubs.ts') },
       { find: node('buffer'), replacement: 'buffer' },

@@ -6,7 +6,7 @@ import path from 'node:path'
 import process from 'node:process'
 
 // The upstream commit every shim and stub was written against. A different commit must be reviewed first.
-export const upstream = { repository: 'https://github.com/genspark-ai/genoffice/', commit: '1f306a2a496227cae9194097897212c93d00a4e6' }
+export const upstream = { repository: 'https://github.com/genspark-ai/genoffice/', commit: '58dfd0b5b5eb3710efac0029b0452c61dba69035' }
 
 const here = import.meta.dirname
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex')

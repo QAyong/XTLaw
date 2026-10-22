@@ -1,6 +1,6 @@
 # Office PPTX 插件：Slides 编辑器移植
 
-**版本：** 0.4.10（XTLaw 预装插件：打开、编辑、保存、引用到聊天）。0.4.10：不再声明 `localResources`（编辑器不选择本地文件，只读回退预览里的“选择文件”按钮随之不可用，改由文件管理器打开）。0.4.9：商店卡片上的简介缩短到两行以内：简介过长时卡片会弹出完整简介的悬浮提示，与其他插件不一致；完整功能说明见本文件。
+**版本：** 0.4.11（XTLaw 预装插件：打开、编辑、保存、引用到聊天）。0.4.11：上游 GenOffice 从 `1f306a2a` 升到 `58dfd0b5`。带入：图表自带工作簿（PowerPoint 里「编辑数据」可用）、重新解析后的幻灯片保留未保存标记、真 3D 模型（按 PowerPoint 的方式存储，可在编辑器里旋转）。3D 引入 `three`，`slides.js` 约增大 0.85 MB；「插入 3D 模型」依赖原生文件选择器，插件里未接入，只能查看和调整已有的 3D 模型。只做了构建与包校验，没有在桌面实机打开验收。0.4.10：不再声明 `localResources`（编辑器不选择本地文件，只读回退预览里的“选择文件”按钮随之不可用，改由文件管理器打开）。0.4.9：商店卡片上的简介缩短到两行以内：简介过长时卡片会弹出完整简介的悬浮提示，与其他插件不一致；完整功能说明见本文件。
 
 ## 当前状态
 
@@ -30,7 +30,7 @@
 产物（`slides/`）已入库，来源与哈希见 `provenance.json`。重新生成需要 GenOffice 检出（锁定提交见 `build.mjs`，不符会失败）：
 
 ```powershell
-git clone https://github.com/genspark-ai/genoffice.git; cd genoffice; git checkout 1f306a2a496227cae9194097897212c93d00a4e6
+git clone https://github.com/genspark-ai/genoffice.git; cd genoffice; git checkout 58dfd0b5b5eb3710efac0029b0452c61dba69035
 npm ci --ignore-scripts
 npm i --no-save --ignore-scripts path-browserify buffer
 cd <Lexora>; node apps/buddy/extensions/office-pptx/build.mjs <genoffice 路径> plugins/office-pptx

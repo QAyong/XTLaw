@@ -59,7 +59,7 @@ function manualChunks(id, { getModuleInfo }) {
 }
 
 // Renderer modules the plugin replaces with a corrected copy (the upstream file stays untouched).
-const rendererFixes = { './sheet-context-menu': 'sheet-context-menu-fix.ts', './control': 'control-fix.ts' }
+const rendererFixes = { './control': 'control-fix.ts' }
 function fixRendererModules() {
   return {
     name: 'lexora-renderer-fixes',
@@ -100,6 +100,7 @@ export default defineConfig({
       { find: exact('@genoffice/electron-utils/headless-export'), replacement: shim('stubs.ts') },
       { find: exact('@genoffice/electron-utils/drop-open'), replacement: shim('stubs.ts') },
       { find: exact('@genoffice/ai-search'), replacement: shim('stubs.ts') },
+      { find: exact('@genoffice/electron-utils/main-proxy'), replacement: shim('stubs.ts') },
       { find: exact('@genoffice/project-store'), replacement: shim('stubs.ts') },
       { find: exact('@genoffice/file-parse'), replacement: shim('stubs.ts') },
       { find: exact('@genoffice/ai-provider'), replacement: shim('stubs.ts') },

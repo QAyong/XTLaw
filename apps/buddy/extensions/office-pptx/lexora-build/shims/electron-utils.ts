@@ -2,6 +2,9 @@ export { safeExternalUrl } from '@genoffice/electron-utils/safe-external-url'
 export const MAX_REMOTE_IMAGE_BYTES = 0
 function none() {}
 export const appMenuLabels = () => ({})
+// The plugin has no application menu: the menu builders return nothing.
+export const appMenuTemplate = () => null
+export const settingsMenuItem = () => ({})
 export const contextMenuLabels = () => ({})
 export const helpMenuTemplate = () => []
 export const toggleDevToolsItem = () => ({})

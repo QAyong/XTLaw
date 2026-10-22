@@ -44,3 +44,6 @@ export function setAiUserAgent() {}
 export function setRescueFetch() {}
 export const resolveProfileCredential = () => null
 export async function shutdownCodexAppServers() {}
+export const isAiRegionBlockedError = () => false
+// @genoffice/electron-utils/main-proxy (the plugin never opens a network connection of its own)
+export const createMainProcessProxyDispatcher = async () => undefined

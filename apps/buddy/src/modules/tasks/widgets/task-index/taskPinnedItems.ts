@@ -62,6 +62,7 @@ export function resolveTaskIndexProjection(input: {
   conversationLimit?: number
   expandedConversationGroups?: ReadonlySet<string>
   expandedSpaceIds: ReadonlySet<string>
+  markedTaskIds: ReadonlySet<string>
   pinnedItems: ReadonlyArray<DesktopTaskPinnedItem>
   spaces: ReadonlyArray<LocalSpace>
   tasks: ReadonlyArray<LocalConversationSummary>
@@ -80,6 +81,10 @@ export function resolveTaskIndexProjection(input: {
     const tasks = tasksBySpace.get(task.spaceId) ?? []
     tasks.push(task)
     tasksBySpace.set(task.spaceId, tasks)
+  }
+
+  for (const tasks of tasksBySpace.values()) {
+    tasks.sort((left, right) => Number(input.markedTaskIds.has(right.id)) - Number(input.markedTaskIds.has(left.id)))
   }
 
   const pinnedItems = resolveVisiblePinnedItems({

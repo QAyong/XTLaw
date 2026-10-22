@@ -34,6 +34,7 @@ describe('taskIndexProjection pinned conversations', () => {
   it('pins a conversation that belongs to a Space', () => {
     const projection = resolveTaskIndexProjection({
       expandedSpaceIds: new Set(['space-a']),
+      markedTaskIds: new Set(),
       pinnedItems: [{ kind: 'conversation', id: 'task-a1' }],
       spaces: [createSpace('space-a')],
       tasks: [createTask('task-a1', 'space-a'), createTask('task-a2', 'space-a')],
@@ -48,6 +49,7 @@ describe('taskIndexProjection pinned conversations', () => {
   it('keeps a pinned Space conversation out of the pinned Space expansion', () => {
     const projection = resolveTaskIndexProjection({
       expandedSpaceIds: new Set(['space-a']),
+      markedTaskIds: new Set(),
       pinnedItems: [{ kind: 'space', id: 'space-a' }, { kind: 'conversation', id: 'task-a1' }],
       spaces: [createSpace('space-a')],
       tasks: [createTask('task-a1', 'space-a'), createTask('task-a2', 'space-a')],
@@ -63,6 +65,7 @@ describe('taskIndexProjection pinned conversations', () => {
   it('drops pinned conversations that no longer exist', () => {
     const projection = resolveTaskIndexProjection({
       expandedSpaceIds: new Set(['space-a']),
+      markedTaskIds: new Set(),
       pinnedItems: [{ kind: 'conversation', id: 'task-gone' }],
       spaces: [createSpace('space-a')],
       tasks: [createTask('task-a1', 'space-a')],
@@ -78,6 +81,7 @@ describe('taskIndexProjection conversation limit', () => {
   it('caps the tasks group and appends an expand row with the remaining count', () => {
     const projection = resolveTaskIndexProjection({
       expandedSpaceIds: new Set(),
+      markedTaskIds: new Set(),
       pinnedItems: [],
       spaces: [],
       tasks,
@@ -96,6 +100,7 @@ describe('taskIndexProjection conversation limit', () => {
     const projection = resolveTaskIndexProjection({
       expandedConversationGroups: new Set([DESKTOP_TASK_SIDEBAR_TASKS_GROUP_KEY]),
       expandedSpaceIds: new Set(),
+      markedTaskIds: new Set(),
       pinnedItems: [],
       spaces: [],
       tasks,
@@ -108,6 +113,7 @@ describe('taskIndexProjection conversation limit', () => {
   it('caps a Space conversation list independently', () => {
     const projection = resolveTaskIndexProjection({
       expandedSpaceIds: new Set(['space-a']),
+      markedTaskIds: new Set(),
       pinnedItems: [],
       spaces: [createSpace('space-a')],
       tasks: Array.from({ length: 7 }, (_, index) => createTask(`task-a${index}`, 'space-a')),
@@ -125,6 +131,7 @@ describe('taskIndexProjection conversation limit', () => {
   it('does not add an expand row when the group fits the limit', () => {
     const projection = resolveTaskIndexProjection({
       expandedSpaceIds: new Set(),
+      markedTaskIds: new Set(),
       pinnedItems: [],
       spaces: [],
       tasks: tasks.slice(0, DESKTOP_TASK_SIDEBAR_CONVERSATION_LIMIT),

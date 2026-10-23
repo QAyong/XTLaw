@@ -33,7 +33,8 @@ export function registerExtensionIpc(options: {
   themes: ThemeService
   version: string
   getWindow: () => BrowserWindow | null
-  readResource: (target: SpaceFileTarget, signal: AbortSignal) => Promise<Response>
+  readResource: (target: SpaceFileTarget, signal: AbortSignal, request?: Request) => Promise<Response>
+  readArtifactResource?: (artifactId: string, signal: AbortSignal, request?: Request) => Promise<{ name: string, response: Response }>
   readText: (target: SpaceFileTarget, signal: AbortSignal) => Promise<string>
   readBytes: (input: SpaceFileByteRequest, signal: AbortSignal) => Promise<SpaceFileByteChunk>
   saveBytes: (input: SpaceSaveBytes, signal: AbortSignal) => Promise<SpaceSaveBytesResult>
@@ -80,11 +81,12 @@ export function registerExtensionIpc(options: {
         hosts.delete(host)
       } }
     },
-    createView: pkg => protocol.register(pkg, 'view'),
+    createView: (pkg, readSelected) => protocol.register(pkg, 'view', readSelected),
     readText: options.readText,
     readBytes: options.readBytes,
     saveBytes: options.saveBytes,
     readResource: options.readResource,
+    readArtifactResource: options.readArtifactResource,
     openExternal: url => shell.openExternal(url),
     agentRequest: options.agentRequest,
     conditionRuntime: options.conditionRuntime,
@@ -156,7 +158,7 @@ export function registerExtensionIpc(options: {
           current.webContents.send(EXTENSION_IPC.workbench, { kind: 'cancel', requestId: event.requestId } satisfies ExtensionWorkbenchEvent)
         finish(null)
       }
-      const timer = setTimeout(cancel, 10000)
+      const timer = event.kind === 'reference' ? undefined : setTimeout(cancel, 10000)
       function finish(value: string | null, data?: JsonValue) {
         if (settled)
           return
@@ -248,10 +250,14 @@ export function registerExtensionIpc(options: {
       await prepared
       await service.initialize()
       switch (input.action) {
-        case 'openFile': return await service.openFile(input.resource)
+        case 'openFile': return await service.openFile(input.resource, input.providerId)
         case 'taskActions': return await options.taskActions()
         case 'invokeTaskAction': return await options.invokeTaskAction(input.input)
         case 'list': return await service.list()
+        case 'fileOpeners': return await service.fileOpeners()
+        case 'setFileOpener': return await service.setFileOpener(input.choice)
+        case 'prepareFileOpening': return await service.prepareFileOpening(input.input)
+        case 'prepareReferenceOpening': return await service.prepareReferenceOpening(input.input)
         case 'unavailable': return store.unavailable
         case 'detectShells': return await service.detectShells(input.id)
         case 'selectShellExecutable': return await service.selectShellExecutable(input.id, input.candidate)
@@ -270,7 +276,7 @@ export function registerExtensionIpc(options: {
           const result = await dialog.showOpenDialog(owner, { properties: input.development ? ['openDirectory'] : ['openFile'], ...(input.development ? {} : { filters: [{ name: 'XTLaw Extension', extensions: ['lexora-extension', 'zip'] }] }) })
           return result.canceled || !result.filePaths[0] ? null : await reviewResult(() => service.review(result.filePaths[0]!, input.development))
         }
-        case 'install': return await service.install(input.token)
+        case 'install': return await service.install(input.token, input.choices)
         case 'cancelInstall': return service.cancelInstall(input.token)
         case 'enable': return await service.enable(input.id, input.enabled)
         case 'restart': return await service.restart(input.id)

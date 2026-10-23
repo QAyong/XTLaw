@@ -128,7 +128,7 @@ async function mount(options: { deferredFirst?: boolean, preview?: boolean, sele
   const app = createApp({ setup() {
     provide(workbenchKey, { controller, copies, autoSave, labels: shallowRef(workbenchLabels('en-US')) } as WorkbenchContext)
     if (options.selectionReferences)
-      provide(workbenchSelectionReferencesKey, new WorkbenchSelectionReferences({ targets: () => [], source: () => null, locate: async () => false }))
+      provide(workbenchSelectionReferencesKey, new WorkbenchSelectionReferences({ targets: () => [] }))
     return () => options.preview
       ? h(DesktopFilePreview, { view: view.value, files, language: 'en-US', writeClipboardText: async () => {}, visible: options.visible ?? false })
       : h('div', Array.from({ length: options.duplicate ? 2 : 1 }, (_, key) => h(DesktopFileEditor, { key, view: view.value, models, language: 'en-US', writeClipboardText: async () => {}, visible: options.visible ?? false })))

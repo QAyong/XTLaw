@@ -1,7 +1,6 @@
 import type { ExtensionManifest } from './extensionManifest'
 import { compare, minVersion } from 'semver'
 import { documentPermissionCapabilities, workbenchDocumentCapabilities } from '../workbench/workbenchDocumentCapabilities'
-import { EXTENSION_UNTRUSTED_WASM_BYTES_LIMIT, EXTENSION_UNTRUSTED_WASM_FILE_LIMIT } from './extensionTrust'
 
 export interface DocumentContractReport {
   /** Capability names from the registry that this manifest relies on, with the first XTLaw version that has each. */
@@ -59,11 +58,5 @@ export function documentContractReport(manifest: ExtensionManifest, options: Doc
     warnings.push(`engines.lexora starts at ${floor.version}, but ${late.map(name => `${name} (XTLaw ${workbenchDocumentCapabilities[name].since})`).join(', ')} appeared later; raise the minimum to at least ${needed} so older versions do not install the plugin without them.`)
   }
 
-  if (manifest.permissions.webAssembly && !options.development) {
-    const wasm = options.files.filter(file => /\.wasm$/i.test(file.path))
-    const bytes = wasm.reduce((total, file) => total + file.size, 0)
-    if (wasm.length > EXTENSION_UNTRUSTED_WASM_FILE_LIMIT || bytes > EXTENSION_UNTRUSTED_WASM_BYTES_LIMIT)
-      warnings.push(`Installing this package outside the bundled plugins is refused with EXTENSION_WEBASSEMBLY_LIMIT: ${wasm.length} .wasm files and ${bytes} bytes exceed ${EXTENSION_UNTRUSTED_WASM_FILE_LIMIT} files / ${EXTENSION_UNTRUSTED_WASM_BYTES_LIMIT} bytes.`)
-  }
   return { capabilities: used.map(name => ({ name, since: workbenchDocumentCapabilities[name].since })), warnings }
 }

@@ -1,5 +1,5 @@
 import { Buffer } from 'node:buffer'
-import { EXTENSION_FILE_LIMIT } from '../../shared/extensions/extensionPackageLimits'
+import { EXTENSION_FILE_LIMIT } from '../../shared/extensions/extensionPackageBudget'
 import { themeAssetPaths, themeDocumentSchema } from '../../shared/theme/themeDocument.ts'
 
 export function validateThemeFiles(files: ReadonlyMap<string, Uint8Array>, themes: Array<{ path: string }>): void {

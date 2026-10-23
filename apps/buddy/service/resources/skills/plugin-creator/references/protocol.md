@@ -24,7 +24,7 @@
 
 `<plugin-id>` 是占位符，填写时必须替换为新插件身份工具返回的 ID，或正在维护的源码清单中的既有 ID；后续声明中的占位符同样替换。宿主代码通过 `context.extension.id` 引用当前插件，不复制示例身份。作者署名 `author` 可选，支持 Unicode，最多 80 个用户可见字符，不含换行或控制字符；留空表示未署名。不符合规则时说明原因，给出候选并通过对话确定，不静默截断或替换。作者与显示名可变，ID 和末尾的调用名保持稳定。使用作者字段的包要求 XTLaw 0.9.0 或更新版本。
 
-可选字段：`author`、`icon`（包内 SVG/PNG/JPEG/WebP，≤64 KiB）、`categories`、`tags`、宿主 `entry`、`dataVersion`。不要添加未定义的字段。命令、视图和挂载声明的 ID 以插件 ID 加 `.` 开头且不重复。文件路径相对包根，不能包含 `..` 或符号链接；最多 4096 个文件，其中非图片文件最多 512 个，单文件 16 MiB、合计 64 MiB 上限；压缩输入与实际解压后的总字节数均受限。
+可选字段：`author`、`icon`（包内 SVG/PNG/JPEG/WebP，≤64 KiB）、`categories`、`tags`、宿主 `entry`、`dataVersion`。不要添加未定义的字段。命令、视图和挂载声明的 ID 以插件 ID 加 `.` 开头且不重复。文件路径相对包根，不能包含 `..` 或符号链接；最多 4096 个文件，其中非图片文件最多 512 个；归档最多 8192 个条目。单文件最多 64 MiB，压缩安装包最多 128 MiB，展开文件合计最多 256 MiB；目录安装、市场下载与构建使用相同预算。对话构建自动分块传输安装包，每块最多 256 KiB，不要把大包或二进制资源塞进普通 JSON 消息。源码编译仍受时间与内存限制，大型预构建 JS 库应使用 compiled 包。
 
 `contributes` 内的声明结构如下。省略不用的项；每项权限和运行方式见后文，无需查找应用实现或复制某个示例清单。
 
@@ -32,21 +32,50 @@
 | --- | --- |
 | `commands` | 数组，每项必填 `id`、`title`；`hidden` 可选，默认 false；API 3 可声明 `slash: {name, description?}`，规则见 [注册命令](commands.md)。存在命令时必须设置清单顶层的宿主 `entry` |
 | `menus` | API 3；数组，每项必填 `id`、`command`、`target`，可选 `order`（-1000 至 1000，默认 0）、`when`；引用自己的已声明命令 |
-| `views` | 数组，每项必填 `id`、`title`、`entry`；`resource` 为 `selected-file`（默认）或 `none`；`location` 默认 `context`；`stateVersion` 为正整数，默认 1 |
+| `views` | 数组，每项必填 `id`、`title`、`entry`；`resource` 为 `selected-file`（默认）、`none`，或 API 4 的 `optional-file`；`location` 默认 `context`；`stateVersion` 为正整数，默认 1 |
 | `placements` | 数组，每项必填 `id`、`view`、`kind`，并按 kind 添加后文规定的 `anchor`、`target` 或 `presentation`；不要把它们写入视图定义 |
 | `navigation` | 单个对象，必填 `title`、`view`，引用自己的无资源视图 |
+| `fileHandlers` | API 4；数组，每项必填 `id`、`title`、`extensions`；`preview`、`open` 至少提供一个，各含 `view` 和可选 `requestDefault`（默认 `true`）；见下文 |
+| `launchers` | API 4；数组，每项必填 `id`、`title`、`view`，提供无需文件的独立入口 |
 | `agent` | API 3；指令、工具、任务动作和可选的 enabledWhen，见 [Agent 与设置](agent-settings.md) |
 | `settings` | API 3；声明 modules/groups/items，由宿主渲染并保存，见 [Agent 与设置](agent-settings.md) |
 | `shells` | API 4；固定本机解释器候选与原生设置映射；可选 settingsGroup 将插件自有组渲染为一行一个 Shell 的原生表格，文件选择仅限原生设置，需独立 shells 权限，见 [命令解释器](shells.md) |
 
 插件 ID 使用小写字母开头的两段名称，中间以 `.` 分隔，每段可含小写字母、数字与 `-`；贡献 ID 在插件 ID 后追加由小写字母、数字、`.`、`-` 组成的后缀。声明文件路径使用包内相对路径，`.ts` 文件名直接指向源码，编译工具负责产出运行文件。
 
+## 引用到对话
+
+API 4 的交互资源视图可声明 `permissions.references: true`，通过 `context.references.add(input)` 打开宿主的对话选择器。导航页面、装饰、插槽与替换控件不支持此能力。选择并成功加入草稿返回 `true`，取消返回 `false`；授权或资源失效会抛错。等待用户选择没有固定的十秒期限；关闭视图或停用插件会取消请求。此操作不会发送消息或调用模型。
+
+```ts
+await context.references.add({
+  kind: 'content',
+  title: '汇总表',
+  text: selectedText,
+  locator: { version: 1, data: { sheet: 'Summary', cells: 'A1:B2' } },
+})
+
+context.references.onReveal(async ({ locator, text }, signal) => {
+  if (!locator || locator.version !== 1)
+    return false
+  return revealCells(locator.data, { expectedText: text, signal })
+})
+```
+
+`content` 保存当时的文字快照；`text` 必须非空，文字与序列化 locator 合计最多 32768 个字符，`title` 最多 512 字符。来源由宿主生成，插件不能自报来源或文件路径。`locator` 可省略，是插件定义的只读 JSON，含正整数 `version` 和 `data`；数据最多 16 KiB、12 层，不允许函数、循环或特殊对象。宿主只负责传回，插件负责版本兼容和验证定位结果，不能把 locator 当作文件授权。文字会进入模型上下文，locator 与内部目标不会。
+
+每个视图用 `references.onReveal(handler)` 注册一个定位处理器，返回可 `dispose()` 的注册对象。处理器收到只读的 `referenceId`、原始 `text`、`locator`（未提供时为 `null`）和取消信号；确认内容已定位后返回 `true`。无法找到、版本不支持、未注册或抛错均视为定位失败。异步处理必须遵守 `signal`，避免用户取消后继续滚动或改动界面。
+
+定位优先复用原视图并重新检查资源授权，不重载有效会话。内联预览保留当前未保存快照；原视图已关闭时，只能重新打开现有来源，插件应验证 locator 与当前内容是否匹配。插件停用或来源不可访问时，已保存的引用文字仍可查看。
+
+整份文件使用 `references.add({ kind: 'resource', resource })`，传入 `context.resource` 或本插件已有的授权句柄。Space 来源沿用文件引用，临时快照、产物和其他已授权资源按内容复制为附件；不传路径，不扩大读取权限。读取所需的 `selectedResource` / `localResources` 权限仍需分别声明。使用这些新增 API 4 能力时，`engines.lexora` 的最低版本应覆盖实际支持该能力的宿主。
+
 ## 视图类型
 
 | location | resource | 行为 |
 | --- | --- | --- |
 | `page` | `none` | 独立页面，可作为导航入口 |
-| `context` | `selected-file` 或 `none` | 工作区资源页签，由用户打开 |
+| `context` | `selected-file`、`none` 或 API 4 的 `optional-file` | 工作区资源页签，由用户打开 |
 | `window-overlay` | `none` | 启用后自动挂载的透明窗口效果，每插件最多一个；无法点击或聚焦 |
 
 页面与小视图由插件绘制，均使用 `render(context, container)`，共用隔离和通信 API。API 2 起将视图内容与挂载位置分开，通过 `contributes.placements` 选择正式扩展点；`page` 和 `window-overlay` 继续可用。插件不能查询或修改宿主 DOM。
@@ -56,6 +85,54 @@
 导航入口位于自动化下方，声明 `contributes.navigation: { "title": "插件名称", "view": "<plugin-id>.settings" }`，引用一个 `resource: "none"` 的视图（API 1 仍需 `location: "page"`）。不需要设置页的效果插件可以没有导航。
 
 导航页面、装饰、内容插槽和替换控件不能使用 `context.setState()`；需要持久设置时声明宿主入口和隐藏命令，以 `context.storage.get/set` 保存。多个视图使用同一设置时明确刷新时机，插件局部开关必须能在不重载视图的情况下关闭并重新启用。资源页签的 `setState` 用于保存该页签的 JSON 状态。
+
+## 文件关联与独立入口
+
+使用下列新增声明时，`apiVersion` 保持 `4`，`engines.lexora` 必须以首次提供这些能力的应用版本为下限；不能仅凭旧宿主也支持 API 4 就声明兼容。应用版本和 API 版本分别约束能力可用性与协议兼容性。
+
+`contributes.fileHandlers` 声明文件处理器，每项具有稳定的 `id`、显示名称 `title` 和精确的小写带点后缀 `extensions`，例如 `[".md", ".markdown"]`。不接受通配符、MIME 推断或没有点的后缀；每项最多 64 个后缀、共 32 项。两种打开方式分别保存用户默认；多个已注册复合后缀匹配时采用最长者。
+
+- `preview: { view, requestDefault? }`：在文件页内预览。
+- `open: { view, requestDefault? }`：在独立工作台视图中打开文件。
+
+至少声明一种方式；省略的方式不注册，也不借用另一种方式的视图。两者可引用同一个视图或不同视图；视图必须属于本插件、`location` 为 `context`，资源模式为 `selected-file` 或 `optional-file`，并声明 `selectedResource: "read"`。宿主传递文件资源与管理视图生命周期，插件自行决定界面内容。
+
+每种方式的 `requestDefault` 缺省为 `true`，安装确认页预勾选对应关联；设置为 `false` 时不预选，用户仍可主动勾选。该字段不影响文件权限或撤销已有默认。确认安装应用最终选择，更新的关联在新版本生效时应用。相同后缀和方式有多个处理器时，优先保留本插件中已经作为默认的处理器，否则按声明顺序预选第一个申请者。停用、失败、卸载时保留偏好，只回退内置处理器，不自动选择其他第三方。
+
+`contributes.launchers` 提供“+”启动入口（最多16项），引用本插件的 `context` 视图，资源模式为 `none` 或 `optional-file`。启动时 `context.resource` 为 `null`；文件打开则传入文件资源。两个入口独立引用视图，文件打开无需注册或调用 launcher。
+
+共用同一视图时，让视图接受可选文件并处理有文件、无文件两种状态：
+
+```json
+{
+  "apiVersion": 4,
+  "permissions": { "selectedResource": "read" },
+  "contributes": {
+    "views": [{ "id": "<plugin-id>.reader", "title": "阅读器", "entry": "view.ts", "resource": "optional-file" }],
+    "fileHandlers": [{ "id": "<plugin-id>.files", "title": "阅读器", "extensions": [".md"], "preview": { "view": "<plugin-id>.reader" }, "open": { "view": "<plugin-id>.reader" } }],
+    "launchers": [{ "id": "<plugin-id>.start", "title": "阅读器", "view": "<plugin-id>.reader" }]
+  }
+}
+```
+
+分别呈现时，新增 `selected-file` 视图，并让 `preview` 引用它；原视图仍用于启动和独立打开：
+
+```json
+{
+  "views": [
+    { "id": "<plugin-id>.preview", "title": "文件预览", "entry": "preview.ts", "resource": "selected-file" },
+    { "id": "<plugin-id>.reader", "title": "阅读器", "entry": "view.ts", "resource": "optional-file" }
+  ],
+  "fileHandlers": [{ "id": "<plugin-id>.files", "title": "阅读器", "extensions": [".md"], "preview": { "view": "<plugin-id>.preview", "requestDefault": false }, "open": { "view": "<plugin-id>.reader" } }],
+  "launchers": [{ "id": "<plugin-id>.start", "title": "阅读器", "view": "<plugin-id>.reader" }]
+}
+```
+
+只提供文件处理时，省略 `launchers` 即可；文件视图可使用 `selected-file`。只做预览则再省略处理器的 `open`。
+
+旧 `fileOpeners` 声明仍受支持：其 `locations` 中的 `inline`、`standalone` 分别对应新结构的 `preview`、`open`，使用原 `view` 和 `requestDefault`。更新为新声明时保留处理器 ID，即可延续用户默认关联；同一 ID 不能同时声明在新旧数组中。
+
+关联不增加目录、路径或写入权限。句柄来自用户已授权的 Space 文件或任务产物，每次读取重新核对原授权；只能由分配到该资源的视图读取。视图可使用 `resources.readText/readBytes/getUrl(context.resource)`，受控 URL 支持 HEAD、Range，关闭后失效。内联预览可能获得未保存文本的只读内存快照（最多 2 MiB UTF-8），宿主不会写回或持久保存快照，原 Space 授权撤回后即不能继续读取；不可保存此临时句柄供重启后复用。编辑或导出仍须沿显式另存为能力。
 
 ## 权限
 
@@ -75,7 +152,7 @@
 | `selectedContent: true` | API 3；用户点击插件操作时获取当前草稿或该条消息文本，不订阅输入或读取对话历史 |
 | `localResources: true` | 用户通过系统窗口选择文件或目录，视图读取文本、二进制或受控 URL |
 | `resourceExport: true` | 用户通过系统另存为窗口确认目标后，保存插件提供的字节 |
-| `webAssembly: true` | 仅对插件视图放开 `'wasm-unsafe-eval'`（允许编译插件包内 `.wasm`，仍禁止 JS eval）和 Worker（`worker-src` 为插件包路径加 `blob:`：沙箱视图是不透明源，不能按 URL 加载 Worker 脚本，需从 blob 启动）；`.wasm` 以 `application/wasm` 提供；安装时单独提示用户；宿主页（extension.js）不受影响；第三方插件的 `.wasm` 文件最多 4 个、合计 24 MiB，内置/官方插件与开发目录不受限，见 [文档处理器契约](document-processor.md#4-webassembly) |
+| `webAssembly: true` | 声明包内 WebAssembly。运行能力不依赖它：所有插件的视图页和宿主页都放开 `'wasm-unsafe-eval'`（仍禁止 JS eval）和 Worker（见 [WebAssembly 与 Worker](workers.md)）；`.wasm` 以 `application/wasm` 提供，数量和体积只受包预算约束，见 [文档处理器契约](document-processor.md#4-webassembly) |
 | `network: ["https://example.com"]` | 通过宿主向列出的 HTTPS origin 发 GET 请求、下载文件或打开外链 |
 
 未声明权限默认为关闭，清单只需列出实际申请的权限，SDK 打包时会省略默认值。宿主忽略清单顶层、`permissions` 和 `contributes` 中不认识的声明，不因此提供对应能力；已知字段仍按类型和权限校验。需要新版能力时，通过 `engines.lexora` 和 API 版本声明兼容范围。视图无法访问 Node、宿主 DOM、全局键盘、网络 fetch 或任意本地文件。资源和网络调用通过 API；用户在安装确认中查看权限。没有一般性消息订阅、系统剪贴板或屏幕截图接口。
@@ -235,7 +312,7 @@ export function activate(context: ExtensionContext) {
 
 该命令须出现在 `contributes.commands` 中，例如 `{ "id":"<plugin-id>.read-settings", "title":"读取设置", "hidden":true }`。视图通过 `context.commands.execute(command, arguments)` 调用自身命令，返回 JSON。私有数据使用 JSON；更改结构时递增 `dataVersion` 并导出 `migrate(previous, from, to)`。
 
-文件工具需要一个可见命令作为打开入口。用户先在文件面板打开文件，再从命令面板执行它；宿主将收到的资源句柄传入视图：
+文件工具仍可通过可见命令提供打开入口；支持新关联声明的 API 4 宿主也可使用上述文件关联。命令方式中，用户先在文件面板打开文件，再从命令面板执行它；宿主将收到的资源句柄传入视图：
 
 ```ts
 context.subscriptions.add(context.commands.register(`${context.extension.id}.open`, async ({ resource }) => {

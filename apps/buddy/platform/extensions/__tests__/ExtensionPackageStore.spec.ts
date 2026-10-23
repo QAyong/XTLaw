@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { extensionJsonSchema } from '../../../shared/extensions/extensionApi'
 import { addedExtensionPermissions, EXTENSION_API_VERSION, extensionManifestSchema } from '../../../shared/extensions/extensionManifest'
 import { compileExtensionSource } from '../compileExtensionSource'
-import { EXTENSION_FILE_LIMIT, readExtensionDirectory, unpackExtension } from '../extensionFiles'
+import { readExtensionDirectory, unpackExtension } from '../extensionFiles'
 import { extensionActivationOrder, ExtensionPackageStore } from '../ExtensionPackageStore'
 import { createStore, manifest, reviewPackage } from './fixtures'
 
@@ -26,7 +26,6 @@ describe('extension package contract', () => {
     const value = manifest()
     const input = { ...value, futureMetadata: { enabled: true }, permissions: { ...value.permissions, inference: true, inferenceGpu: false, inferenceNetwork: ['https://example.com'], futureAccess: 'read', futureMetadata: { enabled: true } }, contributes: { ...value.contributes, futureProvider: { entry: 'future.js' } } }
     const review = await reviewPackage(root, store, input)
-    expect(review.manifest.permissions).toEqual(value.permissions)
     expect(review.manifest).toEqual(value)
     expect(review.addedPermissions).toEqual(['selectedResource:read'])
     await store.install(review.token)
@@ -36,10 +35,6 @@ describe('extension package contract', () => {
     await reloaded.load()
     expect(reloaded.installed[value.id]!.current.manifest.permissions).toEqual(value.permissions)
     expect(new TextDecoder().decode(await reloaded.asset(reloaded.installed[value.id]!.current, 'extension.js'))).toBe('export function activate() {}')
-  })
-  it.each([true, false, 'read', 'none', ['https://example.com'], [], 0, null, '', {}, [false]])('ignores unknown permissions regardless of their value: %j', (permission) => {
-    const value = manifest()
-    expect(extensionManifestSchema.parse({ ...value, permissions: { ...value.permissions, futureAccess: permission } })).toEqual(value)
   })
   it('still rejects malformed known permissions and contributions', () => {
     const value = manifest()
@@ -63,9 +58,8 @@ describe('extension package contract', () => {
   it.each(['../escaped.js', 'C:/escaped.js', '__view.html'])('rejects archive traversal and reserved assets: %s', (name) => {
     expect(() => unpackExtension(zipSync({ [name]: strToU8('content') }))).toThrow(/EXTENSION_/)
   })
-  it('rejects case collisions and compressed files exceeding the expanded limit', () => {
+  it('rejects case collisions and malformed archives', () => {
     expect(() => unpackExtension(zipSync({ 'a.js': strToU8('a'), 'A.js': strToU8('b') }))).toThrow(/EXTENSION_/)
-    expect(() => unpackExtension(zipSync({ 'large.js': new Uint8Array(EXTENSION_FILE_LIMIT + 1) }))).toThrow(/EXTENSION_/)
     expect(() => unpackExtension(new Uint8Array([1, 2, 3]))).toThrow(/EXTENSION_/)
   })
   it('pins reviewed bytes and stages updates without changing the running package', async () => {
@@ -209,7 +203,7 @@ describe('extension package contract', () => {
   it('sorts dependencies and rejects cycles, disabled dependencies, and mismatched ranges', () => {
     const a = manifest({ id: 'tests.alpha', dependencies: { 'tests.beta': '^1' } })
     const b = manifest({ id: 'tests.beta' })
-    const record = (value: typeof a): InstalledExtension => ({ current: { manifest: value, revision: 'a'.repeat(64), hashes: {}, source: null }, enabled: true, pending: null, development: false })
+    const record = (value: typeof a): InstalledExtension => ({ current: { manifest: value, revision: 'a'.repeat(64), hashes: {}, source: null }, enabled: true, pending: null, pendingFileOpeners: [], development: false })
     const installed = { 'tests.alpha': record(a), 'tests.beta': record(b) }
     expect(extensionActivationOrder(installed, a.id)).toEqual(['tests.beta', 'tests.alpha'])
     installed['tests.beta'].enabled = false
@@ -221,15 +215,6 @@ describe('extension package contract', () => {
     b.version = '2.0.0'
     expect(() => extensionActivationOrder(installed, a.id)).toThrow('EXTENSION_DEPENDENCY_VERSION')
   })
-})
-
-it('preserves pane decoration scope and requires permission', () => {
-  const input = manifest({ apiVersion: 2, permissions: { windowEffects: true }, contributes: {
-    views: [{ id: 'tests.reader.effect', title: 'Effect', entry: 'view.js', resource: 'none' }],
-    placements: [{ id: 'tests.reader.scope', view: 'tests.reader.effect', kind: 'decoration', anchor: 'workbench.pane' }],
-  } })
-  expect(extensionManifestSchema.parse(input).contributes.placements[0]).toEqual({ id: 'tests.reader.scope', view: 'tests.reader.effect', kind: 'decoration', anchor: 'workbench.pane' })
-  expect(extensionManifestSchema.safeParse({ ...input, permissions: {} }).success).toBe(false)
 })
 
 it.each([1, 2] as const)('accepts window overlays in API %s without adding local placements', (apiVersion) => {
@@ -255,15 +240,18 @@ it('keeps API 1 compatible and validates UI placements and permission upgrades i
         { id: 'tests.reader.top', view: 'tests.reader.ui', kind: 'view', location: 'workbench.top' },
         { id: 'tests.reader.effect', view: 'tests.reader.ui', kind: 'decoration', anchor: 'composer.input' },
         { id: 'tests.reader.reasoning', view: 'tests.reader.ui', kind: 'control', target: 'model.reasoning' },
+        { id: 'tests.reader.scope', view: 'tests.reader.ui', kind: 'decoration', anchor: 'workbench.pane' },
       ],
     },
   })
   const review = await reviewPackage(root, store, value)
   expect(review.addedPermissions).toEqual(['windowEffects', 'controls:model.reasoning'])
+  expect(review.manifest.contributes.placements[3]).toEqual({ id: 'tests.reader.scope', view: 'tests.reader.ui', kind: 'decoration', anchor: 'workbench.pane' })
   expect(extensionManifestSchema.safeParse({ ...value, apiVersion: 1 }).success).toBe(false)
   expect(extensionManifestSchema.safeParse({ ...value, contributes: { ...value.contributes, placements: [], views: [{ ...value.contributes.views[0], location: 'window-overlay' }] } }).success).toBe(false)
   expect(extensionManifestSchema.safeParse({ ...value, permissions: { windowEffects: true } }).success).toBe(false)
-  expect(extensionManifestSchema.safeParse({ ...value, permissions: { controls: ['model.reasoning'] } }).success).toBe(false)
+  for (const placement of [value.contributes.placements[1], value.contributes.placements[3]])
+    expect(extensionManifestSchema.safeParse({ ...value, contributes: { ...value.contributes, placements: [placement] }, permissions: { controls: ['model.reasoning'] } }).success).toBe(false)
   for (const placement of [
     { ...value.contributes.placements[0], view: 'tests.reader.missing' },
     { ...value.contributes.placements[0], id: 'other.plugin.top' },

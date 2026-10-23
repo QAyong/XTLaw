@@ -385,6 +385,21 @@ export class ArtifactService {
     return { mimeType: artifact.mimeType, path: artifact.currentPath }
   }
 
+  // Where an artifact lives on disk for a reader that only holds its ID, such as a plugin opening an output card.
+  async locate(id: string): Promise<{ path: string, kind: 'file' | 'directory' }> {
+    const artifact = this.#requireVisibleArtifact(id)
+    if (!this.#fileAccess)
+      throw new ArtifactError('DIRECTORY_NOT_AUTHORIZED')
+    const target = await this.#fileAccess.resolve(artifact)
+    const metadata = await stat(target.path)
+    if (!metadata.isFile() && !metadata.isDirectory())
+      throw new ArtifactError('VALIDATION_FAILED')
+    const current = await this.#fileAccess.resolve(this.#requireVisibleArtifact(id))
+    if (current.root !== target.root || current.path !== target.path)
+      throw new ArtifactError('DIRECTORY_NOT_AUTHORIZED')
+    return { path: target.path, kind: metadata.isDirectory() ? 'directory' : 'file' }
+  }
+
   async resolveMedia(id: string) {
     const artifact = this.#requireVisibleArtifact(id)
     if (artifact.kind !== 'file' || !this.#fileAccess)
@@ -405,7 +420,7 @@ export class ArtifactService {
     const artifact = this.#requireVisibleArtifact(id)
     if (
       artifact.kind !== 'file'
-      || (!isTextArtifact(artifact.mimeType) && inferArtifactMimeType(artifact.name) !== 'text/markdown')
+      || (!isTextArtifact(artifact.mimeType) && !['text/markdown', 'image/svg+xml'].includes(inferArtifactMimeType(artifact.name)))
       || artifact.sizeBytes > BUDDY_ARTIFACT_TEXT_BYTES_LIMIT
     ) {
       throw new ArtifactError('VALIDATION_FAILED')

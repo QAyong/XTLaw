@@ -13,7 +13,13 @@ it('serves verified package media with range semantics and invalidates disposed 
   roots.push(root)
   await store.install((await reviewPackage(root, store, manifest(), { 'clip.mp3': '0123456789' })).token)
   const protocol = new ExtensionProtocol(store)
-  const endpoint = protocol.register(store.installed['tests.reader']!.current, 'view')
+  const selected = 'selected-file'
+  let authorized = true
+  const endpoint = protocol.register(store.installed['tests.reader']!.current, 'view', async (id) => {
+    if (id !== selected || !authorized)
+      throw new Error('EXTENSION_RESOURCE_DENIED')
+    return new Response('selected content')
+  })
   let respond!: (request: Request) => Promise<Response>
   protocol.install({ protocol: { handle: (_scheme: string, handler: typeof respond) => {
     respond = handler
@@ -38,7 +44,15 @@ it('serves verified package media with range semantics and invalidates disposed 
   expect((await respond(new Request(new URL(`/__resource/${other.id}`, endpoint.url)))).status).toBe(403)
   await store.resources.release('tests.reader', file.id, () => {})
   expect((await respond(new Request(resourceUrl))).status).toBe(403)
+  const selectedUrl = new URL(`/__selected/${selected}`, endpoint.url)
+  expect(await (await respond(new Request(selectedUrl))).text()).toBe('selected content')
+  const otherEndpoint = protocol.register(store.installed['tests.reader']!.current, 'view')
+  expect((await respond(new Request(new URL(`/__selected/${selected}`, otherEndpoint.url)))).status).toBe(403)
+  authorized = false
+  expect((await respond(new Request(selectedUrl))).status).toBe(403)
+  authorized = true
   endpoint.dispose()
+  expect((await respond(new Request(selectedUrl))).status).toBe(403)
   expect((await respond(new Request(url))).status).toBe(403)
 })
 
@@ -65,29 +79,14 @@ it('serves root-absolute package URLs but keeps reserved and unlisted paths clos
   expect((await respond(new Request(new URL('/missing.woff2', endpoint.url)))).status).toBe(403)
 })
 
-it('keeps WebAssembly and workers blocked unless the extension declares the permission', async () => {
-  const { endpoint, respond } = await viewResponder({})
-  const csp = (await respond(new Request(new URL('/__view.html', endpoint.url)))).headers.get('content-security-policy')!
-  expect(csp).not.toContain('wasm-unsafe-eval')
-  expect(csp).toContain('worker-src \'none\'')
-})
-
-it('opens WebAssembly and workers for views of extensions that declare webAssembly, without allowing eval', async () => {
-  const { endpoint, respond } = await viewResponder({ webAssembly: true })
+it.each(['view', 'host'] as const)('opens WebAssembly and workers on the %s page without allowing eval', async (kind) => {
+  const { endpoint, respond } = await viewResponder({}, kind)
   const origin = endpoint.url.slice(0, endpoint.url.lastIndexOf('/'))
-  const response = await respond(new Request(new URL('/__view.html', endpoint.url)))
-  const csp = response.headers.get('content-security-policy')!
-  expect(csp).toContain(`script-src ${origin}/__package/ ${origin}/__view.js 'wasm-unsafe-eval';`)
+  const csp = (await respond(new Request(new URL(`/__${kind}.html`, endpoint.url)))).headers.get('content-security-policy')!
+  expect(csp).toContain(`script-src 'wasm-unsafe-eval' ${origin}/__package/ ${origin}/__${kind}.js;`)
   expect(csp).toContain(`worker-src ${origin}/__package/ blob:;`)
   expect(csp.replaceAll('\'wasm-unsafe-eval\'', '')).not.toContain('unsafe-eval')
-  expect(csp).toContain('sandbox allow-scripts allow-forms')
+  expect(csp).toContain(kind === 'view' ? 'sandbox allow-scripts allow-forms' : 'frame-ancestors \'none\'')
   const wasm = await respond(new Request(new URL('/__package/engine.wasm', endpoint.url)))
   expect(wasm.headers.get('content-type')).toBe('application/wasm')
-})
-
-it('never opens WebAssembly for the extension host page', async () => {
-  const { endpoint, respond } = await viewResponder({ webAssembly: true }, 'host')
-  const csp = (await respond(new Request(new URL('/__host.html', endpoint.url)))).headers.get('content-security-policy')!
-  expect(csp).not.toContain('wasm-unsafe-eval')
-  expect(csp).toContain('worker-src \'none\'')
 })

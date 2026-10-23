@@ -12,6 +12,7 @@ import { useProvideAutomationContext } from '@/modules/automations'
 import { useProvideBuddiesContext } from '@/modules/buddies'
 import { ExtensionWindowStyleController, useExtensionState, useExtensionUiContributions, useExtensionViews, useProvideExtensionContext } from '@/modules/extensions'
 import { DesktopExtensionControl, DesktopExtensionFrameHost, DesktopExtensionMenu, DesktopExtensionOverlays, DesktopExtensionReviewHost, DesktopExtensionSlot } from '@/modules/extensions/ui'
+import { useProvideFileOpening } from '@/modules/files'
 import { fileOperationsKey } from '@/modules/files/ui'
 import { DesktopSiteNoticeHost } from '@/modules/notifications/ui'
 import { useDesktopOnboarding, useFeatureDiscovery } from '@/modules/onboarding'
@@ -30,6 +31,7 @@ import { desktopRouteLocations } from '@/shared/navigation/desktopRoutes'
 import { useProvideWorkbenchCommands } from '@/shared/ui/contributions/workbenchCommands'
 import { useProvideWorkbenchUi } from '@/shared/ui/contributions/workbenchUiContext'
 import { useProvideDesktopUi } from '@/shared/ui/desktopUiContext'
+import { useReferenceTargetPicker } from '@/shared/ui/selection/useReferenceTargetPicker'
 import { showSelectionReferenceResult, workbenchSelectionReferencesKey } from '@/shared/ui/selection/workbenchSelectionReferences'
 import { useDesktopTypography } from '@/theme/desktopTypography'
 import { ThemeMaterialController } from '@/theme/ThemeMaterialController'
@@ -41,9 +43,11 @@ import { commandLabel } from '@/workbench/common/workbench'
 import { useDesktopPages } from '../router/useDesktopPages'
 import { useDesktopShellState } from '../shell/useDesktopShellState'
 import { desktopWorkbenchKey } from '../workbench/desktopWorkbenchContext'
+import { registerResourceContributions } from '../workbench/registerResourceContributions'
 import { useDesktopKeybindings } from '../workbench/useDesktopKeybindings'
 import { useDesktopWorkbench } from '../workbench/useDesktopWorkbench'
 import { useExtensionContributions } from '../workbench/useExtensionContributions'
+import { useExtensionReferences } from '../workbench/useExtensionReferences'
 import { useTaskResourceSpaces } from '../workbench/useTaskResourceSpaces'
 import { createDesktopCapabilities } from './desktopCapabilities'
 import { useDesktopAppState } from './useDesktopAppState'
@@ -75,11 +79,13 @@ const taskIndex = useTaskIndex({
   onSpaceCreated,
 })
 const diagnostics = createRendererDiagnostics(api.app.logs)
-const workbench = useDesktopWorkbench({ buddyCatalog: buddyDirectory.catalog, api, events: diagnostics.events, stores, taskIndex, router, resources: getResources, onError: () => message.error(translateBuddy(stores.applicationSettings.language.value, 'desktop.command.failed')) })
+const fileOpening = useProvideFileOpening(api.extensions)
+const workbench = useDesktopWorkbench({ fileOpening, buddyCatalog: buddyDirectory.catalog, api, events: diagnostics.events, stores, taskIndex, router, resources: getResources, onError: () => message.error(translateBuddy(stores.applicationSettings.language.value, 'desktop.command.failed')) })
 
 onScopeDispose(() => {
   void workbench.dispose().finally(() => diagnostics.dispose()).catch(() => {})
 })
+fileOpening.bindRegistry(workbench.controller.registry)
 provide(desktopWorkbenchKey, workbench)
 provide(workbenchSelectionReferencesKey, workbench.selectionReferences)
 provide(fileOperationsKey, workbench.fileOperations)
@@ -124,7 +130,8 @@ onScopeDispose(() => {
 })
 useProvideWorkbenchUi({ anchors, panes: paneRegistry, controlRenderer: DesktopExtensionControl, slotRenderer: DesktopExtensionSlot, menuRenderer: DesktopExtensionMenu })
 const ui = useExtensionUiContributions(extensions.installed, workbench.controller.configuration)
-useExtensionContributions({ controller: workbench.controller, renderers: workbench.renderers, persistence: workbench.persistence, installed: extensions.installed, api: api.extensions, views: extensionViews, ui, ready: () => workbench.initialized, selectionReferences: workbench.selectionReferences, onQuoteResult: (result, targetLabel) => showSelectionReferenceResult(message, (key, params) => translateBuddy(stores.applicationSettings.language.value, key, params), result, targetLabel) })
+const extensionReferences = useExtensionReferences({ references: workbench.selectionReferences, controller: workbench.controller, persistence: workbench.persistence, pool: workbench.pool, api: api.extensions, views: extensionViews, installed: extensions.installed, chooseTarget: useReferenceTargetPicker(() => stores.applicationSettings.language.value) })
+useExtensionContributions({ controller: workbench.controller, renderers: workbench.renderers, persistence: workbench.persistence, installed: extensions.installed, api: api.extensions, views: extensionViews, ui, ready: () => workbench.initialized, selectionReferences: workbench.selectionReferences, onQuoteResult: (result, targetLabel) => showSelectionReferenceResult(message, (key, params) => translateBuddy(stores.applicationSettings.language.value, key, params), result, targetLabel), receiveReference: extensionReferences.receive })
 useProvideExtensionContext({ settingsLocation: settingsRegistry.extensionLocation, authoring: { author: computed(() => stores.applicationSettings.config.value?.desktop.pluginAuthor ?? ''), save: author => stores.applicationSettings.updateSettings({ desktop: { pluginAuthor: author } }) }, state: extensions, views: extensionViews, themeColors: desktopTheme.extensionColors, themeRevision: desktopTheme.revision, anchors, ui, workbench: pages.context, language: stores.applicationSettings.language, isDark: desktopTheme.isDark, startCreation: prompt => workbench.startTaskWithSkill('plugin-creator', prompt), endInteraction: id => workbench.controller.interactions.end(id), focusView: (id) => {
   workbench.controller.focus(id)
 } })
@@ -143,9 +150,22 @@ const resources = useTaskResourcePanel({
   mode: computed(() => stores.applicationSettings.config.value?.desktop.contextPanelMode ?? 'task'),
   linkOpening: computed(() => stores.applicationSettings.config.value?.browser.linkOpening ?? 'in-app'),
   autoCollapse: computed(() => stores.applicationSettings.config.value?.desktop.contextPanelAutoCollapse ?? false),
+  artifactOpening: computed(() => stores.applicationSettings.config.value?.desktop.artifactOpening ?? 'file-manager'),
   taskVisible: computed(() => pages.current.value === 'lexora.tasks' || !!stores.applicationSettings.config.value?.desktop.contextPanelGlobal),
   control: api.contextPanel,
   browser: api.browser,
+  fileOpening: {
+    ensureReady: fileOpening.ensureReady,
+    resolve: fileOpening.resolve,
+    open: async (artifact, provider, current) => {
+      const prepared = await api.extensions.prepareFileOpening({ providerId: provider.id, location: 'standalone', source: { kind: 'artifact', artifactId: artifact.artifactId } })
+      if (!current())
+        return
+      const id = await workbench.controller.open({ scheme: 'extension', id: `artifact:${artifact.artifactId}:${provider.id}`, data: { extensionId: prepared.extensionId, viewType: prepared.viewType, resource: prepared.resource } }, artifact.name, { viewType: prepared.viewType, location: 'context', state: { version: 0, value: {}, contextSource: { conversationId: artifact.conversationId, runId: artifact.runId } } })
+      if (!id)
+        throw new Error('FILE_OPENER_UNAVAILABLE')
+    },
+  },
   closeView: async id => (await workbench.controller.close(id)).status === 'closed',
   closeFiles: workbench.closeContextFiles,
   revealOpenOfficeDocument: workbench.revealOpenOfficeDocument,
@@ -153,6 +173,7 @@ const resources = useTaskResourcePanel({
   runOutputs: computed(() => selectedTask.value?.workspace.transcript.runOutputs.value ?? []),
   onError: () => message.error(translateBuddy(stores.applicationSettings.language.value, 'desktop.context.controlFailed')),
 })
+onScopeDispose(registerResourceContributions(workbench.controller.registry, () => resources, () => stores.applicationSettings.language.value))
 provideExecutionEnvironment({
   api: api.localChat.executions,
   ready: computed(() => stores.runtimeSupervisor.runtimeState.value.status === 'ready'),

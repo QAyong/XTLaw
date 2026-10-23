@@ -6,10 +6,14 @@ import { subscribe } from './subscribe'
 export function createExtensionApi(): ExtensionApi {
   const request = (input: ExtensionManagementRequest) => ipcRenderer.invoke(EXTENSION_IPC.request, input)
   return Object.freeze({
-    openFile: resource => request({ action: 'openFile', resource }),
+    openFile: (resource, providerId) => request({ action: 'openFile', resource, ...(providerId ? { providerId } : {}) }),
     taskActions: () => request({ action: 'taskActions' }),
     invokeTaskAction: input => request({ action: 'invokeTaskAction', input }),
     list: () => request({ action: 'list' }),
+    fileOpeners: () => request({ action: 'fileOpeners' }),
+    setFileOpener: choice => request({ action: 'setFileOpener', choice }),
+    prepareFileOpening: input => request({ action: 'prepareFileOpening', input }),
+    prepareReferenceOpening: input => request({ action: 'prepareReferenceOpening', input }),
     unavailable: () => request({ action: 'unavailable' }),
     detectShells: id => request({ action: 'detectShells', id }),
     selectShellExecutable: (id, candidate) => request({ action: 'selectShellExecutable', id, candidate }),
@@ -23,7 +27,7 @@ export function createExtensionApi(): ExtensionApi {
     reviewCatalog: (id, version) => request({ action: 'reviewCatalog', id, version }),
     cancelInstallation: id => request({ action: 'cancelInstallation', id }),
     selectPackage: (development = false) => request({ action: 'selectPackage', development }),
-    install: token => request({ action: 'install', token }),
+    install: (token, choices) => request({ action: 'install', token, choices }),
     cancelInstall: token => request({ action: 'cancelInstall', token }),
     enable: (id, enabled) => request({ action: 'enable', id, enabled }),
     restart: id => request({ action: 'restart', id }),

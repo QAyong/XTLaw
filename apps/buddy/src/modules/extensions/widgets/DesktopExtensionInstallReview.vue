@@ -55,14 +55,12 @@ const permissions = computed(() => {
     ...permissions.network.map(origin => ({ key: `network:${origin}`, icon: Globe20Regular, title: `${labels.value.network} ${origin}`, description: english.value ? 'Send requests to this website and read its responses.' : '向此网站发送请求并读取响应。' })),
   ]
 })
-// Plugins that did not ship with XTLaw get a plain warning for the permissions that change files or run compiled code.
+// Plugins that did not ship with XTLaw get a plain warning for the permission that overwrites files.
 function riskWarning(key: string): string | null {
   if (extensionIsBundled(props.review.source))
     return null
   if (key === 'selectedResourceWrite')
     return english.value ? 'This plugin can overwrite the files it opens. Install it only if you trust its author.' : '此插件可以覆盖它所打开的文件。只有信任作者时才安装。'
-  if (key === 'webAssembly')
-    return english.value ? 'This plugin runs compiled code that may use a lot of memory and CPU while its page is open.' : '此插件会运行编译代码，打开页面期间可能占用较多内存和处理器。'
   return null
 }
 function isNewPermission(key: string): boolean {

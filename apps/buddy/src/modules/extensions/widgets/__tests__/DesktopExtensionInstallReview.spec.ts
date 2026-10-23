@@ -179,9 +179,9 @@ async function mountReview(source: ExtensionReview['source'], permissions: Recor
 const bundled = { catalog: BUNDLED_EXTENSION_CATALOG_URL, artifact: `${BUNDLED_EXTENSION_CATALOG_URL}/docs.lexora-extension`, sha256: 'a'.repeat(64) }
 const remote = { catalog: 'https://example.com/index.json', artifact: 'https://example.com/docs.lexora-extension', sha256: 'b'.repeat(64) }
 
-it('marks write-back and WebAssembly as high risk for plugins that did not ship with XTLaw', async () => {
+it('marks write-back, but not WebAssembly, as high risk for plugins that did not ship with XTLaw', async () => {
   const text = await mountReview(remote, { selectedResourceWrite: true, webAssembly: true, composerReference: true })
-  expect(document.body.querySelectorAll('[data-testid="extension-permission-risk"]')).toHaveLength(2)
+  expect(document.body.querySelectorAll('[data-testid="extension-permission-risk"]')).toHaveLength(1)
   expect(text).toContain('此插件可以覆盖它所打开的文件')
   expect(text).toContain('编译代码')
   expect(text).toContain('将文件选区引用到聊天')

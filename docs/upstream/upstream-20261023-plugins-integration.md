@@ -62,8 +62,8 @@
 **C WASM 与 Worker。** 采用 `context.workers.create()`、`ExtensionPackageTransfer`、包预算、`extensionPackageAuthoring`。
 
 - 运行能力完全对接上游：不再用 `permissions.webAssembly` 作为 CSP 和 `workers.create()` 的门槛，后台页和视图页对所有插件开放，没有 `EXTENSION_WORKER_DENIED`，`bootstrap` 也不再传 `webAssembly`。上游 `workers.md`、`extensionWorkers.ts` 原样采用。
-- `permissions.webAssembly` 仍是清单里被接受的声明字段（`plugins/office-xlsx` 已声明，不会被拒绝），只保留安装审查的“高风险”提示和第三方包 4 个 `.wasm`、合计 24 MiB 的限额，二者都不影响运行能力。
-- 第三方插件仍受 4 个 `.wasm`、合计 24 MiB 与高风险安装审查约束；`documents.webAssembly` 描述同步；`.wasm` 仍以 `application/wasm` 提供。`plugins/office-xlsx` 已声明该权限，不受影响。
+- `permissions.webAssembly` 只剩一个被接受的声明字段（`plugins/office-xlsx` 已声明，字段保留不会被拒绝）。原本地的安装限制一并去掉：第三方包 4 个 `.wasm`、合计 24 MiB 的限额（`EXTENSION_WEBASSEMBLY_LIMIT`）和安装确认里对它的“高风险”标记；`.wasm` 数量和体积只受包预算约束。写回（`selectedResourceWrite`）的“高风险”标记不变。
+- `documents.webAssembly` 描述、文档同步；`.wasm` 仍以 `application/wasm` 提供。`plugins/office-xlsx` 已声明该权限，不受影响。
 - `workers.md`、`capabilities.md`、`document-processor.md`、`README.md` 的包预算与 Worker 说明已与上游新增文档合并。
 
 ## 样式与品牌

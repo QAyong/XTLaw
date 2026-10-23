@@ -97,7 +97,7 @@ node extensions/tools-run.mjs pack /path/to/plugin /path/to/plugin.lexora-extens
 | 读取文件 | 每次最多 128 KiB，文件最多 64 MiB；读取中文件变化则失败 |
 | 写回 / 另存为 | 最多 64 MiB；写回要求本视图已完整读过该文件，并检查版本与哈希，外部已修改则拒绝覆盖 |
 | 聊天引用 | 文字最多 32768 字符；`kind` 为 `^[a-z][a-z0-9-]{0,31}$`；`location` 为不超过 4096 字节的 JSON（深度 4、键 32、数组 64、字符串 512）；每条消息最多 16 条引用，文字合计 131072 字符 |
-| `.wasm`（第三方） | 最多 4 个、合计 24 MiB，超出时安装被拒绝（`EXTENSION_WEBASSEMBLY_LIMIT`）。数值由实现者定，可调整；内存、CPU 和 Worker 数量宿主不强制 |
+| `.wasm` | 只受包预算约束，不另设数量或体积上限；内存、CPU 和 Worker 数量宿主不强制 |
 
 ### 用户会看到的权限提示
 

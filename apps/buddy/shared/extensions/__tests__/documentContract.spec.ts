@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { documentContractReport } from '../extensionDocumentContract'
 import { extensionManifestSchema } from '../extensionManifest'
-import { EXTENSION_UNTRUSTED_WASM_FILE_LIMIT } from '../extensionTrust'
 
 function plugin(patch: { engines?: string, permissions?: Record<string, unknown>, views?: unknown[] } = {}) {
   const id = 'tests.docs'
@@ -54,14 +53,5 @@ describe('document contract report', () => {
     expect(warnings).toHaveLength(1)
     expect(warnings[0]).toContain('at least 0.2.3')
     expect(documentContractReport(plugin({ engines: '>=0.2.3 <1.0.0', permissions: { webAssembly: true } }), options).warnings).toEqual([])
-  })
-
-  it('warns about WebAssembly beyond the third-party limits, except in development folders', () => {
-    const files = Array.from({ length: EXTENSION_UNTRUSTED_WASM_FILE_LIMIT + 1 }, (_, index) => ({ path: `wasm/m${index}.wasm`, size: 1000 }))
-    const manifest = plugin({ permissions: { webAssembly: true } })
-    expect(documentContractReport(manifest, { ...options, files }).warnings.join('\n')).toContain('EXTENSION_WEBASSEMBLY_LIMIT')
-    expect(documentContractReport(manifest, { ...options, files, development: true }).warnings).toEqual([])
-    expect(documentContractReport(manifest, { ...options, files: [{ path: 'engine.wasm', size: 25 * 1024 * 1024 }] }).warnings.join('\n')).toContain('EXTENSION_WEBASSEMBLY_LIMIT')
-    expect(documentContractReport(manifest, { ...options, files: [{ path: 'engine.wasm', size: 10 * 1024 * 1024 }] }).warnings).toEqual([])
   })
 })

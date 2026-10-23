@@ -84,7 +84,7 @@ await context.composer.addQuote(capture.id, targetId) // added | duplicate | lim
 
 `webAssembly: true` 的作用范围很窄：
 
-- 只对**视图页**放开 `script-src 'wasm-unsafe-eval'` 和 `worker-src <插件包路径> blob:`；宿主页（extension.js）不受影响。视图里的 `context.workers.create()` 同样依赖这一项权限，未声明时以 `EXTENSION_WORKER_DENIED` 拒绝；宿主页的 `context.workers.create()` 始终拒绝。
+- 只对声明了它的插件放开 `script-src 'wasm-unsafe-eval'` 和 `worker-src <插件包路径> blob:`，视图页和宿主页（extension.js）都适用。`context.workers.create()` 同样依赖这一项权限，未声明时以 `EXTENSION_WORKER_DENIED` 拒绝。
 - 仍然**禁止 JS eval**（`eval`、`new Function`），Worker 只能从 `blob:` 或包内路径启动；沙箱视图是不透明源，不能按 URL 加载 Worker 脚本，需要从 blob 启动。
 - `.wasm` 文件以 `application/wasm` 提供，必须随包发布；视图不能从网络加载代码（`connect-src` 仍只含包内和资源路径）。
 - **所有插件可声明，第三方有限额**：内置/官方插件（宿主记录的安装来源是内置目录）和开发目录加载（`development`）不受限；其他来源（本地 `.lexora-extension`/`.zip` 包、远端目录）的包内 `.wasm` 文件最多 4 个、合计不超过 24 MiB，超出时安装审查拒绝，错误码 `EXTENSION_WEBASSEMBLY_LIMIT`。判定只看宿主记录的来源，不看包里的作者名或插件名。

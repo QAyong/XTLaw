@@ -1,6 +1,6 @@
 # WebAssembly 与 Worker
 
-插件视图在清单声明 `permissions.webAssembly: true` 后支持浏览器原生 WebAssembly，以及视图 `context.workers.create()`；Worker 与 WebAssembly 共用这一项权限，安装时单独提示，第三方插件另受 `.wasm` 数量和体积限制，见 [文档处理器契约](document-processor.md#4-webassembly)。未声明时 `create()` 以 `EXTENSION_WORKER_DENIED` 拒绝，内容安全策略也不开放 WebAssembly 编译和 Worker。插件后台（extension.js）不开放 WebAssembly 与 Worker，`context.workers.create()` 同样以 `EXTENSION_WORKER_DENIED` 拒绝；需要计算时放到视图里。文件、网络、导出等能力仍受原有授权控制。使用新增运行时能力时，`engines.lexora` 的最低版本必须覆盖实际提供该能力的宿主；不能只沿用旧插件的宽泛版本范围。
+插件后台和视图在清单声明 `permissions.webAssembly: true` 后支持浏览器原生 WebAssembly，以及 `context.workers.create()`；Worker 与 WebAssembly 共用这一项权限，安装时单独提示，第三方插件另受 `.wasm` 数量和体积限制，见 [文档处理器契约](document-processor.md#4-webassembly)。未声明时 `create()` 以 `EXTENSION_WORKER_DENIED` 拒绝，内容安全策略也不开放 WebAssembly 编译和 Worker。文件、网络、导出等能力仍受原有授权控制。后台也是浏览器沙箱，不是 Node.js。使用新增运行时能力时，`engines.lexora` 的最低版本必须覆盖实际提供该能力的宿主；不能只沿用旧插件的宽泛版本范围。
 
 ## 创建与加载
 
@@ -41,7 +41,7 @@ const { instance } = await WebAssembly.instantiateStreaming(
 ## 生命周期与取消
 
 - 视图 Worker 随该视图销毁终止；隐藏视图不等于销毁，是否暂停由插件决定。
-- `ExtensionContext.signal` 表示当前后台宿主生命周期，可用来绑定后台的异步工作；后台本身不创建 Worker。
+- 后台 Worker 随插件停用、重启或宿主退出终止，不依赖是否有页面打开。`ExtensionContext.signal` 表示当前后台宿主生命周期。
 - `options.signal` 在以上生命周期之内进一步限定一次操作。Agent 工具或动作中传入本次调用的 `signal`，调用结束或取消后不保留该操作的 Worker。
 - 手动 `worker.terminate()` 可提前释放 Worker 及其入口 URL；Worker 执行错误也会释放托管实例。
 - 切换输入或开始新查询时，用独立 `AbortController` 取消旧操作；需要期限时组合 `AbortSignal.timeout()`。取消会终止 Worker，可以中断同步 WASM，而不是只发送一条等待引擎处理的消息。

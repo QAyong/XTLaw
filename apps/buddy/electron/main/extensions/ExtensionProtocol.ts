@@ -53,9 +53,9 @@ export class ExtensionProtocol {
         return new Response(null, { status: 403 })
       const path = decodeURIComponent(url.pathname)
       const origin = `${EXTENSION_PROTOCOL}://${endpoint.token}`
-      // WebAssembly and workers are opt-in per extension and only for views; neither permits JS eval in the page.
+      // WebAssembly and workers are opt-in per extension, for its views and its host page alike; neither permits JS eval in the page.
       // The sandbox gives views an opaque origin, which cannot load a worker script by URL, so workers start from blob: URLs.
-      const wasm = kind === 'view' && endpoint.package.manifest.permissions.webAssembly
+      const wasm = endpoint.package.manifest.permissions.webAssembly
       const csp = `default-src 'none'; script-src ${origin}/__package/ ${origin}/__${kind}.js${wasm ? ' \'wasm-unsafe-eval\'' : ''}; style-src ${origin}/__package/ 'unsafe-inline'; img-src ${origin} data: blob:; font-src ${origin} data: blob:; media-src ${origin} blob:; connect-src ${origin}/__package/ ${origin}/__resource/ ${origin}/__selected/; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; worker-src ${wasm ? `${origin}/__package/ blob:` : '\'none\''}; ${kind === 'view' ? 'sandbox allow-scripts allow-forms; frame-ancestors lexora-app://renderer http://localhost:1420 http://127.0.0.1:1420' : 'frame-ancestors \'none\''}`
       const headers = { 'content-security-policy': csp, 'access-control-allow-origin': '*', 'x-content-type-options': 'nosniff', 'cache-control': 'no-store' }
       if (path.startsWith('/__selected/')) {

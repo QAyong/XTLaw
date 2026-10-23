@@ -12,7 +12,7 @@
 | 接管一种文件格式（编辑、保存、引用到聊天） | API 4；视图 `accepts.extensions`、`selectedResource: "read"`，按需 `selectedResourceWrite`、`composerReference`、`resourceExport`，见 [文档处理器契约](document-processor.md) | 以 `documents.*` 能力名查询宿主是否支持（`lexora_plugin_capabilities` 的 `runtime`）；多个插件接管同一扩展名时留在内置预览；写回检查文件版本和哈希，不覆盖外部修改；`webAssembly` 仅内置/官方插件 |
 | 输入 `/插件名:命令` 执行插件动作 | API 3 命令声明 `slash`，并在 `activate` 注册处理函数；见 [注册命令](commands.md) | 精确匹配，包内校验注册，跨插件命名空间隔离，不请求模型 |
 | 需要真实分屏布局或临时覆盖交互 | API 3；见 [交互会话](interactions.md) | 订阅布局；稀疏点击区域或独占交互；宿主提供独立退出入口 |
-| WASM 引擎、二进制解析或不阻塞界面的计算 | 视图的 `workers.create`（需声明 `webAssembly`，后台不可用），见 [WebAssembly 与 Worker](workers.md) | 包内代码与原生浏览器 API；支持操作级取消，关闭视图不代替后台任务生命周期，不开放 Node 或真实文件系统 |
+| WASM 引擎、二进制解析或不阻塞界面的计算 | 后台与视图的 `workers.create`（需声明 `webAssembly`），见 [WebAssembly 与 Worker](workers.md) | 包内代码与原生浏览器 API；支持操作级取消，关闭视图不代替后台任务生命周期，不开放 Node 或真实文件系统 |
 | 执行一次动作，无需常驻页面 | 宿主 `activate` 注册 `contributes.commands` 中的命令 | 可见命令进入命令面板和已安装插件卡片的“运行命令”菜单；命令收到的 `resource` 可能为空。只供自己视图调用的命令设为 `hidden: true` |
 | 目录入口、较完整的页面或设置表单 | `contributes.navigation` 引用 `resource: "none"` 的视图 | API 2 可省略视图 `location`；页面由 `render` 绘制。需要持久配置时通过自身隐藏命令调用宿主私有存储 |
 | 将自定义内容挂到页面区域 | `kind: "view"`、`target` 与 `presentation`；宿主命令调用 `placements.show/hide` | 通过能力查询选择全局、页面或分屏目标。插件渲染隔离内容，通过通用外框布局接口声明定位和尺寸。挂载口没有面板 UI 或交互 |

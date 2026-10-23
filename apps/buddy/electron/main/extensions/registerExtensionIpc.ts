@@ -7,6 +7,7 @@ import type { ExtensionAgentCatalog, ExtensionAgentDescriptor, ExtensionAgentInv
 import type { ExtensionReview, ExtensionReviewResult, ExtensionWorkbenchEvent } from '../../../shared/extensions/extensionApi'
 import type { ExtensionInspection } from '../../../shared/extensions/extensionAuthoring'
 import type { ExtensionConditionRuntime } from '../../../shared/extensions/extensionConditionContext'
+import type { TaskFileTarget } from '../../../shared/files/taskFileApi'
 import type { SpaceFileByteChunk, SpaceFileByteRequest, SpaceFileTarget, SpaceSaveBytes, SpaceSaveBytesResult } from '../../../shared/spaces/spaceFileApi'
 import type { JsonValue } from '../../../shared/workbench/workbenchState'
 import { join } from 'node:path'
@@ -35,6 +36,7 @@ export function registerExtensionIpc(options: {
   getWindow: () => BrowserWindow | null
   readResource: (target: SpaceFileTarget, signal: AbortSignal, request?: Request) => Promise<Response>
   readArtifactResource?: (artifactId: string, signal: AbortSignal, request?: Request) => Promise<{ name: string, response: Response }>
+  readTaskFileResource?: (target: TaskFileTarget, signal: AbortSignal, request?: Request) => Promise<{ name: string, response: Response }>
   readText: (target: SpaceFileTarget, signal: AbortSignal) => Promise<string>
   readBytes: (input: SpaceFileByteRequest, signal: AbortSignal) => Promise<SpaceFileByteChunk>
   saveBytes: (input: SpaceSaveBytes, signal: AbortSignal) => Promise<SpaceSaveBytesResult>
@@ -89,6 +91,7 @@ export function registerExtensionIpc(options: {
     saveBytes: options.saveBytes,
     readResource: options.readResource,
     readArtifactResource: options.readArtifactResource,
+    readTaskFileResource: options.readTaskFileResource,
     openExternal: url => shell.openExternal(url),
     agentRequest: options.agentRequest,
     conditionRuntime: options.conditionRuntime,

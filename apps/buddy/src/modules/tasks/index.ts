@@ -1,5 +1,6 @@
 export type { TaskCapability, TaskChatWorkspace } from './contracts'
 export type { TaskContextTab } from './model/context-panel/taskContextPanel'
+export { createFileLinkMenu } from './state/artifacts/createFileLinkMenu'
 export { useTaskResourcePanel } from './state/context-panel/useTaskResourcePanel'
 export { createConversationExport } from './state/conversations/conversationExport'
 export { provideExecutionEnvironment } from './state/runs/chatExecutionContext'

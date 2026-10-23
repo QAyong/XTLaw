@@ -1,6 +1,7 @@
 import type { BrowserClearDataInput } from '../../shared/browser/browserData'
 import type { BrowserScreenshotResult } from '../../shared/browser/browserDesktopApi'
 import type { BrowserLocateElementInput } from '../../shared/browser/browserSelection'
+import type { TaskFileTarget } from '../../shared/files/taskFileApi'
 import type { DesktopBrowserGuestDescriptor, DesktopBrowserProfileMode, DesktopBrowserSetSurfaceInput, DesktopBrowserState, LexoraDesktopApi } from '../shared/desktopApi'
 import { ipcRenderer } from 'electron'
 import { DESKTOP_IPC_CHANNELS } from '../shared/desktopApi'
@@ -76,6 +77,10 @@ export function createBrowserApi(): Pick<LexoraDesktopApi, 'browser'> {
       openDevTools: (sessionId: string): Promise<boolean> => ipcRenderer.invoke(
         DESKTOP_IPC_CHANNELS.browserOpenDevTools,
         { sessionId },
+      ),
+      openFile: (sessionId: string, target: TaskFileTarget): Promise<DesktopBrowserState> => ipcRenderer.invoke(
+        DESKTOP_IPC_CHANNELS.browserOpenFile,
+        { sessionId, target: { conversationId: target.conversationId, path: target.path } },
       ),
       reload: (sessionId: string) => ipcRenderer.invoke(
         DESKTOP_IPC_CHANNELS.browserReload,

@@ -72,6 +72,7 @@ describe('registerBrowserDesktopIpc page dialogs', () => {
       getHost: () => host,
       getWindow: () => window,
       resolveArtifactEntry: async () => { throw new Error('unused') },
+      resolveFileEntry: async () => { throw new Error('unused') },
     })
     const replies: unknown[] = []
     const event = { sender: { id: 17, mainFrame, hostWebContents: desktop, getType: () => 'webview', isDestroyed: () => false }, senderFrame: mainFrame } as unknown as IpcMainEvent

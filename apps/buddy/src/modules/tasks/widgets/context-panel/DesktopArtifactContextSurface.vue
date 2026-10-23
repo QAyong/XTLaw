@@ -21,6 +21,7 @@ import { useArtifactPreview } from './useArtifactPreview'
 
 const props = defineProps<{
   artifact: LocalArtifact
+  providerId?: string
   tabId: string
   visible: boolean
   language: BuddyLocale
@@ -32,7 +33,10 @@ const references = useSelectionReferences()
 const quoteMenu = useTemplateRef<InstanceType<typeof ResourceSelectionQuoteMenu>>('quoteMenu')
 const opening = useFileOpening()
 const provider = computed(() => {
-  const selected = opening?.resolve(props.artifact.name, 'standalone').provider
+  const selected = props.providerId
+    ? opening?.snapshot.value.providers.find(provider => provider.id === props.providerId && provider.available)
+    ?? resolveBuiltinFileOpening(props.artifact.name, 'standalone').candidates.find(provider => provider.id === props.providerId)
+    : opening?.resolve(props.artifact.name, 'standalone').provider
   return selected?.builtin ? selected : resolveBuiltinFileOpening(props.artifact.name, 'standalone').provider
 })
 const handler = computed(() => fileOpeningHandler(provider.value))

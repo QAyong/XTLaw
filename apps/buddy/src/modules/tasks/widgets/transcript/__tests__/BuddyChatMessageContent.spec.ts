@@ -120,8 +120,7 @@ describe('buddyChatMessageContent', () => {
     const fileLink = [...links].find(a => a.textContent === 'hello1.md')
     expect(fileLink).toBeDefined()
     fileLink!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
-    expect(canPreviewFile).toHaveBeenCalledWith('sandbox:/workspace/hello1.md')
-    expect(previewFile).toHaveBeenCalledWith('sandbox:/workspace/hello1.md')
+    expect(previewFile).toHaveBeenCalledWith('sandbox:/workspace/hello1.md', undefined)
     expect(openSpy).not.toHaveBeenCalled()
 
     const externalLink = [...links].find(a => a.textContent === '外部官网')

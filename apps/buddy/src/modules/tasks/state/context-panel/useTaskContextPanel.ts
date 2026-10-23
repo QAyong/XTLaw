@@ -112,7 +112,7 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
     return conversationId && runId ? { conversationId, runId } : undefined
   }
 
-  function openArtifact(target: string | LocalArtifact) {
+  function openArtifact(target: string | LocalArtifact, providerId?: string) {
     const artifact = typeof target === 'string'
       ? options.runOutputs.value.flatMap(output => output.artifacts).find(item => item.artifactId === target)
       : target
@@ -120,7 +120,7 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
       return
     const id = artifactTabId(artifact.artifactId)
     const previous = store.resources.value.find(tab => tab.id === id)
-    openTab({ artifact, id, scope: taskContextPanelScope(artifact.conversationId), kind: 'artifact', label: artifact.name, viewMode: previous?.kind === 'artifact' ? previous.viewMode : 'preview' })
+    openTab({ artifact, id, scope: taskContextPanelScope(artifact.conversationId), kind: 'artifact', label: artifact.name, providerId, viewMode: previous?.kind === 'artifact' && previous.providerId === providerId ? previous.viewMode : 'preview' })
   }
 
   function setArtifactViewMode(tabId: string, viewMode: ArtifactViewMode) {

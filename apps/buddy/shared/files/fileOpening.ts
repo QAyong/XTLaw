@@ -67,7 +67,7 @@ export function resolveFileOpening(snapshot: FileOpeningSnapshot, name: string, 
   const preferred = candidates.find(provider => provider.id === preferredId && extension !== null && fileOpeningExtension(extension, [provider]) !== null)
   const builtin = candidates.find(provider => provider.builtin)
   const implicit = candidates.filter(provider => provider.implicit && fileOpeningExtension(name, [provider]) === extension)
-  return { extension, preferredId, provider: preferred ?? (implicit.length === 1 ? implicit[0] : null) ?? builtin ?? null, unavailable: preferredId !== null && !preferred }
+  return { extension, preferredId, candidates, provider: preferred ?? (implicit.length === 1 ? implicit[0] : null) ?? builtin ?? null, unavailable: preferredId !== null && !preferred }
 }
 
 export function resolveBuiltinFileOpening(name: string, location: FileOpeningLocation) {

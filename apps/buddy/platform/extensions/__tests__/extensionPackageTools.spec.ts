@@ -39,7 +39,7 @@ it.each(['compiled', 'source'] as const)('preserves package resources through ex
     await writeFile(join(source, name), bytes)
   }
   await writeFile(join(source, 'extension.json'), JSON.stringify(manifest({ format, engines: { lexora: '*' }, entry: `extension.${suffix}`, contributes: { commands: [], views: [{ id: 'tests.reader.view', title: 'Reader', entry: `view.${suffix}` }] } })))
-  await run(process.execPath, ['extensions/tools.mjs', 'export-sdk', sdk])
+  await run(process.execPath, ['extensions/tools-run.mjs', 'export-sdk', sdk])
   const plugin = await import(pathToFileURL(join(sdk, 'plugin.mjs')).href) as { buildPlugin: typeof buildExtensionDirectory, packPlugin: typeof packExtensionDirectory }
   const sdkOutput = join(root, 'sdk-output')
   await plugin.buildPlugin(source, sdkOutput)

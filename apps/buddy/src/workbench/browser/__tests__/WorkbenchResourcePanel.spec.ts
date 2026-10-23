@@ -117,7 +117,7 @@ it('retains a resource surface while switching through an empty task scope', asy
 
 it('places optional header actions to the right of maximize without moving the add-tab button', () => {
   const element = document.createElement('div')
-  const app = createApp({ render: () => h(WorkbenchResourcePanel, { activeTabId: 'files', tabs: [{ id: 'files', title: 'Files' }], actions: [], language: 'en-US', maximized: false }, { headerActions: () => h('button', { 'data-test-open': '' }, 'Open') }) })
+  const app = createApp({ render: () => h(WorkbenchResourcePanel, { activeTabId: 'files', tabs: [{ id: 'files', title: 'Files' }], actions: [{ id: 'files', label: 'Files', disabled: false }], language: 'en-US', maximized: false }, { headerActions: () => h('button', { 'data-test-open': '' }, 'Open') }) })
   app.mount(element)
   try {
     const add = element.querySelector('[data-testid="context-add-tab"]')!
@@ -139,7 +139,7 @@ it('adds maximize and restore without changing the add-tab placement', async () 
   const app = createApp({ render: () => h(WorkbenchResourcePanel, {
     activeTabId: active.value,
     tabs: active.value ? [{ id: 'files', title: 'Files' }] : [],
-    actions: [],
+    actions: [{ id: 'files', label: 'Files', disabled: false }],
     language: 'en-US',
     maximized: maximized.value,
     onToggleMaximize: () => maximized.value = !maximized.value,

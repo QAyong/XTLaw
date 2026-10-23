@@ -30,7 +30,29 @@
 - 新增依赖 `yaml 2.9.0`，需要确认并执行 `pnpm install`。
 - 无迁移、无 Rust。
 
-可选做法见本轮汇报：补回 #257 的 `#sources` 再移植、直接把插件技能适配到本地的加载方式，或推迟到 Office 插件真有技能要附带时。
+### 下一轮计划（已确认）：先补回 #257 的上游最终版本，再移植 `2d630ea4e`
+
+只读评估，均为对当前 `master` 的试合并，未改工作区。
+
+**第一步：`d53682a9d`（#257，加快 Skills 设置页加载）的上游最终版本**
+
+- 24 个文件，+948/-187，试合并冲突 11 处。#257 是我们提交的 PR，上游合并时由维护者追加了改动（提交带 `Co-authored-by: shanyuhai123`），本地只有早期的轻量实现（`c54923f02` 仅读 SKILL.md、`77e895a77` 并发读取、`2497f90b1` 规格记录）。按 AGENTS.md “PR 合并后对比上游最终版本、把差异同步回本地” 的约定，这一步是把维护者的追加改动同步回来。
+- 上游最终版本新增 `SkillSourceCache.ts`（206 行，带文件监听的来源缓存，即 `#sources`），`SkillPackageCache`/`skillFiles`/`SkillInspector`/`SkillService` 随之改写，并包含 **Rust 原生改动**：`file_reader.rs` 的 `--batch` 批量读取、`bounded_file.rs` 测试、`nativeBoundedFile.ts` 的批量调用。
+- 冲突分布：`SkillService.ts` 4 处、`skillFiles.ts` 2 处、`SkillService.spec.ts` 2 处，其余各 1 处（`SkillInspector.ts`、两个技能测试、`useSkillsManager.ts`、`DesktopSkillsToolbar.vue`、`file_reader.rs`、`bounded_file.rs`、`nativeBoundedFile.ts`）。
+- 必须保留的本地部分：`developerToolsEnabled` 与 `#canOverrideBuiltin`（允许覆盖内置技能，`0cc69e858`）；`file_reader.rs` 里本地的 `range` 读取与 `--save-binary`。
+- **与上一轮决定相反：** `upstream-20261022-7` 记录里当时没有引入上游的 `--batch`（`run_batch`）。#257 的最终版本依赖它，这一步会把它带进来，需要再确认一次。
+- Rust 部分只能靠 `XTLaw CI` 的 native checks 验证，适合在云端会话做。
+
+**第二步：`2d630ea4e`（插件附带技能）**
+
+- 第一步完成后再试合并，冲突从 29 处降到 11 处（14 个文件降到 11 个）。其中：
+  - 机械性的：`ExtensionPackageStore.ts`、`buildExtensionPackage.ts`、`extensionManifest.ts`（导入与校验顺序）、`SKILL.md`（保持 XTLaw 文案）、`DesktopExtensionInstallReview.vue`（本地是作用域样式，技能区块改写成同一风格）。
+  - 样式性的：`DesktopSkillDetail.vue`、`DesktopSkillFiles.vue`、`DesktopSkillRow.vue`、`ChatComposerSourcePicker.vue`、`chatComposerEditing.spec.ts`，本地已改成作用域样式，上游仍是原子类名；保留本地类名，只带入 `skillInvocationName` 等内容改动。
+  - 实质性的：`SkillService.ts` 里 `developerToolsEnabled` 与新增的 `pluginSkills` 并存、`#currentSkill` 的参数。
+- 新增依赖 `yaml 2.9.0`，需要确认并执行 `pnpm install`；无迁移、无 Rust。
+- 两步之间有顺序依赖，建议同一个分支、两个提交，在云端会话里做。
+
+**不建议的做法：** 把插件技能直接适配到本地的轻量加载方式。本地和上游的技能服务会越差越远，之后每次同步技能相关提交都要重新适配。
 
 ## 检查
 

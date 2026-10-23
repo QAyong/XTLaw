@@ -1,4 +1,5 @@
 import type { BuddyResourceQuote } from './buddyUserContent'
+import { isBuddyViewQuote } from './buddyUserContent'
 import { escapeLiteralMarkers } from './buddyUserReferenceText'
 
 export function resourceQuoteText(quotes: readonly BuddyResourceQuote[] = []): string {
@@ -9,6 +10,8 @@ export function resourceQuoteText(quotes: readonly BuddyResourceQuote[] = []): s
       const { locator: _, ...element } = quote.element
       return { source: { title: quote.source.title, url: quote.source.url }, text: quote.text, contentKind: quote.contentKind, element }
     }
+    if (isBuddyViewQuote(quote))
+      return { source: { title: quote.source.title, provider: quote.source.provider }, text: quote.text }
     const { source, text, range } = quote
     // A spreadsheet excerpt is only usable with its place in the workbook: tab-separated cells, one line per row.
     const cells = source.kind === 'file' && source.xlsx ? { sheet: source.xlsx.sheet, range: source.xlsx.range } : null

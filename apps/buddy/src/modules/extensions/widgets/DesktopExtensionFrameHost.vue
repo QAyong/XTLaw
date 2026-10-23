@@ -11,6 +11,7 @@ import { showSelectionReferenceResult } from '@/shared/ui/selection/workbenchSel
 import { SurfaceHitRegions } from '@/workbench/browser/surfaces/SurfaceHitRegions'
 import { useExtensionContext } from '../extensionContext'
 import { extensionErrorCode } from '../state/useExtensionState'
+import { ExtensionReferenceRequests } from './ExtensionReferenceRequests'
 import { ExtensionViewProjection } from './ExtensionViewProjection'
 import { useExtensionFrameEvents } from './useExtensionFrameEvents'
 
@@ -33,6 +34,15 @@ const message = useMessage()
 const { t } = useBuddyI18n(language)
 const root = useTemplateRef<HTMLElement>('root')
 const frames = new Map<string, Frame>()
+const referenceRequests = new ExtensionReferenceRequests((session, message) => {
+  const frame = frames.get(session.token)
+  if (frame?.surface.session === session)
+    send(session.token, frame, message)
+}, (session) => {
+  const frame = frames.get(session.token)
+  return !!frame?.visible && frame.surface.session === session && frame.surface.visible && frame.surface.eligible && frame.surface.ready && !frame.surface.error
+})
+onScopeDispose(views.onReferenceReveal((session, input, signal) => referenceRequests.request(session, input, signal)))
 function isOverlay(surface: ExtensionSurface) {
   const item = state.installed.value.find(item => item.manifest.id === surface.input.extensionId)
   return !!item?.manifest.permissions.windowEffects && (!!surface.anchor || item.manifest.contributes.views.some(view => view.id === surface.input.viewType && view.location === 'window-overlay'))
@@ -139,6 +149,7 @@ function sync() {
       hitRegions.update({ ...options, visible: options.visible && surface.ready }, surface.regions)
     }
   }
+  referenceRequests.reconcile()
   props.layout.invalidate()
 }
 async function receive(event: MessageEvent) {
@@ -149,6 +160,10 @@ async function receive(event: MessageEvent) {
   const session = frame?.surface.session
   if (!frame || !session || event.source !== frame.element.contentWindow)
     return
+  if (data.referenceResult) {
+    referenceRequests.receive(session, data.referenceResult)
+    return
+  }
   if (data.endInteraction === true && frame.surface.input.interactionId) {
     endInteraction(frame.surface.input.interactionId)
     return
@@ -166,7 +181,7 @@ async function receive(event: MessageEvent) {
   let value: unknown
   let ok = false
   try {
-    if (['resources.pickFiles', 'resources.pickDirectory', 'resources.beginSave'].includes(data.method) && (!frame.visible || document.visibilityState !== 'visible' || !document.hasFocus()))
+    if (['resources.pickFiles', 'resources.pickDirectory', 'resources.beginSave', 'references.add'].includes(data.method) && (!frame.visible || document.visibilityState !== 'visible' || !document.hasFocus()))
       throw new Error('EXTENSION_RESOURCE_PICKER_UNAVAILABLE')
     if (data.method.startsWith('composer.') && (!frame.visible || !frame.surface.ready || document.visibilityState !== 'visible' || !document.hasFocus()))
       throw new Error('EXTENSION_VIEW_UNAVAILABLE')
@@ -252,6 +267,7 @@ onMounted(() => {
   sync()
 })
 onScopeDispose(() => {
+  referenceRequests.dispose()
   clearInterval(heartbeat)
   views.setLayout(() => {})
   window.removeEventListener('message', receive)

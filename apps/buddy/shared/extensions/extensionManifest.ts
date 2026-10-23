@@ -89,6 +89,7 @@ export const extensionPermissionsSchema = z.object({
   selectedResourceWrite: z.boolean().default(false),
   composerReference: z.boolean().default(false),
   selectedContent: z.boolean().default(false),
+  references: z.boolean().default(false),
   localResources: z.boolean().default(false),
   resourceExport: z.boolean().default(false),
   webAssembly: z.boolean().default(false),
@@ -170,6 +171,8 @@ export const extensionManifestSchema = extensionMetadataSchema.extend({
     issue('Theme contributions and management require API 3')
   if (manifest.apiVersion < 3 && (manifest.contributes.conditions.length || agent || settings.modules.length || settings.groups.length || settings.items.length || manifest.permissions.agent || manifest.permissions.models || manifest.permissions.taskMessages || manifest.permissions.tasks !== 'none'))
     issue('Agent capabilities and settings require API 3')
+  if (manifest.apiVersion < 4 && manifest.permissions.references)
+    issue('References require API 4')
   if (manifest.apiVersion < 4 && (manifest.contributes.fileHandlers.length || manifest.contributes.launchers.length || manifest.contributes.views.some(view => view.resource === 'optional-file')))
     issue('File handlers, launchers and optional-file views require API 4')
   for (const handler of manifest.contributes.fileHandlers) {
@@ -307,6 +310,7 @@ export function addedExtensionPermissions(previous: ExtensionPermissions | undef
     ...(next.selectedResource === 'read' && previous?.selectedResource !== 'read' ? ['selectedResource:read'] : []),
     ...addedDocumentPermissions(previous, next),
     ...(next.selectedContent && !previous?.selectedContent ? ['selectedContent'] : []),
+    ...(next.references && !previous?.references ? ['references'] : []),
     ...(next.localResources && !previous?.localResources ? ['localResources'] : []),
     ...next.network.filter(origin => !previous?.network.includes(origin)).map(origin => `network:${origin}`),
   ]

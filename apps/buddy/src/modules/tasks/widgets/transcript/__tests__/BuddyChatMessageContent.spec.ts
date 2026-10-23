@@ -14,6 +14,7 @@ describe('buddyChatMessageContent', () => {
     const document = parseHtml(await renderMessage('user', text))
 
     expect(document.body.textContent).toBe(text)
+    expect(document.querySelector('.buddy-chat-user-bubble__body')?.textContent?.trim()).toBe(text)
     expect(document.querySelector('a, strong')).toBeNull()
   })
 
@@ -26,6 +27,7 @@ describe('buddyChatMessageContent', () => {
     expect(link?.textContent).toBe('版本')
     expect(link?.getAttribute('href')).toBe('https://example.com')
     expect(document.querySelector('img')).toBeNull()
+    expect(document.querySelector('.buddy-chat-user-bubble')).toBeNull()
     expect(document.body.textContent).toContain('<img src="https://example.com/pixel.png" alt="像素">')
   })
 
@@ -38,6 +40,8 @@ describe('buddyChatMessageContent', () => {
     expect(body?.textContent).toContain('先看@reference.png后@reference.png')
     expect(reference?.textContent).toBe('@reference.png')
     expect(document.querySelectorAll('.buddy-chat-message-content__attachment')).toHaveLength(1)
+    expect(body?.querySelector('.buddy-chat-user-bubble__body')).not.toBeNull()
+    expect(body?.querySelector('[data-material-key]')).toBeNull()
     expect(document.querySelectorAll('.buddy-chat-resource-reference')).toHaveLength(2)
     expect(document.querySelector(reference!.getAttribute('href')!)).not.toBeNull()
     expect(document.querySelector('[data-material-key] img')?.getAttribute('src')).toBe('lexora-attachment://preview/attachment-1')

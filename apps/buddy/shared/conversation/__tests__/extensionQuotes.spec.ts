@@ -168,4 +168,18 @@ describe('extension file quotes', () => {
     expect(projected.prompt).not.toContain('secretPlace')
     expect(projected.prompt).not.toContain('pabc.csv-sheet')
   })
+
+  it('keeps reading stored DOCX, PPTX and XLSX quotes next to the view references', () => {
+    const office = (id: string, patch: object) => ({ id, text: 'Stored text', source: { kind: 'file', title: 'brief', file, ...patch } })
+    const stored = [
+      office('docx-quote', { format: 'docx', docx: { hash, indexes: [0, 1], from: 2, to: 9 } }),
+      office('pptx-quote', { format: 'pptx', pptx: { hash, indexes: [3], from: 0, to: 4 } }),
+      office('xlsx-quote', { format: 'xlsx', xlsx: { hash, sheetIndex: 0, sheet: 'Sheet1', range: 'A1:B2' } }),
+      { id: 'view-quote', text: 'Shown text', source: { kind: 'view', title: 'Reader', provider: 'extension:tests.reader', target: { path: 'a.md' } }, locator: { version: 1, data: { block: 1 } } },
+    ]
+    for (const quote of stored)
+      expect(buddyResourceQuoteSchema.safeParse(quote).success, quote.id).toBe(true)
+    const content = stored.reduce((value, quote) => appendBuddyResourceQuote(value, quote as never).content, createBuddyUserContent('Keep'))
+    expect(content.resourceQuotes?.map(quote => quote.id)).toEqual(['docx-quote', 'pptx-quote', 'xlsx-quote', 'view-quote'])
+  })
 })

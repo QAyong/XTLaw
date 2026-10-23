@@ -36,7 +36,7 @@ import { extensionConditionInvalidationSchema } from '../../shared/extensions/ex
 import { extensionDiagnostic, ExtensionRequestError } from '../../shared/extensions/extensionDiagnostic'
 import { fileExtensionOf, matchFileHandlers, resolveFileHandler } from '../../shared/extensions/extensionFileHandlers'
 import { extensionFileHandlerBindings, extensionFileHandlers, implicitFileHandlerId } from '../../shared/extensions/extensionFileOpening'
-import { extensionCompatible, extensionManifestSchema, extensionPathSchema } from '../../shared/extensions/extensionManifest'
+import { extensionCompatible, extensionManifestSchema, extensionMayReference, extensionPathSchema } from '../../shared/extensions/extensionManifest'
 import { extensionReferenceInputSchema, extensionReferenceOpeningSchema, extensionReferenceTargetSchema } from '../../shared/extensions/extensionReferences'
 import { extensionDirectoryScanSchema, extensionResourceSelectionSchema } from '../../shared/extensions/extensionResources'
 import { extensionNotificationSchema, extensionScheduleIdSchema, extensionScheduleInputSchema } from '../../shared/extensions/extensionSchedule'
@@ -1135,7 +1135,7 @@ export class ExtensionService {
       }, view.abort.signal, view.input.resource?.id ?? null)
     }
     else if (method === 'composer.captureQuote' || method === 'composer.addQuote') {
-      if (view.running.package.manifest.apiVersion < 4 || !view.running.package.manifest.permissions.composerReference || contribution.resource !== 'selected-file' || contribution.location !== 'context' || placement || !view.input.resource || !this.#acceptsFile(contribution, view.input.resource.name) || !view.readVersion || !view.readHash || !this.#ports.readBytes)
+      if (view.running.package.manifest.apiVersion < 4 || !extensionMayReference(view.running.package.manifest.permissions) || contribution.resource !== 'selected-file' || contribution.location !== 'context' || placement || !view.input.resource || !this.#acceptsFile(contribution, view.input.resource.name) || !view.readVersion || !view.readHash || !this.#ports.readBytes)
         throw new Error('EXTENSION_REFERENCE_DENIED')
       const target = await this.#spaceResource(view.running, view.input.resource.id)
       const hash = view.readHash
@@ -1188,7 +1188,7 @@ export class ExtensionService {
       }
     }
     else if (method === 'references.add') {
-      if (view.running.package.manifest.apiVersion < 4 || !view.running.package.manifest.permissions.references)
+      if (view.running.package.manifest.apiVersion < 4 || !extensionMayReference(view.running.package.manifest.permissions))
         throw new Error('EXTENSION_REFERENCES_DENIED')
       if (contribution.location !== 'context' || (placement && placement.kind !== 'view'))
         throw new Error('EXTENSION_METHOD_DENIED')

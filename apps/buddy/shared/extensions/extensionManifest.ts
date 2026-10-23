@@ -291,6 +291,12 @@ export function extensionPackageManifest(manifest: ExtensionManifest) {
   return { ...manifest, permissions: Object.fromEntries(Object.entries(manifest.permissions).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(extensionPermissionDefaults[key]))) }
 }
 
+// `composerReference` (file selections for the plugin's own files) and `references` (view content and file snapshots) are two spellings of
+// one grant: a plugin that declares either may add references to a draft. What each call may carry is still checked per call.
+export function extensionMayReference(permissions: Pick<ExtensionPermissions, 'references' | 'composerReference'>): boolean {
+  return permissions.references || permissions.composerReference
+}
+
 export function extensionCompatible(manifest: ExtensionManifest, version: string): boolean {
   return manifest.apiVersion <= EXTENSION_API_VERSION && satisfies(version, manifest.engines.lexora, { includePrerelease: true })
 }

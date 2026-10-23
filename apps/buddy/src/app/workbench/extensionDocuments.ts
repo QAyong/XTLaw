@@ -2,6 +2,7 @@ import type { ExtensionApi, ExtensionStatus } from '@buddy-shared/extensions/ext
 import type { FileOpeningLocation, FileOpeningProvider } from '@buddy-shared/files/fileOpening'
 import { matchFileHandlers, resolveFileHandler } from '@buddy-shared/extensions/extensionFileHandlers'
 import { implicitFileHandlerId } from '@buddy-shared/extensions/extensionFileOpening'
+import { extensionMayReference } from '@buddy-shared/extensions/extensionManifest'
 
 export interface DocumentOpening {
   resolve: (name: string, location: FileOpeningLocation) => { provider: FileOpeningProvider | null }
@@ -53,7 +54,7 @@ export class ExtensionDocumentRouter {
   // Quoting needs the handling plugin to hold the composer reference permission.
   isQuotable(path: string): boolean {
     const handler = this.#handler(path)
-    return !!handler && handler.manifest.apiVersion >= 4 && handler.manifest.permissions.composerReference
+    return !!handler && handler.manifest.apiVersion >= 4 && extensionMayReference(handler.manifest.permissions)
   }
 
   dispose(): void {

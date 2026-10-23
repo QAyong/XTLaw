@@ -152,6 +152,13 @@ it('requires the API 4 references permission and interactive context views', asy
   expect(f.events).toEqual([])
 })
 
+it('treats the local composerReference permission as declaring references', async () => {
+  const value = referenceManifest(false)
+  const legacy = await fixture({}, { ...value, permissions: { ...value.permissions, composerReference: true } })
+  await expect(legacy.call(await legacy.open())).resolves.toBe(true)
+  expect(legacy.events).toHaveLength(1)
+})
+
 it('keeps ordinary Space references but copies unsaved selected and artifact bytes', async () => {
   const f = await fixture()
   const saved = await f.service.prepareReferenceOpening(referenceTarget)

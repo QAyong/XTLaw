@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { LocalSkill, SkillDetail } from '@buddy-shared/skills/skillApi'
+import { skillInvocationName } from '@buddy-shared/skills/skillApi'
 import { NAlert, NDrawer, NDrawerContent, NScrollbar, NSpin, NTab, NTabs, NTag } from 'naive-ui'
 import { computed, nextTick, shallowRef, useTemplateRef, watch } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
@@ -62,7 +63,7 @@ async function followLink(event: MouseEvent) {
     <NDrawerContent v-if="skill" closable :native-scrollbar="false" :body-content-style="{ padding: '0', height: '100%', display: 'flex', flexDirection: 'column' }">
       <template #header>
         <div class="skill-detail__header">
-          <span class="skill-detail__title" :title="skill.name">{{ skill.name }}</span>
+          <span class="skill-detail__title" :title="skillInvocationName(skill)">{{ skillInvocationName(skill) }}</span>
         </div>
       </template>
       <div class="skill-detail">

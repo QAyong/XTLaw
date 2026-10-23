@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ExtensionReview } from '@buddy-shared/extensions/extensionApi'
 import type { FileOpeningChoice, FileOpeningReviewChoice } from '@buddy-shared/files/fileOpening'
+import { extensionCommandNamespace } from '@buddy-shared/extensions/extensionCommands'
 import { extensionIsBundled } from '@buddy-shared/extensions/extensionTrust'
 import { Alert20Regular, Clock20Regular, Document20Regular, Globe20Regular } from '@vicons/fluent'
 import { NButton, NCheckbox, NEllipsis, NModal } from 'naive-ui'
@@ -14,6 +15,10 @@ const props = defineProps<{ review: ExtensionReview, language: string, busy: boo
 const emit = defineEmits<{ cancel: [], install: [applyUpdate: boolean, choices: FileOpeningChoice[]] }>()
 const applyUpdate = shallowRef(true)
 const associations = computed(() => props.review.fileAssociations ?? [])
+const skills = computed(() => props.review.manifest.contributes.skills.map(skill => ({
+  id: skill.id,
+  invocation: `$${extensionCommandNamespace(props.review.manifest.id)}:${skill.path.split('/').at(-2)}`,
+})))
 const selectedAssociations = shallowRef(initialAssociations())
 function initialAssociations(): FileOpeningChoice[] {
   const selected = new Map<string, FileOpeningReviewChoice>()
@@ -104,6 +109,17 @@ const sharesContent = computed(() => (props.review.manifest.permissions.selected
     <p v-if="review.manifest.description" class="extension-install-review__description">
       {{ review.manifest.description }}
     </p>
+    <section v-if="skills.length" class="extension-install-review__skills" data-testid="extension-included-skills">
+      <h3>{{ english ? 'Included skills' : '附带技能' }}</h3>
+      <ul>
+        <li v-for="skill in skills" :key="skill.id">
+          {{ skill.invocation }}
+        </li>
+      </ul>
+      <p class="extension-install-review__muted">
+        {{ english ? 'Select these skills in a conversation after installation. They follow the plugin’s enabled state.' : '安装后可在对话中选择使用；随插件启停。' }}
+      </p>
+    </section>
     <section class="extension-install-review__permissions">
       <h3>{{ labels.permissions }}</h3>
       <ul v-if="permissions.length">
@@ -197,6 +213,9 @@ const sharesContent = computed(() => (props.review.manifest.permissions.selected
 .extension-install-review__new { padding: 0 5px; border-radius: 4px; color: var(--buddy-nav-foreground); background: var(--buddy-nav-selected); font-size: 11px; }
 .extension-install-review__risk { padding: 0 5px; border-radius: 4px; color: var(--buddy-status-danger-text); background: var(--buddy-status-danger-surface); font-size: 11px; }
 .extension-install-review__permissions li p.extension-install-review__risk-text { color: var(--buddy-status-danger-text); }
+.extension-install-review__skills { margin-top: 24px; }
+.extension-install-review__skills ul { display: grid; gap: 6px; margin: 0 0 8px; padding: 0; list-style: none; }
+.extension-install-review__skills li { color: var(--buddy-text-primary); font-size: 12px; overflow-wrap: anywhere; }
 .extension-install-review__muted { margin: 0; color: var(--buddy-text-secondary); font-size: 12px; line-height: 1.6; }
 .extension-install-review__unchanged { margin-top: 12px; }
 .extension-install-review__dependencies { margin-top: 24px; }

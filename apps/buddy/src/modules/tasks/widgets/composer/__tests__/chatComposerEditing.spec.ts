@@ -131,6 +131,26 @@ async function mountComposer(options: {
 }
 
 describe('chat composer editing', () => {
+  it('keeps two plugin skills with the same invocation bound to their selected sources', async () => {
+    const skills = ['publisher-one.tables', 'publisher-two.tables'].map(id => ({
+      ...skillOption('tables:review', `${id} instructions`),
+      skill: { id, name: 'tables:review', revision: `revision-${id}` },
+      skillScope: 'global' as const,
+      skillPlugin: { extensionId: id, extensionName: 'Tables' },
+    }))
+    const flow = await mountComposer({ loadContextOptions: async () => ({ files: [], skills }) })
+    for (const skill of skills) {
+      flow.editor.commands.insertContent('$tables:review')
+      flow.composer.activeTrigger.value = { kind: 'skill', query: 'tables:review' }
+      await flow.composer.loadContextOptions(null)
+      expect(flow.composer.suggestions.value.map(({ option }) => 'skill' in option ? option.skill?.id : undefined)).toEqual(skills.map(option => option.skill.id))
+      flow.composer.selectSuggestion(skill)
+    }
+    flow.composer.submit()
+    const directives = flow.sentPayloads[0]?.userContent?.body.flatMap(paragraph => paragraph.content.filter(node => node.type === 'prompt_directive'))
+    expect(directives).toEqual(skills.map(option => ({ type: 'prompt_directive', directive: 'skill', value: 'tables:review', skill: option.skill })))
+  })
+
   it('selects same-name actors by keyboard and sends stable inline references without attachments', async () => {
     const actors: ChatPromptContextOption[] = ['actor-one', 'actor-two'].map(actorId => ({
       actorReference: { type: 'actor_ref', actorId, name: '星野' },

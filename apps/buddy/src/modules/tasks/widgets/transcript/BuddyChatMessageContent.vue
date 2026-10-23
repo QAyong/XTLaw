@@ -15,6 +15,7 @@ import { getInputMaterialViews, inputMaterialLabel } from '../../model/materials
 import { getChatMessageDisplayText, getChatMessageImageLabels, getChatMessageUserContent } from '../../model/transcript/chatMessageContent'
 import ChatInputMaterialStrip from '../materials/ChatInputMaterialStrip.vue'
 import BuddyChatResourceReference from './BuddyChatResourceReference.vue'
+import BuddyChatUserBubble from './BuddyChatUserBubble.vue'
 import { tryUseChatContent } from './chatContentContext'
 
 const props = withDefaults(defineProps<{
@@ -92,8 +93,10 @@ function handleMarkdownLink(href: string) {
     :data-quote-source="message.role === 'user' || message.role === 'assistant' ? JSON.stringify({ conversationId: message.conversationId, branchId: message.branchId, messageId: message.id, runId: message.runId, role: message.role }) : undefined"
   >
     <ChatInputMaterialStrip ref="materialStrip" :materials="materials" :language="language" expanded :align-end="message.role === 'user'" />
-    <div
+    <BuddyChatUserBubble
       v-if="structuredUserContent && hasStructuredBody"
+      :key="message.id"
+      :language="language"
       class="buddy-chat-message-content__text buddy-chat-message-content__structured-body"
     >
       <p
@@ -138,13 +141,15 @@ function handleMarkdownLink(href: string) {
           />
         </template>
       </p>
-    </div>
-    <div
+    </BuddyChatUserBubble>
+    <BuddyChatUserBubble
       v-else-if="hasText && message.role === 'user'"
+      :key="message.id"
+      :language="language"
       class="buddy-chat-message-content__text is-plain-text"
     >
       {{ text }}
-    </div>
+    </BuddyChatUserBubble>
     <BuddyChatMarkdownContent
       v-else-if="hasText"
       class="buddy-chat-message-content__text"

@@ -35,6 +35,8 @@ export default {
   'desktop.chat.shellSandboxHint.checking': '正在检查系统沙盒支持。',
   'desktop.chat.shellSandboxHint.fullAccess': '任务使用本机权限执行，请仅在理解风险时使用。',
   'desktop.chat.shellSandboxHint.scope': '沙盒仅覆盖命令执行，其他工具遵循各自权限。变更记录不是文件备份。',
+  'desktop.chat.expandUserMessage': '展开全文',
+  'desktop.chat.collapseUserMessage': '收起',
   'desktop.chat.usage.input': '输入',
   'desktop.chat.usage.output': '输出',
   'desktop.chat.usage.cache': '缓存',

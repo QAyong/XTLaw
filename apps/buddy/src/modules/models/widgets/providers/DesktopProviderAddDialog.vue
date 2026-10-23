@@ -9,6 +9,7 @@ import { useBuddyI18n } from '@/i18n/buddyI18n'
 import { useProviderSetupWizard } from '@/modules/models/state/useProviderSetupWizard'
 import DesktopManualModelDialog from '@/modules/models/widgets/providers/DesktopManualModelDialog.vue'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
+import ProviderIcon from '@/shared/ui/icon/ProviderIcon.vue'
 import DesktopCustomProviderForm from './DesktopCustomProviderForm.vue'
 import DesktopProviderHeadersEditor from './DesktopProviderHeadersEditor.vue'
 
@@ -119,9 +120,12 @@ async function connect(authType: 'api_key' | 'oauth') {
                 <div v-if="filteredProviders.length" class="desktop-provider-add-dialog__provider-list-frame overflow-hidden">
                   <div class="max-h-96 overflow-auto">
                     <div v-for="provider in filteredProviders" :key="provider.id" class="desktop-provider-add-dialog__provider-row">
-                      <div>
-                        <strong>{{ provider.displayName }}</strong>
-                        <small>{{ provider.authTypes.map(type => type === 'api_key' ? 'API Key' : 'OAuth').join(' / ') }}</small>
+                      <div class="desktop-provider-add-dialog__provider-label">
+                        <ProviderIcon :provider-id="provider.id" />
+                        <div class="desktop-provider-add-dialog__provider-info">
+                          <strong>{{ provider.displayName }}</strong>
+                          <small>{{ provider.authTypes.map(type => type === 'api_key' ? 'API Key' : 'OAuth').join(' / ') }}</small>
+                        </div>
                       </div>
                       <NButton size="small" type="primary" :disabled="addingBuiltin" @click="addBuiltin(provider)">
                         {{ provider.id === selectedProvider?.builtinProviderId && furthestStep > 1
@@ -364,7 +368,22 @@ async function connect(authType: 'api_key' | 'oauth') {
   border-bottom: 0;
 }
 
-.desktop-provider-add-dialog__provider-row > div,
+.desktop-provider-add-dialog__provider-label {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.desktop-provider-add-dialog__provider-info strong {
+  overflow-wrap: anywhere;
+}
+
+.desktop-provider-add-dialog__provider-row > .n-button {
+  flex: none;
+}
+
+.desktop-provider-add-dialog__provider-info,
 .desktop-provider-add-dialog__model-row > div {
   display: grid;
   min-width: 0;

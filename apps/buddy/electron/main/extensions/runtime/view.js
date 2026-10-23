@@ -6,8 +6,7 @@ import { ExtensionViewState } from './ExtensionViewState'
 
 const token = location.hostname
 const controller = new AbortController()
-let workersPermitted = false
-const workers = createExtensionWorkers(new URL('/__package/', location.href), controller.signal, Worker, () => workersPermitted)
+const workers = createExtensionWorkers(new URL('/__package/', location.href), controller.signal, Worker)
 const pending = new Map()
 const references = new ExtensionReferenceReveal((id, located) => parent.postMessage({ channel: 'lexora-extension', token, referenceResult: { id, located } }, '*'))
 const state = new ExtensionViewState(() => request('events.snapshot'))
@@ -87,7 +86,6 @@ addEventListener('pagehide', () => {
 async function initialize() {
   try {
     const initial = await request('bootstrap')
-    workersPermitted = initial.webAssembly === true
     interactionId = initial.interactionId
     overlay = initial.presentation === 'decoration'
     state.initialize({ workbench: initial.workbench, visible: initial.visible, environment: initial.environment, anchor: initial.anchor ?? null, mount: initial.mount ?? null, control: initial.control }, overlay, initial.eventCursor, !!interactionId)

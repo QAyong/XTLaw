@@ -79,35 +79,14 @@ it('serves root-absolute package URLs but keeps reserved and unlisted paths clos
   expect((await respond(new Request(new URL('/missing.woff2', endpoint.url)))).status).toBe(403)
 })
 
-it('keeps WebAssembly and workers blocked unless the extension declares the permission', async () => {
-  const { endpoint, respond } = await viewResponder({})
-  const csp = (await respond(new Request(new URL('/__view.html', endpoint.url)))).headers.get('content-security-policy')!
-  expect(csp).not.toContain('wasm-unsafe-eval')
-  expect(csp).toContain('worker-src \'none\'')
-})
-
-it('opens WebAssembly and workers for views of extensions that declare webAssembly, without allowing eval', async () => {
-  const { endpoint, respond } = await viewResponder({ webAssembly: true })
+it.each(['view', 'host'] as const)('opens WebAssembly and workers on the %s page without allowing eval', async (kind) => {
+  const { endpoint, respond } = await viewResponder({}, kind)
   const origin = endpoint.url.slice(0, endpoint.url.lastIndexOf('/'))
-  const response = await respond(new Request(new URL('/__view.html', endpoint.url)))
-  const csp = response.headers.get('content-security-policy')!
-  expect(csp).toContain(`script-src ${origin}/__package/ ${origin}/__view.js 'wasm-unsafe-eval';`)
+  const csp = (await respond(new Request(new URL(`/__${kind}.html`, endpoint.url)))).headers.get('content-security-policy')!
+  expect(csp).toContain(`script-src 'wasm-unsafe-eval' ${origin}/__package/ ${origin}/__${kind}.js;`)
   expect(csp).toContain(`worker-src ${origin}/__package/ blob:;`)
   expect(csp.replaceAll('\'wasm-unsafe-eval\'', '')).not.toContain('unsafe-eval')
-  expect(csp).toContain('sandbox allow-scripts allow-forms')
+  expect(csp).toContain(kind === 'view' ? 'sandbox allow-scripts allow-forms' : 'frame-ancestors \'none\'')
   const wasm = await respond(new Request(new URL('/__package/engine.wasm', endpoint.url)))
   expect(wasm.headers.get('content-type')).toBe('application/wasm')
-})
-
-it('opens WebAssembly and workers for the host page only when the extension declares webAssembly, without allowing eval', async () => {
-  const declared = await viewResponder({ webAssembly: true }, 'host')
-  const origin = declared.endpoint.url.slice(0, declared.endpoint.url.lastIndexOf('/'))
-  const csp = (await declared.respond(new Request(new URL('/__host.html', declared.endpoint.url)))).headers.get('content-security-policy')!
-  expect(csp).toContain(`script-src ${origin}/__package/ ${origin}/__host.js 'wasm-unsafe-eval';`)
-  expect(csp).toContain(`worker-src ${origin}/__package/ blob:;`)
-  expect(csp.replaceAll('\'wasm-unsafe-eval\'', '')).not.toContain('unsafe-eval')
-  const closed = await viewResponder({}, 'host')
-  const blocked = (await closed.respond(new Request(new URL('/__host.html', closed.endpoint.url)))).headers.get('content-security-policy')!
-  expect(blocked).not.toContain('wasm-unsafe-eval')
-  expect(blocked).toContain('worker-src \'none\'')
 })

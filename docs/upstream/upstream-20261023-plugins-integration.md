@@ -12,7 +12,7 @@
 | `16777975e` 插件引用与来源定位 | `Port upstream 16777975` | cherry-pick，冲突 11 处 |
 | `a378eb8ae` 插件 WASM 与 Worker | `Port upstream a378eb8a` | cherry-pick，冲突 11 处 |
 
-本地适配另有四个提交：隐式文件处理器、产出卡片打开位置、引用授权合并、Worker 门槛与文档。
+本地适配另有四个提交：隐式文件处理器、产出卡片打开位置、引用授权合并、WebAssembly 与 Worker 文档。
 
 ## 冲突解决
 
@@ -21,7 +21,7 @@
 - **`.playwright/scripts/__tests__/settings-controls.e2e.mjs`：** 本地已删、上游改了，保持删除。
 - **`extensionManifest.ts`：** 导入取本地（保留 `documentCapabilityIssues` 等），加上 `fileOpening`；`views` 用上游的 `optional-file`，同时保留本地 `accepts`；`fileHandlers`、`fileOpeners`（旧写法转 `fileHandlers`）、`launchers` 取上游。导入保持本地的无 `.ts` 后缀写法。
 - **`extensionApi.ts`：** 三处都是并集：本地的 `openFile`、引用输入/捕获 schema 与上游的 `fileOpeners`/`setFileOpener`/`prepareFileOpening`。
-- **`ExtensionProtocol.ts`：** CSP 保持本地的按声明开放（`wasm-unsafe-eval` 与 Worker 只按 `permissions.webAssembly` 开放，后台页与视图页一致），加上上游的 `__selected/`（`connect-src` 与 `readSelected`）。
+- **`ExtensionProtocol.ts`：** CSP 与上游一致（所有插件的后台页和视图页都开放 `wasm-unsafe-eval` 与 `blob:` Worker），加上上游的 `__selected/`（`connect-src` 与 `readSelected`）。
 - **`ExtensionPackageStore.ts`：** 导入并集。
 - **`ExtensionService.ts`：** `resources.readText/readBytes/getUrl` 采用上游的“所选资源”实现（支持产物来源、编辑器快照）。普通空间文件的 `readBytes` 仍走本地带版本与哈希的读取，用于后面的引用和写回校验；新增 `#spaceResource`，引用与写回只作用于未改动的空间文件。`bootstrap` 增加 `webAssembly`。
 - **`registerDesktopContributions.ts`、`useDesktopWorkbench.ts`：** 并集；关闭视图时先走本地自动保存，再关联内联子视图。
@@ -44,7 +44,7 @@
 
 ### `a378eb8ae`
 
-- **`ExtensionProtocol.ts`：** 保留本地按声明开放的 CSP，不照搬上游对所有插件、所有页面开放 `wasm-unsafe-eval`、`blob:` Worker。
+- **`ExtensionProtocol.ts`：** 采用上游 CSP：所有插件、所有页面开放 `wasm-unsafe-eval` 和 `blob:` Worker（原本地按 `permissions.webAssembly` 声明开放，经确认完全对接上游）。
 - **包预算：** 本地 `shared/extensions/extensionPackageLimits.ts` 及其测试删除，改用上游的 `extensionPackageBudget.ts`（单文件 64 MiB、压缩包 128 MiB、展开合计 256 MiB）；`themeAssets.ts`、文件图标测试改引用它。`extensionCatalog.ts` 保留 `bundled` 条目，大小上限改为压缩包限额。
 - **`extensions/tools.mjs`：** 采用上游的 `extensionPackageAuthoring`，保留本地的文档处理器契约报告。`sdk/authoring.ts`、`sdk/plugin.mjs`、`extensionFiles.ts`、`extensionAuthoring.ts`、`protocol.md` 取上游；`README.md` 合并两边。
 - **`ExtensionPackageStore.spec.ts`：** 取上游。
@@ -61,8 +61,8 @@
 
 **C WASM 与 Worker。** 采用 `context.workers.create()`、`ExtensionPackageTransfer`、包预算、`extensionPackageAuthoring`。
 
-- 保留 `permissions.webAssembly` 门槛：CSP 只对声明了的插件开放 `wasm-unsafe-eval` 和 Worker。范围与上游一致，插件后台页（extension.js）和视图页都开放（原本地只开放视图页，经确认改为对接上游）；未声明的插件两处都关闭。
-- `workers.create()` 未声明时抛 `EXTENSION_WORKER_DENIED`；视图在 `bootstrap` 里得知授权，后台页从清单读取。
+- 运行能力完全对接上游：不再用 `permissions.webAssembly` 作为 CSP 和 `workers.create()` 的门槛，后台页和视图页对所有插件开放，没有 `EXTENSION_WORKER_DENIED`，`bootstrap` 也不再传 `webAssembly`。上游 `workers.md`、`extensionWorkers.ts` 原样采用。
+- `permissions.webAssembly` 仍是清单里被接受的声明字段（`plugins/office-xlsx` 已声明，不会被拒绝），只保留安装审查的“高风险”提示和第三方包 4 个 `.wasm`、合计 24 MiB 的限额，二者都不影响运行能力。
 - 第三方插件仍受 4 个 `.wasm`、合计 24 MiB 与高风险安装审查约束；`documents.webAssembly` 描述同步；`.wasm` 仍以 `application/wasm` 提供。`plugins/office-xlsx` 已声明该权限，不受影响。
 - `workers.md`、`capabilities.md`、`document-processor.md`、`README.md` 的包预算与 Worker 说明已与上游新增文档合并。
 

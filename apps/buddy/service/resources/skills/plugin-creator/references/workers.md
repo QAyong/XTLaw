@@ -1,6 +1,6 @@
 # WebAssembly 与 Worker
 
-插件后台和视图在清单声明 `permissions.webAssembly: true` 后支持浏览器原生 WebAssembly，以及 `context.workers.create()`；Worker 与 WebAssembly 共用这一项权限，安装时单独提示，第三方插件另受 `.wasm` 数量和体积限制，见 [文档处理器契约](document-processor.md#4-webassembly)。未声明时 `create()` 以 `EXTENSION_WORKER_DENIED` 拒绝，内容安全策略也不开放 WebAssembly 编译和 Worker。文件、网络、导出等能力仍受原有授权控制。后台也是浏览器沙箱，不是 Node.js。使用新增运行时能力时，`engines.lexora` 的最低版本必须覆盖实际提供该能力的宿主；不能只沿用旧插件的宽泛版本范围。
+插件后台和视图都支持浏览器原生 WebAssembly，以及 `context.workers.create()`。无需新增权限；文件、网络、导出等能力仍受原有授权控制。后台也是浏览器沙箱，不是 Node.js。使用新增运行时能力时，`engines.lexora` 的最低版本必须覆盖实际提供该能力的宿主；不能只沿用旧插件的宽泛版本范围。
 
 ## 创建与加载
 

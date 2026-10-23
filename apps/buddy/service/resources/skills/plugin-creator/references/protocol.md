@@ -152,7 +152,7 @@ context.references.onReveal(async ({ locator, text }, signal) => {
 | `selectedContent: true` | API 3；用户点击插件操作时获取当前草稿或该条消息文本，不订阅输入或读取对话历史 |
 | `localResources: true` | 用户通过系统窗口选择文件或目录，视图读取文本、二进制或受控 URL |
 | `resourceExport: true` | 用户通过系统另存为窗口确认目标后，保存插件提供的字节 |
-| `webAssembly: true` | 对该插件的视图页和宿主页（extension.js）放开 `'wasm-unsafe-eval'`（允许编译插件包内 `.wasm`，仍禁止 JS eval）和 Worker（`worker-src` 为插件包路径加 `blob:`：沙箱视图是不透明源，不能按 URL 加载 Worker 脚本，需从 blob 启动）；`.wasm` 以 `application/wasm` 提供；安装时单独提示用户；未声明时 `workers.create()` 以 `EXTENSION_WORKER_DENIED` 拒绝；第三方插件的 `.wasm` 文件最多 4 个、合计 24 MiB，内置/官方插件与开发目录不受限，见 [文档处理器契约](document-processor.md#4-webassembly) |
+| `webAssembly: true` | 声明包内 WebAssembly。运行能力不依赖它：所有插件的视图页和宿主页都放开 `'wasm-unsafe-eval'`（仍禁止 JS eval）和 Worker（见 [WebAssembly 与 Worker](workers.md)）；`.wasm` 以 `application/wasm` 提供；第三方插件声明它时安装确认标“高风险”，包内 `.wasm` 文件最多 4 个、合计 24 MiB，内置/官方插件与开发目录不受限，见 [文档处理器契约](document-processor.md#4-webassembly) |
 | `network: ["https://example.com"]` | 通过宿主向列出的 HTTPS origin 发 GET 请求、下载文件或打开外链 |
 
 未声明权限默认为关闭，清单只需列出实际申请的权限，SDK 打包时会省略默认值。宿主忽略清单顶层、`permissions` 和 `contributes` 中不认识的声明，不因此提供对应能力；已知字段仍按类型和权限校验。需要新版能力时，通过 `engines.lexora` 和 API 版本声明兼容范围。视图无法访问 Node、宿主 DOM、全局键盘、网络 fetch 或任意本地文件。资源和网络调用通过 API；用户在安装确认中查看权限。没有一般性消息订阅、系统剪贴板或屏幕截图接口。

@@ -34,12 +34,9 @@ function workerEntry(entry: string | URL, root: URL): URL {
   }
 }
 
-// Workers share the WebAssembly opt-in: `permitted` is the manifest's `permissions.webAssembly` as the page knows it.
-export function createExtensionWorkers<T extends ExtensionWorkerInstance>(root: URL, owner: AbortSignal, NativeWorker: ExtensionWorkerConstructor<T>, permitted: () => boolean = () => true): ExtensionWorkerApi<T> {
+export function createExtensionWorkers<T extends ExtensionWorkerInstance>(root: URL, owner: AbortSignal, NativeWorker: ExtensionWorkerConstructor<T>): ExtensionWorkerApi<T> {
   return Object.freeze({
     async create(entry: string | URL, options: ExtensionWorkerOptions = {}): Promise<T> {
-      if (!permitted())
-        throw new Error('EXTENSION_WORKER_DENIED')
       const signal = options.signal ? AbortSignal.any([owner, options.signal]) : owner
       signal.throwIfAborted()
       const url = workerEntry(entry, root)

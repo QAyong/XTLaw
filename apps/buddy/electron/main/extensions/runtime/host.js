@@ -6,8 +6,7 @@ import { ExtensionHostEvents } from './ExtensionHostEvents'
 
 const bridge = window.lexoraExtensionHost
 const lifetime = new AbortController()
-// Workers share the manifest's webAssembly opt-in (see ExtensionProtocol); without it create() reports the denial itself instead of a CSP failure.
-const workers = createExtensionWorkers(new URL('/__package/', location.href), lifetime.signal, Worker, () => manifest?.permissions?.webAssembly === true)
+const workers = createExtensionWorkers(new URL('/__package/', location.href), lifetime.signal, Worker)
 addEventListener('pagehide', () => lifetime.abort(), { once: true })
 const commands = new Map()
 const agentTools = new Map()

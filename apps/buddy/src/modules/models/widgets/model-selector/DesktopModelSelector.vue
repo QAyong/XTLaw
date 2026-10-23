@@ -21,7 +21,7 @@ import DesktopReasoningMeter from '@/modules/models/widgets/model-selector/Deskt
 import DesktopReasoningPicker from '@/modules/models/widgets/model-selector/DesktopReasoningPicker.vue'
 import WorkbenchControl from '@/shared/ui/contributions/WorkbenchControl.vue'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
-import ModelIcon from '@/shared/ui/icon/ModelIcon.vue'
+import ProviderIcon from '@/shared/ui/icon/ProviderIcon.vue'
 import { useModelSelector } from './useModelSelector'
 
 const props = withDefaults(defineProps<{
@@ -62,6 +62,15 @@ const modelLabel = computed(() => {
   if (props.selectedModelId !== null)
     return props.placeholder ?? t('desktop.chat.blocker.model.action')
   return props.placeholder ?? t('desktop.chat.noModels')
+})
+const selectedProviderIconId = computed(() => {
+  const model = props.selectedModel
+  if (!model)
+    return ''
+  const provider = props.providers.find(provider => provider.id === model.providerId)
+  if (provider?.custom)
+    return ''
+  return provider?.builtinProviderId ?? model.providerId
 })
 const root = useTemplateRef<HTMLElement>('root')
 const {
@@ -150,7 +159,7 @@ defineExpose({
             :disabled="!canOpen"
             @click="toggle"
           >
-            <DesktopIcon class="desktop-model-selector__compact-icon" :component="ModelIcon" :size="18" />
+            <ProviderIcon class="desktop-model-selector__compact-icon" :provider-id="selectedProviderIconId" />
             <DesktopIcon v-if="isFastMode" class="desktop-model-selector__flash" :component="Flash20Filled" />
             <span class="desktop-model-selector__model">
               {{ modelLabel }}
@@ -403,7 +412,10 @@ defineExpose({
 
 .desktop-model-selector__compact-icon {
   display: none;
+  width: 18px;
+  height: 18px;
   flex: none;
+  color: inherit;
 }
 
 .desktop-model-selector__model {

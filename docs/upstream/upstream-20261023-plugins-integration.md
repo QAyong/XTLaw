@@ -75,7 +75,10 @@
 
 用户要求以云端为准，不做本地测试。本机只做了不运行产品的静态检查：对 159 个改动的 TS/Vue 文件做语法解析（0 个问题）。
 
-- 云端：PR 上的 `XTLaw CI`（lint、`vue-tsc -b`、测试），结果见 PR。
+- 云端：PR #32 上的 `XTLaw CI` 在 `75175f02d` 全部通过（lint、`vue-tsc -b`、Linux 全量测试 5235 个，以及各平台原生检查）。第一次推送时红了，按顺序修了三轮：
+  - lint：14 处未使用或重复排序的导入，以及 `tools.mjs` 里被误写成真实换行的转义。
+  - 类型：上游的产出资源读取需要 `artifacts.locate`，本地补上了 `ArtifactService.locate`、RPC 契约和注册；一个选区引用测试夹具还在用已删除的 `source`/`locate` 选项。
+  - 测试：上游新增的 `extensionPackageTools.spec.ts` 直接用 `node` 运行 `tools.mjs`，本仓库的无后缀导入 Node 解析不了，改走 `tools-run.mjs`；`WorkbenchResourcePanel.spec.ts` 两个本地用例要给面板一个启动器，因为上游在没有可添加项时隐藏“添加标签”按钮。
 - 新增或调整的测试：隐式文件处理器与解析、文档路由跟随打开方式选择、产出卡片位置设置（含用户指定插件）、`composerReference` 即 `references`、旧格式引用与视图引用并存、`workers.create` 门槛、配置存储字段。
 - **未跑：** Windows 本机测试、Playwright E2E（含上游新增的 `file-opening`、`extension-workers`）、开发预览、打包与发布流程。
 

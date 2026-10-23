@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { extensionJsonSchema } from '../../../shared/extensions/extensionApi'
 import { addedExtensionPermissions, EXTENSION_API_VERSION, extensionManifestSchema } from '../../../shared/extensions/extensionManifest'
 import { compileExtensionSource } from '../compileExtensionSource'
-import { EXTENSION_FILE_LIMIT, readExtensionDirectory, unpackExtension } from '../extensionFiles'
+import { readExtensionDirectory, unpackExtension } from '../extensionFiles'
 import { extensionActivationOrder, ExtensionPackageStore } from '../ExtensionPackageStore'
 import { createStore, manifest, reviewPackage } from './fixtures'
 

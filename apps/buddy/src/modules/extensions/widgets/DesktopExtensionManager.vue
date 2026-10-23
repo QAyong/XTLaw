@@ -2,7 +2,7 @@
 import type { ExtensionReview, ExtensionReviewResult, ExtensionStatus } from '@buddy-shared/extensions/extensionApi'
 import type { ExtensionIncompatibleReview } from '@buddy-shared/extensions/extensionCompatibility'
 import type { FileOpeningChoice } from '@buddy-shared/files/fileOpening'
-import { ChevronDown16Regular, MoreHorizontal20Regular, Wand20Regular } from '@vicons/fluent'
+import { ChevronDown16Regular, MoreHorizontal20Regular } from '@vicons/fluent'
 import { NAlert, NButton, NDropdown, NEmpty, NModal, useMessage } from 'naive-ui'
 import { computed, onScopeDispose, shallowRef, watch } from 'vue'
 import { useRouter } from 'vue-router'

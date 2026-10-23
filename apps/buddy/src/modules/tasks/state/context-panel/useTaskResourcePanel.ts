@@ -1,7 +1,6 @@
-import type { DesktopBrowserApi, DesktopBrowserState } from '@buddy-electron/shared/desktopApi'
+import type { DesktopArtifactOpening, DesktopBrowserApi, DesktopBrowserState } from '@buddy-electron/shared/desktopApi'
 import type { LocalArtifact } from '@buddy-shared/artifacts/artifactApi'
 import type { BrowserPreferences } from '@buddy-shared/browser/browserPreferences'
-import type { DesktopArtifactOpening } from '@buddy-electron/shared/desktopApi'
 import type { ContextPanelSource } from '@buddy-shared/context-panel/contextPanel'
 import type { FileOpeningProvider } from '@buddy-shared/files/fileOpening'
 import type { SpaceFileTarget } from '@buddy-shared/spaces/spaceFileApi'

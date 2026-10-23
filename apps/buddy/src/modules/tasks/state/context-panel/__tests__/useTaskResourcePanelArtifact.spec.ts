@@ -1,6 +1,5 @@
-import type { DesktopBrowserApi } from '@buddy-electron/shared/desktopApi'
+import type { DesktopArtifactOpening, DesktopBrowserApi } from '@buddy-electron/shared/desktopApi'
 import type { LocalArtifact } from '@buddy-shared/artifacts/artifactApi'
-import type { DesktopArtifactOpening } from '@buddy-electron/shared/desktopApi'
 import type { FileOpeningProvider } from '@buddy-shared/files/fileOpening'
 import type { LocalSpace } from '@buddy-shared/spaces/spaceApi'
 // @vitest-environment jsdom

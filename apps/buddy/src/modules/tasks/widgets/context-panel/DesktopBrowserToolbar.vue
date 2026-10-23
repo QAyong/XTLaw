@@ -295,12 +295,12 @@ function selectAddress(event: FocusEvent): void {
   display: flex;
   min-width: 0;
   width: 100%;
-  height: 3.25rem;
+  height: var(--buddy-context-toolbar-height);
   flex: none;
   align-items: center;
   gap: 0.375rem;
   background: var(--buddy-surface-base);
-  padding: 0.5rem;
+  padding: 0.25rem 0.5rem;
 }
 
 .desktop-browser-toolbar--incognito {
@@ -319,8 +319,8 @@ function selectAddress(event: FocusEvent): void {
 
 .desktop-browser-toolbar__action {
   display: grid;
-  width: 2.25rem;
-  height: 2.25rem;
+  width: 2rem;
+  height: 2rem;
   flex: none;
   place-items: center;
   border: 0;
@@ -351,7 +351,7 @@ function selectAddress(event: FocusEvent): void {
 .desktop-browser-toolbar__address-shell {
   display: flex;
   min-width: 0;
-  height: 2.25rem;
+  height: 2rem;
   flex: 1;
   align-items: center;
   border: 1px solid transparent;

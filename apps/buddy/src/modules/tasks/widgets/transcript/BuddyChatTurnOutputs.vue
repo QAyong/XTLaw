@@ -10,7 +10,7 @@ const props = defineProps<{
   language: BuddyLocale
 }>()
 const emit = defineEmits<{
-  openArtifact: [artifactId: string]
+  openArtifact: [artifact: LocalArtifact]
 }>()
 
 const { t } = useBuddyI18n(() => props.language)

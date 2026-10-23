@@ -27,6 +27,7 @@ export interface TaskArtifactContextTab extends ContextTabSource {
   kind: 'artifact'
   label: string
   viewMode: ArtifactViewMode
+  providerId?: string
 }
 
 export interface TaskChangesContextTab extends ContextTabSource {
@@ -102,6 +103,7 @@ export function artifactTabId(artifactId: string): string {
   return `artifact:${artifactId}`
 }
 
+// HTML outputs run in the task's browser session, so they never open in the file manager.
 export function isBrowserArtifact(
   artifact: Pick<LocalArtifact, 'kind' | 'mimeType' | 'name'>,
 ): boolean {

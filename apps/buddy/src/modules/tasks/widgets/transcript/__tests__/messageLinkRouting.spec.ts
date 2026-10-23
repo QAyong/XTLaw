@@ -31,7 +31,7 @@ describe('markdown link destinations', () => {
               content: '',
               language: 'zh-CN',
               writeClipboardText: async () => {},
-              ...(mode === 'host' ? { externalLinkMode: 'host' as const } : {}),
+              ...(mode === 'host' ? { openWebLink } : {}),
               onOpenLink: openLink,
             })
       },
@@ -50,7 +50,7 @@ describe('markdown link destinations', () => {
         else if (mode === 'system')
           expect(openSpy).toHaveBeenCalledWith(href, '_blank', 'noopener,noreferrer')
         else
-          expect(mode === 'narration' ? openWebLink : openLink).toHaveBeenCalledWith(href)
+          expect(openWebLink).toHaveBeenCalledWith(href)
       }
       if (mode !== 'system')
         expect(openSpy).not.toHaveBeenCalled()

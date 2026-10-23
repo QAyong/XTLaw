@@ -30,6 +30,14 @@ const props = withDefaults(defineProps<{
 })
 
 const chatContent = tryUseChatContent()
+const fileLinkSource = computed(() => props.message.conversationId && props.message.runId
+  ? { conversationId: props.message.conversationId, runId: props.message.runId }
+  : undefined)
+const fileLinkMenu = computed(() => {
+  const provider = chatContent?.fileLinkMenu
+  const source = fileLinkSource.value
+  return provider ? (href: string) => provider(href, source) : undefined
+})
 const materialStrip = useTemplateRef('materialStrip')
 const text = computed(() => getChatMessageDisplayText(
   props.message,
@@ -79,10 +87,7 @@ function isRetiredDirective(directive: BuddyPromptDirective): boolean {
 function handleMarkdownLink(href: string) {
   if (!chatContent)
     return
-  if (/^https?:\/\//i.test(href))
-    chatContent.openWebLink(href)
-  else if (chatContent.canPreviewFile(href))
-    chatContent.previewFile(href)
+  chatContent.previewFile(href, fileLinkSource.value)
 }
 </script>
 
@@ -157,7 +162,9 @@ function handleMarkdownLink(href: string) {
       :final="final"
       :language="language"
       :write-clipboard-text="writeClipboardText"
-      external-link-mode="host"
+      :open-web-link="chatContent?.openWebLink"
+      :file-link-menu="fileLinkMenu"
+      :on-link-error="chatContent?.onLinkError"
       @open-link="handleMarkdownLink"
     />
   </div>

@@ -2,6 +2,7 @@ import type { LocalArtifact } from '@buddy-shared/artifacts/artifactApi'
 import type { LocalSpace, LocalSpaceAdditionalDirectory } from '@buddy-shared/spaces/spaceApi'
 import type { SpaceFileTarget } from '@buddy-shared/spaces/spaceFileApi'
 import { isTextArtifactMimeType } from '@buddy-shared/artifacts/artifactApi'
+import { localFileLinkPath } from '@buddy-shared/files/fileLink'
 import { getActiveSpaceDirectories } from '@buddy-shared/spaces/spaceApi'
 
 export function cleanChatToolFilePath(path: string): string {
@@ -32,7 +33,7 @@ export function fitsSpaceFilePreview(artifact: Pick<LocalArtifact, 'kind' | 'mim
 }
 
 export function resolveChatArtifactTarget(artifacts: readonly LocalArtifact[], path: string): LocalArtifact | null {
-  const normalized = cleanChatToolFilePath(path).replaceAll('\\', '/').replace(/^\/+([a-z]:\/)/i, '$1').replace(/^(\.\/)+/, '')
+  const normalized = (localFileLinkPath(path) ?? '').replaceAll('\\', '/').replace(/^\/+([a-z]:\/)/i, '$1').replace(/^(\.\/)+/, '')
   if (!normalized || normalized.includes('\0') || normalized.split('/').includes('..')
     || (/^[a-z][a-z\d+.-]*:/i.test(normalized) && !/^[a-z]:\//i.test(normalized))) {
     return null

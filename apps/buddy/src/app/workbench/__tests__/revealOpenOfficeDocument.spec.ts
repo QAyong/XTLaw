@@ -40,17 +40,26 @@ function fixture() {
     scope.view({ id: 'office-test.fallback', renderer: 'office-test.fallback', label: 'Preview', locations: ['context'], multiple: true, supports: resource => resource.scheme === 'file-preview' })
   })
   const controller = new WorkbenchController(registry)
-  const browser: Pick<DesktopBrowserApi, 'onStateChanged' | 'ensureSession' | 'close' | 'openArtifact' | 'navigate'> = {
+  const browser: Pick<DesktopBrowserApi, 'onStateChanged' | 'ensureSession' | 'close' | 'openArtifact' | 'openFile' | 'navigate'> = {
     onStateChanged: () => () => {},
     ensureSession: async () => { throw new Error('unexpected browser session') },
     close: async () => {},
     openArtifact: async () => { throw new Error('unexpected browser preview') },
+    openFile: async () => { throw new Error('unexpected browser file link') },
     navigate: async () => { throw new Error('unexpected browser navigation') },
   }
   const { scope, options } = contextPanelFixture({ activeConversationId: shallowRef<string | null>('conversation'), activeSpace: shallowRef(space), spaces: shallowRef([space]) })
+  const files = {
+    resolve: async () => {
+      throw new Error('unexpected file resolution')
+    },
+  }
+  const openFile = async () => {
+    throw new Error('unexpected file opening')
+  }
   let panel: TaskResourcePanel
   const reveal = vi.fn((file: SpaceFileTarget) => revealOpenOfficeDocument(controller, panel, file))
-  panel = scope.run(() => useTaskResourcePanel({ ...options, autoCollapse: shallowRef(false), linkOpening: shallowRef('in-app'), browser, revealOpenOfficeDocument: reveal }))!
+  panel = scope.run(() => useTaskResourcePanel({ ...options, autoCollapse: shallowRef(false), linkOpening: shallowRef('in-app'), files, openFile, browser, revealOpenOfficeDocument: reveal }))!
   const projection = new ContextTabProjection(controller, () => panel, () => true)
   onTestFinished(async () => {
     projection.dispose()

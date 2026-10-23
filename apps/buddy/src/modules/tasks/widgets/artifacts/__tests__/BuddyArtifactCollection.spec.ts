@@ -46,7 +46,7 @@ describe('buddyArtifactCollection', () => {
       expect(card.classList.contains('is-compact')).toBe(false)
     }
     cards[1]!.querySelector<HTMLButtonElement>('.buddy-artifact-collection__trigger')!.click()
-    expect(openArtifact).toHaveBeenCalledExactlyOnceWith('artifact-b')
+    expect(openArtifact).toHaveBeenCalledExactlyOnceWith(artifacts[1])
   })
 
   it('retains SVG thumbnail containment and falls back to a file icon on load failure', async () => {

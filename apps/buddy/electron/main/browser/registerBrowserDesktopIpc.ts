@@ -1,4 +1,5 @@
 import type { BrowserWindow, IpcMainEvent, IpcMainInvokeEvent } from 'electron'
+import type { TaskFileTarget } from '../../../shared/files/taskFileApi'
 import type { BrowserDataService } from './BrowserDataService'
 import type { BrowserHost } from './BrowserHost'
 import type { BrowserScreenshotService } from './BrowserScreenshotService'
@@ -10,6 +11,7 @@ import {
   browserEnsureSessionInputSchema,
   browserNavigateInputSchema,
   browserOpenArtifactInputSchema,
+  browserOpenFileInputSchema,
   browserSessionInputSchema,
   browserSetProfileModeInputSchema,
   browserSetSurfaceInputSchema,
@@ -33,6 +35,7 @@ export interface RegisterBrowserDesktopIpcOptions {
     artifactId: string
     conversationId: string
   }) => Promise<{ entryPath: string, rootPath: string }>
+  resolveFileEntry: (input: TaskFileTarget) => Promise<{ entryPath: string, rootPath: string }>
 }
 
 export function registerBrowserDesktopIpc(
@@ -179,6 +182,15 @@ export function registerBrowserDesktopIpc(
   handle(DESKTOP_IPC_CHANNELS.browserOpenDevTools, (host, input) => {
     const { sessionId } = browserSessionInputSchema.parse(input)
     return host.openDevTools(sessionId)
+  })
+  handle(DESKTOP_IPC_CHANNELS.browserOpenFile, async (host, input) => {
+    const { target, sessionId } = browserOpenFileInputSchema.parse(input)
+    const conversationId = host.getState(sessionId).conversationId
+    if (!conversationId || target.conversationId !== conversationId)
+      throw new Error('File links require their owning conversation browser session')
+    const entry = await options.resolveFileEntry(target)
+    takeHumanControl(host, sessionId)
+    return desktopBrowserStateSchema.parse(await host.openLocalFile(sessionId, entry))
   })
   handle(DESKTOP_IPC_CHANNELS.browserOpenExternal, async (host, input) => {
     const { sessionId } = browserSessionInputSchema.parse(input)

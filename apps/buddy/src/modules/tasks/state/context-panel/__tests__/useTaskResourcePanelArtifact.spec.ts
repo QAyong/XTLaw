@@ -41,22 +41,25 @@ function folder(overrides: Partial<LocalArtifact> = {}): LocalArtifact {
   return artifact({ artifactId: 'folder', kind: 'directory', mimeType: 'inode/directory', name: 'reports', path: '/workspace/docs/reports', sizeBytes: 0, ...overrides })
 }
 
-function fixture(activeSpace: LocalSpace | null = space(), extra: { artifactOpening?: DesktopArtifactOpening, providers?: FileOpeningProvider[], defaults?: Record<string, { standalone?: string }> } = {}) {
-  const browser: Pick<DesktopBrowserApi, 'onStateChanged' | 'ensureSession' | 'close' | 'openArtifact' | 'navigate'> = {
+function fixture(activeSpace: LocalSpace | null = space(), extra: { artifactOpening?: DesktopArtifactOpening, providers?: FileOpeningProvider[], defaults?: Record<string, { standalone?: string }>, outputs?: LocalArtifact[] } = {}) {
+  const browser: Pick<DesktopBrowserApi, 'onStateChanged' | 'ensureSession' | 'close' | 'openArtifact' | 'openFile' | 'navigate'> = {
     navigate: async () => { throw new Error('unexpected navigation') },
     onStateChanged: () => () => {},
     ensureSession: async () => { throw new Error('unexpected session') },
     close: async () => {},
     openArtifact: async () => { throw new Error('unexpected browser artifact') },
+    openFile: async () => { throw new Error('unexpected browser file link') },
   }
-  const { scope, options } = contextPanelFixture({ activeConversationId: shallowRef<string | null>('conversation'), activeSpace: shallowRef(activeSpace) })
+  const { scope, options } = contextPanelFixture({ activeConversationId: shallowRef<string | null>('conversation'), activeSpace: shallowRef(activeSpace), spaces: shallowRef(activeSpace ? [activeSpace] : []), runOutputs: shallowRef(extra.outputs ? [{ runId: 'run', createdAt: now, sourceToolCallId: 'tool', artifacts: extra.outputs }] : []) })
   const artifactOpening = shallowRef<DesktopArtifactOpening>(extra.artifactOpening ?? 'file-manager')
   const open = vi.fn(async () => {})
+  const openFile = vi.fn(async () => {})
+  const files = { resolve: async ({ conversationId, href }: { conversationId: string, href: string }) => ({ target: { conversationId, path: href }, name: href.split('/').at(-1)!, kind: 'file' as const, mimeType: 'application/octet-stream', sizeBytes: 10, updatedAt: now }) }
   const fileOpening = extra.providers
     ? { ensureReady: async () => {}, resolve: (name: string, location: 'standalone') => resolveFileOpening({ providers: [...builtinFileOpeningProviders, ...extra.providers!], defaults: extra.defaults ?? {} }, name, location), open }
     : undefined
-  const panel = scope.run(() => useTaskResourcePanel({ ...options, artifactOpening, ...(fileOpening ? { fileOpening } : {}), autoCollapse: shallowRef(false), linkOpening: shallowRef('in-app'), browser }))!
-  return { panel, artifactOpening, open }
+  const panel = scope.run(() => useTaskResourcePanel({ ...options, artifactOpening, ...(fileOpening ? { fileOpening } : {}), autoCollapse: shallowRef(false), linkOpening: shallowRef('in-app'), files, openFile, browser }))!
+  return { panel, artifactOpening, open, openFile }
 }
 
 describe('opening task outputs', () => {
@@ -73,10 +76,13 @@ describe('opening task outputs', () => {
     expect(panel.activeTab.value).toMatchObject({ kind: 'files', target: { path: 'brief.docx' }, tree: { visible: true } })
   })
 
-  it.each(['report.docx', 'report.xlsx', 'report.pptx'])('shows the tree for an Office path preview before its output card is registered: %s', async (name) => {
-    const { panel } = fixture()
+  // Only a link that points to a registered output goes through openArtifact and the file manager; any other path link uses the shared task file opener.
+  it.each(['report.docx', 'report.xlsx', 'report.pptx'])('opens an Office path link with no output card through the task file opener, not the file manager: %s', async (name) => {
+    const { panel, openFile } = fixture()
     await panel.previewFile(`/workspace/${name}`)
-    expect(panel.activeTab.value).toMatchObject({ kind: 'files', target: { path: name }, tree: { visible: true } })
+    expect(openFile).toHaveBeenCalledOnce()
+    expect(openFile.mock.calls[0]![0]).toMatchObject({ name, kind: 'file' })
+    expect(panel.allTabs.value).toHaveLength(0)
   })
 
   it('shows the tree again when an Office card is opened after a plain file card folded it', async () => {
@@ -85,6 +91,32 @@ describe('opening task outputs', () => {
     expect(panel.activeTab.value).toMatchObject({ tree: { visible: false } })
     await panel.openArtifact(artifact({ artifactId: 'office', name: 'brief.docx', path: '/workspace/brief.docx' }))
     expect(panel.activeTab.value).toMatchObject({ kind: 'files', tree: { visible: true } })
+  })
+
+  it('opens a chat link that points to a registered output in the file manager', async () => {
+    const { panel, openFile } = fixture(space(), { outputs: [artifact()] })
+    await panel.previewFile('/workspace/docs/report.md')
+    expect(panel.activeTab.value).toMatchObject({ kind: 'files', target: { path: 'docs/report.md' }, tree: { visible: false } })
+    expect(openFile).not.toHaveBeenCalled()
+  })
+
+  it('opens with the provider the user picked instead of routing to the file manager, and routes again without one', async () => {
+    const { panel } = fixture(space(), { outputs: [artifact()] })
+    await panel.previewFile('/workspace/docs/report.md', undefined, 'lexora.text')
+    expect(panel.activeTab.value).toMatchObject({ kind: 'artifact', providerId: 'lexora.text' })
+    await panel.previewFile('/workspace/docs/report.md')
+    expect(panel.activeTab.value).toMatchObject({ kind: 'files', target: { path: 'docs/report.md' } })
+  })
+
+  it('folds the tree again for the next file card after a file was located', async () => {
+    const { panel } = fixture()
+    await panel.openArtifact(artifact())
+    panel.locateFile({ spaceId: 'space', directoryId: 'directory', revision: 1, path: 'docs/report.md' }, 'file')
+    expect(panel.activeTab.value).toMatchObject({ treeTarget: { path: 'docs/report.md', kind: 'file' } })
+    await panel.openArtifact(artifact({ artifactId: 'next', name: 'next.md', path: '/workspace/docs/next.md' }))
+    expect(panel.allTabs.value).toHaveLength(1)
+    expect(panel.activeTab.value).toMatchObject({ kind: 'files', target: { path: 'docs/next.md' }, tree: { visible: false } })
+    expect(panel.activeTab.value).toHaveProperty('treeTarget', undefined)
   })
 
   it('keeps the output tab when the task has no space', async () => {
@@ -173,7 +205,7 @@ describe('opening task outputs', () => {
       const { panel, open } = fixture(space(), { providers: [office, reader], defaults: { '.docx': { standalone: reader.id } } })
       await panel.openArtifact(artifact({ name: 'brief.docx', path: '/workspace/brief.docx' }))
       expect(panel.allTabs.value).toHaveLength(0)
-      expect(open).toHaveBeenCalledWith(expect.objectContaining({ name: 'brief.docx' }), reader, expect.any(Function))
+      expect(open).toHaveBeenCalledWith(expect.objectContaining({ name: 'brief.docx' }), reader, expect.any(Function), expect.any(AbortSignal))
     })
   })
 

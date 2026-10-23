@@ -58,6 +58,7 @@ function fixture(
   resolveArtifactEntry: RegisterBrowserDesktopIpcOptions['resolveArtifactEntry'] = async () => {
     throw new Error('unused')
   },
+  resolveFileEntry: RegisterBrowserDesktopIpcOptions['resolveFileEntry'] = async () => { throw new Error('unused') },
 ) {
   const webContents = { mainFrame: {} }
   registerBrowserDesktopIpc({
@@ -66,6 +67,7 @@ function fixture(
     getHost: () => Object.assign({ takeControl: vi.fn() }, host) as unknown as BrowserHost,
     getWindow: () => ({ webContents }) as unknown as BrowserWindow,
     resolveArtifactEntry,
+    resolveFileEntry,
   })
   return { webContents, event: { sender: webContents, senderFrame: webContents.mainFrame } as unknown as IpcMainInvokeEvent }
 }
@@ -148,6 +150,27 @@ describe('registerBrowserDesktopIpc', () => {
     expect(electron.openExternal).toHaveBeenCalledExactlyOnceWith(url)
     await expect(invoke(DESKTOP_IPC_CHANNELS.browserShowFileInFolder, event, { sessionId })).resolves.toBe(false)
     expect(electron.showItemInFolder).toHaveBeenCalledOnce()
+  })
+
+  it('opens a resolved file only in its owning conversation browser', async () => {
+    let opened: unknown = null
+    const target = { conversationId: 'conversation-1', path: '/workspace/page.html' }
+    const entry = { rootPath: '/workspace', entryPath: target.path }
+    const { event } = fixture({
+      getState: () => state,
+      openLocalFile: async (_id: string, value: unknown) => {
+        opened = value
+        return state
+      },
+    }, undefined, async (input) => {
+      if (input.path !== target.path)
+        throw new Error('DIRECTORY_NOT_AUTHORIZED')
+      return entry
+    })
+    await expect(invoke(DESKTOP_IPC_CHANNELS.browserOpenFile, event, { sessionId, target: { ...target, conversationId: 'other' } })).rejects.toThrow('owning conversation')
+    expect(opened).toBeNull()
+    await invoke(DESKTOP_IPC_CHANNELS.browserOpenFile, event, { sessionId, target })
+    expect(opened).toEqual(entry)
   })
 
   it('resolves an artifact using the owning conversation and authorized local resource root', async () => {

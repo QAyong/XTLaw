@@ -1,9 +1,14 @@
 import { copyEventSnapshot } from '../../../../shared/events/eventSnapshot'
 import { createExtensionNetworkClient, createExtensionResourceClient } from '../../../../shared/extensions/extensionResourceClient'
+import { createExtensionWorkers } from '../../../../shared/extensions/extensionWorkers'
 import { createThemeClient } from '../../../../shared/theme/themeClient'
 import { ExtensionHostEvents } from './ExtensionHostEvents'
 
 const bridge = window.lexoraExtensionHost
+const lifetime = new AbortController()
+// The host page never gets WebAssembly or workers (see ExtensionProtocol), so the host reports the denial itself instead of a CSP failure.
+const workers = createExtensionWorkers(new URL('/__package/', location.href), lifetime.signal, Worker, () => false)
+addEventListener('pagehide', () => lifetime.abort(), { once: true })
 const commands = new Map()
 const agentTools = new Map()
 const agentActions = new Map()
@@ -42,6 +47,8 @@ bridge.subscribe(async ({ id, method, params }) => {
       source.updatePanes(params.panes ?? [])
       entry = manifest.entry ? await import(`/__package/${manifest.entry}`) : {}
       context = Object.freeze({
+        signal: lifetime.signal,
+        workers,
         extension: Object.freeze({ id: manifest.id, version: manifest.version, apiVersion: manifest.apiVersion }),
         events,
         themes: createThemeClient(input => request('themes.request', input), (listener) => {
@@ -208,7 +215,10 @@ bridge.subscribe(async ({ id, method, params }) => {
         })
         result = (params.action ? await agentActions.get(params.action)(Object.freeze({ ...invocation, cause: copyEventSnapshot(params.cause) })) : await agentTools.get(params.tool)(params.input, invocation)) ?? null
       }
-      finally { agentInvocations.delete(params.invocationId) }
+      finally {
+        controller.abort()
+        agentInvocations.delete(params.invocationId)
+      }
     }
     else if (method === 'agent.cancel') {
       agentInvocations.get(params.invocationId)?.abort()
@@ -226,6 +236,7 @@ bridge.subscribe(async ({ id, method, params }) => {
       interactions.delete(params.id)
     }
     else if (method === 'deactivate') {
+      lifetime.abort()
       for (const controller of conditionEvaluations.values()) controller.abort()
       conditionEvaluations.clear()
       for (const controller of agentInvocations.values()) controller.abort()
@@ -254,6 +265,8 @@ bridge.subscribe(async ({ id, method, params }) => {
     bridge.reply(id, true, result)
   }
   catch (error) {
+    if (method === 'activate')
+      lifetime.abort()
     bridge.reply(id, false, code(error, method))
   }
 })

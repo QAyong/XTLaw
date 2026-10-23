@@ -16,6 +16,7 @@ import { extensionFileOpeningSourceSchema, extensionResourceSchema } from '../..
 import { ExtensionCompatibilityError, extensionCompatibilityIssue } from '../../shared/extensions/extensionCompatibility'
 import { extensionFileHandlerBindings, extensionFileOpeningProviders } from '../../shared/extensions/extensionFileOpening'
 import { addedExtensionPermissions, extensionIdSchema, extensionManifestSchema, extensionMetadataSchema } from '../../shared/extensions/extensionManifest'
+import { EXTENSION_REVIEW_BYTES_LIMIT, extensionFilesSize } from '../../shared/extensions/extensionPackageBudget'
 import { extensionConfigurationSchema, resolveExtensionConfiguration } from '../../shared/extensions/extensionSettings'
 import { EXTENSION_UNO_STYLESHEET } from '../../shared/extensions/extensionStyles'
 import { assertExtensionWebAssemblyLimits } from '../../shared/extensions/extensionTrust'
@@ -23,7 +24,7 @@ import { builtinFileOpeningProviders, fileOpeningChoiceSchema, fileOpeningExtens
 import { spaceFileTargetSchema } from '../../shared/spaces/spaceFileApi'
 import { validateFileIconThemeFiles } from '../icons/fileIconThemeAssets'
 import { validateThemeFiles } from '../themes/themeAssets'
-import { EXTENSION_PACKAGE_LIMIT, readExtensionDirectory, readExtensionFile, readExtensionJson, sha256, unpackExtension, validateExtensionFiles, verifiedExtensionAsset, writeExtensionJson } from './extensionFiles'
+import { EXTENSION_ARCHIVE_LIMIT, readExtensionDirectory, readExtensionFile, readExtensionJson, sha256, unpackExtension, validateExtensionFiles, verifiedExtensionAsset, writeExtensionJson } from './extensionFiles'
 import { extensionIconUrl } from './extensionIcon'
 import { ExtensionResourceStore } from './ExtensionResourceStore'
 import { extensionPackageSchema as packageSchema, storedIndexSchema } from './extensionState'
@@ -121,7 +122,7 @@ export class ExtensionPackageStore {
   }
 
   async review(path: string, development = false) {
-    const files = development ? await readExtensionDirectory(path) : unpackExtension(await readExtensionFile(path, EXTENSION_PACKAGE_LIMIT))
+    const files = development ? await readExtensionDirectory(path) : unpackExtension(await readExtensionFile(path, EXTENSION_ARCHIVE_LIMIT))
     return this.reviewFiles(files, development)
   }
 
@@ -134,6 +135,7 @@ export class ExtensionPackageStore {
     }
     if (this.#candidates.size >= 4)
       throw new Error('EXTENSION_REVIEW_LIMIT')
+    this.#checkReviewBytes(files)
     let manifest: ExtensionManifest
     try {
       const raw = JSON.parse(Buffer.from(files.get('extension.json') ?? []).toString('utf8'))
@@ -175,8 +177,25 @@ export class ExtensionPackageStore {
       const currentProviderId = resolved.preferredId ?? resolved.provider?.id ?? null
       return { extension, location, providerId: provider.id, title: provider.title, currentProviderId, requestDefault }
     })))
-    this.#candidates.set(token, { token, files, development, expires: Date.now() + 600000, package: { manifest, hashes, revision, source }, fileAssociations: fileAssociations.map(({ extension, location, providerId }) => ({ choice: { extension, location, providerId }, revision: this.#index.fileOpeningRevisions[extension]?.[location] ?? 0 })) })
+    this.#candidates.set(token, { token, files: new Map(files), development, expires: Date.now() + 600000, package: { manifest, hashes, revision, source }, fileAssociations: fileAssociations.map(({ extension, location, providerId }) => ({ choice: { extension, location, providerId }, revision: this.#index.fileOpeningRevisions[extension]?.[location] ?? 0 })) })
     return { token, manifest, iconUrl, sha256: revision, development, currentVersion: current?.current.manifest.version ?? null, addedPermissions: addedExtensionPermissions(current?.current.manifest.permissions, manifest.permissions), fileAssociations }
+  }
+
+  #checkReviewBytes(files: ReadonlyMap<string, Uint8Array>, replaced?: string): void {
+    let bytes = extensionFilesSize(files)
+    for (const [token, candidate] of this.#candidates) {
+      if (token !== replaced)
+        bytes += extensionFilesSize(candidate.files)
+    }
+    if (bytes > EXTENSION_REVIEW_BYTES_LIMIT)
+      throw new Error('EXTENSION_REVIEW_BYTES_LIMIT')
+  }
+
+  #verifyCandidate(candidate: ExtensionCandidate): void {
+    validateExtensionFiles(candidate.files)
+    const hashes = Object.fromEntries([...candidate.files].sort(([a], [b]) => a.localeCompare(b)).map(([name, bytes]) => [name, sha256(bytes)]))
+    if (!isDeepStrictEqual(hashes, candidate.package.hashes))
+      throw new Error('EXTENSION_PACKAGE_CHANGED')
   }
 
   cancelReview(token: string): void {
@@ -192,6 +211,7 @@ export class ExtensionPackageStore {
       return false
     if (!compile)
       throw new Error('EXTENSION_COMPILER_UNAVAILABLE')
+    this.#verifyCandidate(candidate)
     const files = await compile(candidate.files, candidate.package.manifest, signal, report)
     signal.throwIfAborted()
     validateExtensionFiles(files)
@@ -210,7 +230,8 @@ export class ExtensionPackageStore {
     if (this.#candidates.get(token) !== candidate)
       throw new Error('EXTENSION_INSTALL_CANCELLED')
     const hashes = Object.fromEntries([...files].sort(([a], [b]) => a.localeCompare(b)).map(([name, bytes]) => [name, sha256(bytes)]))
-    this.#candidates.set(token, { ...candidate, files, package: { manifest, hashes, revision: sha256(JSON.stringify(hashes)), source: candidate.package.source } })
+    this.#checkReviewBytes(files, token)
+    this.#candidates.set(token, { ...candidate, files: new Map(files), package: { manifest, hashes, revision: sha256(JSON.stringify(hashes)), source: candidate.package.source } })
     return true
   }
 
@@ -219,6 +240,7 @@ export class ExtensionPackageStore {
     this.#candidates.delete(token)
     if (!candidate || candidate.expires < Date.now())
       throw new Error('EXTENSION_REVIEW_EXPIRED')
+    this.#verifyCandidate(candidate)
     const { package: pkg } = candidate
     const selected = new Set<string>()
     const reviewed = choices.map((raw) => {
@@ -243,8 +265,11 @@ export class ExtensionPackageStore {
     let committed = false
     await mkdir(temporary, { recursive: true, mode: 0o700 })
     try {
-      for (const [name, bytes] of candidate.files) {
+      for (const [name, content] of candidate.files) {
         signal?.throwIfAborted()
+        const bytes = Buffer.from(content)
+        if (sha256(bytes) !== pkg.hashes[name])
+          throw new Error('EXTENSION_PACKAGE_CHANGED')
         const path = join(temporary, name)
         await mkdir(dirname(path), { recursive: true, mode: 0o700 })
         await writeFile(path, bytes, { flag: 'wx', mode: 0o600, flush: true })

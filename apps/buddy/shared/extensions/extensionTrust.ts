@@ -3,7 +3,7 @@ import { BUNDLED_EXTENSION_CATALOG_URL } from './extensionCatalog'
 // WebAssembly is open to every plugin, but only bundled/official plugins and development folders are exempt from the
 // limits below. "Bundled" is where the host recorded the package as coming from, never anything the package says about itself.
 export const EXTENSION_UNTRUSTED_WASM_FILE_LIMIT = 4
-// One package file is at most 16 MiB, so this allows a full-size engine plus smaller helpers.
+// A package file may be up to 64 MiB (the package budget), so this total is what actually bounds third-party engines.
 export const EXTENSION_UNTRUSTED_WASM_BYTES_LIMIT = 24 * 1024 * 1024
 
 export function extensionIsBundled(source: { catalog: string } | null | undefined): boolean {

@@ -40,6 +40,7 @@
 | `service/src/sandbox/__tests__/SandboxDirectoryPermissions.spec.ts` | run-scoped shell directory permissions revalidates directory identity after approval and before subsequent execution |
 | `service/src/skills/__tests__/skillInstallation.spec.ts` | skill installation lifecycle preserves the complete document and previews files only within the selected package |
 | `service/src/skills/__tests__/skillInstallation.spec.ts` | skill installation lifecycle rejects traversal in downloaded archives and symlinks in local packages |
+| `service/src/skills/__tests__/pluginSkills.spec.ts` | plugin skills rejects symlink package resources during materialization and inspection<br>`Error: EPERM: operation not permitted, symlink`（Windows 创建符号链接需要权限） |
 | `service/src/skills/__tests__/SkillPackageCache.spec.ts` | skillPackageCache does not reuse a cached package for an unauthorized root or after a resource becomes a symlink |
 | `service/src/skills/__tests__/SkillPackageCache.spec.ts` | skillPackageCache reuses unchanged document bytes while detecting same-size edits and path escapes |
 | `service/src/skills/__tests__/SkillService.spec.ts` | skillService does not let a skill file symlink leave its resolved skills directory |

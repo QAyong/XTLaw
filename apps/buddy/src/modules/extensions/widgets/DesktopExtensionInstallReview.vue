@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ExtensionReview } from '@buddy-shared/extensions/extensionApi'
+import type { FileOpeningChoice, FileOpeningReviewChoice } from '@buddy-shared/files/fileOpening'
 import { extensionIsBundled } from '@buddy-shared/extensions/extensionTrust'
 import { Alert20Regular, Clock20Regular, Document20Regular, Globe20Regular } from '@vicons/fluent'
 import { NButton, NCheckbox, NEllipsis, NModal } from 'naive-ui'
@@ -7,10 +8,27 @@ import { computed, shallowRef } from 'vue'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import DesktopPluginIcon from '@/shared/ui/icon/DesktopPluginIcon.vue'
 import { extensionLabels } from '../extensionLabels'
+import DesktopExtensionFileAssociations from './DesktopExtensionFileAssociations.vue'
 
 const props = defineProps<{ review: ExtensionReview, language: string, busy: boolean }>()
-const emit = defineEmits<{ cancel: [], install: [applyUpdate: boolean] }>()
+const emit = defineEmits<{ cancel: [], install: [applyUpdate: boolean, choices: FileOpeningChoice[]] }>()
 const applyUpdate = shallowRef(true)
+const associations = computed(() => props.review.fileAssociations ?? [])
+const selectedAssociations = shallowRef(initialAssociations())
+function initialAssociations(): FileOpeningChoice[] {
+  const selected = new Map<string, FileOpeningReviewChoice>()
+  for (const choice of associations.value) {
+    const key = `${choice.extension}:${choice.location}`
+    if (choice.providerId === choice.currentProviderId || (choice.requestDefault && !selected.has(key)))
+      selected.set(key, choice)
+  }
+  return [...selected.values()]
+    .map(({ extension, location, providerId }) => ({ extension, location, providerId }))
+}
+function install() {
+  const changes = selectedAssociations.value.filter(selected => associations.value.some(choice => choice.extension === selected.extension && choice.location === selected.location && choice.providerId === selected.providerId && choice.currentProviderId !== selected.providerId))
+  emit('install', applyUpdate.value, changes)
+}
 const labels = computed(() => extensionLabels(props.language))
 const english = computed(() => props.language === 'en-US')
 const permissions = computed(() => {
@@ -30,20 +48,19 @@ const permissions = computed(() => {
     ...(permissions.selectedResourceWrite ? [{ key: 'selectedResourceWrite', icon: Document20Regular, title: english.value ? 'Save the current file' : '保存当前文件', description: english.value ? 'Save edits to the file opened in this view. Changes outside the editor block saving.' : '将修改保存到当前视图打开的文件；文件在编辑器外发生变化时会阻止保存。' }] : []),
     ...(permissions.composerReference ? [{ key: 'composerReference', icon: Document20Regular, title: english.value ? 'Add file selections to chat' : '将文件选区引用到聊天', description: english.value ? 'Add selected text from the current file to a chosen chat draft. Does not send messages.' : '将当前文件的选中文字作为引用加入指定聊天草稿，不会发送消息。' }] : []),
     ...(permissions.selectedContent ? [{ key: 'selectedContent', icon: Document20Regular, title: english.value ? 'Read content you select' : '读取你选择的内容', description: english.value ? 'Receive the current draft or message when you invoke its action.' : '当你主动执行操作时，获取当前草稿或该条消息。' }] : []),
+    ...(permissions.references && !permissions.composerReference ? [{ key: 'references', icon: Document20Regular, title: english.value ? 'Add references to drafts' : '向输入框添加引用', description: english.value ? 'Add content from an interactive plugin view or authorized file snapshots to a draft. This does not send messages or grant additional file access.' : '将交互视图内容或已授权文件快照添加到输入框，不会发送消息或扩大文件访问权限。' }] : []),
     ...(permissions.localResources ? [{ key: 'localResources', icon: Document20Regular, title: english.value ? 'Read files and folders you select' : '读取你选择的文件和目录', description: english.value ? 'Choose files or folders in a system dialog. The plugin can read selected files and scan selected folders until you revoke access.' : '通过系统窗口选择文件或目录；插件可读取所选文件、扫描所选目录，授权保留到你撤销。' }] : []),
     ...(permissions.resourceExport ? [{ key: 'resourceExport', icon: Document20Regular, title: english.value ? 'Save files to a location you choose' : '保存文件到你选择的位置', description: english.value ? 'Each export opens a system save dialog. Reading a file does not grant permission to overwrite it.' : '每次导出都由你通过系统保存窗口选择目标；读取文件不会自动授予覆写权限。' }] : []),
     ...(permissions.webAssembly ? [{ key: 'webAssembly', icon: Alert20Regular, title: english.value ? 'Run compiled code in the plugin page' : '在插件页面运行编译代码', description: english.value ? 'Allow WebAssembly and background workers bundled with this plugin, for example a spreadsheet engine. They stay inside the plugin sandbox.' : '允许运行插件自带的 WebAssembly 与后台线程（例如表格引擎），仍限制在插件沙箱内。' }] : []),
     ...permissions.network.map(origin => ({ key: `network:${origin}`, icon: Globe20Regular, title: `${labels.value.network} ${origin}`, description: english.value ? 'Send requests to this website and read its responses.' : '向此网站发送请求并读取响应。' })),
   ]
 })
-// Plugins that did not ship with XTLaw get a plain warning for the permissions that change files or run compiled code.
+// Plugins that did not ship with XTLaw get a plain warning for the permission that overwrites files.
 function riskWarning(key: string): string | null {
   if (extensionIsBundled(props.review.source))
     return null
   if (key === 'selectedResourceWrite')
     return english.value ? 'This plugin can overwrite the files it opens. Install it only if you trust its author.' : '此插件可以覆盖它所打开的文件。只有信任作者时才安装。'
-  if (key === 'webAssembly')
-    return english.value ? 'This plugin runs compiled code that may use a lot of memory and CPU while its page is open.' : '此插件会运行编译代码，打开页面期间可能占用较多内存和处理器。'
   return null
 }
 function isNewPermission(key: string): boolean {
@@ -112,6 +129,12 @@ const sharesContent = computed(() => (props.review.manifest.permissions.selected
         {{ labels.noAdded }}
       </p>
     </section>
+    <DesktopExtensionFileAssociations
+      v-if="associations.length"
+      v-model="selectedAssociations"
+      class="extension-install-review__associations"
+      :associations="associations" :language="language" :busy="busy"
+    />
     <section v-if="Object.keys(review.manifest.dependencies).length" class="extension-install-review__dependencies">
       <h3>{{ labels.dependencies }}</h3>
       <p v-for="(range, id) in review.manifest.dependencies" :key="id">
@@ -137,7 +160,7 @@ const sharesContent = computed(() => (props.review.manifest.permissions.selected
         <NButton :disabled="busy" @click="emit('cancel')">
           {{ labels.cancel }}
         </NButton>
-        <NButton type="primary" :loading="busy" data-testid="extension-confirm-install" @click="emit('install', applyUpdate)">
+        <NButton type="primary" :loading="busy" data-testid="extension-confirm-install" @click="install">
           {{ review.currentVersion ? (applyUpdate ? labels.updateAndApply : labels.update) : labels.confirm }}
         </NButton>
       </div>
@@ -147,7 +170,7 @@ const sharesContent = computed(() => (props.review.manifest.permissions.selected
 
 <style scoped lang="scss">
 :global(.extension-install-review) {
-  width: min(500px, calc(100vw - 32px));
+  width: min(660px, calc(100vw - 32px));
   max-height: calc(100dvh - 48px);
   border-radius: 12px;
 }
@@ -177,6 +200,7 @@ const sharesContent = computed(() => (props.review.manifest.permissions.selected
 .extension-install-review__muted { margin: 0; color: var(--buddy-text-secondary); font-size: 12px; line-height: 1.6; }
 .extension-install-review__unchanged { margin-top: 12px; }
 .extension-install-review__dependencies { margin-top: 24px; }
+.extension-install-review__associations { margin-top: 24px; }
 .extension-install-review__apply { display: grid; gap: 4px; margin-top: 20px; border-top: 1px solid var(--buddy-border-subtle); padding-top: 16px; }
 .extension-install-review__dependencies p { margin: 4px 0 0; color: var(--buddy-text-primary); font-size: 12px; overflow-wrap: anywhere; }
 .extension-install-review__dependencies span { color: var(--buddy-text-secondary); }

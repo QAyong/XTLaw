@@ -1,9 +1,14 @@
 import { createExtensionNetworkClient, createExtensionResourceClient } from '../../../../shared/extensions/extensionResourceClient'
+import { createExtensionWorkers } from '../../../../shared/extensions/extensionWorkers'
 import { createThemeClient } from '../../../../shared/theme/themeClient'
+import { ExtensionReferenceReveal } from './ExtensionReferenceReveal'
 import { ExtensionViewState } from './ExtensionViewState'
 
 const token = location.hostname
+const controller = new AbortController()
+const workers = createExtensionWorkers(new URL('/__package/', location.href), controller.signal, Worker)
 const pending = new Map()
+const references = new ExtensionReferenceReveal((id, located) => parent.postMessage({ channel: 'lexora-extension', token, referenceResult: { id, located } }, '*'))
 const state = new ExtensionViewState(() => request('events.snapshot'))
 const events = state.events
 let overlay = false
@@ -20,7 +25,7 @@ function request(method, params = null) {
     if (pending.size >= 64)
       return reject(new Error('EXTENSION_REQUEST_LIMIT'))
     const id = crypto.randomUUID()
-    const longRunning = ['network.get', 'network.download', 'resources.importFile', 'themes.request', 'commands.execute'].includes(method)
+    const longRunning = ['network.get', 'network.download', 'resources.importFile', 'themes.request', 'commands.execute', 'references.add'].includes(method)
     const timer = longRunning
       ? undefined
       : setTimeout(() => {
@@ -37,6 +42,14 @@ addEventListener('message', (event) => {
   const data = event.data
   if (typeof data.ping === 'string') {
     parent.postMessage({ channel: 'lexora-extension', token, pong: data.ping }, '*')
+    return
+  }
+  if (data.referenceRequest) {
+    void references.reveal(data.referenceRequest.id, data.referenceRequest.input)
+    return
+  }
+  if (typeof data.referenceCancel === 'string') {
+    references.cancel(data.referenceCancel)
     return
   }
   if (data.event) {
@@ -61,12 +74,14 @@ addEventListener('keydown', (event) => {
     parent.postMessage({ channel: 'lexora-extension', token, dismiss: true }, '*')
 })
 addEventListener('pagehide', () => {
+  controller.abort()
   for (const item of pending.values()) {
     clearTimeout(item.timer)
     item.reject(new Error('EXTENSION_VIEW_CLOSED'))
   }
   pending.clear()
   state.dispose()
+  references.dispose()
 })
 async function initialize() {
   try {
@@ -88,9 +103,8 @@ async function initialize() {
       document.head.append(link)
     })))
     const entry = await import(`/__package/${initial.entry}`)
-    const controller = new AbortController()
-    addEventListener('pagehide', () => controller.abort(), { once: true })
     const api = Object.freeze({
+      workers,
       apiVersion: initial.apiVersion,
       events,
       themes: createThemeClient(input => request('themes.request', input), listener => events.on('view:environment:changed', listener)),
@@ -131,6 +145,10 @@ async function initialize() {
       setState: state => request('view.setState', state),
       setActive: active => request('view.setActive', { active }),
       setPresentation: presentation => request('view.setPresentation', presentation),
+      references: Object.freeze({
+        add: input => request('references.add', input.kind === 'resource' ? { ...input, resource: { id: input.resource.id } } : input),
+        onReveal: handler => references.onReveal(handler),
+      }),
       resources: {
         ...createExtensionResourceClient(request),
         pickFiles: (options = {}) => request('resources.pickFiles', options),
@@ -173,6 +191,7 @@ async function initialize() {
     await request('view.ready')
   }
   catch (error) {
+    controller.abort()
     document.querySelector('main').textContent = overlay ? '' : 'This plugin view could not be loaded.'
     void request('view.failed', { code: /^EXTENSION_[A-Z_]+$/.test(error?.message) ? error.message : 'EXTENSION_VIEW_FAILED' }).catch(() => {})
   }

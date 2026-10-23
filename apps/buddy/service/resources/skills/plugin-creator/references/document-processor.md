@@ -16,7 +16,7 @@
 | `documents.writeBack` | `selectedResourceWrite` 写回当前文件 | XTLaw 0.2.0 |
 | `documents.reference` | `composerReference` 把选区引用到聊天草稿 | XTLaw 0.2.0（DOCX）；通用 `extension` 格式 0.2.3 起 |
 | `documents.export` | `resourceExport` 另存为 / 导出 | XTLaw 0.2.0 |
-| `documents.webAssembly` | `webAssembly` 在视图页运行包内 WebAssembly | XTLaw 0.2.3 起；第三方有体积限额 |
+| `documents.webAssembly` | `webAssembly` 声明包内 WebAssembly；运行能力对所有插件开放 | XTLaw 0.2.3 起 |
 
 0.2.3 尚未发布，以实际发布的应用版本为准。
 
@@ -38,7 +38,7 @@
 | 写回当前文件 | `selectedResourceWrite: true`（需读取权限） | `resources.saveFile({name,data,resource:context.resource})`：最多 64 MiB，以 128 KiB 以内的块上传；写回前检查目录授权、文件版本和内容哈希（须与本视图读完整文件时记录的一致）；文件在外部已变化则**拒绝覆盖**；写入成功才返回，并更新本视图记录的版本；同一视图最多 2 个并发写入；句柄只能写本视图打开的那一个文件 | 不能写其他文件，不能在未读完整文件时写回，不静默覆盖外部修改 |
 | 另存为 / 导出 | `resourceExport: true` | `resources.saveFile({name,data})`（不带 `resource`）：每次弹出系统另存为窗口，由用户选目标，取消返回 `false` | 不授予对原文件的覆写权限 |
 
-读取限制以外的包体限制：单个包文件 16 MiB，整包 64 MiB。文档处理器若需要更大的数据，应分块读取并在视图里处理，不要把文档打进包里。
+读取限制以外的包体限制：单个包文件 64 MiB，压缩安装包 128 MiB，展开合计 256 MiB。文档处理器若需要更大的数据，应分块读取并在视图里处理，不要把文档打进包里。
 
 ## 3. 引用到聊天
 
@@ -82,14 +82,12 @@ await context.composer.addQuote(capture.id, targetId) // added | duplicate | lim
 
 ## 4. WebAssembly
 
-`webAssembly: true` 的作用范围很窄：
-
-- 只对**视图页**放开 `script-src 'wasm-unsafe-eval'` 和 `worker-src <插件包路径> blob:`；宿主页（extension.js）不受影响。
+WebAssembly 与 Worker 的运行能力和上游一致：所有插件的视图页和宿主页（extension.js）都放开 `script-src 'wasm-unsafe-eval'` 和 `worker-src <插件包路径> blob:`，`context.workers.create()` 不需要额外权限，见 [WebAssembly 与 Worker](workers.md)。`webAssembly: true` 是 XTLaw 的声明字段，不改变运行能力，也没有额外的安装限制。
 - 仍然**禁止 JS eval**（`eval`、`new Function`），Worker 只能从 `blob:` 或包内路径启动；沙箱视图是不透明源，不能按 URL 加载 Worker 脚本，需要从 blob 启动。
 - `.wasm` 文件以 `application/wasm` 提供，必须随包发布；视图不能从网络加载代码（`connect-src` 仍只含包内和资源路径）。
-- **所有插件可声明，第三方有限额**：内置/官方插件（宿主记录的安装来源是内置目录）和开发目录加载（`development`）不受限；其他来源（本地 `.lexora-extension`/`.zip` 包、远端目录）的包内 `.wasm` 文件最多 4 个、合计不超过 24 MiB，超出时安装审查拒绝，错误码 `EXTENSION_WEBASSEMBLY_LIMIT`。判定只看宿主记录的来源，不看包里的作者名或插件名。
-- **宿主不强制的部分**：沙箱内的内存、CPU 和 Worker 数量无法由宿主限制；`.wasm` 以外的方式（例如把二进制嵌入 JS）只受包体积限制（单文件 16 MiB、整包 64 MiB）约束。
-- 安装时单独提示用户；第三方插件声明该权限时，安装确认里会标出“高风险”和一句话说明。
+- **没有额外限额**：包内 `.wasm` 的数量和体积只受包预算约束，不再区分内置、开发目录和第三方来源。
+- **宿主不强制的部分**：沙箱内的内存、CPU 和 Worker 数量无法由宿主限制；`.wasm` 以外的方式（例如把二进制嵌入 JS）只受包体积限制（单文件 64 MiB、压缩包 128 MiB、展开合计 256 MiB）约束。
+- 安装确认只列出这项权限，不再标“高风险”。
 
 ## 5. 权限矩阵与升级对比
 
@@ -103,7 +101,7 @@ await context.composer.addQuote(capture.id, targetId) // added | duplicate | lim
 
 - `selectedResourceWrite`、`composerReference` 在清单校验时要求 `apiVersion >= 4` 且 `selectedResource: "read"`；`accepts` 要求 `apiVersion >= 4`、`resource: "selected-file"`、`location: "context"`。
 - `localResources` 不是文档处理器所必需；只有视图自己用系统选择器取文件时才声明。
-- 用户在安装确认里看到每一项权限。**升级时宿主比较新旧清单**，把新增的权限（包括 `selectedResourceWrite`、`composerReference`、`resourceExport`、`webAssembly`）单独标为“新增”，用户确认后才能升级。第三方（非内置来源）声明 `selectedResourceWrite` 或 `webAssembly` 时，安装确认里在对应权限旁显示“高风险”标记和红色说明；内置插件不显示。
+- 用户在安装确认里看到每一项权限。**升级时宿主比较新旧清单**，把新增的权限（包括 `selectedResourceWrite`、`composerReference`、`resourceExport`、`webAssembly`）单独标为“新增”，用户确认后才能升级。第三方（非内置来源）声明 `selectedResourceWrite` 时，安装确认里在对应权限旁显示“高风险”标记和红色说明；内置插件不显示。`webAssembly` 不再标“高风险”。
 
 ## 6. 稳定性与版本承诺
 

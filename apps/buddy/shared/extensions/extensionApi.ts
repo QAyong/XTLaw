@@ -1,4 +1,5 @@
 import type { BuddyFileQuote } from '../conversation/buddyUserContent'
+import type { FileOpeningChoice, FileOpeningReviewChoice, FileOpeningSnapshot } from '../files/fileOpening'
 import type { ShellCandidate, ShellCandidateId } from '../shell/shellProgram'
 import type { WorkbenchHitRegion, WorkbenchPaneSnapshot } from '../workbench/workbenchInteraction'
 import type { JsonValue } from '../workbench/workbenchState'
@@ -10,18 +11,22 @@ import type { ExtensionConditionsChanged, ExtensionConditionState } from './exte
 import type { ExtensionDiagnostic } from './extensionDiagnostic'
 import type { ExtensionInstallation } from './extensionInstallation'
 import type { ExtensionManifest } from './extensionManifest'
+import type { ExtensionReferenceMaterial, ExtensionReferenceOpening } from './extensionReferences'
 import type { ExtensionConfiguration, ExtensionConfigurationSnapshot } from './extensionSettings'
 import type { ExtensionWindowStyle } from './extensionWindowStyles'
 import { z } from 'zod'
 import { BUDDY_QUOTE_TEXT_LIMIT, xlsxQuoteCellsSchema } from '../conversation/buddyUserContent'
 import { extensionQuoteKindSchema, extensionQuoteLocationSchema } from '../conversation/extensionQuoteLocation'
+import { fileOpeningChoiceSchema, fileOpeningLocationSchema } from '../files/fileOpening'
 import { shellCandidateIdSchema } from '../shell/shellProgram'
 import { spaceFileTargetSchema } from '../spaces/spaceFileApi'
 import { themeTransportSchema } from '../theme/themeApi.ts'
 import { workbenchPanesSchema } from '../workbench/workbenchInteraction'
 import { workbenchMenuSchema } from '../workbench/workbenchUi'
 import { extensionActionRpc } from './extensionActionApi'
+import { extensionFileOpeningSourceSchema } from './extensionFileOpening'
 import { extensionIdSchema } from './extensionManifest'
+import { extensionReferenceInputSchema, extensionReferenceOpeningSchema } from './extensionReferences'
 import { extensionConfigurationSchema } from './extensionSettings'
 
 export const EXTENSION_IPC = {
@@ -37,6 +42,8 @@ export const EXTENSION_IPC = {
 } as const
 export const extensionJsonSchema = z.json().refine(value => new TextEncoder().encode(JSON.stringify(value)).byteLength <= 262144, 'Extension data is too large')
 export function parseExtensionRequestParams(method: string, params: unknown): JsonValue {
+  if (method === 'references.add')
+    return extensionJsonSchema.parse(extensionReferenceInputSchema.parse(params))
   return (method === 'themes.request' ? themeTransportSchema : extensionJsonSchema).parse(params)
 }
 
@@ -52,6 +59,20 @@ export const extensionViewInputSchema = z.object({
   state: extensionJsonSchema,
   stateVersion: z.number().int().min(0).max(10000),
 }).strict()
+export { extensionFileOpeningSourceSchema } from './extensionFileOpening'
+export const extensionFileOpeningInputSchema = z.object({
+  providerId: z.string().min(1).max(180),
+  location: fileOpeningLocationSchema,
+  source: extensionFileOpeningSourceSchema.nullable(),
+  text: z.string().max(2 * 1024 * 1024).optional(),
+}).strict().refine(input => input.text === undefined || (input.location === 'inline' && input.source?.kind === 'space'), 'Snapshots require an inline Space resource')
+export type ExtensionFileOpeningSource = z.infer<typeof extensionFileOpeningSourceSchema>
+export type ExtensionFileOpeningInput = z.infer<typeof extensionFileOpeningInputSchema>
+export interface ExtensionPreparedFileOpening {
+  extensionId: string
+  viewType: string
+  resource: ExtensionResource | null
+}
 export type ExtensionResource = z.infer<typeof extensionResourceSchema>
 const extensionQuoteFields = {
   resourceId: z.string().uuid(),
@@ -114,6 +135,7 @@ export interface ExtensionStatus {
   logs: ExtensionLog[]
 }
 export interface ExtensionReview {
+  fileAssociations?: FileOpeningReviewChoice[]
   iconUrl?: string
   installationId?: string
   source?: { catalog: string, artifact: string, sha256: string }
@@ -133,6 +155,7 @@ export type ExtensionWorkbenchEvent
     | { kind: 'state', requestId: string, viewId: string, generation: string, token: string, state: JsonValue, stateVersion: number }
     | { kind: 'quote-capture', requestId: string, viewId: string, generation: string, token: string, captureId: string, quote: BuddyFileQuote }
     | { kind: 'quote-add', requestId: string, viewId: string, generation: string, token: string, captureId: string, targetId: string }
+    | { kind: 'reference', requestId: string, viewId: string, generation: string, token: string, material: ExtensionReferenceMaterial }
     | { kind: 'interaction', requestId: string, extensionId: string, generation: string, interactionId: string, title: string | null }
     | { kind: 'message', requestId: string, extensionId: string, generation: string, message: JsonValue }
     | { kind: 'regions', requestId: string, viewId: string, generation: string, token: string, regions: WorkbenchHitRegion[] }
@@ -142,8 +165,12 @@ export type ExtensionWorkbenchEvent
     | { kind: 'presentation', requestId: string, viewId: string, generation: string, token: string, presentation: WorkbenchPresentation }
 
 export const extensionManagementSchema = z.discriminatedUnion('action', [
-  z.object({ action: z.literal('openFile'), resource: spaceFileTargetSchema }).strict(),
+  z.object({ action: z.literal('openFile'), resource: spaceFileTargetSchema, providerId: z.string().min(1).max(180).optional() }).strict(),
   z.object({ action: z.literal('list') }).strict(),
+  z.object({ action: z.literal('fileOpeners') }).strict(),
+  z.object({ action: z.literal('setFileOpener'), choice: fileOpeningChoiceSchema }).strict(),
+  z.object({ action: z.literal('prepareFileOpening'), input: extensionFileOpeningInputSchema }).strict(),
+  z.object({ action: z.literal('prepareReferenceOpening'), input: extensionReferenceOpeningSchema }).strict(),
   z.object({ action: z.literal('unavailable') }).strict(),
   z.object({ action: z.literal('detectShells'), id: extensionIdSchema }).strict(),
   z.object({ action: z.literal('selectShellExecutable'), id: extensionIdSchema, candidate: shellCandidateIdSchema }).strict(),
@@ -156,7 +183,7 @@ export const extensionManagementSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('reviewCatalog'), id: extensionIdSchema, version: z.string().max(80) }).strict(),
   z.object({ action: z.literal('cancelInstallation'), id: z.string().uuid() }).strict(),
   z.object({ action: z.literal('selectPackage'), development: z.boolean().default(false) }).strict(),
-  z.object({ action: z.literal('install'), token: z.string().uuid() }).strict(),
+  z.object({ action: z.literal('install'), token: z.string().uuid(), choices: z.array(fileOpeningChoiceSchema).max(4096).optional() }).strict(),
   z.object({ action: z.literal('cancelInstall'), token: z.string().uuid() }).strict(),
   z.object({ action: z.literal('enable'), id: extensionIdSchema, enabled: z.boolean() }).strict(),
   z.object({ action: z.literal('restart'), id: extensionIdSchema }).strict(),
@@ -177,7 +204,11 @@ export const extensionManagementSchema = z.discriminatedUnion('action', [
 ])
 export type ExtensionManagementRequest = z.infer<typeof extensionManagementSchema>
 export interface ExtensionApi {
-  openFile: (resource: import('../spaces/spaceFileApi').SpaceFileTarget) => Promise<string | null>
+  openFile: (resource: import('../spaces/spaceFileApi').SpaceFileTarget, providerId?: string) => Promise<string | null>
+  fileOpeners: () => Promise<FileOpeningSnapshot>
+  setFileOpener: (choice: FileOpeningChoice) => Promise<FileOpeningSnapshot>
+  prepareFileOpening: (input: ExtensionFileOpeningInput) => Promise<ExtensionPreparedFileOpening>
+  prepareReferenceOpening: (input: ExtensionReferenceOpening) => Promise<ExtensionPreparedFileOpening>
   detectShells: (id: string) => Promise<ShellCandidate[]>
   selectShellExecutable: (id: string, candidate: ShellCandidateId) => Promise<string | null>
   settingConditions: (id: string, items: string[], form?: ExtensionConfiguration) => Promise<Record<string, ExtensionConditionState>>
@@ -194,7 +225,7 @@ export interface ExtensionApi {
   reviewCatalog: (id: string, version: string) => Promise<ExtensionReviewResult>
   cancelInstallation: (id: string) => Promise<void>
   selectPackage: (development?: boolean) => Promise<ExtensionReviewResult | null>
-  install: (token: string) => Promise<void>
+  install: (token: string, choices?: FileOpeningChoice[]) => Promise<void>
   cancelInstall: (token: string) => Promise<void>
   enable: (id: string, enabled: boolean) => Promise<void>
   restart: (id: string) => Promise<void>

@@ -42,11 +42,11 @@ export const workbenchDocumentCapabilities = {
     requires: 'permissions.resourceExport true',
   },
   'documents.webAssembly': {
-    title: { 'zh-CN': 'WebAssembly（第三方有限额）', 'en-US': 'WebAssembly (limited for third parties)' },
+    title: { 'zh-CN': 'WebAssembly', 'en-US': 'WebAssembly' },
     scope: 'resource',
-    description: 'permissions.webAssembly adds script-src wasm-unsafe-eval and blob: workers to the plugin view page only; JS eval stays forbidden and .wasm files must ship in the package. Any plugin may declare it. Plugins that are not bundled/official (and not a development directory) may ship at most 4 .wasm files, 24 MiB in total; the install review rejects more with EXTENSION_WEBASSEMBLY_LIMIT. Memory, CPU and worker counts are not enforced by the host, and the install review marks the permission high risk for third parties. See document-processor.md.',
+    description: 'WebAssembly (script-src wasm-unsafe-eval) and blob: workers via context.workers.create() are available to every plugin page, views and extension host page alike, as upstream provides; JS eval stays forbidden and .wasm files must ship in the package. permissions.webAssembly declares the use and does not change what the runtime allows. Any plugin may declare it. .wasm files are bounded only by the package budget; memory, CPU and worker counts are not enforced by the host. See document-processor.md.',
     since: '0.2.3',
-    requires: 'permissions.webAssembly true; third-party packages: at most 4 .wasm files and 24 MiB in total',
+    requires: 'permissions.webAssembly true',
   },
 } as const satisfies Record<string, DocumentCapabilityDefinition>
 

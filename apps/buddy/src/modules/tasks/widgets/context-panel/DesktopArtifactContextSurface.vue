@@ -3,16 +3,19 @@ import type { LocalArtifact, LocalArtifactText } from '@buddy-shared/artifacts/a
 import type { BuddyArtifactQuote, BuddyResourceQuote } from '@buddy-shared/conversation/buddyUserContent'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import type { ArtifactViewMode } from '@/modules/tasks/model/context-panel/taskContextPanel'
+import { isTextArtifactMimeType } from '@buddy-shared/artifacts/artifactApi'
+import { resolveBuiltinFileOpening } from '@buddy-shared/files/fileOpening'
 import { NSpin } from 'naive-ui'
 import { computed, useTemplateRef, watch } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
+import { fileOpeningHandler, useFileOpening } from '@/modules/files'
 import { FileIcon, FolderIcon } from '@/shared/ui/file-icon'
 import DesktopDocumentContent from '@/shared/ui/files/DesktopDocumentContent.vue'
 import BuddyImagePreview from '@/shared/ui/media/BuddyImagePreview.vue'
 import ResourceSelectionQuoteMenu from '@/shared/ui/selection/ResourceSelectionQuoteMenu.vue'
 import { useResourceQuoteReveal } from '@/shared/ui/selection/useResourceQuoteReveal'
 import { useSelectionReferences } from '@/shared/ui/selection/workbenchSelectionReferences'
-import { artifactMediaKind, isMarkdownArtifact } from './artifactContextPresentation'
+import { artifactMediaKind } from './artifactContextPresentation'
 import DesktopArtifactToolbar from './DesktopArtifactToolbar.vue'
 import { useArtifactPreview } from './useArtifactPreview'
 
@@ -26,9 +29,16 @@ const props = defineProps<{
 }>()
 const viewMode = defineModel<ArtifactViewMode>('viewMode', { required: true })
 const references = useSelectionReferences()
-const markdown = computed(() => isMarkdownArtifact(props.artifact))
 const quoteMenu = useTemplateRef<InstanceType<typeof ResourceSelectionQuoteMenu>>('quoteMenu')
-const mediaKind = computed(() => artifactMediaKind(props.artifact))
+const opening = useFileOpening()
+const provider = computed(() => {
+  const selected = opening?.resolve(props.artifact.name, 'standalone').provider
+  return selected?.builtin ? selected : resolveBuiltinFileOpening(props.artifact.name, 'standalone').provider
+})
+const handler = computed(() => fileOpeningHandler(provider.value))
+const markdown = computed(() => handler.value?.preview === 'markdown')
+const image = computed(() => handler.value?.preview === 'image')
+const mediaKind = computed(() => handler.value?.preview === 'media' ? artifactMediaKind(props.artifact) : null)
 const mediaUrl = computed(() => mediaKind.value ? `lexora-artifact://media/${encodeURIComponent(props.artifact.artifactId)}?v=${encodeURIComponent(props.artifact.updatedAt)}` : null)
 const quoteSource = computed<BuddyArtifactQuote['source']>(() => ({
   kind: 'artifact',
@@ -49,8 +59,10 @@ function prepareQuote(quote: BuddyResourceQuote, x: number, y: number) {
 }
 
 const { t } = useBuddyI18n(() => props.language)
-const { refreshText, failImage, openPreview, previewIndex, previewOpen, previewSources, previewUrl, textPreview, textPreviewFailed, textPreviewLoading, textPreviewMissing } = useArtifactPreview({
+const { refreshText, failImage, previewFailed, openPreview, previewIndex, previewOpen, previewSources, previewUrl, textPreview, textPreviewFailed, textPreviewLoading, textPreviewMissing } = useArtifactPreview({
   artifact: () => props.artifact,
+  imageEnabled: () => image.value,
+  textEnabled: () => handler.value ? handler.value.input === 'text' : isTextArtifactMimeType(props.artifact.mimeType),
   readText: () => props.readArtifactText,
 })
 const document = useTemplateRef<InstanceType<typeof DesktopDocumentContent>>('document')
@@ -67,7 +79,7 @@ watch(textPreview, () => quoteMenu.value?.close(), { flush: 'sync' })
 
 <template>
   <section class="desktop-artifact-context-surface" @scroll.capture="quoteMenu?.close()">
-    <DesktopArtifactToolbar v-model:view-mode="viewMode" :artifact="artifact" :language="language" :text-available="!!textPreview" />
+    <DesktopArtifactToolbar v-model:view-mode="viewMode" :artifact="artifact" :language="language" :text-available="!!textPreview" :preview-available="markdown || image || !!mediaKind" />
     <BuddyImagePreview
       v-model:current="previewIndex"
       v-model:show="previewOpen"
@@ -75,10 +87,10 @@ watch(textPreview, () => quoteMenu.value?.close(), { flush: 'sync' })
       :sources="previewSources"
     />
 
-    <div class="desktop-artifact-context-surface__viewport" :class="{ 'desktop-artifact-context-surface__viewport--document': textPreview || mediaKind }">
+    <div class="desktop-artifact-context-surface__viewport" :class="{ 'desktop-artifact-context-surface__viewport--document': (textPreview && (!image || viewMode === 'source')) || mediaKind }">
       <DesktopDocumentContent v-if="mediaKind && mediaUrl" mode="preview" :name="artifact.name" :media-kind="mediaKind" :media-url="mediaUrl" :visible="visible" :language="language" :write-clipboard-text="writeClipboardText" />
       <button
-        v-else-if="previewUrl"
+        v-else-if="previewUrl && viewMode === 'preview'"
         class="desktop-artifact-context-surface__preview-trigger"
         type="button"
         :aria-label="t('desktop.imagePreview.open', { name: artifact.name })"
@@ -110,7 +122,7 @@ watch(textPreview, () => quoteMenu.value?.close(), { flush: 'sync' })
         <span v-if="artifact.kind === 'directory'" class="desktop-artifact-context-surface__path">
           {{ artifact.path }}
         </span>
-        <span v-else>{{ t(textPreviewMissing ? 'desktop.context.previewFileMissing' : textPreviewFailed ? 'desktop.context.previewLoadFailed' : 'desktop.context.previewUnavailable') }}</span>
+        <span v-else>{{ t(textPreviewMissing ? 'desktop.context.previewFileMissing' : textPreviewFailed || previewFailed ? 'desktop.context.previewLoadFailed' : 'desktop.context.previewUnavailable') }}</span>
       </div>
     </div>
     <ResourceSelectionQuoteMenu v-if="references && textPreview" ref="quoteMenu" :view-id="tabId" :owner-key="quoteOwnerKey" :language="language" :visible="visible" />

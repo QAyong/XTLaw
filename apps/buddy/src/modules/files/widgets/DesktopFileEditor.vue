@@ -4,6 +4,7 @@ import type { JsonValue } from '@buddy-shared/workbench/workbenchState'
 import type * as Monaco from 'monaco-editor/editor/editor.api.js'
 import type { TextModelPool } from '@/workbench/browser/TextModelPool'
 import type { ResourceRef, WorkbenchView } from '@/workbench/common/workbench'
+import { resolveBuiltinFileOpening } from '@buddy-shared/files/fileOpening'
 import { spaceFileTargetSchema } from '@buddy-shared/spaces/spaceFileApi'
 import { NButton, NSwitch } from 'naive-ui'
 import { computed, onScopeDispose, shallowRef, useId, useTemplateRef, watch } from 'vue'
@@ -11,7 +12,7 @@ import { useBuddyI18n } from '@/i18n/buddyI18n'
 import WorkbenchMenu from '@/shared/ui/contributions/WorkbenchMenu.vue'
 import DesktopDocumentContent from '@/shared/ui/files/DesktopDocumentContent.vue'
 import DesktopDocumentToolbar from '@/shared/ui/files/DesktopDocumentToolbar.vue'
-import { fileDocumentModes, isMarkdownFile, resolveFileDocumentMode } from '@/shared/ui/files/fileDocumentPresentation'
+import { fileDocumentModes, resolveFileDocumentMode } from '@/shared/ui/files/fileDocumentPresentation'
 import { observeDesktopMonacoTheme } from '@/shared/ui/monaco/desktopMonaco'
 import ResourceSelectionQuoteMenu from '@/shared/ui/selection/ResourceSelectionQuoteMenu.vue'
 import { revealMonacoQuote } from '@/shared/ui/selection/revealMonacoQuote'
@@ -19,6 +20,10 @@ import { registerMonacoResourceQuote } from '@/shared/ui/selection/useMonacoReso
 import { useResourceQuoteReveal } from '@/shared/ui/selection/useResourceQuoteReveal'
 import { useSelectionReferences } from '@/shared/ui/selection/workbenchSelectionReferences'
 import { useWorkbench } from '@/workbench/browser/workbenchContext'
+
+import { fileOpeningHandler } from '../model/fileOpeningHandlers'
+import { useFileOpening } from '../state/fileOpeningContext'
+import { filePreviewRenderer } from './filePreviewRenderers'
 
 const props = withDefaults(defineProps<{ view: WorkbenchView, models: TextModelPool, language: 'zh-CN' | 'en-US', writeClipboardText: (text: string) => Promise<void>, toolbarTarget?: HTMLElement | null, visible?: boolean }>(), { visible: true })
 const { copies, controller, labels, autoSave } = useWorkbench()
@@ -76,7 +81,12 @@ const saveStatusText = computed(() => {
     default: return copy.value?.dirty ? labels.value.dirty : labels.value.saved
   }
 })
-const modes = computed(() => fileDocumentModes({ preview: isMarkdownFile(props.view.title), source: !!copy.value?.etag, edit: !!copy.value?.etag }))
+const opening = useFileOpening()
+const target = computed(() => spaceFileTargetSchema.strip().parse(props.view.resource.data))
+const provider = computed(() => (opening?.resolve(props.view.title, 'inline') ?? resolveBuiltinFileOpening(props.view.title, 'inline')).provider)
+const handler = computed(() => fileOpeningHandler(provider.value))
+const previewRenderer = computed(() => filePreviewRenderer({ provider: provider.value, ownerId: props.view.id, target: target.value, source: 'working-copy', resourceReady: !!copy.value?.etag && !copy.value.blocked, text: copy.value?.text ?? '', name: props.view.title, visible: props.visible, language: props.language }))
+const modes = computed(() => fileDocumentModes({ preview: handler.value?.input === 'text' && !!handler.value.preview, source: !!copy.value?.etag, edit: !!copy.value?.etag }))
 const mode = computed({
   get: () => resolveFileDocumentMode(props.view.state.mode ?? (props.view.state.preview === false ? 'edit' : undefined), modes.value),
   set: value => controller.updateView(props.view.id, { state: { ...props.view.state, mode: value } }),
@@ -256,6 +266,9 @@ onScopeDispose(controller.configuration.subscribe(() => editor?.updateOptions({ 
       :mode="mode" :name="view.title" :text="copy?.text ?? ''" :language="language" :write-clipboard-text="writeClipboardText"
       :quote-source="references ? quoteSource('markdown') : undefined" :prepare-quote="prepareQuote" @scroll.capture="quoteMenu?.close()"
     >
+      <template v-if="previewRenderer" #preview>
+        <component :is="previewRenderer.component" v-bind="previewRenderer.props" @error="failed = true" />
+      </template>
       <template #source>
         <div ref="container" class="file-editor__monaco" data-testid="workbench-text-editor" />
       </template>

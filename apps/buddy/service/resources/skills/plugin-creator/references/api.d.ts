@@ -19,6 +19,30 @@ export interface EventSubscriber<Events> {
   on: <const Pattern extends EventPattern<Events>>(patterns: Pattern | readonly Pattern[], listener: (event: EventMessage<Events, Pattern>) => unknown, options?: EventSubscriptionOptions) => EventSubscription
 }
 export type EventSnapshot<Value> = Value extends object ? { readonly [Key in keyof Value]: EventSnapshot<Value[Key]> } : Value
+export type FileOpeningLocation = 'inline' | 'standalone'
+export type FileViewResource = 'selected-file' | 'optional-file' | 'none'
+export interface FileHandlerView {
+  view: string
+  /** Preselect this mode in the installation dialog. Defaults to true. */
+  requestDefault?: boolean
+}
+export interface FileHandlerContribution {
+  id: string
+  title: string
+  extensions: string[]
+  preview?: FileHandlerView
+  open?: FileHandlerView
+}
+/** Legacy declaration. New plugins should use FileHandlerContribution. */
+export interface FileOpenerContribution {
+  id: string
+  title: string
+  view: string
+  extensions: string[]
+  locations: FileOpeningLocation[]
+  requestDefault?: boolean
+}
+export interface LauncherContribution { id: string, title: string, view: string }
 export interface Resource { readonly id: string, readonly name: string }
 export interface ResourceTransferOptions { name?: string, signal?: AbortSignal }
 export interface ResourceApi {
@@ -131,7 +155,18 @@ export interface ShellCandidate {
   reason?: string
 }
 
+export interface WorkerOptions {
+  type?: 'classic' | 'module'
+  name?: string
+  signal?: AbortSignal
+}
+export interface WorkerApi {
+  create: (entry: string | URL, options?: WorkerOptions) => Promise<Worker>
+}
+
 export interface ExtensionContext {
+  readonly signal: AbortSignal
+  readonly workers: WorkerApi
   readonly themes: ThemeApi
   readonly extension: { readonly id: string, readonly version: string, readonly apiVersion: 1 | 2 | 3 | 4 }
   readonly events: EventSubscriber<ExtensionEvents>
@@ -206,7 +241,20 @@ export interface WorkbenchContextSnapshot {
   readonly values: WorkbenchContextValues
   readonly pages: readonly { readonly id: string, readonly title: string }[]
 }
+export interface ReferenceLocator {
+  readonly version: number
+  readonly data: ReadonlyJson
+}
+export interface ReferenceReveal {
+  readonly referenceId: string
+  readonly text: string
+  readonly locator: ReferenceLocator | null
+}
+export type ReferenceInput
+  = | { kind: 'content', title: string, text: string, locator?: ReferenceLocator }
+    | { kind: 'resource', resource: { id: string } }
 export interface ViewContext {
+  readonly workers: WorkerApi
   readonly themes: ThemeApi
   readonly events: EventSubscriber<ViewEvents>
   readonly interaction: {
@@ -239,6 +287,10 @@ export interface ViewContext {
   readonly signal: AbortSignal
   onActivity: (listener: (event: { readonly type: 'composer-input', readonly caret?: { readonly x: number, readonly y: number, readonly width: number, readonly height: number } | null }) => void) => Disposable
   openExternal: (url: string) => Promise<void>
+  readonly references: {
+    add: (input: ReferenceInput) => Promise<boolean>
+    onReveal: (handler: (input: ReferenceReveal, signal: AbortSignal) => boolean | Promise<boolean>) => Disposable
+  }
   readonly resources: LocalResourceApi
   readonly network: NetworkApi
   readonly commands: { execute: (command: string, args?: Json) => Promise<Json> }

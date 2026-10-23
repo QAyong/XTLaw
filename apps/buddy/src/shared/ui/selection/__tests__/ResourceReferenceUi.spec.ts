@@ -38,10 +38,11 @@ async function mount(kind: 'menu' | 'strip', removable = true, multiple = false)
   let menu!: InstanceType<typeof ResourceSelectionQuoteMenu>
   const content = shallowRef(createBuddyUserContent('Keep input'))
   const ownerKey = shallowRef('file:one')
-  const locate = vi.fn(async () => false)
+  const locate = vi.fn<(quote: BuddyResourceQuote) => Promise<boolean>>(async () => false)
   const remove = vi.fn()
   const extraContent = shallowRef(createBuddyUserContent('Other input'))
-  const host = new WorkbenchSelectionReferences({ targets: () => [...(multiple ? [{ id: 'b', label: 'Pane 2 · Task B', identity: 'b:draft:epoch', scope: 'task:b', read: () => extraContent.value, write: (value: typeof extraContent.value) => extraContent.value = value }] : []), { id: 'a', label: 'Pane 1 · Task A', identity: 'a:draft:epoch', scope: 'task:a', read: () => content.value, write: value => content.value = value }], source: () => ({ identity: 'file:one', owner: 'task:a' }), locate })
+  const host = new WorkbenchSelectionReferences({ targets: () => [...(multiple ? [{ id: 'b', label: 'Pane 2 · Task B', identity: 'b:draft:epoch', scope: 'task:b', read: () => extraContent.value, write: (value: typeof extraContent.value) => extraContent.value = value }] : []), { id: 'a', label: 'Pane 1 · Task A', identity: 'a:draft:epoch', scope: 'task:a', read: () => content.value, write: value => content.value = value }] })
+  host.registerProvider('test', { captureSource: () => ({ identity: 'file:one', owner: 'task:a' }), resolveLocate: quote => () => locate(quote) })
   const app = createApp(defineComponent({ setup() {
     provide(workbenchSelectionReferencesKey, host)
     return () => kind === 'menu'

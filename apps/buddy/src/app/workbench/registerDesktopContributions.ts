@@ -1,6 +1,7 @@
 import type { ViewRendererRegistry } from '@/workbench/browser/ViewRendererRegistry'
 import type { WorkbenchController } from '@/workbench/services/WorkbenchController'
 import type { WorkingCopyService } from '@/workbench/services/WorkingCopyService'
+import { builtinFileOpeningProviders } from '@buddy-shared/files/fileOpening'
 import { parseWorkbenchUiSelection, workbenchUiSelectionKey, workbenchUiTargetCatalog } from '@buddy-shared/workbench/workbenchUi'
 import { computed } from 'vue'
 import { panes } from '@/workbench/common/workbench'
@@ -20,6 +21,8 @@ export function registerDesktopContributions(controller: WorkbenchController, re
   })
   controller.registry.register('lexora.files', (scope) => {
     scope.configuration({ id: 'files.autoSave', defaultValue: 'afterDelay', validate: value => value === 'off' || value === 'afterDelay' })
+    for (const provider of builtinFileOpeningProviders)
+      scope.fileOpener(provider)
     scope.cleanup(renderers.register('files.view', DesktopFileContribution))
     scope.view({ id: 'files.preview', renderer: 'files.view', label: 'Preview', locations: ['context'], supports: resource => resource.scheme === 'file-preview', multiple: true })
     scope.view({ id: 'files.editor', renderer: 'files.view', label: 'Text editor', locations: ['context'], supports: resource => resource.scheme === 'file', multiple: true, priority: 10 })

@@ -51,6 +51,7 @@ export const artifactsResponseSchemas = {
 } as const
 
 export const artifactsRpc = {
+  locate: { method: 'artifacts.locate', input: artifactsRequestSchemas.artifactPreview, response: artifactsResponseSchemas.externalEntry },
   resolveExternalEntry: { method: 'artifacts.resolveExternalEntry', input: artifactTargetSchema, response: artifactsResponseSchemas.externalEntry },
   resolveMedia: { method: 'artifacts.resolveMedia', input: artifactsRequestSchemas.artifactPreview, response: mediaPreviewLocationSchema },
   readText: { method: 'artifacts.readText', input: artifactsRequestSchemas.artifactText, response: artifactsResponseSchemas.artifactText },

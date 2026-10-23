@@ -1,5 +1,7 @@
 import type { ExtensionStatus } from '@buddy-shared/extensions/extensionApi'
+import { extensionFileOpeningProviders } from '@buddy-shared/extensions/extensionFileOpening'
 import { extensionManifestSchema } from '@buddy-shared/extensions/extensionManifest'
+import { builtinFileOpeningProviders, resolveFileOpening } from '@buddy-shared/files/fileOpening'
 import { describe, expect, it, vi } from 'vitest'
 import { ExtensionDocumentRouter } from '../extensionDocuments'
 
@@ -85,5 +87,31 @@ describe('extension document routing', () => {
     await documents.whenReady()
     expect(documents.loaded).toBe(true)
     expect(documents.isDocument('a.docx')).toBe(false)
+  })
+
+  it('follows the file opening choice among accepting plugins instead of falling back when several accept the extension', async () => {
+    const statuses = [status('one', ['csv']), status('two', ['csv'])]
+    const providers = (defaults: Record<string, { standalone?: string }>) => ({
+      resolve: (name: string, location: 'inline' | 'standalone') => resolveFileOpening({ providers: [...builtinFileOpeningProviders, ...statuses.flatMap(item => extensionFileOpeningProviders(item.manifest, true))], defaults }, name, location),
+    })
+    const [one, two] = statuses.map(item => item.manifest.contributes.views[0]!.id)
+    const open = (defaults: Record<string, { standalone?: string }>) => new ExtensionDocumentRouter({ list: async () => statuses, onChanged: () => () => {} }, providers(defaults))
+    const ambiguous = open({})
+    await ambiguous.whenReady()
+    expect(ambiguous.isDocument('a.csv')).toBe(false)
+    const chosen = open({ '.csv': { standalone: `${two}.files` } })
+    await chosen.whenReady()
+    expect(chosen.isDocument('a.csv')).toBe(true)
+    expect(chosen.providerId('a.csv')).toBe(`${two}.files`)
+    expect(chosen.providerId('a.csv')).not.toBe(`${one}.files`)
+    expect(chosen.providerId('a.md')).toBeNull()
+  })
+
+  it('stops routing a file type to a plugin the user replaced with a builtin viewer', async () => {
+    const statuses = [status('docs', ['md'])]
+    const opening = { resolve: (name: string, location: 'inline' | 'standalone') => resolveFileOpening({ providers: [...builtinFileOpeningProviders, ...statuses.flatMap(item => extensionFileOpeningProviders(item.manifest, true))], defaults: { '.md': { standalone: 'lexora.markdown' } } }, name, location) }
+    const documents = new ExtensionDocumentRouter({ list: async () => statuses, onChanged: () => () => {} }, opening)
+    await documents.whenReady()
+    expect(documents.isDocument('README.md')).toBe(false)
   })
 })

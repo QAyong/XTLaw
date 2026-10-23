@@ -1,7 +1,7 @@
 import type { ExtensionCompatibilityIssue } from './extensionCompatibility'
 import { z } from 'zod'
 import { extensionIconUrlSchema, extensionManifestSchema, extensionMetadataSchema, extensionPathSchema } from './extensionManifest'
-import { EXTENSION_PACKAGE_LIMIT } from './extensionPackageLimits'
+import { EXTENSION_ARCHIVE_LIMIT } from './extensionPackageBudget'
 
 export const EXTENSION_CATALOG_URL = 'https://raw.githubusercontent.com/QAyong/xtlaw-plugins/main/catalog/v1/index.json'
 export const BUNDLED_EXTENSION_CATALOG_URL = 'xtlaw-bundled://catalog'
@@ -11,7 +11,7 @@ const httpsUrl = z.string().url().max(2048).refine((value) => {
 })
 const artifactIntegrity = {
   sha256: z.string().regex(/^[a-f0-9]{64}$/),
-  size: z.number().int().positive().max(EXTENSION_PACKAGE_LIMIT),
+  size: z.number().int().positive().max(EXTENSION_ARCHIVE_LIMIT),
 }
 // Listings parse only metadata so incompatible or newer entries can still be shown with a reason.
 export const extensionCatalogListingSchema = z.object({

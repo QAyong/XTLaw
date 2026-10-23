@@ -12,7 +12,7 @@ import DesktopMonacoFile from './DesktopMonacoFile.vue'
 
 const props = withDefaults(defineProps<{ mode: FileDocumentMode | null, name: string, text?: string | null, imageUrl?: string | null, mediaKind?: 'audio' | 'video' | null, mediaUrl?: string | null, visible?: boolean, language: BuddyLocale, writeClipboardText: (text: string) => Promise<void>, wrap?: boolean, sourceReady?: boolean, revealSource?: (quote: BuddyTextQuote) => boolean, quoteSource?: BuddyTextQuote['source'], prepareQuote?: (quote: BuddyResourceQuote, x: number, y: number) => (() => void) | null, captureMonacoQuote?: CaptureMonacoResourceQuote }>(), { wrap: true, visible: true })
 defineEmits<{ previewError: [] }>()
-defineSlots<{ source?: () => unknown }>()
+defineSlots<{ source?: () => unknown, preview?: () => unknown }>()
 const markdown = useTemplateRef<HTMLElement>('markdown')
 const monaco = useTemplateRef<InstanceType<typeof DesktopMonacoFile>>('monaco')
 const highlight = useQuoteHighlight('buddy-resource-quote')
@@ -39,7 +39,8 @@ function quoteText(event: MouseEvent) {
 
 <template>
   <div class="desktop-document-content">
-    <DesktopMediaPreview v-if="mode === 'preview' && mediaKind && mediaUrl" :kind="mediaKind" :src="mediaUrl" :name="name" :language="language" :visible="visible" />
+    <slot v-if="mode === 'preview' && $slots.preview" name="preview" />
+    <DesktopMediaPreview v-else-if="mode === 'preview' && mediaKind && mediaUrl" :kind="mediaKind" :src="mediaUrl" :name="name" :language="language" :visible="visible" />
     <article v-else-if="mode === 'preview' && text != null" ref="markdown" class="desktop-document-content__markdown" @contextmenu="quoteText">
       <DesktopMarkdownContent :content="text" code-overflow="scroll" :language="language" :write-clipboard-text="writeClipboardText" />
     </article>

@@ -1,6 +1,19 @@
+import { randomBytes } from 'node:crypto'
 import { readdir, readFile } from 'node:fs/promises'
 import { strToU8, zipSync } from 'fflate'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const pushSizes = vi.hoisted(() => [])
+vi.mock('../../../plugins/office/vendor/fflate.js', async (importOriginal) => {
+  const actual = await importOriginal()
+  class CountingInflate extends actual.Inflate {
+    push(chunk, final) {
+      pushSizes.push(chunk.length)
+      return super.push(chunk, final)
+    }
+  }
+  return { ...actual, Inflate: CountingInflate }
+})
 
 const plugin = new URL('../../../plugins/office/', import.meta.url)
 const { validateDocx, readDocx } = await import(new URL('docx.js', plugin).href)
@@ -48,6 +61,19 @@ describe('dOCX migration container budgets', () => {
         view.setUint32(index + 24, 1, true)
     }
     expect(() => validateDocx(bytes)).toThrow('OFFICE_INVALID_DOCX')
+  })
+  it('inflates in large pushes, because 1 KB pushes made a 22 MB embedded font take seconds', () => {
+    const noise = new Uint8Array(randomBytes(300000))
+    pushSizes.length = 0
+    expect(validateDocx(zipSync({ '[Content_Types].xml': strToU8('<Types/>'), 'word/document.xml': noise }))).toBeInstanceOf(Uint8Array)
+    expect(Math.max(...pushSizes)).toBe(64 * 1024)
+    expect(pushSizes.length).toBeLessThan(10)
+  })
+  it('still enforces the inflate deadline while pushing', () => {
+    const now = performance.now()
+    const clock = vi.spyOn(performance, 'now')
+    clock.mockReturnValueOnce(now).mockReturnValue(now + 60000)
+    expect(() => validateDocx(docx())).toThrow('OFFICE_INVALID_DOCX')
   })
   it('rejects stale size, short chunks, unsupported names and cancelled reads', async () => {
     const f = fixture()

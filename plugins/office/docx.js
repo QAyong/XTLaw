@@ -3,6 +3,7 @@ import { Inflate } from './vendor/fflate.js'
 export const MAX_DOCX_BYTES = 64 * 1024 * 1024
 const MAX_EXPANDED_BYTES = 128 * 1024 * 1024
 const MAX_ENTRIES = 10000
+const INFLATE_CHUNK = 64 * 1024
 
 function invalid() {
   throw new Error('OFFICE_INVALID_DOCX')
@@ -20,10 +21,11 @@ function checkInflated(bytes, method, expectedSize, deadline) {
   }
   else {
     const inflate = new Inflate(accept)
-    for (let offset = 0; offset < bytes.length; offset += 1024) {
+    // Small pushes are ~10x slower per byte: a 22 MB embedded font took 2.3 s at 1 KB and 0.23 s at 64 KB.
+    for (let offset = 0; offset < bytes.length; offset += INFLATE_CHUNK) {
       if (performance.now() > deadline)
         invalid()
-      inflate.push(bytes.subarray(offset, offset + 1024), offset + 1024 >= bytes.length)
+      inflate.push(bytes.subarray(offset, offset + INFLATE_CHUNK), offset + INFLATE_CHUNK >= bytes.length)
     }
   }
   if (size !== expectedSize)

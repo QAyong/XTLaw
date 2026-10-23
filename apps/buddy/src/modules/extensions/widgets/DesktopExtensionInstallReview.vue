@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ExtensionReview } from '@buddy-shared/extensions/extensionApi'
+import type { FileOpeningChoice, FileOpeningReviewChoice } from '@buddy-shared/files/fileOpening'
 import { extensionIsBundled } from '@buddy-shared/extensions/extensionTrust'
 import { Alert20Regular, Clock20Regular, Document20Regular, Globe20Regular } from '@vicons/fluent'
 import { NButton, NCheckbox, NEllipsis, NModal } from 'naive-ui'
@@ -7,10 +8,27 @@ import { computed, shallowRef } from 'vue'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import DesktopPluginIcon from '@/shared/ui/icon/DesktopPluginIcon.vue'
 import { extensionLabels } from '../extensionLabels'
+import DesktopExtensionFileAssociations from './DesktopExtensionFileAssociations.vue'
 
 const props = defineProps<{ review: ExtensionReview, language: string, busy: boolean }>()
-const emit = defineEmits<{ cancel: [], install: [applyUpdate: boolean] }>()
+const emit = defineEmits<{ cancel: [], install: [applyUpdate: boolean, choices: FileOpeningChoice[]] }>()
 const applyUpdate = shallowRef(true)
+const associations = computed(() => props.review.fileAssociations ?? [])
+const selectedAssociations = shallowRef(initialAssociations())
+function initialAssociations(): FileOpeningChoice[] {
+  const selected = new Map<string, FileOpeningReviewChoice>()
+  for (const choice of associations.value) {
+    const key = `${choice.extension}:${choice.location}`
+    if (choice.providerId === choice.currentProviderId || (choice.requestDefault && !selected.has(key)))
+      selected.set(key, choice)
+  }
+  return [...selected.values()]
+    .map(({ extension, location, providerId }) => ({ extension, location, providerId }))
+}
+function install() {
+  const changes = selectedAssociations.value.filter(selected => associations.value.some(choice => choice.extension === selected.extension && choice.location === selected.location && choice.providerId === selected.providerId && choice.currentProviderId !== selected.providerId))
+  emit('install', applyUpdate.value, changes)
+}
 const labels = computed(() => extensionLabels(props.language))
 const english = computed(() => props.language === 'en-US')
 const permissions = computed(() => {
@@ -112,6 +130,12 @@ const sharesContent = computed(() => (props.review.manifest.permissions.selected
         {{ labels.noAdded }}
       </p>
     </section>
+    <DesktopExtensionFileAssociations
+      v-if="associations.length"
+      v-model="selectedAssociations"
+      class="extension-install-review__associations"
+      :associations="associations" :language="language" :busy="busy"
+    />
     <section v-if="Object.keys(review.manifest.dependencies).length" class="extension-install-review__dependencies">
       <h3>{{ labels.dependencies }}</h3>
       <p v-for="(range, id) in review.manifest.dependencies" :key="id">
@@ -137,7 +161,7 @@ const sharesContent = computed(() => (props.review.manifest.permissions.selected
         <NButton :disabled="busy" @click="emit('cancel')">
           {{ labels.cancel }}
         </NButton>
-        <NButton type="primary" :loading="busy" data-testid="extension-confirm-install" @click="emit('install', applyUpdate)">
+        <NButton type="primary" :loading="busy" data-testid="extension-confirm-install" @click="install">
           {{ review.currentVersion ? (applyUpdate ? labels.updateAndApply : labels.update) : labels.confirm }}
         </NButton>
       </div>
@@ -147,7 +171,7 @@ const sharesContent = computed(() => (props.review.manifest.permissions.selected
 
 <style scoped lang="scss">
 :global(.extension-install-review) {
-  width: min(500px, calc(100vw - 32px));
+  width: min(660px, calc(100vw - 32px));
   max-height: calc(100dvh - 48px);
   border-radius: 12px;
 }
@@ -177,6 +201,7 @@ const sharesContent = computed(() => (props.review.manifest.permissions.selected
 .extension-install-review__muted { margin: 0; color: var(--buddy-text-secondary); font-size: 12px; line-height: 1.6; }
 .extension-install-review__unchanged { margin-top: 12px; }
 .extension-install-review__dependencies { margin-top: 24px; }
+.extension-install-review__associations { margin-top: 24px; }
 .extension-install-review__apply { display: grid; gap: 4px; margin-top: 20px; border-top: 1px solid var(--buddy-border-subtle); padding-top: 16px; }
 .extension-install-review__dependencies p { margin: 4px 0 0; color: var(--buddy-text-primary); font-size: 12px; overflow-wrap: anywhere; }
 .extension-install-review__dependencies span { color: var(--buddy-text-secondary); }

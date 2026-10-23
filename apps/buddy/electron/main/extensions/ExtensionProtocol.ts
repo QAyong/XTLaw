@@ -13,7 +13,8 @@ export const extensionSchemePrivileges: Electron.CustomScheme = {
   privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true, corsEnabled: true },
 }
 
-interface ExtensionEndpoint { token: string, kind: 'host' | 'view', package: ExtensionPackage, abort: AbortController }
+type SelectedResourceReader = (id: string, request: Request, signal: AbortSignal) => Promise<Response>
+interface ExtensionEndpoint { token: string, kind: 'host' | 'view', package: ExtensionPackage, abort: AbortController, readSelected?: SelectedResourceReader }
 const codeMime: Record<string, string> = { '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.wasm': 'application/wasm' }
 
 export class ExtensionProtocol {
@@ -21,10 +22,10 @@ export class ExtensionProtocol {
   readonly #endpoints = new Map<string, ExtensionEndpoint>()
   constructor(store: ExtensionPackageStore) { this.#store = store }
 
-  register(pkg: ExtensionPackage, kind: 'host' | 'view') {
+  register(pkg: ExtensionPackage, kind: 'host' | 'view', readSelected?: SelectedResourceReader) {
     const token = randomUUID()
     const abort = new AbortController()
-    this.#endpoints.set(token, { token, kind, package: pkg, abort })
+    this.#endpoints.set(token, { token, kind, package: pkg, abort, readSelected })
     return { token, url: `${EXTENSION_PROTOCOL}://${token}/__${kind}.html`, dispose: () => {
       abort.abort()
       this.#endpoints.delete(token)
@@ -55,8 +56,13 @@ export class ExtensionProtocol {
       // WebAssembly and workers are opt-in per extension and only for views; neither permits JS eval in the page.
       // The sandbox gives views an opaque origin, which cannot load a worker script by URL, so workers start from blob: URLs.
       const wasm = kind === 'view' && endpoint.package.manifest.permissions.webAssembly
-      const csp = `default-src 'none'; script-src ${origin}/__package/ ${origin}/__${kind}.js${wasm ? ' \'wasm-unsafe-eval\'' : ''}; style-src ${origin}/__package/ 'unsafe-inline'; img-src ${origin} data: blob:; font-src ${origin} data: blob:; media-src ${origin} blob:; connect-src ${origin}/__package/ ${origin}/__resource/; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; worker-src ${wasm ? `${origin}/__package/ blob:` : '\'none\''}; ${kind === 'view' ? 'sandbox allow-scripts allow-forms; frame-ancestors lexora-app://renderer http://localhost:1420 http://127.0.0.1:1420' : 'frame-ancestors \'none\''}`
+      const csp = `default-src 'none'; script-src ${origin}/__package/ ${origin}/__${kind}.js${wasm ? ' \'wasm-unsafe-eval\'' : ''}; style-src ${origin}/__package/ 'unsafe-inline'; img-src ${origin} data: blob:; font-src ${origin} data: blob:; media-src ${origin} blob:; connect-src ${origin}/__package/ ${origin}/__resource/ ${origin}/__selected/; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; worker-src ${wasm ? `${origin}/__package/ blob:` : '\'none\''}; ${kind === 'view' ? 'sandbox allow-scripts allow-forms; frame-ancestors lexora-app://renderer http://localhost:1420 http://127.0.0.1:1420' : 'frame-ancestors \'none\''}`
       const headers = { 'content-security-policy': csp, 'access-control-allow-origin': '*', 'x-content-type-options': 'nosniff', 'cache-control': 'no-store' }
+      if (path.startsWith('/__selected/')) {
+        if (kind !== 'view' || !endpoint.readSelected)
+          return new Response(null, { status: 403 })
+        return await endpoint.readSelected(path.slice('/__selected/'.length), request, AbortSignal.any([endpoint.abort.signal, request.signal]))
+      }
       if (path.startsWith('/__resource/')) {
         if (kind !== 'view')
           return new Response(null, { status: 403 })

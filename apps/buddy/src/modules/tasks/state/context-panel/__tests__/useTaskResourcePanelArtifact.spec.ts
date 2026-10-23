@@ -1,8 +1,11 @@
 import type { DesktopBrowserApi } from '@buddy-electron/shared/desktopApi'
 import type { LocalArtifact } from '@buddy-shared/artifacts/artifactApi'
+import type { DesktopArtifactOpening } from '@buddy-electron/shared/desktopApi'
+import type { FileOpeningProvider } from '@buddy-shared/files/fileOpening'
 import type { LocalSpace } from '@buddy-shared/spaces/spaceApi'
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest'
+import { builtinFileOpeningProviders, resolveFileOpening } from '@buddy-shared/files/fileOpening'
+import { describe, expect, it, vi } from 'vitest'
 import { shallowRef } from 'vue'
 import { useTaskResourcePanel } from '@/modules/tasks/state/context-panel/useTaskResourcePanel'
 import { contextPanelFixture } from './contextPanelFixture'
@@ -39,7 +42,7 @@ function folder(overrides: Partial<LocalArtifact> = {}): LocalArtifact {
   return artifact({ artifactId: 'folder', kind: 'directory', mimeType: 'inode/directory', name: 'reports', path: '/workspace/docs/reports', sizeBytes: 0, ...overrides })
 }
 
-function fixture(activeSpace: LocalSpace | null = space()) {
+function fixture(activeSpace: LocalSpace | null = space(), extra: { artifactOpening?: DesktopArtifactOpening, providers?: FileOpeningProvider[], defaults?: Record<string, { standalone?: string }> } = {}) {
   const browser: Pick<DesktopBrowserApi, 'onStateChanged' | 'ensureSession' | 'close' | 'openArtifact' | 'navigate'> = {
     navigate: async () => { throw new Error('unexpected navigation') },
     onStateChanged: () => () => {},
@@ -48,8 +51,13 @@ function fixture(activeSpace: LocalSpace | null = space()) {
     openArtifact: async () => { throw new Error('unexpected browser artifact') },
   }
   const { scope, options } = contextPanelFixture({ activeConversationId: shallowRef<string | null>('conversation'), activeSpace: shallowRef(activeSpace) })
-  const panel = scope.run(() => useTaskResourcePanel({ ...options, autoCollapse: shallowRef(false), linkOpening: shallowRef('in-app'), browser }))!
-  return { panel }
+  const artifactOpening = shallowRef<DesktopArtifactOpening>(extra.artifactOpening ?? 'file-manager')
+  const open = vi.fn(async () => {})
+  const fileOpening = extra.providers
+    ? { ensureReady: async () => {}, resolve: (name: string, location: 'standalone') => resolveFileOpening({ providers: [...builtinFileOpeningProviders, ...extra.providers!], defaults: extra.defaults ?? {} }, name, location), open }
+    : undefined
+  const panel = scope.run(() => useTaskResourcePanel({ ...options, artifactOpening, ...(fileOpening ? { fileOpening } : {}), autoCollapse: shallowRef(false), linkOpening: shallowRef('in-app'), browser }))!
+  return { panel, artifactOpening, open }
 }
 
 describe('opening task outputs', () => {
@@ -135,6 +143,39 @@ describe('opening task outputs', () => {
     const { panel } = fixture()
     await panel.openArtifact(artifact({ conversationId: 'other' }))
     expect(panel.allTabs.value).toMatchObject([{ kind: 'artifact', artifact: { conversationId: 'other' } }])
+  })
+
+  describe('with the output panel chosen as the output card location', () => {
+    it('keeps files and folders of the task space in the output panel and follows the setting live', async () => {
+      const { panel, artifactOpening } = fixture(space(), { artifactOpening: 'panel' })
+      await panel.openArtifact(artifact())
+      expect(panel.activeTab.value).toMatchObject({ kind: 'artifact', artifact: { artifactId: 'artifact' } })
+      await panel.openArtifact(folder())
+      expect(panel.activeTab.value).toMatchObject({ kind: 'artifact', artifact: { artifactId: 'folder' } })
+      artifactOpening.value = 'file-manager'
+      await panel.openArtifact(artifact({ artifactId: 'again' }))
+      expect(panel.activeTab.value).toMatchObject({ kind: 'files', target: { path: 'docs/report.md' } })
+    })
+  })
+
+  describe('with a plugin that opens the type through the file opening choice', () => {
+    const base = { title: 'Reader', extensions: ['.docx'], locations: ['standalone'], builtin: false, available: true, renderer: 'extension', extensionId: 'tests.plugin' } as const
+    const office: FileOpeningProvider = { ...base, id: 'tests.plugin.office.files', implicit: true }
+    const reader: FileOpeningProvider = { ...base, id: 'tests.plugin.reader' }
+
+    it('still opens Office documents of the task space in the file manager when the plugin takes them over on its own', async () => {
+      const { panel, open } = fixture(space(), { providers: [office] })
+      await panel.openArtifact(artifact({ name: 'brief.docx', path: '/workspace/brief.docx' }))
+      expect(panel.activeTab.value).toMatchObject({ kind: 'files', target: { path: 'brief.docx' }, tree: { visible: true } })
+      expect(open).not.toHaveBeenCalled()
+    })
+
+    it('hands the output to the plugin the user picked to open that type separately', async () => {
+      const { panel, open } = fixture(space(), { providers: [office, reader], defaults: { '.docx': { standalone: reader.id } } })
+      await panel.openArtifact(artifact({ name: 'brief.docx', path: '/workspace/brief.docx' }))
+      expect(panel.allTabs.value).toHaveLength(0)
+      expect(open).toHaveBeenCalledWith(expect.objectContaining({ name: 'brief.docx' }), reader, expect.any(Function))
+    })
   })
 
   describe('in a space without a local folder', () => {

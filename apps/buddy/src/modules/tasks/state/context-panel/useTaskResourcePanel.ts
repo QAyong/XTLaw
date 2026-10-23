@@ -1,6 +1,7 @@
 import type { DesktopBrowserApi, DesktopBrowserState } from '@buddy-electron/shared/desktopApi'
 import type { LocalArtifact } from '@buddy-shared/artifacts/artifactApi'
 import type { BrowserPreferences } from '@buddy-shared/browser/browserPreferences'
+import type { DesktopArtifactOpening } from '@buddy-electron/shared/desktopApi'
 import type { ContextPanelSource } from '@buddy-shared/context-panel/contextPanel'
 import type { FileOpeningProvider } from '@buddy-shared/files/fileOpening'
 import type { SpaceFileTarget } from '@buddy-shared/spaces/spaceFileApi'
@@ -20,6 +21,8 @@ interface TaskResourcePanelOptions extends UseTaskContextPanelOptions {
     resolve: (name: string, location: 'standalone') => { provider: FileOpeningProvider | null }
     open: (artifact: LocalArtifact, provider: FileOpeningProvider, current: () => boolean) => Promise<void>
   }
+  // Where an output card opens a file or folder that lives in the task's space: the file manager (default) or the output panel.
+  artifactOpening?: Readonly<Ref<DesktopArtifactOpening>>
   autoCollapse: Readonly<Ref<boolean>>
   linkOpening: Readonly<Ref<BrowserPreferences['linkOpening']>>
   closeView?: (id: string) => Promise<boolean>
@@ -230,8 +233,6 @@ export function useTaskResourcePanel(options: TaskResourcePanelOptions) {
       : target
     if (!artifact)
       return
-    if (!isBrowserArtifact(artifact) && openInTaskSpace(artifact))
-      return
     operation += 1
     const requestCurrent = currentOperation()
     if (options.fileOpening) {
@@ -249,6 +250,9 @@ export function useTaskResourcePanel(options: TaskResourcePanelOptions) {
     const provider = artifact.kind === 'file'
       ? (options.fileOpening?.resolve(artifact.name, 'standalone') ?? resolveBuiltinFileOpening(artifact.name, 'standalone')).provider
       : null
+    // Outputs in the task's space open in the file manager unless the user chose the output panel or a plugin to open this type separately.
+    if (options.artifactOpening?.value !== 'panel' && !isBrowserArtifact(artifact) && !(provider?.renderer === 'extension' && !provider.implicit) && openInTaskSpace(artifact))
+      return
     const document = () => act(() => taskContext.openArtifact(artifact))
     try {
       const handler = fileOpeningHandler(provider)

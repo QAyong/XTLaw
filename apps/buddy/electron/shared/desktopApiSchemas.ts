@@ -98,6 +98,7 @@ export const lexoraConfigPatchSchema: z.ZodType<LexoraConfigPatch> = z.object({
     contextPanelGlobal: z.boolean().optional(),
     minimizeToTrayOnClose: z.boolean().optional(),
     contextPanelAutoCollapse: z.boolean().optional(),
+    artifactOpening: z.enum(['file-manager', 'panel']).optional(),
     keybindings: keybindingsSchema.optional(),
     taskSidebarPinnedItems: taskSidebarPinnedItemsSchema.optional(),
     taskSidebar: taskSidebarPreferencesSchema.optional(),

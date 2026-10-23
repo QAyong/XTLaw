@@ -63,13 +63,21 @@ describe('opening task outputs', () => {
   it('opens binary outputs as space files so document plugins can take them', async () => {
     const { panel } = fixture()
     await panel.openArtifact(artifact({ mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', name: 'brief.docx', path: '/workspace/brief.docx', sizeBytes: 40 * 1024 * 1024 }))
-    expect(panel.activeTab.value).toMatchObject({ kind: 'files', target: { path: 'brief.docx' } })
+    expect(panel.activeTab.value).toMatchObject({ kind: 'files', target: { path: 'brief.docx' }, tree: { visible: true } })
   })
 
-  it.each(['report.docx', 'report.xlsx', 'report.pptx'])('folds the tree for an Office path preview before its output card is registered: %s', async (name) => {
+  it.each(['report.docx', 'report.xlsx', 'report.pptx'])('shows the tree for an Office path preview before its output card is registered: %s', async (name) => {
     const { panel } = fixture()
     await panel.previewFile(`/workspace/${name}`)
-    expect(panel.activeTab.value).toMatchObject({ kind: 'files', target: { path: name }, tree: { visible: false } })
+    expect(panel.activeTab.value).toMatchObject({ kind: 'files', target: { path: name }, tree: { visible: true } })
+  })
+
+  it('shows the tree again when an Office card is opened after a plain file card folded it', async () => {
+    const { panel } = fixture()
+    await panel.openArtifact(artifact())
+    expect(panel.activeTab.value).toMatchObject({ tree: { visible: false } })
+    await panel.openArtifact(artifact({ artifactId: 'office', name: 'brief.docx', path: '/workspace/brief.docx' }))
+    expect(panel.activeTab.value).toMatchObject({ kind: 'files', tree: { visible: true } })
   })
 
   it('keeps the output tab when the task has no space', async () => {

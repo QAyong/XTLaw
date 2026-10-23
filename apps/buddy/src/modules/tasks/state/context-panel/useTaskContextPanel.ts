@@ -183,8 +183,8 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
     return Boolean(resolveChatToolFileTarget(options.activeSpace?.value ?? null, path))
   }
 
-  // collapseTree: the file is the point, so the tree starts folded away (the user can still open it).
-  function previewFile(path: string, source?: ContextPanelSource, collapseTree = false) {
+  // treeVisible: false folds the tree away because the file is the point (the user can still open it); true shows it, even if the user folded it before.
+  function previewFile(path: string, source?: ContextPanelSource, treeVisible?: boolean) {
     const space = options.activeSpace?.value ?? null
     const target = resolveChatToolFileTarget(space, path)
     const directory = getActiveSpaceDirectories(space).find(directory => directory.id === target?.directoryId)
@@ -198,7 +198,7 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
       && tab.target.path === target.path
       && (!source || tab.source?.runId === source.runId),
     )
-    const tree = collapseTree ? { visible: false, token: crypto.randomUUID() } : undefined
+    const tree = treeVisible === undefined ? undefined : { visible: treeVisible, token: crypto.randomUUID() }
     if (exactTab) {
       if (tree)
         updateFilesTab(exactTab.id, { tree })

@@ -19,6 +19,9 @@ interface TaskResourcePanelOptions extends UseTaskContextPanelOptions {
   browser: Pick<DesktopBrowserApi, 'ensureSession' | 'close' | 'openArtifact' | 'onStateChanged' | 'navigate'>
 }
 
+// Office files open in a document plugin tab beside the file manager, so the file manager keeps its tree for browsing.
+const isOfficePath = (path: string) => /\.(?:docx|xlsx|pptx)$/i.test(path)
+
 export function useTaskResourcePanel(options: TaskResourcePanelOptions) {
   const taskContext = useTaskContextPanel(options)
   const browserStates = shallowRef<Readonly<Record<string, DesktopBrowserState>>>({})
@@ -198,7 +201,7 @@ export function useTaskResourcePanel(options: TaskResourcePanelOptions) {
         act(() => {
           const target = resolveChatToolFileTarget(options.activeSpace?.value ?? null, artifact.path)
           if (!target || !options.revealOpenOfficeDocument?.(target))
-            taskContext.previewFile(artifact.path, source, true)
+            taskContext.previewFile(artifact.path, source, !!target && isOfficePath(target.path))
         })
       }
       else {
@@ -260,8 +263,7 @@ export function useTaskResourcePanel(options: TaskResourcePanelOptions) {
     }
     else {
       const target = resolveChatToolFileTarget(options.activeSpace?.value ?? null, path)
-      const collapseTree = !!target && /\.(?:docx|xlsx|pptx)$/i.test(target.path)
-      act(() => taskContext.previewFile(path, source, collapseTree))
+      act(() => taskContext.previewFile(path, source, target && isOfficePath(target.path) ? true : undefined))
     }
   }
 

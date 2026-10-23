@@ -16,6 +16,7 @@
 **包含：**
 - 点击产出卡片（含聊天里指向产出的文件链接、执行详情、选区引用定位等所有经 `openArtifact` 的入口）时，先判断能否在文件管理器打开。
 - 文件产出：在文件管理器标签页打开该文件，**文件树收起**，用户仍可手动展开。
+- Office 文档产出（`.docx`、`.xlsx`、`.pptx`，由文档插件接手）：文件管理器标签页与插件标签页同时打开，文件管理器的**文件树显示**，并展开到该文件所在目录；文件树不收起（2026-10-23 调整，此前与其他文件一样收起）。
 - 文件夹产出：在文件管理器标签页打开，文件树展开到该文件夹并高亮聚焦，等同用户在树里点了它；标签页里已打开的文件保持不变。空间根目录本身作为文件夹产出时只显示树，不展开任何子目录。
 
 **不包含：**
@@ -36,7 +37,8 @@
 
 ## 4. 行为细节
 
-- **文件：** `previewFile(path, source, collapseTree)` 带 `collapseTree` 打开，标签页写入 `tree: { visible: false, token }`。同一文件已在标签页中、或标签页内已有同空间的其他文件时复用该标签页并重新发出收起请求；每次点卡片都会重新收起，即使用户之前手动展开过。
+- **文件：** `previewFile(path, source, treeVisible)` 带 `treeVisible` 打开，标签页写入 `tree: { visible: treeVisible, token }`；不传则不发请求。普通文件传 `false`：同一文件已在标签页中、或标签页内已有同空间的其他文件时复用该标签页并重新发出收起请求；每次点卡片都会重新收起，即使用户之前手动展开过。
+- **Office 文档：** 产出卡片和聊天里指向 Office 文件的链接传 `true`，同样每次点卡片都会重新显示文件树，即使之前被普通文件卡片收起。已在编辑器里打开的 Office 文档仍只聚焦该编辑器（`revealOpenOfficeDocument`），不动文件管理器。
 - **文件夹：** `openDirectory(path, source)` 写入 `expand: { path, token }` 与 `tree: { visible: true, token }`；新开标签页时目标路径为空（不预览任何文件），已有标签页时只改这两个字段，右侧文件不变。
 - **模拟点击：** 文件树组件的 `reveal` 逐层对尚未展开的文件夹执行与用户点击相同的 `activate`（展开并加载），最后聚焦目标文件夹并把焦点交给树。聚焦外框的样式只在树本身有焦点时显示，所以最后一步必须聚焦树。
 - **再次请求：** 请求带 `token`，同一文件夹被用户折叠后再点卡片会重新展开；同一 token 不会重复执行，窗口切换回标签页也不会重新打开用户已折叠的文件夹。
@@ -69,4 +71,5 @@
 - 提交：`a10f931b`（空间内产出按空间文件打开）、`2e754c46`（文件夹展开与文件收起树）。
 - 自动化：`pnpm exec vitest run src/shared/ui/explorer src/modules/files src/modules/tasks` 共 92 个文件、795 个用例通过；`pnpm type-check`、相关目录 `eslint` 通过。新增或扩展的用例：`useTaskResourcePanelArtifact.spec.ts`（去向判断与各回退情形）、`ExplorerTree.spec.ts`（逐层展开、聚焦树、再次请求）、`useResourcePreviews.spec.ts`（树的显示与收起请求）。
 - 手动：用户在开发预览中确认文件夹展开高亮、文件卡片收起文件树（2026-10-20）。
+- 2026-10-23 调整 Office 文档的树状态：`pnpm exec vitest run src/modules/tasks/state/context-panel src/modules/tasks/widgets/context-panel src/app/workbench/__tests__/revealOpenOfficeDocument.spec.ts` 19 个文件、206 个用例通过，`pnpm type-check` 通过；开发预览里点 Office 卡片的实际表现未验证。
 - 未验证：Office 等文档插件经产出卡片接手的完整流程；引用定位；打包产物。

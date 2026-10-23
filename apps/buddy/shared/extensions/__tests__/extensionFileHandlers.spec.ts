@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { fileExtensionOf, matchFileHandlers, resolveFileHandler } from '../extensionFileHandlers'
+import { extensionFileHandlers, extensionFileOpeningProviders, implicitFileHandlerId } from '../extensionFileOpening'
 import { extensionManifestSchema } from '../extensionManifest'
 
 function source(slug: string, extensions: string[], enabled = true, compatible = true) {
@@ -33,5 +34,20 @@ describe('extension file handlers', () => {
     expect(resolveFileHandler(sources, 'a.pdf')).toBeNull()
     expect(resolveFileHandler(sources, 'a.md')).toBeNull()
     expect(resolveFileHandler(sources, 'csv')).toBeNull()
+  })
+
+  it('turns accepts.extensions into implicit open-only handlers that are registered as file opening providers', () => {
+    const { manifest } = source('docs', ['docx', 'doc'])
+    const [entry] = extensionFileHandlers(manifest)
+    expect(entry).toMatchObject({ implicit: true, handler: { id: implicitFileHandlerId(manifest.contributes.views[0]!.id), title: 'docs', extensions: ['.docx', '.doc'], open: { view: manifest.contributes.views[0]!.id, requestDefault: false } } })
+    expect(entry!.handler.preview).toBeUndefined()
+    expect(extensionFileOpeningProviders(manifest, true)).toEqual([expect.objectContaining({ id: entry!.handler.id, extensionId: manifest.id, locations: ['standalone'], implicit: true, builtin: false, viewTypes: { standalone: manifest.contributes.views[0]!.id } })])
+  })
+
+  it('keeps declared handlers first and lets a declared handler with the same ID replace the implicit one', () => {
+    const { manifest } = source('docs', ['docx'])
+    const id = implicitFileHandlerId(manifest.contributes.views[0]!.id)
+    const declared = extensionManifestSchema.parse({ ...manifest, contributes: { ...manifest.contributes, fileHandlers: [{ id, title: 'Own', extensions: ['.docx'], preview: { view: manifest.contributes.views[0]!.id } }] } })
+    expect(extensionFileHandlers(declared)).toEqual([{ handler: expect.objectContaining({ id, title: 'Own' }), implicit: false }])
   })
 })

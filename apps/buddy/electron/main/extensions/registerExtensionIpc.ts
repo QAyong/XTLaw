@@ -250,7 +250,7 @@ export function registerExtensionIpc(options: {
       await prepared
       await service.initialize()
       switch (input.action) {
-        case 'openFile': return await service.openFile(input.resource)
+        case 'openFile': return await service.openFile(input.resource, input.providerId)
         case 'taskActions': return await options.taskActions()
         case 'invokeTaskAction': return await options.invokeTaskAction(input.input)
         case 'list': return await service.list()

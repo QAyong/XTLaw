@@ -6,7 +6,7 @@ import { subscribe } from './subscribe'
 export function createExtensionApi(): ExtensionApi {
   const request = (input: ExtensionManagementRequest) => ipcRenderer.invoke(EXTENSION_IPC.request, input)
   return Object.freeze({
-    openFile: resource => request({ action: 'openFile', resource }),
+    openFile: (resource, providerId) => request({ action: 'openFile', resource, ...(providerId ? { providerId } : {}) }),
     taskActions: () => request({ action: 'taskActions' }),
     invokeTaskAction: input => request({ action: 'invokeTaskAction', input }),
     list: () => request({ action: 'list' }),

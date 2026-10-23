@@ -27,6 +27,8 @@ export interface FileOpeningProvider {
   extensionName?: string
   viewTypes?: Partial<Record<FileOpeningLocation, string>>
   recommended?: boolean
+  // A plugin view that declares `accepts.extensions` takes those files over without a stored choice, as long as it is the only one that does.
+  implicit?: boolean
 }
 export interface FileOpeningSnapshot {
   providers: FileOpeningProvider[]
@@ -64,7 +66,8 @@ export function resolveFileOpening(snapshot: FileOpeningSnapshot, name: string, 
   }).sort((left, right) => right.extension.length - left.extension.length || Number(Boolean(right.provider.recommended)) - Number(Boolean(left.provider.recommended)) || left.provider.id.localeCompare(right.provider.id)).map(candidate => candidate.provider)
   const preferred = candidates.find(provider => provider.id === preferredId && extension !== null && fileOpeningExtension(extension, [provider]) !== null)
   const builtin = candidates.find(provider => provider.builtin)
-  return { extension, preferredId, provider: preferred ?? builtin ?? null, unavailable: preferredId !== null && !preferred }
+  const implicit = candidates.filter(provider => provider.implicit && fileOpeningExtension(name, [provider]) === extension)
+  return { extension, preferredId, provider: preferred ?? (implicit.length === 1 ? implicit[0] : null) ?? builtin ?? null, unavailable: preferredId !== null && !preferred }
 }
 
 export function resolveBuiltinFileOpening(name: string, location: FileOpeningLocation) {

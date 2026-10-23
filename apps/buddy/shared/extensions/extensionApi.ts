@@ -165,7 +165,7 @@ export type ExtensionWorkbenchEvent
     | { kind: 'presentation', requestId: string, viewId: string, generation: string, token: string, presentation: WorkbenchPresentation }
 
 export const extensionManagementSchema = z.discriminatedUnion('action', [
-  z.object({ action: z.literal('openFile'), resource: spaceFileTargetSchema }).strict(),
+  z.object({ action: z.literal('openFile'), resource: spaceFileTargetSchema, providerId: z.string().min(1).max(180).optional() }).strict(),
   z.object({ action: z.literal('list') }).strict(),
   z.object({ action: z.literal('fileOpeners') }).strict(),
   z.object({ action: z.literal('setFileOpener'), choice: fileOpeningChoiceSchema }).strict(),
@@ -204,7 +204,7 @@ export const extensionManagementSchema = z.discriminatedUnion('action', [
 ])
 export type ExtensionManagementRequest = z.infer<typeof extensionManagementSchema>
 export interface ExtensionApi {
-  openFile: (resource: import('../spaces/spaceFileApi').SpaceFileTarget) => Promise<string | null>
+  openFile: (resource: import('../spaces/spaceFileApi').SpaceFileTarget, providerId?: string) => Promise<string | null>
   fileOpeners: () => Promise<FileOpeningSnapshot>
   setFileOpener: (choice: FileOpeningChoice) => Promise<FileOpeningSnapshot>
   prepareFileOpening: (input: ExtensionFileOpeningInput) => Promise<ExtensionPreparedFileOpening>

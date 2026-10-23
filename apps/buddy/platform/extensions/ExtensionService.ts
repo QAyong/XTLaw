@@ -34,8 +34,8 @@ import { EXTENSION_CATALOG_URL } from '../../shared/extensions/extensionCatalog'
 import { ExtensionCompatibilityError, extensionCompatibilityIssue } from '../../shared/extensions/extensionCompatibility'
 import { extensionConditionInvalidationSchema } from '../../shared/extensions/extensionConditions'
 import { extensionDiagnostic, ExtensionRequestError } from '../../shared/extensions/extensionDiagnostic'
-import { fileExtensionOf, resolveFileHandler } from '../../shared/extensions/extensionFileHandlers'
-import { extensionFileHandlerBindings } from '../../shared/extensions/extensionFileOpening'
+import { fileExtensionOf, matchFileHandlers, resolveFileHandler } from '../../shared/extensions/extensionFileHandlers'
+import { extensionFileHandlerBindings, extensionFileHandlers, implicitFileHandlerId } from '../../shared/extensions/extensionFileOpening'
 import { extensionCompatible, extensionManifestSchema, extensionPathSchema } from '../../shared/extensions/extensionManifest'
 import { extensionReferenceInputSchema, extensionReferenceOpeningSchema, extensionReferenceTargetSchema } from '../../shared/extensions/extensionReferences'
 import { extensionDirectoryScanSchema, extensionResourceSelectionSchema } from '../../shared/extensions/extensionResources'
@@ -837,7 +837,7 @@ export class ExtensionService {
     if (!provider?.extensionId)
       throw new Error('EXTENSION_FILE_OPENER_UNAVAILABLE')
     const running = await this.#activate(provider.extensionId)
-    const handler = running.package.manifest.contributes.fileHandlers.find(item => item.id === input.providerId)
+    const handler = extensionFileHandlers(running.package.manifest).find(item => item.handler.id === input.providerId)?.handler
     const binding = handler && extensionFileHandlerBindings(handler).find(target => target.location === input.location)
     if (!handler || !binding)
       throw new Error('EXTENSION_FILE_OPENER_UNAVAILABLE')
@@ -918,15 +918,19 @@ export class ExtensionService {
     return !!extension && !!view.accepts?.extensions.includes(extension)
   }
 
-  #fileHandler(path: string) {
-    return resolveFileHandler(Object.values(this.store.installed).map(record => ({ enabled: record.enabled, compatible: extensionCompatible(record.current.manifest, this.store.appVersion), manifest: record.current.manifest })), path)
+  // The renderer names the plugin view the user's file opening choice resolved to; without a name the single accepting plugin is used.
+  #fileHandler(path: string, providerId?: string) {
+    const sources = Object.values(this.store.installed).map(record => ({ enabled: record.enabled, compatible: extensionCompatible(record.current.manifest, this.store.appVersion), manifest: record.current.manifest }))
+    if (!providerId)
+      return resolveFileHandler(sources, path)
+    return matchFileHandlers(sources, path).find(handler => implicitFileHandlerId(handler.view.id) === providerId) ?? null
   }
 
-  async openFile(target: SpaceFileTarget): Promise<string | null> {
+  async openFile(target: SpaceFileTarget, providerId?: string): Promise<string | null> {
     await this.initialize()
     await this.#mutating
     // Ambiguous or missing handlers leave the file in the built-in preview.
-    const handler = this.#fileHandler(target.path)
+    const handler = this.#fileHandler(target.path, providerId)
     if (!handler || !this.#ports.readBytes)
       return null
     const running = await this.#activate(handler.id)

@@ -65,4 +65,21 @@ describe('file opening resolution', () => {
     state.defaults['.special.md'] = { inline: other.id }
     expect(resolveFileOpening(state, 'notes.special.md', 'inline').provider?.id).toBe(other.id)
   })
+
+  it('lets a lone implicit provider take its suffix over without a stored choice, and leaves ambiguity to the builtin viewer', () => {
+    const office = { ...plugin, id: 'test.docs.files', extensions: ['.docx'], locations: ['standalone'] as const, implicit: true }
+    const markdown = { ...plugin, id: 'test.notes.files', extensions: ['.md'], locations: ['standalone'] as const, implicit: true }
+    const rival = { ...markdown, id: 'test.rival.files' }
+    expect(resolveFileOpening(snapshot({}, [office]), 'brief.docx', 'standalone').provider?.id).toBe(office.id)
+    expect(resolveFileOpening(snapshot({}, [office]), 'brief.docx', 'inline').provider).toBeNull()
+    expect(resolveFileOpening(snapshot({}, [markdown]), 'README.md', 'standalone').provider?.id).toBe(markdown.id)
+    expect(resolveFileOpening(snapshot({}, [markdown, rival]), 'README.md', 'standalone').provider?.id).toBe('lexora.markdown')
+    expect(resolveFileOpening(snapshot({}, [{ ...office, available: false }]), 'brief.docx', 'standalone').provider).toBeNull()
+  })
+
+  it('lets a stored choice override an implicit provider', () => {
+    const markdown = { ...plugin, id: 'test.notes.files', extensions: ['.md'], locations: ['standalone'] as const, implicit: true }
+    expect(resolveFileOpening(snapshot({ '.md': { standalone: 'lexora.markdown' } }, [markdown]), 'README.md', 'standalone').provider?.id).toBe('lexora.markdown')
+    expect(resolveFileOpening(snapshot({ '.md': { standalone: markdown.id } }, [markdown]), 'README.md', 'standalone').provider?.id).toBe(markdown.id)
+  })
 })

@@ -54,7 +54,7 @@ export function useDesktopWorkbench(options: { fileOpening?: ReturnType<typeof u
   const backupError = shallowRef(false)
   const fileToolbarTargets = shallowReactive(new Map<string, HTMLElement>())
   const openingFiles = new Map<string, Promise<string | null | undefined>>()
-  const documents = new ExtensionDocumentRouter(api.extensions)
+  const documents = new ExtensionDocumentRouter(api.extensions, options.fileOpening)
   const copies = new WorkingCopyService({
     read: resource => api.localChat.spaces.readDocument(spaceFileTargetSchema.strip().parse(resource.data)),
     save: (resource, document, operationId) => api.localChat.spaces.saveDocument({ ...spaceFileTargetSchema.strip().parse(resource.data), ...document, operationId }),
@@ -422,6 +422,9 @@ export function useDesktopWorkbench(options: { fileOpening?: ReturnType<typeof u
       if (!current())
         return null
     }
+    await options.fileOpening?.ensureReady()
+    if (!current())
+      return null
     const extensionDocument = documents.isDocument(target.path)
     const openDocument = async (fallback: string | null) => {
       if (!extensionDocument || !fallback)
@@ -433,7 +436,7 @@ export function useDesktopWorkbench(options: { fileOpening?: ReturnType<typeof u
         return existing.id
       }
       try {
-        return await api.extensions.openFile(target) ?? fallback
+        return await api.extensions.openFile(target, documents.providerId(target.path) ?? undefined) ?? fallback
       }
       catch (error) {
         options.onError(error)
@@ -447,9 +450,6 @@ export function useDesktopWorkbench(options: { fileOpening?: ReturnType<typeof u
       return openDocument(previous.id)
     }
     let resource: ResourceRef = { scheme: 'file', id: JSON.stringify([target.directoryId, target.revision, target.path]), data: { ...target, canonicalRoot: fileOperations.root(target) } }
-    await options.fileOpening?.ensureReady()
-    if (!current())
-      return null
     const provider = (options.fileOpening?.resolve(target.path, 'inline') ?? resolveBuiltinFileOpening(target.path, 'inline')).provider
     if (fileOpeningHandler(provider)?.input === 'resource' && !copies.get(resource))
       resource = { ...resource, scheme: 'file-preview' }

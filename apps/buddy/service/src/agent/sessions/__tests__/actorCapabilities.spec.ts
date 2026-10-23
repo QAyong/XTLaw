@@ -136,7 +136,7 @@ describe('actor resources in real Provider requests', () => {
   it.each(['disabled', 'removed'] as const)('omits an optional %s Skill and rejects it when required while keeping compaction resources available', async (state) => {
     const f = await fixture()
     const optional = f.skills.optional
-    const input = { spaceId: null, id: optional.id, revision: optional.referenceRevision ?? optional.revision }
+    const input = { spaceId: null, id: optional.id, revision: optional.managementRevision ?? optional.referenceRevision ?? optional.revision }
     if (state === 'disabled')
       await f.service.setEnabled({ ...input, enabled: false })
     else

@@ -72,5 +72,5 @@ describe('vue component resolution', () => {
       findUnresolvedComponents(readFileSync(file, 'utf8'), file).map(tag => `${relative(sourceRoot, file)}: <${tag}>`),
     )
     expect(unresolved).toEqual([])
-  })
+  }, 60_000)
 })

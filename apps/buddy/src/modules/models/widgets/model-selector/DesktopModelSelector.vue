@@ -58,6 +58,15 @@ const modelLabel = computed(() => {
     return props.placeholder ?? t('desktop.chat.blocker.model.action')
   return props.placeholder ?? t('desktop.chat.noModels')
 })
+const selectedProviderIconId = computed(() => {
+  const model = props.selectedModel
+  if (!model)
+    return ''
+  const provider = props.providers.find(provider => provider.id === model.providerId)
+  if (provider?.custom)
+    return ''
+  return provider?.builtinProviderId ?? model.providerId
+})
 const root = useTemplateRef<HTMLElement>('root')
 const {
   isOpen,
@@ -123,6 +132,7 @@ defineExpose({
       <template #trigger>
         <DesktopModelTrigger
           :language="language" :model-label="modelLabel" :selected-effort-label="selectedEffortLabel"
+          :provider-id="selectedProviderIconId"
           :is-effort-unavailable="isEffortUnavailable" :is-fast-mode="isFastMode" :is-open="isOpen"
           :can-open="canOpen" :can-clear-model="canClearModel" :surface="surface"
           @toggle="toggle" @clear="clearModel"

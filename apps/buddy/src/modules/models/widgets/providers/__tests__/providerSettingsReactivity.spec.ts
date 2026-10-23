@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { createApp, effectScope, h, nextTick, shallowReactive, shallowRef } from 'vue'
 import { translateBuddy } from '@/i18n/buddyI18n'
 import { useProviderSetupWizard } from '@/modules/models/state/useProviderSetupWizard'
+import { resolveProviderIcon } from '@/shared/ui/icon/providerIcons'
 import DesktopModelsSettings from '../DesktopModelsSettings.vue'
 import DesktopProviderAddDialog from '../DesktopProviderAddDialog.vue'
 import DesktopProviderDetail from '../DesktopProviderDetail.vue'
@@ -62,6 +63,47 @@ describe('provider settings prop reactivity', () => {
     expect(document.body.textContent).toContain('Gamma')
     expect(document.body.textContent).not.toContain('Stale store')
     expect(document.body.textContent).toContain(translateBuddy('zh-CN', heading))
+  })
+
+  it('keeps provider logos paired with their names when the add dialog is filtered', async () => {
+    const store = createStore('OpenAI')
+    store.builtinPresets.value = [
+      { ...provider('OpenAI'), id: 'openai' },
+      { ...provider('DeepSeek'), id: 'deepseek' },
+      { ...provider('Radius'), id: 'radius' },
+    ]
+    const root = document.createElement('div')
+    document.body.append(root)
+    const app = createApp({
+      setup: () => () => h(DesktopProviderAddDialog, { show: true, resumeProviderId: null, providerSettings: store }),
+    })
+    app.mount(root)
+    cleanups.push(() => {
+      app.unmount()
+      root.remove()
+    })
+    await nextTick()
+
+    const rows = () => [...document.body.querySelectorAll('.desktop-provider-add-dialog__provider-row')]
+    expect(rows()).toHaveLength(3)
+    expect(rows()[0]?.querySelector('.provider-icon__brand')?.getAttribute('style')).toContain(resolveProviderIcon('openai'))
+    expect(rows()[1]?.querySelector('.provider-icon__brand')?.getAttribute('style')).toContain(resolveProviderIcon('deepseek'))
+    expect(rows()[2]?.querySelector('svg.provider-icon__fallback')).not.toBeNull()
+    expect(rows().every(row => row.querySelector('button')?.textContent?.trim())).toBe(true)
+
+    const search = document.body.querySelector('.desktop-provider-add-dialog__catalog input') as HTMLInputElement
+    search.value = 'Deep'
+    search.dispatchEvent(new Event('input', { bubbles: true }))
+    await nextTick()
+    expect(rows()).toHaveLength(1)
+    expect(rows()[0]?.textContent).toContain('DeepSeek')
+    expect(rows()[0]?.querySelector('.provider-icon__brand')?.getAttribute('style')).toContain(resolveProviderIcon('deepseek'))
+
+    search.value = 'no-such-provider'
+    search.dispatchEvent(new Event('input', { bubbles: true }))
+    await nextTick()
+    expect(rows()).toHaveLength(0)
+    expect(document.body.querySelector('.desktop-provider-add-dialog .n-empty')).not.toBeNull()
   })
 
   it('saves model parameters and provider connections through the replacement store', async () => {

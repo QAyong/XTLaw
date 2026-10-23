@@ -4,11 +4,12 @@ import { DismissCircle16Filled, Flash20Filled } from '@vicons/fluent'
 import { computed } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
-import ModelIcon from '@/shared/ui/icon/ModelIcon.vue'
+import ProviderIcon from '@/shared/ui/icon/ProviderIcon.vue'
 
 const props = defineProps<{
   language: BuddyLocale
   modelLabel: string
+  providerId: string
   selectedEffortLabel: string
   isEffortUnavailable: boolean
   isFastMode: boolean
@@ -51,7 +52,7 @@ const modelTriggerLabel = computed(() => {
       :disabled="!canOpen"
       @click="emit('toggle')"
     >
-      <DesktopIcon class="desktop-model-selector__compact-icon hidden flex-none" :component="ModelIcon" :size="18" />
+      <ProviderIcon class="desktop-model-selector__compact-icon flex-none" :provider-id="providerId" />
       <DesktopIcon v-if="isFastMode" class="desktop-model-selector__flash flex-none text-gold" :component="Flash20Filled" />
       <span class="desktop-model-selector__model min-w-0 overflow-hidden font-650 text-ellipsis whitespace-nowrap">
         {{ modelLabel }}
@@ -80,6 +81,13 @@ const modelTriggerLabel = computed(() => {
     opacity: 1;
     pointer-events: auto;
   }
+}
+
+.desktop-model-selector__compact-icon {
+  display: none;
+  width: 18px;
+  height: 18px;
+  color: inherit;
 }
 
 @media (max-width: 680px) {

@@ -37,6 +37,8 @@ export default {
   'desktop.chat.shellSandboxHint.checking': 'Checking system sandbox support.',
   'desktop.chat.shellSandboxHint.fullAccess': 'Tasks run with local permissions. Use this only when you understand the risk.',
   'desktop.chat.shellSandboxHint.scope': 'The sandbox covers command execution. Other tools follow their own permissions. Change records are not file backups.',
+  'desktop.chat.expandUserMessage': 'Show full message',
+  'desktop.chat.collapseUserMessage': 'Collapse message',
   'desktop.chat.usage.input': 'Input',
   'desktop.chat.usage.output': 'Output',
   'desktop.chat.usage.cache': 'Cached',

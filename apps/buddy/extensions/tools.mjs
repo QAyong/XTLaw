@@ -52,13 +52,11 @@ export async function run() {
   // Document-processor contract: capability names and warnings only; nothing here stops a check, build or pack.
   const contract = documentContractReport(manifest, { files: await listFiles(source), development: command === 'dev', bundledHandlers: await bundledHandlers() })
   for (const warning of contract.warnings)
-    process.stderr.write(`warning: ${warning}
-`)
+    process.stderr.write(`warning: ${warning}\n`)
   if (command === 'check') {
     await readExtensionPackage(source)
     if (contract.capabilities.length)
-      process.stdout.write(`Document capabilities: ${contract.capabilities.map(({ name, since }) => `${name} (XTLaw ${since}+)`).join(', ')}. These are XTLaw extension capabilities, not upstream API numbers.
-`)
+      process.stdout.write(`Document capabilities: ${contract.capabilities.map(({ name, since }) => `${name} (XTLaw ${since}+)`).join(', ')}. These are XTLaw extension capabilities, not upstream API numbers.\n`)
     process.stdout.write(`${manifest.id}@${manifest.version}: compatible with Lexora ${version}, API ${manifest.apiVersion}` + '\n')
   }
   else if (command === 'pack') {

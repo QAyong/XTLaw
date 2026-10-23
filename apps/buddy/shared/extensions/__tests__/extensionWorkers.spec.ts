@@ -7,7 +7,7 @@ const root = new URL('lexora-extension://session-one/__package/')
 const blobs = new Set<string>()
 const fetchSource = vi.fn<typeof fetch>()
 let NativeWorker: ExtensionWorkerConstructor<TestWorker>
-const createExtensionWorkers = (root: URL, owner: AbortSignal) => createWorkers(root, owner, NativeWorker)
+const createExtensionWorkers = (root: URL, owner: AbortSignal, permitted?: () => boolean) => createWorkers(root, owner, NativeWorker, permitted)
 
 class TestWorker extends EventTarget {
   terminations = 0
@@ -33,6 +33,16 @@ afterEach(() => {
   blobs.clear()
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
+})
+
+it('refuses to create a worker unless the page was granted WebAssembly, and reads the grant at call time', async () => {
+  let permitted = false
+  const api = createExtensionWorkers(root, new AbortController().signal, () => permitted)
+  await expect(api.create('worker.js')).rejects.toThrow('EXTENSION_WORKER_DENIED')
+  expect(fetchSource).not.toHaveBeenCalled()
+  expect(blobs.size).toBe(0)
+  permitted = true
+  await expect(api.create('worker.js')).resolves.toBeInstanceOf(TestWorker)
 })
 
 it('creates a classic package worker and releases its URL on explicit termination', async () => {

@@ -13,7 +13,7 @@
 | `cbe068526` | `c0ff5edc9` | 修复伙伴会话续接与执行过程展示：17 个文件，**无冲突**。预评估里 `BuddyChatActorProcess.vue` 的冲突在 `e243ce221` 先落地后消失 |
 | `fcf5a4193` | `cffd73885` | 支持插件创建受控私有文件：17 个文件，1 个文件冲突（`view.js`）。见下 |
 
-后续提交 `65aad7362`（修正 `4298bbb5f` 里产出去向 spec 的 mock 类型）、`52f32eddf`（给 `e24151a12` 的 `treeTarget` 补 `useWorkspaceFilePreview` 测试）是对前面移植的修正，说明里写明了对应关系。
+后续提交 `65aad7362`（修正 `4298bbb5f` 里产出去向 spec 的 mock 类型）、`52f32eddf`（给 `e24151a12` 的 `treeTarget` 补 `useWorkspaceFilePreview` 测试）是对前面移植的修正，说明里写明了对应关系。另有一个补取的提交：把 `2f91fa803` 里 `BuddyChatTurnOutputs` 的折叠标题也加上（见下）。
 
 无新迁移、无依赖变更、无原生（Rust）代码改动、不涉及 `.github/workflows`。
 
@@ -26,9 +26,12 @@
 - `artifacts.revealFile` IPC（主进程、preload、`localChatApi`）。`artifacts.locate` RPC、`ArtifactService.locate`、`registerArtifactRpc` 和 `artifactApi` 上一轮已经在了，这次只把上一轮删掉的三处 `locate` 断言补回 `ArtifactService.spec.ts`。
 - 文件管理器标签页的 `treeTarget`（`taskContextPanel.ts`、`readContextTab.ts`）、`locateFile`（`useTaskContextPanel.ts`、`useTaskResourcePanel.ts`）、`DesktopFilesContextSurface.vue`、`useWorkspaceFilePreview.ts`；相关 i18n（`desktop.artifacts.*`）；`.playwright/scripts/__tests__/artifact-cards.e2e.mjs`。
 
+最初没有取、之后按要求补上的：
+
+- **`BuddyChatTurnOutputs` 的折叠标题**（以及 `BuddyChatMessageBody` 里给它加的 `:key="turnOutputs.runId"`，让每一轮的展开状态独立）。“本轮产出 N”从静态标题变成带文档图标、数量和箭头的按钮，点击折叠或展开卡片条带（默认展开，`aria-expanded`/`aria-controls`，内容用 `BuddyChatDisclosure` 过渡）。模板与上游一致，样式写成该组件原有的作用域样式并复用 `chatActivityRow` 的 `header` mixin。执行详情和伙伴执行过程里的产出区也随之可折叠，和上游一致。新增 `BuddyChatTurnOutputs.spec.ts`；`artifact-cards` e2e 里的折叠断言放回，只把末尾“点卡片后看到产出页”改成先把 `artifactOpening` 设为 `panel`（默认设置下卡片会进文件管理器）。
+
 没有取的：
 
-- **`BuddyChatTurnOutputs` 的折叠标题**（以及 `BuddyChatMessageBody` 里给它加的 `:key`）。它不在确认的移植清单里，本地 `BuddyChatTurnOutputs.vue` 是改写成作用域样式的本地组件，按“本地已有组件不改”保持原样。后果：上游的 `artifact-cards` e2e 里对折叠按钮（`aria-expanded`）的断言取不到，本地版本去掉了这部分，并把末尾“点卡片后看到产出页”改成先把 `artifactOpening` 设为 `panel`（默认设置下卡片会进文件管理器）。需要折叠标题时可以单独补。
 - `desktop.chat.quoteToCurrent` 文案改成“引用”：属于选区引用菜单，本地选区引用 API 保持原样。
 - 上游对选区引用相关 spec、e2e 的改动针对上游实现，保留本地版本（与上一轮一致）。
 
@@ -61,7 +64,7 @@
 - 上游把 `isBrowserArtifact` 从 `taskContextPanel.ts` 删了（它的浏览器去向改在提供方处理里），本地路由还要用，加回。
 - `ArtifactService.spec.ts`：采用上游重写后的版本，本地的 `resolveExternalEntry`、HTML 入口两个用例保留。
 - 测试夹具：`useTaskResourcePanel` 现在要求 `files`、`openFile` 和浏览器的 `openFile`，补进 `revealOpenOfficeDocument.spec.ts`、`useTaskResourcePanelArtifact.spec.ts`、`registerBrowserDesktopIpcDialog.spec.ts`（`resolveFileEntry`）；上游新增的 `BuddyChatFileLinks.spec.ts` 用了上游才有的 `appSidebarCollapsed`，改为本地的 `sidebarCollapsed`；`BuddyChatMessageContent.spec.ts` 里不再断言 `canPreviewFile`（上游的点击处理不再先判断它）。
-- `BuddyChatTurnOutputs.vue` 只取 `emit` 签名一行（`LocalArtifact` 对象），不带折叠标题。
+- `BuddyChatTurnOutputs.vue` 在这个提交里只取 `emit` 签名一行（`LocalArtifact` 对象）；折叠标题在补取的提交里加上。
 
 ## 特殊改动：点击产出卡片仍然进文件管理器
 
@@ -123,7 +126,7 @@
 
 ### 未跑
 
-- Playwright E2E：包括新增和改动的 `artifact-cards`、`task-file-links`，以及已有的 `artifactSelectionReferences`、`file-explorer`、`file-opening`。`artifact-cards` 的本地改写（去掉折叠断言、末尾设 `artifactOpening: 'panel'`）没有实际运行。
+- Playwright E2E：包括新增和改动的 `artifact-cards`、`task-file-links`，以及已有的 `artifactSelectionReferences`、`file-explorer`、`file-opening`。`artifact-cards` 的本地改动（末尾设 `artifactOpening: 'panel'`）以及折叠标题的 e2e 断言没有实际运行。
 - 开发预览和打包。
 - 点卡片进文件管理器、“定位”后再点卡片、“定位”文件夹后右侧回到占位、正文链接右键菜单（打开、打开方式、引用、定位、在文件管理器中显示、复制路径）在真实窗口里的表现，需要本机手测。
 - 迁移在真实开发库上的运行（本轮无迁移）。

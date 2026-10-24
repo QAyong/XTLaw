@@ -623,7 +623,17 @@ export class BrowserPageSession {
         }
       },
     )
-    this.#listen(page, 'did-start-loading', () => {
+    this.#listen(page, 'did-start-navigation', (_event, _url: string, isInPlace: boolean, isMainFrame: boolean) => {
+      if (!isMainFrame || isInPlace)
+        return
+      if (
+        this.shouldClearBootstrapHistory
+        && page.getURL() === 'about:blank'
+        && this.activeNavigationSequence === null
+        && (this.stoppedNavigationSequence === this.navigationSequence || this.state.status === 'error')
+      ) {
+        return
+      }
       // An attachment navigation starts loading before Electron emits will-download. Keep only
       // this one transition's gesture for downloads; commit, further navigation or control changes invalidate it.
       const gesture = this.#humanGesture

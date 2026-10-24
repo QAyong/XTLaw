@@ -206,7 +206,7 @@ describe('browser human action routing', () => {
     await vi.waitFor(() => expect(selectFiles).toHaveBeenCalledOnce())
 
     // The document the chooser belonged to is replaced before the user confirms.
-    fixture.webContents.emit('did-start-loading')
+    fixture.webContents.emit('did-start-navigation', {}, 'https://example.com/next', false, true)
     resolveSelection(['C:\\Users\\tester\\Pictures\\avatar.png'])
 
     await vi.waitFor(() => {

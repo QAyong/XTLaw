@@ -39,7 +39,7 @@ const activeTab = computed(() => props.panel.activeTab.value)
 const openTarget = computed(() => resourceOpenTarget(activeTab.value, props.resourceView))
 const tabs = computed<ContextPanelTab[]>(() => props.panel.tabs.value.map((tab) => {
   if (tab.kind === 'view')
-    return { id: tab.id, title: tab.label, icon: 'file' }
+    return { id: tab.id, title: tab.label, dirty: tab.dirty, icon: 'file' }
   if (tab.kind === 'artifact')
     return { id: tab.id, title: tab.artifact.name, icon: tab.artifact.kind === 'directory' ? 'folder' : 'file', fileName: tab.artifact.name }
   if (tab.kind === 'files')

@@ -60,6 +60,7 @@ export interface TaskFilesContextTab extends ContextTabSource {
 }
 
 export interface TaskViewContextTab extends ContextTabSource {
+  dirty?: boolean
   id: string
   kind: 'view'
   viewId: string
@@ -67,6 +68,7 @@ export interface TaskViewContextTab extends ContextTabSource {
 }
 
 export interface ContextPanelTab {
+  dirty?: boolean
   favicon?: string | null
   id: string
   title: string

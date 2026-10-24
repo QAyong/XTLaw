@@ -27,7 +27,7 @@ afterEach(async () => {
 })
 
 describe('artifactService', () => {
-  it('preserves extensionless image MIME and resolves media only while the recorded grant is active', async () => {
+  it('preserves extensionless image MIME and resolves media and reveal locations only while the recorded grant is active', async () => {
     const fixture = await createFixture()
     const conversationGrants = createConversationDirectoryGrantRepository(fixture.database)
     conversationGrants.grant({ conversationId: 'conversation-1', id: 'workspace-1', root: fixture.workspace, canonicalRoot: fixture.workspace, createdAt: '2026-08-27T00:00:00.000Z' })
@@ -46,9 +46,11 @@ describe('artifactService', () => {
     expect(await service.resolveMedia(image!.id)).toMatchObject({ root: fixture.workspace, path: imagePath, mimeType: 'image/png', sizeBytes: 4, identity: expect.any(String) })
     expect(artifact!.mimeType).toBe('audio/mpeg')
     expect(await service.resolveMedia(artifact!.id)).toMatchObject({ path, root: fixture.workspace, mimeType: 'audio/mpeg', sizeBytes: 5 })
+    expect(await service.locate(artifact!.id)).toEqual({ path, kind: 'file' })
     conversationGrants.revokeAll('conversation-1', '2026-08-28T00:00:00.000Z')
     await expect(service.resolveMedia(image!.id)).rejects.toMatchObject({ code: 'DIRECTORY_NOT_AUTHORIZED' })
     await expect(service.resolveMedia(artifact!.id)).rejects.toMatchObject({ code: 'DIRECTORY_NOT_AUTHORIZED' })
+    await expect(service.locate(artifact!.id)).rejects.toMatchObject({ code: 'DIRECTORY_NOT_AUTHORIZED' })
     expect(await readFile(path, 'utf8')).toBe('media')
   })
 
@@ -72,6 +74,7 @@ describe('artifactService', () => {
     await rm(path)
     await symlink(outside, path)
     await expect(service.resolveMedia(artifact!.id)).rejects.toThrow()
+    await expect(service.locate(artifact!.id)).rejects.toThrow()
     await rm(path)
     await writeFile(path, 'media')
     createConversationRepository(fixture.database).markDeleted('conversation-1', '2026-08-28T00:00:00.000Z')

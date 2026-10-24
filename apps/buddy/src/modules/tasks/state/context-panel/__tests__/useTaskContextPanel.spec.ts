@@ -5,10 +5,57 @@ import type { LocalSpace } from '@buddy-shared/spaces/spaceApi'
 
 import { describe, expect, it } from 'vitest'
 import { nextTick, shallowRef } from 'vue'
+import { readContextTab } from '@/modules/tasks/model/context-panel/readContextTab'
 import { useTaskContextPanel } from '../useTaskContextPanel'
 import { contextPanelFixture, createTaskPanel } from './contextPanelFixture'
 
 describe('useTaskContextPanel', () => {
+  it('reuses a bound file tab for explicit file and directory locations without opening directories as files', () => {
+    const space = fileSpace()
+    const panel = createTaskPanel({ spaces: shallowRef([space]), activeSpace: shallowRef(space) })
+    panel.openFiles(space.id)
+    const tab = panel.activeTab.value!
+    if (tab.kind !== 'files')
+      throw new Error('Expected files tab')
+    panel.locateFile({ ...tab.target, path: 'src/report.md' }, 'file')
+    expect(panel.allTabs.value).toHaveLength(1)
+    expect(panel.activeTab.value).toMatchObject({ id: tab.id, target: { path: 'src/report.md' }, treeTarget: { path: 'src/report.md', kind: 'file' } })
+    panel.locateFile({ ...tab.target, path: 'src' }, 'directory')
+    expect(panel.allTabs.value).toHaveLength(1)
+    expect(panel.activeTab.value).toMatchObject({ id: tab.id, target: { path: '' }, treeTarget: { path: 'src', kind: 'directory' } })
+    expect(readContextTab(panel.activeTab.value)).toEqual(panel.activeTab.value)
+    panel.selectFile(tab.id, 'src/manual.md')
+    expect(panel.activeTab.value).toMatchObject({ target: { path: 'src/manual.md' }, treeTarget: undefined })
+    expect(readContextTab(tab)).toEqual(tab)
+  })
+
+  it('refuses stale directory revisions instead of opening another binding', () => {
+    const space = fileSpace()
+    const panel = createTaskPanel({ spaces: shallowRef([space]), activeSpace: shallowRef(space) })
+    expect(() => panel.locateFile({ spaceId: space.id, directoryId: space.primaryDirectory!.id, revision: space.primaryDirectory!.revision + 1, path: 'src' }, 'directory')).toThrow('FILE_DIRECTORY_UNAVAILABLE')
+    expect(panel.allTabs.value).toEqual([])
+  })
+
+  it('drops the located path when a card opens another file, and hands the highlight to a card folder', () => {
+    const space = fileSpace()
+    const panel = createTaskPanel({ spaces: shallowRef([space]), activeSpace: shallowRef(space) })
+    panel.openFiles(space.id)
+    const tab = panel.activeTab.value!
+    if (tab.kind !== 'files')
+      throw new Error('Expected files tab')
+    panel.locateFile({ ...tab.target, path: 'src/a.md' }, 'file')
+    panel.previewFile('/workspace/b.md', undefined, false)
+    expect(panel.allTabs.value).toHaveLength(1)
+    expect(panel.activeTab.value).toMatchObject({ id: tab.id, target: { path: 'b.md' }, tree: { visible: false } })
+    expect(panel.activeTab.value).toHaveProperty('treeTarget', undefined)
+
+    panel.locateFile({ ...tab.target, path: 'src' }, 'directory')
+    expect(panel.activeTab.value).toMatchObject({ treeTarget: { path: 'src', kind: 'directory' } })
+    panel.openDirectory('/workspace/docs')
+    expect(panel.activeTab.value).toMatchObject({ target: { path: '' }, expand: { path: 'docs' }, tree: { visible: true } })
+    expect(panel.activeTab.value).toHaveProperty('treeTarget', undefined)
+  })
+
   it('restores session panel visibility from the workbench snapshot', async () => {
     const activeConversationId = shallowRef<string | null>('conversation-a')
     const panel = createTaskPanel({ activeConversationId })

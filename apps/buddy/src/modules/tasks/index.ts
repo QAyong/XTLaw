@@ -12,6 +12,8 @@ export { useTaskCapability } from './state/useTaskCapability'
 export type { TaskContext } from './taskContext'
 export { useProvideTaskContext, useProvideTaskEnvironment, useTaskContext, useTaskEnvironment } from './taskContext'
 
+export { useProvideArtifactActions } from './widgets/artifacts/artifactActionsContext'
+
 export { sessionReferenceNavigationKey } from './widgets/references/sessionReferenceNavigation'
 
 export { useProvideChatContent } from './widgets/transcript/chatContentContext'

@@ -1,9 +1,12 @@
 <script setup lang="ts" generic="T extends string | number">
 import type { GlobalThemeOverrides } from 'naive-ui'
+import type { Component } from 'vue'
 import { NTab, NTabs } from 'naive-ui'
+import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 
 const props = defineProps<{
-  options: readonly { label: string, value: T, disabled?: boolean }[]
+  /** An option with an `icon` renders the icon alone; its `label` becomes the tooltip and accessible name. */
+  options: readonly { label: string, value: T, disabled?: boolean, icon?: Component }[]
   disabled?: boolean
 }>()
 const value = defineModel<T>({ required: true })
@@ -47,10 +50,15 @@ function select(next: string | number) {
       :tabindex="disabled || option.disabled ? -1 : 0"
       :aria-pressed="value === option.value"
       :aria-disabled="disabled || option.disabled || undefined"
+      :aria-label="option.icon ? option.label : undefined"
+      :title="option.icon ? option.label : undefined"
       @keydown.enter.prevent="select(option.value)"
       @keydown.space.prevent="select(option.value)"
     >
-      {{ option.label }}
+      <DesktopIcon v-if="option.icon" class="desktop-segmented-control__icon" :component="option.icon" :size="16" />
+      <template v-else>
+        {{ option.label }}
+      </template>
     </NTab>
   </NTabs>
 </template>
@@ -65,6 +73,11 @@ function select(next: string | number) {
 .desktop-segmented-control :deep(.n-tabs-tab:focus-visible) {
   outline: 2px solid var(--buddy-focus-ring);
   outline-offset: -2px;
+}
+
+.desktop-segmented-control :deep(.n-tabs-tab__label) {
+  display: inline-flex;
+  align-items: center;
 }
 
 @media (prefers-reduced-motion: reduce) {

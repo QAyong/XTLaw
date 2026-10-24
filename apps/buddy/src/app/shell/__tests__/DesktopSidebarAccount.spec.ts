@@ -1,26 +1,33 @@
 // @vitest-environment jsdom
 import type { SettingsContext } from '@/modules/settings/settingsContext'
+import type { DesktopUpdates } from '@/modules/updates/contracts'
+import { NMessageProvider } from 'naive-ui'
 import { describe, expect, it, vi } from 'vitest'
 import { createApp, defineComponent, h, nextTick, ref } from 'vue'
 import { useProvideSettingsContext } from '@/modules/settings'
+import { useProvideDesktopUpdates } from '@/modules/updates'
 import DesktopSidebarAccount from '../DesktopSidebarAccount.vue'
 
 function mountAccount(profile: { avatar: string, deviceName: string, userName: string }) {
   const onOpenSettings = vi.fn()
+  const check = vi.fn(async () => {})
+  const themeRequest = vi.fn(async () => ({}))
+  vi.stubGlobal('lexoraDesktop', { themes: { request: themeRequest } })
   const root = document.createElement('div')
   document.body.append(root)
   const Host = defineComponent({
     setup() {
       useProvideSettingsContext({
-        appInfo: ref(null),
+        appInfo: ref({ version: '0.3.2' }),
         profile: { config: ref(profile), update: async () => true },
       } as unknown as SettingsContext)
-      return () => h(DesktopSidebarAccount, { language: 'zh-CN', onOpenSettings })
+      useProvideDesktopUpdates({ state: ref(null), check } as unknown as DesktopUpdates)
+      return () => h(NMessageProvider, null, { default: () => h(DesktopSidebarAccount, { language: 'zh-CN', onOpenSettings }) })
     },
   })
   const app = createApp(Host)
   app.mount(root)
-  return { app, onOpenSettings, root }
+  return { app, check, onOpenSettings, root, themeRequest }
 }
 
 async function settle() {
@@ -30,6 +37,10 @@ async function settle() {
 
 function menuOption(label: string) {
   return [...document.body.querySelectorAll<HTMLElement>('.n-dropdown-option-body')].find(option => option.textContent?.includes(label))
+}
+
+function segmentTab(label: string) {
+  return [...document.body.querySelectorAll<HTMLElement>('.desktop-segmented-control .n-tabs-tab')].find(tab => tab.getAttribute('aria-label') === label)
 }
 
 describe('desktopSidebarAccount', () => {
@@ -56,18 +67,49 @@ describe('desktopSidebarAccount', () => {
     root.remove()
   })
 
-  it('offers settings and profile editing in the menu', async () => {
+  it('offers settings, appearance and update entries in the menu', async () => {
     const { app, onOpenSettings, root } = mountAccount({ avatar: '', deviceName: '', userName: '周晓晓' })
     await nextTick()
 
     root.querySelector<HTMLButtonElement>('.desktop-sidebar-account')?.click()
     await settle()
     expect(menuOption('设置')).toBeDefined()
-    expect(menuOption('编辑资料')).toBeDefined()
+    expect(menuOption('检查更新')?.textContent).toContain('0.3.2')
+    expect(document.body.querySelector('.desktop-sidebar-account-menu__device')?.textContent).toBe('Desktop')
+    expect(segmentTab('跟随系统')).toBeDefined()
 
     menuOption('设置')?.click()
     await settle()
     expect(onOpenSettings).toHaveBeenCalledOnce()
+
+    app.unmount()
+    root.remove()
+  })
+
+  it('switches the theme appearance from the menu without closing it', async () => {
+    const { app, root, themeRequest } = mountAccount({ avatar: '', deviceName: '', userName: '周晓晓' })
+    await nextTick()
+
+    root.querySelector<HTMLButtonElement>('.desktop-sidebar-account')?.click()
+    await settle()
+    segmentTab('深色')?.click()
+    await settle()
+    expect(themeRequest).toHaveBeenCalledWith({ action: 'preference', preference: { id: 'xtlaw.themes.paper-dark' } })
+    expect(root.querySelector('.desktop-sidebar-account')?.getAttribute('aria-expanded')).toBe('true')
+
+    app.unmount()
+    root.remove()
+  })
+
+  it('checks for updates from the menu', async () => {
+    const { app, check, root } = mountAccount({ avatar: '', deviceName: '', userName: '周晓晓' })
+    await nextTick()
+
+    root.querySelector<HTMLButtonElement>('.desktop-sidebar-account')?.click()
+    await settle()
+    menuOption('检查更新')?.click()
+    await settle()
+    expect(check).toHaveBeenCalledOnce()
 
     app.unmount()
     root.remove()
@@ -100,7 +142,7 @@ describe('desktopSidebarAccount', () => {
 
     root.querySelector<HTMLButtonElement>('.desktop-sidebar-account')?.click()
     await settle()
-    menuOption('编辑资料')?.click()
+    document.body.querySelector<HTMLButtonElement>('.desktop-sidebar-account-menu__header')?.click()
     await settle()
     expect(document.body.textContent).toContain('个人资料')
 

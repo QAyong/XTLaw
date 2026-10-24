@@ -175,8 +175,28 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
     })
   }
 
+  // Shows where a file or folder sits in the tree. A folder clears the file open in the tab; a file replaces it.
+  function locateFile(target: SpaceFileTarget, kind: 'file' | 'directory', source?: ContextPanelSource) {
+    const space = fileSpaces.value.find(space => space.id === target.spaceId)
+    const directory = getActiveSpaceDirectories(space).find(directory => directory.id === target.directoryId && directory.revision === target.revision)
+    if (!directory)
+      throw new Error('FILE_DIRECTORY_UNAVAILABLE')
+    const candidates = store.tabs.value.filter(tab => tab.kind === 'files' && tab.target.spaceId === target.spaceId
+      && tab.target.directoryId === target.directoryId && tab.target.revision === target.revision)
+    const previous = candidates.find(tab => tab.id === store.activeTab.value?.id) ?? candidates[0]
+    openTab({
+      id: previous?.id ?? `files:${crypto.randomUUID()}`,
+      scope: source ? taskContextPanelScope(source.conversationId) : previous?.scope ?? store.scope.value,
+      kind: 'files',
+      rootName: directory.root.split(/[\\/]/).filter(Boolean).at(-1) ?? directory.root,
+      target: { ...target, path: kind === 'file' ? target.path : '' },
+      treeTarget: { path: target.path, kind },
+      source: source ?? previous?.source ?? currentSource(),
+    })
+  }
+
   function selectFile(tabId: string, path: string) {
-    store.update(tab => tab.id === tabId && tab.kind === 'files' ? { ...tab, target: { ...tab.target, path } } : tab)
+    store.update(tab => tab.id === tabId && tab.kind === 'files' ? { ...tab, target: { ...tab.target, path }, treeTarget: undefined } : tab)
   }
 
   function canPreviewFile(path: string) {
@@ -220,7 +240,7 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
     openTab({ ...newFilesTab(directory, target, source), tree })
   }
 
-  function updateFilesTab(tabId: string, change: Partial<Pick<TaskFilesContextTab, 'expand' | 'tree'>>) {
+  function updateFilesTab(tabId: string, change: Partial<Pick<TaskFilesContextTab, 'expand' | 'tree' | 'treeTarget'>>) {
     store.update(tab => tab.id === tabId && tab.kind === 'files' ? { ...tab, ...change } : tab)
   }
 
@@ -262,7 +282,8 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
     const tree = { visible: true, token: crypto.randomUUID() }
     const spaceTab = findSpaceFilesTab(target, source)
     if (spaceTab) {
-      updateFilesTab(spaceTab.id, { expand, tree })
+      // A folder shown by "locate" gives way to this one, so only one row stays highlighted.
+      updateFilesTab(spaceTab.id, { expand, tree, treeTarget: undefined })
       store.select(spaceTab.id)
       openPanel()
       return
@@ -340,6 +361,7 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
     openChanges,
     openDirectory,
     openFiles,
+    locateFile,
     previewFile,
     selectFile,
     setArtifactViewMode,

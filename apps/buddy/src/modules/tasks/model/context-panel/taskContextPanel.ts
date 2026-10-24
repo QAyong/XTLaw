@@ -50,6 +50,8 @@ export interface TaskFilesContextTab extends ContextTabSource {
   kind: 'files'
   target: SpaceFileTarget
   rootName: string
+  // Where "locate" points in the tree; selecting a file clears it.
+  treeTarget?: { path: string, kind: 'file' | 'directory' }
   // A folder to open in the tree; a new token asks to expand it again after the user collapsed it.
   expand?: { path: string, token: string }
   // Shows or folds the tree pane; a new token applies it again after the user toggled the pane.

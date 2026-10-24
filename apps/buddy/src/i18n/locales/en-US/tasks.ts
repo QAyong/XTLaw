@@ -1,6 +1,18 @@
 import type zhCN from '../zh-CN/tasks'
 
 export default {
+  'desktop.artifacts.open': 'Open artifact',
+  'desktop.artifacts.more': 'More actions',
+  'desktop.artifacts.reference': 'Reference',
+  'desktop.artifacts.locate': 'Locate in Files',
+  'desktop.artifacts.reveal': 'Open containing folder',
+  'desktop.artifacts.copyPath': 'Copy path',
+  'desktop.artifacts.referenceUnavailable': 'Open an editable composer in this artifact’s conversation to reference it',
+  'desktop.artifacts.locateUnavailable': 'This artifact is outside the current conversation’s available bound directories',
+  'desktop.artifacts.referenceFailed': 'Could not reference this artifact. Please try again.',
+  'desktop.artifacts.locateFailed': 'Could not locate this artifact in Files. Check that the directory is still accessible.',
+  'desktop.artifacts.revealFailed': 'Could not open the containing folder. Check that the artifact is still accessible.',
+  'desktop.artifacts.copyPathFailed': 'Could not copy the path. Please try again.',
   'desktop.chat.panelOpened': 'Resource panel opened',
   'desktop.chat.panelClosed': 'Resource panel closed',
   'desktop.chat.collapse': 'Collapse chat',

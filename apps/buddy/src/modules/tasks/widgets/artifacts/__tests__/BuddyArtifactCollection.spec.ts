@@ -27,7 +27,7 @@ function mount(render: () => VNode) {
 }
 
 describe('buddyArtifactCollection', () => {
-  it('keeps file names, types, details and open actions in the default strip', async () => {
+  it('keeps file names, details and open actions in the default strip', async () => {
     const artifacts: LocalArtifact[] = [
       { ...selectionArtifact, name: '合同审查意见.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' },
       { ...selectionArtifact, artifactId: 'artifact-b', name: '风险事项清单.pdf', mimeType: 'application/pdf' },
@@ -37,16 +37,15 @@ describe('buddyArtifactCollection', () => {
     await nextTick()
 
     expect(root.querySelector('.buddy-artifact-collection__items.is-strip')).not.toBeNull()
-    const cards = [...root.querySelectorAll<HTMLButtonElement>('.buddy-artifact-collection__item')]
+    const cards = [...root.querySelectorAll<HTMLElement>('.buddy-artifact-collection__item')]
     expect(cards).toHaveLength(2)
-    expect(cards.map(card => card.title)).toEqual(artifacts.map(artifact => artifact.name))
+    expect(cards.map(card => card.querySelector('.buddy-artifact-collection__name')?.textContent)).toEqual(artifacts.map(artifact => artifact.name))
     for (const card of cards) {
-      expect(card.querySelector('.buddy-artifact-collection__type')?.textContent).not.toBe('')
       expect(card.querySelector('.buddy-artifact-collection__detail')?.textContent).toContain(selectionArtifact.path)
-      expect(card.querySelector('.buddy-file-icon.is-preview')).not.toBeNull()
+      expect(card.querySelector('.buddy-file-icon')).not.toBeNull()
       expect(card.classList.contains('is-compact')).toBe(false)
     }
-    cards[1]!.click()
+    cards[1]!.querySelector<HTMLButtonElement>('.buddy-artifact-collection__trigger')!.click()
     expect(openArtifact).toHaveBeenCalledExactlyOnceWith('artifact-b')
   })
 
@@ -60,7 +59,7 @@ describe('buddyArtifactCollection', () => {
     image.dispatchEvent(new Event('error'))
     await nextTick()
     expect(root.querySelector('.buddy-artifact-collection__image')).toBeNull()
-    expect(root.querySelector('.buddy-file-icon.is-preview')).not.toBeNull()
+    expect(root.querySelector('.buddy-file-icon')).not.toBeNull()
     expect(root.querySelector('.buddy-artifact-collection__name')?.textContent).toBe('流程图.svg')
   })
 

@@ -22,6 +22,7 @@ const { t } = useBuddyI18n(() => props.language)
 const fileTab = toRef(() => props.tab)
 const filePreview = useWorkspaceFilePreview(fileTab, props.files, id => props.hasTab(id))
 const fileView = filePreview.current
+const treeTarget = computed(() => fileTab.value ? { ...fileTab.value.target, path: fileTab.value.treeTarget?.path ?? fileTab.value.target.path } : null)
 const rootName = computed(() => fileTab.value && isSpaceWorkspaceDirectoryId(fileTab.value.target.directoryId) ? t('desktop.context.defaultFolder') : fileTab.value?.rootName ?? '')
 </script>
 
@@ -46,7 +47,7 @@ const rootName = computed(() => fileTab.value && isSpaceWorkspaceDirectoryId(fil
             {{ t('desktop.context.retry') }}
           </button>
         </div>
-        <WorkspaceExplorer :key="`${fileTab.id}:${fileTab.target.directoryId}:${fileTab.target.revision}`" v-model:expanded-keys="fileView.expandedKeys" :nodes="fileView.nodes" :loading-keys="fileView.loadingKeys" :target="fileTab.target" :reveal="fileTab.expand" :language="language" :load="filePreview.load" :refresh="filePreview.refresh" :api="files" @select="emit('select', fileTab.id, $event)" />
+        <WorkspaceExplorer v-if="treeTarget" :key="`${fileTab.id}:${fileTab.target.directoryId}:${fileTab.target.revision}`" v-model:expanded-keys="fileView.expandedKeys" :nodes="fileView.nodes" :loading-keys="fileView.loadingKeys" :target="treeTarget" :reveal="fileTab.expand" :language="language" :load="filePreview.load" :refresh="filePreview.refresh" :api="files" @select="emit('select', fileTab.id, $event)" />
       </template>
     </DesktopContextSplit>
   </WorkbenchPanelContent>

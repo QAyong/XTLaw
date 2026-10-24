@@ -52,27 +52,50 @@ export function useWorkspaceFilePreview(tab: Readonly<Ref<TaskFilesContextTab | 
       current.value.treeVisible = request.visible
   }, { immediate: true, flush: 'sync' })
 
-  watch(() => [tab.value?.id, tab.value?.target.path], async (_, __, onCleanup) => {
+  // "Locate" (treeTarget) always shows the tree and opens every folder down to the target, reloading each one.
+  watch([() => tab.value?.id, () => tab.value?.target.path, () => tab.value?.treeTarget], async ([id, targetPath, treeTarget], [previousId, previousPath], onCleanup) => {
+    // A folder card took over the highlight: the open file's folders are not walked again.
+    if (!treeTarget && id === previousId && targetPath === previousPath)
+      return
     const value = tab.value
     const view = current.value
-    if (!value?.target.path || !view)
+    if (!value || !view)
+      return
+    const location = value.treeTarget
+    if (!location && !value.target.path)
       return
     let active = true
     onCleanup(() => active = false)
-    await view.requests.get('')
-    const segments = value.target.path.split('/').filter(Boolean)
+    if (location) {
+      view.treeVisible = true
+      view.treeFailed = false
+      await readNodes(value, '', view)
+    }
+    else {
+      await view.requests.get('')
+    }
+    const locatedPath = location?.path ?? value.target.path
+    const segments = locatedPath.split('/').filter(Boolean)
     let path = ''
-    for (const segment of segments.slice(0, -1)) {
+    for (const segment of location?.kind === 'directory' ? segments : segments.slice(0, -1)) {
       if (!active || !retained(value.id, view))
         return
       path = path ? `${path}/${segment}` : segment
       const node = findNode(view.nodes, path)
-      if (!node || node.kind !== 'directory' || node.disabled)
+      if (!node || node.kind !== 'directory' || node.disabled) {
+        if (location)
+          view.treeFailed = true
         return
+      }
       if (!view.expandedKeys.includes(path))
         view.expandedKeys = [...view.expandedKeys, path]
-      if (!node.children || view.loadingKeys.has(path))
+      if (location || !node.children || view.loadingKeys.has(path))
         await readNodes(value, path, view)
+    }
+    if (location && locatedPath && active && retained(value.id, view)) {
+      const node = findNode(view.nodes, locatedPath)
+      if (!node || node.disabled || node.kind !== location.kind)
+        view.treeFailed = true
     }
   }, { immediate: true })
 

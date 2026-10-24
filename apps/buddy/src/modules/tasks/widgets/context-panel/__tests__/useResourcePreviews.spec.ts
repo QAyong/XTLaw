@@ -185,6 +185,50 @@ describe('resource previews', () => {
     expect(state.current.value?.treeVisible).toBe(true)
   })
 
+  it('shows the tree and opens every folder down to a located file or folder, even after a card folded it', async () => {
+    const tree: Record<string, { name: string, path: string, kind: 'file' | 'directory', unavailable: boolean }[]> = {
+      '': [{ name: 'src', path: 'src', kind: 'directory', unavailable: false }, { name: 'README.md', path: 'README.md', kind: 'file', unavailable: false }],
+      'src': [{ name: 'nested', path: 'src/nested', kind: 'directory', unavailable: false }],
+      'src/nested': [{ name: 'deep.ts', path: 'src/nested/deep.ts', kind: 'file', unavailable: false }],
+    }
+    const listDirectory = vi.fn().mockImplementation(async ({ path }: { path: string }) => ({ entries: tree[path] ?? [], nextCursor: null }))
+    const value = filesTab()
+    const tab = shallowRef<TaskFilesContextTab | null>({ ...value, tree: { visible: false, token: 'card' } })
+    const { state } = openFiles(tab, listDirectory)
+    expect(state.current.value?.treeVisible).toBe(false)
+
+    tab.value = { ...value, target: { ...value.target, path: 'src/nested/deep.ts' }, treeTarget: { path: 'src/nested/deep.ts', kind: 'file' } }
+    await expect.poll(() => state.current.value?.expandedKeys).toEqual(['src', 'src/nested'])
+    expect(state.current.value?.treeVisible).toBe(true)
+    expect(state.current.value?.treeFailed).toBe(false)
+
+    state.current.value!.expandedKeys = []
+    tab.value = { ...value, treeTarget: { path: 'src/nested', kind: 'directory' } }
+    await expect.poll(() => state.current.value?.expandedKeys).toEqual(['src', 'src/nested'])
+
+    tab.value = { ...value, treeTarget: { path: 'src/gone', kind: 'directory' } }
+    await expect.poll(() => state.current.value?.treeFailed).toBe(true)
+  })
+
+  it('does not walk the folders of the open file again when only the located path is cleared', async () => {
+    const listDirectory = vi.fn().mockImplementation(async ({ path }: { path: string }) => ({
+      entries: path === '' ? [{ name: 'src', path: 'src', kind: 'directory', unavailable: false }] : [{ name: 'index.ts', path: 'src/index.ts', kind: 'file', unavailable: false }],
+      nextCursor: null,
+    }))
+    const value = filesTab()
+    const tab = shallowRef<TaskFilesContextTab | null>({ ...value, target: { ...value.target, path: 'src/index.ts' }, treeTarget: { path: 'src', kind: 'directory' } })
+    const { state } = openFiles(tab, listDirectory)
+    await expect.poll(() => state.current.value?.expandedKeys).toEqual(['src'])
+
+    state.current.value!.expandedKeys = []
+    tab.value = { ...value, target: { ...value.target, path: 'src/index.ts' } }
+    await nextTick()
+    await Promise.resolve()
+    expect(state.current.value?.expandedKeys).toEqual([])
+    tab.value = { ...value, target: { ...value.target, path: 'src/other.ts' } }
+    await expect.poll(() => state.current.value?.expandedKeys).toEqual(['src'])
+  })
+
   it('still shows the tree by default when opening the file manager without a card request', () => {
     const tab = shallowRef<TaskFilesContextTab | null>(filesTab())
     const { state } = openFiles(tab, vi.fn().mockResolvedValue({ entries: [], nextCursor: null }))

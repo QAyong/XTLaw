@@ -11,6 +11,7 @@ import { showSelectionReferenceResult } from '@/shared/ui/selection/workbenchSel
 import { SurfaceHitRegions } from '@/workbench/browser/surfaces/SurfaceHitRegions'
 import { useExtensionContext } from '../extensionContext'
 import { extensionErrorCode } from '../state/useExtensionState'
+import { ExtensionCloseRequests } from './ExtensionCloseRequests'
 import { ExtensionReferenceRequests } from './ExtensionReferenceRequests'
 import { ExtensionViewProjection } from './ExtensionViewProjection'
 import { useExtensionFrameEvents } from './useExtensionFrameEvents'
@@ -34,6 +35,15 @@ const message = useMessage()
 const { t } = useBuddyI18n(language)
 const root = useTemplateRef<HTMLElement>('root')
 const frames = new Map<string, Frame>()
+const closeRequests = new ExtensionCloseRequests((session, message) => {
+  const frame = frames.get(session.token)
+  if (frame?.surface.session === session)
+    send(session.token, frame, message)
+}, (session) => {
+  const frame = frames.get(session.token)
+  return frame?.surface.session === session && frame.surface.ready && !frame.surface.error
+})
+onScopeDispose(views.onBeforeClose((session, signal) => closeRequests.request(session, signal)))
 const referenceRequests = new ExtensionReferenceRequests((session, message) => {
   const frame = frames.get(session.token)
   if (frame?.surface.session === session)
@@ -150,7 +160,12 @@ function sync() {
     }
   }
   referenceRequests.reconcile()
+  closeRequests.reconcile()
   props.layout.invalidate()
+}
+function assertClipboardFocus(frame: Frame) {
+  if (!frame.visible || !frame.surface.visible || !frame.surface.eligible || !frame.surface.active || !frame.surface.ready || frame.surface.error || isOverlay(frame.surface) || document.visibilityState !== 'visible' || !document.hasFocus() || document.activeElement !== frame.element)
+    throw new Error('EXTENSION_CLIPBOARD_UNAVAILABLE')
 }
 async function receive(event: MessageEvent) {
   const data = event.data
@@ -160,6 +175,10 @@ async function receive(event: MessageEvent) {
   const session = frame?.surface.session
   if (!frame || !session || event.source !== frame.element.contentWindow)
     return
+  if (data.closeResult) {
+    closeRequests.receive(session, data.closeResult)
+    return
+  }
   if (data.referenceResult) {
     referenceRequests.receive(session, data.referenceResult)
     return
@@ -181,6 +200,8 @@ async function receive(event: MessageEvent) {
   let value: unknown
   let ok = false
   try {
+    if (data.method === 'clipboard.read' || data.method === 'clipboard.write')
+      assertClipboardFocus(frame)
     if (['resources.pickFiles', 'resources.pickDirectory', 'resources.beginSave', 'references.add'].includes(data.method) && (!frame.visible || document.visibilityState !== 'visible' || !document.hasFocus()))
       throw new Error('EXTENSION_RESOURCE_PICKER_UNAVAILABLE')
     if (data.method.startsWith('composer.') && (!frame.visible || !frame.surface.ready || document.visibilityState !== 'visible' || !document.hasFocus()))
@@ -194,6 +215,8 @@ async function receive(event: MessageEvent) {
     }
     if (frames.get(data.token) !== frame || frame.surface.session !== session)
       return
+    if (data.method === 'clipboard.read')
+      assertClipboardFocus(frame)
     if (data.method === 'bootstrap' && value && typeof value === 'object') {
       projections.refresh(frame)
       const { snapshot, ...eventCursor } = frame.projection.synchronization
@@ -268,6 +291,7 @@ onMounted(() => {
 })
 onScopeDispose(() => {
   referenceRequests.dispose()
+  closeRequests.dispose()
   clearInterval(heartbeat)
   views.setLayout(() => {})
   window.removeEventListener('message', receive)

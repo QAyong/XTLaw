@@ -1,6 +1,7 @@
 import type { ExtensionAgentDescriptor, ExtensionAgentInvocation } from '../../shared/extensions/extensionAgent'
 import type { ExtensionFileOpeningInput, ExtensionFileOpeningSource, ExtensionMenuInvocation, ExtensionPreparedFileOpening, ExtensionResource, ExtensionStatus, ExtensionViewInput, ExtensionViewSession, ExtensionWorkbenchEvent } from '../../shared/extensions/extensionApi'
 import type { ExtensionInspection } from '../../shared/extensions/extensionAuthoring'
+import type { ExtensionClipboardData } from '../../shared/extensions/extensionClipboard'
 import type { ExtensionConditionRuntime } from '../../shared/extensions/extensionConditionContext'
 import type { ExtensionConditionState } from '../../shared/extensions/extensionConditions'
 import type { ExtensionDiagnostic, ExtensionHostFailure } from '../../shared/extensions/extensionDiagnostic'
@@ -33,9 +34,11 @@ import { copyEventSnapshot } from '../../shared/events/eventSnapshot'
 import { extensionAgentInvocationLimits, extensionAgentRequestSchema } from '../../shared/extensions/extensionAgent'
 import { extensionAgentCapabilities } from '../../shared/extensions/extensionAgentCapabilities'
 import { extensionError, extensionFileOpeningInputSchema, extensionJsonSchema, extensionQuoteCaptureSchema, extensionQuoteInputSchema, extensionResourceSchema, parseExtensionRequestParams } from '../../shared/extensions/extensionApi'
+import { extensionClipboardSchema, extensionClipboardWriteSchema } from '../../shared/extensions/extensionClipboard'
 import { ExtensionCompatibilityError, extensionCompatibilityIssue } from '../../shared/extensions/extensionCompatibility'
 import { extensionConditionInvalidationSchema } from '../../shared/extensions/extensionConditions'
 import { extensionDiagnostic, ExtensionRequestError } from '../../shared/extensions/extensionDiagnostic'
+import { extensionDocumentInfoSchema } from '../../shared/extensions/extensionDocumentInfo'
 import { fileExtensionOf, matchFileHandlers, resolveFileHandler } from '../../shared/extensions/extensionFileHandlers'
 import { extensionFileHandlerBindings, extensionFileHandlers, implicitFileHandlerId } from '../../shared/extensions/extensionFileOpening'
 import { extensionCompatible, extensionManifestSchema, extensionMayReference, extensionPathSchema } from '../../shared/extensions/extensionManifest'
@@ -71,6 +74,10 @@ export interface ExtensionHost {
   devtools: () => void
 }
 export interface ExtensionServicePorts {
+  clipboard?: {
+    read: (session: ExtensionViewSession, assertCurrent: () => void) => Promise<ExtensionClipboardData>
+    write: (session: ExtensionViewSession, data: ExtensionClipboardData, assertCurrent: () => void) => Promise<void>
+  }
   themes?: ThemeService
   createHost: (pkg: ExtensionPackage, broker: (method: string, params: unknown) => Promise<JsonValue>, failed: (failure?: ExtensionHostFailure) => void) => ExtensionHost
   createView: (pkg: ExtensionPackage, readSelected?: (id: string, request: Request, signal: AbortSignal) => Promise<Response>) => { token: string, url: string, dispose: () => void }
@@ -1163,6 +1170,40 @@ export class ExtensionService {
     let result: JsonValue
     if (method === 'bootstrap') {
       result = { apiVersion: view.running.package.manifest.apiVersion, instanceId: view.input.instanceId ?? null, interactionId: view.input.interactionId ?? null, interactionMode: placement?.kind === 'view' ? placement.interaction ?? null : null, entry: contribution.entry, styles: view.running.package.manifest.styles?.uno ? [EXTENSION_UNO_STYLESHEET] : [], location: placement?.kind === 'view' ? 'mount' : contribution.location, presentation: placement?.kind ?? (contribution.location === 'window-overlay' ? 'decoration' : 'view'), resource: view.input.resource, state: view.input.state, stateVersion: view.input.stateVersion, expectedStateVersion: contribution.stateVersion }
+    }
+    else if (method === 'clipboard.read' || method === 'clipboard.write') {
+      const permission = method === 'clipboard.read' ? 'clipboardRead' : 'clipboardWrite'
+      if (!view.running.package.manifest.permissions[permission] || contribution.location === 'window-overlay' || (placement && placement.kind !== 'view'))
+        throw new Error('EXTENSION_METHOD_DENIED')
+      const clipboard = this.#ports.clipboard
+      if (!clipboard)
+        throw new Error('EXTENSION_CLIPBOARD_UNAVAILABLE')
+      const assertCurrent = () => {
+        this.#assertCurrent(view.running)
+        if (view.abort.signal.aborted || this.#views.get(id) !== view)
+          throw new Error('EXTENSION_VIEW_EXPIRED')
+      }
+      if (method === 'clipboard.read') {
+        z.null().parse(params)
+        const data = await clipboard.read(view.session, assertCurrent)
+        assertCurrent()
+        result = extensionClipboardSchema.parse(data)
+      }
+      else {
+        const data = extensionClipboardWriteSchema.parse(params)
+        assertCurrent()
+        await clipboard.write(view.session, data, assertCurrent)
+        result = null
+      }
+    }
+    else if (method === 'view.setDocumentInfo') {
+      if (contribution.location === 'window-overlay' || (placement && placement.kind !== 'view'))
+        throw new Error('EXTENSION_METHOD_DENIED')
+      const info = extensionDocumentInfoSchema.parse(params)
+      const accepted = await this.#ports.workbench({ kind: 'document-info', requestId: randomUUID(), viewId: id, generation, token, info }, AbortSignal.any([view.abort.signal, view.running.abort.signal]))
+      if (accepted !== id)
+        throw new Error('EXTENSION_DOCUMENT_INFO_FAILED')
+      result = null
     }
     else if (method === 'themes.request') {
       result = await this.#themeRequest(view.running, `${view.running.package.manifest.id}:${generation}:${id}`, params, () => {

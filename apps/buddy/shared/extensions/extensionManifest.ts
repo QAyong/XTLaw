@@ -91,6 +91,8 @@ export const extensionPermissionsSchema = z.object({
   composerReference: z.boolean().default(false),
   selectedContent: z.boolean().default(false),
   references: z.boolean().default(false),
+  clipboardRead: z.boolean().default(false),
+  clipboardWrite: z.boolean().default(false),
   localResources: z.boolean().default(false),
   resourceExport: z.boolean().default(false),
   webAssembly: z.boolean().default(false),
@@ -144,7 +146,7 @@ export const extensionManifestSchema = extensionMetadataSchema.extend({
     fileOpeners: z.array(legacyFileOpenerSchema).max(32).default([]),
     launchers: z.array(z.object({ id: contributionId, title: z.string().min(1).max(100), view: contributionId }).strict()).max(16).default([]),
     placements: z.array(extensionPlacementSchema).max(16).default([]),
-    navigation: z.object({ title: z.string().min(1).max(40), view: contributionId, when: workbenchConditionSchema.optional() }).strict().optional(),
+    navigation: z.object({ title: z.string().min(1).max(40), view: contributionId, showHeader: z.boolean().default(true), when: workbenchConditionSchema.optional() }).strict().optional(),
   }).transform(({ fileOpeners, ...contributes }) => ({
     ...contributes,
     fileHandlers: [...contributes.fileHandlers, ...fileOpeners.map(({ id, title, extensions, view, locations, requestDefault }) => ({
@@ -297,7 +299,12 @@ export type ExtensionManifest = z.infer<typeof extensionManifestSchema>
 export type ExtensionPermissions = z.infer<typeof extensionPermissionsSchema>
 
 export function extensionPackageManifest(manifest: ExtensionManifest) {
-  return { ...manifest, permissions: Object.fromEntries(Object.entries(manifest.permissions).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(extensionPermissionDefaults[key]))) }
+  const { navigation, ...contributes } = manifest.contributes
+  const packagedNavigation = navigation && (() => {
+    const { showHeader, ...value } = navigation
+    return showHeader === false ? { ...value, showHeader } : value
+  })()
+  return { ...manifest, contributes: { ...contributes, ...(packagedNavigation ? { navigation: packagedNavigation } : {}) }, permissions: Object.fromEntries(Object.entries(manifest.permissions).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(extensionPermissionDefaults[key]))) }
 }
 
 // `composerReference` (file selections for the plugin's own files) and `references` (view content and file snapshots) are two spellings of
@@ -326,6 +333,8 @@ export function addedExtensionPermissions(previous: ExtensionPermissions | undef
     ...addedDocumentPermissions(previous, next),
     ...(next.selectedContent && !previous?.selectedContent ? ['selectedContent'] : []),
     ...(next.references && !previous?.references ? ['references'] : []),
+    ...(next.clipboardRead && !previous?.clipboardRead ? ['clipboardRead'] : []),
+    ...(next.clipboardWrite && !previous?.clipboardWrite ? ['clipboardWrite'] : []),
     ...(next.localResources && !previous?.localResources ? ['localResources'] : []),
     ...next.network.filter(origin => !previous?.network.includes(origin)).map(origin => `network:${origin}`),
   ]

@@ -1,4 +1,4 @@
-<script setup lang="ts" generic="Tab extends { id: string, title: string }">
+<script setup lang="ts" generic="Tab extends { id: string, title: string, dirty?: boolean }">
 import type { WorkbenchLauncherAction } from './useWorkbenchLaunchers'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import { Add20Regular, ArrowMaximize20Regular, ArrowMinimize20Regular, Dismiss16Regular } from '@vicons/fluent'
@@ -75,6 +75,7 @@ useResizeObserver(tabsScrollRoot, revealActiveTab)
             <button :id="`${panelId}-${tab.id}`" class="desktop-task-context-panel__tab-select" role="tab" type="button" :tabindex="tab.id === activeTabId ? 0 : -1" :aria-controls="panelId" :aria-selected="tab.id === activeTabId" @keydown="navigateTab($event, index)" @auxclick.middle.prevent="emit('closeTab', tab.id)" @click="emit('selectTab', tab.id)">
               <slot name="icon" :tab="tab" />
               <span>{{ tab.title }}</span>
+              <span v-if="tab.dirty" class="flex-none" data-document-dirty :aria-label="language === 'en-US' ? 'Unsaved' : '未保存'">●</span>
             </button>
             <button class="desktop-task-context-panel__tab-close" type="button" :aria-label="t('desktop.context.closeTab', { name: tab.title })" @click="emit('closeTab', tab.id)">
               <DesktopIcon :component="Dismiss16Regular" />

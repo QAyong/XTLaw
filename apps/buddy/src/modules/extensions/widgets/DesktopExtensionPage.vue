@@ -2,7 +2,7 @@
 import type { ExtensionViewInput } from '@buddy-shared/extensions/extensionApi'
 import { NButton, NEmpty } from 'naive-ui'
 import { computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { onBeforeRouteLeave, onBeforeRouteUpdate, useRouter } from 'vue-router'
 import { desktopRouteLocations } from '@/shared/navigation/desktopRoutes'
 import DesktopBackToTasksButton from '@/shared/ui/navigation/DesktopBackToTasksButton.vue'
 import { useExtensionContext } from '../extensionContext'
@@ -10,8 +10,10 @@ import DesktopExtensionSurface from './DesktopExtensionSurface.vue'
 
 const props = defineProps<{ extensionId: string }>()
 const router = useRouter()
-const { state, language } = useExtensionContext()
+const { state, views, language } = useExtensionContext()
 const viewId = crypto.randomUUID()
+onBeforeRouteLeave(() => views.prepareClose(viewId))
+onBeforeRouteUpdate((to, from) => to.params.extensionId === from.params.extensionId || views.prepareClose(viewId))
 const plugin = computed(() => state.installed.value.find(item => item.manifest.id === props.extensionId && item.enabled && item.compatible))
 const input = computed<ExtensionViewInput | null>(() => {
   const navigation = plugin.value?.manifest.contributes.navigation
@@ -21,8 +23,8 @@ const input = computed<ExtensionViewInput | null>(() => {
 
 <template>
   <section class="extension-page" :data-extension-page="extensionId">
-    <header class="extension-page__header">
-      <strong>{{ plugin?.manifest.contributes.navigation?.title ?? (language === 'en-US' ? 'Plugin' : '插件') }}</strong>
+    <header v-if="plugin?.manifest.contributes.navigation?.showHeader !== false" class="extension-page__header">
+      <strong>{{ views.surfaces.get(viewId)?.documentInfo?.title ?? plugin?.manifest.contributes.navigation?.title ?? (language === 'en-US' ? 'Plugin' : '插件') }}</strong>
     </header>
     <DesktopExtensionSurface v-if="input" :input="input" visible />
     <NEmpty v-else class="extension-page__empty" :description="language === 'en-US' ? 'This plugin is unavailable' : '此插件暂时不可用'">

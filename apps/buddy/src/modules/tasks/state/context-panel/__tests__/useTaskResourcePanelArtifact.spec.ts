@@ -53,7 +53,7 @@ function fixture(activeSpace: LocalSpace | null = space(), extra: { artifactOpen
   const { scope, options } = contextPanelFixture({ activeConversationId: shallowRef<string | null>('conversation'), activeSpace: shallowRef(activeSpace), spaces: shallowRef(activeSpace ? [activeSpace] : []), runOutputs: shallowRef(extra.outputs ? [{ runId: 'run', createdAt: now, sourceToolCallId: 'tool', artifacts: extra.outputs }] : []) })
   const artifactOpening = shallowRef<DesktopArtifactOpening>(extra.artifactOpening ?? 'file-manager')
   const open = vi.fn(async () => {})
-  const openFile = vi.fn(async () => {})
+  const openFile = vi.fn(async (_file: { name: string, kind: string }) => {})
   const files = { resolve: async ({ conversationId, href }: { conversationId: string, href: string }) => ({ target: { conversationId, path: href }, name: href.split('/').at(-1)!, kind: 'file' as const, mimeType: 'application/octet-stream', sizeBytes: 10, updatedAt: now }) }
   const fileOpening = extra.providers
     ? { ensureReady: async () => {}, resolve: (name: string, location: 'standalone') => resolveFileOpening({ providers: [...builtinFileOpeningProviders, ...extra.providers!], defaults: extra.defaults ?? {} }, name, location), open }

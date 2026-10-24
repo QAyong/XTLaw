@@ -126,7 +126,7 @@ describe('browser browsing completion safety', () => {
     const f = await setup()
     f.webContents.emit('page-favicon-updated', {}, ['javascript:alert(1)', 'https://example.com/icon.png'])
     expect(f.host.getState(f.state.sessionId).favicon).toBe('https://example.com/icon.png')
-    f.webContents.emit('did-start-loading')
+    f.webContents.emit('did-start-navigation', {}, 'https://example.com/next', false, true)
     expect(f.host.getState(f.state.sessionId).favicon).toBeNull()
     f.host.dispose()
   })

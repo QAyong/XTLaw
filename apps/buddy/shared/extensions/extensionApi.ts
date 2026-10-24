@@ -8,6 +8,7 @@ import type { ExtensionCatalogSnapshot } from './extensionCatalog'
 import type { ExtensionCompatibilityIssue, ExtensionIncompatibleReview } from './extensionCompatibility'
 import type { ExtensionConditionsChanged, ExtensionConditionState } from './extensionConditions'
 import type { ExtensionDiagnostic } from './extensionDiagnostic'
+import type { ExtensionDocumentInfo } from './extensionDocumentInfo'
 import type { ExtensionInstallation } from './extensionInstallation'
 import type { ExtensionManifest } from './extensionManifest'
 import type { ExtensionReferenceMaterial, ExtensionReferenceOpening } from './extensionReferences'
@@ -21,6 +22,7 @@ import { themeTransportSchema } from '../theme/themeApi.ts'
 import { workbenchPanesSchema } from '../workbench/workbenchInteraction'
 import { workbenchMenuSchema } from '../workbench/workbenchUi'
 import { extensionActionRpc } from './extensionActionApi'
+import { extensionClipboardWriteSchema } from './extensionClipboard'
 import { extensionFileOpeningSourceSchema } from './extensionFileOpening'
 import { extensionIdSchema } from './extensionManifest'
 import { extensionReferenceInputSchema, extensionReferenceOpeningSchema } from './extensionReferences'
@@ -39,6 +41,8 @@ export const EXTENSION_IPC = {
 } as const
 export const extensionJsonSchema = z.json().refine(value => new TextEncoder().encode(JSON.stringify(value)).byteLength <= 262144, 'Extension data is too large')
 export function parseExtensionRequestParams(method: string, params: unknown): JsonValue {
+  if (method === 'clipboard.write')
+    return extensionClipboardWriteSchema.parse(params)
   if (method === 'references.add')
     return extensionJsonSchema.parse(extensionReferenceInputSchema.parse(params))
   return (method === 'themes.request' ? themeTransportSchema : extensionJsonSchema).parse(params)
@@ -129,6 +133,7 @@ export type ExtensionWorkbenchEvent
     | { kind: 'clear-data', requestId: string, extensionId: string }
     | { kind: 'open', requestId: string, extensionId: string, generation: string, viewType: string, resource: ExtensionResource | null, state: JsonValue, stateVersion: number }
     | { kind: 'state', requestId: string, viewId: string, generation: string, token: string, state: JsonValue, stateVersion: number }
+    | { kind: 'document-info', requestId: string, viewId: string, generation: string, token: string, info: ExtensionDocumentInfo }
     | { kind: 'reference', requestId: string, viewId: string, generation: string, token: string, material: ExtensionReferenceMaterial }
     | { kind: 'interaction', requestId: string, extensionId: string, generation: string, interactionId: string, title: string | null }
     | { kind: 'message', requestId: string, extensionId: string, generation: string, message: JsonValue }

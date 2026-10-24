@@ -1,5 +1,26 @@
 import { describe, expect, it } from 'vitest'
-import { resolveContextPanePlacementOnChange } from '../contextPanePlacement'
+import { readContextPanePlacements, resolveContextPanePlacementOnChange, serializeContextPanePlacements } from '../contextPanePlacement'
+
+describe('context pane placement persistence', () => {
+  it('stores only the tasks whose panel was swapped to the left', () => {
+    expect(serializeContextPanePlacements(new Map([
+      ['task:a', { contextOnLeft: true, chatPaneHidden: true }],
+      ['task:b', { contextOnLeft: false, chatPaneHidden: false }],
+    ]))).toEqual({ 'task:a': true })
+  })
+
+  it('reads saved placements back without the transient chat-hidden state', () => {
+    expect(readContextPanePlacements({ 'task:a': true })).toEqual(new Map([
+      ['task:a', { contextOnLeft: true, chatPaneHidden: false }],
+    ]))
+  })
+
+  it('falls back to the standard layout when nothing valid was saved', () => {
+    expect(readContextPanePlacements(undefined)).toEqual(new Map())
+    expect(readContextPanePlacements(['task:a'])).toEqual(new Map())
+    expect(readContextPanePlacements({ 'task:a': false, 'task:b': 'yes' })).toEqual(new Map())
+  })
+})
 
 describe('context pane placement state', () => {
   it('restores the saved pane state when returning to a task', () => {

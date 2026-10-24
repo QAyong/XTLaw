@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { ContextPanePlacementState } from './contextPanePlacement'
 import type { DesktopShellBindings } from './desktopShellBindings'
 import { computed, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -11,7 +12,7 @@ import WorkbenchMountPoint from '@/workbench/browser/mounts/WorkbenchMountPoint.
 import WorkbenchHost from '@/workbench/browser/WorkbenchHost.vue'
 import DesktopWorkbenchArea from '../workbench/DesktopWorkbenchArea.vue'
 import DesktopWorkbenchView from '../workbench/DesktopWorkbenchView.vue'
-import { resolveContextPanePlacementOnChange } from './contextPanePlacement'
+import { readContextPanePlacements, resolveContextPanePlacementOnChange, serializeContextPanePlacements } from './contextPanePlacement'
 import { useContextPanePresentation } from './useContextPanePresentation'
 
 const { bindings } = defineProps<{ bindings: DesktopShellBindings }>()
@@ -33,6 +34,7 @@ const activeTaskScope = computed(() => {
     ? `${resource.scheme}:${resource.id}`
     : null
 })
+const placementAuxiliaryKey = 'contextPlacement'
 const contextOnLeft = shallowRef(false)
 const chatPaneHidden = shallowRef(false)
 const presentation = useContextPanePresentation({
@@ -40,9 +42,33 @@ const presentation = useContextPanePresentation({
   tasksVisible: computed(() => activeView.value === 'lexora.tasks'),
   scope: activeTaskScope,
 })
-const taskPaneStates = new Map<string, { contextOnLeft: boolean, chatPaneHidden: boolean }>()
+const taskPaneStates = new Map<string, ContextPanePlacementState>()
 const rightRegionIsChat = computed(() => contextOnLeft.value && bindings.resources.isOpen.value)
 const rightRegionOpen = computed(() => rightRegionIsChat.value ? presentation.workspaceVisible.value : bindings.resources.isOpen.value)
+
+function rememberTaskPaneState(scope: string, state: ContextPanePlacementState) {
+  taskPaneStates.set(scope, state)
+  if (bindings.workbench.initialized)
+    bindings.workbench.controller.setAuxiliary(placementAuxiliaryKey, serializeContextPanePlacements(taskPaneStates))
+}
+
+// The workbench restores the active task before it is initialized, so the saved placements are applied once it is ready.
+watch(() => bindings.workbench.initialized, (ready) => {
+  if (!ready)
+    return
+  for (const [scope, state] of readContextPanePlacements(bindings.workbench.controller.layout.auxiliary[placementAuxiliaryKey]))
+    taskPaneStates.set(scope, state)
+  const scope = activeTaskScope.value
+  const saved = scope && bindings.contextPanelMode.value === 'task' ? taskPaneStates.get(scope) : null
+  if (saved)
+    contextOnLeft.value = saved.contextOnLeft
+}, { immediate: true, flush: 'sync' })
+
+watch(contextOnLeft, (onLeft) => {
+  const scope = activeTaskScope.value
+  if (scope && bindings.contextPanelMode.value === 'task')
+    rememberTaskPaneState(scope, { chatPaneHidden: taskPaneStates.get(scope)?.chatPaneHidden ?? false, contextOnLeft: onLeft })
+}, { flush: 'sync' })
 
 watch(bindings.resources.isOpen, (resourcePanelOpen) => {
   if (resourcePanelOpen)
@@ -50,7 +76,7 @@ watch(bindings.resources.isOpen, (resourcePanelOpen) => {
   chatPaneHidden.value = false
   const scope = activeTaskScope.value
   if (scope && bindings.contextPanelMode.value === 'task') {
-    taskPaneStates.set(scope, { contextOnLeft: contextOnLeft.value, chatPaneHidden: false })
+    rememberTaskPaneState(scope, { contextOnLeft: contextOnLeft.value, chatPaneHidden: false })
   }
 }, { flush: 'sync' })
 
@@ -59,7 +85,7 @@ watch(
   ([mode, taskScope], [previousMode, previousTaskScope]) => {
     const taskChanged = Boolean(taskScope && taskScope !== previousTaskScope)
     if (previousMode === 'task' && previousTaskScope && (taskScope !== previousTaskScope || mode !== previousMode)) {
-      taskPaneStates.set(previousTaskScope, {
+      rememberTaskPaneState(previousTaskScope, {
         contextOnLeft: contextOnLeft.value,
         chatPaneHidden: chatPaneHidden.value,
       })

@@ -5,6 +5,17 @@ export interface ContextPanePlacementState {
   chatPaneHidden: boolean
 }
 
+// Only tasks whose resource panel was swapped to the left are stored; the standard layout needs no record.
+export function serializeContextPanePlacements(states: ReadonlyMap<string, ContextPanePlacementState>): Record<string, true> {
+  return Object.fromEntries([...states].filter(([, state]) => state.contextOnLeft).map(([scope]) => [scope, true as const]))
+}
+
+export function readContextPanePlacements(value: unknown): Map<string, ContextPanePlacementState> {
+  if (!value || typeof value !== 'object' || Array.isArray(value))
+    return new Map()
+  return new Map(Object.entries(value).filter(([scope, left]) => scope && left === true).map(([scope]) => [scope, { contextOnLeft: true, chatPaneHidden: false }]))
+}
+
 export function resolveContextPanePlacementOnChange(input: {
   mode: DesktopContextPanelMode
   previousMode: DesktopContextPanelMode

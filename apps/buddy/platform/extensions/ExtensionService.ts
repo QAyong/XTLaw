@@ -1,4 +1,5 @@
 import type { ExtensionAgentDescriptor, ExtensionAgentInvocation } from '../../shared/extensions/extensionAgent'
+import type { ExtensionAgentResourceRequest, ExtensionAgentResourceResponse } from '../../shared/extensions/extensionAgentResources'
 import type { ExtensionFileOpeningInput, ExtensionFileOpeningSource, ExtensionMenuInvocation, ExtensionPreparedFileOpening, ExtensionResource, ExtensionStatus, ExtensionViewInput, ExtensionViewSession, ExtensionWorkbenchEvent } from '../../shared/extensions/extensionApi'
 import type { ExtensionInspection } from '../../shared/extensions/extensionAuthoring'
 import type { ExtensionClipboardData } from '../../shared/extensions/extensionClipboard'
@@ -22,7 +23,7 @@ import type { ExtensionPackage, ExtensionPackageStore } from './ExtensionPackage
 import type { ExtensionResourceUpload } from './ExtensionResourceUpload'
 import type { ExtensionConfigurationApplication, ExtensionServiceChange, ExtensionServiceFact, ExtensionServiceSnapshot } from './ExtensionServiceEvents'
 import { Buffer } from 'node:buffer'
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { basename } from 'node:path'
 import { z } from 'zod'
 import { BUDDY_ATTACHMENT_TOTAL_BYTES_LIMIT } from '../../shared/conversation/attachmentPolicy'
@@ -32,6 +33,7 @@ import { Emitter } from '../../shared/events/Emitter'
 import { copyEventSnapshot } from '../../shared/events/eventSnapshot'
 import { extensionAgentInvocationLimits, extensionAgentRequestSchema } from '../../shared/extensions/extensionAgent'
 import { extensionAgentCapabilities } from '../../shared/extensions/extensionAgentCapabilities'
+import { EXTENSION_ARTIFACT_BYTES_LIMIT, extensionAgentResourceRequestSchema } from '../../shared/extensions/extensionAgentResources'
 import { extensionError, extensionFileOpeningInputSchema, extensionJsonSchema, extensionResourceSchema, parseExtensionRequestParams } from '../../shared/extensions/extensionApi'
 import { EXTENSION_CATALOG_URL } from '../../shared/extensions/extensionCatalog'
 import { extensionClipboardSchema, extensionClipboardWriteSchema } from '../../shared/extensions/extensionClipboard'
@@ -142,7 +144,7 @@ export class ExtensionService {
   readonly #uploads = new Map<string, { running: RunningExtension, owner: string, upload: ExtensionResourceUpload }>()
   readonly #notificationTimes = new Map<string, number>()
   readonly #interactions = new Map<string, { running: RunningExtension, title: string, abort: AbortController }>()
-  readonly #agentInvocations = new Map<string, { running: RunningExtension, signal: AbortSignal, abort: AbortController }>()
+  readonly #agentInvocations = new Map<string, { running: RunningExtension, signal: AbortSignal, abort: AbortController, access?: 'read' | 'write' }>()
   readonly #stopping = new Set<Promise<void>>()
   readonly #retired = new Set<RunningExtension>()
   readonly #viewRequests = new Set<Promise<JsonValue>>()
@@ -631,7 +633,7 @@ export class ExtensionService {
     abort.throwIfAborted()
     if (this.#agentInvocations.has(input.invocationId) || [...this.#agentInvocations.values()].filter(item => item.running === running).length >= extensionAgentInvocationLimits.concurrentPerExtension)
       throw new Error('EXTENSION_REQUEST_LIMIT')
-    this.#agentInvocations.set(input.invocationId, { running, signal: abort, abort: controller })
+    this.#agentInvocations.set(input.invocationId, { running, signal: abort, abort: controller, ...'tool' in input ? { access: current.agent.tools.find(tool => tool.id === input.tool)!.access ?? 'read' } : {} })
     const cancel = () => {
       void running.host.call('agent.cancel', { invocationId: input.invocationId }).catch(() => {})
     }
@@ -651,6 +653,27 @@ export class ExtensionService {
       abort.removeEventListener('abort', cancel)
       this.#agentInvocations.delete(input.invocationId)
     }
+  }
+
+  async readAgentResource(request: ExtensionAgentResourceRequest, signal: AbortSignal): Promise<ExtensionAgentResourceResponse> {
+    const input = extensionAgentResourceRequestSchema.parse(request)
+    const invocation = this.#agentInvocations.get(input.invocationId)
+    if (!invocation?.access || invocation.running.package.manifest.id !== input.extensionId)
+      throw new Error('EXTENSION_AGENT_UNAVAILABLE')
+    const abort = AbortSignal.any([signal, invocation.signal])
+    const assertCurrent = () => {
+      abort.throwIfAborted()
+      this.#assertCurrent(invocation.running)
+      if (this.#agentInvocations.get(input.invocationId) !== invocation)
+        throw new Error('EXTENSION_AGENT_UNAVAILABLE')
+    }
+    assertCurrent()
+    const resource = (await this.store.resources.list(input.extensionId, false)).find(resource => resource.id === input.resourceId)
+    if (!resource || resource.size > EXTENSION_ARTIFACT_BYTES_LIMIT)
+      throw new Error('EXTENSION_RESOURCE_UNAVAILABLE')
+    const bytes = await this.store.resources.readBytes(input.extensionId, resource.id, input.offset, input.length, abort, false)
+    assertCurrent()
+    return { resource, ...bytes }
   }
 
   async review(path: string, development = false) {
@@ -892,6 +915,7 @@ export class ExtensionService {
     else {
       resource = await this.store.grantFileOpening(provider.extensionId, input.source, name, () => this.#assertCurrent(running))
     }
+    resource = { ...resource, sourceId: createHash('sha256').update(JSON.stringify([provider.extensionId, input.source])).digest('hex') }
     return { extensionId: provider.extensionId, viewType: binding.view, resource }
   }
 
@@ -899,8 +923,12 @@ export class ExtensionService {
     const input = extensionReferenceOpeningSchema.parse(raw)
     const running = await this.#activate(input.extensionId)
     const view = running.package.manifest.contributes.views.find(view => view.id === input.viewType)
-    if (!view || view.location !== 'context')
+    if (!view || (view.location !== 'context' && !(view.location === 'page' && running.package.manifest.contributes.navigation?.view === view.id)))
       throw new Error('EXTENSION_REFERENCE_UNAVAILABLE')
+    if (view.location === 'page' && input.source)
+      throw new Error('EXTENSION_RESOURCE_DENIED')
+    if (!input.source && view.resource === 'selected-file')
+      throw new Error('EXTENSION_RESOURCE_REQUIRED')
     if (input.reuse) {
       const reuse = input.reuse
       const current = this.#views.get(reuse.id)
@@ -910,29 +938,29 @@ export class ExtensionService {
       if (!valid() || !current)
         throw new Error('EXTENSION_REFERENCE_UNAVAILABLE')
       const resource = current.input.resource
-      const source = resource ? await this.#resource(running, resource.id) : null
-      if (!sameReferenceJson(source, input.source))
-        throw new Error('EXTENSION_RESOURCE_DENIED')
-      if (resource) {
-        const response = await this.#selectedResponse(running, resource.id, current.abort.signal)
-        await response.body?.cancel()
+      if (input.source) {
+        const source = resource ? await this.#resource(running, resource.id) : null
+        if (!sameReferenceJson(source, input.source))
+          throw new Error('EXTENSION_RESOURCE_DENIED')
+        if (resource) {
+          const response = await this.#selectedResponse(running, resource.id, current.abort.signal)
+          await response.body?.cancel()
+        }
       }
       this.#assertCurrent(running)
       if (!valid())
         throw new Error('EXTENSION_REFERENCE_UNAVAILABLE')
       return { extensionId: input.extensionId, viewType: view.id, resource }
     }
-    if (!input.source) {
-      if (view.resource === 'selected-file')
-        throw new Error('EXTENSION_RESOURCE_REQUIRED')
+    if (!input.source)
       return { extensionId: input.extensionId, viewType: view.id, resource: null }
-    }
     if (view.resource === 'none' || running.package.manifest.permissions.selectedResource !== 'read')
       throw new Error('EXTENSION_RESOURCE_DENIED')
     const { name, response } = await this.#sourceResponse(input.source, running.abort.signal)
     await response.body?.cancel()
     this.#assertCurrent(running)
-    const resource = await this.store.grantFileOpening(input.extensionId, input.source, name, () => this.#assertCurrent(running))
+    const granted = await this.store.grantFileOpening(input.extensionId, input.source, name, () => this.#assertCurrent(running))
+    const resource = { ...granted, sourceId: createHash('sha256').update(JSON.stringify([input.extensionId, input.source])).digest('hex') }
     this.#assertCurrent(running)
     return { extensionId: input.extensionId, viewType: view.id, resource }
   }
@@ -1169,7 +1197,7 @@ export class ExtensionService {
     else if (method === 'references.add') {
       if (view.running.package.manifest.apiVersion < 4 || !view.running.package.manifest.permissions.references)
         throw new Error('EXTENSION_REFERENCES_DENIED')
-      if (contribution.location !== 'context' || (placement && placement.kind !== 'view'))
+      if (!['context', 'page'].includes(contribution.location) || (placement && placement.kind !== 'view'))
         throw new Error('EXTENSION_METHOD_DENIED')
       const input = extensionReferenceInputSchema.parse(params)
       const material = await this.#referenceMaterial(view, input)
@@ -1640,6 +1668,8 @@ export class ExtensionService {
         if (!invocation || invocation.running !== running || !permissions.agent || !this.#ports.agentRequest)
           throw new Error('EXTENSION_AGENT_UNAVAILABLE')
         invocation.signal.throwIfAborted()
+        if (['task.scope', 'artifacts.publish', 'results.addImage'].includes(input.method) && (!invocation.access || (input.method === 'artifacts.publish' && invocation.access !== 'write')))
+          throw new Error('EXTENSION_PERMISSION_DENIED')
         const capability = extensionAgentCapabilities[input.method]
         if (!capability.permitted(permissions))
           throw new Error('EXTENSION_PERMISSION_DENIED')
@@ -1896,8 +1926,10 @@ export class ExtensionService {
     const selected = view.input.resource
     const signal = AbortSignal.any([view.abort.signal, running.abort.signal])
     if (input.kind === 'content') {
+      if (input.source === 'view' && !running.package.manifest.contributes.views.some(contribution => contribution.id === view.input.viewType && contribution.resource !== 'selected-file'))
+        throw new Error('EXTENSION_RESOURCE_REQUIRED')
       let source: ExtensionFileOpeningSource | null = null
-      if (selected) {
+      if (selected && input.source !== 'view') {
         const response = await this.#selectedResponse(running, selected.id, signal)
         await response.body?.cancel()
         source = await this.#resource(running, selected.id)

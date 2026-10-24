@@ -1,7 +1,7 @@
 # Spec-035：任务产出在文件管理器中打开
 
 **日期：** 2026-10-20  
-**状态：** 已实现，用户已在开发预览中验收（2026-10-20）
+**状态：** 已实现，用户已在开发预览中验收（2026-10-20）；2026-10-24 补回卡片菜单与“定位”，见第 8 节
 
 **相关：** [Spec-016：资源插件接入与 Office DOCX 预览编辑](./feature-016-plugin-artifact-preview.md)、[Spec-019：文件管理器基础](./feature-019-file-manager-basics.md)、[Spec-013：工作台选区引用与多分屏目标](./feature-013-workbench-selection-reference.md)
 
@@ -73,3 +73,34 @@
 - 手动：用户在开发预览中确认文件夹展开高亮、文件卡片收起文件树（2026-10-20）。
 - 2026-10-23 调整 Office 文档的树状态：`pnpm exec vitest run src/modules/tasks/state/context-panel src/modules/tasks/widgets/context-panel src/app/workbench/__tests__/revealOpenOfficeDocument.spec.ts` 19 个文件、206 个用例通过，`pnpm type-check` 通过；开发预览里点 Office 卡片的实际表现未验证。
 - 未验证：Office 等文档插件经产出卡片接手的完整流程；引用定位；打包产物。
+
+## 8. 卡片菜单与“定位”（2026-10-24）
+
+上游 `2f91fa803` 的卡片操作补回后，卡片右上角的“更多”菜单与右键菜单提供：引用、在文件中定位、打开所在文件夹、复制路径；正文里的文件链接右键菜单（上游 `e243ce221`）是同一组操作，另有“打开”和“打开方式”。这些操作与本规格的“点击进文件管理器”并存，规则如下。
+
+**点击与“打开”仍走第 3、4 节。** 点击卡片、卡片上的“打开”图标、右键菜单里不带提供方的“打开”、指向产出的正文文件链接、执行详情和选区引用定位，都经 `openArtifact`；在进入上游的 `openResource` 之前先判断能否走文件管理器。下列情形不走，按上游的通路（产出页、浏览器、文档插件）打开：
+
+- `artifactOpening` 设置为 `panel`；
+- 产出是 HTML（浏览器类）；
+- 该类型的默认打开方式是用户单独指定的插件（`provider.renderer === 'extension' && !provider.implicit`）；
+- **右键菜单“打开方式”里显式选了某个提供方**：带 `providerId`，按用户选择打开，不强行进文件管理器。
+
+**“定位”不同于点击。** 它把标签页的 `treeTarget`（`{ path, kind }`）写进文件标签页，与 `tree`、`expand` 两种请求并存：
+
+| | 点卡片（`tree` / `expand`） | 定位（`treeTarget`） |
+|---|---|---|
+| 文件树 | 文件收起，Office 与文件夹显示 | 总是显示，并逐层展开、重新读取 |
+| 文件 | 文件在标签页里打开 | 文件在标签页里打开，树里高亮 |
+| 文件夹 | 展开并聚焦，标签页里已打开的文件不变 | **标签页当前文件清空**（上游行为），树里高亮该文件夹 |
+| 标签页 | 复用同空间的文件标签页 | 复用同一目录的当前或第一个文件标签页，并整体替换（不带旧的 `tree`、`expand`） |
+
+**两种请求互不覆盖：**
+
+- 用户选了别的文件、或点另一个文件的卡片时，`selectFile` 先清除 `treeTarget`，再写本次的 `tree` 请求。所以“先定位文件 A，再点普通文件 B 的卡片”会重新收起文件树；否则 `treeTarget` 停在 A，监听它的逻辑会把树重新设为显示，盖掉收起请求。
+- 点文件夹卡片（`openDirectory`）清除 `treeTarget` 并写入 `expand`，高亮交给这个文件夹；清除 `treeTarget` 本身不会让监听逻辑重新展开标签页里文件所在的文件夹。
+- `treeTarget` 随标签页快照保存，由 `readContextTab` 校验；旧快照没有该字段仍可读取。
+
+**实现位置：** `useTaskResourcePanel.ts`（`openInFileManager` 在 `openResource` 之前）、`useTaskContextPanel.ts`（`locateFile`、`selectFile`、`openDirectory`）、`useWorkspaceFilePreview.ts`（响应 `treeTarget`）、`DesktopFilesContextSurface.vue`、`createArtifactActions.ts`、`createFileLinkMenu.ts`。
+
+**验证：**`useTaskResourcePanelArtifact.spec.ts`（去向判断；链接指向已登记产出；显式提供方；定位后再点卡片重新收起）、`useTaskContextPanel.spec.ts`（`locateFile`、`selectFile`、`openDirectory` 对 `treeTarget` 的处理）、`createArtifactActions.spec.ts`、`BuddyArtifactCard.spec.ts`。点卡片进文件管理器、“定位”后再点卡片、正文链接右键菜单在真实窗口里的表现需要本机手测，尚未验证。
+

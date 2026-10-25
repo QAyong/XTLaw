@@ -52,8 +52,7 @@ export function useChatWorkspace(
     }
   })
 
-  const isLoading = computed(() => status.value.isLoading.value
-    || (props.viewMode !== 'canvas' && viewport.isPositioning.value))
+  const isLoading = computed(() => status.value.isLoading.value)
   const language = computed(() => workspace.value.language.value)
   const transcriptBindings = computed(() => {
     const currentSession = session.value
@@ -72,6 +71,7 @@ export function useChatWorkspace(
       changeSets: currentTranscript.changeSets.value,
       hasOlderMessages: currentTranscript.hasOlderMessages.value,
       isLoadingOlderMessages: currentTranscript.isLoadingOlderMessages.value,
+      isRestoringPosition: viewport.isRestoringPosition.value,
       language: language.value,
       loadOutlineMessages: currentSession.listActiveConversationMessages,
       runEventBuckets: currentTranscript.runEventBuckets.value,

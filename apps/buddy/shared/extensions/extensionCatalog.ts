@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { extensionIconUrlSchema, extensionManifestSchema, extensionMetadataSchema, extensionPathSchema } from './extensionManifest'
 import { EXTENSION_ARCHIVE_LIMIT } from './extensionPackageBudget'
 
-export const EXTENSION_CATALOG_URL = 'https://raw.githubusercontent.com/QAyong/xtlaw-plugins/main/catalog/v1/index.json'
+export const EXTENSION_CATALOG_URL = 'https://raw.githubusercontent.com/QAyong/xtlaw-market/main/catalog/v1/index.json'
 export const BUNDLED_EXTENSION_CATALOG_URL = 'xtlaw-bundled://catalog'
 const httpsUrl = z.string().url().max(2048).refine((value) => {
   const url = new URL(value)

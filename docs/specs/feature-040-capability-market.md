@@ -3,7 +3,7 @@
 **日期：** 2026-10-25
 **状态：** 提案，待确认（未动代码）
 **已定（2026-10-25）：** 能力包的组成件点开详情才看；市场与已安装单独成页；**现有内置的技能、MCP、子代理暂不移出安装包**；“内置助手”指子代理（NPC）。
-**范围：** XTLaw 桌面端（`apps/buddy`）与 `QAyong/xtlaw-plugins` 市场仓库
+**范围：** XTLaw 桌面端（`apps/buddy`）与 `QAyong/xtlaw-market` 市场仓库
 **承接：** [Feature-032 插件市场](./feature-032-xtlaw-plugin-market.md)、[Feature-030 内置北大法宝 MCP](./feature-030-pkulaw-legal-retrieval.md)、[Feature-031 搜狗微信搜索](./feature-031-sogou-weixin-search.md)
 
 ## 1. 背景与目标

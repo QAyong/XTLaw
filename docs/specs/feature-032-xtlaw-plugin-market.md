@@ -9,7 +9,7 @@
 
 ## 实现
 
-- 市场目录地址 `EXTENSION_CATALOG_URL` 改为 `https://raw.githubusercontent.com/QAyong/xtlaw-plugins/main/catalog/v1/index.json`（`apps/buddy/shared/extensions/extensionCatalog.ts`）。
+- 市场目录地址 `EXTENSION_CATALOG_URL` 改为 `https://raw.githubusercontent.com/QAyong/xtlaw-market/main/catalog/v1/index.json`（`apps/buddy/shared/extensions/extensionCatalog.ts`）。
 - `registerExtensionIpc.ts` 去掉 `catalogUrl: null`，插件服务使用上述默认地址。
 - 2026-10-21 决定：Office DOCX、PPTX、XLSX 改由市场按需下载，后续应用安装包不再携带和预装。`plugins/` 保留源码，但新增目录不再自动纳入应用；默认内置目录为空，已安装的插件、启用状态与配置不删除。
 - 三个 Office 插件沿用原 ID 与版本，市场安装继续经过下载哈希校验与权限审核，XLSX 的 WebAssembly 按非内置插件限额检查。旧版应用仍优先自己的内置目录；需要使用取消内置后的新版应用才能改从远程市场获取同 ID 插件。
@@ -17,7 +17,7 @@
 
 ## 插件仓库
 
-[`QAyong/xtlaw-plugins`](https://github.com/QAyong/xtlaw-plugins)（公开，MIT）：
+[`QAyong/xtlaw-market`](https://github.com/QAyong/xtlaw-market)（公开，MIT）。2026-10-25 由 `xtlaw-plugins` 改名；旧地址（目录和已发布安装包的下载地址）由 GitHub 自动重定向，已发布的客户端不受影响，所以不要再用旧名字新建同名仓库：
 
 - `plugins/<name>/`：插件源码。
 - `catalog/v1/index.json`：市场目录，由 `scripts/build.mjs` 生成。

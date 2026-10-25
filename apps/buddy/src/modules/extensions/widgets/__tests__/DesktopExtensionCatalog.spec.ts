@@ -71,3 +71,35 @@ it('shows a bundled Office card as installed, and allows reinstall after it is r
   button().click()
   expect(install).toHaveBeenCalledWith(expect.objectContaining({ manifest: expect.objectContaining({ id: manifest.id }), artifact: expect.objectContaining({ kind: 'bundled' }) }))
 })
+
+it('shows a built-in capability as built in without an install button', async () => {
+  const listing = (id: string, kind: string) => ({
+    kind,
+    source: 'official',
+    manifest: extensionManifestSchema.parse({ schemaVersion: 1, id, name: id, version: '1.0.0', apiVersion: 4, engines: { lexora: '>=0.9.0' }, permissions: {}, contributes: {} }),
+    repository: 'https://github.com/QAyong/XTLaw',
+    artifact: { url: 'https://example.com/a.lexora-extension', sha256: 'a'.repeat(64), size: 100 },
+    compatible: true,
+    incompatibility: null,
+  })
+  const catalog = vi.fn(async () => ({ plugins: [listing('xtlaw.pkulaw', 'mcp'), listing('xtlaw.legal-research', 'skill'), listing('xtlaw.legal-search', 'mcp'), listing('xtlaw.pkulaw-plugin', 'plugin')], invalidEntries: 0, error: null, stale: false, cachedAt: null }))
+  context.read = () => ({ state: { installed: shallowRef([]), unavailable: shallowRef([]), api: { catalog } }, language: shallowRef('zh-CN') })
+  const element = document.createElement('div')
+  document.body.append(element)
+  const app = createApp({ render: () => h(DesktopExtensionCatalog, { busy: false }) })
+  cleanup.push(() => {
+    app.unmount()
+    element.remove()
+  })
+  app.mount(element)
+  await vi.waitFor(() => expect(element.querySelectorAll('[data-catalog-id]')).toHaveLength(4))
+  const card = (id: string) => element.querySelector(`[data-catalog-id="${id}"]`)!
+  for (const id of ['xtlaw.pkulaw', 'xtlaw.legal-research']) {
+    expect(card(id).querySelector('[data-testid="catalog-builtin"]')?.textContent?.trim()).toBe('内置')
+    expect(card(id).querySelector('button')).toBeNull()
+  }
+  for (const id of ['xtlaw.legal-search', 'xtlaw.pkulaw-plugin']) {
+    expect(card(id).querySelector('[data-testid="catalog-builtin"]')).toBeNull()
+    expect(card(id).querySelector('button')?.textContent).toContain('安装')
+  }
+})

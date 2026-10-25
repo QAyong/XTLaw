@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { ExtensionCatalogKind, ExtensionCatalogListing, ExtensionCatalogSnapshot, ExtensionCatalogSource } from '@buddy-shared/extensions/extensionCatalog'
+import { isBuiltinCapability } from '@buddy-shared/extensions/extensionCapabilities'
 import { EXTENSION_CATALOG_KINDS, EXTENSION_CATALOG_SOURCES } from '@buddy-shared/extensions/extensionCatalog'
-import { NAlert, NButton, NEmpty, NInput, NSelect, NSpin } from 'naive-ui'
+import { NAlert, NButton, NEmpty, NInput, NSelect, NSpin, NTag } from 'naive-ui'
 import { gt } from 'semver'
 import { computed, onScopeDispose, shallowRef } from 'vue'
 import { useExtensionContext } from '../extensionContext'
@@ -34,7 +35,7 @@ const plugins = computed(() => (snapshot.value?.plugins ?? []).filter((item) => 
   const installed = state.installed.value.find(next => next.manifest.id === item.manifest.id)
   const retained = state.unavailable.value.find(next => next.manifest.id === item.manifest.id && !next.pending)
   const version = installed?.pending?.manifest.version ?? installed?.manifest.version ?? retained?.manifest.version
-  return { ...item, installed, installedVersion: version, available: !version || gt(item.manifest.version, version) }
+  return { ...item, installed, installedVersion: version, builtin: isBuiltinCapability(item), available: !version || gt(item.manifest.version, version) }
 }))
 async function refresh(force = false) {
   const current = ++revision
@@ -85,7 +86,10 @@ onScopeDispose(() => {
       <div v-else class="extension-catalog__grid">
         <DesktopExtensionCatalogCard v-for="item in plugins" :key="item.manifest.id" :data-catalog-id="item.manifest.id" class="extension-catalog__card" :manifest="item.manifest" :icon-url="item.iconUrl" :repository="item.repository" :kind="item.kind" :source="item.source" :language="language">
           <template #actions>
-            <NButton v-if="item.installed?.pending?.manifest.version === item.manifest.version && !item.available" size="small" type="primary" :disabled="busy || !item.compatible || !!item.installed.pending.incompatibility" data-testid="catalog-apply-update" @click="emit('applyUpdate', item.manifest.id)">
+            <NTag v-if="item.builtin" size="small" :bordered="false" type="info" data-testid="catalog-builtin">
+              {{ labels.builtin }}
+            </NTag>
+            <NButton v-else-if="item.installed?.pending?.manifest.version === item.manifest.version && !item.available" size="small" type="primary" :disabled="busy || !item.compatible || !!item.installed.pending.incompatibility" data-testid="catalog-apply-update" @click="emit('applyUpdate', item.manifest.id)">
               {{ labels.applyUpdate }}
             </NButton>
             <NButton v-else size="small" :type="item.available ? 'primary' : 'default'" :disabled="busy || !item.compatible || !item.available" @click="emit('install', item)">

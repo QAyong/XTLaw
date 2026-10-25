@@ -1,6 +1,7 @@
 import type { ExtensionAgentDescriptor, ExtensionAgentInvocation } from '../../shared/extensions/extensionAgent'
 import type { ExtensionFileOpeningInput, ExtensionFileOpeningSource, ExtensionMenuInvocation, ExtensionPreparedFileOpening, ExtensionResource, ExtensionStatus, ExtensionViewInput, ExtensionViewSession, ExtensionWorkbenchEvent } from '../../shared/extensions/extensionApi'
 import type { ExtensionInspection } from '../../shared/extensions/extensionAuthoring'
+import type { ExtensionCapabilityDescriptor } from '../../shared/extensions/extensionCapabilities'
 import type { ExtensionClipboardData } from '../../shared/extensions/extensionClipboard'
 import type { ExtensionConditionRuntime } from '../../shared/extensions/extensionConditionContext'
 import type { ExtensionConditionState } from '../../shared/extensions/extensionConditions'
@@ -34,6 +35,7 @@ import { copyEventSnapshot } from '../../shared/events/eventSnapshot'
 import { extensionAgentInvocationLimits, extensionAgentRequestSchema } from '../../shared/extensions/extensionAgent'
 import { extensionAgentCapabilities } from '../../shared/extensions/extensionAgentCapabilities'
 import { extensionError, extensionFileOpeningInputSchema, extensionJsonSchema, extensionQuoteCaptureSchema, extensionQuoteInputSchema, extensionResourceSchema, parseExtensionRequestParams } from '../../shared/extensions/extensionApi'
+import { isBuiltinCapability } from '../../shared/extensions/extensionCapabilities'
 import { extensionClipboardSchema, extensionClipboardWriteSchema } from '../../shared/extensions/extensionClipboard'
 import { ExtensionCompatibilityError, extensionCompatibilityIssue } from '../../shared/extensions/extensionCompatibility'
 import { extensionConditionInvalidationSchema } from '../../shared/extensions/extensionConditions'
@@ -96,6 +98,7 @@ export interface ExtensionServicePorts {
   agentChanged?: () => void
   shellsChanged?: () => void
   skillsChanged?: () => void
+  capabilitiesChanged?: () => void
   conditionRuntime?: (input: { models: boolean, task: boolean, taskId: string | null, runId: string | null }, signal: AbortSignal) => Promise<ExtensionConditionRuntime>
   agentRequest?: (input: { invocationId: string, method: string, params: JsonValue }, signal: AbortSignal) => Promise<JsonValue>
   notify?: (id: string, notification: { title: string, body: string }) => boolean
@@ -194,8 +197,10 @@ export class ExtensionService {
       workbench: () => this.#panes.map(({ id, active, visible }) => ({ id, active, visible })),
     })
     this.onDidChange((change) => {
-      if (change.kind === 'package' || change.kind === 'enabled')
+      if (change.kind === 'package' || change.kind === 'enabled') {
         ports.skillsChanged?.()
+        ports.capabilitiesChanged?.()
+      }
       if (change.kind === 'package' || change.kind === 'enabled' || (change.kind === 'configuration' && change.application.status === 'committed'))
         this.#refreshShellFingerprint()
       if (change.kind === 'resources-revoked') {
@@ -407,6 +412,26 @@ export class ExtensionService {
         skills: structuredClone(skills),
         hashes: Object.fromEntries(Object.entries(hashes).filter(([path]) => roots.some(root => path.startsWith(root)))),
       }]
+    })
+  }
+
+  /** MCP connectors and sub-agents that installed packages declare; the service process turns them into its own records. */
+  async capabilityContributions(): Promise<ExtensionCapabilityDescriptor[]> {
+    await this.initialize()
+    await this.#mutating
+    if (this.#disposed)
+      throw new Error('EXTENSION_SERVICE_UNAVAILABLE')
+    return Object.entries(this.store.installed).flatMap(([extensionId, record]) => {
+      const { manifest, revision } = record.current
+      const { mcpConnectors, subagents } = manifest.contributes
+      if (!mcpConnectors.length && !subagents.length)
+        return []
+      let enabled = record.enabled
+      try {
+        this.#order(extensionId)
+      }
+      catch { enabled = false }
+      return [{ extensionId, extensionName: manifest.name, revision, enabled, mcpConnectors: structuredClone(mcpConnectors), subagents: structuredClone(subagents) }]
     })
   }
 
@@ -697,6 +722,8 @@ export class ExtensionService {
     const job = this.installations.begin(id, 'download')
     try {
       const { entry, bytes } = await this.catalog.download(id, version, job.signal)
+      if (isBuiltinCapability(entry))
+        throw new Error('EXTENSION_CATALOG_BUILTIN')
       this.installations.log(job.id, 'validate', 'checksum')
       const files = unpackExtension(bytes)
       const manifest = extensionManifestSchema.parse(JSON.parse(new TextDecoder().decode(files.get('extension.json'))))
@@ -708,7 +735,7 @@ export class ExtensionService {
       this.installations.identify(job.id, review.manifest.id, review.manifest.version)
       this.#reviews.set(review.token, job.id)
       this.installations.log(job.id, 'review', 'permissions')
-      return { ...review, installationId: job.id, source }
+      return { ...review, installationId: job.id, source, listing: { kind: entry.kind, source: entry.source } }
     }
     catch (error) {
       this.installations.failed(job.id, error)

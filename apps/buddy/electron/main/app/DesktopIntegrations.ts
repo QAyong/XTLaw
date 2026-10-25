@@ -19,6 +19,7 @@ import { extensionActionRpc } from '../../../shared/extensions/extensionActionAp
 import { extensionAgentRpc } from '../../../shared/extensions/extensionAgent'
 import { extensionJsonSchema } from '../../../shared/extensions/extensionApi'
 import { EXTENSION_REVIEW_REQUEST } from '../../../shared/extensions/extensionAuthoring'
+import { extensionCapabilitiesRpc, extensionCapabilityImpactSchema } from '../../../shared/extensions/extensionCapabilities'
 import { extensionConditionSnapshotRpc } from '../../../shared/extensions/extensionConditionContext'
 import { extensionShellRpc } from '../../../shared/extensions/extensionShell'
 import { extensionSkillsRpc } from '../../../shared/extensions/extensionSkills'
@@ -139,6 +140,8 @@ export class DesktopIntegrations {
       agentChanged: catalog => service.notify(extensionAgentRpc.changed, catalog),
       shellsChanged: () => service.notify(extensionShellRpc.changed, {}),
       skillsChanged: () => service.notify(extensionSkillsRpc.changed, {}),
+      capabilitiesChanged: () => service.notify(extensionCapabilitiesRpc.changed, {}),
+      capabilityImpact: async extensionId => extensionCapabilityImpactSchema.parse(await service.request(extensionCapabilitiesRpc.impact, { extensionId })),
       agentRequest: async (input, signal) => extensionJsonSchema.parse(await service.request(extensionAgentRpc.request, input, { signal, timeoutMs: null })),
       readResource: (target, signal, request) => readSpaceFileResource(target, signal, async input => spaceFilesRpc.locate.response.parse(await service.request(spaceFilesRpc.locate.method, input, { signal })), request),
       readTaskFileResource: async (target, signal, request) => {
@@ -172,14 +175,17 @@ export class DesktopIntegrations {
     runtime.extensionStorage = extensions
     runtime.extensionShells = extensions.shells
     runtime.extensionSkills = extensions.skills
+    runtime.extensionCapabilities = extensions.capabilities
     service.notify(extensionShellRpc.changed, {})
     service.notify(extensionSkillsRpc.changed, {})
+    service.notify(extensionCapabilitiesRpc.changed, {})
     this.#subscriptions.push(() => {
       runtime.inspectExtension = null
       runtime.extensionAgent = null
       runtime.extensionStorage = null
       runtime.extensionShells = null
       runtime.extensionSkills = null
+      runtime.extensionCapabilities = null
     })
     this.#subscriptions.push(registerWorkbenchIpc(new WorkbenchStateStore(paths.buddyHome), () => windows.window))
     this.#subscriptions.push(registerContextPanelIpc(runtime.contextPanel, () => windows.window))

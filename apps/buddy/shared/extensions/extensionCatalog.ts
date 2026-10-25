@@ -1,5 +1,6 @@
 import type { ExtensionCompatibilityIssue } from './extensionCompatibility'
 import { z } from 'zod'
+import { isBuiltinCapability } from './extensionCapabilities'
 import { extensionIconUrlSchema, extensionManifestSchema, extensionMetadataSchema, extensionPathSchema } from './extensionManifest'
 import { EXTENSION_ARCHIVE_LIMIT } from './extensionPackageBudget'
 
@@ -30,7 +31,13 @@ export const extensionCatalogListingSchema = z.object({
     z.object({ kind: z.literal('bundled'), file: extensionPathSchema, ...artifactIntegrity }).strict(),
   ]),
 }).strict()
-export const extensionCatalogEntrySchema = extensionCatalogListingSchema.extend({ manifest: extensionManifestSchema })
+// A single-capability entry has to deliver the capability it is filed under. A built-in one delivers nothing: the application already has it.
+export const extensionCatalogEntrySchema = extensionCatalogListingSchema.extend({ manifest: extensionManifestSchema }).superRefine((entry, context) => {
+  const { skills, mcpConnectors, subagents } = entry.manifest.contributes
+  const delivered = { skill: skills.length, mcp: mcpConnectors.length, agent: subagents.length }
+  if ((entry.kind === 'skill' || entry.kind === 'mcp' || entry.kind === 'agent') && !delivered[entry.kind] && !isBuiltinCapability(entry))
+    context.addIssue({ code: 'custom', message: `A ${entry.kind} entry must contribute at least one ${entry.kind}` })
+})
 export const extensionCatalogSchema = z.object({ schemaVersion: z.literal(1), plugins: z.array(z.unknown()).max(2000) }).strict().superRefine((catalog, context) => {
   const ids = new Set<string>()
   for (const entry of catalog.plugins) {

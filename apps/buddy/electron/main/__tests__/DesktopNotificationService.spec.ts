@@ -58,6 +58,7 @@ function fixture(kind: LocalExecution['kind'] = 'root') {
         onClose(listener) {
           dismiss = listener
         },
+        onShow() {},
         onFailed(listener) {
           fail = listener
         },
@@ -68,8 +69,12 @@ function fixture(kind: LocalExecution['kind'] = 'root') {
     },
     getLanguage: () => 'zh-CN',
     getSettings: () => settings,
+    getSoundSelection: () => 'system',
+    playSound: vi.fn(),
+    isSupported: () => true,
     isWindowFocused: () => false,
     onError,
+    openApp: vi.fn(),
     openTarget,
     request: async (method) => {
       if (method === 'executions.list')

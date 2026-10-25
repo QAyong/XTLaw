@@ -4,6 +4,8 @@ import type { ApplicationStartupState } from '../../shared/diagnostics/applicati
 import type { PerformanceDiagnosticApi } from '../../shared/diagnostics/performanceDiagnostic'
 import type { RendererDiagnosticApi } from '../../shared/diagnostics/rendererDiagnostic'
 import type { RendererLifecycleReport } from '../../shared/lifecycle/serviceLifecycle'
+import type { DesktopNotificationsApi } from '../../shared/notifications/desktopNotification'
+import type { NotificationSoundPreferences, NotificationSoundsApi } from '../../shared/notifications/notificationSound'
 import type { SandboxEnvironmentStatus, SandboxSetupResult } from '../../shared/permissions/shellSandbox'
 import type { BuddyCapabilities } from '../../shared/platform'
 import type { BuddyRuntimeProfile } from '../../shared/runtime/profile'
@@ -222,6 +224,7 @@ export interface LexoraConfig {
     language: 'zh-CN' | 'en-US'
     launchAtLogin: boolean
     notificationsEnabled: boolean
+    notificationSound: NotificationSoundPreferences
     subtaskNotificationsEnabled: boolean
     updateNotificationsEnabled: boolean
     autoDownloadUpdates: boolean
@@ -244,7 +247,8 @@ export interface LexoraConfigPatch {
   runtime?: Partial<LexoraConfig['runtime']>
   browser?: Partial<LexoraConfig['browser']>
   proxy?: LexoraConfig['proxy']
-  desktop?: Partial<Omit<LexoraConfig['desktop'], 'chat' | 'taskSidebar' | 'profile' | 'typography'>> & {
+  desktop?: Partial<Omit<LexoraConfig['desktop'], 'chat' | 'taskSidebar' | 'profile' | 'typography' | 'notificationSound'>> & {
+    notificationSound?: Partial<Pick<NotificationSoundPreferences, 'selected' | 'volume'>>
     typography?: Partial<LexoraConfig['desktop']['typography']>
     chat?: Partial<DesktopChatPreferences>
     taskSidebar?: Partial<DesktopTaskSidebarPreferences>
@@ -254,6 +258,8 @@ export interface LexoraConfigPatch {
 }
 
 export interface LexoraDesktopApi {
+  notifications: DesktopNotificationsApi
+  notificationSounds: NotificationSoundsApi
   sync: import('../../shared/sync/syncApi').SyncApi
   storage: import('../../shared/storage/storageApi').StorageApi
   fileIcons: import('../../shared/icons/fileIconThemeApi').FileIconThemeApi

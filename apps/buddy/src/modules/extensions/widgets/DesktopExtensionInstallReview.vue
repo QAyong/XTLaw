@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ExtensionReview } from '@buddy-shared/extensions/extensionApi'
 import type { FileOpeningChoice, FileOpeningReviewChoice } from '@buddy-shared/files/fileOpening'
+import { subagentConnectorReferences } from '@buddy-shared/extensions/extensionCapabilities'
 import { extensionCommandNamespace } from '@buddy-shared/extensions/extensionCommands'
 import { extensionIsBundled } from '@buddy-shared/extensions/extensionTrust'
 import { Alert20Regular, Clock20Regular, Document20Regular, Globe20Regular } from '@vicons/fluent'
@@ -15,9 +16,19 @@ const props = defineProps<{ review: ExtensionReview, language: string, busy: boo
 const emit = defineEmits<{ cancel: [], install: [applyUpdate: boolean, choices: FileOpeningChoice[]] }>()
 const applyUpdate = shallowRef(true)
 const associations = computed(() => props.review.fileAssociations ?? [])
+const labels = computed(() => extensionLabels(props.language))
+const english = computed(() => props.language === 'en-US')
 const skills = computed(() => props.review.manifest.contributes.skills.map(skill => ({
   id: skill.id,
   invocation: `$${extensionCommandNamespace(props.review.manifest.id)}:${skill.path.split('/').at(-2)}`,
+})))
+const connectors = computed(() => props.review.manifest.contributes.mcpConnectors)
+// Every sub-agent names the connectors its tool selection reaches, which the manifest guarantees travel with the same package.
+const subagents = computed(() => props.review.manifest.contributes.subagents.map(agent => ({
+  ...agent,
+  tools: agent.tools.mode === 'selected' ? labels.value.reviewAgentTools.selected.replace('{n}', String(agent.tools.ids.length)) : labels.value.reviewAgentTools[agent.tools.mode],
+  files: labels.value.reviewAgentFiles[agent.fileAccess],
+  connectors: subagentConnectorReferences(agent).map(id => connectors.value.find(connector => connector.id === id)?.name ?? id),
 })))
 const selectedAssociations = shallowRef(initialAssociations())
 function initialAssociations(): FileOpeningChoice[] {
@@ -34,8 +45,6 @@ function install() {
   const changes = selectedAssociations.value.filter(selected => associations.value.some(choice => choice.extension === selected.extension && choice.location === selected.location && choice.providerId === selected.providerId && choice.currentProviderId !== selected.providerId))
   emit('install', applyUpdate.value, changes)
 }
-const labels = computed(() => extensionLabels(props.language))
-const english = computed(() => props.language === 'en-US')
 const permissions = computed(() => {
   const { permissions } = props.review.manifest
   return [
@@ -75,7 +84,18 @@ function isNewPermission(key: string): boolean {
     ? props.review.addedPermissions.some(permission => permission.startsWith('controls:'))
     : props.review.addedPermissions.includes(key)
 }
-const source = computed(() => props.review.development ? (english.value ? 'Development folder' : '开发目录') : props.review.source ? (english.value ? 'XTLaw Market' : 'XTLaw 市场') : (english.value ? 'Local package' : '本地插件包'))
+const source = computed(() => {
+  if (props.review.development)
+    return english.value ? 'Development folder' : '开发目录'
+  if (!props.review.source)
+    return english.value ? 'Local package' : '本地插件包'
+  const market = english.value ? 'XTLaw Market' : 'XTLaw 市场'
+  const { listing } = props.review
+  return listing ? `${market} · ${labels.value.kinds[listing.kind]} · ${labels.value.sources[listing.source]}` : market
+})
+const title = computed(() => props.review.currentVersion
+  ? (english.value ? 'Update plugin' : '更新插件')
+  : props.review.listing && props.review.listing.kind !== 'plugin' ? labels.value.installKind[props.review.listing.kind] : (english.value ? 'Install plugin' : '安装插件'))
 const sharesContent = computed(() => (props.review.manifest.permissions.clipboardRead || props.review.manifest.permissions.selectedResource === 'read' || props.review.manifest.permissions.localResources || props.review.manifest.permissions.selectedContent) && props.review.manifest.permissions.network.length > 0)
 </script>
 
@@ -83,7 +103,7 @@ const sharesContent = computed(() => (props.review.manifest.permissions.clipboar
   <NModal
     show
     preset="card"
-    :title="english ? (review.currentVersion ? 'Update plugin' : 'Install plugin') : (review.currentVersion ? '更新插件' : '安装插件')"
+    :title="title"
     class="extension-install-review"
     :mask-closable="!busy"
     :closable="!busy"
@@ -122,6 +142,33 @@ const sharesContent = computed(() => (props.review.manifest.permissions.clipboar
       </ul>
       <p class="extension-install-review__muted">
         {{ english ? 'Select these skills in a conversation after installation. They follow the plugin’s enabled state.' : '安装后可在对话中选择使用；随插件启停。' }}
+      </p>
+    </section>
+    <section v-if="connectors.length" class="extension-install-review__group" data-testid="extension-included-mcp">
+      <h3>{{ labels.reviewMcp }}</h3>
+      <ul>
+        <li v-for="connector in connectors" :key="connector.id">
+          <strong>{{ connector.name }}</strong>
+          <span class="extension-install-review__muted">{{ labels.reviewMcpAddress }}：<code>{{ connector.url }}</code></span>
+          <span class="extension-install-review__muted">{{ labels.reviewMcpCredential[connector.credential] }} · {{ labels.reviewMcpExposure[connector.deferred ? 'deferred' : 'direct'] }}</span>
+        </li>
+      </ul>
+      <p class="extension-install-review__muted">
+        {{ labels.reviewMcpNoDownload }}
+      </p>
+    </section>
+    <section v-if="subagents.length" class="extension-install-review__group" data-testid="extension-included-agents">
+      <h3>{{ labels.reviewAgents }}</h3>
+      <ul>
+        <li v-for="agent in subagents" :key="agent.id">
+          <strong>{{ agent.name }}</strong>
+          <span v-if="agent.description" class="extension-install-review__muted">{{ agent.description }}</span>
+          <span class="extension-install-review__muted">{{ agent.tools }} · {{ agent.files }}</span>
+          <span v-if="agent.connectors.length" class="extension-install-review__muted">{{ labels.reviewAgentConnectors }}{{ agent.connectors.join('、') }}</span>
+        </li>
+      </ul>
+      <p class="extension-install-review__muted">
+        {{ labels.reviewAgentDelegate }}
       </p>
     </section>
     <section class="extension-install-review__permissions">
@@ -217,7 +264,10 @@ const sharesContent = computed(() => (props.review.manifest.permissions.clipboar
 .extension-install-review__new { padding: 0 5px; border-radius: 4px; color: var(--buddy-nav-foreground); background: var(--buddy-nav-selected); font-size: 11px; }
 .extension-install-review__risk { padding: 0 5px; border-radius: 4px; color: var(--buddy-status-danger-text); background: var(--buddy-status-danger-surface); font-size: 11px; }
 .extension-install-review__permissions li p.extension-install-review__risk-text { color: var(--buddy-status-danger-text); }
-.extension-install-review__skills { margin-top: 24px; }
+.extension-install-review__skills, .extension-install-review__group { margin-top: 24px; }
+.extension-install-review__group ul { display: grid; gap: 12px; margin: 0 0 8px; padding: 0; list-style: none; }
+.extension-install-review__group li { display: grid; gap: 2px; color: var(--buddy-text-primary); font-size: 13px; overflow-wrap: anywhere; }
+.extension-install-review__group code { font-size: 12px; }
 .extension-install-review__skills ul { display: grid; gap: 6px; margin: 0 0 8px; padding: 0; list-style: none; }
 .extension-install-review__skills li { color: var(--buddy-text-primary); font-size: 12px; overflow-wrap: anywhere; }
 .extension-install-review__muted { margin: 0; color: var(--buddy-text-secondary); font-size: 12px; line-height: 1.6; }

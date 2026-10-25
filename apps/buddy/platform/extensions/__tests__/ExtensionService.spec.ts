@@ -1,4 +1,5 @@
 import type { ApplicationDiagnostic } from '../../../shared/diagnostics/applicationDiagnostic'
+import type { ExtensionMcpConnectorContribution, ExtensionSubagentContribution } from '../../../shared/extensions/extensionCapabilities'
 import type { ExtensionHostFailure } from '../../../shared/extensions/extensionDiagnostic'
 import type { ExtensionLocalFile } from '../../../shared/extensions/extensionResources'
 import type { JsonValue } from '../../../shared/workbench/workbenchState'
@@ -9,6 +10,7 @@ import { readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { deferred } from '@buddy-tests/deferred'
 import { createTemporaryDirectory } from '@buddy-tests/temporaryDirectories'
+import { strToU8, zipSync } from 'fflate'
 import { afterEach, expect, it, vi } from 'vitest'
 import { applicationDiagnosticSchema } from '../../../shared/diagnostics/applicationDiagnostic'
 import { extensionInspectionSchema } from '../../../shared/extensions/extensionAuthoring'
@@ -16,6 +18,7 @@ import { createExtensionResourceClient } from '../../../shared/extensions/extens
 import { EXTENSION_CREATED_FILES_LIMIT } from '../../../shared/extensions/extensionResources'
 import { DEFAULT_THEME_PREFERENCE } from '../../../shared/theme/themePreferences'
 import { ThemeService } from '../../themes/ThemeService'
+import { sha256 } from '../extensionFiles'
 import { ExtensionService } from '../ExtensionService'
 import { observeExtensionDiagnostics } from '../observeExtensionDiagnostics'
 import { createStore, manifest, reviewPackage } from './fixtures'
@@ -861,4 +864,52 @@ it('denies clipboard and document metadata to decoration views despite declared 
   const session = await service.openView({ viewId: randomUUID(), extensionId: value.id, viewType: 'tests.reader.reader', resource: null, state: {}, stateVersion: 1 })
   for (const [method, data] of [['clipboard.read', null], ['clipboard.write', { text: 'denied' }], ['view.setDocumentInfo', { title: 'denied', dirty: false }]] as const)
     await expect(service.viewRequest(session.id, session.generation, session.token, method, data)).rejects.toThrow('EXTENSION_METHOD_DENIED')
+})
+
+const connector: ExtensionMcpConnectorContribution = { id: 'legal-search', name: 'Legal search', transport: 'streamable-http', url: 'https://legal.example.com/mcp', deferred: true, credential: 'bearer' }
+const subagent: ExtensionSubagentContribution = { id: 'law-finder', kind: 'npc', name: 'Law finder', description: '', instructions: 'Search statutes first.', tools: { mode: 'selected', ids: [JSON.stringify(['mcp', 'legal-search', 'legal__search'])] }, fileAccess: 'read_only' }
+
+it('publishes declared MCP connectors and sub-agents without activating hosts and follows package state', async () => {
+  const value = manifest({ id: 'tests.legal', apiVersion: 4, entry: undefined, permissions: {}, contributes: { mcpConnectors: [connector], subagents: [subagent] } })
+  const { service, hosts } = await fixture({}, value)
+  const [descriptor] = await service.capabilityContributions()
+  expect(descriptor).toMatchObject({ extensionId: 'tests.legal', extensionName: value.name, enabled: true, mcpConnectors: [{ id: 'legal-search', url: 'https://legal.example.com/mcp', credential: 'bearer', deferred: true }], subagents: [{ id: 'law-finder', kind: 'npc' }] })
+  await service.enable('tests.legal', false)
+  expect(await service.capabilityContributions()).toEqual([{ ...descriptor, enabled: false }])
+  await service.enable('tests.legal', true)
+  expect(await service.capabilityContributions()).toEqual([descriptor])
+  await service.uninstall('tests.legal')
+  expect(await service.capabilityContributions()).toEqual([])
+  expect(hosts).toHaveLength(0)
+})
+
+it('announces capability changes when packages are installed, switched or removed', async () => {
+  const capabilitiesChanged = vi.fn()
+  const value = manifest({ id: 'tests.legal', apiVersion: 4, entry: undefined, permissions: {}, contributes: { mcpConnectors: [connector] } })
+  const { service } = await fixture({ capabilitiesChanged }, value)
+  await service.initialize()
+  capabilitiesChanged.mockClear()
+  await service.enable('tests.legal', false)
+  await service.uninstall('tests.legal')
+  expect(capabilitiesChanged).toHaveBeenCalledTimes(2)
+})
+
+it('reviews market entries with their kind and source, and refuses an entry the application already ships', async () => {
+  const catalogUrl = 'https://example.com/catalog.json'
+  const value = manifest({ id: 'tests.legal', apiVersion: 4, entry: undefined, permissions: {}, contributes: { mcpConnectors: [connector] } })
+  const bytes = zipSync({ 'extension.json': strToU8(JSON.stringify(value)) })
+  const builtin = manifest({ id: 'xtlaw.pkulaw', apiVersion: 4, entry: undefined, permissions: {}, contributes: {} })
+  const builtinBytes = zipSync({ 'extension.json': strToU8(JSON.stringify(builtin)) })
+  const entry = (kind: string, source: string, item: typeof value, content: Uint8Array) => ({ kind, source, manifest: item, repository: 'https://example.com/plugins', artifact: { url: `https://example.com/${item.id}.lexora-extension`, sha256: sha256(content), size: content.length } })
+  const files = new Map([[`https://example.com/${value.id}.lexora-extension`, bytes], [`https://example.com/${builtin.id}.lexora-extension`, builtinBytes]])
+  const { service } = await fixture({
+    catalogUrl,
+    get: async url => url === catalogUrl ? Response.json({ schemaVersion: 1, plugins: [entry('mcp', 'official', value, bytes), entry('mcp', 'official', builtin, builtinBytes)] }) : new Response(files.get(url)!),
+  }, manifest({ id: 'tests.other', entry: undefined, apiVersion: 4, permissions: {}, contributes: {} }))
+  const review = await service.reviewCatalog('tests.legal', '1.0.0')
+  expect(review).toMatchObject({ listing: { kind: 'mcp', source: 'official' }, manifest: { contributes: { mcpConnectors: [{ id: 'legal-search' }] } } })
+  await service.install(review.token)
+  expect((await service.capabilityContributions()).map(item => item.extensionId)).toEqual(['tests.legal'])
+  await expect(service.reviewCatalog('xtlaw.pkulaw', '1.0.0')).rejects.toThrow('EXTENSION_CATALOG_BUILTIN')
+  expect((await service.list()).map(item => item.manifest.id).sort()).toEqual(['tests.legal', 'tests.other'])
 })

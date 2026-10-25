@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import type { ExtensionStatus, ExtensionUnavailableInstallation } from '@buddy-shared/extensions/extensionApi'
 import type { DropdownOption } from 'naive-ui'
+import { installedExtensionKinds } from '@buddy-shared/extensions/extensionCapabilities'
 import { MoreHorizontal20Regular } from '@vicons/fluent'
 import { NButton, NDropdown, NEllipsis, NTag, NTooltip } from 'naive-ui'
 import { computed } from 'vue'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import DesktopPluginIcon from '@/shared/ui/icon/DesktopPluginIcon.vue'
 import { extensionLabels } from '../extensionLabels'
+import DesktopExtensionCapabilities from './DesktopExtensionCapabilities.vue'
 import DesktopExtensionCompatibilityHint from './DesktopExtensionCompatibilityHint.vue'
 import DesktopExtensionTags from './DesktopExtensionTags.vue'
 
@@ -21,6 +23,10 @@ const emit = defineEmits<{
   revokeResources: []
 }>()
 const labels = computed(() => extensionLabels(props.language))
+const kinds = computed(() => installedExtensionKinds(props.item.manifest))
+const contributes = computed(() => props.item.manifest.contributes)
+// Packages that add skills, connections or sub-agents list them on the card, so it grows past the plain plugin height.
+const hasCapabilities = computed(() => !!(contributes.value.skills.length || contributes.value.mcpConnectors.length || contributes.value.subagents.length))
 const pending = computed(() => props.item.pending ?? props.unavailablePending)
 const warning = computed(() => {
   const issue = props.item.incompatibility ?? pending.value?.incompatibility
@@ -56,7 +62,7 @@ function handleAction(key: string | number) {
 </script>
 
 <template>
-  <article class="extension-card" :data-extension-id="item.manifest.id">
+  <article class="extension-card" :class="{ 'extension-card--capabilities': hasCapabilities }" :data-extension-id="item.manifest.id">
     <header class="extension-card__header">
       <DesktopPluginIcon :src="item.iconUrl" :size="28" />
       <div class="extension-card__identity">
@@ -80,6 +86,11 @@ function handleAction(key: string | number) {
       </div>
     </header>
     <div class="extension-card__body">
+      <div class="extension-card__kinds" data-testid="extension-kinds">
+        <NTag v-for="kind in kinds" :key="kind" size="small" :bordered="false" :data-kind="kind">
+          {{ labels.kinds[kind] }}
+        </NTag>
+      </div>
       <NEllipsis v-if="item.manifest.description" :tooltip="false" class="extension-card__description" :line-clamp="item.error && !item.incompatibility ? 1 : 2">
         {{ item.manifest.description }}
       </NEllipsis>
@@ -87,6 +98,7 @@ function handleAction(key: string | number) {
         {{ item.error }}
       </NEllipsis>
     </div>
+    <DesktopExtensionCapabilities v-if="hasCapabilities" :manifest="item.manifest" :language="language" />
     <footer class="extension-card__footer">
       <DesktopExtensionTags :tags="item.manifest.tags" />
       <div class="extension-card__actions">
@@ -121,6 +133,8 @@ function handleAction(key: string | number) {
 
 <style scoped>
 .extension-card { box-sizing: border-box; display: flex; height: 200px; min-width: 0; flex-direction: column; gap: 8px; border: 1px solid var(--buddy-border-subtle); border-radius: var(--buddy-radius-micro); background: var(--buddy-surface-base); padding: 16px; }
+.extension-card--capabilities { height: auto; min-height: 200px; }
+.extension-card__kinds { display: flex; flex-wrap: wrap; gap: 6px; }
 .extension-card__header { display: flex; min-width: 0; flex: none; align-items: flex-start; gap: 12px; }
 .extension-card__identity { min-width: 0; flex: 1; }
 .extension-card__name { min-width: 0; margin: 0; color: var(--buddy-text-strong); font-size: 14px; font-weight: 600; line-height: 1.5; }

@@ -1,3 +1,5 @@
+import type { LocalBuddy } from '@buddy-shared/buddies/buddyApi'
+import type { LocalConnector } from '@buddy-shared/connectors/connectorApi'
 import type { WorkbenchContextSnapshot } from '@buddy-shared/workbench/workbenchContext'
 import type { Ref } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
@@ -23,6 +25,13 @@ export interface ExtensionContext {
   startCreation: (prompt: string) => Promise<void>
   startSkillCreation: (prompt: string) => Promise<void>
   settingsLocation: (extensionId: string) => RouteLocationRaw | null
+  /** Where the connectors and sub-agents that market packages added stand now, so cards can say what still needs setting up. */
+  capabilityStatus?: {
+    connectors: Readonly<Ref<readonly LocalConnector[]>>
+    buddies: Readonly<Ref<readonly LocalBuddy[]>>
+    defaultBuddyId: Readonly<Ref<string | null>>
+    loadConnectors: () => unknown
+  }
 }
 const [useProvideExtensionContext, injectExtensionContext] = createInjectionState((context: ExtensionContext) => context)
 export { useProvideExtensionContext }

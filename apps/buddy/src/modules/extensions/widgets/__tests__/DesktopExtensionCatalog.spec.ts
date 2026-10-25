@@ -12,6 +12,36 @@ afterEach(() => {
   for (const action of cleanup.splice(0).reverse()) action()
 })
 
+it('shows type and source tags on cards and filters by them', async () => {
+  const listing = (id: string, kind: string, source: string) => ({
+    kind,
+    source,
+    manifest: extensionManifestSchema.parse({ schemaVersion: 1, id, name: id, version: '1.0.0', apiVersion: 4, engines: { lexora: '>=0.9.0' }, permissions: {}, contributes: {} }),
+    repository: 'https://github.com/QAyong/XTLaw',
+    artifact: { url: 'https://example.com/a.lexora-extension', sha256: 'a'.repeat(64), size: 100 },
+    compatible: true,
+    incompatibility: null,
+  })
+  const catalog = vi.fn(async () => ({ plugins: [listing('tests.plugin', 'plugin', 'official'), listing('tests.cli', 'cli', 'listed')], invalidEntries: 0, error: null, stale: false, cachedAt: null }))
+  context.read = () => ({ state: { installed: shallowRef([]), unavailable: shallowRef([]), api: { catalog } }, language: shallowRef('zh-CN') })
+  const element = document.createElement('div')
+  document.body.append(element)
+  const app = createApp({ render: () => h(DesktopExtensionCatalog, { busy: false }) })
+  cleanup.push(() => {
+    app.unmount()
+    element.remove()
+  })
+  app.mount(element)
+  await vi.waitFor(() => expect(element.querySelectorAll('[data-catalog-id]')).toHaveLength(2))
+  const card = (id: string) => element.querySelector(`[data-catalog-id="${id}"]`)!
+  expect(card('tests.plugin').querySelector('[data-testid="catalog-kind"]')?.textContent?.trim()).toBe('插件')
+  expect(card('tests.plugin').querySelector('[data-testid="catalog-source"]')?.textContent?.trim()).toBe('官方')
+  expect(card('tests.cli').querySelector('[data-testid="catalog-kind"]')?.textContent?.trim()).toBe('CLI')
+  expect(card('tests.cli').querySelector('[data-testid="catalog-source"]')?.textContent?.trim()).toBe('推荐 · 第三方')
+  expect(element.querySelector('[data-testid="catalog-kind-filter"]')).not.toBeNull()
+  expect(element.querySelector('[data-testid="catalog-source-filter"]')).not.toBeNull()
+})
+
 it('shows a bundled Office card as installed, and allows reinstall after it is removed', async () => {
   const manifest = extensionManifestSchema.parse({ schemaVersion: 1, id: 'tests.office', name: 'Office DOCX', version: '0.1.1', apiVersion: 4, engines: { lexora: '>=0.9.0' }, permissions: {}, contributes: {} })
   const entry = { manifest, repository: 'https://github.com/QAyong/XTLaw', artifact: { kind: 'bundled' as const, file: 'office.lexora-extension', sha256: 'a'.repeat(64), size: 100 }, compatible: true }

@@ -61,11 +61,13 @@ function handleAction(key: string | number) {
       <DesktopPluginIcon :src="item.iconUrl" :size="28" />
       <div class="extension-card__identity">
         <h2 class="extension-card__name">
-          <NEllipsis>{{ item.manifest.name }}</NEllipsis>
+          <NEllipsis :tooltip="false">
+            {{ item.manifest.name }}
+          </NEllipsis>
         </h2>
         <p class="extension-card__meta">
           <span>{{ item.manifest.version }}</span>
-          <NEllipsis class="extension-card__author">
+          <NEllipsis :tooltip="false" class="extension-card__author">
             {{ item.manifest.author || (language === 'en-US' ? 'Unsigned' : '未署名') }}
           </NEllipsis>
         </p>
@@ -78,10 +80,10 @@ function handleAction(key: string | number) {
       </div>
     </header>
     <div class="extension-card__body">
-      <NEllipsis v-if="item.manifest.description" class="extension-card__description" :line-clamp="item.error && !item.incompatibility ? 1 : 2">
+      <NEllipsis v-if="item.manifest.description" :tooltip="false" class="extension-card__description" :line-clamp="item.error && !item.incompatibility ? 1 : 2">
         {{ item.manifest.description }}
       </NEllipsis>
-      <NEllipsis v-if="item.error && !item.incompatibility" :line-clamp="1" class="extension-card__error">
+      <NEllipsis v-if="item.error && !item.incompatibility" :tooltip="false" :line-clamp="1" class="extension-card__error">
         {{ item.error }}
       </NEllipsis>
     </div>

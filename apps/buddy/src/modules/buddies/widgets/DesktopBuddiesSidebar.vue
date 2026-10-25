@@ -2,8 +2,8 @@
 import type { LocalBuddy } from '@buddy-shared/buddies/buddyApi'
 import { Add20Regular } from '@vicons/fluent'
 import { NButton, NSkeleton, NTag } from 'naive-ui'
-import { computed, shallowRef } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { computed, shallowRef, watch } from 'vue'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { desktopRouteLocations } from '@/shared/navigation/desktopRoutes'
 import { useDesktopUi } from '@/shared/ui/desktopUiContext'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
@@ -19,6 +19,7 @@ const { ready, buddies, catalog, failed, refresh } = useBuddiesContext()
 const { language } = useDesktopUi()
 const labels = computed(() => buddyLabels(language.value))
 const router = useRouter()
+const route = useRoute()
 const groups = computed(() => [
   { kind: 'actor' as const, label: labels.value.actors, buddies: buddies.value.filter(buddy => buddy.kind === 'actor') },
   { kind: 'npc' as const, label: labels.value.npcs, buddies: buddies.value.filter(buddy => buddy.kind === 'npc') },
@@ -29,6 +30,13 @@ function create(kind: LocalBuddy['kind']) {
   creatingKind.value = kind
   creating.value = true
 }
+// The market's "Add" menu links here with ?action=create-npc; consume it so a refresh does not reopen the dialog.
+watch(() => route.query.action, (action) => {
+  if (action !== 'create-npc')
+    return
+  create('npc')
+  void router.replace({ query: { ...route.query, action: undefined } })
+}, { immediate: true })
 
 async function created(buddy: LocalBuddy) {
   await refresh()

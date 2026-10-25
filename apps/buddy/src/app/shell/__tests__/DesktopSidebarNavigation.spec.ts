@@ -18,7 +18,7 @@ function createNavigation(activeId = 'lexora.tasks'): DesktopNavigationEntry[] {
     entry('lexora.tasks', '任务'),
     entry('lexora.automations', '自动化'),
     entry('lexora.settings', '设置'),
-    entry('lexora.extensions', '插件'),
+    entry('lexora.extensions', '市场'),
   ]
 }
 
@@ -40,7 +40,7 @@ describe('desktopSidebarNavigation', () => {
     await nextTick()
 
     const entries = [...root.querySelectorAll('.desktop-sidebar-navigation__entry')]
-    expect(entries.map(entry => entry.textContent?.trim())).toEqual(['插件', '自动化', '助手'])
+    expect(entries.map(entry => entry.textContent?.trim())).toEqual(['市场', '自动化', '助手'])
 
     app.unmount()
   })

@@ -75,7 +75,7 @@ function isNewPermission(key: string): boolean {
     ? props.review.addedPermissions.some(permission => permission.startsWith('controls:'))
     : props.review.addedPermissions.includes(key)
 }
-const source = computed(() => props.review.development ? (english.value ? 'Development folder' : '开发目录') : props.review.source ? (english.value ? 'XTLaw Marketplace' : 'XTLaw 插件市场') : (english.value ? 'Local package' : '本地插件包'))
+const source = computed(() => props.review.development ? (english.value ? 'Development folder' : '开发目录') : props.review.source ? (english.value ? 'XTLaw Market' : 'XTLaw 市场') : (english.value ? 'Local package' : '本地插件包'))
 const sharesContent = computed(() => (props.review.manifest.permissions.clipboardRead || props.review.manifest.permissions.selectedResource === 'read' || props.review.manifest.permissions.localResources || props.review.manifest.permissions.selectedContent) && props.review.manifest.permissions.network.length > 0)
 </script>
 
@@ -101,7 +101,9 @@ const sharesContent = computed(() => (props.review.manifest.permissions.clipboar
           <span class="extension-install-review__version">
             <template v-if="review.currentVersion">{{ review.currentVersion }} → </template>{{ review.manifest.version }}
           </span>
-          <NEllipsis>{{ review.manifest.author || (english ? 'Unsigned' : '未署名') }}</NEllipsis>
+          <NEllipsis :tooltip="false">
+            {{ review.manifest.author || (english ? 'Unsigned' : '未署名') }}
+          </NEllipsis>
         </p>
         <p class="extension-install-review__meta">
           {{ source }}

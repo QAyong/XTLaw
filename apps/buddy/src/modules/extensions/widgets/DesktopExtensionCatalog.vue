@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { ExtensionCatalogListing, ExtensionCatalogSnapshot } from '@buddy-shared/extensions/extensionCatalog'
+import type { ExtensionCatalogKind, ExtensionCatalogListing, ExtensionCatalogSnapshot, ExtensionCatalogSource } from '@buddy-shared/extensions/extensionCatalog'
+import { EXTENSION_CATALOG_KINDS, EXTENSION_CATALOG_SOURCES } from '@buddy-shared/extensions/extensionCatalog'
 import { NAlert, NButton, NEmpty, NInput, NSelect, NSpin } from 'naive-ui'
 import { gt } from 'semver'
 import { computed, onScopeDispose, shallowRef } from 'vue'
@@ -15,16 +16,20 @@ const snapshot = shallowRef<ExtensionCatalogSnapshot | null>(null)
 const loading = shallowRef(false)
 const query = shallowRef('')
 const category = shallowRef<string | null>(null)
+const kind = shallowRef<ExtensionCatalogKind | null>(null)
+const source = shallowRef<ExtensionCatalogSource | null>(null)
 const error = shallowRef(false)
 const en = computed(() => language.value === 'en-US')
 const labels = computed(() => extensionLabels(language.value))
+const kindOptions = computed(() => EXTENSION_CATALOG_KINDS.map(value => ({ label: labels.value.kinds[value], value })))
+const sourceOptions = computed(() => EXTENSION_CATALOG_SOURCES.map(value => ({ label: labels.value.sources[value], value })))
 let disposed = false
 let revision = 0
 const categories = computed(() => [...new Set(snapshot.value?.plugins.flatMap(item => item.manifest.categories) ?? [])].map(value => ({ label: value, value })))
 const plugins = computed(() => (snapshot.value?.plugins ?? []).filter((item) => {
   const { manifest } = item
   const text = [manifest.id, manifest.author, manifest.name, manifest.description, ...manifest.tags].join(' ').toLocaleLowerCase()
-  return (!category.value || manifest.categories.includes(category.value)) && text.includes(query.value.trim().toLocaleLowerCase())
+  return (!category.value || manifest.categories.includes(category.value)) && (!kind.value || item.kind === kind.value) && (!source.value || item.source === source.value) && text.includes(query.value.trim().toLocaleLowerCase())
 }).map((item) => {
   const installed = state.installed.value.find(next => next.manifest.id === item.manifest.id)
   const retained = state.unavailable.value.find(next => next.manifest.id === item.manifest.id && !next.pending)
@@ -61,22 +66,24 @@ onScopeDispose(() => {
 <template>
   <section class="extension-catalog" data-testid="extension-catalog">
     <div class="extension-catalog__search">
-      <NInput v-model:value="query" clearable :placeholder="en ? 'Search plugins' : '搜索插件名称、描述或标签'" :aria-label="en ? 'Search plugins' : '搜索插件'" />
+      <NInput v-model:value="query" clearable :placeholder="en ? 'Search the market' : '搜索名称、描述或标签'" :aria-label="en ? 'Search the market' : '搜索市场'" />
+      <NSelect v-model:value="kind" clearable :options="kindOptions" :placeholder="labels.kindFilter" :aria-label="labels.kindFilter" data-testid="catalog-kind-filter" />
+      <NSelect v-model:value="source" clearable :options="sourceOptions" :placeholder="labels.sourceFilter" :aria-label="labels.sourceFilter" data-testid="catalog-source-filter" />
       <NSelect v-if="categories.length" v-model:value="category" clearable :options="categories" :placeholder="en ? 'Category' : '分类'" :aria-label="en ? 'Category' : '分类'" />
       <NButton :loading="loading" @click="refresh(true)">
         {{ en ? 'Refresh' : '刷新' }}
       </NButton>
     </div>
-    <NAlert v-if="error" type="warning" :title="en ? 'Could not refresh marketplace' : '暂时无法刷新插件市场'">
+    <NAlert v-if="error" type="warning" :title="en ? 'Could not refresh the market' : '暂时无法刷新市场'">
       {{ snapshot?.plugins.length ? (en ? 'Showing the last saved catalog.' : '正在显示上次缓存的插件目录。') : (en ? 'Try again later, or install a local package.' : '请稍后重试，也可以先安装本地插件包。') }}
     </NAlert>
     <NAlert v-if="snapshot?.invalidEntries" type="warning">
       {{ en ? 'Some plugin information could not be read. Other plugins remain available.' : '部分插件信息无法读取，其他插件仍可正常使用。' }}
     </NAlert>
     <NSpin :show="loading && !snapshot">
-      <NEmpty v-if="!plugins.length" class="extension-catalog__empty" :description="en ? 'No plugins to display' : '暂无可展示的插件'" />
+      <NEmpty v-if="!plugins.length" class="extension-catalog__empty" :description="en ? 'Nothing to display' : '暂无可展示的内容'" />
       <div v-else class="extension-catalog__grid">
-        <DesktopExtensionCatalogCard v-for="item in plugins" :key="item.manifest.id" :data-catalog-id="item.manifest.id" class="extension-catalog__card" :manifest="item.manifest" :icon-url="item.iconUrl" :repository="item.repository" :language="language">
+        <DesktopExtensionCatalogCard v-for="item in plugins" :key="item.manifest.id" :data-catalog-id="item.manifest.id" class="extension-catalog__card" :manifest="item.manifest" :icon-url="item.iconUrl" :repository="item.repository" :kind="item.kind" :source="item.source" :language="language">
           <template #actions>
             <NButton v-if="item.installed?.pending?.manifest.version === item.manifest.version && !item.available" size="small" type="primary" :disabled="busy || !item.compatible || !!item.installed.pending.incompatibility" data-testid="catalog-apply-update" @click="emit('applyUpdate', item.manifest.id)">
               {{ labels.applyUpdate }}

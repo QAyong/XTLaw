@@ -56,6 +56,18 @@ it('rejects altered downloads and missing versions', async () => {
   await expect(service.download(value.id, '9.0.0', new AbortController().signal)).rejects.toThrow('EXTENSION_CATALOG_ENTRY_UNAVAILABLE')
 })
 
+it('defaults missing kind and source to an official plugin and keeps declared ones', async () => {
+  const { service, catalog, value } = await fixture()
+  const raw = catalog.plugins as unknown[]
+  raw.push({ ...catalog.plugins[0], kind: 'cli', source: 'listed', manifest: { ...value, id: 'tests.listed-cli' } })
+  raw.push({ ...catalog.plugins[0], kind: 'robot', manifest: { ...value, id: 'tests.unknown-kind' } })
+  const snapshot = await service.list()
+  expect(snapshot.invalidEntries).toBe(1)
+  expect(snapshot.plugins.find(item => item.manifest.id === value.id)).toMatchObject({ kind: 'plugin', source: 'official' })
+  expect(snapshot.plugins.find(item => item.manifest.id === 'tests.listed-cli')).toMatchObject({ kind: 'cli', source: 'listed' })
+  expect(snapshot.plugins.some(item => item.manifest.id === 'tests.unknown-kind')).toBe(false)
+})
+
 it('shows only the latest release and refuses older marketplace versions', async () => {
   const { service, catalog, value } = await fixture()
   catalog.plugins.push({ ...catalog.plugins[0]!, manifest: manifest({ version: '2.0.0', engines: { lexora: '>=9' } }) })

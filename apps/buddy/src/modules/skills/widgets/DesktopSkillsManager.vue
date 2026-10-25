@@ -72,6 +72,15 @@ function openImport(skill: LocalSkill | null = null) {
   importOpen.value = true
 }
 
+// The market's "Add" menu links here with ?action=import; consume it so a refresh does not reopen the dialog.
+watch(() => route.query.action, (action) => {
+  if (action !== 'import')
+    return
+  if (hasScope.value)
+    openImport()
+  void router.replace({ query: { ...route.query, action: undefined } })
+}, { immediate: true })
+
 async function create() {
   if (!hasScope.value || creating.value)
     return

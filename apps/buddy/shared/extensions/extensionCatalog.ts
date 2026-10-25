@@ -13,8 +13,15 @@ const artifactIntegrity = {
   sha256: z.string().regex(/^[a-f0-9]{64}$/),
   size: z.number().int().positive().max(EXTENSION_ARCHIVE_LIMIT),
 }
+export const EXTENSION_CATALOG_KINDS = ['pack', 'mcp', 'skill', 'agent', 'plugin', 'cli'] as const
+export const EXTENSION_CATALOG_SOURCES = ['official', 'listed'] as const
+export type ExtensionCatalogKind = typeof EXTENSION_CATALOG_KINDS[number]
+export type ExtensionCatalogSource = typeof EXTENSION_CATALOG_SOURCES[number]
 // Listings parse only metadata so incompatible or newer entries can still be shown with a reason.
+// `kind` and `source` default to the pre-market shape (an official plugin) so existing catalogs keep working.
 export const extensionCatalogListingSchema = z.object({
+  kind: z.enum(EXTENSION_CATALOG_KINDS).default('plugin'),
+  source: z.enum(EXTENSION_CATALOG_SOURCES).default('official'),
   manifest: extensionMetadataSchema,
   iconUrl: extensionIconUrlSchema.optional(),
   repository: httpsUrl,

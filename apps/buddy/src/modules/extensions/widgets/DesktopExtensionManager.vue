@@ -2,7 +2,7 @@
 import type { ExtensionReview, ExtensionReviewResult, ExtensionStatus } from '@buddy-shared/extensions/extensionApi'
 import type { ExtensionIncompatibleReview } from '@buddy-shared/extensions/extensionCompatibility'
 import type { FileOpeningChoice } from '@buddy-shared/files/fileOpening'
-import { ChevronDown16Regular, MoreHorizontal20Regular } from '@vicons/fluent'
+import { Add16Regular, ChevronDown16Regular, MoreHorizontal20Regular } from '@vicons/fluent'
 import { NAlert, NButton, NDropdown, NEmpty, NModal, useMessage } from 'naive-ui'
 import { computed, onScopeDispose, shallowRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -21,18 +21,21 @@ import DesktopExtensionInstallReview from './DesktopExtensionInstallReview.vue'
 import DesktopExtensionUnavailableCard from './DesktopExtensionUnavailableCard.vue'
 import DesktopExtensionUninstallDialog from './DesktopExtensionUninstallDialog.vue'
 
-const { state, language, startCreation, authoring, settingsLocation } = useExtensionContext()
+const { state, language, startCreation, startSkillCreation, authoring, settingsLocation } = useExtensionContext()
 const { installed, unavailable } = state
 const unavailableCurrent = computed(() => unavailable.value.filter(item => !item.pending))
 const unavailablePending = computed(() => new Map(unavailable.value.filter(item => item.pending).map(item => [item.manifest.id, item])))
 const labels = computed(() => extensionLabels(language.value))
-const section = shallowRef<'marketplace' | 'installed'>('installed')
+const section = shallowRef<'marketplace' | 'installed'>('marketplace')
 const toolbarActions = computed(() => [{ key: 'author', label: language.value === 'en-US' ? 'Author signature' : '作者署名', props: { 'role': 'menuitem', 'data-testid': 'extension-author-settings' } }, { key: 'history', label: language.value === 'en-US' ? 'Installation log' : '安装记录', props: { 'role': 'menuitem', 'data-testid': 'extension-installation-history' } }])
-const acquisitionActions = computed(() => [
-  { key: 'package', label: labels.value.install, props: { 'role': 'menuitem', 'data-testid': 'extension-install' } },
-  { key: 'development', label: labels.value.development, props: { 'role': 'menuitem', 'data-testid': 'extension-development' } },
+const menuItem = (key: string, label: string) => ({ key, label, props: { 'role': 'menuitem', 'data-testid': `extension-add-${key}` } })
+// One entry point for everything the market now holds. Items that live on other pages hand over to them (see `addSelect`).
+const addOptions = computed(() => [
+  { type: 'group' as const, key: 'group-generate', label: labels.value.addGenerate, children: [menuItem('generate-plugin', labels.value.create), menuItem('generate-skill', labels.value.generateSkill)] },
+  { type: 'group' as const, key: 'group-manual', label: labels.value.addManual, children: [menuItem('mcp', labels.value.addMcp), menuItem('subagent', labels.value.createSubagent)] },
+  { type: 'group' as const, key: 'group-import', label: labels.value.addImport, children: [menuItem('package', labels.value.install), menuItem('development', labels.value.development), menuItem('skill-import', labels.value.importSkill), menuItem('mcp-import', labels.value.importMcp)] },
 ])
-const acquisitionMenuOpen = shallowRef(false)
+const addMenuOpen = shallowRef(false)
 const busy = shallowRef(false)
 const review = shallowRef<ExtensionReview | null>(null)
 const incompatibleReview = shallowRef<ExtensionIncompatibleReview | null>(null)
@@ -50,7 +53,7 @@ watch(state.error, (error) => {
   if (error)
     showError(error)
 }, { immediate: true })
-async function run(action: () => Promise<unknown>) {
+async function run(action: () => Promise<unknown>, creatorUnavailable = labels.value.creatorUnavailable) {
   if (busy.value)
     return false
   busy.value = true
@@ -61,7 +64,7 @@ async function run(action: () => Promise<unknown>) {
   }
   catch (reason) {
     if (reason instanceof Error && reason.message === 'SKILL_UNAVAILABLE')
-      message.error(labels.value.creatorUnavailable)
+      message.error(creatorUnavailable)
     else
       showError(extensionErrorCode(reason))
     return false
@@ -82,6 +85,22 @@ function acceptReview(next: ExtensionReviewResult | null) {
 }
 function create() {
   void run(() => startCreation(labels.value.creationPrompt))
+}
+function createSkill() {
+  void run(() => startSkillCreation(labels.value.skillCreationPrompt), labels.value.skillCreatorUnavailable)
+}
+function addSelect(key: string) {
+  const handlers: Record<string, () => void> = {
+    'generate-plugin': create,
+    'generate-skill': createSkill,
+    'mcp': () => void router.push(desktopRouteLocations.mcp('add')),
+    'subagent': () => void router.push(desktopRouteLocations.buddyCreateNpc()),
+    'package': () => select(),
+    'development': () => select(true),
+    'skill-import': () => void router.push(desktopRouteLocations.skillImport()),
+    'mcp-import': () => void router.push(desktopRouteLocations.mcp('import')),
+  }
+  handlers[key]?.()
 }
 function cancel() {
   const current = review.value
@@ -135,21 +154,15 @@ onScopeDispose(cancel)
           </template>
         </NButton>
       </NDropdown>
-      <div class="extension-manager__acquisition-split">
-        <NButton class="extension-manager__create-button" type="primary" size="small" :disabled="busy" data-testid="extension-create" @click="create">
+      <NDropdown v-model:show="addMenuOpen" trigger="click" placement="bottom-end" :options="addOptions" :disabled="busy" @select="addSelect">
+        <NButton type="primary" size="small" :disabled="busy" :aria-label="labels.add" aria-haspopup="menu" :aria-expanded="addMenuOpen" data-testid="extension-add">
           <template #icon>
-            <DesktopIcon name="pluginAdd" :size="16" />
+            <DesktopIcon :component="Add16Regular" :size="16" />
           </template>
-          {{ labels.create }}
+          {{ labels.add }}
+          <DesktopIcon :component="ChevronDown16Regular" :size="16" class="extension-manager__add-chevron" :class="{ 'is-open': addMenuOpen }" />
         </NButton>
-        <NDropdown v-model:show="acquisitionMenuOpen" trigger="click" placement="bottom-end" :options="acquisitionActions" :disabled="busy" @select="key => select(key === 'development')">
-          <NButton class="extension-manager__acquisition-arrow" type="primary" size="small" :disabled="busy" :aria-label="labels.acquisitionOptions" aria-haspopup="menu" :aria-expanded="acquisitionMenuOpen" data-testid="extension-install-options">
-            <template #icon>
-              <DesktopIcon :component="ChevronDown16Regular" :size="16" class="extension-manager__acquisition-chevron" :class="{ 'is-open': acquisitionMenuOpen }" />
-            </template>
-          </NButton>
-        </NDropdown>
-      </div>
+      </NDropdown>
     </template>
     <NAlert v-if="state.installations.value.some(job => job.status === 'running')" type="info">
       {{ language === 'en-US' ? 'Installing plugin. You can continue using XTLaw.' : '正在安装插件，你可以继续使用 XTLaw。' }}
@@ -201,7 +214,7 @@ onScopeDispose(cancel)
       <h2>{{ selected.manifest.name }}</h2>
       <p>{{ selected.manifest.author || (language === 'en-US' ? 'Unsigned' : '未署名') }}</p>
       <p><code>{{ selected.manifest.id }}</code></p>
-      <p>{{ selected.source ? (language === 'en-US' ? 'Marketplace' : '插件市场') : (language === 'en-US' ? 'Local installation' : '本地安装') }}</p>
+      <p>{{ selected.source ? (language === 'en-US' ? 'Market' : '市场') : (language === 'en-US' ? 'Local installation' : '本地安装') }}</p>
       <p>{{ labels.version }} {{ selected.manifest.version }} · API {{ selected.manifest.apiVersion }}</p>
       <p v-if="selected.activationMs !== null">
         {{ labels.activation }} {{ selected.activationMs }} ms
@@ -220,12 +233,9 @@ onScopeDispose(cancel)
 
 <style scoped lang="scss">
 .extension-manager__more { width: 28px; height: 28px; padding: 0; }
-.extension-manager__acquisition-split { display: inline-flex; align-items: stretch; }
-.extension-manager__create-button { border-top-right-radius: 0; border-bottom-right-radius: 0; }
-.extension-manager__acquisition-arrow { width: 28px; margin-left: 1px; padding: 0; border-top-left-radius: 0; border-bottom-left-radius: 0; }
-.extension-manager__acquisition-chevron { transition: transform 140ms ease; }
-.extension-manager__acquisition-chevron.is-open { transform: rotate(180deg); }
-@media (prefers-reduced-motion: reduce) { .extension-manager__acquisition-chevron { transition: none; } }
+.extension-manager__add-chevron { margin-left: 4px; transition: transform 140ms ease; }
+.extension-manager__add-chevron.is-open { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) { .extension-manager__add-chevron { transition: none; } }
 .extension-manager__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); align-items: stretch; gap: 12px; }
 .extension-manager__empty {
   min-height: 360px;

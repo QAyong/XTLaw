@@ -29,7 +29,7 @@ async function fixture() {
   cleanup.push(() => rm(root, { recursive: true, force: true }))
   const value = manifest({ id: 'tests.office', name: 'Office DOCX' })
   const bytes = zipSync({ 'extension.json': strToU8(JSON.stringify(value)), 'extension.js': strToU8('export function activate() {}'), 'view.js': strToU8('export function render() {}') })
-  const entry: ExtensionCatalogEntry = { manifest: value, repository: 'https://github.com/QAyong/XTLaw', artifact: { kind: 'bundled', file: 'office.lexora-extension', sha256: sha256(bytes), size: bytes.length } }
+  const entry: ExtensionCatalogEntry = { kind: 'plugin', source: 'official', manifest: value, repository: 'https://github.com/QAyong/XTLaw', artifact: { kind: 'bundled', file: 'office.lexora-extension', sha256: sha256(bytes), size: bytes.length } }
   const directory = join(root, 'bundled')
   await mkdir(directory)
   await writeFile(join(directory, 'catalog.json'), JSON.stringify({ schemaVersion: 1, plugins: [entry] }))

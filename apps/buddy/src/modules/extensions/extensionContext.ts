@@ -21,6 +21,7 @@ export interface ExtensionContext {
   focusView: (id: string) => void
   authoring: { author: Readonly<Ref<string>>, save: (author: string) => Promise<boolean> }
   startCreation: (prompt: string) => Promise<void>
+  startSkillCreation: (prompt: string) => Promise<void>
   settingsLocation: (extensionId: string) => RouteLocationRaw | null
 }
 const [useProvideExtensionContext, injectExtensionContext] = createInjectionState((context: ExtensionContext) => context)

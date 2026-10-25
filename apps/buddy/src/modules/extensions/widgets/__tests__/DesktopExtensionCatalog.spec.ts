@@ -103,3 +103,31 @@ it('shows a built-in capability as built in without an install button', async ()
     expect(card(id).querySelector('button')?.textContent).toContain('安装')
   }
 })
+
+it('sends an installed MCP entry that still lacks its token to settings instead of showing it as done', async () => {
+  const manifest = extensionManifestSchema.parse({ schemaVersion: 1, id: 'tests.legal', name: 'Legal', version: '1.0.0', apiVersion: 4, engines: { lexora: '>=0.9.0' }, permissions: {}, contributes: { mcpConnectors: [{ id: 'legal-search', name: 'Legal search', transport: 'streamable-http', url: 'https://legal.example.com/mcp', credential: 'bearer' }] } })
+  const status: ExtensionStatus = { manifest, revision: 'package-1', enabled: true, compatible: true, development: false, pending: null, state: 'inactive', generation: null, error: null, activationMs: null, logs: [] }
+  const catalog = vi.fn(async () => ({ plugins: [{ kind: 'mcp', source: 'official', manifest, repository: 'https://github.com/QAyong/XTLaw', artifact: { url: 'https://example.com/a.lexora-extension', sha256: 'a'.repeat(64), size: 100 }, compatible: true, incompatibility: null }], invalidEntries: 0, error: null, stale: false, cachedAt: null }))
+  const connectors = shallowRef<unknown[]>([{ id: 'legal-search', credentialConfigured: false, enabled: false }])
+  const loadConnectors = vi.fn()
+  context.read = () => ({ state: { installed: shallowRef([status]), unavailable: shallowRef([]), api: { catalog } }, language: shallowRef('zh-CN'), capabilityStatus: { connectors, buddies: shallowRef([]), defaultBuddyId: shallowRef(null), loadConnectors } })
+  const configure = vi.fn()
+  const element = document.createElement('div')
+  document.body.append(element)
+  const app = createApp({ render: () => h(DesktopExtensionCatalog, { busy: false, onConfigure: configure }) })
+  cleanup.push(() => {
+    app.unmount()
+    element.remove()
+  })
+  app.mount(element)
+  await vi.waitFor(() => expect(element.querySelector('[data-catalog-id="tests.legal"]')).not.toBeNull())
+  const card = () => element.querySelector('[data-catalog-id="tests.legal"]')!
+  expect(loadConnectors).toHaveBeenCalled()
+  expect(card().querySelector('[data-testid="catalog-needs-setup"]')?.textContent?.trim()).toBe('待配置')
+  card().querySelector<HTMLElement>('[data-testid="catalog-configure"]')!.click()
+  expect(configure).toHaveBeenCalledWith('tests.legal')
+  connectors.value = [{ id: 'legal-search', credentialConfigured: true, enabled: true }]
+  await nextTick()
+  expect(card().querySelector('[data-testid="catalog-needs-setup"]')).toBeNull()
+  expect(card().querySelector('button')?.textContent).toContain('已安装')
+})

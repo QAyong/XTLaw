@@ -1,18 +1,18 @@
 <script setup lang="ts">
 import type { ExtensionCatalogKind, ExtensionCatalogListing, ExtensionCatalogSnapshot, ExtensionCatalogSource } from '@buddy-shared/extensions/extensionCatalog'
-import { isBuiltinCapability } from '@buddy-shared/extensions/extensionCapabilities'
+import { connectorSetupState, isBuiltinCapability } from '@buddy-shared/extensions/extensionCapabilities'
 import { EXTENSION_CATALOG_KINDS, EXTENSION_CATALOG_SOURCES } from '@buddy-shared/extensions/extensionCatalog'
 import { NAlert, NButton, NEmpty, NInput, NSelect, NSpin, NTag } from 'naive-ui'
 import { gt } from 'semver'
-import { computed, onScopeDispose, shallowRef } from 'vue'
+import { computed, onMounted, onScopeDispose, shallowRef } from 'vue'
 import { useExtensionContext } from '../extensionContext'
 import { extensionLabels } from '../extensionLabels'
 import DesktopExtensionCatalogCard from './DesktopExtensionCatalogCard.vue'
 import DesktopExtensionCompatibilityHint from './DesktopExtensionCompatibilityHint.vue'
 
 defineProps<{ busy: boolean }>()
-const emit = defineEmits<{ install: [entry: ExtensionCatalogListing], applyUpdate: [id: string] }>()
-const { state, language } = useExtensionContext()
+const emit = defineEmits<{ install: [entry: ExtensionCatalogListing], applyUpdate: [id: string], configure: [id: string] }>()
+const { state, language, capabilityStatus } = useExtensionContext()
 const snapshot = shallowRef<ExtensionCatalogSnapshot | null>(null)
 const loading = shallowRef(false)
 const query = shallowRef('')
@@ -35,7 +35,9 @@ const plugins = computed(() => (snapshot.value?.plugins ?? []).filter((item) => 
   const installed = state.installed.value.find(next => next.manifest.id === item.manifest.id)
   const retained = state.unavailable.value.find(next => next.manifest.id === item.manifest.id && !next.pending)
   const version = installed?.pending?.manifest.version ?? installed?.manifest.version ?? retained?.manifest.version
-  return { ...item, installed, installedVersion: version, builtin: isBuiltinCapability(item), available: !version || gt(item.manifest.version, version) }
+  // An installed MCP entry whose connection still lacks its token or sign-in is not finished: the card sends the user to settings.
+  const needsSetup = !!installed?.manifest.contributes.mcpConnectors.some(connector => connectorSetupState(connector, capabilityStatus?.connectors.value.find(record => record.id === connector.id)) === 'needs-setup')
+  return { ...item, installed, installedVersion: version, needsSetup, builtin: isBuiltinCapability(item), available: !version || gt(item.manifest.version, version) }
 }))
 async function refresh(force = false) {
   const current = ++revision
@@ -58,6 +60,7 @@ async function refresh(force = false) {
   }
 }
 void refresh()
+onMounted(() => void capabilityStatus?.loadConnectors())
 onScopeDispose(() => {
   disposed = true
   revision++
@@ -89,6 +92,14 @@ onScopeDispose(() => {
             <NTag v-if="item.builtin" size="small" :bordered="false" type="info" data-testid="catalog-builtin">
               {{ labels.builtin }}
             </NTag>
+            <template v-else-if="item.needsSetup && !item.available">
+              <NTag size="small" :bordered="false" type="warning" data-testid="catalog-needs-setup">
+                {{ labels.setupNeeded }}
+              </NTag>
+              <NButton size="small" type="primary" data-testid="catalog-configure" @click="emit('configure', item.manifest.id)">
+                {{ labels.setupConfigure }}
+              </NButton>
+            </template>
             <NButton v-else-if="item.installed?.pending?.manifest.version === item.manifest.version && !item.available" size="small" type="primary" :disabled="busy || !item.compatible || !!item.installed.pending.incompatibility" data-testid="catalog-apply-update" @click="emit('applyUpdate', item.manifest.id)">
               {{ labels.applyUpdate }}
             </NButton>

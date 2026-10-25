@@ -93,3 +93,37 @@ export function isBuiltinCapability(entry: { kind: string, manifest: { id: strin
 export function connectorToolExposure(connector: Pick<ExtensionMcpConnectorContribution, 'deferred'>) {
   return connector.deferred ? 'deferred' as const : 'direct' as const
 }
+
+export type InstalledExtensionKind = 'plugin' | 'skill' | 'mcp' | 'agent'
+
+/**
+ * Which kinds an installed package belongs to, from what it contributes. A package may be several at once; a package
+ * that is none of the three single-item kinds (or that also ships an entry, a view and so on) is a plugin.
+ */
+export function installedExtensionKinds(manifest: { entry?: string, contributes: { skills: readonly unknown[], mcpConnectors: readonly unknown[], subagents: readonly unknown[] } & Record<string, unknown> }): InstalledExtensionKind[] {
+  const { skills, mcpConnectors, subagents, ...rest } = manifest.contributes
+  const other = Object.values(rest).some((value) => {
+    if (Array.isArray(value))
+      return value.length > 0
+    if (value && typeof value === 'object')
+      return Object.values(value).some(item => Array.isArray(item) ? item.length > 0 : item !== undefined)
+    return value !== undefined
+  })
+  const kinds: InstalledExtensionKind[] = [
+    ...(skills.length ? ['skill' as const] : []),
+    ...(mcpConnectors.length ? ['mcp' as const] : []),
+    ...(subagents.length ? ['agent' as const] : []),
+  ]
+  return !kinds.length || manifest.entry || other ? ['plugin', ...kinds] : kinds
+}
+
+export type ConnectorSetupState = 'removed' | 'needs-setup' | 'enabled' | 'off'
+
+/** Where a market connector stands: a record the user deleted, one still waiting for its token or sign-in, or ready. */
+export function connectorSetupState(connector: Pick<ExtensionMcpConnectorContribution, 'credential'>, record: { enabled: boolean, credentialConfigured: boolean } | undefined): ConnectorSetupState {
+  if (!record)
+    return 'removed'
+  if (connector.credential !== 'none' && !record.credentialConfigured)
+    return 'needs-setup'
+  return record.enabled ? 'enabled' : 'off'
+}

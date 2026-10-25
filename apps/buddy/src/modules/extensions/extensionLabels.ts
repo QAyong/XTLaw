@@ -84,6 +84,18 @@ const zh = {
   reviewAgentFiles: { inherit: '文件权限与当前任务一致', read_only: '只能读取文件，不能修改' },
   reviewAgentConnectors: '使用的 MCP（随本包一起安装）：',
   keptTitle: '你修改过的内容会保留，不会被删除：',
+  setupNeeded: '待配置',
+  setupConfigure: '去配置',
+  setupEnabled: '已启用',
+  setupOff: '未启用',
+  setupRemoved: '已移除',
+  delegated: '已加入晓晓',
+  notDelegated: '未加入晓晓',
+  manage: '管理',
+  capabilitiesSkills: '技能',
+  capabilitiesMcp: 'MCP 连接',
+  capabilitiesAgents: '子代理',
+  installedKindFilter: '按形态筛选',
 }
 const en: typeof zh = {
   title: 'Market',
@@ -169,6 +181,18 @@ const en: typeof zh = {
   reviewAgentFiles: { inherit: 'File access follows the current task', read_only: 'Can read files but not change them' },
   reviewAgentConnectors: 'MCP connections it uses (installed with this package):',
   keptTitle: 'Content you changed is kept and will not be deleted:',
+  setupNeeded: 'To configure',
+  setupConfigure: 'Configure',
+  setupEnabled: 'On',
+  setupOff: 'Off',
+  setupRemoved: 'Removed',
+  delegated: 'In Xiaoxiao’s list',
+  notDelegated: 'Not in Xiaoxiao’s list',
+  manage: 'Manage',
+  capabilitiesSkills: 'Skills',
+  capabilitiesMcp: 'MCP connections',
+  capabilitiesAgents: 'Sub-agents',
+  installedKindFilter: 'Filter by type',
 }
 export function extensionLabels(language: string) {
   return language === 'en-US' ? en : zh

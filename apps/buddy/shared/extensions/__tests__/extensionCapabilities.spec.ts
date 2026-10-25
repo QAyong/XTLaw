@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { extensionCapabilityDescriptorSchema, isBuiltinCapability, marketSubagentId, subagentConnectorReferences } from '../extensionCapabilities'
+import { connectorSetupState, extensionCapabilityDescriptorSchema, installedExtensionKinds, isBuiltinCapability, marketSubagentId, subagentConnectorReferences } from '../extensionCapabilities'
 import { extensionCatalogEntrySchema } from '../extensionCatalog'
 import { extensionManifestSchema } from '../extensionManifest'
 
@@ -98,5 +98,37 @@ describe('built-in recognition', () => {
     ['mcp', 'xtlaw.legal-search', false],
   ])('treats a %s entry %s as built in: %s', (kind, entryId, builtin) => {
     expect(isBuiltinCapability({ kind, manifest: { id: entryId } })).toBe(builtin)
+  })
+})
+
+describe('installed kinds', () => {
+  const kinds = (contributes: Record<string, unknown>, patch: Record<string, unknown> = {}) => installedExtensionKinds(extensionManifestSchema.parse(manifest(contributes, patch)))
+
+  it('reads the kinds from what the package contributes', () => {
+    expect(kinds({ skills: [{ id: `${id}.law`, path: 'skills/law/SKILL.md' }] })).toEqual(['skill'])
+    expect(kinds({ mcpConnectors: [connector] })).toEqual(['mcp'])
+    expect(kinds({ mcpConnectors: [connector], subagents: [subagent], skills: [{ id: `${id}.law`, path: 'skills/law/SKILL.md' }] })).toEqual(['skill', 'mcp', 'agent'])
+    expect(kinds({})).toEqual(['plugin'])
+  })
+
+  it('keeps a package that also runs code or adds UI a plugin', () => {
+    expect(kinds({ mcpConnectors: [connector] }, { entry: 'extension.js' })).toEqual(['plugin', 'mcp'])
+    expect(kinds({ themes: [], commands: [{ id: `${id}.open`, title: 'Open' }], mcpConnectors: [connector] }, { entry: 'extension.js' })).toEqual(['plugin', 'mcp'])
+    expect(installedExtensionKinds({ contributes: { skills: [1], mcpConnectors: [], subagents: [], settings: { items: [1], groups: [], modules: [] } } })).toEqual(['plugin', 'skill'])
+    expect(installedExtensionKinds({ contributes: { skills: [1], mcpConnectors: [], subagents: [], settings: { items: [], groups: [], modules: [] }, themes: [] } })).toEqual(['skill'])
+  })
+})
+
+describe('connector setup state', () => {
+  it.each([
+    ['bearer', undefined, 'removed'],
+    ['bearer', { enabled: false, credentialConfigured: false }, 'needs-setup'],
+    ['oauth', { enabled: false, credentialConfigured: false }, 'needs-setup'],
+    ['bearer', { enabled: false, credentialConfigured: true }, 'off'],
+    ['bearer', { enabled: true, credentialConfigured: true }, 'enabled'],
+    ['none', { enabled: false, credentialConfigured: false }, 'off'],
+    ['none', { enabled: true, credentialConfigured: false }, 'enabled'],
+  ] as const)('%s with %j is %s', (credential, record, state) => {
+    expect(connectorSetupState({ credential }, record)).toBe(state)
   })
 })

@@ -136,9 +136,6 @@ useProvideWorkbenchUi({ anchors, panes: paneRegistry, controlRenderer: DesktopEx
 const ui = useExtensionUiContributions(extensions.installed, workbench.controller.configuration)
 const extensionReferences = useExtensionReferences({ references: workbench.selectionReferences, controller: workbench.controller, persistence: workbench.persistence, pool: workbench.pool, api: api.extensions, views: extensionViews, installed: extensions.installed, chooseTarget: useReferenceTargetPicker(() => stores.applicationSettings.language.value) })
 useExtensionContributions({ controller: workbench.controller, renderers: workbench.renderers, persistence: workbench.persistence, installed: extensions.installed, api: api.extensions, views: extensionViews, ui, ready: () => workbench.initialized, selectionReferences: workbench.selectionReferences, onQuoteResult: (result, targetLabel) => showSelectionReferenceResult(message, (key, params) => translateBuddy(stores.applicationSettings.language.value, key, params), result, targetLabel), receiveReference: extensionReferences.receive })
-useProvideExtensionContext({ settingsLocation: settingsRegistry.extensionLocation, authoring: { author: computed(() => stores.applicationSettings.config.value?.desktop.pluginAuthor ?? ''), save: author => stores.applicationSettings.updateSettings({ desktop: { pluginAuthor: author } }) }, state: extensions, views: extensionViews, themeColors: desktopTheme.extensionColors, themeRevision: desktopTheme.revision, anchors, ui, workbench: pages.context, language: stores.applicationSettings.language, isDark: desktopTheme.isDark, startCreation: prompt => workbench.startTaskWithSkill('plugin-creator', prompt), startSkillCreation: prompt => workbench.startTaskWithSkill('skill-creator', prompt), endInteraction: id => workbench.controller.interactions.end(id), focusView: (id) => {
-  workbench.controller.focus(id)
-} })
 onScopeDispose(workbench.controller.subscribe(() => void nextTick(extensionViews.layout)))
 const selectedTask = workbench.activeTask
 const resources = useTaskResourcePanel({
@@ -228,6 +225,9 @@ function getResources() {
   return resources
 }
 const capabilities = createDesktopCapabilities({ api, stores, selectedModel: computed(() => selectedTask.value?.workspace.composer.selectedModel.value ?? null), onAutomationRunFailure: error => message.error(error) })
+useProvideExtensionContext({ capabilityStatus: { connectors: computed(() => capabilities.mcpSettings.connectors.value), buddies: buddyDirectory.buddies, defaultBuddyId: computed(() => buddyDirectory.catalog.value?.defaultBuddyId ?? null), loadConnectors: () => capabilities.mcpSettings.load() }, settingsLocation: settingsRegistry.extensionLocation, authoring: { author: computed(() => stores.applicationSettings.config.value?.desktop.pluginAuthor ?? ''), save: author => stores.applicationSettings.updateSettings({ desktop: { pluginAuthor: author } }) }, state: extensions, views: extensionViews, themeColors: desktopTheme.extensionColors, themeRevision: desktopTheme.revision, anchors, ui, workbench: pages.context, language: stores.applicationSettings.language, isDark: desktopTheme.isDark, startCreation: prompt => workbench.startTaskWithSkill('plugin-creator', prompt), startSkillCreation: prompt => workbench.startTaskWithSkill('skill-creator', prompt), endInteraction: id => workbench.controller.interactions.end(id), focusView: (id) => {
+  workbench.controller.focus(id)
+} })
 function onSpaceCreated(id: string) {
   return workbench.newTask({ spaceId: id })
 }

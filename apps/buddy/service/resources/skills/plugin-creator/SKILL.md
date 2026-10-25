@@ -33,6 +33,8 @@ description: 创建、修改并验证可安装的 XTLaw 桌面插件，包括配
 
 需要随插件提供可搜索、按需读取的工作方法或资源时，读取 [插件 Skills](references/skills.md)。使用标准 `SKILL.md` 与 `contributes.skills`，纯 Skills 包不需要脚本入口；工具仍通过 Agent 能力单独声明。
 
+需要随包添加 MCP 连接记录或 NPC 子代理（纯声明，不含代码）时，读取 [市场能力](references/market-capabilities.md)，使用 `contributes.mcpConnectors` 与 `contributes.subagents`。
+
 主题配色、欢迎文字／插画或主题编辑器需求，先读 [主题](references/themes.md)。纯主题包只需清单、JSON 与图片，无需创建脚本入口。
 
 1. 读取 [协议与清单](references/protocol.md) 和 [完整 API 类型](references/api.d.ts)。这些文件与当前 XTLaw 一起分发；不要根据其他产品的插件格式猜测接口。

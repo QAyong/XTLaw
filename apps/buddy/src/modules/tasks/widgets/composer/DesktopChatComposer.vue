@@ -67,6 +67,7 @@ const {
   sessionScope,
   loadContextOptions,
   modelInputIssue,
+  quotePasteLimitMessage,
   materials,
   removeMaterial,
   pastedText,
@@ -330,7 +331,7 @@ function captureDraft(): WorkbenchMenuSelection {
             </NButton>
           </span>
         </template>
-        {{ modelInputIssueMessage || t('desktop.chat.queueAdd') }}
+        {{ (quotePasteLimitMessage ?? modelInputIssueMessage) || t('desktop.chat.queueAdd') }}
       </NTooltip>
       <NTooltip v-if="isRunning">
         <template #trigger>
@@ -370,7 +371,7 @@ function captureDraft(): WorkbenchMenuSelection {
             </NButton>
           </span>
         </template>
-        {{ isLocalCommand ? t('desktop.command.run') : modelInputIssueMessage || t('desktop.chat.send') }}
+        {{ isLocalCommand ? t('desktop.command.run') : (quotePasteLimitMessage ?? modelInputIssueMessage) || t('desktop.chat.send') }}
       </NTooltip>
     </template>
 

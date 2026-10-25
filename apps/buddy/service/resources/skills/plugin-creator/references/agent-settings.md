@@ -1,6 +1,6 @@
 # Agent 工具、任务动作与设置
 
-这些是 API 3 的增量能力。先查询当前宿主的 `runtime` 能力目录，确认所需的 `agent.tools`、`agent.actions`、`agent.models`、`agent.task`、`agent.taskMessages` 或 `settings` 可用，再声明对应的最低 `engines.lexora`。相同 API 版本的旧宿主不一定提供全部增量能力。
+这些是 API 3 的增量能力。先查询当前宿主的 `runtime` 能力目录，确认所需的 `agent.tools`、`agent.actions`、`agent.models`、`agent.task`、`agent.taskMessages`、`agent.references` 或 `settings` 可用，再声明对应的最低 `engines.lexora`。相同 API 版本的旧宿主不一定提供全部增量能力。
 
 ## 设置
 
@@ -24,10 +24,12 @@ type 支持 boolean、string（最长 8192 字符）、number（可声明 min/ma
 
 - enabledWhen：可选，引用本插件 boolean 设置，或使用[条件函数](conditions.md)引用；函数按原调用任务在执行前求值。
 - instructions：可选使用指引，最长 8000 字符；`{{<plugin-id>.tool}}` 替换为实际工具名，不硬编码运行时名称。 保留简短的工具使用约束；可复用工作流程与较长参考资料放入独立的 [插件 Skills](skills.md)，不会自动拼入此字段。
-- tools：`[{id,title,description,parameters}]`，最多 16 个，必须在 activate 中全部注册。
+- tools：`[{id,title,description,parameters,access?}]`，最多 16 个，必须在 activate 中全部注册。
 - actions：`[{id,title,triggers,enabledWhen?,execution?}]`，最多 16 个，必须在 activate 中全部注册。只提供动作时可以省略 tools；tools 与 actions 至少提供一项。
 
-parameters 为封闭对象，例如：`{type:"object",properties:{summary:{type:"string",description:"任务摘要"}},required:["summary"],additionalProperties:false}`。支持最多 16 个 string/number/boolean 字段，不支持嵌套 schema 或外部引用。
+`access` 支持 `read`（默认）和 `write`。改变文档或其他业务数据的工具必须声明 `write`，由当前执行档和审批策略判定；该字段不授予文件路径、编辑器或其他宿主能力。
+
+parameters 为封闭对象，例如：`{type:"object",properties:{summary:{type:"string",description:"任务摘要"}},required:["summary"],additionalProperties:false}`。每层 object 最多 16 个字段，所有 object 都是 `additionalProperties:false`；字段支持 string/number/boolean、object 和 array。根对象之外最多 4 层容器，整个 schema 最多 128 个节点、32 KiB，不支持 `$ref`、联合类型或开放对象。string 可声明 `enum/minLength/maxLength`（默认最多 32768 字符），number 可声明 `enum/minimum/maximum`，array 使用 `items/minItems/maxItems`（maxItems 默认 128、上限 256）。enum 最多 64 项。单次输入整体最多 256 KiB；超大文档应分页读取、分批修改。已有平铺声明保持兼容。
 
 ```ts
 context.agent.registerTool(`${context.extension.id}.tool`, async (input, invocation) => {
@@ -45,6 +47,15 @@ context.agent.registerTool(`${context.extension.id}.tool`, async (input, invocat
 ```
 
 工具由主模型选择调用，回调返回 JSON，生命周期属于原运行。需要随输入提交、对话完成或菜单点击执行时，使用下面的任务动作。
+
+工具上下文的 `scope` 是宿主绑定的 `{taskId,branchId,runId}`，不需要 tasks 读取权限；插件不能传入或替换目标。它只表示此次执行归属，不提供额外任务或文件读取权。
+
+`invocation.artifacts.publish({resource:{id},name?})` 将本插件私有资源复制到当前工作区 `outputs/<unique-id>/<name>`，返回 `{id,name,mimeType,size}` 并显示正常任务产物卡片。仅 `access:"write"` 工具可调用；支持 createFile/importFile/download 得到的私有资源，不直接发布用户文件选择句柄或包内路径。单文件最多 64 MiB，每次工具最多 8 个；不能覆盖已有文件或指定磁盘路径。产物独立于插件私有文件，释放原资源不会移除产物。
+
+`await invocation.results.addImage({resource:{id}})` 把私有 PNG/JPEG/WebP 加入本次工具的原生模型图片结果，工具仍返回普通 JSON 业务结果。单图最多 8 MiB/25 百万像素，每次工具最多 4 张、源文件合计最多 16 MiB；宿主校验并缩放至最长边 2000 像素、单图最多 2 MiB。不要把 base64 放进返回 JSON。此方法不发布产物；需要用户可下载的图时另行 publish。工具抛错时不交付图片；已经成功发布的产物仍保留。调用取消、插件停用/更新或任务分支失效会拒绝后续读取和交付。
+
+以上三个能力仅 `AgentToolContext` 提供，后台动作不提供。嵌套 schema、scope、产物发布和图片结果要求 `engines.lexora` 的下限不低于首个提供这些能力的 XTLaw 应用版本（以宿主 `runtime` 能力目录为准）。
+
 
 ## 任务动作
 
@@ -91,3 +102,11 @@ context.agent.registerAction(`${context.extension.id}.inspect`, async (invocatio
 `permissions.taskMessages: true` 单独开放 `task.messages()`，返回当前任务可见分支的有界 `{role:'user'|'assistant',text}` 数组，最多 16 条、每条最多 1500 字符。当前保留首条用户输入与最近文本；不包含工具输出、隐藏分支、附件正文或隐式文件读取。仅在任务消息确实是功能输入时申请此权限，不因需要标题就申请。
 
 以上接口均绑定原任务，不接受任意任务 ID，也不提供任意字段或数据库写入。宿主和其他插件仍可通过各自授权入口修改同一任务，过期结果不能覆盖新状态。
+
+## 工具中的用户引用
+
+声明 `permissions.references: true` 后，工具回调可用 `invocation.references.list()` 获取 `{items:[{referenceId,sourceMessageId,title,excerpt}],truncated}`。列表最多保留最近 100 条本插件消息引用快照，excerpt 最长 512 字符；引用来自当前运行已经提交的用户输入及同一可见分支的历史用户输入，因此对话压缩不影响引用身份。不同任务、隐藏分支、其他插件、助手与工具生成的引用不在范围内。未发送草稿和当前运行尚未接受的新输入不授予资格。任务动作不提供该 API。
+
+`invocation.references.resolve(referenceId, {sourceMessageId?,offset?,limit?})` 返回 `{referenceId,sourceMessageId,title,text,textLength,textDigest,offset,nextOffset,locator,scope:{taskId,branchId}}`，locator 为插件原始定位信息或 null。`text` 为 UTF-16 单元分页，不切断代理对；起点落在代理对中间时拒绝读取，默认 offset 为 0，limit 默认为 32768、最大 32768；nextOffset 为 null 表示已到末尾。textLength 是完整快照长度，textDigest 是完整原文 UTF-8 字节的 SHA-256，不是当前页摘要。长引用按需读取；定位验证可使用完整快照摘要与长度，不要把第一页误当全文。sourceMessageId 指向携带这份引用快照的用户消息，referenceId 是宿主生成的引用 ID，不是消息里的引用序号。将两者一起保留并传给 resolve；同一个 referenceId 可出现在多条消息中。旧调用省略 sourceMessageId 时，仅在所有匹配快照完全相同时兼容，否则返回 EXTENSION_REFERENCE_AMBIGUOUS，须从列表选择精确消息身份。已知的历史 ID 即使不在最近 100 条列表中也可解析。引用本身不授予读取任意文件或修改文档的能力。任务结束、取消、输入或分支变更后，旧调用失效。
+
+插件应只向模型返回适量文字、referenceId 和 sourceMessageId，将 locator 留在插件内处理。编辑前重新解析引用，核对目标文档、会话和版本，使用现有视图消息与命令回执完成操作；不要按当前焦点选择目标，也不要把复制来的文本当作新的引用授权。新能力通过当前宿主的 runtime 目录确认，并按实际宿主版本声明兼容范围。

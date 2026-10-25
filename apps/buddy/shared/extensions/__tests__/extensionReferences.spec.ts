@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto'
 import { expect, it } from 'vitest'
 import { BUDDY_QUOTE_TEXT_LIMIT } from '../../conversation/buddyUserContent'
-import { extensionManagementSchema } from '../extensionApi'
+import { extensionToolSchema } from '../extensionAgent'
+import { extensionAgentCapabilities } from '../extensionAgentCapabilities'
+import { extensionManagementSchema, parseExtensionRequestParams } from '../extensionApi'
 import { addedExtensionPermissions, extensionManifestSchema, extensionPermissionsSchema } from '../extensionManifest'
 import { extensionReferenceInputSchema, extensionReferenceTargetSchema } from '../extensionReferences'
 
@@ -9,13 +11,17 @@ const content = { kind: 'content', title: 'Paragraph', text: 'Selected text', lo
 
 it('strictly validates reference inputs and the shared text and opaque locator budgets', () => {
   expect(extensionReferenceInputSchema.parse(content)).toEqual(content)
+  expect(extensionReferenceInputSchema.parse({ ...content, source: 'view' })).toEqual({ ...content, source: 'view' })
   expect(extensionReferenceInputSchema.parse({ kind: 'resource', resource: { id: randomUUID() } }).kind).toBe('resource')
   for (const input of [
     { ...content, provider: 'extension:another.plugin' },
+    { ...content, source: 'resource' },
+    { ...content, source: { kind: 'artifact', artifactId: 'another-file' } },
+    { ...content, source: '/outside/file' },
+    { kind: 'resource', resource: { id: randomUUID() }, source: 'view' },
     { ...content, taskId: 'another-task' },
     { ...content, title: ' ' },
     { ...content, text: ' ' },
-    { ...content, text: 'x'.repeat(BUDDY_QUOTE_TEXT_LIMIT) },
     { ...content, locator: { version: 1, data: {}, path: '/outside' } },
     { ...content, locator: { version: 0, data: null } },
     { kind: 'resource', resource: { id: randomUUID(), path: '/outside' } },
@@ -49,4 +55,29 @@ it('keeps references opt-in, API 4-only and visible in added permission review',
   expect(extensionManifestSchema.parse(input).permissions.references).toBe(true)
   for (const apiVersion of [1, 2, 3])
     expect(extensionManifestSchema.safeParse({ ...input, apiVersion }).success).toBe(false)
+})
+
+it('scopes reference RPC to the independent references permission and validates tool effects', () => {
+  const disabled = extensionPermissionsSchema.parse({ agent: true, tasks: 'read', taskMessages: true })
+  const enabled = extensionPermissionsSchema.parse({ agent: true, references: true })
+  for (const name of ['references.list', 'references.resolve'] as const) {
+    expect(extensionAgentCapabilities[name].permitted(disabled)).toBe(false)
+    expect(extensionAgentCapabilities[name].permitted(enabled)).toBe(true)
+  }
+  const resolve = extensionAgentCapabilities['references.resolve'].input
+  expect(resolve.safeParse({ referenceId: randomUUID() }).success).toBe(true)
+  expect(resolve.safeParse({ referenceId: randomUUID(), taskId: 'another-task' }).success).toBe(false)
+  expect(resolve.safeParse({ referenceId: '1' }).success).toBe(false)
+  const tool = { id: 'tests.office.edit', title: 'Edit', description: 'Edit a referenced selection', parameters: { type: 'object', properties: {} } }
+  expect(extensionToolSchema.parse(tool).access).toBeUndefined()
+  expect(extensionToolSchema.parse({ ...tool, access: 'write' }).access).toBe('write')
+  expect(extensionToolSchema.safeParse({ ...tool, access: 'execute' }).success).toBe(false)
+})
+
+it('accepts bounded long Unicode references without increasing ordinary plugin message budgets', () => {
+  const input = { ...content, text: '字'.repeat(BUDDY_QUOTE_TEXT_LIMIT) }
+  expect(parseExtensionRequestParams('references.add', input)).toEqual(input)
+  expect(() => parseExtensionRequestParams('view.message', { text: input.text })).toThrow()
+  expect(() => parseExtensionRequestParams('references.add', { ...input, text: `${input.text}字` })).toThrow()
+  expect(() => parseExtensionRequestParams('references.add', { ...input, locator: { version: 1, data: { text: '字'.repeat(9000) } } })).toThrow()
 })

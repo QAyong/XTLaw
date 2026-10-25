@@ -14,11 +14,10 @@ const quote: BuddyFileQuote = {
 }
 
 describe('resource excerpt snapshots', () => {
-  it('round-trips without attachments or comment fields and accepts legacy messages', () => {
+  it('round-trips resource snapshots without attachments and rejects unsolicited fields', () => {
     const content = { userContent: { ...createBuddyUserContent(), resourceQuotes: [quote, artifactQuote, browserQuote] }, resourceSnapshots: [] }
     expect(buddyUserMessageContentV1Schema.parse(JSON.parse(JSON.stringify(content)))).toEqual(content)
     expect(hasBuddyUserContent(content.userContent)).toBe(true)
-    expect(buddyUserContentV1Schema.parse(createBuddyUserContent('legacy'))).toEqual(createBuddyUserContent('legacy'))
     expect(buddyResourceQuoteSchema.safeParse({ ...quote, comment: 'new comment' }).success).toBe(false)
   })
 
@@ -38,7 +37,9 @@ describe('resource excerpt snapshots', () => {
       ...(range ? { range } : {}),
     }
     const { locator: _, ...browserElement } = browserQuote.element
-    expect(excerpts).toEqual([expected, expected, {
+    expect(excerpts).toEqual([{ ...expected, referenceId: file.id, kind: 'resource' }, { ...expected, referenceId: artifact.id, kind: 'resource' }, {
+      referenceId: browserQuote.id,
+      kind: 'resource',
       source: { title: browserQuote.source.title, url: browserQuote.source.url },
       text: browserQuote.text,
       contentKind: browserQuote.contentKind,
@@ -192,6 +193,6 @@ describe('input material identity and quote placements', () => {
     const projected = projectBuddyUserContent(first.content, () => {
       throw new Error('Quote sources must not be read')
     }, () => '')
-    expect(JSON.parse(projected.prompt.split('\n')[1]!)[0]).toEqual({ source: { title: '预算.xlsx', path: '预算.xlsx', format: 'xlsx', cells: { sheet: '汇总', range: 'A1:B2' } }, text })
+    expect(JSON.parse(projected.prompt.split('\n')[1]!)[0]).toEqual({ kind: 'resource', referenceId: 'xlsx-0-A1_B2', source: { title: '预算.xlsx', path: '预算.xlsx', format: 'xlsx', cells: { sheet: '汇总', range: 'A1:B2' } }, text })
   })
 })

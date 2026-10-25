@@ -47,7 +47,7 @@
 
 ## 基线
 
-`docs/upstream-baseline.json` 的 `lastChecked` 推进到 `f0a5ed59a2ad8b9786cc50c089d4267abfd933ca`（`upstream/master` 当前最新）。**基线的含义是“这个提交及之前的上游提交都已决定移植、跳过或列入待办”，不等于都已移植**：`ed2d37c0f` 尚未移植，记在上面“评估后待下一轮”，下一轮从它开始，不能因为基线已经越过它而漏掉。
+`docs/upstream-baseline.json` 的 `lastChecked` 推进到 `f0a5ed59a2ad8b9786cc50c089d4267abfd933ca`（`upstream/master` 当前最新）。**基线的含义是“这个提交及之前的上游提交都已决定移植、跳过或列入待办”，不等于都已移植**：`ed2d37c0f` 尚未移植，记在上面“评估后待下一轮”（后来在[第二轮](upstream-20261025-2-integration.md)移植），不能因为基线已经越过它而漏掉。
 
 ## 检查
 

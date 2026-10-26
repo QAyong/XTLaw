@@ -8,12 +8,14 @@ import { extensionLabels } from '../extensionLabels'
 
 const props = defineProps<{ manifest: ExtensionMetadata, iconUrl?: string, repository?: string, language: string, kind?: ExtensionCatalogKind, source?: ExtensionCatalogSource }>()
 const labels = computed(() => extensionLabels(props.language))
+// Official is what nearly everything here is, so only a third-party source earns a badge; two tags are enough to tell cards apart.
+const tags = computed(() => props.manifest.tags.slice(0, 2))
 </script>
 
 <template>
-  <article class="flex min-w-0 flex-col gap-[10px] border border-solid border-border rounded-micro bg-surface p-[18px]">
+  <article class="flex min-w-0 flex-col gap-[10px] border border-solid border-border rounded-micro bg-surface p-[18px] transition-colors hover:border-accent-border">
     <header class="flex min-w-0 items-center gap-[10px]">
-      <DesktopPluginIcon :src="iconUrl" :size="28" />
+      <DesktopPluginIcon :src="iconUrl" :size="32" />
       <h2 class="m-0 min-w-0 flex-1 text-strong text-[14px] font-600 leading-[1.5] [overflow-wrap:anywhere]">
         {{ manifest.name }}
       </h2>
@@ -42,14 +44,14 @@ const labels = computed(() => extensionLabels(props.language))
     <NEllipsis v-if="manifest.description" :tooltip="false" :line-clamp="2" class="text-muted text-[13px] leading-[1.7]">
       {{ manifest.description }}
     </NEllipsis>
-    <div v-if="kind || source || manifest.tags.length" class="flex flex-wrap gap-[6px]">
+    <div v-if="kind || source === 'listed' || tags.length" class="flex flex-wrap gap-[6px]">
       <NTag v-if="kind" size="small" :bordered="false" data-testid="catalog-kind">
         {{ labels.kinds[kind] }}
       </NTag>
-      <NTag v-if="source" size="small" :bordered="false" :type="source === 'listed' ? 'warning' : 'success'" data-testid="catalog-source">
+      <NTag v-if="source === 'listed'" size="small" :bordered="false" type="warning" data-testid="catalog-source">
         {{ labels.sources[source] }}
       </NTag>
-      <NTag v-for="tag in manifest.tags" :key="tag" size="small" :bordered="false">
+      <NTag v-for="tag in tags" :key="tag" size="small" :bordered="false">
         {{ tag }}
       </NTag>
     </div>

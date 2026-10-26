@@ -38,6 +38,15 @@ describe('manifest capabilities', () => {
     expect(extensionManifestSchema.safeParse(manifest({ subagents: [{ ...subagent, tools: { mode: 'selected', ids: [JSON.stringify(['builtin', 'core', 'read'])] } }] })).success).toBe(true)
   })
 
+  it('lets a sub-agent select a built-in connector, by tool or as a whole, but not an undeclared one', () => {
+    const select = (...ids: string[]) => manifest({ subagents: [{ ...subagent, tools: { mode: 'selected', ids } }] })
+    expect(extensionManifestSchema.safeParse(select(JSON.stringify(['mcp', 'pkulaw', 'search_case']))).success).toBe(true)
+    expect(extensionManifestSchema.safeParse(select(JSON.stringify(['mcp', 'pkulaw', '*']))).success).toBe(true)
+    expect(extensionManifestSchema.safeParse(select(JSON.stringify(['mcp', 'elsewhere', '*']))).success).toBe(false)
+    const wildcard = extensionManifestSchema.parse(select(JSON.stringify(['builtin', 'core', 'read']), JSON.stringify(['mcp', 'pkulaw', '*']))).contributes.subagents[0]!
+    expect(subagentConnectorReferences(wildcard)).toEqual(['pkulaw'])
+  })
+
   it.each([
     ['an actor sub-agent', { subagents: [{ ...subagent, kind: 'actor', tools: { mode: 'none' } }] }],
     ['a plain HTTP address', { mcpConnectors: [{ ...connector, url: 'http://legal.example.com/mcp' }] }],

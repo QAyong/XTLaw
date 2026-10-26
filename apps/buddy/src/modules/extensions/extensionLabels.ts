@@ -1,4 +1,5 @@
 import type { ExtensionCatalogKind, ExtensionCatalogSource } from '@buddy-shared/extensions/extensionCatalog'
+import type { PackMemberState } from '@buddy-shared/extensions/extensionPacks'
 
 const zh = {
   title: '市场',
@@ -82,7 +83,11 @@ const zh = {
   reviewAgentDelegate: '安装后自动加入“晓晓”的可委派列表；卸载时一并移除。',
   reviewAgentTools: { all: '可使用全部工具', none: '不使用工具', selected: '仅限 {n} 个指定工具' },
   reviewAgentFiles: { inherit: '文件权限与当前任务一致', read_only: '只能读取文件，不能修改' },
-  reviewAgentConnectors: '使用的 MCP（随本包一起安装）：',
+  reviewAgentToolsConnector: '{name} 的全部工具',
+  reviewAgentConnectors: '使用的 MCP：',
+  reviewAgentConnectorBundled: '{name}（随本包一起安装）',
+  reviewAgentConnectorBuiltin: '{name}（内置）',
+  builtinConnectors: { pkulaw: '北大法宝' } as Record<string, string>,
   keptTitle: '你修改过的内容会保留，不会被删除：',
   setupNeeded: '待配置',
   setupConfigure: '去配置',
@@ -96,6 +101,20 @@ const zh = {
   capabilitiesMcp: 'MCP 连接',
   capabilitiesAgents: '子代理',
   installedKindFilter: '按形态筛选',
+  packInstall: '安装全部',
+  packInstallRemaining: '安装剩余 {n} 项',
+  packInstalled: '已安装',
+  packRemaining: '还差 {n} 项',
+  packUnavailable: '暂不可安装',
+  packDetails: '查看组成',
+  packMembers: '包含的内容',
+  packMemberStates: { builtin: '内置', installed: '已安装', installable: '未安装', incompatible: '与当前版本不兼容', missing: '市场里已找不到' } satisfies Record<PackMemberState, string>,
+  packReviewHint: '每一项会依次弹出审核页，逐个确认；中途取消会停在当前这一项，已装好的保留。',
+  packUnavailableHint: '有成员暂时无法安装，为避免只装一半，整包不可安装。',
+  packUninstallHint: '能力包没有单独的卸载，请到“已安装”里逐个卸载。',
+  packShelf: '能力包',
+  packShelfHint: '按场景配好的一组内容，缺哪项装哪项。',
+  allItems: '全部内容',
 }
 const en: typeof zh = {
   title: 'Market',
@@ -179,7 +198,11 @@ const en: typeof zh = {
   reviewAgentDelegate: 'Added to Xiaoxiao’s delegation list on install and removed again on uninstall.',
   reviewAgentTools: { all: 'May use every tool', none: 'Uses no tools', selected: 'Limited to {n} selected tools' },
   reviewAgentFiles: { inherit: 'File access follows the current task', read_only: 'Can read files but not change them' },
-  reviewAgentConnectors: 'MCP connections it uses (installed with this package):',
+  reviewAgentToolsConnector: 'Every tool of {name}',
+  reviewAgentConnectors: 'MCP connections it uses: ',
+  reviewAgentConnectorBundled: '{name} (installed with this package)',
+  reviewAgentConnectorBuiltin: '{name} (built in)',
+  builtinConnectors: { pkulaw: 'PKULaw' } as Record<string, string>,
   keptTitle: 'Content you changed is kept and will not be deleted:',
   setupNeeded: 'To configure',
   setupConfigure: 'Configure',
@@ -193,6 +216,20 @@ const en: typeof zh = {
   capabilitiesMcp: 'MCP connections',
   capabilitiesAgents: 'Sub-agents',
   installedKindFilter: 'Filter by type',
+  packInstall: 'Install all',
+  packInstallRemaining: 'Install the remaining {n}',
+  packInstalled: 'Installed',
+  packRemaining: '{n} left to install',
+  packUnavailable: 'Not available',
+  packDetails: 'See what is inside',
+  packMembers: 'Included',
+  packMemberStates: { builtin: 'Built in', installed: 'Installed', installable: 'Not installed', incompatible: 'Not compatible with this version', missing: 'No longer in the market' },
+  packReviewHint: 'Each item opens its own review in turn and you confirm them one by one. Cancelling stops at the current item and keeps what is already installed.',
+  packUnavailableHint: 'A member cannot be installed right now, so the pack is refused as a whole rather than half installed.',
+  packUninstallHint: 'A pack has no uninstall of its own. Remove its items one by one under Installed.',
+  packShelf: 'Packs',
+  packShelfHint: 'Sets arranged by scenario. Only what is missing gets installed.',
+  allItems: 'All items',
 }
 export function extensionLabels(language: string) {
   return language === 'en-US' ? en : zh

@@ -2,7 +2,7 @@ import { readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { strToU8, zipSync } from 'fflate'
 import { afterEach, expect, it } from 'vitest'
-import { EXTENSION_CATALOG_URL } from '../../../shared/extensions/extensionCatalog'
+import { EXTENSION_CATALOG_URL, EXTENSION_PACKS_URL } from '../../../shared/extensions/extensionCatalog'
 import { EXTENSION_API_VERSION } from '../../../shared/extensions/extensionManifest'
 import { ExtensionCatalogService } from '../ExtensionCatalogService'
 import { sha256 } from '../extensionFiles'
@@ -120,4 +120,29 @@ it('rejects direct catalog downloads of the water reminder without making networ
   const { service, value, requests } = await fixture()
   await expect(service.download('lexora.water-reminder', value.version, new AbortController().signal)).rejects.toThrow('EXTENSION_CATALOG_ENTRY_UNAVAILABLE')
   expect(requests()).toBe(0)
+})
+
+it('reads packs from their own file and keeps the saved ones when the file cannot be read', async () => {
+  const { root, store } = await createStore()
+  const packs = { schemaVersion: 1, packs: [{ id: 'office', name: 'Office', includes: ['tests.docx'] }, { broken: true }, { id: 'office', name: 'Duplicate', includes: ['tests.docx'] }] }
+  let status = 200
+  const service = new ExtensionCatalogService(store.root, store.appVersion, async (url) => {
+    if (url === EXTENSION_CATALOG_URL)
+      return Response.json({ schemaVersion: 1, plugins: [] })
+    if (url === EXTENSION_PACKS_URL)
+      return status === 200 ? Response.json(packs) : new Response('missing', { status })
+    throw new Error('Unexpected request')
+  })
+  cleanup.push(async () => {
+    service.dispose()
+    await rm(root, { recursive: true, force: true })
+  })
+  expect(await service.list()).toMatchObject({ error: null, packs: [{ id: 'office', name: 'Office', source: 'official', includes: ['tests.docx'] }] })
+  status = 404
+  expect(await service.list(true)).toMatchObject({ stale: false, error: null, packs: [{ id: 'office' }] })
+  const restarted = new ExtensionCatalogService(store.root, store.appVersion, async () => {
+    throw new Error('Offline')
+  })
+  cleanup.push(async () => restarted.dispose())
+  expect((await restarted.list()).packs.map(pack => pack.id)).toEqual(['office'])
 })

@@ -180,9 +180,9 @@ export const extensionManifestSchema = extensionMetadataSchema.extend({
     issue('MCP connector and sub-agent IDs must be unique')
   if (mcpConnectors.some(connector => (BUILTIN_CAPABILITY_IDS.mcp as readonly string[]).includes(connector.id)) || subagents.some(subagent => (BUILTIN_CAPABILITY_IDS.agent as readonly string[]).includes(subagent.id)))
     issue('MCP connector and sub-agent IDs must not reuse built-in ones')
-  // A sub-agent may only select tools of MCP connectors that travel with the same package, so the selection never points at a missing tool.
-  if (subagents.some(subagent => subagentConnectorReferences(subagent).some(id => !mcpConnectors.some(connector => connector.id === id))))
-    issue('Sub-agent tools may only reference MCP connectors declared by the same extension')
+  // A sub-agent may only select tools of MCP connectors that travel with the same package or ship with the application, so the selection never points at a connector nobody provides.
+  if (subagents.some(subagent => subagentConnectorReferences(subagent).some(id => !mcpConnectors.some(connector => connector.id === id) && !(BUILTIN_CAPABILITY_IDS.mcp as readonly string[]).includes(id))))
+    issue('Sub-agent tools may only reference MCP connectors declared by the same extension or built into the application')
   if (skillRoots.some((root, index) => skillRoots.some((other, otherIndex) => index !== otherIndex && root.startsWith(other))))
     issue('Skill directories must be distinct and must not contain one another')
   if ([manifest.entry, ...manifest.contributes.views.map(view => view.entry)].some(entry => entry && skillRoots.some(root => entry.startsWith(root))))

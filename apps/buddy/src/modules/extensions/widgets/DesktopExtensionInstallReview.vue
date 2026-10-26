@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { ExtensionReview } from '@buddy-shared/extensions/extensionApi'
 import type { FileOpeningChoice, FileOpeningReviewChoice } from '@buddy-shared/files/fileOpening'
-import { subagentConnectorReferences } from '@buddy-shared/extensions/extensionCapabilities'
+import { connectorOfToolsId } from '@buddy-shared/buddies/buddyToolSelection'
+import { BUILTIN_CAPABILITY_IDS, subagentConnectorReferences } from '@buddy-shared/extensions/extensionCapabilities'
 import { extensionCommandNamespace } from '@buddy-shared/extensions/extensionCommands'
 import { extensionIsBundled } from '@buddy-shared/extensions/extensionTrust'
 import { Alert20Regular, Clock20Regular, Document20Regular, Globe20Regular } from '@vicons/fluent'
@@ -23,12 +24,26 @@ const skills = computed(() => props.review.manifest.contributes.skills.map(skill
   invocation: `$${extensionCommandNamespace(props.review.manifest.id)}:${skill.path.split('/').at(-2)}`,
 })))
 const connectors = computed(() => props.review.manifest.contributes.mcpConnectors)
-// Every sub-agent names the connectors its tool selection reaches, which the manifest guarantees travel with the same package.
+// Every connector a sub-agent's tools reach travels with the package or ships with the application, as the manifest guarantees.
+const connectorName = (id: string) => connectors.value.find(connector => connector.id === id)?.name ?? labels.value.builtinConnectors[id] ?? id
+function agentTools(selection: { mode: 'all' | 'none' } | { mode: 'selected', ids: string[] }) {
+  if (selection.mode !== 'selected')
+    return labels.value.reviewAgentTools[selection.mode]
+  const whole = selection.ids.flatMap(id => connectorOfToolsId(id) ?? [])
+  const single = selection.ids.length - whole.length
+  return [
+    ...(single ? [labels.value.reviewAgentTools.selected.replace('{n}', String(single))] : []),
+    ...whole.map(id => labels.value.reviewAgentToolsConnector.replace('{name}', connectorName(id))),
+  ].join('；')
+}
 const subagents = computed(() => props.review.manifest.contributes.subagents.map(agent => ({
   ...agent,
-  tools: agent.tools.mode === 'selected' ? labels.value.reviewAgentTools.selected.replace('{n}', String(agent.tools.ids.length)) : labels.value.reviewAgentTools[agent.tools.mode],
+  tools: agentTools(agent.tools),
   files: labels.value.reviewAgentFiles[agent.fileAccess],
-  connectors: subagentConnectorReferences(agent).map(id => connectors.value.find(connector => connector.id === id)?.name ?? id),
+  connectors: subagentConnectorReferences(agent).map((id) => {
+    const builtin = !connectors.value.some(connector => connector.id === id) && (BUILTIN_CAPABILITY_IDS.mcp as readonly string[]).includes(id)
+    return (builtin ? labels.value.reviewAgentConnectorBuiltin : labels.value.reviewAgentConnectorBundled).replace('{name}', connectorName(id))
+  }),
 })))
 const selectedAssociations = shallowRef(initialAssociations())
 function initialAssociations(): FileOpeningChoice[] {

@@ -11,6 +11,7 @@ import type { ExecutionCoordinator } from './ExecutionCoordinator'
 import { createHash, randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { currentPlatform } from '../../../../platform/currentPlatform'
+import { toolSelectionMatcher } from '../../../../shared/buddies/buddyToolSelection'
 import { MAX_BUDDY_MESSAGE_TEXT_LENGTH } from '../../../../shared/conversation/buddyMessageContent'
 import { resolveShellExecution } from '../../sandbox/shellExecution'
 import { ExecutionAdmissionError, executionFence, hashChildAdmissionRequest } from '../../storage/executionRepository'
@@ -201,7 +202,7 @@ export class ExecutionDelegationService {
     const describe = (target: (typeof catalog.npcs)[number]) => {
       const buddy = this.#options.buddies.get(target.id)
       const selection = buddy.settings.tools
-      const selected = selection.mode === 'all' ? null : new Set(selection.mode === 'selected' ? selection.ids : [])
+      const selected = selection.mode === 'all' ? null : toolSelectionMatcher(selection.mode === 'selected' ? selection.ids : [])
       const readOnly = permissions.executionProfile === 'read_only' || source.fileAccessCeiling === 'read_only'
         || source.run.actorSnapshot?.settings.limits.fileAccess === 'read_only' || buddy.settings.limits.fileAccess === 'read_only'
       const executionProfile = readOnly ? 'read_only' : permissions.executionProfile
@@ -214,7 +215,7 @@ export class ExecutionDelegationService {
         ...target,
         revision: buddy.revision,
         tools: tools.map(tool => tool.name),
-        unavailableToolIds: [...selected ?? []].filter(id => !toolOptions.some(tool => tool.id === id)),
+        unavailableToolIds: selected?.missing(toolOptions.map(tool => tool.id)) ?? [],
         executionProfile,
         shell: unifiedShell || tools.some(tool => tool.name === shell.dialect) ? { tool: unifiedShell ? 'lexora_shell' : shell.dialect, boundary: shell.boundary, readOnly: shell.readOnly } : null,
       }

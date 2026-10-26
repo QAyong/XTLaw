@@ -209,8 +209,26 @@ it('groups MCP connections and sub-agents with their source, address and depende
   expect(text('[data-testid="extension-included-agents"]')).toContain('Law finder')
   expect(text('[data-testid="extension-included-agents"]')).toContain('Limited to 1 selected tools')
   expect(text('[data-testid="extension-included-agents"]')).toContain('Can read files but not change them')
-  expect(text('[data-testid="extension-included-agents"]')).toContain('Legal search')
+  expect(text('[data-testid="extension-included-agents"]')).toContain('Legal search (installed with this package)')
   expect(text('[data-testid="extension-included-agents"]')).toContain('Xiaoxiao’s delegation list')
+})
+
+it('says a sub-agent uses every tool of a built-in connector, and that the connector is built in', async () => {
+  await mount({
+    ...review,
+    fileAssociations: [],
+    source: { catalog: 'https://example.com/catalog.json', artifact: 'https://example.com/legal.lexora-extension', sha256: 'a'.repeat(64) },
+    listing: { kind: 'agent', source: 'official' },
+    manifest: extensionManifestSchema.parse({
+      ...review.manifest,
+      id: 'tests.legal-agent',
+      apiVersion: 4,
+      contributes: { subagents: [{ id: 'law-finder', kind: 'npc', name: 'Law finder', instructions: 'Search statutes first.', tools: { mode: 'selected', ids: [JSON.stringify(['builtin', 'core', 'read']), JSON.stringify(['mcp', 'pkulaw', '*'])] }, fileAccess: 'inherit' }] },
+    }),
+  })
+  const agents = document.querySelector('[data-testid="extension-included-agents"]')?.textContent ?? ''
+  expect(agents).toContain('Limited to 1 selected tools；Every tool of PKULaw')
+  expect(agents).toContain('PKULaw (built in)')
 })
 
 it('names the group a local package adds only when it adds one', async () => {

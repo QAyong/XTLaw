@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { LocalBuddy } from '@buddy-shared/buddies/buddyApi'
 import type { BuddySettings } from '@buddy-shared/buddies/buddySettings'
+import { connectorOfToolsId, toolSelectionMatcher } from '@buddy-shared/buddies/buddyToolSelection'
 import { NAlert, NButton, NSelect } from 'naive-ui'
 import { computed, shallowRef, useId } from 'vue'
 import { useDesktopUi } from '@/shared/ui/desktopUiContext'
@@ -31,21 +32,17 @@ const fileAccessOptions = computed(() => [
   { value: 'read_only', label: labels.value.readOnlyAccess },
 ])
 
-const toolGroupNames = computed(() => {
-  const groups = new Set<string>()
-  for (const tool of toolCatalog.value) {
-    if (settings.value.tools.mode === 'selected' && settings.value.tools.ids.includes(tool.id))
-      groups.add(tool.source.title || tool.source.id)
-  }
-  return [...groups]
-})
+// A role can select a whole connector in one id (market sub-agents do), so what is selected is read through the matcher, not by listing ids.
+const toolMatcher = computed(() => settings.value.tools.mode === 'selected' ? toolSelectionMatcher(settings.value.tools.ids) : null)
+const selectedTools = computed(() => toolCatalog.value.filter(tool => toolMatcher.value?.has(tool.id)))
+const toolGroupNames = computed(() => [...new Set(selectedTools.value.map(tool => tool.source.title || tool.source.id))])
 
 const toolSummary = computed(() => {
   if (settings.value.tools.mode === 'all')
     return labels.value.allToolsHint
   if (settings.value.tools.mode === 'none')
     return labels.value.noToolsHint
-  const count = settings.value.tools.ids.length
+  const count = toolCatalog.value.length ? selectedTools.value.length : settings.value.tools.ids.length
   return count > 0
     ? labels.value.toolsCount(count, toolGroupNames.value.length)
     : labels.value.selectTools
@@ -59,9 +56,7 @@ function findSkillName(id: string): string {
 const toolTags = computed(() => {
   if (settings.value.tools.mode !== 'selected')
     return []
-  return toolCatalog.value
-    .filter(t => settings.value.tools.mode === 'selected' && settings.value.tools.ids.includes(t.id))
-    .map(t => t.name)
+  return selectedTools.value.map(t => t.name)
 })
 
 function updateToolMode(mode: 'all' | 'selected' | 'none') {
@@ -75,6 +70,11 @@ function updateToolMode(mode: 'all' | 'selected' | 'none') {
     settings.value.tools = { mode }
   }
 }
+
+// The dialog lists single tools, so a connector-wide id is shown as the tools it covers; saving writes them out one by one.
+const dialogSelectedIds = computed(() => settings.value.tools.mode === 'selected'
+  ? [...new Set([...settings.value.tools.ids.filter(id => connectorOfToolsId(id) === null), ...selectedTools.value.map(tool => tool.id)])]
+  : [])
 
 function onSaveTools(ids: string[]) {
   if (!ids.length)
@@ -218,7 +218,7 @@ function onSaveSkills(selectedIds: string[], requiredIds: string[]) {
     <BuddyToolSelectionDialog
       v-model:show="showToolDialog"
       :tool-catalog="toolCatalog"
-      :selected-ids="settings.tools.mode === 'selected' ? settings.tools.ids : []"
+      :selected-ids="dialogSelectedIds"
       :disabled="disabled"
       @save="onSaveTools"
     />

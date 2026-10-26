@@ -3,6 +3,7 @@ import type { BuddyExtensionRunContext } from '../../extensions/BuddyExtensionRu
 import process from 'node:process'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { buddySettingsSchema } from '../../../../../shared/buddies/buddySettings'
+import { connectorToolsId } from '../../../../../shared/buddies/buddyToolSelection'
 import { BuddyDefinitionResolver } from '../../../buddies/BuddyDefinitionResolver'
 import { createExecutionStorageFixture } from '../../../storage/__tests__/executionFixture'
 import { createConversationMemberRepository } from '../../../storage/conversationMemberRepository'
@@ -140,6 +141,14 @@ describe('execution delegation boundary', () => {
       executionProfile: 'read_only',
       shell: process.platform === 'darwin' ? null : { tool: shell, boundary: 'sandbox', readOnly: true },
     }] })
+  })
+
+  it('lists a connector-wide selection as available even when that connector has no tools right now', async () => {
+    const f = fixture()
+    const npc = f.buddies.get(f.npc.id)
+    f.buddies.update({ buddyId: npc.id, expectedRevision: npc.revision, settings: { ...buddySettingsSchema.parse(npc.settings), tools: { mode: 'selected', ids: [JSON.stringify(['builtin', 'core', 'read']), connectorToolsId('pkulaw')] } } })
+    const catalog = await f.service.execute(f.caller, 'catalog', { operation: 'list' }, f.controller.signal)
+    expect(catalog).toMatchObject({ npcs: [{ id: npc.id, tools: ['read'], unavailableToolIds: [] }] })
   })
 
   it('rejects unbound targets, NPC spawning, and unrelated execution inspection', async () => {

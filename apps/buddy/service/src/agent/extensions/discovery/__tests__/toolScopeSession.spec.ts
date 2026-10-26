@@ -11,6 +11,7 @@ import { createAssistantMessageEventStream, getCurrentSystemPrompt, getCurrentTo
 import { defineTool, ModelRuntime } from '@earendil-works/pi-coding-agent'
 import { Type } from 'typebox'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { connectorToolsId } from '../../../../../../shared/buddies/buddyToolSelection'
 import { MutationCoordinator } from '../../../../changes/MutationCoordinator'
 import { ShellSelection } from '../../../../sandbox/ShellSelection'
 import { createIsolatedBuddySession } from '../../../sessions/__tests__/isolatedBuddySession'
@@ -133,6 +134,16 @@ describe('role tool scope in real Pi sessions', () => {
     expect(await readFile(f.document, 'utf8')).toBe('original document')
   })
 
+  it('lets one connector-wide ID cover all of that connector\'s tools without enabling writes or other connectors', async () => {
+    const f = await fixture({ tools: { mode: 'selected', ids: [stableId('builtin', 'core', 'read'), connectorToolsId('scope-connector')] } })
+    await f.turn({ name: 'codemode', arguments: { code: `await searchTools("scope"); text({ allowed: ${JSON.stringify(allowedMcp)} in tools, sibling: ${JSON.stringify(deniedMcp)} in tools, plugin: ${JSON.stringify(pluginTool)} in tools, write: "write" in tools });` } })
+    expect(f.lastResult()).toContain('"allowed":true')
+    expect(f.lastResult()).toContain('"sibling":true')
+    expect(f.lastResult()).toContain('"plugin":false')
+    expect(f.lastResult()).toContain('"write":false')
+    expect(await readFile(f.document, 'utf8')).toBe('original document')
+  })
+
   it('cannot restore removed tools through old discovery state or system tool declarations', async () => {
     const first = await fixture()
     await first.turn(scriptCall('lexora_tool_search', { toolNames: [deniedMcp, pluginTool] }))
@@ -175,6 +186,13 @@ describe('role tool scope in real Pi sessions', () => {
   it('rejects a missing selected capability during composition instead of falling back to all', async () => {
     const missing = stableId('mcp', 'removed-connector', 'missing-tool')
     await expect(fixture({ tools: { mode: 'selected', ids: [missing] } })).rejects.toMatchObject({ code: 'BUDDY_CAPABILITY_UNAVAILABLE', toolIds: [missing] })
+  })
+
+  it('composes when a connector-wide ID names a connector that is switched off, leaving only the other tools', async () => {
+    const f = await fixture({ tools: { mode: 'selected', ids: [stableId('builtin', 'core', 'read'), connectorToolsId('removed-connector')] } })
+    await f.turn({ name: 'codemode', arguments: { code: `await searchTools("scope"); text(await tools.read({ path: "document.txt" })); text({ external: ${JSON.stringify(allowedMcp)} in tools });` } })
+    expect(f.lastResult()).toContain('original document')
+    expect(f.lastResult()).toContain('"external":false')
   })
 })
 

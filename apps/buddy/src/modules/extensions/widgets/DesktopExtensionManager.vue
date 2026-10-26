@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ExtensionReview, ExtensionReviewResult, ExtensionStatus } from '@buddy-shared/extensions/extensionApi'
 import type { ExtensionCapabilityImpact, InstalledExtensionKind } from '@buddy-shared/extensions/extensionCapabilities'
+import type { ExtensionCatalogListing } from '@buddy-shared/extensions/extensionCatalog'
 import type { ExtensionIncompatibleReview } from '@buddy-shared/extensions/extensionCompatibility'
 import type { FileOpeningChoice } from '@buddy-shared/files/fileOpening'
 import { installedExtensionKinds } from '@buddy-shared/extensions/extensionCapabilities'
@@ -44,6 +45,8 @@ const addOptions = computed(() => [
 const addMenuOpen = shallowRef(false)
 const busy = shallowRef(false)
 const review = shallowRef<ExtensionReview | null>(null)
+// A pack installs its missing members one after another, each through the same review as a single item. The queue holds the ones still to go.
+const packQueue = shallowRef<ExtensionCatalogListing[]>([])
 const incompatibleReview = shallowRef<ExtensionIncompatibleReview | null>(null)
 const diagnostics = shallowRef<string | null>(null)
 const installationLog = shallowRef(false)
@@ -115,15 +118,41 @@ function cancel() {
   if (current)
     void state.api.cancelInstall(current.token).catch(() => {})
 }
+function reviewEntry(entry: ExtensionCatalogListing) {
+  return run(async () => {
+    acceptReview(await state.api.reviewCatalog(entry.manifest.id, entry.manifest.version))
+  })
+}
+// Stops the queue when a review could not be opened, so a failed member never leaves the rest to pop up unasked.
+async function reviewNextInPack() {
+  const [next, ...rest] = packQueue.value
+  packQueue.value = rest
+  if (next && (!await reviewEntry(next) || !review.value))
+    packQueue.value = []
+}
+async function installPack(entries: ExtensionCatalogListing[]) {
+  packQueue.value = entries
+  await reviewNextInPack()
+}
+function cancelReview() {
+  packQueue.value = []
+  cancel()
+}
 function install(applyUpdate: boolean, choices: FileOpeningChoice[]) {
   const current = review.value
   if (current) {
     void run(async () => {
       review.value = null
       await state.install(current, applyUpdate, choices)
-      section.value = 'installed'
+      if (!packQueue.value.length)
+        section.value = 'installed'
       if (current.currentVersion)
         message.success(applyUpdate ? labels.value.updateApplied : labels.value.updateDeferred)
+    }).then(async (ok) => {
+      if (ok)
+        await reviewNextInPack()
+      else
+        packQueue.value = []
     })
   }
 }
@@ -182,7 +211,7 @@ onScopeDispose(cancel)
         {{ language === 'en-US' ? 'View progress' : '查看进度' }}
       </NButton>
     </NAlert>
-    <DesktopExtensionCatalog v-if="section === 'marketplace'" :busy="busy" @configure="router.push(desktopRouteLocations.mcp())" @install="entry => run(async () => { acceptReview(await state.api.reviewCatalog(entry.manifest.id, entry.manifest.version)) })" @apply-update="applyUpdate" />
+    <DesktopExtensionCatalog v-if="section === 'marketplace'" :busy="busy" @configure="router.push(desktopRouteLocations.mcp())" @install="reviewEntry" @install-pack="installPack" @apply-update="applyUpdate" />
     <NEmpty v-else-if="!installed.length && !unavailable.length && !state.error.value" class="extension-manager__empty">
       <template #default>
         <strong>{{ labels.empty }}</strong>
@@ -222,7 +251,7 @@ onScopeDispose(cancel)
   <NModal v-model:show="installationLog" preset="card" :title="language === 'en-US' ? 'Installation log' : '安装记录'" class="extension-dialog">
     <DesktopExtensionInstallations :jobs="state.installations.value" :language="language" @cancel="id => state.api.cancelInstallation(id).then(state.refresh)" />
   </NModal>
-  <DesktopExtensionInstallReview v-if="review" :key="review.token" :review="review" :language="language" :busy="busy" @cancel="cancel" @install="install" />
+  <DesktopExtensionInstallReview v-if="review" :key="review.token" :review="review" :language="language" :busy="busy" @cancel="cancelReview" @install="install" />
   <DesktopExtensionIncompatibleReview v-if="incompatibleReview" :review="incompatibleReview" :language="language" @close="incompatibleReview = null" />
   <DesktopExtensionUninstallDialog v-if="removing" :name="removing.manifest.name" :kept="kept" :language="language" :busy="busy" @cancel="removing = null" @remove="remove" />
   <NModal :show="!!selected" preset="card" :title="labels.diagnostics" class="extension-dialog" @update:show="value => { if (!value) diagnostics = null }">

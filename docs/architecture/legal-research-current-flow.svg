@@ -1,0 +1,588 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="5580" height="7430" viewBox="0 0 5580 7430"><title>法律检索 Skill 当前详细流程</title><desc>依据入口及七份配套文件整理，共九个分区。</desc><defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L8,4.5 L0,9" fill="none" stroke="#64748b" stroke-width="1.2"/></marker></defs><rect width="100%" height="100%" fill="white"/><g font-family="'Microsoft YaHei','Noto Sans CJK SC',Arial,sans-serif"><text x="70" y="102" fill="#0f172a" font-size="54" text-anchor="start"><tspan x="70" dy="0">法律检索 Skill｜当前详细流程</tspan></text>
+<text x="70" y="157" fill="#475569" font-size="27" text-anchor="start"><tspan x="70" dy="0">规则快照：2026-10-23 · 三类检索 + 共用模块 · 仓库与当前安装版 8 份文件 SHA256 全部一致</tspan></text>
+<text x="70" y="204" fill="#475569" font-size="25" text-anchor="start"><tspan x="70" dy="0">阅读：先看 01 分流，再看 02 / 04 / 05；法条走 03，委派走 06，策略与工具走 07 / 08，终稿看 09。分区之间以编号跳转，避免跨整张图拉线。</tspan></text>
+<rect x="70" y="243" width="310" height="58" rx="12" fill="#e0f2fe" stroke="#155e75" stroke-width="1.5"/>
+<text x="85" y="277" fill="#155e75" font-size="22" text-anchor="start"><tspan x="85" dy="0">入口</tspan></text>
+<rect x="410" y="243" width="310" height="58" rx="12" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="425" y="277" fill="#334155" font-size="22" text-anchor="start"><tspan x="425" dy="0">处理步骤</tspan></text>
+<rect x="750" y="243" width="310" height="58" rx="12" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+<text x="765" y="277" fill="#1d4ed8" font-size="22" text-anchor="start"><tspan x="765" dy="0">判断 / 门槛</tspan></text>
+<rect x="1090" y="243" width="310" height="58" rx="12" fill="#ccfbf1" stroke="#0f766e" stroke-width="1.5"/>
+<text x="1105" y="277" fill="#0f766e" font-size="22" text-anchor="start"><tspan x="1105" dy="0">工具 / 调用</tspan></text>
+<rect x="1430" y="243" width="310" height="58" rx="12" fill="#dcfce7" stroke="#166534" stroke-width="1.5"/>
+<text x="1445" y="277" fill="#166534" font-size="22" text-anchor="start"><tspan x="1445" dy="0">输出 / 结束</tspan></text>
+<rect x="1770" y="243" width="430" height="58" rx="12" fill="#fef3c7" stroke="#92400e" stroke-width="1.5"/>
+<text x="1785" y="277" fill="#92400e" font-size="22" text-anchor="start"><tspan x="1785" dy="0">例外 / 风险 / 待定</tspan></text>
+<rect x="2230" y="243" width="310" height="58" rx="12" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+<text x="2245" y="277" fill="#64748b" font-size="22" text-anchor="start"><tspan x="2245" dy="0">说明 / 限制</tspan></text>
+<text x="70" y="348" fill="#64748b" font-size="23" text-anchor="start"><tspan x="70" dy="0">说明：蓝色框是判断，不一定画菱形；实线是主流程，虚线是条件直达/备用路径；没有连线的卡片是旁注。当前图描述指令规则，未验证本次工具连接、计费或并发实现。</tspan></text>
+<rect x="70" y="410" width="1780" height="2280" rx="22" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="105" y="467" fill="#0f172a" font-size="31" text-anchor="start"><tspan x="105" dy="0">01  入口与任务分流</tspan></text>
+<text x="105" y="511" fill="#64748b" font-size="19" text-anchor="start"><tspan x="105" dy="0">依据：SKILL.md</tspan></text>
+<polyline points="930,715 930,740" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="930,890 930,903 355,903 355,915" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<rect x="932" y="884.5" width="50" height="24" rx="3" fill="#f8fafc" stroke="none" stroke-width="1.5"/>
+<text x="936" y="902.5" fill="#475569" font-size="16" text-anchor="start"><tspan x="936" dy="0">否</tspan></text>
+<polyline points="930,890 930,915" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<rect x="932" y="890.5" width="50" height="24" rx="3" fill="#f8fafc" stroke="none" stroke-width="1.5"/>
+<text x="936" y="908.5" fill="#475569" font-size="16" text-anchor="start"><tspan x="936" dy="0">是</tspan></text>
+<polyline points="930,1065 930,1090" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="930,1240 930,1253 355,1253 355,1265" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="930,1240 930,1265" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="930,1240 930,1253 1505,1253 1505,1265" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="355,1415 355,1440" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="930,1415 930,1440" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="1505,1415 1505,1440" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="355,1590 355,1615" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="930,1590 930,1615" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="1505,1590 1505,1615" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="930,1765 930,1790" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="930,1940 930,1965" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="930,2115 930,2140" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="930,2290 930,2315" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<rect x="680" y="565" width="500" height="150" rx="28" fill="#e0f2fe" stroke="#155e75" stroke-width="1.5"/>
+<text x="930" y="635" fill="#155e75" font-size="20" text-anchor="middle"><tspan x="930" dy="0">用户提出法律检索需求</tspan><tspan x="930" dy="25">先判断适用范围与任务类型</tspan></text>
+<rect x="680" y="740" width="500" height="150" rx="16" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+<text x="930" y="810" fill="#1d4ed8" font-size="20" text-anchor="middle"><tspan x="930" dy="0">是否属于本 Skill？</tspan><tspan x="930" dy="25">中国大陆法 + 需要法条或案例依据</tspan></text>
+<rect x="105" y="915" width="500" height="150" rx="16" fill="#fef3c7" stroke="#92400e" stroke-width="1.5"/>
+<text x="355" y="972.5" fill="#92400e" font-size="20" text-anchor="middle"><tspan x="355" dy="0">不属于范围</tspan><tspan x="355" dy="25">港澳台/域外法仅给线索；起草/合同另走对应能力</tspan><tspan x="355" dy="25">；尽调用企业工具；纯背景走普通网页</tspan></text>
+<rect x="680" y="915" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="930" y="985" fill="#334155" font-size="20" text-anchor="middle"><tspan x="930" dy="0">属于范围 → 按用户目标分类</tspan><tspan x="930" dy="25">分类本身不构成反问理由</tspan></text>
+<rect x="680" y="1090" width="500" height="150" rx="16" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+<text x="930" y="1160" fill="#1d4ed8" font-size="20" text-anchor="middle"><tspan x="930" dy="0">用户需要什么？</tspan><tspan x="930" dy="25">目标原文 / 法律问题 / 具体案情类案</tspan></text>
+<rect x="105" y="1265" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="355" y="1322.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="355" dy="0">一般检索 → 02</tspan><tspan x="355" dy="25">法名、条号、案号、文号；原文、真伪、效力、引</tspan><tspan x="355" dy="25">用核对；按事项找法律</tspan></text>
+<rect x="680" y="1265" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="930" y="1322.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="930" dy="0">实务检索 → 04</tspan><tspan x="930" dy="25">规则是什么、能不能、怎么办；即使给了案情，只</tspan><tspan x="930" dy="25">问规则也在此类</tspan></text>
+<rect x="1255" y="1265" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="1505" y="1322.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="1505" dy="0">类案检索 → 05</tspan><tspan x="1505" dy="25">给事实经过和争议点，并要求案例、裁判结果、类</tspan><tspan x="1505" dy="25">案或报告</tspan></text>
+<rect x="105" y="1440" width="500" height="150" rx="16" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+<text x="355" y="1497.5" fill="#64748b" font-size="20" text-anchor="middle"><tspan x="355" dy="0">一般检索的边界</tspan><tspan x="355" dy="25">从不反问；除“按事项找法律”外，不扩展检索；</tspan><tspan x="355" dy="25">不下法律适用判断</tspan></text>
+<rect x="680" y="1440" width="500" height="150" rx="16" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+<text x="930" y="1497.5" fill="#64748b" font-size="20" text-anchor="middle"><tspan x="930" dy="0">实务检索的命题门槛</tspan><tspan x="930" dy="25">关键事实或诉求缺失才提问；明确则直接查；案件</tspan><tspan x="930" dy="25">复杂先拆焦点</tspan></text>
+<rect x="1255" y="1440" width="500" height="150" rx="16" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+<text x="1505" y="1497.5" fill="#64748b" font-size="20" text-anchor="middle"><tspan x="1505" dy="0">类案检索的命题门槛</tspan><tspan x="1505" dy="25">无命题/过宽先问；一份报告最多解决1—2个法律问</tspan><tspan x="1505" dy="25">题</tspan></text>
+<rect x="105" y="1615" width="500" height="150" rx="16" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+<text x="355" y="1672.5" fill="#64748b" font-size="20" text-anchor="middle"><tspan x="355" dy="0">一般检索：不委派</tspan><tspan x="355" dy="25">直接查询、核对、输出</tspan><tspan x="355" dy="25">见 02</tspan></text>
+<rect x="680" y="1615" width="500" height="150" rx="16" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+<text x="930" y="1672.5" fill="#64748b" font-size="20" text-anchor="middle"><tspan x="930" dy="0">实务：按门槛委派</tspan><tspan x="930" dy="25">预计 &gt;3案 / &gt;2文 / 第二轮检索</tspan><tspan x="930" dy="25">见 06</tspan></text>
+<rect x="1255" y="1615" width="500" height="150" rx="16" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+<text x="1505" y="1672.5" fill="#64748b" font-size="20" text-anchor="middle"><tspan x="1505" dy="0">类案：一律先读委派规则</tspan><tspan x="1505" dy="25">案例检索和阅读交检索员</tspan><tspan x="1505" dy="25">能力不足时按 06 降级</tspan></text>
+<rect x="680" y="1790" width="500" height="150" rx="16" fill="#fef3c7" stroke="#92400e" stroke-width="1.5"/>
+<text x="930" y="1847.5" fill="#92400e" font-size="20" text-anchor="middle"><tspan x="930" dy="0">两可或判断不了</tspan><tspan x="930" dy="25">默认实务；两可时首句说明“按实务检索处理”，</tspan><tspan x="930" dy="25">用户纠正再改</tspan></text>
+<rect x="680" y="1965" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="930" y="2022.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="930" dy="0">允许跨模块回读</tspan><tspan x="930" dy="25">如实务中核对条文 → 一般/法条规则；发现新焦点 </tspan><tspan x="930" dy="25">→ 回到命题</tspan></text>
+<rect x="680" y="2140" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="930" y="2197.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="930" dy="0">共用模块按需读</tspan><tspan x="930" dy="25">03 法条；06 委派；07 关键词；08 数据源；09 终</tspan><tspan x="930" dy="25">稿检查</tspan></text>
+<rect x="680" y="2315" width="500" height="150" rx="28" fill="#dcfce7" stroke="#166534" stroke-width="1.5"/>
+<text x="930" y="2372.5" fill="#166534" font-size="20" text-anchor="middle"><tspan x="930" dy="0">贯穿全程的底线</tspan><tspan x="930" dy="25">先查后引、正文为据、脱敏检索、真实披露未检得</tspan><tspan x="930" dy="25">与渠道受阻</tspan></text>
+<text x="105" y="2550" fill="#64748b" font-size="20" text-anchor="start"><tspan x="105" dy="0">入口实际列出三类；原文“共用底线”仍写“四类”，此处按三类绘制。</tspan></text>
+<rect x="1900" y="410" width="1780" height="2280" rx="22" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="1935" y="467" fill="#0f172a" font-size="31" text-anchor="start"><tspan x="1935" dy="0">02  一般检索：原文、效力与引用核对</tspan></text>
+<text x="1935" y="511" fill="#64748b" font-size="19" text-anchor="start"><tspan x="1935" dy="0">依据：references/general.md</tspan></text>
+<polyline points="2760,715 2760,728 2185,728 2185,740" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="2760,715 2760,740" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="2760,715 2760,728 3335,728 3335,740" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="2185,890 2185,915" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="2435,990 2455,990 2455,1515 2435,1515" fill="none" stroke="#64748b" stroke-width="2" stroke-dasharray="8 6" marker-end="url(#arrow)"/>
+<rect x="2441" y="978" width="50" height="24" rx="3" fill="#f8fafc" stroke="none" stroke-width="1.5"/>
+<text x="2445" y="996" fill="#475569" font-size="16" text-anchor="start"><tspan x="2445" dy="0">已知</tspan></text>
+<polyline points="2435,815 2455,815 2455,1165 2435,1165" fill="none" stroke="#64748b" stroke-width="2" stroke-dasharray="8 6" marker-end="url(#arrow)"/>
+<rect x="2441" y="803" width="63" height="24" rx="3" fill="#f8fafc" stroke="none" stroke-width="1.5"/>
+<text x="2445" y="821" fill="#475569" font-size="16" text-anchor="start"><tspan x="2445" dy="0">按事项</tspan></text>
+<polyline points="2185,1240 2185,1265" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="2185,1415 2185,1440" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="2185,1590 2185,1615" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="2435,1690 2455,1690 2455,2040 2435,2040" fill="none" stroke="#64748b" stroke-width="2" stroke-dasharray="8 6" marker-end="url(#arrow)"/>
+<rect x="2441" y="1678" width="63" height="24" rx="3" fill="#f8fafc" stroke="none" stroke-width="1.5"/>
+<text x="2445" y="1696" fill="#475569" font-size="16" text-anchor="start"><tspan x="2445" dy="0">已核对</tspan></text>
+<polyline points="2185,1940 2185,1965" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="2760,890 2760,915" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="2760,1415 2760,1440" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="2760,1590 2760,1615" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="3335,890 3335,915" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="3335,1065 3335,1090" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="3335,1240 3335,1265" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="3335,1415 3335,1440" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="2760,2115 2760,2140" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="2760,2290 2760,2315" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="3010,815 3030,815 3030,1165 3010,1165" fill="none" stroke="#64748b" stroke-width="2" stroke-dasharray="8 6" marker-end="url(#arrow)"/>
+<rect x="3016" y="803" width="80" height="24" rx="3" fill="#f8fafc" stroke="none" stroke-width="1.5"/>
+<text x="3020" y="821" fill="#475569" font-size="16" text-anchor="start"><tspan x="3020" dy="0">其他文书</tspan></text>
+<polyline points="3010,990 3030,990 3030,1515 3010,1515" fill="none" stroke="#64748b" stroke-width="2" stroke-dasharray="8 6" marker-end="url(#arrow)"/>
+<rect x="3016" y="978" width="50" height="24" rx="3" fill="#f8fafc" stroke="none" stroke-width="1.5"/>
+<text x="3020" y="996" fill="#475569" font-size="16" text-anchor="start"><tspan x="3020" dy="0">命中</tspan></text>
+<polyline points="3010,990 3030,990 3030,1340 3010,1340" fill="none" stroke="#64748b" stroke-width="2" stroke-dasharray="8 6" marker-end="url(#arrow)"/>
+<rect x="3016" y="978" width="63" height="24" rx="3" fill="#f8fafc" stroke="none" stroke-width="1.5"/>
+<text x="3020" y="996" fill="#475569" font-size="16" text-anchor="start"><tspan x="3020" dy="0">未命中</tspan></text>
+<polyline points="3010,1165 3030,1165 3030,1340 3010,1340" fill="none" stroke="#64748b" stroke-width="2" stroke-dasharray="8 6" marker-end="url(#arrow)"/>
+<rect x="3016" y="1153" width="63" height="24" rx="3" fill="#f8fafc" stroke="none" stroke-width="1.5"/>
+<text x="3020" y="1171" fill="#475569" font-size="16" text-anchor="start"><tspan x="3020" dy="0">未命中</tspan></text>
+<polyline points="2435,1340 2455,1340 2455,1865 2435,1865" fill="none" stroke="#64748b" stroke-width="2" stroke-dasharray="8 6" marker-end="url(#arrow)"/>
+<rect x="2441" y="1328" width="63" height="24" rx="3" fill="#f8fafc" stroke="none" stroke-width="1.5"/>
+<text x="2445" y="1346" fill="#475569" font-size="16" text-anchor="start"><tspan x="2445" dy="0">均无果</tspan></text>
+<rect x="2510" y="565" width="500" height="150" rx="28" fill="#e0f2fe" stroke="#155e75" stroke-width="1.5"/>
+<text x="2760" y="635" fill="#155e75" font-size="20" text-anchor="middle"><tspan x="2760" dy="0">目标已知 / 按事项找法律</tspan><tspan x="2760" dy="25">直接执行，不追问、不委派</tspan></text>
+<rect x="1935" y="740" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="2185" y="810" fill="#334155" font-size="20" text-anchor="middle"><tspan x="2185" dy="0">A. 法条 / 事项 / 效力</tspan><tspan x="2185" dy="25">目标是确认规定了什么</tspan></text>
+<rect x="2510" y="740" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="2760" y="810" fill="#334155" font-size="20" text-anchor="middle"><tspan x="2760" dy="0">B. 案号 / 案名 / 其他文书</tspan><tspan x="2760" dy="25">目标是原文或真实性核对</tspan></text>
+<rect x="3085" y="740" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="3335" y="810" fill="#334155" font-size="20" text-anchor="middle"><tspan x="3335" dy="0">C. 文书中的多个引用</tspan><tspan x="3335" dy="25">逐条比对存在、内容、效力、编号</tspan></text>
+<rect x="1935" y="915" width="500" height="150" rx="16" fill="#ccfbf1" stroke="#0f766e" stroke-width="1.5"/>
+<text x="2185" y="972.5" fill="#0f766e" font-size="20" text-anchor="middle"><tspan x="2185" dy="0">已知法名、条号</tspan><tspan x="2185" dy="25">get_law_item_content / get_article</tspan><tspan x="2185" dy="25">不确定完整法名先 get_law_list</tspan></text>
+<rect x="2510" y="915" width="500" height="150" rx="16" fill="#ccfbf1" stroke="#0f766e" stroke-width="1.5"/>
+<text x="2760" y="972.5" fill="#0f766e" font-size="20" text-anchor="middle"><tspan x="2760" dy="0">案号 → anhao_recognition</tspan><tspan x="2760" dy="25">案名/关键词 → get_case_list</tspan><tspan x="2760" dy="25">确认法院、日期、案由、文书类型</tspan></text>
+<rect x="3085" y="915" width="500" height="150" rx="16" fill="#ccfbf1" stroke="#0f766e" stroke-width="1.5"/>
+<text x="3335" y="972.5" fill="#0f766e" font-size="20" text-anchor="middle"><tspan x="3335" dy="0">先识别待核对对象</tspan><tspan x="3335" dy="25">law_recognition 提取法条</tspan><tspan x="3335" dy="25">anhao_recognition 逐个核案号</tspan></text>
+<rect x="1935" y="1090" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="2185" y="1160" fill="#334155" font-size="20" text-anchor="middle"><tspan x="2185" dy="0">只知道事项 → 先搜狗微信</tspan><tspan x="2185" dy="25">必须做；只提取法名、条号线索，不采信文章转述</tspan></text>
+<rect x="2510" y="1090" width="500" height="150" rx="16" fill="#ccfbf1" stroke="#0f766e" stroke-width="1.5"/>
+<text x="2760" y="1147.5" fill="#0f766e" font-size="20" text-anchor="middle"><tspan x="2760" dy="0">其他文书</tspan><tspan x="2760" dy="25">处罚：search_enforcement</tspan><tspan x="2760" dy="25">检察：search_procuratorate</tspan></text>
+<rect x="3085" y="1090" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="3335" y="1147.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="3335" dy="0">逐项读取并核对</tspan><tspan x="3335" dy="25">是否存在？引用是否准确？现行有效？条号/案号是</tspan><tspan x="3335" dy="25">否正确？</tspan></text>
+<rect x="1935" y="1265" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="2185" y="1322.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="2185" dy="0">再网页补线索 → 法宝候选</tspan><tspan x="2185" dy="25">get_law_list 看位阶、时效</tspan><tspan x="2185" dy="25">陌生/求全面/兜底条款 → 03体系检索</tspan></text>
+<rect x="2510" y="1265" width="500" height="150" rx="16" fill="#fef3c7" stroke="#92400e" stroke-width="1.5"/>
+<text x="2760" y="1322.5" fill="#92400e" font-size="20" text-anchor="middle"><tspan x="2760" dy="0">若查不到 → 换检索词再查一次</tspan><tspan x="2760" dy="25">仍无结果写“未检得”，不判断真假</tspan><tspan x="2760" dy="25">不得用相近案例顶替</tspan></text>
+<rect x="3085" y="1265" width="500" height="150" rx="16" fill="#fef3c7" stroke="#92400e" stroke-width="1.5"/>
+<text x="3335" y="1322.5" fill="#92400e" font-size="20" text-anchor="middle"><tspan x="3335" dy="0">有差异 → 明示差异并附原文</tspan><tspan x="3335" dy="25">如已废止，指出废止时间与现行对应规定；不以超</tspan><tspan x="3335" dy="25">链接代替核验</tspan></text>
+<rect x="1935" y="1440" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="2185" y="1497.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="2185" dy="0">回法宝逐条读原文</tspan><tspan x="2185" dy="25">核完整标题、条号、效力、施行日</tspan><tspan x="2185" dy="25">已知法条可直接到此，不走线索支路</tspan></text>
+<rect x="2510" y="1440" width="500" height="150" rx="16" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+<text x="2760" y="1497.5" fill="#64748b" font-size="20" text-anchor="middle"><tspan x="2760" dy="0">核后续审理信息</tspan><tspan x="2760" dy="25">可能二审/再审改判；返回无信息时提醒用户自行核</tspan><tspan x="2760" dy="25">对</tspan></text>
+<rect x="3085" y="1440" width="500" height="150" rx="28" fill="#dcfce7" stroke="#166534" stroke-width="1.5"/>
+<text x="3335" y="1497.5" fill="#166534" font-size="20" text-anchor="middle"><tspan x="3335" dy="0">逐条输出核对结果</tspan><tspan x="3335" dy="25">相符 / 有差异 / 已废止 / 未检得</tspan><tspan x="3335" dy="25">差异内容可溯源</tspan></text>
+<rect x="1935" y="1615" width="500" height="150" rx="16" fill="#ccfbf1" stroke="#0f766e" stroke-width="1.5"/>
+<text x="2185" y="1672.5" fill="#0f766e" font-size="20" text-anchor="middle"><tspan x="2185" dy="0">事实早于现行版本 → 查沿革</tspan><tspan x="2185" dy="25">get_article_history(asOf)</tspan><tspan x="2185" dy="25">必要时 diff_article_versions</tspan></text>
+<rect x="2510" y="1615" width="500" height="150" rx="28" fill="#dcfce7" stroke="#166534" stroke-width="1.5"/>
+<text x="2760" y="1672.5" fill="#166534" font-size="20" text-anchor="middle"><tspan x="2760" dy="0">单案输出</tspan><tspan x="2760" dy="25">案号、法院（地域）、日期、案由、文书类型、1—</tspan><tspan x="2760" dy="25">2句要旨及真实链接</tspan></text>
+<rect x="1935" y="1790" width="500" height="150" rx="16" fill="#fef3c7" stroke="#92400e" stroke-width="1.5"/>
+<text x="2185" y="1847.5" fill="#92400e" font-size="20" text-anchor="middle"><tspan x="2185" dy="0">线索与关键词都找不到才语义兜底</tspan><tspan x="2185" dy="25">search_article 仅一次，size≤5</tspan><tspan x="2185" dy="25">末尾说明用了语义检索</tspan></text>
+<rect x="1935" y="1965" width="500" height="150" rx="28" fill="#dcfce7" stroke="#166534" stroke-width="1.5"/>
+<text x="2185" y="2022.5" fill="#166534" font-size="20" text-anchor="middle"><tspan x="2185" dy="0">输出原文或事项法律清单</tspan><tspan x="2185" dy="25">单条：全文、效力、施行日、沿革</tspan><tspan x="2185" dy="25">清单：按位阶分组，附要点与链接</tspan></text>
+<rect x="2510" y="1965" width="500" height="150" rx="16" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+<text x="2760" y="2022.5" fill="#64748b" font-size="20" text-anchor="middle"><tspan x="2760" dy="0">效力状态统一六类</tspan><tspan x="2760" dy="25">现行有效 / 已修订 / 部分失效 /</tspan><tspan x="2760" dy="25">已废止 / 尚未生效 / 存疑</tspan></text>
+<rect x="2510" y="2140" width="500" height="150" rx="16" fill="#fef3c7" stroke="#92400e" stroke-width="1.5"/>
+<text x="2760" y="2197.5" fill="#92400e" font-size="20" text-anchor="middle"><tspan x="2760" dy="0">渠道受阻 / 未覆盖</tspan><tspan x="2760" dy="25">微信验证码立即停；说明未完成</tspan><tspan x="2760" dy="25">法宝不可用说明未核验与设置位置</tspan></text>
+<rect x="2510" y="2315" width="500" height="150" rx="28" fill="#dcfce7" stroke="#166534" stroke-width="1.5"/>
+<text x="2760" y="2385" fill="#166534" font-size="20" text-anchor="middle"><tspan x="2760" dy="0">末尾只交代未检得与渠道不足</tspan><tspan x="2760" dy="25">不写法律分析，不写检索日期</tspan></text>
+<text x="1935" y="2550" fill="#64748b" font-size="20" text-anchor="start"><tspan x="1935" dy="0">仅按事项找法律时扩展；一般检索不做法律适用分析，不把“未检得”写成“不存在/虚假”。</tspan></text>
+<rect x="3730" y="410" width="1780" height="2280" rx="22" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="3765" y="467" fill="#0f172a" font-size="31" text-anchor="start"><tspan x="3765" dy="0">03  共用法条模块：先法后案与时点核验</tspan></text>
+<text x="3765" y="511" fill="#64748b" font-size="19" text-anchor="start"><tspan x="3765" dy="0">依据：references/law-search.md</tspan></text>
+<polyline points="4590,715 4590,728 4015,728 4015,740" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="4590,715 4590,740" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="4590,715 4590,728 5165,728 5165,740" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="4015,890 4015,915" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="4015,1065 4015,1090" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="4015,1240 4015,1265" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<rect x="4017" y="1240.5" width="63" height="24" rx="3" fill="#f8fafc" stroke="none" stroke-width="1.5"/>
+<text x="4021" y="1258.5" fill="#475569" font-size="16" text-anchor="start"><tspan x="4021" dy="0">仍无果</tspan></text>
+<polyline points="4590,890 4590,915" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="4590,1065 4590,1090" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="4590,1240 4590,1265" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="5165,890 5165,915" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="5165,1065 5165,1090" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="5165,1240 5165,1265" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="4015,1240 4015,1428 4590,1428 4590,1440" fill="none" stroke="#64748b" stroke-width="2" stroke-dasharray="8 6" marker-end="url(#arrow)"/>
+<rect x="4017" y="1322" width="63" height="24" rx="3" fill="#f8fafc" stroke="none" stroke-width="1.5"/>
+<text x="4021" y="1340" fill="#475569" font-size="16" text-anchor="start"><tspan x="4021" dy="0">已定位</tspan></text>
+<polyline points="4590,1415 4590,1440" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="5165,1415 5165,1428 4590,1428 4590,1440" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="4590,1590 4590,1615" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="4590,1765 4590,1790" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="4590,1940 4590,1965" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="4590,2115 4590,2140" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="4015,2290 4015,2303 4590,2303 4590,2315" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="4590,2290 4590,2315" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="5165,2290 5165,2303 4590,2303 4590,2315" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<rect x="4340" y="565" width="500" height="150" rx="28" fill="#e0f2fe" stroke="#155e75" stroke-width="1.5"/>
+<text x="4590" y="635" fill="#155e75" font-size="20" text-anchor="middle"><tspan x="4590" dy="0">先确定命题所需法条</tspan><tspan x="4590" dy="25">实务/类案可以没有案例，但不能没有法条</tspan></text>
+<rect x="3765" y="740" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="4015" y="810" fill="#334155" font-size="20" text-anchor="middle"><tspan x="4015" dy="0">路径 A：直接检索</tspan><tspan x="4015" dy="25">事项及法律适用已明确</tspan></text>
+<rect x="4340" y="740" width="500" height="150" rx="16" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+<text x="4590" y="810" fill="#1d4ed8" font-size="20" text-anchor="middle"><tspan x="4590" dy="0">路径 B：体系检索【触发即必做】</tspan><tspan x="4590" dy="25">陌生领域 / 需要全面 / 条文有兜底表述</tspan></text>
+<rect x="4915" y="740" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="5165" y="810" fill="#334155" font-size="20" text-anchor="middle"><tspan x="5165" dy="0">路径 C：间接检索</tspan><tspan x="5165" dy="25">只知含义，或直接/体系无从下手</tspan></text>
+<rect x="3765" y="915" width="500" height="150" rx="16" fill="#ccfbf1" stroke="#0f766e" stroke-width="1.5"/>
+<text x="4015" y="972.5" fill="#0f766e" font-size="20" text-anchor="middle"><tspan x="4015" dy="0">已知法名条号 → 读取原文</tspan><tspan x="4015" dy="25">不全/不确定 → get_law_list</tspan><tspan x="4015" dy="25">title/fulltext 定位候选</tspan></text>
+<rect x="4340" y="915" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="4590" y="972.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="4590" dy="0">纵向按效力位阶逐层查</tspan><tspan x="4590" dy="25">法律 → 行政法规 → 司法解释 →</tspan><tspan x="4590" dy="25">部门规章 → 地方性法规/规章</tspan></text>
+<rect x="4915" y="915" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="5165" y="972.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="5165" dy="0">网页 + 搜狗微信找线索</tspan><tspan x="5165" dy="25">或读案例“本院认为”引用法条</tspan><tspan x="5165" dy="25">文章法条转述本身不能作依据</tspan></text>
+<rect x="3765" y="1090" width="500" height="150" rx="16" fill="#fef3c7" stroke="#92400e" stroke-width="1.5"/>
+<text x="4015" y="1147.5" fill="#92400e" font-size="20" text-anchor="middle"><tspan x="4015" dy="0">title 必须使用返回完整标题</tspan><tspan x="4015" dy="25">包括“(2020修正)”等后缀</tspan><tspan x="4015" dy="25">空返回先查标题，不逐条试条号</tspan></text>
+<rect x="4340" y="1090" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="4590" y="1147.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="4590" dy="0">横向补查其他法律部门</tspan><tspan x="4590" dy="25">地方规定按法院地/行为地补查</tspan><tspan x="4590" dy="25">技术标准另查官方来源</tspan></text>
+<rect x="4915" y="1090" width="500" height="150" rx="16" fill="#ccfbf1" stroke="#0f766e" stroke-width="1.5"/>
+<text x="5165" y="1160" fill="#0f766e" font-size="20" text-anchor="middle"><tspan x="5165" dy="0">线索中的法名、条号逐一回法宝</tspan><tspan x="5165" dy="25">读原文并确认匹配，才能引用</tspan></text>
+<rect x="3765" y="1265" width="500" height="150" rx="16" fill="#fef3c7" stroke="#92400e" stroke-width="1.5"/>
+<text x="4015" y="1322.5" fill="#92400e" font-size="20" text-anchor="middle"><tspan x="4015" dy="0">最后兜底：search_article</tspan><tspan x="4015" dy="25">线索/关键词无果才用；仅一次</tspan><tspan x="4015" dy="25">size≤5；说明用了语义检索</tspan></text>
+<rect x="4340" y="1265" width="500" height="150" rx="16" fill="#ccfbf1" stroke="#0f766e" stroke-width="1.5"/>
+<text x="4590" y="1322.5" fill="#0f766e" font-size="20" text-anchor="middle"><tspan x="4590" dy="0">辅助关系图谱</tspan><tspan x="4590" dy="25">list_related_statutes：上下位法、</tspan><tspan x="4590" dy="25">司法解释、修改/废止关系；非穷尽</tspan></text>
+<rect x="4915" y="1265" width="500" height="150" rx="16" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+<text x="5165" y="1322.5" fill="#64748b" font-size="20" text-anchor="middle"><tspan x="5165" dy="0">定位法条后可回体系补全</tspan><tspan x="5165" dy="25">陌生领域或求全面时不能止于单条</tspan><tspan x="5165" dy="25">关联度与效力位阶一起看</tspan></text>
+<rect x="4340" y="1440" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="4590" y="1497.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="4590" dy="0">汇合法条候选 → 读原文</tspan><tspan x="4590" dy="25">核对标题、条号、适用事项</tspan><tspan x="4590" dy="25">体系结果列清单位阶与时效</tspan></text>
+<rect x="4340" y="1615" width="500" height="150" rx="16" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+<text x="4590" y="1672.5" fill="#1d4ed8" font-size="20" text-anchor="middle"><tspan x="4590" dy="0">核现行效力 + 施行日期</tspan><tspan x="4590" dy="25">废止、已修改、尚未施行内容</tspan><tspan x="4590" dy="25">不能当作现行有效直接引用</tspan></text>
+<rect x="4340" y="1790" width="500" height="150" rx="16" fill="#ccfbf1" stroke="#0f766e" stroke-width="1.5"/>
+<text x="4590" y="1847.5" fill="#0f766e" font-size="20" text-anchor="middle"><tspan x="4590" dy="0">事实发生在旧版本期间？</tspan><tspan x="4590" dy="25">是 → list_law_versions 查看施行区间</tspan><tspan x="4590" dy="25">再 get_article_history(asOf=事实时点)</tspan></text>
+<rect x="4340" y="1965" width="500" height="150" rx="16" fill="#ccfbf1" stroke="#0f766e" stroke-width="1.5"/>
+<text x="4590" y="2022.5" fill="#0f766e" font-size="20" text-anchor="middle"><tspan x="4590" dy="0">需要比较修法差异？</tspan><tspan x="4590" dy="25">用 diff_article_versions</tspan><tspan x="4590" dy="25">现行 articleNumber 与旧 articleLabel 区分</tspan></text>
+<rect x="3765" y="2140" width="500" height="150" rx="16" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+<text x="4015" y="2197.5" fill="#64748b" font-size="20" text-anchor="middle"><tspan x="4015" dy="0">上下位法/新旧法关系</tspan><tspan x="4015" dy="25">用 list_related_statutes 辅助查</tspan><tspan x="4015" dy="25">图谱未覆盖需明示边界</tspan></text>
+<rect x="4340" y="2140" width="500" height="150" rx="16" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+<text x="4590" y="2197.5" fill="#64748b" font-size="20" text-anchor="middle"><tspan x="4590" dy="0">司法解释/纪要/指导意见</tspan><tspan x="4590" dy="25">注明文件类别、发布日期、施行日</tspan><tspan x="4590" dy="25">不把其他文件说成司法解释</tspan></text>
+<rect x="4915" y="2140" width="500" height="150" rx="16" fill="#fef3c7" stroke="#92400e" stroke-width="1.5"/>
+<text x="5165" y="2197.5" fill="#92400e" font-size="20" text-anchor="middle"><tspan x="5165" dy="0">沿革未覆盖</tspan><tspan x="5165" dy="25">返回定位不等于完整沿革</tspan><tspan x="5165" dy="25">不能写成“从未修订”</tspan></text>
+<rect x="4340" y="2315" width="500" height="150" rx="28" fill="#dcfce7" stroke="#166534" stroke-width="1.5"/>
+<text x="4590" y="2372.5" fill="#166534" font-size="20" text-anchor="middle"><tspan x="4590" dy="0">返回调用流程 02 / 04 / 05</tspan><tspan x="4590" dy="25">带原文、版本时点、效力、真实链接</tspan><tspan x="4590" dy="25">找不到则披露，不凭记忆补齐</tspan></text>
+<text x="3765" y="2550" fill="#64748b" font-size="20" text-anchor="start"><tspan x="3765" dy="0">图谱只覆盖已收录关系与版本；空返回不证明没有修订/关系。技术标准走官方网页，覆盖能力待定。</tspan></text>
+<rect x="70" y="2740" width="1780" height="2280" rx="22" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="105" y="2797" fill="#0f172a" font-size="31" text-anchor="start"><tspan x="105" dy="0">04  实务检索：形成规则与裁判把握</tspan></text>
+<text x="105" y="2841" fill="#64748b" font-size="19" text-anchor="start"><tspan x="105" dy="0">依据：references/practice.md</tspan></text>
+<polyline points="930,3045 930,3070" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="930,3220 930,3233 355,3233 355,3245" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<rect x="932" y="3214.5" width="50" height="24" rx="3" fill="#f8fafc" stroke="none" stroke-width="1.5"/>
+<text x="936" y="3232.5" fill="#475569" font-size="16" text-anchor="start"><tspan x="936" dy="0">否</tspan></text>
+<polyline points="930,3220 930,3245" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<rect x="932" y="3220.5" width="50" height="24" rx="3" fill="#f8fafc" stroke="none" stroke-width="1.5"/>
+<text x="936" y="3238.5" fill="#475569" font-size="16" text-anchor="start"><tspan x="936" dy="0">是</tspan></text>
+<polyline points="355,3395 355,3420" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<rect x="357" y="3395.5" width="80" height="24" rx="3" fill="#f8fafc" stroke="none" stroke-width="1.5"/>
+<text x="361" y="3413.5" fill="#475569" font-size="16" text-anchor="start"><tspan x="361" dy="0">仍不清楚</tspan></text>
+<polyline points="930,3395 930,3420" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="930,3570 930,3595" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="930,3745 930,3770" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="930,3920 930,3945" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="930,4095 930,4120" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="930,4270 930,4295" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="680,4370 605,4370" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<rect x="638.5" y="4358" width="63" height="24" rx="3" fill="#f8fafc" stroke="none" stroke-width="1.5"/>
+<text x="642.5" y="4376" fill="#475569" font-size="16" text-anchor="start"><tspan x="642.5" dy="0">未收敛</tspan></text>
+<polyline points="930,4445 930,4470" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<rect x="932" y="4445.5" width="63" height="24" rx="3" fill="#f8fafc" stroke="none" stroke-width="1.5"/>
+<text x="936" y="4463.5" fill="#475569" font-size="16" text-anchor="start"><tspan x="936" dy="0">已收敛</tspan></text>
+<polyline points="930,4620 930,4645" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<rect x="680" y="2895" width="500" height="150" rx="28" fill="#e0f2fe" stroke="#155e75" stroke-width="1.5"/>
+<text x="930" y="2952.5" fill="#155e75" font-size="20" text-anchor="middle"><tspan x="930" dy="0">建立命题</tspan><tspan x="930" dy="25">案由 + 一个具体法律问题 + 关键事实</tspan><tspan x="930" dy="25">只查单条/单案则转 02</tspan></text>
+<rect x="680" y="3070" width="500" height="150" rx="16" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+<text x="930" y="3140" fill="#1d4ed8" font-size="20" text-anchor="middle"><tspan x="930" dy="0">命题明确、关键事实已知？</tspan><tspan x="930" dy="25">决定适用规则的事实足够才检索</tspan></text>
+<rect x="105" y="3245" width="500" height="150" rx="16" fill="#fef3c7" stroke="#92400e" stroke-width="1.5"/>
+<text x="355" y="3302.5" fill="#92400e" font-size="20" text-anchor="middle"><tspan x="355" dy="0">否 → 一次问完 ≤3个关键问题</tspan><tspan x="355" dy="25">尽量提供选项；直接提问并结束本轮</tspan><tspan x="355" dy="25">问清之前不查、不先给答案</tspan></text>
+<rect x="680" y="3245" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="930" y="3302.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="930" dy="0">是 → 不再确认，直接执行</tspan><tspan x="930" dy="25">问题大则拆焦点：民事请求权；</tspan><tspan x="930" dy="25">刑事构成要件；行政合法性/情节</tspan></text>
+<rect x="105" y="3420" width="500" height="150" rx="28" fill="#dcfce7" stroke="#166534" stroke-width="1.5"/>
+<text x="355" y="3477.5" fill="#166534" font-size="20" text-anchor="middle"><tspan x="355" dy="0">用户仍说不清楚</tspan><tspan x="355" dy="25">最可能2—3种情形各给一句结论</tspan><tspan x="355" dy="25">说明缺什么，不展开检索</tspan></text>
+<rect x="680" y="3420" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="930" y="3477.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="930" dy="0">先法后案 → 03</tspan><tspan x="930" dy="25">已知法名条号直接读；未知先找线索</tspan><tspan x="930" dy="25">核现行效力与事实时点版本</tspan></text>
+<rect x="680" y="3595" width="500" height="150" rx="16" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+<text x="930" y="3652.5" fill="#1d4ed8" font-size="20" text-anchor="middle"><tspan x="930" dy="0">是否达到委派门槛？ → 06</tspan><tspan x="930" dy="25">预计 &gt;3案例 / &gt;2文章 / 需第二轮</tspan><tspan x="930" dy="25">未达门槛可自己做</tspan></text>
+<rect x="680" y="3770" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="930" y="3827.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="930" dy="0">案例检索与阅读（自己或检索员）</tspan><tspan x="930" dy="25">网页 + 微信都完成检索/筛查/必要读取</tspan><tspan x="930" dy="25">法宝关键词两轮无适合结果才语义</tspan></text>
+<rect x="1255" y="3770" width="500" height="150" rx="16" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+<text x="1505" y="3827.5" fill="#64748b" font-size="20" text-anchor="middle"><tspan x="1505" dy="0">范围与策略</tspan><tspan x="1505" dy="25">优先近五年、指导性/公报/典型</tspan><tspan x="1505" dy="25">正文法条内容搜案，无果再加条号</tspan></text>
+<rect x="680" y="3945" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="930" y="4002.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="930" dy="0">优先读影响结论的正文</tspan><tspan x="930" dy="25">贴合关键事实、方向相反的都要读</tspan><tspan x="930" dy="25">按相关度阅读，不机械全开</tspan></text>
+<rect x="680" y="4120" width="500" height="150" rx="16" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+<text x="930" y="4177.5" fill="#1d4ed8" font-size="20" text-anchor="middle"><tspan x="930" dy="0">是否支持类问题且案例单向？</tspan><tspan x="930" dy="25">或用户有立场 → 补相反方向检索</tspan><tspan x="930" dy="25">区分证据、形成时间、程序等差异</tspan></text>
+<rect x="1255" y="4120" width="500" height="150" rx="16" fill="#fef3c7" stroke="#92400e" stroke-width="1.5"/>
+<text x="1505" y="4177.5" fill="#92400e" font-size="20" text-anchor="middle"><tspan x="1505" dy="0">反向语义例外</tspan><tspan x="1505" dy="25">关键词不能区分结果方向时</tspan><tspan x="1505" dy="25">可直接一次 search_case，size≤5</tspan></text>
+<rect x="680" y="4295" width="500" height="150" rx="16" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+<text x="930" y="4352.5" fill="#1d4ed8" font-size="20" text-anchor="middle"><tspan x="930" dy="0">收敛判断</tspan><tspan x="930" dy="25">依据足够且新检索不再改变判断？</tspan><tspan x="930" dy="25">缺口 → 换词/去地域/重述命题再查</tspan></text>
+<rect x="105" y="4295" width="500" height="150" rx="16" fill="#fef3c7" stroke="#92400e" stroke-width="1.5"/>
+<text x="355" y="4352.5" fill="#92400e" font-size="20" text-anchor="middle"><tspan x="355" dy="0">仍有新焦点/缺依据</tspan><tspan x="355" dy="25">返回命题或检索；每轮换角度</tspan><tspan x="355" dy="25">不重复相同词+相同筛选</tspan></text>
+<rect x="680" y="4470" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="930" y="4527.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="930" dy="0">主代理复核 → 09</tspan><tspan x="930" dy="25">读过正文、案号核验、反向检索、</tspan><tspan x="930" dy="25">双渠道完成或明示不足</tspan></text>
+<rect x="680" y="4645" width="500" height="150" rx="28" fill="#dcfce7" stroke="#166534" stroke-width="1.5"/>
+<text x="930" y="4702.5" fill="#166534" font-size="20" text-anchor="middle"><tspan x="930" dy="0">一屏左右回复，不用表格</tspan><tspan x="930" dy="25">结论 + 依据（通常≤5条）+</tspan><tspan x="930" dy="25">实务（≤3条）+ 注意；不写检索日期</tspan></text>
+<rect x="1255" y="4645" width="500" height="150" rx="16" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+<text x="1505" y="4702.5" fill="#64748b" font-size="20" text-anchor="middle"><tspan x="1505" dy="0">按证据强度措辞</tspan><tspan x="1505" dy="25">报道/律师观点不能冒充判决</tspan><tspan x="1505" dy="25">未完成或正文未读不据此下结论</tspan></text>
+<text x="105" y="4880" fill="#64748b" font-size="20" text-anchor="start"><tspan x="105" dy="0">结论有已核验依据支撑即可停止；但“是否支持”且案例单向时先反向核查。第二轮触发委派。</tspan></text>
+<rect x="1900" y="2740" width="1780" height="2280" rx="22" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="1935" y="2797" fill="#0f172a" font-size="31" text-anchor="start"><tspan x="1935" dy="0">05  类案检索：逐案比较与检索报告</tspan></text>
+<text x="1935" y="2841" fill="#64748b" font-size="19" text-anchor="start"><tspan x="1935" dy="0">依据：references/similar-cases.md</tspan></text>
+<polyline points="2760,3045 2760,3070" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="2760,3220 2760,3245" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<rect x="2762" y="3220.5" width="63" height="24" rx="3" fill="#f8fafc" stroke="none" stroke-width="1.5"/>
+<text x="2766" y="3238.5" fill="#475569" font-size="16" text-anchor="start"><tspan x="2766" dy="0">已明确</tspan></text>
+<polyline points="2760,3395 2760,3420" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="2435,3495 2510,3495" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="3085,3495 3010,3495" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="2760,3570 2760,3595" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="2760,3745 2760,3770" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="2760,3920 2760,3945" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="2760,4095 2760,4120" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="2760,4270 2760,4295" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="2760,4445 2760,4470" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<rect x="2762" y="4445.5" width="63" height="24" rx="3" fill="#f8fafc" stroke="none" stroke-width="1.5"/>
+<text x="2766" y="4463.5" fill="#475569" font-size="16" text-anchor="start"><tspan x="2766" dy="0">已收敛</tspan></text>
+<polyline points="2760,4620 2760,4633 2185,4633 2185,4645" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="2760,4620 2760,4645" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="3010,4720 3085,4720" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<rect x="2510" y="2895" width="500" height="150" rx="28" fill="#e0f2fe" stroke="#155e75" stroke-width="1.5"/>
+<text x="2760" y="2965" fill="#155e75" font-size="20" text-anchor="middle"><tspan x="2760" dy="0">具体案情 + 要案例/结果/报告</tspan><tspan x="2760" dy="25">目标是逐案与本案比较，而非只提炼共性</tspan></text>
+<rect x="2510" y="3070" width="500" height="150" rx="16" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+<text x="2760" y="3127.5" fill="#1d4ed8" font-size="20" text-anchor="middle"><tspan x="2760" dy="0">命题明确才检索</tspan><tspan x="2760" dy="25">无命题/过宽先问 ≤3个关键问题</tspan><tspan x="2760" dy="25">一份报告最多1—2个法律问题</tspan></text>
+<rect x="2510" y="3245" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="2760" y="3302.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="2760" dy="0">命题 = 案件类型 + 案由 + 问题</tspan><tspan x="2760" dy="25">+ 关键词 + 适用法律</tspan><tspan x="2760" dy="25">案由须核对；检索无果先怀疑案由</tspan></text>
+<rect x="1935" y="3420" width="500" height="150" rx="16" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+<text x="2185" y="3477.5" fill="#64748b" font-size="20" text-anchor="middle"><tspan x="2185" dy="0">拆争议焦点</tspan><tspan x="2185" dy="25">民事：请求权/抗辩；刑事：构成、</tspan><tspan x="2185" dy="25">阻却、量刑；行政：合法性与裁量</tspan></text>
+<rect x="2510" y="3420" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="2760" y="3477.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="2760" dy="0">先读取适用法条 → 03</tspan><tspan x="2760" dy="25">适用法律是大前提</tspan><tspan x="2760" dy="25">每个焦点独立检索</tspan></text>
+<rect x="3085" y="3420" width="500" height="150" rx="16" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+<text x="3335" y="3477.5" fill="#64748b" font-size="20" text-anchor="middle"><tspan x="3335" dy="0">用户有立场</tspan><tspan x="3335" dy="25">每个焦点写明要证明的观点</tspan><tspan x="3335" dy="25">及该观点在本案中的作用</tspan></text>
+<rect x="1935" y="3595" width="500" height="150" rx="16" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+<text x="2185" y="3652.5" fill="#64748b" font-size="20" text-anchor="middle"><tspan x="2185" dy="0">法官 / 要求按指导意见出报告</tspan><tspan x="2185" dy="25">指导性 → 最高法典型及生效案件 →</tspan><tspan x="2185" dy="25">本省高院 → 上一级/本院生效案件</tspan></text>
+<rect x="2510" y="3595" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="2760" y="3652.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="2760" dy="0">设定范围与顺序</tspan><tspan x="2760" dy="25">指导意见路径或一般用户路径</tspan><tspan x="2760" dy="25">再按焦点 × 渠道委派 → 06</tspan></text>
+<rect x="3085" y="3595" width="500" height="150" rx="16" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+<text x="3335" y="3640" fill="#64748b" font-size="20" text-anchor="middle"><tspan x="3335" dy="0">一般用户路径</tspan><tspan x="3335" dy="25">优先近五年、用户所在地</tspan><tspan x="3335" dy="25">不足扩全国；严格路径非指导性</tspan><tspan x="3335" dy="25">优先近三年，前顺位找到可停止后查</tspan></text>
+<rect x="2510" y="3770" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="2760" y="3827.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="2760" dy="0">检索与正文筛选</tspan><tspan x="2760" dy="25">网页 + 微信；法宝先关键词两轮</tspan><tspan x="2760" dy="25">无适合才语义；每轮保留检索记录</tspan></text>
+<rect x="2510" y="3945" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="2760" y="4002.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="2760" dy="0">逐案判断相似性</tspan><tspan x="2760" dy="25">相同事实 / 关键不同 / 结果及理由</tspan><tspan x="2760" dy="25">只留直接相关、已读正文的案例</tspan></text>
+<rect x="2510" y="4120" width="500" height="150" rx="16" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+<text x="2760" y="4177.5" fill="#1d4ed8" font-size="20" text-anchor="middle"><tspan x="2760" dy="0">有立场或结果单向 → 反向核查</tspan><tspan x="2760" dy="25">专找不利/相反结果；单独列出</tspan><tspan x="2760" dy="25">未找到不等于不存在</tspan></text>
+<rect x="2510" y="4295" width="500" height="150" rx="16" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+<text x="2760" y="4352.5" fill="#1d4ed8" font-size="20" text-anchor="middle"><tspan x="2760" dy="0">足以说明问题且反向核查完成？</tspan><tspan x="2760" dy="25">否 → 新角度检索 / 新焦点回命题</tspan><tspan x="2760" dy="25">换词换渠道仍无新增 → 披露不足</tspan></text>
+<rect x="3085" y="4295" width="500" height="150" rx="16" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+<text x="3335" y="4352.5" fill="#64748b" font-size="20" text-anchor="middle"><tspan x="3335" dy="0">排序提醒</tspan><tspan x="3335" dy="25">一般对比：相似度 → 层级/审级 →</tspan><tspan x="3335" dy="25">同地域 → 近年；报告案例按法院高低</tspan></text>
+<rect x="2510" y="4470" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="2760" y="4527.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="2760" dy="0">主代理逐案复核 → 09</tspan><tspan x="2760" dy="25">案号真实性、交叉印证、后续审理、</tspan><tspan x="2760" dy="25">法条修订；核不过不入报告</tspan></text>
+<rect x="1935" y="4645" width="500" height="150" rx="28" fill="#dcfce7" stroke="#166534" stroke-width="1.5"/>
+<text x="2185" y="4702.5" fill="#166534" font-size="20" text-anchor="middle"><tspan x="2185" dy="0">没要求报告 → 回复简版</tspan><tspan x="2185" dy="25">结论；按焦点分支持/不支持</tspan><tspan x="2185" dy="25">检得数量 + 异同 + 结果 + 注意</tspan></text>
+<rect x="2510" y="4645" width="500" height="150" rx="28" fill="#dcfce7" stroke="#166534" stroke-width="1.5"/>
+<text x="2760" y="4702.5" fill="#166534" font-size="20" text-anchor="middle"><tspan x="2760" dy="0">要求报告 → Markdown个人版</tspan><tspan x="2760" dy="25">完整保留无效检索、正反案例、记录</tspan><tspan x="2760" dy="25">裁判要旨摘原文；要 Word 再转换</tspan></text>
+<rect x="3085" y="4645" width="500" height="150" rx="28" fill="#dcfce7" stroke="#166534" stroke-width="1.5"/>
+<text x="3335" y="4702.5" fill="#166534" font-size="20" text-anchor="middle"><tspan x="3335" dy="0">之后要求特定对象版本</tspan><tspan x="3335" dy="25">在个人版上另存，不覆盖</tspan><tspan x="3335" dy="25">法官/客户/团队各按用途取舍</tspan></text>
+<text x="1935" y="4880" fill="#64748b" font-size="20" text-anchor="start"><tspan x="1935" dy="0">一律委派；先法后案；保留每轮检索记录。人民法院案例库入库案例的参照级别映射仍待实测。</tspan></text>
+<rect x="3730" y="2740" width="1780" height="2280" rx="22" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="3765" y="2797" fill="#0f172a" font-size="31" text-anchor="start"><tspan x="3765" dy="0">06  委派与上下文隔离：主代理仍负责核验</tspan></text>
+<text x="3765" y="2841" fill="#64748b" font-size="19" text-anchor="start"><tspan x="3765" dy="0">依据：references/delegation.md</tspan></text>
+<polyline points="4590,3045 4590,3058 4015,3058 4015,3070" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="4590,3045 4590,3070" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="4590,3045 4590,3058 5165,3058 5165,3070" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="4015,3220 4015,3233 4590,3233 4590,3245" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="4590,3220 4590,3245" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="5165,3220 5165,3233 4590,3233 4590,3245" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="4590,3395 4590,3420" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="4590,3570 4590,3595" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="4590,3745 4590,3770" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="4590,3920 4590,3945" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="4590,4095 4590,4120" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="4590,4270 4590,4295" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="4340,4370 4265,4370" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<rect x="4298.5" y="4358" width="63" height="24" rx="3" fill="#f8fafc" stroke="none" stroke-width="1.5"/>
+<text x="4302.5" y="4376" fill="#475569" font-size="16" text-anchor="start"><tspan x="4302.5" dy="0">未完成</tspan></text>
+<polyline points="4590,4445 4590,4470" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<rect x="4592" y="4445.5" width="63" height="24" rx="3" fill="#f8fafc" stroke="none" stroke-width="1.5"/>
+<text x="4596" y="4463.5" fill="#475569" font-size="16" text-anchor="start"><tspan x="4596" dy="0">可核验</tspan></text>
+<polyline points="4590,4620 4590,4645" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<rect x="4340" y="2895" width="500" height="150" rx="28" fill="#e0f2fe" stroke="#155e75" stroke-width="1.5"/>
+<text x="4590" y="2952.5" fill="#155e75" font-size="20" text-anchor="middle"><tspan x="4590" dy="0">触发：类案一律；实务超过阅读量</tspan><tspan x="4590" dy="25">或需第二轮；一般不委派</tspan><tspan x="4590" dy="25">先 lexora_agents.list 看对象能力</tspan></text>
+<rect x="3765" y="3070" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="4015" y="3127.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="4015" dy="0">有法宝案例 + 网页工具的检索员</tspan><tspan x="4015" dy="25">案例、网页、微信渠道全委派</tspan><tspan x="4015" dy="25">不能派给缺所需工具的对象</tspan></text>
+<rect x="4340" y="3070" width="500" height="150" rx="16" fill="#fef3c7" stroke="#92400e" stroke-width="1.5"/>
+<text x="4590" y="3127.5" fill="#92400e" font-size="20" text-anchor="middle"><tspan x="4590" dy="0">只有网页研究员</tspan><tspan x="4590" dy="25">网页/微信委派；法宝主代理做</tspan><tspan x="4590" dy="25">search_case size≤5，读相关段并披露</tspan></text>
+<rect x="4915" y="3070" width="500" height="150" rx="16" fill="#fef3c7" stroke="#92400e" stroke-width="1.5"/>
+<text x="5165" y="3127.5" fill="#92400e" font-size="20" text-anchor="middle"><tspan x="5165" dy="0">无可用检索员 → 降级自己做</tspan><tspan x="5165" dy="25">小批次只读相关段；说明“未使用</tspan><tspan x="5165" dy="25">子代理，案例阅读受上下文限制”</tspan></text>
+<rect x="4340" y="3245" width="500" height="150" rx="16" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+<text x="4590" y="3302.5" fill="#64748b" font-size="20" text-anchor="middle"><tspan x="4590" dy="0">主代理保留职责</tspan><tspan x="4590" dy="25">命题、分解、策略、读法条/沿革、</tspan><tspan x="4590" dy="25">是否继续、案号核验、终稿成文</tspan></text>
+<rect x="4340" y="3420" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="4590" y="3477.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="4590" dy="0">有可委派渠道时才进入以下批次</tspan><tspan x="4590" dy="25">任务单元 = 一个焦点 × 一个渠道</tspan><tspan x="4590" dy="25">任务给脱敏事实、范围、词及回传要求</tspan></text>
+<rect x="4340" y="3595" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="4590" y="3652.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="4590" dy="0">第一批：法宝案例 + 网页官方</tspan><tspan x="4590" dy="25">同一时刻最多2个检索员</tspan><tspan x="4590" dy="25">不一次把所有焦点/渠道派完</tspan></text>
+<rect x="4340" y="3770" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="4590" y="3827.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="4590" dy="0">委派立即返回，不轮询</tspan><tspan x="4590" dy="25">主代理做自己的工作；wait 等待</tspan><tspan x="4590" dy="25">result 取回报告后才开下一批</tspan></text>
+<rect x="4340" y="3945" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="4590" y="4002.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="4590" dy="0">第二批：搜狗微信 + 反向核查</tspan><tspan x="4590" dy="25">微信只开一个；反向核查按需</tspan><tspan x="4590" dy="25">多焦点继续分批，每批≤2人</tspan></text>
+<rect x="4915" y="3945" width="500" height="150" rx="16" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+<text x="5165" y="4002.5" fill="#64748b" font-size="20" text-anchor="middle"><tspan x="5165" dy="0">反向核查做盲检</tspan><tspan x="5165" dy="25">只给命题，不给已有倾向/案例</tspan><tspan x="5165" dy="25">语义例外仅一次，size≤5</tspan></text>
+<rect x="4340" y="4120" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="4590" y="4177.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="4590" dy="0">结构化回传</tspan><tspan x="4590" dy="25">状态 / 每轮记录 / 各渠道状态 /</tspan><tspan x="4590" dy="25">案例异同、结果、摘引、未读线索、未检得</tspan></text>
+<rect x="3765" y="4295" width="500" height="150" rx="16" fill="#fef3c7" stroke="#92400e" stroke-width="1.5"/>
+<text x="4015" y="4352.5" fill="#92400e" font-size="20" text-anchor="middle"><tspan x="4015" dy="0">部分完成/失败/受阻</tspan><tspan x="4015" dy="25">不能据此下结论；披露原因</tspan><tspan x="4015" dy="25">下一批可重派一次，但验证码禁重试</tspan></text>
+<rect x="4340" y="4295" width="500" height="150" rx="16" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+<text x="4590" y="4352.5" fill="#1d4ed8" font-size="20" text-anchor="middle"><tspan x="4590" dy="0">先看回传状态与正文证据</tspan><tspan x="4590" dy="25">完成才继续处理；未读线索不算依据</tspan><tspan x="4590" dy="25">无原文摘引的案例不计入</tspan></text>
+<rect x="4915" y="4295" width="500" height="150" rx="16" fill="#fef3c7" stroke="#92400e" stroke-width="1.5"/>
+<text x="5165" y="4352.5" fill="#92400e" font-size="20" text-anchor="middle"><tspan x="5165" dy="0">worker limit reached</tspan><tspan x="5165" dy="25">意味着请求未执行，不是没查到</tspan><tspan x="5165" dy="25">等待后重试；仍失败才记受阻</tspan></text>
+<rect x="4340" y="4470" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="4590" y="4527.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="4590" dy="0">主代理不盲信检索员</tspan><tspan x="4590" dy="25">核摘引与结论；每个案号核验</tspan><tspan x="4590" dy="25">核不出即不引用；渠道失败照实写</tspan></text>
+<rect x="4340" y="4645" width="500" height="150" rx="28" fill="#dcfce7" stroke="#166534" stroke-width="1.5"/>
+<text x="4590" y="4702.5" fill="#166534" font-size="20" text-anchor="middle"><tspan x="4590" dy="0">看“新增贴合”决定是否补派</tspan><tspan x="4590" dy="25">最近一轮均为0才算收敛；有缺口再派</tspan><tspan x="4590" dy="25">报告引用仍由主代理最终负责</tspan></text>
+<text x="3765" y="4880" fill="#64748b" font-size="20" text-anchor="start"><tspan x="3765" dy="0">这是 Skill 的调度约束；“最多2个”与返回体积/计费属于文档所述运行条件，本图未执行环境实测。</tspan></text>
+<rect x="70" y="5070" width="1780" height="2280" rx="22" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="105" y="5127" fill="#0f172a" font-size="31" text-anchor="start"><tspan x="105" dy="0">07  关键词与检索收敛：每一轮都要有信息增量</tspan></text>
+<text x="105" y="5171" fill="#64748b" font-size="19" text-anchor="start"><tspan x="105" dy="0">依据：references/keywords.md + 各检索流程</tspan></text>
+<polyline points="930,5375 930,5400" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="930,5550 930,5575" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="930,5725 930,5750" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="930,5900 930,5925" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="680,6000 605,6000" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<rect x="638.5" y="5988" width="80" height="24" rx="3" fill="#f8fafc" stroke="none" stroke-width="1.5"/>
+<text x="642.5" y="6006" fill="#475569" font-size="16" text-anchor="start"><tspan x="642.5" dy="0">结果过多</tspan></text>
+<polyline points="1180,6000 1255,6000" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<rect x="1213.5" y="5988" width="80" height="24" rx="3" fill="#f8fafc" stroke="none" stroke-width="1.5"/>
+<text x="1217.5" y="6006" fill="#475569" font-size="16" text-anchor="start"><tspan x="1217.5" dy="0">结果过少</tspan></text>
+<polyline points="930,6075 930,6100" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<rect x="932" y="6075.5" width="80" height="24" rx="3" fill="#f8fafc" stroke="none" stroke-width="1.5"/>
+<text x="936" y="6093.5" fill="#475569" font-size="16" text-anchor="start"><tspan x="936" dy="0">继续优化</tspan></text>
+<polyline points="930,6250 930,6275" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="930,6425 930,6450" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="930,6600 930,6625" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<rect x="932" y="6600.5" width="63" height="24" rx="3" fill="#f8fafc" stroke="none" stroke-width="1.5"/>
+<text x="936" y="6618.5" fill="#475569" font-size="16" text-anchor="start"><tspan x="936" dy="0">无增量</tspan></text>
+<polyline points="355,6775 355,6788 930,6788 930,6800" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="1505,6775 1505,6788 930,6788 930,6800" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="930,6950 930,6975" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<rect x="680" y="5225" width="500" height="150" rx="28" fill="#e0f2fe" stroke="#155e75" stroke-width="1.5"/>
+<text x="930" y="5295" fill="#155e75" font-size="20" text-anchor="middle"><tspan x="930" dy="0">从命题与关键事实提取检索词</tspan><tspan x="930" dy="25">不用长问句与口语；已知标题/案号直接查</tspan></text>
+<rect x="680" y="5400" width="500" height="150" rx="16" fill="#fef3c7" stroke="#92400e" stroke-width="1.5"/>
+<text x="930" y="5457.5" fill="#92400e" font-size="20" text-anchor="middle"><tspan x="930" dy="0">先脱敏</tspan><tspan x="930" dy="25">不带姓名、证件号、账号、地址、</tspan><tspan x="930" dy="25">未公开商业信息</tspan></text>
+<rect x="680" y="5575" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="930" y="5632.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="930" dy="0">重要关键词先行</tspan><tspan x="930" dy="25">案由、核心法律概念、关键行为</tspan><tspan x="930" dy="25">兼顾法律事实与案件事实</tspan></text>
+<rect x="1255" y="5575" width="500" height="150" rx="16" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+<text x="1505" y="5632.5" fill="#64748b" font-size="20" text-anchor="middle"><tspan x="1505" dy="0">普通关键词按需使用</tspan><tspan x="1505" dy="25">地域、金额、次要情节</tspan><tspan x="1505" dy="25">不能一开始同时堆叠多种限制</tspan></text>
+<rect x="680" y="5750" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="930" y="5807.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="930" dy="0">先用重要关键词搜</tspan><tspan x="930" dy="25">网站限定向官方倾斜</tspan><tspan x="930" dy="25">site:gov.cn / site:court.gov.cn</tspan></text>
+<rect x="105" y="5925" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="355" y="5982.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="355" dy="0">太多 / 不贴合 → 限缩</tspan><tspan x="355" dy="25">逐个加普通关键词</tspan><tspan x="355" dy="25">加法院、审级、文书种类、时间等筛选</tspan></text>
+<rect x="680" y="5925" width="500" height="150" rx="16" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+<text x="930" y="5995" fill="#1d4ed8" font-size="20" text-anchor="middle"><tspan x="930" dy="0">结果数量与相关度如何？</tspan><tspan x="930" dy="25">依据事实与争议焦点判断，不只看命中数</tspan></text>
+<rect x="1255" y="5925" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="1505" y="5982.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="1505" dy="0">太少 → 放宽</tspan><tspan x="1505" dy="25">去普通词/非必要地域 → 全国 →</tspan><tspan x="1505" dy="25">同义词、上位概念、法言法语</tspan></text>
+<rect x="680" y="6100" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="930" y="6157.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="930" dy="0">用法条找案例</tspan><tspan x="930" dy="25">先用内容检索，无果再加条号</tspan><tspan x="930" dy="25">条号可能因修法改变</tspan></text>
+<rect x="680" y="6275" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="930" y="6332.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="930" dy="0">逐轮记录：命题、想法、关键词、</tspan><tspan x="930" dy="25">平台、命中数、新增贴合数、可疑点</tspan><tspan x="930" dy="25">类案必须；委派也须回传</tspan></text>
+<rect x="680" y="6450" width="500" height="150" rx="16" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+<text x="930" y="6507.5" fill="#1d4ed8" font-size="20" text-anchor="middle"><tspan x="930" dy="0">新一轮还有新增贴合？</tspan><tspan x="930" dy="25">是否改变判断？是否发现新焦点？</tspan><tspan x="930" dy="25">有增量继续；新焦点返回命题</tspan></text>
+<rect x="105" y="6625" width="500" height="150" rx="16" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+<text x="355" y="6682.5" fill="#64748b" font-size="20" text-anchor="middle"><tspan x="355" dy="0">找不到同值/同程度案例</tspan><tspan x="355" dy="25">允许沿程度找相邻值，但须关键</tspan><tspan x="355" dy="25">法律关系与事实一致，仅程度不同</tspan></text>
+<rect x="680" y="6625" width="500" height="150" rx="28" fill="#dcfce7" stroke="#166534" stroke-width="1.5"/>
+<text x="930" y="6682.5" fill="#166534" font-size="20" text-anchor="middle"><tspan x="930" dy="0">无新增且已足够 → 停止</tspan><tspan x="930" dy="25">用户有立场/案例单向还需反向核查</tspan><tspan x="930" dy="25">仍不足就说明检索范围与局限</tspan></text>
+<rect x="1255" y="6625" width="500" height="150" rx="16" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+<text x="1505" y="6682.5" fill="#64748b" font-size="20" text-anchor="middle"><tspan x="1505" dy="0">推理方向不能反</tspan><tspan x="1505" dy="25">更低程度仍不支持 → 更高更不支持</tspan><tspan x="1505" dy="25">更高仍支持 → 较低更应支持</tspan></text>
+<rect x="680" y="6800" width="500" height="150" rx="16" fill="#fef3c7" stroke="#92400e" stroke-width="1.5"/>
+<text x="930" y="6857.5" fill="#92400e" font-size="20" text-anchor="middle"><tspan x="930" dy="0">类推结果必须降低证据强度</tspan><tspan x="930" dy="25">明示“无同值案例；此为类推”</tspan><tspan x="930" dy="25">不冒充相同情节案例</tspan></text>
+<rect x="680" y="6975" width="500" height="150" rx="28" fill="#dcfce7" stroke="#166534" stroke-width="1.5"/>
+<text x="930" y="7032.5" fill="#166534" font-size="20" text-anchor="middle"><tspan x="930" dy="0">摘要仅作线索；未读正文不算依据</tspan><tspan x="930" dy="25">没查到 ≠ 不存在</tspan><tspan x="930" dy="25">不为形式平衡塞入不相似案件</tspan></text>
+<text x="105" y="7210" fill="#64748b" font-size="20" text-anchor="start"><tspan x="105" dy="0">同一关键词 + 同一筛选条件不重复调用。检索不设机械次数上限，但不重复无增量搜索。</tspan></text>
+<rect x="1900" y="5070" width="1780" height="2280" rx="22" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="1935" y="5127" fill="#0f172a" font-size="31" text-anchor="start"><tspan x="1935" dy="0">08  数据源、工具与渠道异常</tspan></text>
+<text x="1935" y="5171" fill="#64748b" font-size="19" text-anchor="start"><tspan x="1935" dy="0">依据：references/sources.md + general/practice/similar-cases</tspan></text>
+<polyline points="2760,5375 2760,5388 2185,5388 2185,5400" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="2760,5375 2760,5400" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="2760,5375 2760,5388 3335,5388 3335,5400" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="2185,5550 2185,5575" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="2760,5550 2760,5575" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="3335,5550 3335,5575" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="2185,5725 2185,5750" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="2185,5900 2185,5925" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="2185,6075 2185,6100" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="2760,5725 2760,5750" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="2760,5900 2760,5925" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="3335,5725 3335,5750" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="3335,5900 3335,5925" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="2760,6250 2760,6275" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="2760,6425 2760,6450" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="2760,6600 2760,6625" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="2760,6775 2760,6800" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="2760,6950 2760,6975" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<rect x="2510" y="5225" width="500" height="150" rx="28" fill="#e0f2fe" stroke="#155e75" stroke-width="1.5"/>
+<text x="2760" y="5282.5" fill="#155e75" font-size="20" text-anchor="middle"><tspan x="2760" dy="0">按来源角色组织证据</tspan><tspan x="2760" dy="25">线索发现与原文核验分开</tspan><tspan x="2760" dy="25">法宝用于精确查、核验、取原文</tspan></text>
+<rect x="1935" y="5400" width="500" height="150" rx="16" fill="#ccfbf1" stroke="#0f766e" stroke-width="1.5"/>
+<text x="2185" y="5457.5" fill="#0f766e" font-size="20" text-anchor="middle"><tspan x="2185" dy="0">北大法宝（pkulaw连接器）</tspan><tspan x="2185" dy="25">条文、案例、沿革、案号核验</tspan><tspan x="2185" dy="25">工具延迟加载，按确切英文名找</tspan></text>
+<rect x="2510" y="5400" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="2760" y="5457.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="2760" dy="0">法院 / 检察院 / 政府官网或公众号</tspan><tspan x="2760" dy="25">可以作实务依据；需读原文</tspan><tspan x="2760" dy="25">报道未公开案号要如实标注</tspan></text>
+<rect x="3085" y="5400" width="500" height="150" rx="16" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+<text x="3335" y="5457.5" fill="#64748b" font-size="20" text-anchor="middle"><tspan x="3335" dy="0">律师文章 / 其他自媒体</tspan><tspan x="3335" dy="25">律师观点可引，写作者日期</tspan><tspan x="3335" dy="25">其他自媒体只作方向，不引用</tspan></text>
+<rect x="1935" y="5575" width="500" height="150" rx="16" fill="#ccfbf1" stroke="#0f766e" stroke-width="1.5"/>
+<text x="2185" y="5632.5" fill="#0f766e" font-size="20" text-anchor="middle"><tspan x="2185" dy="0">lexora_tool_search：一次精确搜</tspan><tspan x="2185" dy="25">一个英文工具名，limit=1</tspan><tspan x="2185" dy="25">不要以中文描述或批量声明刷上下文</tspan></text>
+<rect x="2510" y="5575" width="500" height="150" rx="16" fill="#ccfbf1" stroke="#0f766e" stroke-width="1.5"/>
+<text x="2760" y="5632.5" fill="#0f766e" font-size="20" text-anchor="middle"><tspan x="2760" dy="0">lexora_web_search + fetch</tspan><tspan x="2760" dy="25">官方站点限定无果，可去限定再搜</tspan><tspan x="2760" dy="25">正文读取与发布主体确认不可省略</tspan></text>
+<rect x="3085" y="5575" width="500" height="150" rx="16" fill="#ccfbf1" stroke="#0f766e" stroke-width="1.5"/>
+<text x="3335" y="5632.5" fill="#0f766e" font-size="20" text-anchor="middle"><tspan x="3335" dy="0">搜狗微信显式 provider</tspan><tspan x="3335" dy="25">sogou-weixin；用法院/检察院/</tspan><tspan x="3335" dy="25">典型案例等词；完成筛查与必要读取</tspan></text>
+<rect x="1935" y="5750" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="2185" y="5807.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="2185" dy="0">法宝案例先 get_case_list</tspan><tspan x="2185" dy="25">换词两轮仍无适合结果</tspan><tspan x="2185" dy="25">才 search_case 语义兜底</tspan></text>
+<rect x="2510" y="5750" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="2760" y="5807.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="2760" dy="0">网页/公众号原文核读</tspan><tspan x="2760" dy="25">取工具返回的原始链接，不拼接</tspan><tspan x="2760" dy="25">临时链接失效 → 重新搜索</tspan></text>
+<rect x="3085" y="5750" width="500" height="150" rx="16" fill="#fef3c7" stroke="#92400e" stroke-width="1.5"/>
+<text x="3335" y="5807.5" fill="#92400e" font-size="20" text-anchor="middle"><tspan x="3335" dy="0">微信 WEB_CHALLENGE</tspan><tspan x="3335" dy="25">立即停止；不重试，不换方式绕过</tspan><tspan x="3335" dy="25">记“微信渠道未能检索”</tspan></text>
+<rect x="1935" y="5925" width="500" height="150" rx="16" fill="#fef3c7" stroke="#92400e" stroke-width="1.5"/>
+<text x="2185" y="5982.5" fill="#92400e" font-size="20" text-anchor="middle"><tspan x="2185" dy="0">语义检索条数限制</tspan><tspan x="2185" dy="25">检索员常规 size≤10；自己降级≤5</tspan><tspan x="2185" dy="25">反向例外≤5；法条兜底≤5且一次</tspan></text>
+<rect x="2510" y="5925" width="500" height="150" rx="16" fill="#fef3c7" stroke="#92400e" stroke-width="1.5"/>
+<text x="2760" y="5982.5" fill="#92400e" font-size="20" text-anchor="middle"><tspan x="2760" dy="0">正文读不了 / 重搜仍失败</tspan><tspan x="2760" dy="25">记“未核验”；搜索摘要不进结论</tspan><tspan x="2760" dy="25">搜过但没跟进不算完成检索</tspan></text>
+<rect x="3085" y="5925" width="500" height="150" rx="16" fill="#fef3c7" stroke="#92400e" stroke-width="1.5"/>
+<text x="3335" y="5982.5" fill="#92400e" font-size="20" text-anchor="middle"><tspan x="3335" dy="0">法宝未配置 / 不可用 / 额度失败</tspan><tspan x="3335" dy="25">明说未核验；指向设置→网络→服务配置</tspan><tspan x="3335" dy="25">额度失败给返回的网址，不绕过</tspan></text>
+<rect x="1935" y="6100" width="500" height="150" rx="16" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+<text x="2185" y="6157.5" fill="#64748b" font-size="20" text-anchor="middle"><tspan x="2185" dy="0">文档所述计费约数</tspan><tspan x="2185" dy="25">条文/列表约25分；语义约125分</tspan><tspan x="2185" dy="25">余额/服务单价工具为0分</tspan></text>
+<rect x="2510" y="6100" width="500" height="150" rx="16" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+<text x="2760" y="6157.5" fill="#64748b" font-size="20" text-anchor="middle"><tspan x="2760" dy="0">文档所述返回体积</tspan><tspan x="2760" dy="25">列表约20条，不能指定条数</tspan><tspan x="2760" dy="25">语义每条约1500字；大返回转文件</tspan></text>
+<rect x="3085" y="6100" width="500" height="150" rx="16" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+<text x="3335" y="6157.5" fill="#64748b" font-size="20" text-anchor="middle"><tspan x="3335" dy="0">只输出必要字段，避免重复付费</tspan><tspan x="3335" dy="25">同一脚本取全案号/法院/日期/摘引</tspan><tspan x="3335" dy="25">不为换打印格式重新查询</tspan></text>
+<rect x="2510" y="6275" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="2760" y="6332.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="2760" dy="0">案例可筛：类型、文书种类、级别、</tspan><tspan x="2760" dy="25">法院/地域、审结日期（视工具而定）</tspan><tspan x="2760" dy="25">程序问题可限定裁定书</tspan></text>
+<rect x="2510" y="6450" width="500" height="150" rx="16" fill="#fef3c7" stroke="#92400e" stroke-width="1.5"/>
+<text x="2760" y="6507.5" fill="#92400e" font-size="20" text-anchor="middle"><tspan x="2760" dy="0">不可筛：裁判结果、审判人员</tspan><tspan x="2760" dy="25">案由进关键词；本院认为不能单独限定</tspan><tspan x="2760" dy="25">案号无筛选参数，用核验工具</tspan></text>
+<rect x="2510" y="6625" width="500" height="150" rx="16" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+<text x="2760" y="6682.5" fill="#64748b" font-size="20" text-anchor="middle"><tspan x="2760" dy="0">参照级别因工具命名不同</tspan><tspan x="2760" dy="25">get_case_list.caseGrade 与</tspan><tspan x="2760" dy="25">search_case.case_grade 不完全一致</tspan></text>
+<rect x="2510" y="6800" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="2760" y="6857.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="2760" dy="0">证据强度决定措辞</tspan><tspan x="2760" dy="25">文书/指导性公报 → 可给倾向</tspan><tspan x="2760" dy="25">官方报道/律师观点/类推 → 分别降格</tspan></text>
+<rect x="2510" y="6975" width="500" height="150" rx="28" fill="#dcfce7" stroke="#166534" stroke-width="1.5"/>
+<text x="2760" y="7032.5" fill="#166534" font-size="20" text-anchor="middle"><tspan x="2760" dy="0">所有不足写进回复或报告“注意”</tspan><tspan x="2760" dy="25">渠道未完成不当已完成；无后续审理信息</tspan><tspan x="2760" dy="25">提醒核对二审、再审是否改判</tspan></text>
+<text x="1935" y="7210" fill="#64748b" font-size="20" text-anchor="start"><tspan x="1935" dy="0">工具名为 Skill 所写标识，不代表本次已连接调用。计费、返回量为文档约数，不是实时查询结果。</tspan></text>
+<rect x="3730" y="5070" width="1780" height="2280" rx="22" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="3765" y="5127" fill="#0f172a" font-size="31" text-anchor="start"><tspan x="3765" dy="0">09  终稿门禁、交付分支与尚未闭合的规则</tspan></text>
+<text x="3765" y="5171" fill="#64748b" font-size="19" text-anchor="start"><tspan x="3765" dy="0">依据：共用底线 + 各文件作答/复核/待定</tspan></text>
+<polyline points="4590,5375 4590,5400" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="4590,5550 4590,5575" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="4590,5725 4590,5750" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="4590,5900 4590,5925" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="4590,6075 4590,6088 4015,6088 4015,6100" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="4590,6075 4590,6100" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="4590,6075 4590,6088 5165,6088 5165,6100" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="5165,6250 5165,6263 4590,6263 4590,6275" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<rect x="5167" y="6244.5" width="63" height="24" rx="3" fill="#f8fafc" stroke="none" stroke-width="1.5"/>
+<text x="5171" y="6262.5" fill="#475569" font-size="16" text-anchor="start"><tspan x="5171" dy="0">要报告</tspan></text>
+<polyline points="4590,6425 4590,6450" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<polyline points="4590,6600 4590,6625" fill="none" stroke="#64748b" stroke-width="2"  marker-end="url(#arrow)"/>
+<rect x="4340" y="5225" width="500" height="150" rx="28" fill="#e0f2fe" stroke="#155e75" stroke-width="1.5"/>
+<text x="4590" y="5295" fill="#155e75" font-size="20" text-anchor="middle"><tspan x="4590" dy="0">主代理终稿检查</tspan><tspan x="4590" dy="25">检索员摘要是待复核材料，不是最终证据</tspan></text>
+<rect x="4340" y="5400" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="4590" y="5457.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="4590" dy="0">正文 + 引用真实性</tspan><tspan x="4590" dy="25">关键案例读过正文；摘引支持结论</tspan><tspan x="4590" dy="25">案号用 anhao_recognition 核验</tspan></text>
+<rect x="3765" y="5575" width="500" height="150" rx="16" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+<text x="4015" y="5632.5" fill="#64748b" font-size="20" text-anchor="middle"><tspan x="4015" dy="0">每个裁判文书</tspan><tspan x="4015" dy="25">案号、法院（地域）、日期、文书类型</tspan><tspan x="4015" dy="25">区分判决、裁定、调解、执行结果</tspan></text>
+<rect x="4340" y="5575" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="4590" y="5632.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="4590" dy="0">法条与案件适用时点</tspan><tspan x="4590" dy="25">核现行效力、旧版适用、案例所引旧法</tspan><tspan x="4590" dy="25">检查二审/再审后续信息</tspan></text>
+<rect x="4915" y="5575" width="500" height="150" rx="16" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+<text x="5165" y="5632.5" fill="#64748b" font-size="20" text-anchor="middle"><tspan x="5165" dy="0">官方报道未披露案号例外</tspan><tspan x="5165" dy="25">标注“官方案例报道，未披露案号”</tspan><tspan x="5165" dy="25">不得冒充完整裁判文书</tspan></text>
+<rect x="4340" y="5750" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="4590" y="5807.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="4590" dy="0">正反方向 + 渠道完成度</tspan><tspan x="4590" dy="25">有立场/结果单向时补反向检索</tspan><tspan x="4590" dy="25">网页、微信状态及不足真实披露</tspan></text>
+<rect x="4340" y="5925" width="500" height="150" rx="16" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5"/>
+<text x="4590" y="5982.5" fill="#1d4ed8" font-size="20" text-anchor="middle"><tspan x="4590" dy="0">证据与渠道检查通过？</tspan><tspan x="4590" dy="25">不通过先补；补不了就披露限制</tspan><tspan x="4590" dy="25">无证据的内容不写成确定结论</tspan></text>
+<rect x="3765" y="6100" width="500" height="150" rx="28" fill="#dcfce7" stroke="#166534" stroke-width="1.5"/>
+<text x="4015" y="6157.5" fill="#166534" font-size="20" text-anchor="middle"><tspan x="4015" dy="0">一般检索 → 原文/清单/逐项核对</tspan><tspan x="4015" dy="25">不写法律适用分析</tspan><tspan x="4015" dy="25">不写检索日期</tspan></text>
+<rect x="4340" y="6100" width="500" height="150" rx="28" fill="#dcfce7" stroke="#166534" stroke-width="1.5"/>
+<text x="4590" y="6157.5" fill="#166534" font-size="20" text-anchor="middle"><tspan x="4590" dy="0">实务检索 → 结论/依据/实务/注意</tspan><tspan x="4590" dy="25">通常一屏，依据≤5、实务≤3</tspan><tspan x="4590" dy="25">不写检索日期</tspan></text>
+<rect x="4915" y="6100" width="500" height="150" rx="28" fill="#dcfce7" stroke="#166534" stroke-width="1.5"/>
+<text x="5165" y="6157.5" fill="#166534" font-size="20" text-anchor="middle"><tspan x="5165" dy="0">类案 → 简版或报告</tspan><tspan x="5165" dy="25">简版不写日期；报告单列日期</tspan><tspan x="5165" dy="25">正反案例按焦点逐案比较</tspan></text>
+<rect x="4340" y="6275" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="4590" y="6332.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="4590" dy="0">要求报告 → 个人版Markdown</tspan><tspan x="4590" dy="25">当前对话工作区，present 交付</tspan><tspan x="4590" dy="25">完整保留无效检索、正反案例与记录</tspan></text>
+<rect x="4340" y="6450" width="500" height="150" rx="16" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+<text x="4590" y="6507.5" fill="#64748b" font-size="20" text-anchor="middle"><tspan x="4590" dy="0">报告结构（9项 + 附录）</tspan><tspan x="4590" dy="25">目的、工具、词、法规、案例、分析、</tspan><tspan x="4590" dy="25">结论、注意、日期；附完整检索记录</tspan></text>
+<rect x="4340" y="6625" width="500" height="150" rx="16" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+<text x="4590" y="6682.5" fill="#334155" font-size="20" text-anchor="middle"><tspan x="4590" dy="0">外发版只在用户要求后另存</tspan><tspan x="4590" dy="25">法官版重权威与相似性；客户版重可能</tspan><tspan x="4590" dy="25">团队版重攻防；不覆盖个人版</tspan></text>
+<rect x="3765" y="6800" width="500" height="150" rx="16" fill="#fef3c7" stroke="#92400e" stroke-width="1.5"/>
+<text x="4015" y="6857.5" fill="#92400e" font-size="20" text-anchor="middle"><tspan x="4015" dy="0">待定：输出形式</tspan><tspan x="4015" dy="25">引用核对是否用表格；类案简版数量上限；</tspan><tspan x="4015" dy="25">Word转换方案需实测</tspan></text>
+<rect x="4340" y="6800" width="500" height="150" rx="16" fill="#fef3c7" stroke="#92400e" stroke-width="1.5"/>
+<text x="4590" y="6857.5" fill="#92400e" font-size="20" text-anchor="middle"><tspan x="4590" dy="0">待定：数据与覆盖</tspan><tspan x="4590" dy="25">案例库入库级别映射、其他法律库、</tspan><tspan x="4590" dy="25">技术标准官方工具、统一来源标签</tspan></text>
+<rect x="4915" y="6800" width="500" height="150" rx="16" fill="#fef3c7" stroke="#92400e" stroke-width="1.5"/>
+<text x="5165" y="6857.5" fill="#92400e" font-size="20" text-anchor="middle"><tspan x="5165" dy="0">待定/文本张力</tspan><tspan x="5165" dy="25">法条语义兜底是否保留；刑/行政分解待审；</tspan><tspan x="5165" dy="25">原文仍有“四类”措辞</tspan></text>
+<rect x="4340" y="6975" width="500" height="150" rx="16" fill="#fef3c7" stroke="#92400e" stroke-width="1.5"/>
+<text x="4590" y="7020" fill="#92400e" font-size="20" text-anchor="middle"><tspan x="4590" dy="0">需结合阅读的两处规则</tspan><tspan x="4590" dy="25">全篇强调法条先关键词；细则规定只知事项先微信/</tspan><tspan x="4590" dy="25">网页。</tspan><tspan x="4590" dy="25">日期区分报告与普通回复；图中均按具体分支标明</tspan></text>
+<text x="3765" y="7210" fill="#64748b" font-size="20" text-anchor="start"><tspan x="3765" dy="0">本图整理的是指令要求，不是代码强制工作流，也不是一次真实检索的执行轨迹。只新增图文件，不改 Skill。</tspan></text>
+<text x="70" y="7392" fill="#64748b" font-size="20" text-anchor="start"><tspan x="70" dy="0">来源目录：apps/buddy/service/resources/skills/legal-research/（仓库中的法律检索 Skill）；所有节点为规则的结构化整理，不代表自动执行日志。</tspan></text></g></svg>

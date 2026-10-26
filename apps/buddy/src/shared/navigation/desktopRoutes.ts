@@ -67,6 +67,12 @@ export const desktopRouteLocations = {
     name: DESKTOP_ROUTE_NAMES.settingsSkills,
     query: spaceId ? { space: spaceId } : {},
   }),
+  /** @description 打开技能页并直接进入导入；目标页读取 `action` 后会清掉它。 */
+  skillImport: (): RouteLocationRaw => ({ name: DESKTOP_ROUTE_NAMES.settingsSkills, query: { action: 'import' } }),
+  /** @description 打开 MCP 设置；带 `action` 时直接进入添加连接或导入配置，目标页读取后会清掉它。 */
+  mcp: (action?: 'add' | 'import'): RouteLocationRaw => ({ name: DESKTOP_ROUTE_NAMES.settingsMcp, query: action ? { action } : {} }),
+  /** @description 打开助手页并直接新建子代理（NPC）；目标页读取 `action` 后会清掉它。 */
+  buddyCreateNpc: (): RouteLocationRaw => ({ name: DESKTOP_ROUTE_NAMES.buddies, query: { action: 'create-npc' } }),
   tasks: (): RouteLocationRaw => ({ name: DESKTOP_ROUTE_NAMES.tasks }),
 }
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Component } from 'vue'
 import type { DesktopNavigationEntry } from '@/shared/navigation/desktopPages'
-import { CalendarClock20Regular, PuzzlePiece20Regular } from '@vicons/fluent'
+import { Apps20Regular, CalendarClock20Regular } from '@vicons/fluent'
 import { computed, h } from 'vue'
 import { BuddyIcon } from '@/modules/buddies'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
@@ -9,11 +9,11 @@ import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 const props = defineProps<{ navigation: readonly DesktopNavigationEntry[] }>()
 const emit = defineEmits<{ navigate: [id: string] }>()
 
-// 与下方空间、任务行的线宽一致：插件、自动化用 Fluent 20 Regular，助手用与会话头部伙伴按钮相同的细线版图标；
+// 与下方空间、任务行的线宽一致：市场、自动化用 Fluent 20 Regular，助手用与会话头部伙伴按钮相同的细线版图标；
 // 页面自带的图标（24 格、1.8 线宽）更粗，这里不用。
 const BuddyToolbarIcon = () => h(BuddyIcon, { variant: 'toolbar' })
 const NAVIGATION_ICONS: ReadonlyArray<readonly [id: string, icon: Component]> = [
-  ['lexora.extensions', PuzzlePiece20Regular],
+  ['lexora.extensions', Apps20Regular],
   ['lexora.automations', CalendarClock20Regular],
   ['lexora.buddies', BuddyToolbarIcon],
 ]

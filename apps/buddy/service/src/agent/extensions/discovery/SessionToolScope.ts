@@ -1,8 +1,10 @@
 import type { BuddySettings } from '../../../../../shared/buddies/buddySettings'
+import type { ToolSelectionMatcher } from '../../../../../shared/buddies/buddyToolSelection'
 import type { BuddyInProcessExtension } from '../BuddyInProcessExtension'
 import type { BuddyToolWrapper } from '../changeCaptureExtension'
 import type { BuddyToolDisclosurePolicy, BuddyToolSource } from './toolDiscoveryContract'
 import process from 'node:process'
+import { toolSelectionMatcher } from '../../../../../shared/buddies/buddyToolSelection'
 import { CODEMODE_TOOL_NAME } from '../codemodeExtension'
 import { getActivePiBuiltinToolNames } from '../piBuiltinTools'
 import { toolCatalogId, toolCatalogPolicies } from './toolCatalog'
@@ -16,7 +18,7 @@ interface ScopedTool {
   readonly source: Readonly<BuddyToolSource>
 }
 
-export function getRoleToolDenial(toolName: string, tool: ScopedTool | undefined, selected: ReadonlySet<string> | null, fileAccessLimit: BuddySettings['limits']['fileAccess']): string | null {
+export function getRoleToolDenial(toolName: string, tool: ScopedTool | undefined, selected: Pick<ToolSelectionMatcher, 'has'> | null, fileAccessLimit: BuddySettings['limits']['fileAccess']): string | null {
   if (!tool || (!CONTROL_TOOLS.has(toolName) && selected && !selected.has(tool.id)))
     return 'TOOL_OUTSIDE_ROLE_SCOPE'
   if (fileAccessLimit === 'read_only' && (tool.source.kind !== 'builtin' || READ_ONLY_EXCLUDED_TOOLS.has(toolName)))
@@ -37,12 +39,12 @@ export class BuddyToolScopeError extends Error {
 
 export class SessionToolScope {
   readonly #tools = new Map<string, ScopedTool>()
-  readonly #selected: ReadonlySet<string> | null
+  readonly #selected: ToolSelectionMatcher | null
   readonly #registered = new Set<string>(getActivePiBuiltinToolNames(process.platform))
   readonly #fileAccessLimit: BuddySettings['limits']['fileAccess']
 
   constructor(policies: readonly BuddyToolDisclosurePolicy[], selection: BuddySettings['tools'] = { mode: 'all' }, fileAccessLimit: BuddySettings['limits']['fileAccess'] = 'inherit') {
-    this.#selected = selection.mode === 'all' ? null : new Set(selection.mode === 'selected' ? selection.ids : [])
+    this.#selected = selection.mode === 'all' ? null : toolSelectionMatcher(selection.mode === 'selected' ? selection.ids : [])
     this.#fileAccessLimit = fileAccessLimit
     const ids = new Set<string>()
     for (const policy of toolCatalogPolicies([...this.#registered, TOOL_SEARCH_NAME], policies)) {
@@ -54,7 +56,7 @@ export class SessionToolScope {
         this.#tools.set(tool.name, { id, source: { ...policy.source } })
       }
     }
-    const missing = [...this.#selected ?? []].filter(id => !ids.has(id))
+    const missing = this.#selected?.missing(ids) ?? []
     if (missing.length)
       throw new BuddyToolScopeError(missing)
   }

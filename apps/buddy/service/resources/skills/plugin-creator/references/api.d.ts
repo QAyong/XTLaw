@@ -52,6 +52,37 @@ export interface NavigationContribution {
 }
 /** API 4: contributes.skills; path points to a packaged Skill directory's SKILL.md. */
 export interface SkillContribution { id: string, path: string }
+/**
+ * API 4: contributes.mcpConnectors; adds one MCP connector record when the package is installed. The record is created
+ * disabled and without credentials, nothing is downloaded or run, and the user enables it (after entering a token when
+ * `credential` asks for one) in settings. `id` is the connector ID, not prefixed with the plugin ID.
+ */
+export interface McpConnectorContribution {
+  id: string
+  name: string
+  transport: 'streamable-http'
+  /** HTTPS address without embedded credentials. */
+  url: string
+  /** Defaults to true: tools are discovered on demand instead of being offered to the model directly. */
+  deferred?: boolean
+  /** Defaults to 'none'. Credentials never travel with the package. */
+  credential?: 'none' | 'bearer' | 'oauth'
+}
+/**
+ * API 4: contributes.subagents; adds one NPC sub-agent when the package is installed and lists it for delegation by the
+ * default companion. Only `kind: 'npc'` is accepted. Selected tool IDs are JSON `[source, group, name]` strings; an
+ * `mcp` source must name a connector declared in the same package's `mcpConnectors`.
+ */
+export interface SubagentContribution {
+  id: string
+  kind: 'npc'
+  name: string
+  description?: string
+  instructions: string
+  tools: { mode: 'all' | 'none' } | { mode: 'selected', ids: string[] }
+  /** Defaults to 'read_only'. */
+  fileAccess?: 'inherit' | 'read_only'
+}
 export interface Resource { readonly id: string, readonly name: string, readonly sourceId?: string }
 export interface ResourceTransferOptions { name?: string, signal?: AbortSignal }
 export interface ResourceApi {

@@ -30,6 +30,7 @@ import { Emitter } from '../../shared/events/Emitter'
 import { executionsChanged } from '../../shared/executions/executionPresentationApi'
 import { extensionActionRpc } from '../../shared/extensions/extensionActionApi'
 import { extensionAgentRpc } from '../../shared/extensions/extensionAgent'
+import { extensionCapabilitiesRpc, extensionCapabilityDescriptorSchema, extensionCapabilityImpactRpc } from '../../shared/extensions/extensionCapabilities'
 import { extensionShellRpc } from '../../shared/extensions/extensionShell'
 import { extensionSkillDescriptorSchema, extensionSkillsRpc } from '../../shared/extensions/extensionSkills'
 import { ServiceHost } from '../../shared/lifecycle/ServiceHost'
@@ -148,8 +149,10 @@ import { NetworkPermissionsClient } from './permissions/NetworkPermissionsClient
 import { observePetActionDiagnostics } from './pet/observePetActionDiagnostics'
 import { PetActionService } from './pet/PetActionService'
 import { bindExtensionActions } from './plugins/bindExtensionActions'
+import { createCapabilityLedgerFile } from './plugins/capabilityLedgerFile'
 import { ExtensionActionService } from './plugins/ExtensionActionService'
 import { ExtensionAgentRuntime } from './plugins/ExtensionAgentRuntime'
+import { ExtensionCapabilitySync } from './plugins/ExtensionCapabilitySync'
 import { createExtensionResourceCapabilities } from './plugins/extensionResourceCapabilities'
 import { observeExtensionAgentDiagnostics } from './plugins/observeExtensionAgentDiagnostics'
 import { PluginAuthoringService } from './plugins/PluginAuthoringService'
@@ -766,6 +769,27 @@ export async function startBuddyService(
       connectorService.start()
       return consumer
     })
+    await host.start('runtime.extension_capabilities', ({ defer }) => {
+      const sync = new ExtensionCapabilitySync({
+        buddies,
+        connectors: connectorService,
+        ledger: createCapabilityLedgerFile(join(options.buddyHome, 'extension-capabilities.json')),
+        descriptors: async () => extensionCapabilityDescriptorSchema.array().parse(await options.rpc.request(extensionCapabilitiesRpc.list, {})),
+        report: event => record(event),
+      })
+      const impact = registerRuntimeRequest(options.rpc, extensionCapabilityImpactRpc, input => sync.impact(input.extensionId))
+      defer(options.rpc.onNotification((method) => {
+        if (method === extensionCapabilitiesRpc.changed)
+          void sync.schedule()
+      }))
+      defer(async () => {
+        impact()
+        await sync.dispose()
+      })
+      // The host announces itself once its extensions are loaded; this first pass only covers a service restarted on its own.
+      void sync.schedule()
+      return sync
+    }, ['runtime.buddies', 'runtime.connectors'])
     const browserHost = new BrowserHostClient(options.rpc)
     const webSettings = await host.start('runtime.web_settings', ({ defer }) => {
       const service = new WebSettingsService(workspace, options.rpc)

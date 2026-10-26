@@ -30,7 +30,10 @@ import { BUDDY_V29_SESSION_REFERENCES_SCHEMA_SQL } from './migrations/v29Session
 import { BUDDY_V30_TASK_MODELS_SCHEMA_SQL } from './migrations/v30TaskModels'
 import { BUDDY_V31_AUTOMATION_APPROVAL_POLICY_SCHEMA_SQL } from './migrations/v31AutomationApprovalPolicy'
 import { BUDDY_V32_AUTOMATION_APPROVAL_ALLOWLIST_SCHEMA_SQL } from './migrations/v32AutomationApprovalAllowlist'
+import { BUDDY_V33_EXECUTION_WORK_SCHEMA_SQL } from './migrations/v33ExecutionWork'
 import { BUDDY_V33_MUTATION_RECOVERY_SCHEMA_SQL } from './migrations/v33MutationRecovery'
+
+import { BUDDY_V34_ACTOR_IDENTITY_SCHEMA_SQL } from './migrations/v34ActorIdentity'
 import { BUDDY_V34_CHANGE_CAPTURE_SCHEMA_SQL } from './migrations/v34ChangeCapture'
 
 export interface BuddySchemaMigration {
@@ -39,7 +42,7 @@ export interface BuddySchemaMigration {
   version: number
 }
 
-export const BUDDY_SCHEMA_VERSION = 34 as const
+export const BUDDY_SCHEMA_VERSION = 36 as const
 
 export const BUDDY_SCHEMA_MIGRATIONS: readonly BuddySchemaMigration[] = [
   { sql: BUDDY_V1_INITIAL_SCHEMA_SQL, version: 1 },
@@ -76,4 +79,8 @@ export const BUDDY_SCHEMA_MIGRATIONS: readonly BuddySchemaMigration[] = [
   { sql: BUDDY_V32_AUTOMATION_APPROVAL_ALLOWLIST_SCHEMA_SQL, version: 32 },
   { sql: BUDDY_V33_MUTATION_RECOVERY_SCHEMA_SQL, version: 33 },
   { sql: BUDDY_V34_CHANGE_CAPTURE_SCHEMA_SQL, version: 34 },
+  // Upstream numbers this migration v33; the local v31/v32 approval migrations shift it to v35 (table layout unchanged).
+  { sql: BUDDY_V33_EXECUTION_WORK_SCHEMA_SQL, version: 35 },
+  // Upstream numbers this migration v34; it follows the v35 execution-work migration locally.
+  { sql: BUDDY_V34_ACTOR_IDENTITY_SCHEMA_SQL, version: 36 },
 ]

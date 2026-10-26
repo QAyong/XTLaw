@@ -10,7 +10,7 @@ afterEach(async () => {
 })
 
 const wasm = manifest({ id: 'tests.engine', permissions: { selectedResource: 'read', webAssembly: true } })
-const remote = { catalog: 'https://raw.githubusercontent.com/QAyong/xtlaw-plugins/main/catalog/v1/index.json', artifact: 'https://example.com/engine.lexora-extension', sha256: 'b'.repeat(64) }
+const remote = { catalog: 'https://raw.githubusercontent.com/QAyong/xtlaw-market/main/catalog/v1/index.json', artifact: 'https://example.com/engine.lexora-extension', sha256: 'b'.repeat(64) }
 const MiB = 1024 * 1024
 const piece = 'x'.repeat(10 * MiB)
 

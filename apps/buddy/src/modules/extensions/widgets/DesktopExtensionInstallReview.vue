@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { ExtensionReview } from '@buddy-shared/extensions/extensionApi'
 import type { FileOpeningChoice, FileOpeningReviewChoice } from '@buddy-shared/files/fileOpening'
+import { connectorOfToolsId } from '@buddy-shared/buddies/buddyToolSelection'
+import { BUILTIN_CAPABILITY_IDS, subagentConnectorReferences } from '@buddy-shared/extensions/extensionCapabilities'
 import { Warning20Regular } from '@vicons/fluent'
 import { NButton, NCheckbox, NEllipsis, NModal, NTag } from 'naive-ui'
 import { computed, shallowRef } from 'vue'
@@ -21,6 +23,28 @@ const skills = computed(() => props.review.manifest.contributes.skills.map(skill
   name: skill.path.split('/').at(-2)!,
 })))
 const dependencies = computed(() => Object.entries(props.review.manifest.dependencies))
+const connectors = computed(() => props.review.manifest.contributes.mcpConnectors)
+// Every connector a sub-agent's tools reach travels with the package or ships with the application, as the manifest guarantees.
+const connectorName = (id: string) => connectors.value.find(connector => connector.id === id)?.name ?? labels.value.builtinConnectors[id] ?? id
+function agentTools(selection: { mode: 'all' | 'none' } | { mode: 'selected', ids: string[] }) {
+  if (selection.mode !== 'selected')
+    return labels.value.reviewAgentTools[selection.mode]
+  const whole = selection.ids.flatMap(id => connectorOfToolsId(id) ?? [])
+  const single = selection.ids.length - whole.length
+  return [
+    ...(single ? [labels.value.reviewAgentTools.selected.replace('{n}', String(single))] : []),
+    ...whole.map(id => labels.value.reviewAgentToolsConnector.replace('{name}', connectorName(id))),
+  ].join('；')
+}
+const subagents = computed(() => props.review.manifest.contributes.subagents.map(agent => ({
+  ...agent,
+  tools: agentTools(agent.tools),
+  files: labels.value.reviewAgentFiles[agent.fileAccess],
+  connectors: subagentConnectorReferences(agent).map((id) => {
+    const builtin = !connectors.value.some(connector => connector.id === id) && (BUILTIN_CAPABILITY_IDS.mcp as readonly string[]).includes(id)
+    return (builtin ? labels.value.reviewAgentConnectorBuiltin : labels.value.reviewAgentConnectorBundled).replace('{name}', connectorName(id))
+  }),
+})))
 const selectedAssociations = shallowRef(initialAssociations())
 function initialAssociations(): FileOpeningChoice[] {
   const selected = new Map<string, FileOpeningReviewChoice>()
@@ -36,14 +60,25 @@ function install() {
   const changes = selectedAssociations.value.filter(selected => associations.value.some(choice => choice.extension === selected.extension && choice.location === selected.location && choice.providerId === selected.providerId && choice.currentProviderId !== selected.providerId))
   emit('install', applyUpdate.value, changes)
 }
-const source = computed(() => props.review.development ? (english.value ? 'Development folder' : '开发目录') : props.review.source ? (english.value ? 'XTLaw Marketplace' : 'XTLaw 插件市场') : (english.value ? 'Local package' : '本地插件包'))
+const source = computed(() => {
+  if (props.review.development)
+    return english.value ? 'Development folder' : '开发目录'
+  if (!props.review.source)
+    return english.value ? 'Local package' : '本地插件包'
+  const market = english.value ? 'XTLaw Market' : 'XTLaw 市场'
+  const { listing } = props.review
+  return listing ? `${market} · ${labels.value.kinds[listing.kind]} · ${labels.value.sources[listing.source]}` : market
+})
+const title = computed(() => props.review.currentVersion
+  ? (english.value ? 'Update plugin' : '更新插件')
+  : props.review.listing && props.review.listing.kind !== 'plugin' ? labels.value.installKind[props.review.listing.kind] : (english.value ? 'Install plugin' : '安装插件'))
 </script>
 
 <template>
   <NModal
     show
     preset="card"
-    :title="english ? (review.currentVersion ? 'Update plugin' : 'Install plugin') : (review.currentVersion ? '更新插件' : '安装插件')"
+    :title="title"
     class="extension-install-review"
     content-class="min-h-0 overflow-y-auto overscroll-contain"
     :mask-closable="!busy"
@@ -61,7 +96,7 @@ const source = computed(() => props.review.development ? (english.value ? 'Devel
           {{ review.manifest.name }}
         </h2>
         <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-muted">
-          <NEllipsis class="max-w-[220px]">
+          <NEllipsis class="max-w-[220px]" :tooltip="false">
             {{ review.manifest.author || (english ? 'Author not provided' : '未提供作者') }}
           </NEllipsis>
           <span class="[font-variant-numeric:tabular-nums]">
@@ -97,6 +132,39 @@ const source = computed(() => props.review.development ? (english.value ? 'Devel
           </li>
         </ul>
       </div>
+    </section>
+
+    <section v-if="connectors.length" class="mt-4" data-testid="extension-included-mcp">
+      <h3 class="m-0 mb-2 text-[13px] font-semibold leading-[1.6] text-fg">
+        {{ labels.reviewMcp }}
+      </h3>
+      <ul class="m-0 p-0 grid gap-3 list-none">
+        <li v-for="connector in connectors" :key="connector.id" class="grid gap-0.5 text-fg text-[13px] [overflow-wrap:anywhere]">
+          <strong>{{ connector.name }}</strong>
+          <span class="text-[12px] text-muted leading-[1.6]">{{ labels.reviewMcpAddress }}：<code>{{ connector.url }}</code></span>
+          <span class="text-[12px] text-muted leading-[1.6]">{{ labels.reviewMcpCredential[connector.credential] }} · {{ labels.reviewMcpExposure[connector.deferred ? 'deferred' : 'direct'] }}</span>
+        </li>
+      </ul>
+      <p class="mt-2 mb-0 text-[12px] text-muted leading-[1.6]">
+        {{ labels.reviewMcpNoDownload }}
+      </p>
+    </section>
+
+    <section v-if="subagents.length" class="mt-4" data-testid="extension-included-agents">
+      <h3 class="m-0 mb-2 text-[13px] font-semibold leading-[1.6] text-fg">
+        {{ labels.reviewAgents }}
+      </h3>
+      <ul class="m-0 p-0 grid gap-3 list-none">
+        <li v-for="agent in subagents" :key="agent.id" class="grid gap-0.5 text-fg text-[13px] [overflow-wrap:anywhere]">
+          <strong>{{ agent.name }}</strong>
+          <span v-if="agent.description" class="text-[12px] text-muted leading-[1.6]">{{ agent.description }}</span>
+          <span class="text-[12px] text-muted leading-[1.6]">{{ agent.tools }} · {{ agent.files }}</span>
+          <span v-if="agent.connectors.length" class="text-[12px] text-muted leading-[1.6]">{{ labels.reviewAgentConnectors }}{{ agent.connectors.join('、') }}</span>
+        </li>
+      </ul>
+      <p class="mt-2 mb-0 text-[12px] text-muted leading-[1.6]">
+        {{ labels.reviewAgentDelegate }}
+      </p>
     </section>
 
     <section v-if="dependencies.length" class="mt-4">

@@ -6,6 +6,7 @@ import type { McpSettingsCapability } from '../../state/useMcpSettingsCapability
 import { ChevronDown16Regular } from '@vicons/fluent'
 import { NAlert, NButton, NDropdown, NEmpty } from 'naive-ui'
 import { computed, onMounted, shallowRef } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import { useMcpConnectionActions } from '../../state/useMcpConnectionActions'
@@ -18,6 +19,8 @@ import DesktopMcpToolsDialog from './DesktopMcpToolsDialog.vue'
 const { mcp, ready, codemodeEnabled } = defineProps<{ mcp: McpSettingsCapability, ready?: Promise<void>, codemodeEnabled: boolean }>()
 const { connectors, busyId, error, loaded, language } = mcp
 const { t } = useBuddyI18n(language)
+const route = useRoute() as ReturnType<typeof useRoute> | undefined
+const router = useRouter()
 const editor = shallowRef<{ connector: LocalConnector | null, initialTransport?: 'stdio' | 'streamable-http' } | null>(null)
 const importing = shallowRef(false)
 const addMenuOpen = shallowRef(false)
@@ -33,9 +36,21 @@ const addOptions = computed(() => [
 function handleAddSelect(key: 'stdio' | 'streamable-http') {
   editor.value = { connector: null, initialTransport: key }
 }
+// The market's "Add" menu links here with ?action=add|import; consume it so a refresh does not reopen the dialog.
+function applyRouteAction() {
+  const query = route?.query
+  const action = query?.action
+  if (action !== 'add' && action !== 'import')
+    return
+  if (action === 'add')
+    editor.value = { connector: null, initialTransport: 'streamable-http' }
+  else importing.value = true
+  void router.replace({ query: { ...query, action: undefined } })
+}
 onMounted(async () => {
   await ready
   await mcp.load()
+  applyRouteAction()
 })
 async function save(plan: DesktopConnectorSavePlan) {
   if (await mcp.save(plan)) {

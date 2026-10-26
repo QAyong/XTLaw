@@ -117,6 +117,50 @@ describe('buddy schema', { timeout: MIGRATION_TEST_TIMEOUT }, () => {
     expect(reopened.prepare('PRAGMA user_version').get()).toEqual({ user_version: BUDDY_SCHEMA_VERSION })
   })
 
+  it('marks the actor identity format upgrade without rewriting legacy execution snapshots', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'buddy-actor-identity-migration-'))
+    directories.push(directory)
+    const databasePath = join(directory, 'buddy.sqlite3')
+    const previous = openMigrationFixtureDatabase(databasePath)
+    for (const migration of BUDDY_SCHEMA_MIGRATIONS.filter(migration => migration.version <= 35))
+      previous.exec(migration.sql)
+    seedRun(previous)
+    const settings = previous.prepare('SELECT settings_json FROM buddies WHERE id = ?').get('default')!.settings_json
+    const configuration = { version: 1, id: 'default', kind: 'actor', revision: 1, settings: JSON.parse(String(settings)) }
+    const actorSnapshot = JSON.stringify({ ...configuration, model: { providerId: 'fixture', modelId: 'model', reasoning: null, serviceTier: null }, modelSource: 'application' }, null, 2)
+    const automationSnapshot = JSON.stringify(configuration, null, 4)
+    previous.prepare('UPDATE runs SET actor_snapshot_json = ? WHERE id = ?').run(actorSnapshot, 'run-1')
+    previous.exec(`
+      INSERT INTO automations (
+        id, name, prompt, model_mode, schedule_kind, schedule_json, timezone,
+        status, revision, created_at, updated_at
+      ) VALUES (
+        'automation-1', 'Scheduled review', 'Review', 'default', 'once',
+        '{"kind":"once","runAt":"2026-10-27T00:00:00.000Z"}', 'UTC',
+        'paused', 1, '2026-10-26T00:00:00.000Z', '2026-10-26T00:00:00.000Z'
+      );
+    `)
+    previous.prepare(`
+      INSERT INTO automation_occurrences (
+        id, automation_id, dedupe_key, trigger_kind, scheduled_for,
+        automation_revision, execution_snapshot_json, status, queued_at, actor_snapshot_json
+      ) VALUES (?, ?, ?, 'scheduled', ?, 1, ?, 'queued', ?, ?)
+    `).run('occurrence-1', 'automation-1', 'scheduled-review', '2026-10-27T00:00:00.000Z', JSON.stringify({ actorId: 'default', executionProfile: 'workspace_write', model: { mode: 'default' }, name: 'Scheduled review', prompt: 'Review', spaceId: null }), '2026-10-26T00:00:00.000Z', automationSnapshot)
+    previous.exec('PRAGMA user_version = 35')
+    previous.close()
+
+    const migrated = openBuddyDatabase({ databasePath })
+    expect(migrated.prepare('PRAGMA user_version').get()).toEqual({ user_version: BUDDY_SCHEMA_VERSION })
+    expect(migrated.prepare('SELECT actor_snapshot_json FROM runs WHERE id = ?').get('run-1')).toEqual({ actor_snapshot_json: actorSnapshot })
+    expect(migrated.prepare('SELECT actor_snapshot_json FROM automation_occurrences WHERE id = ?').get('occurrence-1')).toEqual({ actor_snapshot_json: automationSnapshot })
+    expect(migrated.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+    migrated.close()
+    const reopened = openBuddyDatabase({ databasePath })
+    databases.push(reopened)
+    expect(reopened.prepare('SELECT actor_snapshot_json FROM runs WHERE id = ?').get('run-1')).toEqual({ actor_snapshot_json: actorSnapshot })
+    expect(reopened.prepare('SELECT actor_snapshot_json FROM automation_occurrences WHERE id = ?').get('occurrence-1')).toEqual({ actor_snapshot_json: automationSnapshot })
+  })
+
   it('upgrades capture coverage without rewriting historical file snapshots or invocation identities', () => {
     const directory = mkdtempSync(join(tmpdir(), 'buddy-capture-migration-'))
     directories.push(directory)
@@ -193,7 +237,7 @@ describe('buddy schema', { timeout: MIGRATION_TEST_TIMEOUT }, () => {
       { actor_id: 'second', model_selection_json: JSON.stringify(selection), model_selection_source: 'explicit', removed_at: '2026-08-16T00:00:00.000Z' },
       { actor_id: 'unused', model_selection_json: null, model_selection_source: null, removed_at: null },
     ])
-    expect(migrated.prepare('SELECT * FROM runs ORDER BY id').all()).toEqual(runs)
+    expect(migrated.prepare('SELECT * FROM runs ORDER BY id').all()).toEqual(runs.map(run => ({ ...run, scheduling_lane: 'conversation' })))
     expect(migrated.prepare('SELECT * FROM messages ORDER BY id').all()).toEqual(messages)
     expect(migrated.prepare('PRAGMA foreign_key_check').all()).toEqual([])
     migrated.close()
@@ -217,7 +261,7 @@ describe('buddy schema', { timeout: MIGRATION_TEST_TIMEOUT }, () => {
     previous.close()
     const migrated = openBuddyDatabase({ databasePath })
     expect(migrated.prepare('SELECT * FROM messages ORDER BY id').all()).toEqual(messages)
-    expect(migrated.prepare('SELECT * FROM runs ORDER BY id').all()).toEqual(runs)
+    expect(migrated.prepare('SELECT * FROM runs ORDER BY id').all()).toEqual(runs.map(run => ({ ...run, scheduling_lane: 'conversation' })))
     expect(migrated.prepare('SELECT public_sequence FROM run_session_reference_scopes WHERE run_id = ?').get('run-1')).toEqual(snapshot)
     migrated.prepare('INSERT INTO session_reference_exclusions VALUES (?, ?, ?, ?)').run('conversation-1', 'branch-1', 'source', '2026-10-14T00:00:00.000Z')
     migrated.close()
@@ -289,11 +333,11 @@ describe('buddy schema', { timeout: MIGRATION_TEST_TIMEOUT }, () => {
       ...config,
       builtin_provider_id: config.builtin_provider_id === 'azure-openai-responses' ? 'azure' : config.builtin_provider_id,
     })))
-    expect(tables.map(table => upgraded.prepare(`SELECT * FROM ${table}`).all())).toEqual(before.map((rows, index) => ['runs', 'conversations'].includes(tables[index]!) ? rows.map(row => ({ ...row, buddy_id: 'default', ...(tables[index] === 'runs' ? { actor_snapshot_json: null, model_override_json: null, root_run_id: row.id, parent_run_id: null, execution_kind: 'root', thread_id: 'actor:["conversation-1","default"]', generation: 0 } : {}) })) : rows.map(row => ({ ...row, ...(tables[index] === 'provider_model_states' ? { service_metadata_json: null } : {}) }))))
+    expect(tables.map(table => upgraded.prepare(`SELECT * FROM ${table}`).all())).toEqual(before.map((rows, index) => ['runs', 'conversations'].includes(tables[index]!) ? rows.map(row => ({ ...row, buddy_id: 'default', ...(tables[index] === 'runs' ? { actor_snapshot_json: null, model_override_json: null, root_run_id: row.id, parent_run_id: null, execution_kind: 'root', thread_id: 'actor:["conversation-1","default"]', generation: 0, scheduling_lane: 'conversation' } : {}) })) : rows.map(row => ({ ...row, ...(tables[index] === 'provider_model_states' ? { service_metadata_json: null } : {}) }))))
     upgraded.close()
     const reopened = openBuddyDatabase({ databasePath })
     databases.push(reopened)
-    expect(tables.map(table => reopened.prepare(`SELECT * FROM ${table}`).all())).toEqual(before.map((rows, index) => ['runs', 'conversations'].includes(tables[index]!) ? rows.map(row => ({ ...row, buddy_id: 'default', ...(tables[index] === 'runs' ? { actor_snapshot_json: null, model_override_json: null, root_run_id: row.id, parent_run_id: null, execution_kind: 'root', thread_id: 'actor:["conversation-1","default"]', generation: 0 } : {}) })) : rows.map(row => ({ ...row, ...(tables[index] === 'provider_model_states' ? { service_metadata_json: null } : {}) }))))
+    expect(tables.map(table => reopened.prepare(`SELECT * FROM ${table}`).all())).toEqual(before.map((rows, index) => ['runs', 'conversations'].includes(tables[index]!) ? rows.map(row => ({ ...row, buddy_id: 'default', ...(tables[index] === 'runs' ? { actor_snapshot_json: null, model_override_json: null, root_run_id: row.id, parent_run_id: null, execution_kind: 'root', thread_id: 'actor:["conversation-1","default"]', generation: 0, scheduling_lane: 'conversation' } : {}) })) : rows.map(row => ({ ...row, ...(tables[index] === 'provider_model_states' ? { service_metadata_json: null } : {}) }))))
     expect(reopened.prepare('PRAGMA foreign_key_check').all()).toEqual([])
   })
 
@@ -315,7 +359,7 @@ describe('buddy schema', { timeout: MIGRATION_TEST_TIMEOUT }, () => {
     legacy.close()
     const migrated = openBuddyDatabase({ databasePath })
     databases.push(migrated)
-    expect(migrated.prepare('SELECT * FROM runs').all()).toEqual(before.runs.map(run => ({ ...run, buddy_id: 'default', actor_snapshot_json: null, model_override_json: null, root_run_id: run.id, parent_run_id: null, execution_kind: 'root', thread_id: 'actor:["conversation-1","default"]', generation: 0 })))
+    expect(migrated.prepare('SELECT * FROM runs').all()).toEqual(before.runs.map(run => ({ ...run, buddy_id: 'default', actor_snapshot_json: null, model_override_json: null, root_run_id: run.id, parent_run_id: null, execution_kind: 'root', thread_id: 'actor:["conversation-1","default"]', generation: 0, scheduling_lane: 'conversation' })))
     expect(migrated.prepare('SELECT rowid, * FROM messages').all()).toEqual(before.messages)
     expect(migrated.prepare('SELECT * FROM conversations').all()).toEqual(before.conversations.map(conversation => ({ ...conversation, buddy_id: 'default' })))
     expect(migrated.prepare('PRAGMA foreign_key_check').all()).toEqual([])
@@ -366,7 +410,7 @@ describe('buddy schema', { timeout: MIGRATION_TEST_TIMEOUT }, () => {
     expect(createUsageAnalyticsRepository(upgraded).topTasks({ startDate: '2026-08-14', endDate: '2026-08-14', timeZone: 'UTC', model: null })).toMatchObject([{ conversationId: 'conversation-1', totalTokens: 40, recordCount: 2 }])
     expect(() => upgraded.prepare('UPDATE usage_records SET run_id = \'run-1\' WHERE id = \'usage-2\'').run()).toThrow(/CHECK constraint/)
     expect(() => upgraded.prepare('UPDATE usage_records SET invocation_id = NULL WHERE id = \'usage-2\'').run()).toThrow(/CHECK constraint/)
-    expect(upgraded.prepare('SELECT * FROM runs').all()).toEqual(runs.map(run => ({ ...run, buddy_id: 'default', actor_snapshot_json: null, model_override_json: null, root_run_id: run.id, parent_run_id: null, execution_kind: 'root', thread_id: 'actor:["conversation-1","default"]', generation: 0 })))
+    expect(upgraded.prepare('SELECT * FROM runs').all()).toEqual(runs.map(run => ({ ...run, buddy_id: 'default', actor_snapshot_json: null, model_override_json: null, root_run_id: run.id, parent_run_id: null, execution_kind: 'root', thread_id: 'actor:["conversation-1","default"]', generation: 0, scheduling_lane: 'conversation' })))
     expect(upgraded.prepare('PRAGMA foreign_key_check').all()).toEqual([])
   })
 
@@ -437,7 +481,7 @@ describe('buddy schema', { timeout: MIGRATION_TEST_TIMEOUT }, () => {
     const upgraded = openBuddyDatabase({ databasePath })
     expect(upgraded.prepare('SELECT * FROM provider_states ORDER BY provider_id').all()).toEqual(states.map(state => ({ ...state, request_headers_json: '[]' })))
     expect(upgraded.prepare('SELECT * FROM provider_configs').all()).toEqual(configs)
-    expect(upgraded.prepare('SELECT * FROM runs').all()).toEqual(runs.map(run => ({ ...run, buddy_id: 'default', actor_snapshot_json: null, model_override_json: null, root_run_id: run.id, parent_run_id: null, execution_kind: 'root', thread_id: 'actor:["conversation-1","default"]', generation: 0 })))
+    expect(upgraded.prepare('SELECT * FROM runs').all()).toEqual(runs.map(run => ({ ...run, buddy_id: 'default', actor_snapshot_json: null, model_override_json: null, root_run_id: run.id, parent_run_id: null, execution_kind: 'root', thread_id: 'actor:["conversation-1","default"]', generation: 0, scheduling_lane: 'conversation' })))
     expect(upgraded.prepare('SELECT id, builtin_provider_id, display_name FROM builtin_provider_configs').all()).toEqual([
       { id: 'anthropic', builtin_provider_id: 'anthropic', display_name: null },
       { id: 'azure-openai-responses', builtin_provider_id: 'azure', display_name: null },
@@ -486,7 +530,7 @@ describe('buddy schema', { timeout: MIGRATION_TEST_TIMEOUT }, () => {
     expect(migrated.prepare('SELECT * FROM spaces').get()).toEqual({ ...space, icon: 'folder', icon_color: 'default' })
     expect(migrated.prepare('SELECT * FROM space_directory_bindings').all()).toEqual(grants)
     expect(migrated.prepare('SELECT * FROM conversations').all()).toEqual(tasks.map(conversation => ({ ...conversation, buddy_id: 'default', title_source: 'manual', title_revision: 0 })))
-    expect(migrated.prepare('SELECT * FROM runs').all()).toEqual(runs.map(run => ({ ...run, buddy_id: 'default', actor_snapshot_json: null, model_override_json: null, root_run_id: run.id, parent_run_id: null, execution_kind: 'root', thread_id: 'actor:["conversation-1","default"]', generation: 0 })))
+    expect(migrated.prepare('SELECT * FROM runs').all()).toEqual(runs.map(run => ({ ...run, buddy_id: 'default', actor_snapshot_json: null, model_override_json: null, root_run_id: run.id, parent_run_id: null, execution_kind: 'root', thread_id: 'actor:["conversation-1","default"]', generation: 0, scheduling_lane: 'conversation' })))
     migrated.exec('UPDATE spaces SET icon = \'code\', icon_color = \'blue\' WHERE id = \'space-1\'')
     migrated.close()
 

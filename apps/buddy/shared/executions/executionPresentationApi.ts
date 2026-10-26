@@ -10,6 +10,7 @@ import { buddyRunProgressSchema } from '../runs/runProgress'
 import { idSchema, timestampSchema } from '../runtime/apiValidation'
 import { runTokenUsageSchema } from '../usage/runTokenUsage'
 import { executionPhaseSchema } from './executionApi'
+import { executionWorkSchema } from './executionWork'
 
 export const executionScopeSchema = z.object({ conversationId: idSchema, branchId: idSchema }).strict()
 export const executionTargetSchema = executionScopeSchema.extend({ rootRunId: idSchema, runId: idSchema }).strict()
@@ -35,6 +36,7 @@ export const executionPresentationSchema = z.object({
   updatedAt: timestampSchema,
   progress: buddyRunProgressSchema.nullable(),
   toolCount: z.number().int().nonnegative(),
+  usage: runTokenUsageSchema.nullable().default(null),
   stopping: z.boolean(),
   task: z.string().max(300),
   waitingFor: z.enum(['answer', 'approval', 'children', 'resource']).nullable(),
@@ -48,6 +50,7 @@ export const executionPresentationSchema = z.object({
   questions: z.array(executionQuestionPresentationSchema),
 }).strict()
 export const executionDetailSchema = z.object({
+  work: executionWorkSchema.nullable(),
   execution: executionPresentationSchema,
   run: runSchema,
   caller: z.object({ runId: idSchema, buddyName: z.string().min(1).max(80), ordinal: z.number().int().positive().nullable() }).strict().nullable(),

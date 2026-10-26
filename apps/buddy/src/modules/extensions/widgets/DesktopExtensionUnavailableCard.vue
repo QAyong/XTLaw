@@ -14,11 +14,13 @@ defineProps<{ item: ExtensionUnavailableInstallation, language: string }>()
       <DesktopPluginIcon :size="28" />
       <div class="min-w-0 flex-1">
         <h2 class="m-0 min-w-0 text-strong text-[14px] font-600 leading-[1.5]">
-          <NEllipsis>{{ item.manifest.name }}</NEllipsis>
+          <NEllipsis :tooltip="false">
+            {{ item.manifest.name }}
+          </NEllipsis>
         </h2>
         <p class="flex min-w-0 items-center gap-2 mt-1 mr-0 mb-0 ml-0 text-muted text-[11px]">
           <span class="flex-none">{{ item.manifest.version }}</span>
-          <NEllipsis class="min-w-0">
+          <NEllipsis :tooltip="false" class="min-w-0">
             {{ item.manifest.author || (language === 'en-US' ? 'Unsigned' : '未署名') }}
           </NEllipsis>
         </p>
@@ -31,10 +33,10 @@ defineProps<{ item: ExtensionUnavailableInstallation, language: string }>()
       </div>
     </header>
     <div class="grid min-w-0 flex-none gap-[6px]">
-      <NEllipsis v-if="item.manifest.description" :line-clamp="1" class="text-muted text-[13px] leading-[1.6]">
+      <NEllipsis v-if="item.manifest.description" :tooltip="false" :line-clamp="1" class="text-muted text-[13px] leading-[1.6]">
         {{ item.manifest.description }}
       </NEllipsis>
-      <NEllipsis :line-clamp="1" class="text-muted text-[11px] leading-[1.6]">
+      <NEllipsis :tooltip="false" :line-clamp="1" class="text-muted text-[11px] leading-[1.6]">
         {{ language === 'en-US' ? 'Your plugin settings and private data are retained.' : '插件设置与私有数据已保留。' }}
       </NEllipsis>
     </div>

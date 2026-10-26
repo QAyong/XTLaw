@@ -5,7 +5,8 @@ import type { WorkbenchHitRegion, WorkbenchPaneSnapshot } from '../workbench/wor
 import type { JsonValue } from '../workbench/workbenchState'
 import type { ControlProposal, WorkbenchPresentation } from '../workbench/workbenchUi'
 import type { ExtensionTaskAction, ExtensionTaskActionInput, ExtensionTaskActionResult } from './extensionActionApi'
-import type { ExtensionCatalogSnapshot } from './extensionCatalog'
+import type { ExtensionCapabilityImpact } from './extensionCapabilities'
+import type { ExtensionCatalogKind, ExtensionCatalogSnapshot, ExtensionCatalogSource } from './extensionCatalog'
 import type { ExtensionCompatibilityIssue, ExtensionIncompatibleReview } from './extensionCompatibility'
 import type { ExtensionConditionsChanged, ExtensionConditionState } from './extensionConditions'
 import type { ExtensionDiagnostic } from './extensionDiagnostic'
@@ -144,6 +145,8 @@ export interface ExtensionReview {
   iconUrl?: string
   installationId?: string
   source?: { catalog: string, artifact: string, sha256: string }
+  /** Present for market installs: the kind and source the catalog files the entry under. */
+  listing?: { kind: ExtensionCatalogKind, source: ExtensionCatalogSource }
   token: string
   manifest: ExtensionManifest
   sha256: string
@@ -195,6 +198,7 @@ export const extensionManagementSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('restart'), id: extensionIdSchema }).strict(),
   z.object({ action: z.literal('applyUpdate'), id: extensionIdSchema }).strict(),
   z.object({ action: z.literal('uninstall'), id: extensionIdSchema, clearData: z.boolean().default(false) }).strict(),
+  z.object({ action: z.literal('capabilityImpact'), id: extensionIdSchema }).strict(),
   z.object({ action: z.literal('devtools'), id: extensionIdSchema }).strict(),
   z.object({ action: z.literal('revokeResources'), id: extensionIdSchema }).strict(),
   z.object({ action: z.literal('execute'), id: extensionIdSchema, command: z.string().max(180), resource: spaceFileTargetSchema.nullable() }).strict(),
@@ -237,6 +241,7 @@ export interface ExtensionApi {
   restart: (id: string) => Promise<void>
   applyUpdate: (id: string) => Promise<void>
   uninstall: (id: string, options?: { clearData?: boolean }) => Promise<void>
+  capabilityImpact: (id: string) => Promise<ExtensionCapabilityImpact>
   devtools: (id: string) => Promise<void>
   revokeResources: (id: string) => Promise<void>
   execute: (id: string, command: string, resource: import('../spaces/spaceFileApi').SpaceFileTarget | null) => Promise<void>

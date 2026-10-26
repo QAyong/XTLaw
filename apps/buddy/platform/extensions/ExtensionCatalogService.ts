@@ -1,15 +1,27 @@
-import type { ExtensionCatalogEntry, ExtensionCatalogListing, ExtensionCatalogSnapshot } from '../../shared/extensions/extensionCatalog'
+import type { ExtensionCatalogEntry, ExtensionCatalogListing, ExtensionCatalogPack, ExtensionCatalogSnapshot } from '../../shared/extensions/extensionCatalog'
 import type { BundledExtensionProvider } from './BundledExtensionCatalog'
 import { join } from 'node:path'
 import { rcompare } from 'semver'
 import { z } from 'zod'
-import { EXTENSION_CATALOG_URL, extensionCatalogEntrySchema, extensionCatalogListingSchema, extensionCatalogSchema } from '../../shared/extensions/extensionCatalog'
+import { EXTENSION_CATALOG_URL, extensionCatalogEntrySchema, extensionCatalogListingSchema, extensionCatalogSchema, extensionPackSchema, extensionPacksSchema, extensionPacksUrl } from '../../shared/extensions/extensionCatalog'
 import { ExtensionCompatibilityError, extensionCompatibilityIssue } from '../../shared/extensions/extensionCompatibility'
 import { publicWebUrl, readResponseBytes } from '../network/publicWebTransport'
 import { catalogEntrySource } from './BundledExtensionCatalog'
 import { readExtensionJson, sha256, writeExtensionJson } from './extensionFiles'
 
 const cacheSchema = z.object({ cachedAt: z.string(), catalog: extensionCatalogSchema }).strict()
+const packsCacheSchema = z.object({ cachedAt: z.string(), packs: z.array(z.unknown()).max(200) }).strict()
+// A pack that does not parse is dropped on its own; the first one wins when ids repeat.
+function validPacks(raw: readonly unknown[]): ExtensionCatalogPack[] {
+  const seen = new Set<string>()
+  return raw.flatMap((item) => {
+    const parsed = extensionPackSchema.safeParse(item)
+    if (!parsed.success || seen.has(parsed.data.id))
+      return []
+    seen.add(parsed.data.id)
+    return [parsed.data]
+  })
+}
 // Product exclusions apply to both saved and refreshed catalogs, not just the UI.
 const excludedCatalogIds = new Set(['lexora.water-reminder'])
 function filterCatalog(catalog: z.infer<typeof extensionCatalogSchema>) {
@@ -21,6 +33,7 @@ function filterCatalog(catalog: z.infer<typeof extensionCatalogSchema>) {
 }
 export class ExtensionCatalogService {
   readonly #path: string
+  readonly #packsPath: string
   readonly #version: string
   readonly #get: (url: string, init: { signal: AbortSignal }) => Promise<Response>
   readonly #catalogUrl: string | null
@@ -28,12 +41,14 @@ export class ExtensionCatalogService {
   #bundledEntries: ExtensionCatalogEntry[] = []
   #loadingBundles: Promise<void> | undefined
   #cache: z.infer<typeof cacheSchema> | null = null
+  #packs: ExtensionCatalogPack[] = []
   #loading: Promise<void> | null = null
   #refreshing: Promise<ExtensionCatalogSnapshot> | null = null
   readonly #abort = new AbortController()
 
   constructor(root: string, version: string, get: (url: string, init: { signal: AbortSignal }) => Promise<Response>, options: { bundled?: BundledExtensionProvider, catalogUrl?: string | null } = {}) {
     this.#path = join(root, 'catalog.json')
+    this.#packsPath = join(root, 'packs.json')
     this.#version = version
     this.#get = get
     this.#bundled = options.bundled
@@ -52,10 +67,15 @@ export class ExtensionCatalogService {
     }))
     if (this.#catalogUrl === null)
       return this.#snapshot(false, null)
-    await (this.#loading ??= readExtensionJson(this.#path, 4 * 1024 * 1024).then((raw) => {
-      const cached = cacheSchema.parse(raw)
-      this.#cache = { ...cached, catalog: filterCatalog(cached.catalog) }
-    }).catch(() => {}))
+    await (this.#loading ??= Promise.all([
+      readExtensionJson(this.#path, 4 * 1024 * 1024).then((raw) => {
+        const cached = cacheSchema.parse(raw)
+        this.#cache = { ...cached, catalog: filterCatalog(cached.catalog) }
+      }).catch(() => {}),
+      readExtensionJson(this.#packsPath, 1024 * 1024).then((raw) => {
+        this.#packs = validPacks(packsCacheSchema.parse(raw).packs)
+      }).catch(() => {}),
+    ]).then(() => {}))
     if (!refresh && this.#cache && Date.now() - Date.parse(this.#cache.cachedAt) < 3600000)
       return this.#snapshot(false, null)
     return this.#refreshing ??= this.#refresh().finally(() => {
@@ -117,11 +137,24 @@ export class ExtensionCatalogService {
       const next = { catalog, cachedAt: new Date().toISOString() }
       await writeExtensionJson(this.#path, next, () => this.#abort.signal.throwIfAborted())
       this.#cache = next
+      await this.#refreshPacks(this.#catalogUrl)
       return this.#snapshot(false, null)
     }
     catch {
       return this.#snapshot(true, 'EXTENSION_CATALOG_UNAVAILABLE')
     }
+  }
+
+  // Packs are an optional shelf on top of the catalog: a missing or unreadable file keeps what was saved and never fails the refresh.
+  async #refreshPacks(catalogUrl: string): Promise<void> {
+    try {
+      const bytes = await this.#fetch(extensionPacksUrl(catalogUrl), 1024 * 1024, this.#abort.signal)
+      const parsed = extensionPacksSchema.parse(JSON.parse(new TextDecoder().decode(bytes)))
+      const packs = validPacks(parsed.packs)
+      await writeExtensionJson(this.#packsPath, { cachedAt: new Date().toISOString(), packs }, () => this.#abort.signal.throwIfAborted())
+      this.#packs = packs
+    }
+    catch {}
   }
 
   #snapshot(stale: boolean, error: string | null): ExtensionCatalogSnapshot {
@@ -145,7 +178,7 @@ export class ExtensionCatalogService {
       if (!previous)
         selected.set(entry.manifest.id, { ...entry, compatible, incompatibility })
     }
-    return { plugins: [...selected.values()], invalidEntries, cachedAt: this.#catalogUrl === null ? null : this.#cache?.cachedAt ?? null, stale, error }
+    return { plugins: [...selected.values()], packs: this.#catalogUrl === null ? [] : this.#packs, invalidEntries, cachedAt: this.#catalogUrl === null ? null : this.#cache?.cachedAt ?? null, stale, error }
   }
 
   async #fetch(raw: string, limit: number, signal: AbortSignal): Promise<Uint8Array> {

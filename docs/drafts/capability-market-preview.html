@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>市场预览</title>
+<style>
+:root{
+  --surface-canvas:#fafaf8;--surface-raised:#fff;--surface-muted:rgba(32,37,34,.04);
+  --border-subtle:rgba(32,37,34,.1);--border-strong:rgb(32 37 34/18%);
+  --text-strong:#202522;--text-primary:#414844;--text-secondary:#666e69;--text-disabled:#929994;--on-accent:#fff;
+  --accent:#506b90;--accent-hover:#5b769c;--accent-text:#40597b;--accent-subtle:rgb(80 107 144/7%);--accent-surface:rgb(80 107 144/12%);--accent-border:rgb(80 107 144/38%);
+  --ok-text:#287550;--ok-surface:#e8f4ed;--ok-border:#a9d6bd;
+  --warn-text:#89591e;--warn-surface:#fbf1e3;--warn-border:#e4c28e;
+  --hover:rgba(32,37,34,.05);--radius:.375rem;
+  --font-ui:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei","Noto Sans CJK SC","Source Han Sans SC","Noto Sans",sans-serif;
+}
+:root[data-theme=dark]{
+  --surface-canvas:#202422;--surface-raised:#2a2f2b;--surface-muted:rgba(255,255,255,.05);
+  --border-subtle:rgba(255,255,255,.11);--border-strong:rgb(255 255 255/20%);
+  --text-strong:#f2f4f0;--text-primary:#d5dad5;--text-secondary:#aab1ab;--text-disabled:#737a74;
+  --accent-text:#91abcc;--accent-subtle:rgb(145 171 204/8%);--accent-surface:rgb(145 171 204/13%);--accent-border:rgb(145 171 204/38%);
+  --ok-text:#70ce9c;--ok-surface:#21362b;--ok-border:#3f7559;
+  --warn-text:#e0b070;--warn-surface:#3a2f1e;--warn-border:#6e5530;
+  --hover:rgba(255,255,255,.06);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font-family:var(--font-ui);background:var(--surface-canvas);color:var(--text-primary);font-size:13px;line-height:1.5}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+svg.i{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.app{display:flex;height:100vh;min-height:620px}
+.side{width:236px;flex:none;border-right:1px solid var(--border-subtle);display:flex;flex-direction:column;padding:12px 0;background:var(--surface-canvas)}
+.side .brand{padding:0 16px 12px;font-weight:600;color:var(--text-strong);font-size:14px}
+.nav{display:flex;flex-direction:column;gap:2px;padding:0 8px 8px}
+.nav button{display:flex;align-items:center;gap:6px;height:32px;border:0;border-radius:8px;background:transparent;color:var(--text-secondary);padding:0 6px;text-align:left;font-size:13px}
+.nav button:hover{background:var(--hover);color:var(--text-strong)}
+.nav button.on{background:var(--accent-subtle);color:var(--accent-text)}
+.side .grp{padding:10px 16px 4px;font-size:11px;color:var(--text-disabled)}
+.side .task{padding:6px 16px;color:var(--text-secondary)}
+.main{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--surface-canvas);position:relative}
+.head{height:44px;flex:none;display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid var(--border-subtle);padding:0 18px}
+.seg{display:inline-flex;background:var(--surface-muted);border-radius:8px;padding:2px}
+.seg button{border:0;background:transparent;border-radius:6px;padding:3px 14px;color:var(--text-secondary);font-size:13px}
+.seg button.on{background:var(--surface-raised);color:var(--text-strong);box-shadow:0 0 0 1px var(--border-subtle)}
+.acts{display:flex;align-items:center;gap:8px}
+.ibtn{width:28px;height:28px;border:0;border-radius:6px;background:transparent;display:flex;align-items:center;justify-content:center;color:var(--text-secondary)}
+.ibtn:hover{background:var(--hover)}
+.split{display:inline-flex}
+.split button{height:28px;border:0;background:var(--accent);color:var(--on-accent);padding:0 10px;display:flex;align-items:center;gap:6px}
+.split button:first-child{border-radius:6px 0 0 6px}
+.split button:last-child{border-radius:0 6px 6px 0;margin-left:1px;width:28px;padding:0;justify-content:center}
+.scroll{flex:1;overflow:auto}
+.content{display:flex;flex-direction:column;gap:14px;padding:14px 18px 36px;max-width:1120px}
+.tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.search{position:relative;width:220px}
+.search svg{position:absolute;left:9px;top:8px;color:var(--text-disabled)}
+.search input{width:100%;height:32px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--surface-raised);padding:0 10px 0 30px;outline:none}
+.search input:focus,.sel:focus{border-color:var(--accent-border)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--border-subtle);border-radius:999px;background:transparent;color:var(--text-secondary);padding:2px 12px;font-size:12px;height:26px}
+.chip:hover{background:var(--hover)}
+.chip.on{background:var(--accent-surface);border-color:var(--accent-border);color:var(--accent-text)}
+.sel{margin-left:auto;height:32px;border:1px solid var(--border-subtle);border-radius:8px;background:var(--surface-raised);padding:0 8px;outline:none}
+h3.sec{margin:6px 0 0;font-size:12px;font-weight:500;color:var(--text-secondary)}
+.packs{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:12px}
+.pack{display:flex;flex-direction:column;gap:10px;border:1px solid var(--border-subtle);border-radius:var(--radius);background:var(--surface-raised);padding:18px;cursor:pointer;text-align:left}
+.pack:hover{border-color:var(--border-strong)}
+.pack header{display:flex;gap:10px;align-items:center}
+.pack h2{margin:0;font-size:14px;font-weight:600;color:var(--text-strong);flex:1}
+.pack .ver{font-size:11px;color:var(--text-secondary)}
+.pack p{margin:0;color:var(--text-secondary);font-size:13px;line-height:1.7;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.cl{display:flex;flex-direction:column;border-top:1px solid var(--border-subtle);padding-top:6px}
+.cl div{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px;color:var(--text-primary)}
+.cl .k{flex:1}
+.cl em{font-style:normal;color:var(--text-secondary)}
+.inc{display:flex;gap:6px;flex-wrap:wrap}
+.inc span{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-secondary);background:var(--surface-muted);border-radius:6px;padding:2px 8px}
+.foot{display:flex;align-items:center;gap:6px;margin-top:auto;padding-top:4px}
+.foot .r{margin-left:auto}
+.ico{width:28px;height:28px;border-radius:8px;background:var(--surface-muted);display:flex;align-items:center;justify-content:center;color:var(--text-secondary);flex:none}
+.list{border:1px solid var(--border-subtle);border-radius:var(--radius);background:var(--surface-raised);overflow:hidden}
+.row{display:flex;align-items:center;gap:12px;padding:11px 14px;border-top:1px solid var(--border-subtle);cursor:pointer}
+.row:first-child{border-top:0}
+.row:hover{background:var(--hover)}
+.row .g{flex:1;min-width:0}
+.row .n{margin:0;font-weight:600;color:var(--text-strong);font-size:13px}
+.row .d{margin:1px 0 0;color:var(--text-secondary);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tag{display:inline-block;font-size:11px;line-height:18px;padding:0 7px;border-radius:5px;background:var(--surface-muted);color:var(--text-secondary);white-space:nowrap}
+.tag.off{background:var(--ok-surface);color:var(--ok-text)}
+.tag.rec{background:var(--warn-surface);color:var(--warn-text)}
+.tag.bi{background:var(--accent-subtle);color:var(--accent-text)}
+.btn{height:28px;min-width:76px;border:1px solid var(--border-strong);border-radius:6px;background:transparent;color:var(--text-strong);padding:0 12px;font-size:12px}
+.btn:hover{background:var(--hover)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.pri:hover{background:var(--accent-hover)}
+.state{display:inline-flex;align-items:center;gap:4px;font-size:12px;min-width:76px;justify-content:center;color:var(--ok-text)}
+.state.mute{color:var(--text-secondary)}
+.state.warn{color:var(--warn-text)}
+.empty{padding:40px;text-align:center;color:var(--text-secondary)}
+.sw{width:30px;height:18px;border-radius:9px;border:0;background:var(--border-strong);position:relative;flex:none}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:transform .14s}
+.sw.on{background:var(--accent)}
+.sw.on::after{transform:translateX(12px)}
+.sub{padding:4px 14px 12px 54px;border-top:1px solid var(--border-subtle);background:var(--surface-muted)}
+.sub div{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12px}
+.sub .k{flex:1;color:var(--text-primary)}
+.ov{position:absolute;inset:0;background:rgba(0,0,0,.38);display:flex;align-items:center;justify-content:center;padding:24px;z-index:5}
+.dlg{width:min(560px,100%);max-height:100%;overflow:auto;background:var(--surface-raised);border:1px solid var(--border-subtle);border-radius:12px;padding:20px}
+.dlg h2{margin:0;font-size:16px;color:var(--text-strong)}
+.dlg .lead{margin:6px 0 14px;color:var(--text-secondary);font-size:13px;line-height:1.7}
+.dlg h4{margin:14px 0 6px;font-size:12px;font-weight:500;color:var(--text-secondary)}
+.comp{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--border-subtle)}
+.comp:first-of-type{border-top:0}
+.comp .g{flex:1;min-width:0}
+.comp .n{font-weight:600;color:var(--text-strong);font-size:13px}
+.comp .d{color:var(--text-secondary);font-size:12px}
+.note{margin:12px 0 0;padding:10px 12px;border-radius:8px;font-size:12px;line-height:1.7;background:var(--accent-subtle);color:var(--text-primary)}
+.note.warn{background:var(--warn-surface);color:var(--warn-text)}
+.dfoot{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+code{font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;font-size:12px;background:var(--surface-muted);padding:1px 5px;border-radius:4px}
+.ptog{position:fixed;right:14px;bottom:14px;z-index:9;border:1px solid var(--border-strong);border-radius:999px;background:var(--surface-raised);padding:6px 14px;font-size:12px}
+@media (max-width:760px){.side{display:none}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<defs>
+<symbol id="puzzle" viewBox="0 0 24 24"><path d="M10 4a2 2 0 1 1 4 0v1h3a1 1 0 0 1 1 1v3h-1a2 2 0 1 0 0 4h1v3a1 1 0 0 1-1 1h-3v-1a2 2 0 1 0-4 0v1H7a1 1 0 0 1-1-1v-3h1a2 2 0 1 0 0-4H6V6a1 1 0 0 1 1-1h3z"/></symbol>
+<symbol id="cal" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></symbol>
+<symbol id="users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0M16 5a3 3 0 0 1 0 6M21 20a5 5 0 0 0-4-4.9"/></symbol>
+<symbol id="search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m20 20-4-4"/></symbol>
+<symbol id="scale" viewBox="0 0 24 24"><path d="M12 4v16M7 20h10M5 8h14M5 8l-2 6a3 3 0 0 0 4 0zM19 8l-2 6a3 3 0 0 0 4 0z"/></symbol>
+<symbol id="plug" viewBox="0 0 24 24"><path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0zM12 17v4"/></symbol>
+<symbol id="book" viewBox="0 0 24 24"><path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3zM5 17a3 3 0 0 1 3-3h11"/></symbol>
+<symbol id="bot" viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="11" rx="3"/><path d="M12 4v4M9 13v1M15 13v1"/></symbol>
+<symbol id="term" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m7 10 3 2-3 2M13 15h4"/></symbol>
+<symbol id="check" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></symbol>
+<symbol id="more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+<symbol id="chev" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></symbol>
+<symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="file" viewBox="0 0 24 24"><path d="M7 3h7l5 5v13H7zM14 3v5h5"/></symbol>
+<symbol id="gh" viewBox="0 0 24 24"><path d="M9 19c-4 1-4-2-6-2m12 4v-3a3 3 0 0 0-1-2c3 0 6-1.500 6-6a4.600 4.600 0 0 0-1.300-3.200 4.200 4.200 0 0 0-.1-3.200s-1.100-.3-3.500 1.300a12 12 0 0 0-6.200 0C6.500 2.800 5.400 3.100 5.400 3.100a4.200 4.200 0 0 0-.1 3.200A4.600 4.600 0 0 0 4 9.500c0 4.500 3 6 6 6a3 3 0 0 0-1 2v3"/></symbol>
+</defs>
+</svg>
+
+<div class="app">
+  <aside class="side">
+    <div class="brand">XTLaw</div>
+    <nav class="nav">
+      <button class="on"><svg class="i"><use href="#puzzle"/></svg>市场</button>
+      <button><svg class="i"><use href="#cal"/></svg>自动化</button>
+      <button><svg class="i"><use href="#users"/></svg>助手</button>
+    </nav>
+    <div class="grp">空间</div>
+    <div class="task">合同审查</div>
+    <div class="task">劳动争议检索</div>
+  </aside>
+
+  <section class="main" id="main">
+    <header class="head">
+      <div class="seg" id="seg"><button data-s="market" class="on">市场</button><button data-s="installed">已安装</button></div>
+      <div class="acts">
+        <button class="ibtn" aria-label="更多"><svg class="i"><use href="#more"/></svg></button>
+        <div class="split"><button><svg class="i"><use href="#plus"/></svg>创建</button><button aria-label="更多方式"><svg class="i"><use href="#chev"/></svg></button></div>
+      </div>
+    </header>
+    <div class="scroll"><div class="content" id="content"></div></div>
+  </section>
+</div>
+<button class="ptog" id="theme">切换明暗</button>
+
+<script>
+const KIND={pack:['能力包','puzzle'],mcp:['MCP','plug'],skill:['技能','book'],agent:['子代理','bot'],plugin:['插件','puzzle'],cli:['CLI','term']};
+const ITEMS=[
+ {id:'legal',kind:'pack',src:'off',name:'法律检索',ver:'1.0.0',ico:'scale',desc:'法条与案例检索、法律分析和检索报告，附带法律检索子代理。',state:'part',inc:['legal-skill','pkulaw','legal-agent']},
+ {id:'office',kind:'pack',src:'off',name:'Office 文档',ver:'1.0.0',ico:'file',desc:'读取、编辑 Word、PPT 与 Excel 文档。',state:'installed',inc:['docx','pptx','xlsx']},
+ {id:'legal-skill',kind:'skill',src:'off',name:'法律检索技能',ver:'',ico:'book',desc:'中国大陆法律检索流程与报告模板。',state:'builtin',hidden:true},
+ {id:'pkulaw',kind:'mcp',src:'off',name:'北大法宝',ver:'',ico:'plug',desc:'法律法规与案例数据库，需要填写 Token。',state:'config'},
+ {id:'legal-agent',kind:'agent',src:'off',name:'法律检索员',ver:'1.0.0',ico:'bot',desc:'独立展开多轮检索、读取并核验材料后回传证据。',state:'not',hidden:true},
+ {id:'docx',kind:'plugin',src:'off',name:'Word 文档',ver:'1.0.0',ico:'file',desc:'',state:'installed',hidden:true},
+ {id:'pptx',kind:'plugin',src:'off',name:'PPT 演示文稿',ver:'1.0.0',ico:'file',desc:'',state:'installed',hidden:true},
+ {id:'xlsx',kind:'plugin',src:'off',name:'Excel 表格',ver:'1.0.0',ico:'file',desc:'',state:'installed',hidden:true},
+ {id:'title',kind:'plugin',src:'off',name:'标题自动生成',ver:'1.3.0',ico:'puzzle',desc:'任务开始后在后台为新任务命名。',state:'not'},
+ {id:'shell',kind:'plugin',src:'off',name:'多 Shell · 命令执行',ver:'1.0.0',ico:'term',desc:'检测并选择命令解释器。',state:'installed'},
+ {id:'explorer',kind:'agent',src:'off',name:'探索者',ver:'',ico:'bot',desc:'探索本地文件与代码，提取事实和统计。',state:'builtin'},
+ {id:'researcher',kind:'agent',src:'off',name:'研究员',ver:'',ico:'bot',desc:'调研外部资料，核验结论并比较方案。',state:'builtin'},
+ {id:'gh',kind:'cli',src:'rec',name:'GitHub CLI',ver:'gh',ico:'gh',desc:'通过命令行读写 GitHub 仓库、议题与 PR。来源 cli.github.com',state:'ready',ver2:'2.62.0'},
+ {id:'pandoc',kind:'cli',src:'rec',name:'pandoc',ver:'pandoc',ico:'term',desc:'文档格式转换。来源 pandoc.org，本机未检测到。',state:'missing'},
+ {id:'clause',kind:'skill',src:'rec',name:'合同条款对照',ver:'a3f9c1',ico:'book',desc:'来自 github.com/example/skills，固定到提交 a3f9c1。',state:'not'},
+];
+const byId=Object.fromEntries(ITEMS.map(i=>[i.id,i]));
+const st={sec:'market',type:'all',src:'all',q:'',open:null,modal:null,expand:{},on:{shell:true,title:true,office:true}};
+const $=s=>document.querySelector(s);
+const ic=n=>`<svg class="i"><use href="#${n}"/></svg>`;
+const srcTag=i=>i.src==='off'?'<span class="tag off">官方</span>':'<span class="tag rec">推荐 · 第三方</span>';
+const kindTag=i=>`<span class="tag">${KIND[i.kind][0]}</span>`;
+const stateLabel=s=>({builtin:'内置',installed:'已安装',part:'部分内置',ready:'已就绪',missing:'未检测到',config:'待配置',not:'未安装'})[s];
+function action(i,stop){
+ const a=(cls,txt,act)=>`<button class="btn ${cls}" data-act="${act}" data-id="${i.id}">${txt}</button>`;
+ if(i.state==='installed')return `<span class="state">${ic('check')}已安装</span>`;
+ if(i.state==='builtin')return `<span class="state mute">内置</span>`;
+ if(i.state==='ready')return `<span class="state">${ic('check')}已就绪 ${i.ver2}</span>`;
+ if(i.state==='config')return a('','去配置','config');
+ if(i.state==='missing')return a('','安装方式','cli');
+ if(i.state==='part')return a('pri','安装','review');
+ return a('pri','安装','review');
+}
+function match(i){
+ if(i.hidden)return false;
+ if(st.type!=='all'&&i.kind!==st.type)return false;
+ if(st.src!=='all'&&i.src!==st.src)return false;
+ if(st.q&&!(i.name+i.desc).toLowerCase().includes(st.q.toLowerCase()))return false;
+ return true;
+}
+function toolbar(){
+ const chips=[['all','全部'],['pack','能力包'],['mcp','MCP'],['skill','技能'],['agent','子代理'],['plugin','插件'],['cli','CLI']];
+ return `<div class="tools"><div class="search">${ic('search')}<input id="q" placeholder="搜索能力" value="${st.q}"></div>
+ <div class="chips">${chips.map(([v,t])=>`<button class="chip ${st.type===v?'on':''}" data-type="${v}">${t}</button>`).join('')}</div>
+ <select class="sel" id="src"><option value="all">来源：全部</option><option value="off" ${st.src==='off'?'selected':''}>官方</option><option value="rec" ${st.src==='rec'?'selected':''}>推荐</option></select></div>`;
+}
+function card(i){
+ const kinds=i.kind==='pack'?[...new Set(i.inc.map(x=>byId[x].kind))]:[];
+ const ver=i.kind==='cli'?'':i.ver;
+ return `<article class="pack" data-detail="${i.id}"><header><div class="ico">${ic(i.ico)}</div><h2>${i.name}</h2><span class="ver">${ver}</span></header>
+ <div class="meta">${kindTag(i)}${srcTag(i)}</div>
+ <p>${i.desc}</p>${kinds.length?`<div class="inc">${kinds.map(k=>`<span>${ic(KIND[k][1])}${KIND[k][0]}</span>`).join('')}</div>`:''}
+ <div class="foot"><span class="r">${action(i)}</span></div></article>`;
+}
+function market(){
+ const v=ITEMS.filter(match),p=v.filter(i=>i.kind==='pack'),s=v.filter(i=>i.kind!=='pack');
+ return toolbar()+(p.length?`<h3 class="sec">能力包</h3><div class="packs">${p.map(card).join('')}</div>`:'')
+ +(s.length?`<h3 class="sec">单件</h3><div class="packs">${s.map(card).join('')}</div>`:'')
+ +(!v.length?'<div class="empty">没有符合条件的能力</div>':'');
+}
+function installedList(){
+ return ITEMS.filter(i=>!i.hidden&&['installed','builtin','ready','config','part'].includes(i.state)&&(st.type==='all'||i.kind===st.type)&&(st.src==='all'||i.src===st.src));
+}
+function installedRow(i){
+ const subs=i.kind==='pack'?i.inc.map(x=>byId[x]):[];
+ const removable=i.state==='installed';
+ const right=i.kind==='cli'?`<span class="state">${ic('check')}已就绪 ${i.ver2}</span>`:i.state==='builtin'?`<span class="state mute">内置</span>`:i.state==='config'?`<button class="btn" data-act="config" data-id="${i.id}">去配置</button>`:i.state==='part'?`<span class="state mute">部分内置</span>`:`<button class="sw ${st.on[i.id]!==false?'on':''}" data-sw="${i.id}" aria-label="启用"></button>`;
+ const ver=i.kind==='cli'?'':i.ver;
+ return `<article class="pack" data-detail="${i.id}"><header><div class="ico">${ic(i.ico)}</div><h2>${i.name}</h2><span class="ver">${ver}</span></header>
+ <div class="meta">${kindTag(i)}${srcTag(i)}${i.state==='config'?'<span class="tag rec">待配置</span>':''}</div>
+ <p>${i.desc}</p>
+ ${subs.length?`<div class="cl">${subs.map(c=>`<div>${ic(KIND[c.kind][1])}<span class="k">${c.name}</span><em>${stateLabel(c.state)}</em></div>`).join('')}</div>`:''}
+ <div class="foot">${removable?'<button class="btn" data-act="remove" data-id="'+i.id+'" style="color:var(--text-secondary)">卸载</button>':''}<span class="r">${right}</span></div></article>`;
+}
+function installed(){
+ const v=installedList();
+ const chips=[['all','全部'],['pack','能力包'],['mcp','MCP'],['skill','技能'],['agent','子代理'],['plugin','插件'],['cli','CLI']];
+ return `<div class="tools"><div class="chips">${chips.map(([k,t])=>`<button class="chip ${st.type===k?'on':''}" data-type="${k}">${t}</button>`).join('')}</div></div>
+ ${v.length?`<div class="packs">${v.map(installedRow).join('')}</div>`:'<div class="empty">这里还没有已安装的内容</div>'}`;
+}
+function modal(){
+ const m=st.modal;if(!m)return '';
+ const i=byId[m.id];
+ if(m.mode==='detail'){
+  const comps=i.kind==='pack'?i.inc.map(x=>byId[x]):[];
+  return `<div class="ov" data-close><div class="dlg" data-stop><div style="display:flex;gap:10px;align-items:center"><div class="ico">${ic(i.ico)}</div><h2>${i.name}</h2><span class="tag" style="margin-left:auto">${i.ver}</span></div>
+  <p class="lead">${i.desc}</p>
+  ${comps.length?`<h4>包含 ${comps.length} 项</h4>${comps.map(c=>`<div class="comp"><div class="ico">${ic(c.ico)}</div><div class="g"><div class="n">${c.name}</div><div class="d">${KIND[c.kind][0]} · ${c.state==='not'?'将新增':c.state==='config'?'内置，需要配置 Token':c.state==='builtin'?'内置':'已安装'}</div></div>${c.state==='not'?'<span class="tag off">新增</span>':c.state==='installed'?`<span class="state">${ic('check')}</span>`:'<span class="tag bi">内置</span>'}</div>`).join('')}`:''}
+  ${i.kind==='cli'?`<div class="note">${i.state==='ready'?'已在本机检测到，可被 Agent 调用。':'本机没有检测到这个命令。市场不会代为安装。'}</div>`:''}
+  <div class="dfoot"><button class="btn" data-close>关闭</button>${i.state==='not'||i.state==='part'?'<button class="btn pri" data-act="review" data-id="'+i.id+'">安装</button>':''}</div></div></div>`;
+ }
+ if(m.mode==='cli'){
+  return `<div class="ov" data-close><div class="dlg" data-stop><h2>安装 ${i.name}</h2><p class="lead">市场不会执行任何命令。请在终端里运行下面的命令，装完点“重新检测”。</p>
+  <div class="note"><code>winget install JohnMacFarlane.Pandoc</code></div>
+  <div class="note warn">推荐条目 · 第三方，未经 XTLaw 审核。来源：pandoc.org</div>
+  <div class="dfoot"><button class="btn" data-close>关闭</button><button class="btn">复制命令</button><button class="btn pri">重新检测</button></div></div></div>`;
+ }
+ const rec=i.src==='rec';
+ let body='';
+ if(i.kind==='pack'){
+  body=`<h4>将新增</h4>`+i.inc.map(x=>byId[x]).filter(c=>c.state==='not').map(c=>`<div class="comp"><div class="ico">${ic(c.ico)}</div><div class="g"><div class="n">${c.name}</div><div class="d">子代理 · 工具范围：北大法宝检索工具、网页搜索、文件读取；文件权限：只读</div></div></div>`).join('')
+  +`<div class="note">子代理安装后会<strong>自动加入“晓晓”的可委派列表</strong>。该子代理引用北大法宝的检索工具，需要先在“设置 → 网络”里填写 Token 才能使用。</div>
+  <h4>已有，不重复安装</h4>`+i.inc.map(x=>byId[x]).filter(c=>c.state!=='not').map(c=>`<div class="comp"><div class="ico">${ic(c.ico)}</div><div class="g"><div class="n">${c.name}</div><div class="d">${KIND[c.kind][0]} · 内置</div></div></div>`).join('');
+ }else if(rec){
+  body=`<div class="note warn">第三方 · 未经 XTLaw 审核。来源 github.com/example/skills，固定到提交 a3f9c1，对方更新不会自动进来。已通过技能内容检查，未发现可执行脚本。</div>`;
+ }else{
+  body=`<h4>权限</h4><div class="note">调用模型、读取触发任务的消息文本、修改任务标题。安装包 SHA256 已校验。</div>`;
+ }
+ return `<div class="ov" data-close><div class="dlg" data-stop><h2>安装“${i.name}”</h2><p class="lead">请确认将要新增的内容。</p>${body}
+ <div class="dfoot"><button class="btn" data-close>取消</button><button class="btn pri" data-act="do" data-id="${i.id}">${rec?'我了解风险，安装':'安装'}</button></div></div></div>`;
+}
+function render(){
+ $('#content').innerHTML=st.sec==='market'?market():installed();
+ document.querySelectorAll('#seg button').forEach(b=>b.classList.toggle('on',b.dataset.s===st.sec));
+ document.querySelectorAll('#main > .ov').forEach(o=>o.remove());
+ if(st.modal)$('#main').insertAdjacentHTML('beforeend',modal());
+ const q=$('#q');if(q){q.oninput=e=>{st.q=e.target.value;const p=e.target.selectionStart;render();const n=$('#q');n.focus();n.setSelectionRange(p,p)}}
+ const s=$('#src');if(s)s.onchange=e=>{st.src=e.target.value;render()};
+}
+document.addEventListener('click',e=>{
+ const t=e.target.closest.bind(e.target);
+ const stopEl=t('[data-stop]');
+ if(t('[data-close]')&&(!stopEl||t('button[data-close]'))){st.modal=null;return render()}
+ const act=t('[data-act]');
+ if(act){e.stopPropagation();const a=act.dataset.act,id=act.dataset.id;
+  if(a==='review')st.modal={mode:'review',id};
+  else if(a==='cli')st.modal={mode:'cli',id};
+  else if(a==='remove'){byId[id].state='not'}
+  else if(a==='config'){alert('预览：这里会跳转到“设置 → 网络 → 服务配置”');return}
+  else if(a==='do'){const i=byId[id];i.state='installed';if(id==='legal'){byId['legal-agent'].state='installed';i.state='installed'}st.modal=null}
+  return render()}
+ const ty=t('[data-type]');if(ty){st.type=ty.dataset.type;return render()}
+ const sg=t('#seg button');if(sg){st.sec=sg.dataset.s;st.type='all';return render()}
+ const sw=t('[data-sw]');if(sw){const k=sw.dataset.sw;st.on[k]=st.on[k]===false;return render()}
+ const ex=t('[data-exp]');if(ex){const k=ex.dataset.exp;st.expand[k]=!st.expand[k];return render()}
+ const de=t('[data-detail]');if(de){st.modal={mode:'detail',id:de.dataset.detail};return render()}
+});
+$('#theme').onclick=()=>{const r=document.documentElement;r.dataset.theme=r.dataset.theme==='dark'?'light':'dark'};
+render();
+</script>
+</body>
+</html>

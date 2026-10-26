@@ -10,7 +10,7 @@ export const extensionsRoutes: RouteRecordRaw[] = [
 
 export const extensionsPage: DesktopPageContribution = {
   id: 'lexora.extensions',
-  title: language => language === 'en-US' ? 'Plugins' : '插件',
+  title: language => language === 'en-US' ? 'Market' : '市场',
   icon: { kind: 'named', name: 'navigationExtensions' },
   order: 40,
   location: desktopRouteLocations.extensions(),

@@ -183,3 +183,59 @@ it('adds no warning for permissions that carry no such risk', async () => {
   await mountReview(remote, { composerReference: true, resourceExport: true })
   expect(document.body.querySelectorAll('[data-testid="extension-permission-risk"]')).toHaveLength(0)
 })
+
+it('groups MCP connections and sub-agents with their source, address and dependencies', async () => {
+  const tool = JSON.stringify(['mcp', 'legal-search', 'legal__search'])
+  await mount({
+    ...review,
+    fileAssociations: [],
+    source: { catalog: 'https://example.com/catalog.json', artifact: 'https://example.com/legal.lexora-extension', sha256: 'a'.repeat(64) },
+    listing: { kind: 'agent', source: 'official' },
+    manifest: extensionManifestSchema.parse({
+      ...review.manifest,
+      id: 'tests.legal',
+      apiVersion: 4,
+      contributes: {
+        mcpConnectors: [{ id: 'legal-search', name: 'Legal search', transport: 'streamable-http', url: 'https://legal.example.com/mcp', credential: 'bearer' }],
+        subagents: [{ id: 'law-finder', kind: 'npc', name: 'Law finder', description: 'Finds statutes', instructions: 'Search statutes first.', tools: { mode: 'selected', ids: [tool] }, fileAccess: 'read_only' }],
+      },
+    }),
+  })
+  const text = (selector: string) => document.querySelector(selector)?.textContent ?? ''
+  expect(document.querySelector('.n-card-header__main')?.textContent).toBe('Install sub-agent')
+  expect(document.body.textContent).toContain('XTLaw Market · Sub-agent · Official')
+  expect(text('[data-testid="extension-included-mcp"]')).toContain('https://legal.example.com/mcp')
+  expect(text('[data-testid="extension-included-mcp"]')).toContain('downloads no code')
+  expect(text('[data-testid="extension-included-mcp"]')).toContain('Needs a token')
+  expect(text('[data-testid="extension-included-agents"]')).toContain('Law finder')
+  expect(text('[data-testid="extension-included-agents"]')).toContain('Limited to 1 selected tools')
+  expect(text('[data-testid="extension-included-agents"]')).toContain('Can read files but not change them')
+  expect(text('[data-testid="extension-included-agents"]')).toContain('Legal search (installed with this package)')
+  expect(text('[data-testid="extension-included-agents"]')).toContain('Xiaoxiao’s delegation list')
+})
+
+it('says a sub-agent uses every tool of a built-in connector, and that the connector is built in', async () => {
+  await mount({
+    ...review,
+    fileAssociations: [],
+    source: { catalog: 'https://example.com/catalog.json', artifact: 'https://example.com/legal.lexora-extension', sha256: 'a'.repeat(64) },
+    listing: { kind: 'agent', source: 'official' },
+    manifest: extensionManifestSchema.parse({
+      ...review.manifest,
+      id: 'tests.legal-agent',
+      apiVersion: 4,
+      contributes: { subagents: [{ id: 'law-finder', kind: 'npc', name: 'Law finder', instructions: 'Search statutes first.', tools: { mode: 'selected', ids: [JSON.stringify(['builtin', 'core', 'read']), JSON.stringify(['mcp', 'pkulaw', '*'])] }, fileAccess: 'inherit' }] },
+    }),
+  })
+  const agents = document.querySelector('[data-testid="extension-included-agents"]')?.textContent ?? ''
+  expect(agents).toContain('Limited to 1 selected tools；Every tool of PKULaw')
+  expect(agents).toContain('PKULaw (built in)')
+})
+
+it('names the group a local package adds only when it adds one', async () => {
+  await mount({ ...review, fileAssociations: [] })
+  expect(document.querySelector('[data-testid="extension-included-mcp"]')).toBeNull()
+  expect(document.querySelector('[data-testid="extension-included-agents"]')).toBeNull()
+  expect(document.querySelector('.n-card-header__main')?.textContent).toBe('Install plugin')
+  expect(document.body.textContent).toContain('Local package')
+})

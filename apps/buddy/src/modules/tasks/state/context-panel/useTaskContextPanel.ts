@@ -354,6 +354,7 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
     canOpenDirectory,
     canPreviewFile,
     closeTab: store.close,
+    setTabPinned: store.setPinned,
     discardConversation: (id: string) => store.discard(taskContextPanelScope(id)),
     hasTab,
     openArtifact,

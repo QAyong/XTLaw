@@ -62,7 +62,7 @@ function handleAction(key: string | number) {
 </script>
 
 <template>
-  <article class="extension-card" :class="{ 'extension-card--capabilities': hasCapabilities }" :data-extension-id="item.manifest.id">
+  <article class="extension-card" :data-extension-id="item.manifest.id">
     <header class="extension-card__header">
       <DesktopPluginIcon :src="item.iconUrl" :size="28" />
       <div class="extension-card__identity">
@@ -132,8 +132,7 @@ function handleAction(key: string | number) {
 </template>
 
 <style scoped>
-.extension-card { box-sizing: border-box; display: flex; height: 200px; min-width: 0; flex-direction: column; gap: 8px; border: 1px solid var(--buddy-border-subtle); border-radius: var(--buddy-radius-micro); background: var(--buddy-surface-base); padding: 16px; }
-.extension-card--capabilities { height: auto; min-height: 200px; }
+.extension-card { box-sizing: border-box; display: flex; min-height: 200px; min-width: 0; flex-direction: column; gap: 8px; border: 1px solid var(--buddy-border-subtle); border-radius: var(--buddy-radius-micro); background: var(--buddy-surface-base); padding: 16px; }
 .extension-card__kinds { display: flex; flex-wrap: wrap; gap: 6px; }
 .extension-card__header { display: flex; min-width: 0; flex: none; align-items: flex-start; gap: 12px; }
 .extension-card__identity { min-width: 0; flex: 1; }

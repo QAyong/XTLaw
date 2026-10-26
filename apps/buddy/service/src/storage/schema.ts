@@ -30,11 +30,11 @@ import { BUDDY_V29_SESSION_REFERENCES_SCHEMA_SQL } from './migrations/v29Session
 import { BUDDY_V30_TASK_MODELS_SCHEMA_SQL } from './migrations/v30TaskModels'
 import { BUDDY_V31_AUTOMATION_APPROVAL_POLICY_SCHEMA_SQL } from './migrations/v31AutomationApprovalPolicy'
 import { BUDDY_V32_AUTOMATION_APPROVAL_ALLOWLIST_SCHEMA_SQL } from './migrations/v32AutomationApprovalAllowlist'
-import { BUDDY_V33_MUTATION_RECOVERY_SCHEMA_SQL } from './migrations/v33MutationRecovery'
-import { BUDDY_V34_CHANGE_CAPTURE_SCHEMA_SQL } from './migrations/v34ChangeCapture'
-
 import { BUDDY_V33_EXECUTION_WORK_SCHEMA_SQL } from './migrations/v33ExecutionWork'
+import { BUDDY_V33_MUTATION_RECOVERY_SCHEMA_SQL } from './migrations/v33MutationRecovery'
+
 import { BUDDY_V34_ACTOR_IDENTITY_SCHEMA_SQL } from './migrations/v34ActorIdentity'
+import { BUDDY_V34_CHANGE_CAPTURE_SCHEMA_SQL } from './migrations/v34ChangeCapture'
 
 export interface BuddySchemaMigration {
   foreignKeys?: 'off'

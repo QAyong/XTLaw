@@ -134,9 +134,6 @@ export function useTaskCapability(options: UseTaskCapabilityOptions): TaskCapabi
     api: api.localChat.executions,
     onError: setError,
   })
-  const activeRun = computed(() => runSync.executionRuns.value.find(
-    run => run.status === 'queued' || run.status === 'running',
-  ) ?? null)
   const hasAvailableProvider = computed(() => modelProviders.providers.value.some(
     provider => provider.enabled && provider.status === 'available',
   ))
@@ -217,6 +214,11 @@ export function useTaskCapability(options: UseTaskCapabilityOptions): TaskCapabi
     session: chatSession,
   })
   // 任务被移入空间后，当前会话的空间随之更新。
+  const activeRun = computed(() => {
+    const actorId = addressedActorId.value ?? activeConversation.value?.buddyId ?? draftBuddyId.value
+    const active = runSync.executionRuns.value.filter(run => run.status === 'queued' || run.status === 'running')
+    return actorId ? active.find(run => run.buddyId === actorId) ?? null : active.length === 1 ? active[0]! : null
+  })
   const stopSpaceFollow = api.localChat.conversations.onChanged((conversation) => {
     if (conversation.id !== activeConversationId.value)
       return
@@ -406,6 +408,7 @@ export function useTaskCapability(options: UseTaskCapabilityOptions): TaskCapabi
     selection: taskModels,
   })
   const execution = useChatExecution({
+    branchActiveRun: computed(() => runSync.executionRuns.value.find(run => run.status === 'queued' || run.status === 'running') ?? null),
     actorInput,
     getNewBuddyId: () => activeConversationId.value ? undefined : draftBuddyId.value ?? undefined,
     flushModelSelection,

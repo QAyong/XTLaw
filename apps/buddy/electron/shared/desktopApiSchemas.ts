@@ -4,6 +4,7 @@ import { browserPreferencesPatchSchema } from '../../shared/browser/browserPrefe
 import { extensionAuthorSchema } from '../../shared/extensions/extensionIdentity'
 import { fileIconPreferenceSchema } from '../../shared/icons/fileIconTheme'
 import { proxySettingsSchema } from '../../shared/network/proxySettings'
+import { notificationSoundPreferencesPatchSchema } from '../../shared/notifications/notificationSound'
 import { featureDiscoverySchema } from '../../shared/onboarding/featureDiscovery'
 import { BUDDY_PERMISSION_MODES } from '../../shared/permissions/permissionMode'
 import { runtimePreferencesSchema } from '../../shared/runtime/runtimePreferences'
@@ -57,6 +58,7 @@ export const feedbackIssueInputSchema = z.object({
 
 export const clipboardWriteTextInputSchema = z.object({
   text: z.string(),
+  html: z.string().max(4 * 1024 * 1024).optional(),
 }).strict()
 
 export const releasePageInputSchema = z.object({
@@ -109,6 +111,7 @@ export const lexoraConfigPatchSchema: z.ZodType<LexoraConfigPatch> = z.object({
     language: z.enum(['zh-CN', 'en-US']).optional(),
     launchAtLogin: z.boolean().optional(),
     notificationsEnabled: z.boolean().optional(),
+    notificationSound: notificationSoundPreferencesPatchSchema.optional(),
     subtaskNotificationsEnabled: z.boolean().optional(),
     updateNotificationsEnabled: z.boolean().optional(),
     autoDownloadUpdates: z.boolean().optional(),

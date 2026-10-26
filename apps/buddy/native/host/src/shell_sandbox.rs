@@ -18,7 +18,7 @@ const SERVICE_NAME: &str = "XTLawSandboxNetwork";
 const PIPE_NAME: &str = r"\\.\pipe\XTLawSandboxNetwork-v1";
 const PROFILE_PREFIX: &str = "XTLaw.Sandbox.";
 const PROTOCOL_VERSION: u32 = 1;
-const COMPONENT_VERSION: u32 = 6;
+const COMPONENT_VERSION: u32 = 7;
 
 pub fn run() -> io::Result<i32> {
     let arguments: Vec<String> = std::env::args().skip(1).collect();

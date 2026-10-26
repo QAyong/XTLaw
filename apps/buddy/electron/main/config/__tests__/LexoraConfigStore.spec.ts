@@ -373,6 +373,7 @@ keep=true
       developerToolsEnabled: false,
       language: 'zh-CN',
       launchAtLogin: false,
+      notificationSound: { selected: 'system', sounds: [], volume: 0.6 },
       notificationsEnabled: true,
       subtaskNotificationsEnabled: true,
       updateNotificationsEnabled: true,

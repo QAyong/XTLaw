@@ -19,6 +19,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   activeMessageChange: [messageId: string | null]
   contentResize: [metrics: ChatMessageScrollMetrics]
+  readerScrollIntent: []
   returnToLatest: []
   scroll: [metrics: ChatMessageScrollMetrics, options?: { userInitiated?: boolean }]
 }>()
@@ -45,20 +46,25 @@ function markUserInteraction() {
 }
 
 function handleWheel() {
+  emit('readerScrollIntent')
   markUserInteraction()
 }
 
 function handleTouchMove() {
+  emit('readerScrollIntent')
   markUserInteraction()
 }
 
 function handleKeyDown(event: KeyboardEvent) {
   const scrollKeys = ['PageUp', 'PageDown', 'Home', 'End', 'ArrowUp', 'ArrowDown', ' ']
-  if (scrollKeys.includes(event.key))
+  if (scrollKeys.includes(event.key)) {
+    emit('readerScrollIntent')
     markUserInteraction()
+  }
 }
 
 function handlePointerDown() {
+  emit('readerScrollIntent')
   isPointerDragging = true
   markUserInteraction()
 }
@@ -89,13 +95,20 @@ function captureScrollAnchor(): ChatMessageScrollAnchor | null {
   }
 }
 
+function findScrollAnchor(anchor: ChatMessageScrollAnchor): HTMLElement | null {
+  return (anchor.rowKey ? domIndex?.findRow(anchor.rowKey) : null)
+    ?? findMessage(anchor.messageId)
+}
+
+function hasScrollAnchor(anchor: ChatMessageScrollAnchor): boolean {
+  return findScrollAnchor(anchor) !== null
+}
+
 function restoreScrollAnchor(anchor: ChatMessageScrollAnchor): ChatMessageScrollMetrics | null {
   const scrollport = viewport.value
   if (!scrollport)
     return null
-  const anchorMessage = anchor.rowKey
-    ? domIndex?.findRow(anchor.rowKey)
-    : findMessage(anchor.messageId)
+  const anchorMessage = findScrollAnchor(anchor)
   if (anchorMessage) {
     const currentOffset = anchorMessage.getBoundingClientRect().top
       - scrollport.getBoundingClientRect().top
@@ -245,6 +258,7 @@ onBeforeUnmount(() => {
 
 defineExpose<BuddyChatTranscriptViewportHandle>({
   captureScrollAnchor,
+  hasScrollAnchor,
   readScrollMetrics,
   restoreScrollAnchor,
   scrollBy,

@@ -20,6 +20,7 @@ import { automationNotifications } from '../../../shared/automation/automationAp
 import { contextPanelRpc, contextPanelSourceSchema } from '../../../shared/context-panel/contextPanel'
 import { extensionAgentInvocationSchema, extensionAgentRpc } from '../../../shared/extensions/extensionAgent'
 import { extensionCapabilitiesRpc } from '../../../shared/extensions/extensionCapabilities'
+import { extensionAgentResourceRequestSchema } from '../../../shared/extensions/extensionAgentResources'
 import { extensionSkillsRpc } from '../../../shared/extensions/extensionSkills'
 import { networkPermissionGrantSchema, networkPermissionsRpc } from '../../../shared/permissions/networkPermissionsRpc'
 import { isLinux } from '../../../shared/platform/identifiers'
@@ -223,6 +224,11 @@ export class DesktopRuntimeHost {
             if (!this.extensionCapabilities)
               throw new Error('EXTENSION_SERVICE_UNAVAILABLE')
             return this.extensionCapabilities.list()
+          }),
+          peer.onRequest(extensionAgentRpc.resource, (input, signal) => {
+            if (!this.extensionAgent)
+              throw new Error('EXTENSION_AGENT_UNAVAILABLE')
+            return this.extensionAgent.readResource(extensionAgentResourceRequestSchema.parse(input), signal ?? new AbortController().signal)
           }),
           peer.onRequest(extensionAgentRpc.invoke, (input, signal) => {
             if (!this.extensionAgent)

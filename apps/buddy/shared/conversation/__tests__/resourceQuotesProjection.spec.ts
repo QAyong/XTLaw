@@ -48,6 +48,8 @@ describe('file excerpt snapshots', () => {
     expect(result.prompt).toContain('const token = refresh()')
     expect(result.prompt).toContain('auth.ts')
     expect(JSON.parse(result.prompt.split('\n')[1]!)).toEqual([{
+      kind: 'resource',
+      referenceId: 'file-quote',
       source: { title: 'auth.ts', path: 'auth.ts', format: 'source' },
       text: quote.text,
       range: quote.range,

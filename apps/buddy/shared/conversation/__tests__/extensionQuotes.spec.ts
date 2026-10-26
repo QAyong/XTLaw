@@ -1,7 +1,7 @@
 import type { BuddyFileQuote } from '../buddyUserContent'
 import { describe, expect, it } from 'vitest'
 import { extensionQuoteInputSchema } from '../../extensions/extensionApi'
-import { appendBuddyResourceQuote, BUDDY_QUOTE_TOTAL_TEXT_LIMIT, buddyResourceQuoteSchema, buddyUserMessageContentV1Schema, createBuddyUserContent } from '../buddyUserContent'
+import { appendBuddyResourceQuote, BUDDY_QUOTE_TEXT_LIMIT, BUDDY_QUOTE_TOTAL_TEXT_LIMIT, buddyResourceQuoteSchema, buddyUserMessageContentV1Schema, createBuddyUserContent } from '../buddyUserContent'
 import { projectBuddyUserContent } from '../buddyUserContentProjection'
 import { EXTENSION_QUOTE_LOCATION_BYTES, extensionQuoteLocationIssue } from '../extensionQuoteLocation'
 
@@ -103,7 +103,7 @@ describe('extension quote input from plugins', () => {
       { ...base, kind: 'range', location: { fn: () => 1 } },
       { ...base, kind: 'range', location: 'x'.repeat(600) },
       { ...base, text: ' ', kind: 'range', location: {} },
-      { ...base, text: 'x'.repeat(32769), kind: 'range', location: {} },
+      { ...base, text: 'x'.repeat(BUDDY_QUOTE_TEXT_LIMIT + 1), kind: 'range', location: {} },
     ]
     for (const input of invalid)
       expect(extensionQuoteInputSchema.safeParse(input).success, JSON.stringify(input).slice(0, 80)).toBe(false)
@@ -164,7 +164,7 @@ describe('extension file quotes', () => {
       throw new Error('Do not read sources')
     }, () => '')
     const excerpts = JSON.parse(projected.prompt.split('\n')[1]!)
-    expect(excerpts).toEqual([{ source: { title: 'table.csv', path: 'data/table.csv', format: 'extension', extensionKind: 'range' }, text: '3,4' }])
+    expect(excerpts).toEqual([{ kind: 'resource', referenceId: 'csv-quote', source: { title: 'table.csv', path: 'data/table.csv', format: 'extension', extensionKind: 'range' }, text: '3,4' }])
     expect(projected.prompt).not.toContain('secretPlace')
     expect(projected.prompt).not.toContain('pabc.csv-sheet')
   })

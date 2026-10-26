@@ -134,7 +134,23 @@ onScopeDispose(() => {
 })
 useProvideWorkbenchUi({ anchors, panes: paneRegistry, controlRenderer: DesktopExtensionControl, slotRenderer: DesktopExtensionSlot, menuRenderer: DesktopExtensionMenu })
 const ui = useExtensionUiContributions(extensions.installed, workbench.controller.configuration)
-const extensionReferences = useExtensionReferences({ references: workbench.selectionReferences, controller: workbench.controller, persistence: workbench.persistence, pool: workbench.pool, api: api.extensions, views: extensionViews, installed: extensions.installed, chooseTarget: useReferenceTargetPicker(() => stores.applicationSettings.language.value) })
+const extensionReferences = useExtensionReferences({
+  references: workbench.selectionReferences,
+  controller: workbench.controller,
+  persistence: workbench.persistence,
+  pool: workbench.pool,
+  api: api.extensions,
+  views: extensionViews,
+  installed: extensions.installed,
+  writeClipboard: api.clipboard.writeText,
+  chooseTarget: useReferenceTargetPicker(() => stores.applicationSettings.language.value),
+  prepareNewTaskInput: workbench.prepareNewTaskInput,
+  showTarget: workbench.showTaskInput,
+  showPage: workbench.showReferencePage,
+  notifySuccess: result => message.success(result.kind === 'view'
+    ? translateBuddy(stores.applicationSettings.language.value, 'desktop.chat.quoteAddedToTarget', { title: result.title })
+    : translateBuddy(stores.applicationSettings.language.value, result.kind === 'clipboard' ? 'desktop.chat.quoteCopied' : 'desktop.chat.quoteAddedToNewTask')),
+})
 useExtensionContributions({ controller: workbench.controller, renderers: workbench.renderers, persistence: workbench.persistence, installed: extensions.installed, api: api.extensions, views: extensionViews, ui, ready: () => workbench.initialized, selectionReferences: workbench.selectionReferences, onQuoteResult: (result, targetLabel) => showSelectionReferenceResult(message, (key, params) => translateBuddy(stores.applicationSettings.language.value, key, params), result, targetLabel), receiveReference: extensionReferences.receive })
 onScopeDispose(workbench.controller.subscribe(() => void nextTick(extensionViews.layout)))
 const selectedTask = workbench.activeTask

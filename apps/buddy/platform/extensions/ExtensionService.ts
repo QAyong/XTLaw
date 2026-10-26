@@ -1,6 +1,6 @@
 import type { ExtensionAgentDescriptor, ExtensionAgentInvocation } from '../../shared/extensions/extensionAgent'
 import type { ExtensionAgentResourceRequest, ExtensionAgentResourceResponse } from '../../shared/extensions/extensionAgentResources'
-import type { ExtensionFileOpeningInput, ExtensionFileOpeningSource, ExtensionMenuInvocation, ExtensionPreparedFileOpening, ExtensionResource, ExtensionStatus, ExtensionViewInput, ExtensionViewSession, ExtensionWorkbenchEvent } from '../../shared/extensions/extensionApi'
+import type { ExtensionFileOpeningInput, ExtensionFileOpeningSource, ExtensionMenuInvocation, ExtensionPreparedFileOpening, ExtensionResource, ExtensionStatus, ExtensionViewInput, ExtensionViewSession, ExtensionWorkbenchEvent, ExtensionWorkbenchResult } from '../../shared/extensions/extensionApi'
 import type { ExtensionInspection } from '../../shared/extensions/extensionAuthoring'
 import type { ExtensionCapabilityDescriptor } from '../../shared/extensions/extensionCapabilities'
 import type { ExtensionClipboardData } from '../../shared/extensions/extensionClipboard'
@@ -46,7 +46,7 @@ import { extensionDocumentInfoSchema } from '../../shared/extensions/extensionDo
 import { fileExtensionOf, matchFileHandlers, resolveFileHandler } from '../../shared/extensions/extensionFileHandlers'
 import { extensionFileHandlerBindings, extensionFileHandlers, implicitFileHandlerId } from '../../shared/extensions/extensionFileOpening'
 import { extensionCompatible, extensionManifestSchema, extensionMayReference, extensionPathSchema } from '../../shared/extensions/extensionManifest'
-import { extensionReferenceInputSchema, extensionReferenceOpeningSchema, extensionReferenceTargetSchema } from '../../shared/extensions/extensionReferences'
+import { extensionReferenceCaptureSchema, extensionReferenceCommitSchema, extensionReferenceInputSchema, extensionReferenceOpeningSchema, extensionReferenceTargetSchema } from '../../shared/extensions/extensionReferences'
 import { extensionDirectoryScanSchema, extensionResourceCreateSchema, extensionResourceSelectionSchema } from '../../shared/extensions/extensionResources'
 import { extensionNotificationSchema, extensionScheduleIdSchema, extensionScheduleInputSchema } from '../../shared/extensions/extensionSchedule'
 import { extensionConfigurationAppliedSchema, resolveExtensionConfiguration, validateExtensionSetting } from '../../shared/extensions/extensionSettings'
@@ -85,7 +85,7 @@ export interface ExtensionServicePorts {
   themes?: ThemeService
   createHost: (pkg: ExtensionPackage, broker: (method: string, params: unknown) => Promise<JsonValue>, failed: (failure?: ExtensionHostFailure) => void) => ExtensionHost
   createView: (pkg: ExtensionPackage, readSelected?: (id: string, request: Request, signal: AbortSignal) => Promise<Response>) => { token: string, url: string, dispose: () => void }
-  workbench: (event: ExtensionWorkbenchEvent, signal: AbortSignal) => Promise<string | null>
+  workbench: (event: ExtensionWorkbenchEvent, signal: AbortSignal) => Promise<ExtensionWorkbenchResult>
   readText: (target: SpaceFileTarget, signal: AbortSignal) => Promise<string>
   readBytes?: (input: SpaceFileByteRequest, signal: AbortSignal) => Promise<SpaceFileByteChunk>
   saveBytes?: (input: import('../../shared/spaces/spaceFileApi').SpaceSaveBytes, signal: AbortSignal) => Promise<import('../../shared/spaces/spaceFileApi').SpaceSaveBytesResult>
@@ -127,6 +127,7 @@ interface RunningView {
   readVersion?: string
   readHash?: string
   reading?: { offset: number, size: number, hash: ReturnType<typeof createHash> }
+  referenceCapture?: string
   input: ExtensionViewInput
   session: ExtensionViewSession
   running: RunningExtension
@@ -1320,18 +1321,31 @@ export class ExtensionService {
         result = reply ? z.enum(['added', 'duplicate', 'limit', 'unavailable']).parse(JSON.parse(reply)) : 'unavailable'
       }
     }
-    else if (method === 'references.add') {
+    else if (['references.add', 'references.capture', 'references.commit', 'references.release'].includes(method)) {
       if (view.running.package.manifest.apiVersion < 4 || !extensionMayReference(view.running.package.manifest.permissions))
         throw new Error('EXTENSION_REFERENCES_DENIED')
       if (!['context', 'page'].includes(contribution.location) || (placement && placement.kind !== 'view'))
         throw new Error('EXTENSION_METHOD_DENIED')
-      const input = extensionReferenceInputSchema.parse(params)
-      const material = await this.#referenceMaterial(view, input)
-      this.#assertCurrent(view.running)
-      if (view.abort.signal.aborted || this.#views.get(id) !== view)
-        throw new Error('EXTENSION_VIEW_EXPIRED')
-      const accepted = await this.#ports.workbench({ kind: 'reference', requestId: randomUUID(), viewId: id, generation, token, material }, AbortSignal.any([view.abort.signal, view.running.abort.signal]))
-      result = accepted === id
+      const binding = { requestId: randomUUID(), viewId: id, generation, token }
+      const signal = AbortSignal.any([view.abort.signal, view.running.abort.signal])
+      if (method === 'references.commit' || method === 'references.release') {
+        const event: ExtensionWorkbenchEvent = method === 'references.commit'
+          ? { ...binding, kind: 'reference-commit', ...extensionReferenceCommitSchema.parse(params) }
+          : { ...binding, kind: 'reference-release', ...z.object({ id: z.string().uuid() }).strict().parse(params) }
+        result = await this.#ports.workbench(event, signal) === id
+      }
+      else {
+        if (method === 'references.capture')
+          view.referenceCapture = binding.requestId
+        const material = await this.#referenceMaterial(view, extensionReferenceInputSchema.parse(params))
+        if (method === 'references.capture' && view.referenceCapture !== binding.requestId)
+          return null
+        this.#assertCurrent(view.running)
+        if (view.abort.signal.aborted || this.#views.get(id) !== view)
+          throw new Error('EXTENSION_VIEW_EXPIRED')
+        const accepted = await this.#ports.workbench({ ...binding, kind: method === 'references.capture' ? 'reference-capture' : 'reference', material }, signal)
+        result = method === 'references.capture' ? (accepted === null ? null : extensionReferenceCaptureSchema.parse(accepted)) : accepted === id
+      }
     }
     else if (method === 'view.setActive') {
       if (placement?.kind !== 'slot' && placement?.kind !== 'control')

@@ -13,7 +13,7 @@ import type { ExtensionDiagnostic } from './extensionDiagnostic'
 import type { ExtensionDocumentInfo } from './extensionDocumentInfo'
 import type { ExtensionInstallation } from './extensionInstallation'
 import type { ExtensionManifest } from './extensionManifest'
-import type { ExtensionReferenceMaterial, ExtensionReferenceOpening } from './extensionReferences'
+import type { ExtensionReferenceCapture, ExtensionReferenceChoice, ExtensionReferenceMaterial, ExtensionReferenceOpening } from './extensionReferences'
 import type { ExtensionConfiguration, ExtensionConfigurationSnapshot } from './extensionSettings'
 import type { ExtensionWindowStyle } from './extensionWindowStyles'
 import { z } from 'zod'
@@ -48,7 +48,7 @@ const referenceTransportSchema = z.json().refine(value => new TextEncoder().enco
 export function parseExtensionRequestParams(method: string, params: unknown): JsonValue {
   if (method === 'clipboard.write')
     return extensionClipboardWriteSchema.parse(params)
-  if (method === 'references.add')
+  if (method === 'references.add' || method === 'references.capture')
     return referenceTransportSchema.parse(extensionReferenceInputSchema.parse(params))
   return (method === 'themes.request' ? themeTransportSchema : extensionJsonSchema).parse(params)
 }
@@ -156,6 +156,7 @@ export interface ExtensionReview {
 }
 export type ExtensionReviewResult = ExtensionReview | ExtensionIncompatibleReview
 export type ExtensionUnavailableInstallation = ExtensionIncompatibleReview & { pending: boolean }
+export type ExtensionWorkbenchResult = string | ExtensionReferenceCapture | null
 export type ExtensionWorkbenchEvent
   = | { kind: 'cancel', requestId: string }
     | { kind: 'clear-data', requestId: string, extensionId: string }
@@ -165,6 +166,9 @@ export type ExtensionWorkbenchEvent
     | { kind: 'quote-add', requestId: string, viewId: string, generation: string, token: string, captureId: string, targetId: string }
     | { kind: 'document-info', requestId: string, viewId: string, generation: string, token: string, info: ExtensionDocumentInfo }
     | { kind: 'reference', requestId: string, viewId: string, generation: string, token: string, material: ExtensionReferenceMaterial }
+    | { kind: 'reference-capture', requestId: string, viewId: string, generation: string, token: string, material: ExtensionReferenceMaterial }
+    | { kind: 'reference-commit', requestId: string, viewId: string, generation: string, token: string, id: string, choice: ExtensionReferenceChoice }
+    | { kind: 'reference-release', requestId: string, viewId: string, generation: string, token: string, id: string }
     | { kind: 'interaction', requestId: string, extensionId: string, generation: string, interactionId: string, title: string | null }
     | { kind: 'message', requestId: string, extensionId: string, generation: string, message: JsonValue }
     | { kind: 'regions', requestId: string, viewId: string, generation: string, token: string, regions: WorkbenchHitRegion[] }
@@ -255,7 +259,7 @@ export interface ExtensionApi {
   onChanged: (listener: () => void) => () => void
   onReview: (listener: (review: ExtensionReviewResult) => void) => () => void
   onWorkbench: (listener: (event: ExtensionWorkbenchEvent) => void) => () => void
-  replyWorkbench: (requestId: string, viewId: string | null, data?: JsonValue) => void
+  replyWorkbench: (requestId: string, result: ExtensionWorkbenchResult, data?: JsonValue) => void
 }
 
 const extensionModelFailureSchema = z.object({

@@ -1,4 +1,4 @@
-import type { ExtensionApi, ExtensionStatus, ExtensionWorkbenchEvent } from '@buddy-shared/extensions/extensionApi'
+import type { ExtensionApi, ExtensionStatus, ExtensionWorkbenchEvent, ExtensionWorkbenchResult } from '@buddy-shared/extensions/extensionApi'
 import type { JsonValue } from '@buddy-shared/workbench/workbenchState'
 import type { Ref } from 'vue'
 import type { ExtensionUiContributions, ExtensionViews } from '@/modules/extensions'
@@ -17,7 +17,7 @@ import { parseWorkbenchUiSelection, workbenchUiSelectionKey, workbenchUiTargetCa
 import { nextTick, onScopeDispose, watch } from 'vue'
 import { DesktopExtensionView } from '@/modules/extensions/ui'
 
-export function useExtensionContributions(options: { controller: WorkbenchController, renderers: ViewRendererRegistry, persistence: WorkbenchPersistence, installed: Readonly<Ref<ExtensionStatus[]>>, api: ExtensionApi, views: ExtensionViews, ui: ExtensionUiContributions, ready: () => boolean, selectionReferences?: WorkbenchSelectionReferences, onQuoteResult?: (result: SelectionReferenceResult, targetLabel: string) => void, receiveReference?: (event: Extract<ExtensionWorkbenchEvent, { kind: 'reference' }>, signal: AbortSignal) => Promise<boolean> }) {
+export function useExtensionContributions(options: { controller: WorkbenchController, renderers: ViewRendererRegistry, persistence: WorkbenchPersistence, installed: Readonly<Ref<ExtensionStatus[]>>, api: ExtensionApi, views: ExtensionViews, ui: ExtensionUiContributions, ready: () => boolean, selectionReferences?: WorkbenchSelectionReferences, onQuoteResult?: (result: SelectionReferenceResult, targetLabel: string) => void, receiveReference?: (event: Extract<ExtensionWorkbenchEvent, { kind: 'reference' | 'reference-capture' | 'reference-commit' | 'reference-release' }>, signal: AbortSignal) => Promise<boolean | Exclude<ExtensionWorkbenchResult, string>> }) {
   const { controller, renderers, persistence, installed, api, views, ui } = options
   onScopeDispose(renderers.register('extensions.view', DesktopExtensionView))
   const owners = new Map<string, { revision: string, dispose: () => void }>()
@@ -149,7 +149,7 @@ export function useExtensionContributions(options: { controller: WorkbenchContro
     drain()
   }, { flush: 'sync' })
   async function handle(event: RequestEvent, signal: AbortSignal) {
-    let viewId: string | null = null
+    let result: ExtensionWorkbenchResult = null
     let replyData: JsonValue | undefined
     let quoteTargetLabel: string | undefined
     try {
@@ -172,11 +172,11 @@ export function useExtensionContributions(options: { controller: WorkbenchContro
         }
         controller.configuration.restore(configuration)
         await persistence.checkpoint()
-        viewId = event.requestId
+        result = event.requestId
       }
-      else if (event.kind === 'reference') {
-        if (await options.receiveReference?.(event, signal))
-          viewId = event.viewId
+      else if (event.kind === 'reference' || event.kind === 'reference-capture' || event.kind === 'reference-commit' || event.kind === 'reference-release') {
+        const received = await options.receiveReference?.(event, signal)
+        result = typeof received === 'object' ? received : received ? event.viewId : null
       }
       else if (event.kind === 'interaction') {
         if (event.title === null) {
@@ -188,7 +188,7 @@ export function useExtensionContributions(options: { controller: WorkbenchContro
             void api.endInteraction(event.interactionId).catch(() => {})
           })
         }
-        viewId = event.interactionId
+        result = event.interactionId
       }
       else if (event.kind === 'message') {
         views.broadcast(event.extensionId, event.generation, event.message)
@@ -208,20 +208,20 @@ export function useExtensionContributions(options: { controller: WorkbenchContro
         }
         if (signal.aborted || surface.session !== session)
           return
-        viewId = event.viewId
+        result = event.viewId
       }
       else if (event.kind === 'regions') {
         if (views.setRegions(event.viewId, event.generation, event.token, event.regions))
-          viewId = event.viewId
+          result = event.viewId
       }
       else if (event.kind === 'control') {
         if (views.proposeControl(event.viewId, event.generation, event.token, event.proposal))
-          viewId = event.viewId
+          result = event.viewId
       }
       else if (event.kind === 'activity') {
         if (views.setActive(event.viewId, event.generation, event.token, event.active)) {
           await nextTick()
-          viewId = event.viewId
+          result = event.viewId
         }
       }
       else if (event.kind === 'placement') {
@@ -229,12 +229,12 @@ export function useExtensionContributions(options: { controller: WorkbenchContro
         const placement = plugin?.manifest.contributes.placements.find(placement => placement.id === event.placementId)
         const descriptor = plugin?.manifest.contributes.views.find(view => view.id === placement?.view)
         if ((placement?.kind === 'slot' || placement?.kind === 'control') && !event.instanceId && !event.interactionId) {
-          const result = ui.setEnabled(event.extensionId, event.generation, placement.id, event.visible)
-          if (result) {
-            if (result.changed && event.visible && placement.kind === 'control')
+          const updated = ui.setEnabled(event.extensionId, event.generation, placement.id, event.visible)
+          if (updated) {
+            if (updated.changed && event.visible && placement.kind === 'control')
               views.retryControl(placement.id)
             await nextTick()
-            viewId = event.requestId
+            result = event.requestId
           }
           return
         }
@@ -245,10 +245,10 @@ export function useExtensionContributions(options: { controller: WorkbenchContro
           return
         const existing = Object.values(controller.layout.views).find(view => view.resource.scheme === 'extension' && view.resource.data.extensionId === event.extensionId && view.resource.data.placementId === placement.id && view.mountInstanceId === instanceId && view.interactionId === event.interactionId)
         if (event.visible) {
-          viewId = await controller.open({ scheme: 'extension', id: placement.id, data: { extensionId: event.extensionId, viewType: placement.view, resource: null, placementId: placement.id } }, descriptor.title, { signal, placement: placement.id, mountInstanceId: instanceId, interactionId: event.interactionId, viewType: placement.view, location: 'mount', focus: false, state: { version: descriptor.stateVersion, value: {} } })
+          result = await controller.open({ scheme: 'extension', id: placement.id, data: { extensionId: event.extensionId, viewType: placement.view, resource: null, placementId: placement.id } }, descriptor.title, { signal, placement: placement.id, mountInstanceId: instanceId, interactionId: event.interactionId, viewType: placement.view, location: 'mount', focus: false, state: { version: descriptor.stateVersion, value: {} } })
         }
         else if (existing && (await controller.close(existing.id, signal)).committed) {
-          viewId = existing.id
+          result = existing.id
         }
         await persistence.flush()
       }
@@ -259,12 +259,12 @@ export function useExtensionContributions(options: { controller: WorkbenchContro
         const existing = event.fileTarget && Object.values(controller.layout.views).find(view => view.type === event.viewType && view.resource.scheme === 'extension' && JSON.stringify(view.resource.data.fileTarget) === JSON.stringify(event.fileTarget))
         if (existing) {
           controller.focus(existing.id)
-          viewId = existing.id
+          result = existing.id
         }
         else {
-          viewId = await controller.open({ scheme: 'extension', id: `${event.extensionId}:${event.viewType}:${event.resource?.id ?? crypto.randomUUID()}`, data: { extensionId: event.extensionId, viewType: event.viewType, resource: event.resource, ...(event.fileTarget ? { fileTarget: { ...event.fileTarget } } : {}) } }, event.resource?.name ?? descriptor.title, { signal, viewType: event.viewType, duplicate: true, state: { version: event.stateVersion, value: event.state } })
+          result = await controller.open({ scheme: 'extension', id: `${event.extensionId}:${event.viewType}:${event.resource?.id ?? crypto.randomUUID()}`, data: { extensionId: event.extensionId, viewType: event.viewType, resource: event.resource, ...(event.fileTarget ? { fileTarget: { ...event.fileTarget } } : {}) } }, event.resource?.name ?? descriptor.title, { signal, viewType: event.viewType, duplicate: true, state: { version: event.stateVersion, value: event.state } })
         }
-        if (viewId)
+        if (result)
           await persistence.flush()
       }
       else {
@@ -304,7 +304,7 @@ export function useExtensionContributions(options: { controller: WorkbenchContro
             quoteTargetLabel = capture.request.targets.find(target => target.id === event.targetId)?.label ?? ''
             replyData = references.add(capture.request, event.targetId)
           }
-          viewId = view.id
+          result = view.id
           return
         }
         if (event.kind === 'presentation') {
@@ -319,16 +319,16 @@ export function useExtensionContributions(options: { controller: WorkbenchContro
           controller.updateView(view.id, { state: { ...view.state, version: event.stateVersion, value: event.state } })
         }
         await persistence.flush()
-        viewId = view.id
+        result = view.id
       }
     }
     catch {
-      viewId = null
+      result = null
     }
     finally {
       requests.delete(event.requestId)
       if (!signal.aborted) {
-        api.replyWorkbench(event.requestId, viewId, replyData)
+        api.replyWorkbench(event.requestId, result, replyData)
         if (quoteTargetLabel !== undefined)
           options.onQuoteResult?.(replyData === 'added' || replyData === 'duplicate' || replyData === 'limit' ? replyData : 'unavailable', quoteTargetLabel)
       }

@@ -17,7 +17,7 @@ describe('user-facing plugin terminology', () => {
     expect(extensionsPage.title(language)).toBe(actual.title)
     expect(settings['desktop.settings.category.extensions']).toBe(actual.title)
     expect(settings['desktop.settings.categoryDescription.extensions']).toMatch(/插件|plugins/)
-    for (const text of Object.values(actual))
+    for (const text of Object.values(actual).flatMap(value => typeof value === 'string' ? [value] : Object.values(value)))
       expect(text).not.toMatch(/扩展|\bextensions?\b/i)
   })
 

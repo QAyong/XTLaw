@@ -1,9 +1,27 @@
 import { z } from 'zod'
-import { buddyToolSelectionSchema } from '../buddies/buddySettings.ts'
 
 // Capabilities an extension contributes besides skills (which keep using `contributes.skills`): MCP connector
 // records and NPC sub-agents. Neither carries code. The host turns them into rows in its own stores.
 const localId = z.string().regex(/^[a-z0-9][a-z0-9_-]{0,63}$/)
+
+// Mirrors the tool selection of a sub-agent's settings. It is kept here, not imported, because the manifest schema is
+// also loaded by the plugin SDK export under plain Node, which cannot follow the extensionless imports of the settings module.
+const toolIdSchema = z.string().min(1).max(16384).refine((value) => {
+  try {
+    const identity: unknown = JSON.parse(value)
+    return Array.isArray(identity) && identity.length === 3
+      && identity.every(part => typeof part === 'string' && part.length > 0)
+      && JSON.stringify(identity) === value
+  }
+  catch {
+    return false
+  }
+})
+const subagentToolSelectionSchema = z.discriminatedUnion('mode', [
+  z.object({ mode: z.literal('all') }).strict(),
+  z.object({ mode: z.literal('none') }).strict(),
+  z.object({ mode: z.literal('selected'), ids: z.array(toolIdSchema).min(1).max(256).refine(ids => new Set(ids).size === ids.length) }).strict(),
+])
 
 export const extensionMcpConnectorContributionSchema = z.object({
   id: localId,
@@ -23,7 +41,7 @@ export const extensionSubagentContributionSchema = z.object({
   name: z.string().trim().min(1).max(80),
   description: z.string().trim().max(500).default(''),
   instructions: z.string().min(1).max(16000),
-  tools: buddyToolSelectionSchema,
+  tools: subagentToolSelectionSchema,
   fileAccess: z.enum(['inherit', 'read_only']).default('read_only'),
 }).strict()
 

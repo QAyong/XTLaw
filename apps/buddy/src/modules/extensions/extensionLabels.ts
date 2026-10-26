@@ -65,7 +65,7 @@ const zh = {
   reviewAgentFiles: { inherit: '文件权限与当前任务一致', read_only: '只能读取文件，不能修改' },
   reviewAgentConnectors: '使用的 MCP（随本包一起安装）：',
   keptTitle: '你修改过的内容会保留，不会被删除：',
-  keptKinds: { mcp: 'MCP 连接', agent: '子代理' },
+  keptKinds: { mcp: 'MCP', agent: '子代理' },
 }
 const en: typeof zh = {
   title: 'Plugins',
@@ -134,7 +134,7 @@ const en: typeof zh = {
   reviewAgentFiles: { inherit: 'File access follows the current task', read_only: 'Can read files but not change them' },
   reviewAgentConnectors: 'MCP connections it uses (installed with this package):',
   keptTitle: 'Content you changed is kept and will not be deleted:',
-  keptKinds: { mcp: 'MCP connection', agent: 'Sub-agent' },
+  keptKinds: { mcp: 'MCP', agent: 'Sub-agent' },
 }
 export function extensionLabels(language: string) {
   return language === 'en-US' ? en : zh

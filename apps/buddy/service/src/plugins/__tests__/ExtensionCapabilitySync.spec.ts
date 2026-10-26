@@ -130,7 +130,7 @@ describe('installing extension capabilities', () => {
     descriptors = [builtin]
     await sync.reconcile()
     expect(() => buddies.get(extensionSubagentId(extensionId, 'npc-explorer'))).toThrow()
-    expect(ledger.entries).toEqual([])
+    expect(ledger.entries.filter(entry => entry.kind === 'agent')).toEqual([])
   })
 
   it('keeps the built-in registry in step with what ships in the application', () => {

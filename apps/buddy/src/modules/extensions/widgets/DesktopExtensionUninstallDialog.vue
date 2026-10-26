@@ -1,9 +1,10 @@
 <script setup lang="ts">
+import type { ExtensionCapabilityImpact } from '@buddy-shared/extensions/extensionCapabilities'
 import { NButton, NModal } from 'naive-ui'
 import { computed, useTemplateRef, watch } from 'vue'
 import { extensionLabels } from '../extensionLabels'
 
-const props = defineProps<{ name: string, language: string, busy: boolean }>()
+const props = defineProps<{ name: string, language: string, busy: boolean, kept?: ExtensionCapabilityImpact['modified'] }>()
 const emit = defineEmits<{ cancel: [], remove: [clearData: boolean] }>()
 const labels = computed(() => extensionLabels(props.language))
 const cancelButton = useTemplateRef<InstanceType<typeof NButton>>('cancelButton')
@@ -16,6 +17,16 @@ watch(cancelButton, button => button?.$el.focus(), { flush: 'post' })
     <p class="text-muted text-[0.78rem]">
       {{ labels.cleanupHint }}
     </p>
+    <div v-if="kept?.length" class="mt-2 text-fg text-[0.78rem]" data-testid="extension-uninstall-kept">
+      <p class="m-0 mb-1">
+        {{ labels.keptTitle }}
+      </p>
+      <ul class="m-0 pl-5">
+        <li v-for="item in kept" :key="`${item.kind}:${item.name}`">
+          {{ labels.keptKinds[item.kind] }} · {{ item.name }}
+        </li>
+      </ul>
+    </div>
     <template #action>
       <div class="flex w-full gap-2">
         <NButton class="extension-uninstall__cleanup" quaternary type="error" :disabled="busy" @click="emit('remove', true)">

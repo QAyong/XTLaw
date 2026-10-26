@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ExtensionReview } from '@buddy-shared/extensions/extensionApi'
 import type { FileOpeningChoice, FileOpeningReviewChoice } from '@buddy-shared/files/fileOpening'
+import { subagentConnectorReferences } from '@buddy-shared/extensions/extensionCapabilities'
 import { Warning20Regular } from '@vicons/fluent'
 import { NButton, NCheckbox, NEllipsis, NModal, NTag } from 'naive-ui'
 import { computed, shallowRef } from 'vue'
@@ -21,6 +22,14 @@ const skills = computed(() => props.review.manifest.contributes.skills.map(skill
   name: skill.path.split('/').at(-2)!,
 })))
 const dependencies = computed(() => Object.entries(props.review.manifest.dependencies))
+const connectors = computed(() => props.review.manifest.contributes.mcpConnectors)
+// Every sub-agent names the connectors its tool selection reaches, which the manifest guarantees travel with the same package.
+const subagents = computed(() => props.review.manifest.contributes.subagents.map(agent => ({
+  ...agent,
+  tools: agent.tools.mode === 'selected' ? labels.value.reviewAgentTools.selected.replace('{n}', String(agent.tools.ids.length)) : labels.value.reviewAgentTools[agent.tools.mode],
+  files: labels.value.reviewAgentFiles[agent.fileAccess],
+  connectors: subagentConnectorReferences(agent).map(id => connectors.value.find(connector => connector.id === id)?.name ?? id),
+})))
 const selectedAssociations = shallowRef(initialAssociations())
 function initialAssociations(): FileOpeningChoice[] {
   const selected = new Map<string, FileOpeningReviewChoice>()
@@ -97,6 +106,39 @@ const source = computed(() => props.review.development ? (english.value ? 'Devel
           </li>
         </ul>
       </div>
+    </section>
+
+    <section v-if="connectors.length" class="mt-4" data-testid="extension-included-mcp">
+      <h3 class="m-0 mb-2 text-[13px] font-semibold leading-[1.6] text-fg">
+        {{ labels.reviewMcp }}
+      </h3>
+      <ul class="m-0 p-0 grid gap-3 list-none">
+        <li v-for="connector in connectors" :key="connector.id" class="grid gap-0.5 text-fg text-[13px] [overflow-wrap:anywhere]">
+          <strong>{{ connector.name }}</strong>
+          <span class="text-[12px] text-muted leading-[1.6]">{{ labels.reviewMcpAddress }}：<code>{{ connector.url }}</code></span>
+          <span class="text-[12px] text-muted leading-[1.6]">{{ labels.reviewMcpCredential[connector.credential] }} · {{ labels.reviewMcpExposure[connector.deferred ? 'deferred' : 'direct'] }}</span>
+        </li>
+      </ul>
+      <p class="mt-2 mb-0 text-[12px] text-muted leading-[1.6]">
+        {{ labels.reviewMcpNoDownload }}
+      </p>
+    </section>
+
+    <section v-if="subagents.length" class="mt-4" data-testid="extension-included-agents">
+      <h3 class="m-0 mb-2 text-[13px] font-semibold leading-[1.6] text-fg">
+        {{ labels.reviewAgents }}
+      </h3>
+      <ul class="m-0 p-0 grid gap-3 list-none">
+        <li v-for="agent in subagents" :key="agent.id" class="grid gap-0.5 text-fg text-[13px] [overflow-wrap:anywhere]">
+          <strong>{{ agent.name }}</strong>
+          <span v-if="agent.description" class="text-[12px] text-muted leading-[1.6]">{{ agent.description }}</span>
+          <span class="text-[12px] text-muted leading-[1.6]">{{ agent.tools }} · {{ agent.files }}</span>
+          <span v-if="agent.connectors.length" class="text-[12px] text-muted leading-[1.6]">{{ labels.reviewAgentConnectors }}{{ agent.connectors.join('、') }}</span>
+        </li>
+      </ul>
+      <p class="mt-2 mb-0 text-[12px] text-muted leading-[1.6]">
+        {{ labels.reviewAgentDelegate }}
+      </p>
     </section>
 
     <section v-if="dependencies.length" class="mt-4">

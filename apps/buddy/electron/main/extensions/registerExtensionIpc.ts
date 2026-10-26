@@ -6,6 +6,7 @@ import type { ExtensionTaskAction, ExtensionTaskActionInput, ExtensionTaskAction
 import type { ExtensionAgentCatalog, ExtensionAgentDescriptor, ExtensionAgentInvocation } from '../../../shared/extensions/extensionAgent'
 import type { ExtensionReview, ExtensionReviewResult, ExtensionWorkbenchEvent } from '../../../shared/extensions/extensionApi'
 import type { ExtensionInspection } from '../../../shared/extensions/extensionAuthoring'
+import type { ExtensionCapabilityImpact } from '../../../shared/extensions/extensionCapabilities'
 import type { ExtensionConditionRuntime } from '../../../shared/extensions/extensionConditionContext'
 import type { TaskFileTarget } from '../../../shared/files/taskFileApi'
 import type { SpaceFileTarget } from '../../../shared/spaces/spaceFileApi'
@@ -43,11 +44,13 @@ export function registerExtensionIpc(options: {
   invokeTaskAction: (input: ExtensionTaskActionInput) => Promise<ExtensionTaskActionResult>
   shellsChanged?: () => void
   skillsChanged?: () => void
+  capabilitiesChanged?: () => void
+  capabilityImpact?: (extensionId: string) => Promise<ExtensionCapabilityImpact>
   agentChanged?: (catalog: ExtensionAgentCatalog) => void
   record?: ApplicationDiagnosticReporter
   conditionRuntime?: (input: { models: boolean, task: boolean, taskId: string | null, runId: string | null }, signal: AbortSignal) => Promise<ExtensionConditionRuntime>
   agentRequest?: (input: { invocationId: string, method: string, params: JsonValue }, signal: AbortSignal) => Promise<JsonValue>
-}): { shells: { list: ExtensionService['shellContributions'] }, skills: { list: ExtensionService['skillContributions'] }, withStoppedStorage: ExtensionService['withStoppedStorage'], themesReady: Promise<void>, conditions: ExtensionService['conditions'], dispose: () => Promise<void>, reviewPackage: (path: string) => Promise<void>, inspect: (id: string) => Promise<ExtensionInspection>, agent: { readResource: ExtensionService['readAgentResource'], list: () => Promise<ExtensionAgentDescriptor[]>, invoke: (input: ExtensionAgentInvocation, signal: AbortSignal) => Promise<JsonValue> } } {
+}): { shells: { list: ExtensionService['shellContributions'] }, skills: { list: ExtensionService['skillContributions'] }, capabilities: { list: ExtensionService['capabilityContributions'] }, withStoppedStorage: ExtensionService['withStoppedStorage'], themesReady: Promise<void>, conditions: ExtensionService['conditions'], dispose: () => Promise<void>, reviewPackage: (path: string) => Promise<void>, inspect: (id: string) => Promise<ExtensionInspection>, agent: { readResource: ExtensionService['readAgentResource'], list: () => Promise<ExtensionAgentDescriptor[]>, invoke: (input: ExtensionAgentInvocation, signal: AbortSignal) => Promise<JsonValue> } } {
   const store = new ExtensionPackageStore(join(options.home, 'extensions'), options.version)
   async function reviewResult(operation: () => Promise<ExtensionReview>): Promise<ExtensionReviewResult> {
     try {
@@ -73,6 +76,7 @@ export function registerExtensionIpc(options: {
     clipboard: createExtensionClipboard(options.getWindow),
     shellsChanged: options.shellsChanged,
     skillsChanged: options.skillsChanged,
+    capabilitiesChanged: options.capabilitiesChanged,
     themes: options.themes,
     createHost: (pkg, broker, failed) => {
       const host = new SandboxedExtensionHost(pkg, protocol, broker, failed)
@@ -281,6 +285,7 @@ export function registerExtensionIpc(options: {
         case 'restart': return await service.restart(input.id)
         case 'applyUpdate': return await service.applyUpdate(input.id)
         case 'uninstall': return await service.uninstall(input.id, input.clearData)
+        case 'capabilityImpact': return await (options.capabilityImpact?.(input.id) ?? { modified: [] })
         case 'devtools': return await service.devtools(input.id)
         case 'revokeResources': return await service.revokeResources(input.id)
         case 'execute': return await service.execute(input.id, input.command, input.resource)
@@ -351,6 +356,10 @@ export function registerExtensionIpc(options: {
     skills: { list: async () => {
       await prepared
       return service.skillContributions()
+    } },
+    capabilities: { list: async () => {
+      await prepared
+      return service.capabilityContributions()
     } },
     shells: { list: async () => {
       await prepared

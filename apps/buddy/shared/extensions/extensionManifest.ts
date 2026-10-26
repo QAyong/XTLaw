@@ -7,6 +7,7 @@ import { workbenchSlashSchema } from '../workbench/workbenchCommand.ts'
 import { workbenchConditionSchema } from '../workbench/workbenchContext.ts'
 import { workbenchAnchorSchema, workbenchControls, workbenchControlSchema, workbenchMenuSchema, workbenchMountTargetSchema, workbenchPresentationSchema, workbenchSlots, workbenchSlotSchema } from '../workbench/workbenchUi.ts'
 import { extensionAgentSchema } from './extensionAgent.ts'
+import { BUILTIN_SUBAGENT_IDS, extensionMcpConnectorContributionSchema, extensionSubagentContributionSchema, subagentConnectorReferences } from './extensionCapabilities.ts'
 import { extensionConditionDefinitionSchema } from './extensionConditions.ts'
 import { extensionAuthorSchema } from './extensionIdentity.ts'
 import { extensionPathSchema } from './extensionPath.ts'
@@ -130,6 +131,8 @@ export const extensionManifestSchema = extensionMetadataSchema.extend({
   permissions: extensionPermissionsSchema.prefault({}),
   contributes: z.object({
     skills: z.array(extensionSkillContributionSchema).max(32).default([]),
+    mcpConnectors: z.array(extensionMcpConnectorContributionSchema).max(16).default([]),
+    subagents: z.array(extensionSubagentContributionSchema).max(16).default([]),
     iconThemes: z.array(fileIconThemeContributionSchema).max(32).default([]),
     themes: z.array(themeContributionSchema).max(64).default([]),
     conditions: z.array(extensionConditionDefinitionSchema).max(32).default([]),
@@ -167,6 +170,16 @@ export const extensionManifestSchema = extensionMetadataSchema.extend({
   const skillRoots = extensionSkillRoots(manifest.contributes.skills)
   if (skillRoots.length && manifest.apiVersion < 4)
     issue('Skill contributions require API 4')
+  const { mcpConnectors, subagents } = manifest.contributes
+  if ((mcpConnectors.length || subagents.length) && manifest.apiVersion < 4)
+    issue('MCP connector and sub-agent contributions require API 4')
+  if (new Set(mcpConnectors.map(connector => connector.id)).size !== mcpConnectors.length || new Set(subagents.map(subagent => subagent.id)).size !== subagents.length)
+    issue('MCP connector and sub-agent IDs must be unique')
+  if (subagents.some(subagent => (BUILTIN_SUBAGENT_IDS as readonly string[]).includes(subagent.id)))
+    issue('Sub-agent IDs must not reuse built-in ones')
+  // A sub-agent may only select tools of MCP connectors that travel with the same package, so the selection never points at a missing tool.
+  if (subagents.some(subagent => subagentConnectorReferences(subagent).some(id => !mcpConnectors.some(connector => connector.id === id))))
+    issue('Sub-agent tools may only reference MCP connectors declared by the same extension')
   if (skillRoots.some((root, index) => skillRoots.some((other, otherIndex) => index !== otherIndex && root.startsWith(other))))
     issue('Skill directories must be distinct and must not contain one another')
   if ([manifest.entry, ...manifest.contributes.views.map(view => view.entry)].some(entry => entry && skillRoots.some(root => entry.startsWith(root))))

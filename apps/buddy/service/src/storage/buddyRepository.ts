@@ -1,5 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite'
 import type { BuddyCatalog, BuddyCreate, BuddyDefaultUpdate, BuddyMutation, BuddyUpdate, LocalBuddy } from '../../../shared/buddies/buddyApi'
+import type { BuddySettings } from '../../../shared/buddies/buddySettings'
 import { randomUUID } from 'node:crypto'
 import { buddySchema, BUILTIN_BUDDY_ID } from '../../../shared/buddies/buddyApi'
 import { buddySettingsSchema, DEFAULT_BUDDY_SETTINGS } from '../../../shared/buddies/buddySettings'
@@ -88,6 +89,32 @@ export function createBuddyRepository(database: DatabaseSync) {
       })
     },
     update: (input: BuddyUpdate) => withTransaction(database, () => updateProfile(input)),
+    /**
+     * Inserts or refreshes a sub-agent that an extension package ships. A live row keeps its enabled switch; a row the user
+     * removed earlier comes back enabled. An id that belongs to an actor is never touched.
+     */
+    upsertManagedNpc(input: { id: string, name: string, description: string, settings: BuddySettings }): LocalBuddy {
+      return withTransaction(database, () => {
+        const settings = JSON.stringify(buddySettingsSchema.parse(input.settings))
+        if (input.settings.npcIds.length)
+          throw new BuddyServiceError('BUDDY_INVALID_NPC_BINDING')
+        const now = new Date().toISOString()
+        const row = database.prepare('SELECT kind, deleted_at AS deletedAt FROM buddies WHERE id = ?').get(input.id) as { kind: string, deletedAt: string | null } | undefined
+        if (!row) {
+          database.prepare('INSERT INTO buddies (id, kind, name, description, settings_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+            .run(input.id, 'npc', input.name, input.description, settings, now, now)
+        }
+        else if (row.kind !== 'npc') {
+          throw new BuddyServiceError('BUDDY_INVALID_NPC_BINDING')
+        }
+        else {
+          database.prepare('UPDATE buddies SET name = ?, description = ?, settings_json = ?, enabled = CASE WHEN deleted_at IS NULL THEN enabled ELSE 1 END, deleted_at = NULL, revision = revision + 1, updated_at = ? WHERE id = ?')
+            .run(input.name, input.description, settings, now, input.id)
+        }
+        changed()
+        return get(input.id)
+      })
+    },
     resetProfile(input: BuddyMutation): LocalBuddy {
       return withTransaction(database, () => {
         writable(input)

@@ -54,6 +54,18 @@ const zh = {
   noAdded: '没有新增权限',
   installFailed: '操作未完成',
   error: '错误代码',
+  reviewMcp: 'MCP 连接',
+  reviewMcpNoDownload: '每个连接器只添加一条记录，不下载任何代码；默认关闭，由你在设置里启用。',
+  reviewMcpAddress: '连接地址',
+  reviewMcpCredential: { none: '无需凭据，可直接启用', bearer: '需要 Token：安装后保持关闭，在设置里填写 Token 后再启用', oauth: '需要登录授权：安装后在设置里登录' },
+  reviewMcpExposure: { deferred: '工具按需发现', direct: '工具直接提供给模型' },
+  reviewAgents: '子代理',
+  reviewAgentDelegate: '安装后自动加入默认伙伴的可委派列表；卸载时一并移除。',
+  reviewAgentTools: { all: '可使用全部工具', none: '不使用工具', selected: '仅限 {n} 个指定工具' },
+  reviewAgentFiles: { inherit: '文件权限与当前任务一致', read_only: '只能读取文件，不能修改' },
+  reviewAgentConnectors: '使用的 MCP（随本包一起安装）：',
+  keptTitle: '你修改过的内容会保留，不会被删除：',
+  keptKinds: { mcp: 'MCP 连接', agent: '子代理' },
 }
 const en: typeof zh = {
   title: 'Plugins',
@@ -111,6 +123,18 @@ const en: typeof zh = {
   noAdded: 'No additional permissions',
   installFailed: 'The operation did not complete',
   error: 'Error code',
+  reviewMcp: 'MCP connections',
+  reviewMcpNoDownload: 'Adds one connector record and downloads no code. It stays off until you enable it in settings.',
+  reviewMcpAddress: 'Address',
+  reviewMcpCredential: { none: 'No credential needed; can be enabled right away', bearer: 'Needs a token: stays off until you enter it in settings and enable it', oauth: 'Needs sign-in: authorize it in settings after installing' },
+  reviewMcpExposure: { deferred: 'Tools are discovered on demand', direct: 'Tools are offered to the model directly' },
+  reviewAgents: 'Sub-agents',
+  reviewAgentDelegate: 'Added to the default companion’s delegation list on install and removed again on uninstall.',
+  reviewAgentTools: { all: 'May use every tool', none: 'Uses no tools', selected: 'Limited to {n} selected tools' },
+  reviewAgentFiles: { inherit: 'File access follows the current task', read_only: 'Can read files but not change them' },
+  reviewAgentConnectors: 'MCP connections it uses (installed with this package):',
+  keptTitle: 'Content you changed is kept and will not be deleted:',
+  keptKinds: { mcp: 'MCP connection', agent: 'Sub-agent' },
 }
 export function extensionLabels(language: string) {
   return language === 'en-US' ? en : zh

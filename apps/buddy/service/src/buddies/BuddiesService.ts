@@ -55,6 +55,11 @@ export class BuddiesService {
     return this.#changeProfile(() => this.#repository.update(request))
   }
 
+  installManagedNpc(input: Parameters<BuddyRepository['upsertManagedNpc']>[0], signal?: AbortSignal) {
+    this.#check(signal)
+    return this.#changeProfile(() => this.#repository.upsertManagedNpc(input))
+  }
+
   delete(input: BuddyMutation, signal?: AbortSignal) {
     this.#check(signal)
     const request = parse(buddyMutationSchema, input)

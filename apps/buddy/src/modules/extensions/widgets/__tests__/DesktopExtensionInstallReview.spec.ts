@@ -137,3 +137,35 @@ it('preselects the first requested provider when several providers apply to the 
   submit()
   expect(submissions.at(-1)?.choices).toEqual([{ extension: '.md', location: 'inline', providerId: 'test.alternate' }])
 })
+
+it('lists the MCP connections and sub-agents a package adds, with addresses and dependencies', async () => {
+  const tool = JSON.stringify(['mcp', 'legal-search', 'legal__search'])
+  await mount({
+    ...review,
+    fileAssociations: [],
+    manifest: extensionManifestSchema.parse({
+      ...review.manifest,
+      id: 'tests.legal',
+      apiVersion: 4,
+      contributes: {
+        mcpConnectors: [{ id: 'legal-search', name: 'Legal search', transport: 'streamable-http', url: 'https://legal.example.com/mcp', credential: 'bearer' }],
+        subagents: [{ id: 'law-finder', kind: 'npc', name: 'Law finder', description: 'Finds statutes', instructions: 'Search statutes first.', tools: { mode: 'selected', ids: [tool] }, fileAccess: 'read_only' }],
+      },
+    }),
+  })
+  const text = (selector: string) => document.querySelector(selector)?.textContent ?? ''
+  expect(text('[data-testid="extension-included-mcp"]')).toContain('https://legal.example.com/mcp')
+  expect(text('[data-testid="extension-included-mcp"]')).toContain('downloads no code')
+  expect(text('[data-testid="extension-included-mcp"]')).toContain('Needs a token')
+  expect(text('[data-testid="extension-included-agents"]')).toContain('Law finder')
+  expect(text('[data-testid="extension-included-agents"]')).toContain('Limited to 1 selected tools')
+  expect(text('[data-testid="extension-included-agents"]')).toContain('Can read files but not change them')
+  expect(text('[data-testid="extension-included-agents"]')).toContain('Legal search')
+  expect(text('[data-testid="extension-included-agents"]')).toContain('default companion’s delegation list')
+})
+
+it('shows neither group for a package that contributes none', async () => {
+  await mount({ ...review, fileAssociations: [] })
+  expect(document.querySelector('[data-testid="extension-included-mcp"]')).toBeNull()
+  expect(document.querySelector('[data-testid="extension-included-agents"]')).toBeNull()
+})

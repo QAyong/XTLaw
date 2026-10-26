@@ -1,4 +1,5 @@
 import type { ApplicationDiagnostic } from '../../../shared/diagnostics/applicationDiagnostic'
+import type { ExtensionMcpConnectorContribution, ExtensionSubagentContribution } from '../../../shared/extensions/extensionCapabilities'
 import type { ExtensionHostFailure } from '../../../shared/extensions/extensionDiagnostic'
 import type { ExtensionLocalFile } from '../../../shared/extensions/extensionResources'
 import type { JsonValue } from '../../../shared/workbench/workbenchState'
@@ -836,4 +837,32 @@ it('denies clipboard and document metadata to decoration views despite declared 
   const session = await service.openView({ viewId: randomUUID(), extensionId: value.id, viewType: 'tests.reader.reader', resource: null, state: {}, stateVersion: 1 })
   for (const [method, data] of [['clipboard.read', null], ['clipboard.write', { text: 'denied' }], ['view.setDocumentInfo', { title: 'denied', dirty: false }]] as const)
     await expect(service.viewRequest(session.id, session.generation, session.token, method, data)).rejects.toThrow('EXTENSION_METHOD_DENIED')
+})
+
+const connector: ExtensionMcpConnectorContribution = { id: 'legal-search', name: 'Legal search', transport: 'streamable-http', url: 'https://legal.example.com/mcp', deferred: true, credential: 'bearer' }
+const subagent: ExtensionSubagentContribution = { id: 'law-finder', kind: 'npc', name: 'Law finder', description: '', instructions: 'Search statutes first.', tools: { mode: 'selected', ids: [JSON.stringify(['mcp', 'legal-search', 'legal__search'])] }, fileAccess: 'read_only' }
+
+it('publishes declared MCP connectors and sub-agents without activating hosts and follows package state', async () => {
+  const value = manifest({ id: 'tests.legal', apiVersion: 4, entry: undefined, permissions: {}, contributes: { mcpConnectors: [connector], subagents: [subagent] } })
+  const { service, hosts } = await fixture({}, value)
+  const [descriptor] = await service.capabilityContributions()
+  expect(descriptor).toMatchObject({ extensionId: 'tests.legal', extensionName: value.name, enabled: true, mcpConnectors: [{ id: 'legal-search', url: 'https://legal.example.com/mcp', credential: 'bearer', deferred: true }], subagents: [{ id: 'law-finder', kind: 'npc' }] })
+  await service.enable('tests.legal', false)
+  expect(await service.capabilityContributions()).toEqual([{ ...descriptor, enabled: false }])
+  await service.enable('tests.legal', true)
+  expect(await service.capabilityContributions()).toEqual([descriptor])
+  await service.uninstall('tests.legal')
+  expect(await service.capabilityContributions()).toEqual([])
+  expect(hosts).toHaveLength(0)
+})
+
+it('announces capability changes when packages are installed, switched or removed', async () => {
+  const capabilitiesChanged = vi.fn()
+  const value = manifest({ id: 'tests.legal', apiVersion: 4, entry: undefined, permissions: {}, contributes: { mcpConnectors: [connector] } })
+  const { service } = await fixture({ capabilitiesChanged }, value)
+  await service.initialize()
+  capabilitiesChanged.mockClear()
+  await service.enable('tests.legal', false)
+  await service.uninstall('tests.legal')
+  expect(capabilitiesChanged).toHaveBeenCalledTimes(2)
 })

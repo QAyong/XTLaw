@@ -2,6 +2,7 @@ import type { LexoraDesktopApi } from '@buddy-electron/shared/desktopApi'
 import type { BuddyCatalog } from '@buddy-shared/buddies/buddyApi'
 import type { LocalConversation } from '@buddy-shared/conversation/conversationApi'
 import type { BuddyPermissionMode } from '@buddy-shared/permissions/permissionMode'
+import type { LocalRun } from '@buddy-shared/runs/runApi'
 import type { JSONContent } from '@tiptap/core'
 import type { Ref } from 'vue'
 import type { TaskCapability } from '../contracts'
@@ -214,11 +215,14 @@ export function useTaskCapability(options: UseTaskCapabilityOptions): TaskCapabi
     session: chatSession,
   })
   // 任务被移入空间后，当前会话的空间随之更新。
-  const activeRun = computed(() => {
+  // The addressed actor's active run; internal logic reads the raw runs, the exposed one follows what the transcript presents.
+  function addressedActiveRun(source: readonly LocalRun[]) {
     const actorId = addressedActorId.value ?? activeConversation.value?.buddyId ?? draftBuddyId.value
-    const active = runSync.executionRuns.value.filter(run => run.status === 'queued' || run.status === 'running')
+    const active = source.filter(run => run.status === 'queued' || run.status === 'running')
     return actorId ? active.find(run => run.buddyId === actorId) ?? null : active.length === 1 ? active[0]! : null
-  })
+  }
+  const activeRun = computed(() => addressedActiveRun(runSync.executionRuns.value))
+  const presentedActiveRun = computed(() => addressedActiveRun(runs.value))
   const stopSpaceFollow = api.localChat.conversations.onChanged((conversation) => {
     if (conversation.id !== activeConversationId.value)
       return
@@ -645,7 +649,7 @@ export function useTaskCapability(options: UseTaskCapabilityOptions): TaskCapabi
     },
     execution: {
       isActorInput: computed(() => actorInput.target.value !== null),
-      activeRun: computed(() => runs.value.find(run => run.status === 'queued' || run.status === 'running') ?? null),
+      activeRun: readonly(presentedActiveRun),
       approvalViews: readonly(approvalViews),
       canMutateBranch: readonly(canMutateBranch),
       canSend: readonly(canSend),

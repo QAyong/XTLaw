@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import type { LocalRunTokenUsage } from '@buddy-shared/usage/runTokenUsage'
 import type { ChatMessageBranchNavigator } from '../../model/transcript/chatMessageBranches'
 
 import type { ChatAgentTurn } from '../../model/transcript/chatStreamingMessage'
+import type { ChatTranscriptExecutionStatus } from '../../model/transcript/chatTranscriptTypes'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import { ChevronRight20Regular } from '@vicons/fluent'
 import { computed, shallowRef, useId, useTemplateRef, watch } from 'vue'
@@ -22,7 +24,9 @@ const props = defineProps<{
   actionsDisabled?: boolean
   branchNavigator?: ChatMessageBranchNavigator | null
   language: BuddyLocale
+  executionStatus?: ChatTranscriptExecutionStatus
   ownsResultActions?: boolean
+  resultUsage?: LocalRunTokenUsage | null
   showIdentity?: boolean
   showOutcome?: boolean
   turn: ChatAgentTurn
@@ -36,6 +40,8 @@ const emit = defineEmits<{
 const { t } = useBuddyI18n(() => props.language)
 const flow = useTemplateRef('flow')
 defineExpose({ revealActivity: (nodeId: string) => flow.value?.revealActivity(nodeId) })
+// An execution status handed in by the transcript is drawn by the identity header instead of the turn heading.
+const ownsStatus = computed(() => !props.executionStatus)
 const isActive = computed(() => props.turn.status === 'queued' || props.turn.status === 'running')
 const collapsed = shallowRef(props.turn.status === 'completed')
 const manuallyChanged = shallowRef(false)
@@ -110,16 +116,18 @@ const actionCopyText = computed(() => resultNoticeText.value ?? statusLabel.valu
       :aria-controls="disclosureId"
       @click="toggleDisclosure"
     >
-      <BuddyChatAgentIdentity v-if="showIdentity !== false" as="span" :run-id="turn.runId" :language="language" />
+      <BuddyChatAgentIdentity v-if="showIdentity !== false" as="span" :run-id="turn.runId" :execution-status="executionStatus" :language="language" />
       <span class="buddy-chat-agent-turn__status">
-        <span class="buddy-chat-agent-turn__status-label">{{ statusLabel }}</span>
-        <span class="buddy-chat-agent-turn__duration">{{ duration }}</span>
+        <template v-if="ownsStatus">
+          <span class="buddy-chat-agent-turn__status-label">{{ statusLabel }}</span>
+          <span class="buddy-chat-agent-turn__duration">{{ duration }}</span>
+        </template>
         <DesktopIcon :component="ChevronRight20Regular" class="buddy-chat-agent-turn__process-chevron" :class="{ 'is-open': !collapsed }" aria-hidden="true" />
       </span>
     </button>
     <div v-else-if="showIdentity !== false" class="buddy-chat-agent-turn__heading">
-      <BuddyChatAgentIdentity :run-id="turn.runId" :language="language" />
-      <div v-if="!isActive && showOutcome !== false" class="buddy-chat-agent-turn__status">
+      <BuddyChatAgentIdentity :run-id="turn.runId" :execution-status="executionStatus" :language="language" />
+      <div v-if="ownsStatus && !isActive && showOutcome !== false" class="buddy-chat-agent-turn__status">
         <span class="buddy-chat-agent-turn__status-label">{{ statusLabel }}</span>
         <span class="buddy-chat-agent-turn__duration">{{ duration }}</span>
       </div>
@@ -159,7 +167,7 @@ const actionCopyText = computed(() => resultNoticeText.value ?? statusLabel.valu
       :language="language"
       role="assistant"
       :target-key="`run-${turn.runId}`"
-      :usage="ownsResultActions ? turn.usage : null"
+      :usage="ownsResultActions ? resultUsage ?? turn.usage : null"
       @activate-branch="emit('activateBranch', $event)"
       @regenerate="emit('regenerate')"
     />

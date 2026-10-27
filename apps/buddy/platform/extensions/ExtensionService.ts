@@ -1048,6 +1048,8 @@ export class ExtensionService {
     this.#assertCurrent(running)
     if (!result)
       throw new Error('EXTENSION_VIEW_UNAVAILABLE')
+    if (typeof result !== 'string')
+      throw new Error('EXTENSION_VIEW_UNAVAILABLE')
     return result
   }
 
@@ -1309,7 +1311,7 @@ export class ExtensionService {
           : legacyOfficeQuoteLocation(name, hash, input)
         const reply = await this.#ports.workbench({ kind: 'quote-capture', requestId: randomUUID(), viewId: id, generation, token, captureId, quote: { id: randomUUID(), text: input.text, source: { kind: 'file', title: name, file: target, ...location } } }, signal)
         assertQuoteCurrent()
-        if (!reply)
+        if (typeof reply !== 'string')
           throw new Error('EXTENSION_REFERENCE_UNAVAILABLE')
         const capture = extensionQuoteCaptureSchema.parse(JSON.parse(reply))
         if (capture.id !== captureId)
@@ -1325,7 +1327,7 @@ export class ExtensionService {
         const reply = await this.#ports.workbench({ kind: 'quote-add', requestId: randomUUID(), viewId: id, generation, token, captureId: input.id, targetId: input.targetId }, signal)
         assertQuoteCurrent()
         quotes.delete(input.id)
-        result = reply ? z.enum(['added', 'duplicate', 'limit', 'unavailable']).parse(JSON.parse(reply)) : 'unavailable'
+        result = typeof reply === 'string' ? z.enum(['added', 'duplicate', 'limit', 'unavailable']).parse(JSON.parse(reply)) : 'unavailable'
       }
     }
     else if (['references.add', 'references.capture', 'references.commit', 'references.release'].includes(method)) {

@@ -64,7 +64,9 @@ pub fn run_binary(mut input: impl Read) -> Result<(), WriteError> {
         .read_exact(&mut header)
         .map_err(|_| WriteError::Failed)?;
     let header: BinaryHeader = serde_json::from_slice(&header).map_err(|_| WriteError::Failed)?;
-    if header.expected_size > MAX_BINARY_REQUEST_BYTES || header.content_size > MAX_BINARY_REQUEST_BYTES {
+    if header.expected_size > MAX_BINARY_REQUEST_BYTES
+        || header.content_size > MAX_BINARY_REQUEST_BYTES
+    {
         return Err(WriteError::Failed);
     }
     let mut expected = vec![0u8; header.expected_size];

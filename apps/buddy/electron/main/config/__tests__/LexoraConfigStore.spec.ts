@@ -179,11 +179,11 @@ keep=true
     const { store, configPath } = await createConfigStore()
     await mkdir(dirname(configPath), { recursive: true })
     await writeFile(configPath, '[runtime]\ncache_warming = "streaming"\nfuture = true\n')
-    expect((await store.read()).runtime).toEqual({ cacheWarming: 'streaming', codemode: false, modelRetryLimit: 3 })
+    expect((await store.read()).runtime).toEqual({ cacheWarming: 'streaming', codemode: true, modelRetryLimit: 3 })
     for (const modelRetryLimit of [0, 7, 'unlimited'] as const) {
       await store.update({ runtime: { modelRetryLimit } })
       await store.update({ desktop: { language: 'en-US' } })
-      expect((await new LexoraConfigStore({ configPath }).read()).runtime).toEqual({ cacheWarming: 'streaming', codemode: false, modelRetryLimit })
+      expect((await new LexoraConfigStore({ configPath }).read()).runtime).toEqual({ cacheWarming: 'streaming', codemode: true, modelRetryLimit })
       expect(await readFile(configPath, 'utf8')).toContain('future = true')
     }
     const saved = await readFile(configPath, 'utf8')
@@ -194,6 +194,20 @@ keep=true
       throw new Error('Apply failed')
     })).rejects.toThrow()
     expect(await readFile(configPath, 'utf8')).toBe(saved)
+  })
+
+  it('defaults codemode on without overwriting an explicit choice across partial updates and restart', async () => {
+    for (const codemode of [undefined, false, true]) {
+      const content = codemode === undefined ? '[runtime]\nfuture = true\n' : `[runtime]\ncodemode = ${codemode}\nfuture = true\n`
+      const { configPath, store } = await createConfigStore()
+      await mkdir(dirname(configPath), { recursive: true })
+      await writeFile(configPath, content)
+      expect((await store.read()).runtime.codemode).toBe(codemode ?? true)
+      expect(await readFile(configPath, 'utf8')).toBe(content)
+      await store.update({ desktop: { language: 'en-US' } })
+      expect((await new LexoraConfigStore({ configPath }).read()).runtime.codemode).toBe(codemode ?? true)
+      expect(await readFile(configPath, 'utf8')).toContain('future = true')
+    }
   })
 
   it('defaults warming off and preserves runtime preferences across saves and restart', async () => {

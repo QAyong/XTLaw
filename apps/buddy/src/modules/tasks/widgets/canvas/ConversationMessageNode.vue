@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import type { Node } from '@antv/x6'
 import type { ConversationCanvasData } from './conversationCanvasContext'
-import { Add20Regular, ArrowSync20Regular, Chat20Regular, Document20Regular, Keyboard20Regular } from '@vicons/fluent'
+import { Chat20Regular, Document20Regular, Keyboard20Regular } from '@vicons/fluent'
 import { useIntervalFn } from '@vueuse/core'
+import { NTooltip } from 'naive-ui'
 import { computed, inject, onBeforeUnmount, shallowRef, useTemplateRef, watch } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
@@ -80,16 +81,31 @@ function open(event: MouseEvent) {
           <span v-if="message.kind === 'draft'" class="conversation-node__status">{{ label }}</span>
           <span v-if="message.status && message.status !== 'completed'" class="conversation-node__status" :class="message.status">{{ t(`desktop.canvas.${message.status}`) }}</span>
           <div v-if="!simplified && message.kind !== 'draft' && !busy" class="conversation-node__actions" role="toolbar" :aria-label="t('desktop.canvas.nodeActions')" @pointerdown.stop @mousedown.stop>
-            <button v-if="message.kind === 'question'" type="button" :disabled="!data.canMutate" :aria-label="t('desktop.chat.editMessage')" :title="t('desktop.chat.editMessage')" data-testid="canvas-node-edit" @click.stop="actions.edit(message.id)">
-              <DesktopIcon name="edit" />
-            </button>
+            <NTooltip v-if="message.kind === 'question'" placement="top">
+              <template #trigger>
+                <button type="button" :disabled="!data.canMutate" :aria-label="t('desktop.chat.editMessage')" data-testid="canvas-node-edit" @click.stop="actions.edit(message.id)">
+                  <DesktopIcon name="edit" />
+                </button>
+              </template>
+              {{ t('desktop.chat.editMessage') }}
+            </NTooltip>
             <template v-else>
-              <button type="button" :disabled="!data.canMutate" :aria-label="t('desktop.canvas.retry')" :title="t('desktop.canvas.retry')" data-testid="canvas-node-retry" @click.stop="actions.retry(message.id)">
-                <DesktopIcon :component="ArrowSync20Regular" />
-              </button>
-              <button v-if="message.status === 'completed'" type="button" :disabled="!data.canMutate" :aria-label="t('desktop.canvas.followup')" :title="t('desktop.canvas.followup')" data-testid="canvas-node-followup" @click.stop="actions.followup(message.id)">
-                <DesktopIcon :component="Add20Regular" />
-              </button>
+              <NTooltip placement="top">
+                <template #trigger>
+                  <button type="button" :disabled="!data.canMutate" :aria-label="t('desktop.canvas.retry')" data-testid="canvas-node-retry" @click.stop="actions.retry(message.id)">
+                    <DesktopIcon name="messageRetry" />
+                  </button>
+                </template>
+                {{ t('desktop.canvas.retry') }}
+              </NTooltip>
+              <NTooltip v-if="message.status === 'completed' && message.messageId && message.canFollowup !== false" placement="top">
+                <template #trigger>
+                  <button type="button" :disabled="!data.canMutate" :aria-label="t('desktop.chat.followup')" data-testid="canvas-node-followup" @click.stop="actions.followup(message.id)">
+                    <DesktopIcon name="messageBranch" />
+                  </button>
+                </template>
+                {{ t('desktop.chat.followup') }}
+              </NTooltip>
             </template>
           </div>
         </div>

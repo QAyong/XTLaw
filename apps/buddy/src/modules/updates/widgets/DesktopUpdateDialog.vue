@@ -2,10 +2,11 @@
 import type { DesktopUpdateCheckResult, DesktopUpdateDeliveryState } from '@buddy-electron/shared/desktopUpdates'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import { compareDesktopVersions } from '@buddy-electron/shared/desktopUpdates'
-import { ArrowDownload20Regular, ArrowUpRight20Regular, CheckmarkCircle20Regular, ChevronDown16Regular, History20Regular, MoreHorizontal20Regular } from '@vicons/fluent'
+import { ArrowUpRight20Regular, CheckmarkCircle20Regular, ChevronDown16Regular, History20Regular, MoreHorizontal20Regular } from '@vicons/fluent'
 import { NButton, NDropdown, NModal, NScrollbar, NTooltip } from 'naive-ui'
 import { computed } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
+import { BRAND_ASSET_URLS } from '@/shared/branding/brandAssets'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import DesktopMarkdownContent from '@/shared/ui/markdown/DesktopMarkdownContent.vue'
 import DesktopUpdateDeliveryActions from './DesktopUpdateDeliveryActions.vue'
@@ -93,7 +94,7 @@ function updateVersionReminder() {
       <template v-if="updateAvailable">
         <header class="desktop-update-dialog__header">
           <div class="desktop-update-dialog__icon-wrap is-update">
-            <DesktopIcon :component="ArrowDownload20Regular" :size="22" aria-hidden="true" />
+            <img class="desktop-update-dialog__app-icon" :src="BRAND_ASSET_URLS.appIcon" alt="" aria-hidden="true">
           </div>
           <div class="desktop-update-dialog__header-copy">
             <div class="desktop-update-dialog__title-row">
@@ -265,9 +266,13 @@ function updateVersionReminder() {
 }
 
 .desktop-update-dialog__icon-wrap.is-update {
-  background: var(--buddy-accent-surface);
-  color: var(--buddy-accent-text);
-  border: 1px solid var(--buddy-accent-border, transparent);
+  overflow: hidden;
+}
+
+.desktop-update-dialog__app-icon {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .desktop-update-dialog__icon-wrap.is-cached {

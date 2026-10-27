@@ -16,6 +16,7 @@ import type { BuddyLocale } from '@/i18n/buddyI18n'
 import { NButton, NSpin } from 'naive-ui'
 import { computed, onBeforeUnmount, shallowRef, useTemplateRef, watch } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
+import { getChatMessageFollowupSourceId } from '../../model/transcript/chatMessageActions'
 import {
   formatChatDayDividerLabel,
 } from '../../model/transcript/chatMessageTime'
@@ -37,6 +38,8 @@ const props = defineProps<{
   conversationId: string
   displayRows: ReadonlyArray<ChatTranscriptDisplayRow>
   editingMessageId?: string | null
+  followupMessageId?: string | null
+  followupMessageIds?: ReadonlySet<string>
   hasOlderMessages?: boolean
   isLoadingOlderMessages?: boolean
   isRestoringPosition?: boolean
@@ -57,6 +60,7 @@ const emit = defineEmits<{
   readerLayoutIntent: []
   readerScrollIntent: []
   regenerateAssistant: [sourceRunId: string]
+  followupAssistant: [assistantMessageId: string, branchId: string]
   returnToLatest: []
   selectOutlineMessage: [messageId: string]
   scroll: [metrics: ChatMessageScrollMetrics, options?: { userInitiated?: boolean }]
@@ -122,12 +126,17 @@ function scrollToMessage(
   messageId: string,
   behavior?: ScrollBehavior,
 ): ChatMessageScrollMetrics | null {
-  return transcriptViewport.value?.scrollToMessage(messageId, behavior) ?? null
+  return transcriptViewport.value?.scrollToMessage(resolveFollowupSourceId(messageId), behavior) ?? null
+}
+
+function resolveFollowupSourceId(messageId: string) {
+  const row = props.displayRows.find(row => row.kind === 'message' && row.turnResult?.finalMessageId === messageId)
+  return row?.kind === 'message' ? row.message.id : messageId
 }
 
 function highlightMessage(messageId: string) {
   clearOutlineHighlight()
-  highlightedOutlineMessageId.value = messageId
+  highlightedOutlineMessageId.value = resolveFollowupSourceId(messageId)
   outlineHighlightTimer = window.setTimeout(() => {
     highlightedOutlineMessageId.value = null
     outlineHighlightTimer = null
@@ -228,6 +237,8 @@ onBeforeUnmount(clearOutlineHighlight)
           :result-run-id="item.resultRunId"
           :owns-result-actions="item.ownsResultActions"
           :editing="item.message.id === editingMessageId"
+          :can-followup="followupMessageIds?.has(getChatMessageFollowupSourceId(item) ?? '')"
+          :following-up="!!followupMessageId && getChatMessageFollowupSourceId(item) === followupMessageId"
           :execution-status="item.executionStatus"
           :language="language"
           :message="item.message"
@@ -240,6 +251,7 @@ onBeforeUnmount(clearOutlineHighlight)
           @open-artifact="emit('openArtifact', $event)"
           @open-changes="emit('openChanges', $event)"
           @regenerate="emit('regenerateAssistant', $event)"
+          @followup="emit('followupAssistant', $event, item.turnResult?.branchId ?? item.message.branchId)"
           @start-edit="emit('editUserMessage', item.message.id)"
         >
           <template #before-actions>
@@ -255,14 +267,19 @@ onBeforeUnmount(clearOutlineHighlight)
         <BuddyChatTurnResult
           v-else-if="item.kind === 'turn-result'"
           :data-chat-row-key="item.key"
+          :data-message-id="item.turn.finalMessageId ?? undefined"
           :actions-disabled="actionsDisabled ?? false"
           :branch-navigator="branchNavigators.get(item.turn.runId) ?? null"
           class="buddy-chat-transcript-row"
+          :class="{ 'is-outline-highlighted': item.turn.finalMessageId === highlightedOutlineMessageId }"
           :language="language"
           :turn="item.turn"
+          :following-up="item.turn.finalMessageId !== null && item.turn.finalMessageId === followupMessageId"
+          :can-followup="item.turn.finalMessageId !== null && followupMessageIds?.has(item.turn.finalMessageId)"
           :usage="executionTree?.groups.value.byRoot.get(item.turn.runId)?.usage ?? null"
           @activate-branch="emit('activateBranch', $event)"
           @regenerate="emit('regenerateAssistant', item.turn.runId)"
+          @followup="item.turn.finalMessageId && emit('followupAssistant', item.turn.finalMessageId, item.turn.branchId)"
         />
 
         <BuddyChatAgentTurn
@@ -274,6 +291,8 @@ onBeforeUnmount(clearOutlineHighlight)
           :class="{ 'is-speech-end': item.endsSpeech }"
           :language="language"
           :owns-result-actions="item.ownsResultActions === true"
+          :following-up="item.turn.finalMessageId !== null && item.turn.finalMessageId === followupMessageId"
+          :can-followup="item.turn.finalMessageId !== null && followupMessageIds?.has(item.turn.finalMessageId)"
           :execution-status="item.executionStatus"
           :result-usage="executionTree?.groups.value.byRoot.get(item.turn.runId)?.usage ?? null"
           :show-identity="item.showIdentity"
@@ -281,6 +300,7 @@ onBeforeUnmount(clearOutlineHighlight)
           :turn="item.turn"
           @activate-branch="emit('activateBranch', $event)"
           @regenerate="emit('regenerateAssistant', item.turn.runId)"
+          @followup="item.turn.finalMessageId && emit('followupAssistant', item.turn.finalMessageId, item.turn.branchId)"
         >
           <template #before-actions>
             <BuddyExecutionGroup

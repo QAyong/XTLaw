@@ -1,4 +1,5 @@
 import type { BrowserWindow, IpcMainEvent } from 'electron'
+import type { ExtensionDocumentPorts } from '../../../platform/extensions/ExtensionWorkingCopyStore'
 import type { FileIconThemeService } from '../../../platform/icons/FileIconThemeService'
 import type { ThemeService } from '../../../platform/themes/ThemeService'
 import type { ApplicationDiagnosticReporter } from '../../../shared/diagnostics/applicationDiagnostic'
@@ -32,6 +33,7 @@ import { ExtensionProtocol } from './ExtensionProtocol'
 import { SandboxedExtensionHost } from './SandboxedExtensionHost'
 
 export function registerExtensionIpc(options: {
+  documents: ExtensionDocumentPorts
   home: string
   fileIcons: FileIconThemeService
   themes: ThemeService
@@ -79,6 +81,7 @@ export function registerExtensionIpc(options: {
       event.preventDefault()
   }
   const service = new ExtensionService(store, {
+    documents: options.documents,
     clipboard: createExtensionClipboard(options.getWindow),
     shellsChanged: options.shellsChanged,
     skillsChanged: options.skillsChanged,

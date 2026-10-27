@@ -30,14 +30,17 @@ const resources = computed<ReviewResource[]>(() => {
   const fileRead = [
     ...(p.selectedResource === 'read' ? ['selectedResource:read'] : []),
     ...(p.localResources ? ['localResources'] : []),
+    ...(p.fileEditing ? ['fileEditing'] : []),
   ]
   const fileScope: string[] = []
   if (fileRead.length)
-    fileScope.push(english.value ? 'Only files you give this plugin.' : '仅读取你交给此插件的文件。')
+    fileScope.push(english.value ? 'Only files you give this plugin.' : '仅访问你交给此插件的文件。')
   if (p.localResources)
     fileScope.push(english.value ? 'Access to files picked in a system dialog remains until revoked.' : '系统窗口选中的文件授权保留至撤销。')
   if (p.selectedResourceWrite)
     fileScope.push(english.value ? 'Save edits to the file opened in this view; changes outside the editor block saving.' : '将修改保存到当前视图打开的文件；文件在编辑器外发生变化时会阻止保存。')
+  if (p.fileEditing)
+    fileScope.push(english.value ? 'Can edit and save files you open with this plugin. Reading alone does not grant write access.' : '可编辑并保存你用此插件打开的文件；单独读取不会获得写回权限。')
   if (p.resourceExport)
     fileScope.push(english.value ? 'You choose each Save As destination; reading does not grant overwrite access.' : '另存为时由你选择位置；读取不授予覆写权限。')
 
@@ -61,7 +64,8 @@ const resources = computed<ReviewResource[]>(() => {
       operations: [
         { key: 'read', label: english.value ? 'Read' : '读取', permissions: fileRead },
         { key: 'write', label: english.value ? 'Save current file' : '保存当前文件', permissions: p.selectedResourceWrite ? ['selectedResourceWrite'] : [], ...(p.selectedResourceWrite && !extensionIsBundled(props.review.source) ? { risk: english.value ? 'This plugin can overwrite the files it opens. Install it only if you trust its author.' : '此插件可以覆盖它所打开的文件。只有信任作者时才安装。' } : {}) },
-        { key: 'save', label: english.value ? 'Save As' : '另存为', permissions: p.resourceExport ? ['resourceExport'] : [] },
+        { key: 'save', label: english.value ? 'Save As' : '另存为', permissions: [...(p.resourceExport ? ['resourceExport'] : []), ...(p.fileEditing ? ['fileEditing'] : [])] },
+        { key: 'edit', label: english.value ? 'Edit originals' : '编辑原件', permissions: p.fileEditing ? ['fileEditing'] : [] },
       ],
       scope: fileScope.join(english.value ? ' ' : ''),
     },
@@ -183,7 +187,7 @@ const resources = computed<ReviewResource[]>(() => {
 })
 const sharesContent = computed(() => {
   const p = props.review.manifest.permissions
-  return (p.clipboardRead || p.selectedResource === 'read' || p.localResources || p.selectedContent || p.taskMessages || p.references) && p.network.length > 0
+  return (p.clipboardRead || p.selectedResource === 'read' || p.localResources || p.fileEditing || p.selectedContent || p.taskMessages || p.references) && p.network.length > 0
 })
 function isNewOperation(operation: ReviewOperation): boolean {
   return !!props.review.currentVersion && operation.permissions.some(key => props.review.addedPermissions.includes(key))

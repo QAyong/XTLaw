@@ -24,6 +24,7 @@ import type { ExtensionCompiler } from './compileExtensionSource'
 import type { ExtensionPackage, ExtensionPackageStore } from './ExtensionPackageStore'
 import type { ExtensionResourceUpload } from './ExtensionResourceUpload'
 import type { ExtensionConfigurationApplication, ExtensionServiceChange, ExtensionServiceFact, ExtensionServiceSnapshot } from './ExtensionServiceEvents'
+import type { ExtensionDocumentPorts } from './ExtensionWorkingCopyStore'
 import { Buffer } from 'node:buffer'
 import { createHash, randomUUID } from 'node:crypto'
 import { basename } from 'node:path'
@@ -64,6 +65,7 @@ import { preinstallBundledExtensions } from './BundledExtensionCatalog'
 import { ExtensionCatalogService } from './ExtensionCatalogService'
 import { ExtensionConditionInvalidatedError } from './ExtensionConditionEvaluator'
 import { ExtensionConditions } from './ExtensionConditions'
+import { ExtensionDocuments } from './ExtensionDocuments'
 import { sha256, unpackExtension, verifiedExtensionAsset } from './extensionFiles'
 import { ExtensionInstallations } from './ExtensionInstallations'
 import { extensionActivationOrder } from './ExtensionPackageStore'
@@ -78,6 +80,7 @@ export interface ExtensionHost {
   devtools: () => void
 }
 export interface ExtensionServicePorts {
+  documents?: ExtensionDocumentPorts
   clipboard?: {
     read: (session: ExtensionViewSession, assertCurrent: () => void) => Promise<ExtensionClipboardData>
     write: (session: ExtensionViewSession, data: ExtensionClipboardData, assertCurrent: () => void) => Promise<void>
@@ -150,6 +153,7 @@ export class ExtensionService {
   readonly catalog: ExtensionCatalogService
   readonly #reviews = new Map<string, string>()
   readonly #fileSnapshots = new Map<string, { running: RunningExtension, source: ExtensionFileOpeningSource, text: string, bytes: number, created: number }>()
+  readonly #documents?: ExtensionDocuments
   readonly #ports: ExtensionServicePorts
   readonly #running = new Map<string, RunningExtension>()
   readonly #viewOpenings = new Map<string, symbol>()
@@ -183,6 +187,8 @@ export class ExtensionService {
   constructor(store: ExtensionPackageStore, ports: ExtensionServicePorts) {
     this.store = store
     this.#ports = ports
+    if (ports.documents)
+      this.#documents = new ExtensionDocuments(store.root, { files: ports.documents, selectResources: ports.selectResources, selectSavePath: ports.selectSavePath })
     this.conditions = new ExtensionConditions({
       package: async (id) => {
         await this.initialize()
@@ -845,6 +851,7 @@ export class ExtensionService {
     return this.#mutate(async () => {
       await this.#stopClosure(id)
       await this.store.resources.revoke(id)
+      await this.#documents?.forget(id)
       await this.store.revokeFileOpeningGrants(id)
       this.#publish({ kind: 'resources-revoked', extensionId: id })
       this.#log(id, 'resources.revoked')
@@ -1399,6 +1406,32 @@ export class ExtensionService {
       this.#publish({ kind: 'view', extensionId: view.input.extensionId, generation, viewId: id, status: 'failed', errorCode: view.error })
       this.#log(view.input.extensionId, 'view.failed', failure.success ? failure.data.code : 'EXTENSION_VIEW_FAILED')
       result = null
+    }
+    else if (method.startsWith('documents.')) {
+      const documents = this.#documents
+      const extensionId = view.running.package.manifest.id
+      if (!documents || !view.running.package.manifest.permissions.fileEditing || placement?.kind === 'decoration' || contribution.location === 'window-overlay')
+        throw new Error('EXTENSION_DOCUMENT_DENIED')
+      const signal = AbortSignal.any([view.abort.signal, view.running.abort.signal])
+      const current = () => {
+        this.#assertCurrent(view.running)
+        signal.throwIfAborted()
+        if (this.#views.get(id) !== view)
+          throw new Error('EXTENSION_VIEW_EXPIRED')
+      }
+      result = await documents.request({
+        extensionId,
+        name: view.running.package.manifest.name,
+        viewId: id,
+        token,
+        signal,
+        current,
+        source: async (resourceId) => {
+          if (resourceId !== view.input.resource?.id || this.#fileSnapshots.has(resourceId))
+            throw new Error('EXTENSION_DOCUMENT_DENIED')
+          return this.#resource(view.running, resourceId)
+        },
+      }, method, params)
     }
     else if (method === 'resources.beginCreate' || (['resources.writeChunk', 'resources.commitSave', 'resources.cancelSave'].includes(method) && params && typeof params === 'object' && !Array.isArray(params) && typeof params.id === 'string' && this.#uploads.has(params.id))) {
       result = await this.#broker(view.running, method, params, view.abort.signal, view.session.id)
@@ -2437,6 +2470,8 @@ export class ExtensionService {
     this.#ports.themes?.releaseOwner(`${view.running.package.manifest.id}:${view.running.generation}:${view.input.viewId}`)
     view.abort.abort()
     const cleanups: Promise<void>[] = [this.#cancelUploads(view.running, view.session.id)]
+    if (this.#documents)
+      cleanups.push(this.#documents.close(view.input.extensionId, view.input.viewId, view.session.token))
     try {
       view.dispose()
     }

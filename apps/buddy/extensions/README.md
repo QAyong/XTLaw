@@ -32,7 +32,7 @@ node extensions/tools.mjs pack .output/extensions/my-plugin .output/extensions/m
 
 API 3 支持一个插件提供多个完整主题、可选欢迎文字与图片，以及主题编辑器接口；见 [主题开发](../service/resources/skills/plugin-creator/references/themes.md)。主题包可仅包含 JSON 和图片。
 
-API 3 还支持原生设置模块、分组和单项，以及带权限的 Agent 指令、工具、模型请求和当前任务标题更新。先通过能力目录确认宿主支持，再声明最低应用版本；接口与示例见 [Agent 与设置](../service/resources/skills/plugin-creator/references/agent-settings.md)。
+API 3 还支持原生设置模块、分组和单项，以及带权限的 Agent 指令、工具、模型请求和当前任务标题更新。先通过能力目录确认宿主支持，再声明最低应用版本；接口与示例见 [Agent 与设置](../service/resources/skills/plugin-creator/references/agent.md)。
 
 文档插件（接管 DOCX、CSV、PDF 等文件格式）见下面的“文档插件”一节。内置的 [Office DOCX](../../../plugins/office/README.md)、[Office PPTX](../../../plugins/office-pptx/README.md)、[Office XLSX](../../../plugins/office-xlsx/README.md) 是同一套契约的官方实现，其中 XLSX 另声明 `permissions.webAssembly`。
 

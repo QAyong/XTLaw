@@ -1,6 +1,6 @@
 # 独立 SDK 工作流
 
-仅用于用户已提供 XTLaw Plugin SDK 的外部开发环境。先确认 SDK 目录和目标插件仓库，不下载其他运行时或猜测私有路径。
+适用于已经取得独立 XTLaw Plugin SDK 的作者。先确认 SDK 目录、插件仓库及 SDK package.json 指定的工具版本。应用内对话创作使用 [创作流程](authoring.md) 中的内置工具。
 
 源码位于插件仓库 `plugins/<插件名>/`；类型从 SDK 的 `sdk/index.d.ts` 复制为插件内的 `lexora.d.ts`。许可证沿用插件仓库根文件，由 SDK 打包时附加，不在每个源码目录重复放置。
 
@@ -14,7 +14,9 @@ pnpm run package:source <插件仓库>
 
 安装包在 SDK 的 `.output/packages/`。开发预览可使用 `pnpm dev <插件仓库> <插件名>`，采用独立临时配置。打包会更新插件仓库的 `catalog/v1/index.json`，不会上传。运行验证仍需真实 XTLaw 窗口；普通浏览器打开文件不能代替插件隔离环境验收。
 
-在 XTLaw 的「插件 → 安装插件包」选择输出包并确认权限。只有用户要求发布时才同步远端。
+打包按插件 ID 增量更新市场目录，保留其他插件和已收录的同版本安装包信息；修改源码后需递增版本。只打包一个插件时，在命令末尾指定插件目录名，例如 `pnpm run package <插件仓库> auto-title`。
+
+在 XTLaw 的「插件 → 安装插件包」选择输出包并确认权限。远端分发按实际发布渠道另行完成。
 
 离线开发可从 SDK 的 `authoring.mjs` 导入 `queryWorkbenchCapabilities` 查询该 SDK 快照支持的目标；它不代表用户已安装宿主的版本。应用内优先查询 `lexora_plugin_capabilities`。
 

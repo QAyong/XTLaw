@@ -53,7 +53,7 @@
 ## 未采用的做法
 
 - 没有直接指回上游市场：上游插件的 `engines.lexora` 按上游 Lexora 版本号声明（如 `>=0.12.0`、`>=0.15.0`），在 XTLaw 的 0.x 版本号下会被判为不兼容，所以上游插件要改成 XTLaw 的版本范围后才上架。
-- 2026-10-14 初稿还写过另一个原因：上游清单带有本地未实现的主题字段（`permissions.themeManagement`、`contributes.themes`），上游两个主题插件也依赖本地没有的主题引擎。这一条自 XTLaw 0.2.0 起不成立：主题引擎已移植（只取引擎，见 [upstream-20261016-theme-engine-integration.md](../upstream/upstream-20261016-theme-engine-integration.md)），这些字段能通过清单校验。但上游的 `lexora.themes` 1.0.3 与鲸鱼娘 1.0.1 仍未上架：XTLaw 已内置同 ID 的 `lexora.themes`，两者的关系要先评估；主题插件在 XTLaw 下能否运行也还没验证。
+- 2026-10-14 初稿还写过另一个原因：上游清单带有本地未实现的主题字段（`permissions.themeManagement`、`contributes.themes`），上游两个主题插件也依赖本地没有的主题引擎。这一条自 XTLaw 0.2.0 起不成立：主题引擎已移植（只取引擎，见 [upstream-20261016-theme-engine-integration.md](../archive/upstream/upstream-20261016-theme-engine-integration.md)），这些字段能通过清单校验。但上游的 `lexora.themes` 1.0.3 与鲸鱼娘 1.0.1 仍未上架：XTLaw 已内置同 ID 的 `lexora.themes`，两者的关系要先评估；主题插件在 XTLaw 下能否运行也还没验证。
 - 没有把标题插件做成内置：放在市场里，插件更新不需要重新发布 XTLaw 安装包。
 
 ## 验证
@@ -73,5 +73,5 @@
 ## 后续
 
 - 上游标题插件更新时，在每轮上游集成中检查并同步到插件仓库。
-- 上游 `7e0e301f`（插件兼容性提示）已在 `7b3c707ec` 移植，见 [upstream-20261014-integration.md](../upstream/upstream-20261014-integration.md)。
+- 上游 `7e0e301f`（插件兼容性提示）已在 `7b3c707ec` 移植，见 [upstream-20261014-integration.md](../archive/upstream/upstream-20261014-integration.md)。
 - 评估是否上架上游的 `lexora.themes` 与鲸鱼娘：先解决与内置同 ID 主题插件的关系，再验证主题插件在 XTLaw 下的表现。

@@ -4,7 +4,7 @@
 
 - 本轮只移植上一轮暂缓的 `7e0e301f`（完善插件兼容性提示与管理体验，10/13）。它在上一轮区间 `df0f9369..a270927d` 内，详见 [upstream-20261013-integration.md](upstream-20261013-integration.md)。
 - 检查到的上游 commit：`1073fa9a`（`upstream/master`）。`a270927d` 之后只有 `1073fa9a` 一个新提交，本轮未移植，见“下一轮待评估”。
-- 工作分支：`codex/upstream-20261014`，基于 `master` 的 `266d1c09`（开放插件市场并指向 XTLaw 插件目录，见 [Feature-032](../specs/feature-032-xtlaw-plugin-market.md)）。
+- 工作分支：`codex/upstream-20261014`，基于 `master` 的 `266d1c09`（开放插件市场并指向 XTLaw 插件目录，见 [Feature-032](../../specs/feature-032-xtlaw-plugin-market.md)）。
 - 本地提交 `7b3c707e`，保留来源行。未合并到 `master`、未推送。
 
 ## 功能

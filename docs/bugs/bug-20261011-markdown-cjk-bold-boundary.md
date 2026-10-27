@@ -3,7 +3,7 @@
 **日期：** 2026-10-11<br>
 **优先级：** 中（不丢数据、不阻断功能；影响 AI 产出与仓库文档在应用内的可读性，失败时没有任何提示，且应用内两条渲染链路对同类写法结论不一致）<br>
 **状态：** 已缓解（2026-10-12：内置系统提示词加一条写作约定；渲染层未改，根治依赖上游，见第 13 节）<br>
-**代码基准：** `master` @ `dac111dc`（工作区另有与本问题无关的未跟踪文件 `docs/bugs/bug-20261010-session-reference-responses-optional-cursor.md`）<br>
+**代码基准：** `master` @ `dac111dc`（工作区另有与本问题无关的未跟踪文件 `docs/archive/bugs/bug-20261010-session-reference-responses-optional-cursor.md`）<br>
 **环境：** Windows；XTLaw 桌面端（`apps/buddy`）；相关依赖 `markstream-vue` 2.0.17（内含 `stream-markdown-parser` 1.2.19、`markdown-it-ts` 1.1.2）与 `marked` 18.0.13<br>
 **范围：** 第 1–12 节为 2026-10-11 的初次分析；2026-10-12 的复核更正、处理结论与上游跟进见第 13 节
 
@@ -73,7 +73,7 @@
 
 | 文件:行 | 命中片段 |
 | --- | --- |
-| `docs/bugs/bug-20261007-windows-recycle-bin-case-mismatch.md:35` | `**磁盘真实路径（含存储大小写）**与传入路径做` |
+| `docs/archive/bugs/bug-20261007-windows-recycle-bin-case-mismatch.md:35` | `**磁盘真实路径（含存储大小写）**与传入路径做` |
 | `docs/specs/feature-004-skill-lazy-loading.md:26` | `不遍历附属文件。**用户没有选择技能时` |
 
 **用户内容侧现状：** 触发本问题的视频口播稿已改为安全写法（`**快**。Pi`），该目录现在 0 处命中；同一文件另有一处 `**XTLaw 是基于 Pi 构建的。**，我这个人…`（收尾后跟逗号）当前可正常渲染，但属于同一风险写法。

@@ -410,7 +410,7 @@ AI 操作页面 → 用户通过既有接管机制获得控制 → 旧 AI 操作
 ## 11. 关联资料
 
 - [Spec-013：工作台选择引用](feature-013-workbench-selection-reference.md)：网页元素引用的已有约束与回归范围。
-- [Spec-014：上下文面板最大化](feature-014-context-panel-maximize.md)：面板布局与全屏体验需避免冲突。
+- [Spec-014：上下文面板最大化](../archive/specs/feature-014-context-panel-maximize.md)：面板布局与全屏体验需避免冲突。
 - [ZCode 浏览器文档](https://zcode.z.ai/en/docs/browser-use)：产品使用说明，可能落后于源码。
 - [ZCode 工具栏和错误界面](https://github.com/zai-org/ZCode/blob/29628c9acdb81b703bbd4080c207a0e7ce5e276e/packages/ui/src/EmbeddedBrowserPaneParts.tsx)：人工入口与失败恢复对照。
 - [ZCode 网页确认框适配](https://github.com/zai-org/ZCode/blob/29628c9acdb81b703bbd4080c207a0e7ce5e276e/packages/desktop/src/main/embeddedBrowserJavaScriptDialog.ts)：人工对话框来源展示与自动化区分。

@@ -321,4 +321,4 @@ pnpm --filter @uselexora/lexora-buddy exec vitest run --project=runtime service/
 
 本次只建立问题记录。依据文档技能的“先记录问题”流程，在新会话中推进：需求与边界确认 → 接口策略设计 → 实现 → 定向验证 → 更新验收记录。Git 暂存、提交、推送和发布需另外明确授权。
 
-相关功能背景：[引用历史会话并按需检索](../specs/feature-003-session-reference.md)。该规格中的本轮显式引用约束仍应保留；本文不把旧版本或已有测试通过等同于本次问题已修复。
+相关功能背景：[引用历史会话并按需检索](../../specs/feature-003-session-reference.md)。该规格中的本轮显式引用约束仍应保留；本文不把旧版本或已有测试通过等同于本次问题已修复。

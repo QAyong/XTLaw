@@ -5,7 +5,7 @@
 
 **取代方案：** 不再新增协议，复用 `lexora-file://media/`（空间文件）、`lexora-artifact://media/`（产出）和 `lexora-file://skill-preview/`（技能图片）；服务进程的 `resolveMedia` 返回受授权的位置与文件身份，主进程用原生 `file_reader --stream` 按 Range 流式读取，开流后再校验一次身份，防止读取期间文件被替换；图片同样走这条路径，不再读成 data URL。播放器是 `DesktopMediaPreview`。本地保留的 `range` 读取（Office 预览用）与 `--save-binary` 不受影响。
 
-**相关：** [Spec-035：任务产出在文件管理器中打开](./feature-035-artifact-open-in-file-manager.md)
+**相关：** [Spec-035：任务产出在文件管理器中打开](feature-035-artifact-open-in-file-manager.md)
 
 ## 1. 背景
 

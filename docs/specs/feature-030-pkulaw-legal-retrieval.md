@@ -3,7 +3,7 @@
 **日期：** 2026-10-15
 **状态：** 已实现，待真实环境验收
 **范围：** XTLaw 桌面端（`apps/buddy`）
-**参考：** [北大法宝 MCP 文档](https://mcp.pkulaw.com/docs?doc=mcp-integration)、[常见问题](https://mcp.pkulaw.com/docs?doc=faq)；公众号搜索见 [Feature-031](./feature-031-sogou-weixin-search.md)
+**参考：** [北大法宝 MCP 文档](https://mcp.pkulaw.com/docs?doc=mcp-integration)、[常见问题](https://mcp.pkulaw.com/docs?doc=faq)；公众号搜索见 [Feature-031](feature-031-sogou-weixin-search.md)
 
 ## 1. 目标与做法
 
@@ -90,4 +90,4 @@
 | 案例地域 | 标明法院所在地域，与用户所在地不同时说明口径可能不同 |
 | 作答前自检 | 关键线索已读、反向核查已做、两个渠道已完成、边界已体现；缺项先补，补不了如实写明 |
 
-**取舍：** 不设预算意味着搜索量可能变大。搜狗的触发频率阈值至今未测（见 [Feature-031](./feature-031-sogou-weixin-search.md) §11），被拦截时按上表"渠道受阻"处理，不重试。
+**取舍：** 不设预算意味着搜索量可能变大。搜狗的触发频率阈值至今未测（见 [Feature-031](feature-031-sogou-weixin-search.md) §11），被拦截时按上表"渠道受阻"处理，不重试。

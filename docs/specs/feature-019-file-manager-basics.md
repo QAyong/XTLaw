@@ -1,6 +1,6 @@
 # Spec-019：文件管理器基础能力提升（最小第一版）
 
-> **已被取代（2026-10-16）：** 本规格描述的文件管理实现已由上游 `f6e2818a` 的原生文件引擎和新资源管理器取代，代码已移除，见 [upstream-20261016-integration.md](../upstream/upstream-20261016-integration.md) 的 D 轮。本文仅保留为历史记录。
+> **已被取代（2026-10-16）：** 本规格描述的文件管理实现已由上游 `f6e2818a` 的原生文件引擎和新资源管理器取代，代码已移除，见 [upstream-20261016-integration.md](../archive/upstream/upstream-20261016-integration.md) 的 D 轮。本文仅保留为历史记录。
 
 **日期：** 2026-10-04
 
@@ -151,7 +151,7 @@
 | `apps/buddy/src/workbench/services/WorkingCopyService.ts` | 编辑副本状态 | 有界操作保护、受控保存、成功后的副本迁移/移除 |
 | `apps/buddy/src/workbench/services/WorkbenchController.ts` | 工作台视图控制 | 打开/关闭保护，磁盘成功后的批量视图路径更新/关闭 |
 | `apps/buddy/src/app/workbench/WorkspaceFileOperations.ts` | 已打开资源的文件操作 | 组织确认、保护、磁盘操作及成功后的界面同步 |
-| `docs/specs/feature-015-resource-file-open-external.md` | 标签级系统打开规格 | 头部按钮仍打开标签根目录，树菜单定位具体条目 |
+| `docs/archive/specs/feature-015-resource-file-open-external.md` | 标签级系统打开规格 | 头部按钮仍打开标签根目录，树菜单定位具体条目 |
 
 执行链复用现有“界面 → 消息桥 → 主进程 → 文件服务/平台接口”。用户菜单操作不由 AI 工具代执行，不暴露任意路径删除通道。
 
@@ -277,7 +277,7 @@
 ### 修复
 
 - 现象：D: 卷上「移到回收站」显示「当前平台或文件系统无法安全执行此操作，未修改文件」；同一卷的新建与重命名正常，C: 卷回收正常。
-- 原因：原生修改后端用句柄规范路径与请求路径做逐字符（区分大小写）比较。D: 卷回收站根目录在磁盘上的存储名是全大写 `$RECYCLE.BIN`，代码硬编码 `$Recycle.Bin`；比较失败被 `recycle.rs` 一律改写为 `unsupported`，界面据此显示「平台或文件系统无法安全执行」。NTFS 不区分大小写但保留创建时的大小写，资源管理器因此不受影响（详见 `docs/bugs/bug-20261007-windows-recycle-bin-case-mismatch.md`）。
+- 原因：原生修改后端用句柄规范路径与请求路径做逐字符（区分大小写）比较。D: 卷回收站根目录在磁盘上的存储名是全大写 `$RECYCLE.BIN`，代码硬编码 `$Recycle.Bin`；比较失败被 `recycle.rs` 一律改写为 `unsupported`，界面据此显示「平台或文件系统无法安全执行」。NTFS 不区分大小写但保留创建时的大小写，资源管理器因此不受影响（详见 `docs/archive/bugs/bug-20261007-windows-recycle-bin-case-mismatch.md`）。
 - 修复：`windows.rs` 新增 `same_path`（仅折叠 ASCII 大小写），替换源路径校验与 `pin_directory` 两处比较。句柄仍由被比较的请求字符串打开、准备阶段仍拒绝重解析点、`path.starts_with(root)` 的词法包含判断仍区分大小写，因此不降低防路径替换能力；非 ASCII 大小写差异仍失败关闭。
 
 ### 证据与边界
@@ -297,6 +297,6 @@
 
 - 文件树操作菜单关闭时不再同步清零坐标；最后一次打开位置独立保存，使退场动画保持在原处。点击空白处与选择菜单命令都走这一规则，再次打开才更新位置。
 - 新增 `WorkspaceExplorer.spec.ts`（文件树组件回归测试）2 项通过，覆盖两种关闭入口及重新打开坐标；类型检查、相关文件 ESLint 与差异检查通过。组件测试验证位置参数，不冒充真实动画逐帧检查。
-- 文件内容中的 Monaco 编辑器保留原生菜单，单目标点击直接引用，多目标在原生子菜单内选择；同时修复菜单恢复焦点后注销命令导致引用未加入草稿的问题。Markdown 预览不改，详细规则及验证见 [Spec-013 第 16 节](./feature-013-workbench-selection-reference.md#16-monaco-原生菜单引用适配与用户确认2026-10-17)。
+- 文件内容中的 Monaco 编辑器保留原生菜单，单目标点击直接引用，多目标在原生子菜单内选择；同时修复菜单恢复焦点后注销命令导致引用未加入草稿的问题。Markdown 预览不改，详细规则及验证见 [Spec-013 第 16 节](feature-013-workbench-selection-reference.md#16-monaco-原生菜单引用适配与用户确认2026-10-17)。
 - 用户在本轮开发预览中反馈测试通过并授权更新文档、提交仓库；不推断每项场景都已单独实测。本轮无原生后端、数据迁移或依赖变更，不打包安装、不推送远程。
-- 根因、上游对照及回归记录见 [对应 Bug 记录](../bugs/bug-20261017-file-context-menu-and-monaco-quote.md)。
+- 根因、上游对照及回归记录见 [对应 Bug 记录](../archive/bugs/bug-20261017-file-context-menu-and-monaco-quote.md)。

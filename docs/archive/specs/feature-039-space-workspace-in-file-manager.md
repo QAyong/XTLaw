@@ -3,7 +3,7 @@
 **日期：** 2026-10-22  
 **状态：** 已实现（方案 A），用户已在开发预览中验收（2026-10-22）。未打包。
 
-**相关：** [Spec-035：任务产出在文件管理器中打开](./feature-035-artifact-open-in-file-manager.md)、[Spec-034：把未归属空间的任务移动到空间](./feature-034-move-task-to-space.md)、[Spec-033：文档插件契约](./feature-033-document-plugin-contract.md)
+**相关：** [Spec-035：任务产出在文件管理器中打开](feature-035-artifact-open-in-file-manager.md)、[Spec-034：把未归属空间的任务移动到空间](../../specs/feature-034-move-task-to-space.md)、[Spec-033：文档插件契约](../../specs/feature-033-document-plugin-contract.md)
 
 ## 1. 背景
 
@@ -101,7 +101,7 @@ Spec-035 让“空间主目录内的产出”改走文件管理器。验收后�
 | `apps/buddy/service/src/BuddyService.ts` | 给 `SpaceFileService` 与空间 RPC 传入数据目录路径 |
 | `apps/buddy/src/modules/tasks/widgets/context-panel/DesktopFileSpacePicker.vue`、`useTaskContextPanel.ts`（`newFilesTab`） | 默认文件夹的显示名 |
 | `apps/buddy/src/i18n/locales/zh-CN`、`en-US` | “默认文件夹” |
-| `docs/specs/feature-035-artifact-open-in-file-manager.md` | 第 3 节和第 6 节补一句指向本规格 |
+| `docs/archive/specs/feature-035-artifact-open-in-file-manager.md` | 第 3 节和第 6 节补一句指向本规格 |
 
 不改：`BuddySessionBlueprintService`、`spaceExecutionContext`、数据库迁移、原生文件引擎、文件管理器组件本身。
 

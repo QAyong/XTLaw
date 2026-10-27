@@ -3,7 +3,7 @@
 **日期：** 2026-10-14
 **状态：** 已实现并验收通过（2026-10-14）；§11 的频率测试待做
 **范围：** XTLaw 桌面端（`apps/buddy`）
-**参考：** [搜狗微信搜索](https://weixin.sogou.com/)；与 [Feature-030](./feature-030-pkulaw-legal-retrieval.md) 的关系见 §1
+**参考：** [搜狗微信搜索](https://weixin.sogou.com/)；与 [Feature-030](feature-030-pkulaw-legal-retrieval.md) 的关系见 §1
 
 ## 1. 定位
 
@@ -181,5 +181,5 @@ lexora_web_search { query, provider: 'sogou-weixin' }
 后续：
 
 0. **外壳页**：已删除、需微信客户端打开的文章仍会返回"成功但只有外壳文字"（图片消息已处理）。可在提取后对 `mp.weixin.qq.com` 的过短内容返回 `WEB_EMPTY_CONTENT`。
-1. **Cookie 有效期与频率阈值**：实测只覆盖短时间的少量请求，搜狗的触发阈值未知。实现后单独做一轮连续请求测试，再决定是否需要限速或缓存。2026-10-17 起 `legal-research` 不再限制检索次数（以收敛为止，见 [Feature-030](./feature-030-pkulaw-legal-retrieval.md) §8），同一问题的搜索量会增加，这项测试更有必要；被拦截时 skill 要求记为"微信渠道未能检索"。
+1. **Cookie 有效期与频率阈值**：实测只覆盖短时间的少量请求，搜狗的触发阈值未知。实现后单独做一轮连续请求测试，再决定是否需要限速或缓存。2026-10-17 起 `legal-research` 不再限制检索次数（以收敛为止，见 [Feature-030](feature-030-pkulaw-legal-retrieval.md) §8），同一问题的搜索量会增加，这项测试更有必要；被拦截时 skill 要求记为"微信渠道未能检索"。
 2. **图片**（如需要再做）：把 `data-src` 转成可读链接，并让工具结果支持图片内容块，同时按模型视觉能力和体积设上限；实测 `mmbiz.qpic.cn` 图片不带 Referer 可正常下载，带非微信 Referer 只返回约 2 KB 的占位图。

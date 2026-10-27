@@ -2,7 +2,7 @@
 
 ## 范围与状态
 
-- 来源：上游主题栈 8 个提交，位于基线 `3ca97e2e` 及之前。这些提交此前在 `docs/upstream/upstream-20261016-integration.md` 与 `docs/upstream/upstream-round-4-integration.md` 中被决定跳过；本轮改为“只取引擎”。
+- 来源：上游主题栈 8 个提交，位于基线 `3ca97e2e` 及之前。这些提交此前在 `docs/archive/upstream/upstream-20261016-integration.md` 与 `docs/archive/upstream/upstream-round-4-integration.md` 中被决定跳过；本轮改为“只取引擎”。
 - 工作分支：`codex/upstream-20261016-theme`，基于 `master` 的 `96a342da`，共 9 个本地提交（8 个移植 + 1 个导入整理）。未合并到 `master`，未推送。
 - `docs/upstream-baseline.json` 的 `lastChecked` 不变（`3ca97e2e`）。上游此后又有 3 个新提交（到 `4a0ab562`），本轮未评估。
 - 原则：引擎、设置页、IPC、主题插件与材质能力取上游；组件的原子类改写不取。本地组件已读取同名的 `--buddy-*` 变量，引擎生成同名变量后组件会直接跟着变。

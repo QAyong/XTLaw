@@ -59,7 +59,7 @@ graph TD
 
 当前 XTLaw schema 为 v25：保留已发布的 v23 运行事件检查点迁移，v24 增加 Azure Provider 来源转换及消息索引，v25 增加 MCP 工具命名空间和暴露策略。上游的 v23 是另一种迁移，不能按相同版本号覆盖本地历史。
 
-迁移入口为 `service/src/storage/database.ts` 和 `schema.ts`，已用临时旧库验证已有检查点、消息 rowid、MCP 配置与凭据引用的保留和重复打开。首次用新程序访问正式数据前应备份；旧程序不能直接打开升级后的数据库，回滚需恢复升级前备份。`stable` 开发档位也会执行迁移，并非只读预览。详见 [集成记录](../upstream/upstream-remaining-integration.md)。
+迁移入口为 `service/src/storage/database.ts` 和 `schema.ts`，已用临时旧库验证已有检查点、消息 rowid、MCP 配置与凭据引用的保留和重复打开。首次用新程序访问正式数据前应备份；旧程序不能直接打开升级后的数据库，回滚需恢复升级前备份。`stable` 开发档位也会执行迁移，并非只读预览。详见 [集成记录](../archive/upstream/upstream-remaining-integration.md)。
 
 ### 为什么这件事很重要
 
@@ -225,5 +225,5 @@ XTLaw 当前市场使用随应用提供的本地目录，不连接上游市场�
 |---|---|---|
 | 功能规格 | `docs/specs/` | 个人功能规格、方案与决定记录 |
 | 架构概览 | `docs/architecture/overview.md` | 本文件 |
-| 首轮上游集成 | `docs/upstream/upstream-round-1-integration.md` | 切换、停止、工具历史与资源面板交互 |
-| 后续上游集成 | `docs/upstream/upstream-remaining-integration.md` | 空间/会话引用/Pi/MCP、迁移与验证边界 |
+| 首轮上游集成 | `docs/archive/upstream/upstream-round-1-integration.md` | 切换、停止、工具历史与资源面板交互 |
+| 后续上游集成 | `docs/archive/upstream/upstream-remaining-integration.md` | 空间/会话引用/Pi/MCP、迁移与验证边界 |

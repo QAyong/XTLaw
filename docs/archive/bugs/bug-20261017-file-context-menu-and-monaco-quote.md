@@ -70,4 +70,4 @@ Monaco 的菜单动作在执行前先隐藏菜单并恢复编辑器焦点；新�
 | `MenuRegistry` / `CommandsRegistry` | Monaco 菜单项与命令注册表，生命周期必须与编辑器对应 |
 | `WorkbenchSelectionReferences` | 工作台公共引用服务，重验来源与目标后追加到选定草稿 |
 
-功能规则同步记录在 [Spec-013](../specs/feature-013-workbench-selection-reference.md) 与 [Spec-019](../specs/feature-019-file-manager-basics.md)。用户授权在当前分支本地提交，不推送、不合并分支；提交标识以 Git 历史为准。
+功能规则同步记录在 [Spec-013](../../specs/feature-013-workbench-selection-reference.md) 与 [Spec-019](../../specs/feature-019-file-manager-basics.md)。用户授权在当前分支本地提交，不推送、不合并分支；提交标识以 Git 历史为准。

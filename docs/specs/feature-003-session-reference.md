@@ -13,7 +13,7 @@
 - 行内位置通过独立的 `session_ref` 正文节点持久化，`sessionReferences` 仍保存引用 ID/title；不伪装成附件节点。旧版仅保存元数据的草稿/消息仍兼容，恢复时补齐引用 token。
 - 模型输入投影使用 `[SESSION:id]` 标记引用位置，并把历史内容明确标为不可信上下文；用户输入的伪造字面量标记会被转义。
 - 新主入口为 `lexora_session_search` 和 `lexora_session_read`：按需搜索/分页读取消息、邻近上下文、附件和交付物。本地早期的 `lexora_session_ask` 已于 2026-10-12 移除，工具与提示词与上游保持一致；历史 run 输入中遗留的 `sessionReference` 上下文项在读取时被忽略。
-- 与上游相比有三处有意偏离（2026-10-12，原因与证据见 [Bug 记录](../bugs/bug-20261010-session-reference-responses-optional-cursor.md)）：
+- 与上游相比有三处有意偏离（2026-10-12，原因与证据见 [Bug 记录](../archive/bugs/bug-20261010-session-reference-responses-optional-cursor.md)）：
   1. **数字页码**：消息续翻使用 `messageOffset` / `nextMessageOffset`，而不是消息 ID 游标，避免习惯满填可选字段的模型编造无效 ID。
   2. **授权在同一会话内持续有效**：用户在当前活动分支上任意一条消息里显式引用过的会话，后续消息不必重新附加；没有引用过的会话和已放弃分支上的引用不授权。
   3. **引用链**：被引用会话的活动分支上，用户亲手附加过的会话也可读，最多再沿 3 层、整体不超过 24 个会话，环路与当前会话自身被忽略。下一层引用像 ZCode 那样保留在搜索/读取结果的文本里：行内 `[SESSION:id]` 标记加 “Referenced tasks” 清单；用户手打的同形标记会被转义，授权只看数据里的 `sessionReferences`，不看文本。
@@ -22,7 +22,7 @@
 
 实现入口为 `service/src/conversations/SessionReferenceService.ts`、`sessionReferenceExtension.ts`、`sessionReferenceChain.ts`、`sessionReferenceText.ts`、`sessionReferenceToolContract.ts`，以及 `src/modules/prompt-input/editor/chatComposerSessionEditing.ts`、`src/modules/tasks/widgets/references/`（均相对于 `apps/buddy/`）。
 
-新版自动验证覆盖授权、搜索/分页读取、来源撤销、composer 和冻结引用共存；全部集成验证为 62 个测试文件、617 通过、4 跳过，详见 [集成记录](../upstream/upstream-remaining-integration.md)。这不沿用首版用户预览验收来声称新版桌面交互已验收。2026-10-12 的会话引用修复（数字偏移、对话内持续授权、引用链）已由用户使用安装包实机验收通过，记录见 [Bug 记录](../bugs/bug-20261010-session-reference-responses-optional-cursor.md) 的“验收”一节。
+新版自动验证覆盖授权、搜索/分页读取、来源撤销、composer 和冻结引用共存；全部集成验证为 62 个测试文件、617 通过、4 跳过，详见 [集成记录](../archive/upstream/upstream-remaining-integration.md)。这不沿用首版用户预览验收来声称新版桌面交互已验收。2026-10-12 的会话引用修复（数字偏移、对话内持续授权、引用链）已由用户使用安装包实机验收通过，记录见 [Bug 记录](../archive/bugs/bug-20261010-session-reference-responses-optional-cursor.md) 的“验收”一节。
 
 ## 1. 背景
 

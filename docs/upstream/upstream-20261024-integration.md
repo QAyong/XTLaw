@@ -1,6 +1,6 @@
 # 上游集成记录：2026-10-24
 
-区间是 `f5aa11ed1..cffd73885` 里的 3 个提交，外加上一轮（[upstream-20261022-7-integration.md](upstream-20261022-7-integration.md)）从 `2f91fa803` 里留下的产出卡片操作。分支 `codex/upstream-20261024` 基于本地 `master`（`bc19c2f00`），用 `git cherry-pick -x`。
+区间是 `f5aa11ed1..cffd73885` 里的 3 个提交，外加上一轮（[upstream-20261022-7-integration.md](../archive/upstream/upstream-20261022-7-integration.md)）从 `2f91fa803` 里留下的产出卡片操作。分支 `codex/upstream-20261024` 基于本地 `master`（`bc19c2f00`），用 `git cherry-pick -x`。
 
 检查时 `upstream/master` 已前进到 `f2b2b3544`（`feat(buddy): 为插件提供受控剪贴板能力`，原来在 `upstream/feat/plugin-clipboard` 上，随后并入 master）。它在本轮范围之外，没有移植，也没有计入基线，留给下一轮。
 
@@ -68,7 +68,7 @@
 
 ## 特殊改动：点击产出卡片仍然进文件管理器
 
-**原因：** 上游的 `openArtifact` 经 `openResource` 直接打开“产出”标签页；本地 Spec-035 要求任务空间里的产出走文件管理器（见 [Spec-035](../specs/feature-035-artifact-open-in-file-manager.md)，其第 8 节记录了这次与卡片菜单、“定位”共存的规则）。
+**原因：** 上游的 `openArtifact` 经 `openResource` 直接打开“产出”标签页；本地 Spec-035 要求任务空间里的产出走文件管理器（见 [Spec-035](../archive/specs/feature-035-artifact-open-in-file-manager.md)，其第 8 节记录了这次与卡片菜单、“定位”共存的规则）。
 
 **做法：** `useTaskResourcePanel.ts` 的 `openArtifact(target, providerId?)` 在进入 `openResource` 之前先调 `openInFileManager`：
 

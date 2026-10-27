@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import { z } from 'zod'
 import { desktopUpdateArtifactName } from '../../shared/desktopDistribution'
 import { desktopVersionSchema } from '../../shared/desktopUpdates'
-import { isLexoraReleaseUrl } from '../../shared/productLinks'
+import { isLexoraReleaseUrl, RELEASE_DOWNLOAD_MIRRORS } from '../../shared/productLinks'
 
 const assetSchema = z.object({
   name: z.string(),
@@ -82,16 +82,55 @@ export async function downloadDesktopUpdatePackage(options: {
     signal.throwIfAborted()
     return destination
   }
+  // Mirrors first, GitHub direct last; any failure other than cancellation moves on to the next route.
+  const routes = [...RELEASE_DOWNLOAD_MIRRORS.map(prefix => `${prefix}${update.url}`), update.url]
+  let failure: unknown
+  for (const [index, route] of routes.entries()) {
+    signal.throwIfAborted()
+    try {
+      return await downloadFromRoute({ destination, route, update, get, signal, progress, direct: index === routes.length - 1 })
+    }
+    catch (error) {
+      if (signal.aborted)
+        throw error
+      failure = error
+    }
+  }
+  throw failure
+}
+
+// A mirror that does not answer within this time is skipped.
+const MIRROR_RESPONSE_TIMEOUT = 15_000
+
+async function downloadFromRoute(options: {
+  destination: string
+  route: string
+  direct: boolean
+  update: DesktopUpdatePackage
+  get: (url: string, init: { signal: AbortSignal }) => Promise<Response>
+  signal: AbortSignal
+  progress: (percent: number, received: number) => void
+}): Promise<string> {
+  const { destination, route, direct, update, get, signal, progress } = options
   const temporary = `${destination}.download`
   await rm(temporary, { force: true })
   const file = await open(temporary, 'wx', 0o600)
   let reader: ReadableStreamDefaultReader<Uint8Array> | undefined
   try {
-    let url = update.url
+    let url = route
+    const allowedHosts = ['github.com', 'release-assets.githubusercontent.com', 'objects.githubusercontent.com', new URL(route).hostname]
     let response: Response | undefined
     for (let redirects = 0; redirects <= 5; redirects++) {
       signal.throwIfAborted()
-      response = await get(url, { signal })
+      const requestController = new AbortController()
+      const requestSignal = AbortSignal.any([signal, requestController.signal])
+      const timer = direct ? undefined : setTimeout(() => requestController.abort(), MIRROR_RESPONSE_TIMEOUT)
+      try {
+        response = await get(url, { signal: requestSignal })
+      }
+      finally {
+        clearTimeout(timer)
+      }
       if (![301, 302, 303, 307, 308].includes(response.status))
         break
       await response.body?.cancel()
@@ -100,7 +139,7 @@ export async function downloadDesktopUpdatePackage(options: {
         throw new Error('UPDATE_DOWNLOAD_FAILED')
       const target = new URL(location, url)
       if (target.protocol !== 'https:' || target.username || target.password || target.port
-        || !['github.com', 'release-assets.githubusercontent.com', 'objects.githubusercontent.com'].includes(target.hostname)) {
+        || !allowedHosts.includes(target.hostname)) {
         throw new Error('UPDATE_DOWNLOAD_URL_INVALID')
       }
       url = target.href

@@ -1,6 +1,6 @@
 import type { ExtensionAgentDescriptor, ExtensionAgentInvocation } from '../../shared/extensions/extensionAgent'
 import type { ExtensionAgentResourceRequest, ExtensionAgentResourceResponse } from '../../shared/extensions/extensionAgentResources'
-import type { ExtensionFileOpeningInput, ExtensionFileOpeningSource, ExtensionMenuInvocation, ExtensionPreparedFileOpening, ExtensionResource, ExtensionStatus, ExtensionViewInput, ExtensionViewSession, ExtensionWorkbenchEvent } from '../../shared/extensions/extensionApi'
+import type { ExtensionFileOpeningInput, ExtensionFileOpeningSource, ExtensionMenuInvocation, ExtensionPreparedFileOpening, ExtensionResource, ExtensionStatus, ExtensionViewInput, ExtensionViewSession, ExtensionWorkbenchEvent, ExtensionWorkbenchResult } from '../../shared/extensions/extensionApi'
 import type { ExtensionInspection } from '../../shared/extensions/extensionAuthoring'
 import type { ExtensionCapabilityDescriptor } from '../../shared/extensions/extensionCapabilities'
 import type { ExtensionClipboardData } from '../../shared/extensions/extensionClipboard'
@@ -24,6 +24,7 @@ import type { ExtensionCompiler } from './compileExtensionSource'
 import type { ExtensionPackage, ExtensionPackageStore } from './ExtensionPackageStore'
 import type { ExtensionResourceUpload } from './ExtensionResourceUpload'
 import type { ExtensionConfigurationApplication, ExtensionServiceChange, ExtensionServiceFact, ExtensionServiceSnapshot } from './ExtensionServiceEvents'
+import type { ExtensionDocumentPorts } from './ExtensionWorkingCopyStore'
 import { Buffer } from 'node:buffer'
 import { createHash, randomUUID } from 'node:crypto'
 import { basename } from 'node:path'
@@ -46,7 +47,7 @@ import { extensionDocumentInfoSchema } from '../../shared/extensions/extensionDo
 import { fileExtensionOf, matchFileHandlers, resolveFileHandler } from '../../shared/extensions/extensionFileHandlers'
 import { extensionFileHandlerBindings, extensionFileHandlers, implicitFileHandlerId } from '../../shared/extensions/extensionFileOpening'
 import { extensionCompatible, extensionManifestSchema, extensionMayReference, extensionPathSchema } from '../../shared/extensions/extensionManifest'
-import { extensionReferenceInputSchema, extensionReferenceOpeningSchema, extensionReferenceTargetSchema } from '../../shared/extensions/extensionReferences'
+import { extensionReferenceCaptureSchema, extensionReferenceCommitSchema, extensionReferenceInputSchema, extensionReferenceOpeningSchema, extensionReferenceTargetSchema } from '../../shared/extensions/extensionReferences'
 import { extensionDirectoryScanSchema, extensionResourceCreateSchema, extensionResourceSelectionSchema } from '../../shared/extensions/extensionResources'
 import { extensionNotificationSchema, extensionScheduleIdSchema, extensionScheduleInputSchema } from '../../shared/extensions/extensionSchedule'
 import { extensionConfigurationAppliedSchema, resolveExtensionConfiguration, validateExtensionSetting } from '../../shared/extensions/extensionSettings'
@@ -64,6 +65,7 @@ import { preinstallBundledExtensions } from './BundledExtensionCatalog'
 import { ExtensionCatalogService } from './ExtensionCatalogService'
 import { ExtensionConditionInvalidatedError } from './ExtensionConditionEvaluator'
 import { ExtensionConditions } from './ExtensionConditions'
+import { ExtensionDocuments } from './ExtensionDocuments'
 import { sha256, unpackExtension, verifiedExtensionAsset } from './extensionFiles'
 import { ExtensionInstallations } from './ExtensionInstallations'
 import { extensionActivationOrder } from './ExtensionPackageStore'
@@ -78,6 +80,7 @@ export interface ExtensionHost {
   devtools: () => void
 }
 export interface ExtensionServicePorts {
+  documents?: ExtensionDocumentPorts
   clipboard?: {
     read: (session: ExtensionViewSession, assertCurrent: () => void) => Promise<ExtensionClipboardData>
     write: (session: ExtensionViewSession, data: ExtensionClipboardData, assertCurrent: () => void) => Promise<void>
@@ -85,7 +88,7 @@ export interface ExtensionServicePorts {
   themes?: ThemeService
   createHost: (pkg: ExtensionPackage, broker: (method: string, params: unknown) => Promise<JsonValue>, failed: (failure?: ExtensionHostFailure) => void) => ExtensionHost
   createView: (pkg: ExtensionPackage, readSelected?: (id: string, request: Request, signal: AbortSignal) => Promise<Response>) => { token: string, url: string, dispose: () => void }
-  workbench: (event: ExtensionWorkbenchEvent, signal: AbortSignal) => Promise<string | null>
+  workbench: (event: ExtensionWorkbenchEvent, signal: AbortSignal) => Promise<ExtensionWorkbenchResult>
   readText: (target: SpaceFileTarget, signal: AbortSignal) => Promise<string>
   readBytes?: (input: SpaceFileByteRequest, signal: AbortSignal) => Promise<SpaceFileByteChunk>
   saveBytes?: (input: import('../../shared/spaces/spaceFileApi').SpaceSaveBytes, signal: AbortSignal) => Promise<import('../../shared/spaces/spaceFileApi').SpaceSaveBytesResult>
@@ -127,6 +130,7 @@ interface RunningView {
   readVersion?: string
   readHash?: string
   reading?: { offset: number, size: number, hash: ReturnType<typeof createHash> }
+  referenceCapture?: string
   input: ExtensionViewInput
   session: ExtensionViewSession
   running: RunningExtension
@@ -149,6 +153,7 @@ export class ExtensionService {
   readonly catalog: ExtensionCatalogService
   readonly #reviews = new Map<string, string>()
   readonly #fileSnapshots = new Map<string, { running: RunningExtension, source: ExtensionFileOpeningSource, text: string, bytes: number, created: number }>()
+  readonly #documents?: ExtensionDocuments
   readonly #ports: ExtensionServicePorts
   readonly #running = new Map<string, RunningExtension>()
   readonly #viewOpenings = new Map<string, symbol>()
@@ -182,6 +187,8 @@ export class ExtensionService {
   constructor(store: ExtensionPackageStore, ports: ExtensionServicePorts) {
     this.store = store
     this.#ports = ports
+    if (ports.documents)
+      this.#documents = new ExtensionDocuments(store.root, { files: ports.documents, selectResources: ports.selectResources, selectSavePath: ports.selectSavePath })
     this.conditions = new ExtensionConditions({
       package: async (id) => {
         await this.initialize()
@@ -844,6 +851,7 @@ export class ExtensionService {
     return this.#mutate(async () => {
       await this.#stopClosure(id)
       await this.store.resources.revoke(id)
+      await this.#documents?.forget(id)
       await this.store.revokeFileOpeningGrants(id)
       this.#publish({ kind: 'resources-revoked', extensionId: id })
       this.#log(id, 'resources.revoked')
@@ -1039,6 +1047,8 @@ export class ExtensionService {
     const result = await this.#ports.workbench({ kind: 'open', requestId: randomUUID(), extensionId: handler.id, generation: running.generation, viewType: handler.view.id, resource, fileTarget: target, state: {}, stateVersion: handler.view.stateVersion }, running.abort.signal)
     this.#assertCurrent(running)
     if (!result)
+      throw new Error('EXTENSION_VIEW_UNAVAILABLE')
+    if (typeof result !== 'string')
       throw new Error('EXTENSION_VIEW_UNAVAILABLE')
     return result
   }
@@ -1301,7 +1311,7 @@ export class ExtensionService {
           : legacyOfficeQuoteLocation(name, hash, input)
         const reply = await this.#ports.workbench({ kind: 'quote-capture', requestId: randomUUID(), viewId: id, generation, token, captureId, quote: { id: randomUUID(), text: input.text, source: { kind: 'file', title: name, file: target, ...location } } }, signal)
         assertQuoteCurrent()
-        if (!reply)
+        if (typeof reply !== 'string')
           throw new Error('EXTENSION_REFERENCE_UNAVAILABLE')
         const capture = extensionQuoteCaptureSchema.parse(JSON.parse(reply))
         if (capture.id !== captureId)
@@ -1317,21 +1327,34 @@ export class ExtensionService {
         const reply = await this.#ports.workbench({ kind: 'quote-add', requestId: randomUUID(), viewId: id, generation, token, captureId: input.id, targetId: input.targetId }, signal)
         assertQuoteCurrent()
         quotes.delete(input.id)
-        result = reply ? z.enum(['added', 'duplicate', 'limit', 'unavailable']).parse(JSON.parse(reply)) : 'unavailable'
+        result = typeof reply === 'string' ? z.enum(['added', 'duplicate', 'limit', 'unavailable']).parse(JSON.parse(reply)) : 'unavailable'
       }
     }
-    else if (method === 'references.add') {
+    else if (['references.add', 'references.capture', 'references.commit', 'references.release'].includes(method)) {
       if (view.running.package.manifest.apiVersion < 4 || !extensionMayReference(view.running.package.manifest.permissions))
         throw new Error('EXTENSION_REFERENCES_DENIED')
       if (!['context', 'page'].includes(contribution.location) || (placement && placement.kind !== 'view'))
         throw new Error('EXTENSION_METHOD_DENIED')
-      const input = extensionReferenceInputSchema.parse(params)
-      const material = await this.#referenceMaterial(view, input)
-      this.#assertCurrent(view.running)
-      if (view.abort.signal.aborted || this.#views.get(id) !== view)
-        throw new Error('EXTENSION_VIEW_EXPIRED')
-      const accepted = await this.#ports.workbench({ kind: 'reference', requestId: randomUUID(), viewId: id, generation, token, material }, AbortSignal.any([view.abort.signal, view.running.abort.signal]))
-      result = accepted === id
+      const binding = { requestId: randomUUID(), viewId: id, generation, token }
+      const signal = AbortSignal.any([view.abort.signal, view.running.abort.signal])
+      if (method === 'references.commit' || method === 'references.release') {
+        const event: ExtensionWorkbenchEvent = method === 'references.commit'
+          ? { ...binding, kind: 'reference-commit', ...extensionReferenceCommitSchema.parse(params) }
+          : { ...binding, kind: 'reference-release', ...z.object({ id: z.string().uuid() }).strict().parse(params) }
+        result = await this.#ports.workbench(event, signal) === id
+      }
+      else {
+        if (method === 'references.capture')
+          view.referenceCapture = binding.requestId
+        const material = await this.#referenceMaterial(view, extensionReferenceInputSchema.parse(params))
+        if (method === 'references.capture' && view.referenceCapture !== binding.requestId)
+          return null
+        this.#assertCurrent(view.running)
+        if (view.abort.signal.aborted || this.#views.get(id) !== view)
+          throw new Error('EXTENSION_VIEW_EXPIRED')
+        const accepted = await this.#ports.workbench({ ...binding, kind: method === 'references.capture' ? 'reference-capture' : 'reference', material }, signal)
+        result = method === 'references.capture' ? (accepted === null ? null : extensionReferenceCaptureSchema.parse(accepted)) : accepted === id
+      }
     }
     else if (method === 'view.setActive') {
       if (placement?.kind !== 'slot' && placement?.kind !== 'control')
@@ -1385,6 +1408,32 @@ export class ExtensionService {
       this.#publish({ kind: 'view', extensionId: view.input.extensionId, generation, viewId: id, status: 'failed', errorCode: view.error })
       this.#log(view.input.extensionId, 'view.failed', failure.success ? failure.data.code : 'EXTENSION_VIEW_FAILED')
       result = null
+    }
+    else if (method.startsWith('documents.')) {
+      const documents = this.#documents
+      const extensionId = view.running.package.manifest.id
+      if (!documents || !view.running.package.manifest.permissions.fileEditing || placement?.kind === 'decoration' || contribution.location === 'window-overlay')
+        throw new Error('EXTENSION_DOCUMENT_DENIED')
+      const signal = AbortSignal.any([view.abort.signal, view.running.abort.signal])
+      const current = () => {
+        this.#assertCurrent(view.running)
+        signal.throwIfAborted()
+        if (this.#views.get(id) !== view)
+          throw new Error('EXTENSION_VIEW_EXPIRED')
+      }
+      result = await documents.request({
+        extensionId,
+        name: view.running.package.manifest.name,
+        viewId: id,
+        token,
+        signal,
+        current,
+        source: async (resourceId) => {
+          if (resourceId !== view.input.resource?.id || this.#fileSnapshots.has(resourceId))
+            throw new Error('EXTENSION_DOCUMENT_DENIED')
+          return this.#resource(view.running, resourceId)
+        },
+      }, method, params)
     }
     else if (method === 'resources.beginCreate' || (['resources.writeChunk', 'resources.commitSave', 'resources.cancelSave'].includes(method) && params && typeof params === 'object' && !Array.isArray(params) && typeof params.id === 'string' && this.#uploads.has(params.id))) {
       result = await this.#broker(view.running, method, params, view.abort.signal, view.session.id)
@@ -2423,6 +2472,8 @@ export class ExtensionService {
     this.#ports.themes?.releaseOwner(`${view.running.package.manifest.id}:${view.running.generation}:${view.input.viewId}`)
     view.abort.abort()
     const cleanups: Promise<void>[] = [this.#cancelUploads(view.running, view.session.id)]
+    if (this.#documents)
+      cleanups.push(this.#documents.close(view.input.extensionId, view.input.viewId, view.session.token))
     try {
       view.dispose()
     }

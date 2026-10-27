@@ -1,12 +1,13 @@
-<script setup lang="ts" generic="Tab extends { id: string, title: string, dirty?: boolean }">
+<script setup lang="ts" generic="Tab extends { id: string, title: string, dirty?: boolean, pinned?: boolean }">
 import type { WorkbenchLauncherAction } from './useWorkbenchLaunchers'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
-import { Add20Regular, ArrowMaximize20Regular, ArrowMinimize20Regular, Dismiss16Regular } from '@vicons/fluent'
+import { Add20Regular, ArrowMaximize20Regular, ArrowMinimize20Regular, Dismiss16Regular, Pin16Regular } from '@vicons/fluent'
 import { useResizeObserver } from '@vueuse/core'
-import { NPopover, NTooltip } from 'naive-ui'
+import { NDropdown, NPopover, NTooltip } from 'naive-ui'
 import { nextTick, shallowRef, useId, useTemplateRef, watch } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
+import { useResourcePanelMenu } from './useResourcePanelMenu'
 import WorkbenchLauncherIcon from './WorkbenchLauncherIcon.vue'
 
 const props = withDefaults(defineProps<{
@@ -19,6 +20,8 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   add: [id: string]
   closeTab: [tabId: string]
+  closeTabs: [tabIds: readonly string[]]
+  pinTab: [tabId: string, pinned: boolean]
   selectTab: [tabId: string]
   toggleMaximize: []
 }>()
@@ -26,6 +29,13 @@ defineSlots<{ default?: () => unknown, toolbar?: () => unknown, headerActions?: 
 const { t } = useBuddyI18n(() => props.language)
 const panelId = `context-${useId()}`
 const menuOpen = shallowRef(false)
+const tabMenu = useResourcePanelMenu({
+  tabs: () => props.tabs,
+  language: () => props.language,
+  close: id => emit('closeTab', id),
+  closeMany: ids => emit('closeTabs', ids),
+  pin: (id, pinned) => emit('pinTab', id, pinned),
+})
 const tabsScrollRoot = useTemplateRef<HTMLElement>('tabsScrollRoot')
 function open(id: string) {
   if (!props.actions.some(action => action.id === id && !action.disabled))
@@ -36,6 +46,12 @@ function open(id: string) {
 async function navigateTab(event: KeyboardEvent, index: number) {
   if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey)
     return
+  if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
+    const tab = props.tabs[index]
+    if (tab)
+      tabMenu.open(tab.id, event)
+    return
+  }
   const next = event.key === 'ArrowLeft'
     ? (index + props.tabs.length - 1) % props.tabs.length
     : event.key === 'ArrowRight'
@@ -68,17 +84,18 @@ useResizeObserver(tabsScrollRoot, revealActiveTab)
 
 <template>
   <section class="desktop-task-context-panel" data-testid="task-context-panel">
+    <NDropdown class="min-w-36" trigger="manual" placement="bottom-start" :show="tabMenu.show.value" :x="tabMenu.position.value.x" :y="tabMenu.position.value.y" :options="tabMenu.entries.value" @clickoutside="tabMenu.clickOutside" @select="tabMenu.select" @update:show="show => !show && tabMenu.dismiss()" />
     <header class="desktop-task-context-panel__header" :style="{ '--tab-count': tabs.length }">
       <div v-if="tabs.length" ref="tabsScrollRoot" class="desktop-task-context-panel__tabs-scroll" @wheel="handleTabsWheel">
         <div class="desktop-task-context-panel__tabs" role="tablist" :aria-label="t('desktop.context.tabCount', { count: tabs.length })">
-          <div v-for="(tab, index) in tabs" :key="tab.id" class="desktop-task-context-panel__tab" :class="{ 'is-active': tab.id === activeTabId }">
+          <div v-for="(tab, index) in tabs" :key="tab.id" :data-pinned="!!tab.pinned" class="desktop-task-context-panel__tab" :class="{ 'is-active': tab.id === activeTabId }" @contextmenu.prevent="tabMenu.open(tab.id, $event)">
             <button :id="`${panelId}-${tab.id}`" class="desktop-task-context-panel__tab-select" role="tab" type="button" :tabindex="tab.id === activeTabId ? 0 : -1" :aria-controls="panelId" :aria-selected="tab.id === activeTabId" @keydown="navigateTab($event, index)" @auxclick.middle.prevent="emit('closeTab', tab.id)" @click="emit('selectTab', tab.id)">
               <slot name="icon" :tab="tab" />
               <span>{{ tab.title }}</span>
               <span v-if="tab.dirty" class="flex-none" data-document-dirty :aria-label="language === 'en-US' ? 'Unsaved' : '未保存'">●</span>
             </button>
-            <button class="desktop-task-context-panel__tab-close" type="button" :aria-label="t('desktop.context.closeTab', { name: tab.title })" @click="emit('closeTab', tab.id)">
-              <DesktopIcon :component="Dismiss16Regular" />
+            <button class="desktop-task-context-panel__tab-close" type="button" :aria-label="tab.pinned ? t('desktop.context.unpin') : t('desktop.context.closeTab', { name: tab.title })" @click="tab.pinned ? emit('pinTab', tab.id, false) : emit('closeTab', tab.id)">
+              <DesktopIcon :component="tab.pinned ? Pin16Regular : Dismiss16Regular" />
             </button>
           </div>
         </div>

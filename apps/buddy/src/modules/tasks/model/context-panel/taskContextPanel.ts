@@ -17,6 +17,7 @@ export function contextPanelSelectionScope(mode: DesktopContextPanelMode, scope:
 }
 
 interface ContextTabSource {
+  pinned?: boolean
   scope: ContextPanelScope
   source?: ContextPanelSource
 }
@@ -68,6 +69,7 @@ export interface TaskViewContextTab extends ContextTabSource {
 }
 
 export interface ContextPanelTab {
+  pinned?: boolean
   dirty?: boolean
   favicon?: string | null
   id: string

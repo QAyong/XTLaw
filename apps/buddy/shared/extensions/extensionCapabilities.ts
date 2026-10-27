@@ -77,7 +77,7 @@ export function marketSubagentId(extensionId: string, subagentId: string): strin
 
 /** Items that ship inside the application. A market entry whose name matches one is shown as built in and is never installed again. */
 export const BUILTIN_CAPABILITY_IDS = {
-  skill: ['legal-research', 'lexora-buddy-animation', 'plugin-creator', 'skill-creator'],
+  skill: ['lexora-buddy-animation', 'plugin-creator', 'skill-creator'],
   mcp: [PKULAW_CONNECTOR_ID],
   agent: ['npc-explorer', 'npc-researcher', 'npc-executor', 'npc-reviewer'],
 } as const satisfies Record<'skill' | 'mcp' | 'agent', readonly string[]>

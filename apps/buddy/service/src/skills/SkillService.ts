@@ -25,6 +25,9 @@ import { SkillInspector } from './SkillInspector'
 import { SkillPackageCache } from './SkillPackageCache'
 import { SkillSourceCache } from './SkillSourceCache'
 
+// Built-in skills that moved to the market; installation records left by older versions are dropped.
+const RETIRED_APPLICATION_SKILLS: readonly string[] = ['legal-research']
+
 export interface BuddySkillResolution {
   readonly diagnostics: LocalSkillCatalog['diagnostics']
   readonly paths: readonly string[]
@@ -700,7 +703,12 @@ export class SkillService {
         diagnostics.push({ code: error instanceof SkillError ? 'SKILL_PATH_OUTSIDE_SOURCE' : 'SKILL_SOURCE_UNREADABLE', message: 'A skill source could not be read within its allowed directory.', path: source.root })
       }
     }
-    const records = this.#options.repository.list().filter(record => !record.spaceId || record.spaceId === spaceId)
+    const retired = this.#options.repository.list().filter(record => record.managedBy === 'application' && RETIRED_APPLICATION_SKILLS.includes(record.name) && !discovered.has(record.id))
+    if (!lightweight) {
+      for (const record of retired)
+        this.#options.repository.remove(record.id)
+    }
+    const records = this.#options.repository.list().filter(record => (!record.spaceId || record.spaceId === spaceId) && !retired.some(item => item.id === record.id))
     const installedDocuments = new Map<string, SkillMetadata | null>()
     if (lightweight) {
       for (const scope of new Set(records.filter(record => record.managedBy === 'user').map(record => record.spaceId))) {

@@ -26,12 +26,6 @@ export default antfu({
     'buddy/dependency-boundaries': 'error',
   },
 }, {
-  // Report templates show the finished document, with its own title, below the template heading.
-  files: ['apps/buddy/service/resources/skills/legal-research/references/*-template.md'],
-  rules: {
-    'markdown/no-multiple-h1': 'off',
-  },
-}, {
   files: ['**/*.{js,mjs,cjs,jsx}'],
   rules: {
     'unused-imports/no-unused-vars': 'off',

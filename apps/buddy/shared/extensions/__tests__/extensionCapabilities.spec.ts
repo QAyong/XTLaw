@@ -96,7 +96,7 @@ describe('catalog entries', () => {
 
 describe('built-in recognition', () => {
   it.each([
-    ['skill', 'xtlaw.legal-research', true],
+    ['skill', 'xtlaw.legal-research', false],
     ['skill', 'xtlaw.skill-creator', true],
     ['mcp', 'xtlaw.pkulaw', true],
     ['agent', 'xtlaw.npc-reviewer', true],

@@ -42,7 +42,7 @@
 
 | 类别 | 现在怎么交付 | 位置 |
 |---|---|---|
-| 技能 | 安装包内置：`legal-research`、`lexora-buddy-animation`、`plugin-creator`、`skill-creator`；插件清单已支持 `contributes.skills`（上限 32） | `service/resources/skills/`；`shared/extensions/extensionManifest.ts` |
+| 技能 | 安装包内置：`lexora-buddy-animation`、`plugin-creator`、`skill-creator`；插件清单已支持 `contributes.skills`（上限 32） | `service/resources/skills/`；`shared/extensions/extensionManifest.ts` |
 | MCP | 预设连接器 `pkulaw`，每次启动缺失则补建；受信判断 `isBuiltinPreset` 要求 id、传输方式、地址与预设一致 | `service/src/connectors/mcp/builtinPresets.ts` |
 | 公众号搜索 | 内置在网页搜索后端，不是 MCP | `service/src/web/sogouWeixinSearch.ts` |
 | 子代理 | 迁移 v26 在数据库里预置了 4 个 NPC：探索者 `npc-explorer`、研究员 `npc-researcher`、执行者 `npc-executor`、审查者 `npc-reviewer`，都是通用角色；默认伙伴“晓晓”（`BUILTIN_BUDDY_ID = 'default'`，`actor`）的 `npcIds` 列出它能委派的 NPC。NPC 与伙伴是同一张 `buddies` 表的两种 `kind`，定义含提示词、工具选择（`[来源, 分组, 名称]`）和 `limits.fileAccess`。委派由 `lexora_agents` 工具和 `ExecutionDelegationService` 负责。**内置子代理是数据库行，不是随包资源文件**，也没有专门的法律检索子代理 | `service/src/storage/migrations/v26Buddies.ts`；`shared/buddies/`；`service/src/agent/extensions/delegationCapability.ts` |
@@ -121,7 +121,7 @@
 - **清单**：`contributes.mcpConnectors`（`id`、`name`、`transport` 只允许 `streamable-http`、`url` 只允许不带账号的 HTTPS、`deferred`、`credential` 为 `none`/`bearer`/`oauth`）与 `contributes.subagents`（`kind` 只允许 `npc`；`name`、`description`、`instructions`、`tools`、`fileAccess`），都要求 API 4，不需要入口代码。字段定义在 `shared/extensions/extensionCapabilities.ts`。技能沿用 `contributes.skills`。
 - **依赖检查**：子代理 `tools` 里 `mcp` 来源的工具必须指向同一清单声明的连接器，否则清单不通过；审核页把“使用的 MCP（随本包一起安装）”列出来。
 - **目录**：单件条目的 `kind` 必须与清单实际贡献的一致（`skill`/`mcp`/`agent` 至少要有一项），不一致的条目按“清单无效”显示为不可安装。
-- **内置识别**：条目 `manifest.id` 点号后的名字与内置项一致，且 `kind` 对得上，就算内置（`BUILTIN_CAPABILITY_IDS`：技能 `legal-research`、`lexora-buddy-animation`、`plugin-creator`、`skill-creator`；MCP `pkulaw`；子代理 `npc-explorer`、`npc-researcher`、`npc-executor`、`npc-reviewer`）。市场卡片显示“内置”，没有安装按钮；`reviewCatalog` 对内置条目直接拒绝（`EXTENSION_CATALOG_BUILTIN`）；清单里不允许声明内置的连接器或子代理 id。内置条目只是目录里的一条登记，不带内容。有测试核对这份清单与安装包里实际带的内容一致。
+- **内置识别**：条目 `manifest.id` 点号后的名字与内置项一致，且 `kind` 对得上，就算内置（`BUILTIN_CAPABILITY_IDS`：技能 `lexora-buddy-animation`、`plugin-creator`、`skill-creator`；MCP `pkulaw`；子代理 `npc-explorer`、`npc-researcher`、`npc-executor`、`npc-reviewer`）。市场卡片显示“内置”，没有安装按钮；`reviewCatalog` 对内置条目直接拒绝（`EXTENSION_CATALOG_BUILTIN`）；清单里不允许声明内置的连接器或子代理 id。内置条目只是目录里的一条登记，不带内容。有测试核对这份清单与安装包里实际带的内容一致。
 - **落地方式**：不新增数据库迁移。主进程的 `ExtensionService.capabilityContributions()` 按已安装的包给出声明，服务进程的 `ExtensionCapabilitySync`（`service/src/plugins/`）收到 `extensions.capabilities.changed` 后对账，做法与技能一致：
   - MCP：只写一条连接器记录，默认关闭、无凭据；`deferred` 对应工具暴露方式 `deferred`/`direct`。不继承 Feature-030 的受信待遇（`isBuiltinPreset` 只认内置预设）。需要 Token 的连接器装完保持关闭，在设置里填 Token 后再启用，沿用原有流程。
   - 子代理：往 `buddies` 表写一行 `kind = 'npc'`，id 为 `ext.<扩展 id>.<子代理 id>`，并加入“晓晓”（`BUILTIN_BUDDY_ID`）的 `npcIds`。卸载 = 软删除这一行（沿用现有“删除”语义，历史执行记录仍引用它）并从 `npcIds` 移除。重装时复活同一行。
@@ -147,7 +147,7 @@
 - **首个验证包**：Office 文档，引用三个现有官方插件，不需要新内容；先用它验证整条链路。
 - **北大法宝 MCP 保持内置**（沿用 Feature-030，受信待遇不变）。法律检索包里它显示“内置”。
 - **子代理引用内置 MCP**：清单校验（`extensionManifest.ts`）现在要求子代理引用的连接器必须由同一清单声明，而内置 `pkulaw` 不允许声明，所以市场里的法律子代理用不了北大法宝的工具。需放宽为“同包声明或内置连接器”；写法律子代理前先核对工具选择里的连接器 id 与连接器记录 id 是否一致。
-- **技能 `legal-research` 迁出安装包，由市场分发（待做，等 legal-research 重组提交后）**：
+- **技能 `legal-research` 已从安装包删除，由市场分发（2026-10-27 完成；决定：不做“只对升级用户预装”，直接删除）**：以下为当时的方案记录，预装部分不再做；旧记录清理用 `SkillService` 的 `RETIRED_APPLICATION_SKILLS`，列表扫描时删除遗留的 `application:legal-research` 记录；`BUILTIN_CAPABILITY_IDS.skill` 与 `definitions.json` 已去掉它：
   - 市场包为纯声明包，路径 `legal-research/SKILL.md`（插件技能要求目录名等于技能名）。
   - **老用户的处理：安装包里随带一份技能压缩包（不再作为内置技能），老用户升级后自动从它装入，不依赖联网；新用户在市场里装。**
   - 需要先核对的机制限制：现有的 bundled 目录会在启动时对所有条目预装（`preinstallBundledExtensions`，以 `preinstalled.json` 记基线），不存在“随包但不预装”。所以要新增“随包但按条件预装”：只对升级用户预装，新装用户不预装。“升级用户”的判据还没定（可能看数据目录是否在本版本之前就存在，或看数据库里是否有旧的 `application:legal-research` 记录；后者在服务进程，主进程读不到）。

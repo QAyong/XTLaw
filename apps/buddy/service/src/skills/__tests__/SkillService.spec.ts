@@ -51,6 +51,14 @@ describe('skillService', () => {
     await vi.waitFor(async () => expect((await fixture.service.list('space-trusted', true)).skills).toEqual([]))
   })
 
+  it('drops the installation record of a built-in skill that moved to the market', async () => {
+    const fixture = await createFixture()
+    fixture.repository.save({ id: 'application:legal-research', name: 'legal-research', description: '', path: join(fixture.builtin, 'legal-research', 'SKILL.md'), spaceId: null, managedBy: 'application', enabled: true, origin: { kind: 'application', location: fixture.builtin }, revision: 'old', createdAt: now, updatedAt: now })
+    await writeSkill(fixture.builtin, 'kept', 'still built in')
+    expect((await fixture.service.list(null)).skills.map(skill => skill.name)).toEqual(['kept'])
+    expect(fixture.repository.list().map(record => record.name)).toEqual(['kept'])
+  })
+
   it('keeps target validation active when filesystem notifications have not refreshed the catalog', async () => {
     const originalFs = await vi.importActual<typeof import('node:fs')>('node:fs')
     await vi.mocked(fs.watch).withImplementation(path => originalFs.watch(path, { persistent: false }, () => {}), async () => {

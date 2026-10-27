@@ -209,3 +209,77 @@ describe('web capability routing', () => {
     expect(explicit.attempts).toHaveLength(1)
   })
 })
+
+async function drain(gates: Array<() => void>, work: Promise<unknown>) {
+  const state = { done: false }
+  void work.finally(() => {
+    state.done = true
+  })
+  while (!state.done) {
+    gates.shift()?.()
+    await new Promise(resolve => setTimeout(resolve, 1))
+  }
+}
+
+describe('web concurrency queue', () => {
+  const searchHtml = '<html><body><ol id="b_results"><li class="b_algo"><h2><a href="https://example.com/doc">Source</a></h2></li></ol></body></html>'
+
+  async function gated() {
+    const { options, settings } = await fixture()
+    settings.search.forEach(source => source.enabled = source.provider === 'bing')
+    const gates: Array<() => void> = []
+    let running = 0
+    let peak = 0
+    options.host.get = async (url) => {
+      running++
+      peak = Math.max(peak, running)
+      await new Promise<void>(resolve => gates.push(resolve))
+      running--
+      return { bytes: new TextEncoder().encode(searchHtml), url, status: 200, headers: new Headers({ 'content-type': 'text/html' }) }
+    }
+    return { service: new WebCapabilityService(options), gates, peak: () => peak }
+  }
+
+  it('queues requests beyond the cap instead of rejecting them', async () => {
+    const { service, gates, peak } = await gated()
+    const results = Array.from({ length: 6 }, (_, index) => service.search({ query: `query ${index}` }))
+    await vi.waitFor(() => expect(gates).toHaveLength(4))
+    expect(service.snapshot.active).toHaveLength(6)
+    await drain(gates, Promise.all(results))
+    const settled = await Promise.all(results)
+    expect(settled.every(result => result.ok)).toBe(true)
+    expect(peak()).toBe(4)
+    await service.dispose()
+  })
+
+  it('releases the slot when a queued request is cancelled', async () => {
+    const { service, gates } = await gated()
+    const running = Array.from({ length: 4 }, (_, index) => service.search({ query: `query ${index}` }))
+    await vi.waitFor(() => expect(gates).toHaveLength(4))
+    const controller = new AbortController()
+    const queued = service.search({ query: 'queued', signal: controller.signal })
+    controller.abort()
+    expect(await queued).toMatchObject({ ok: false, code: 'WEB_CANCELLED' })
+    expect(service.snapshot.active).toHaveLength(4)
+    const next = service.search({ query: 'next' })
+    await drain(gates, Promise.all([...running, next]))
+    expect((await next).ok).toBe(true)
+    await service.dispose()
+  })
+
+  it('reports a queue timeout distinctly from a site failure', async () => {
+    vi.useFakeTimers()
+    try {
+      const { service, gates } = await gated()
+      Array.from({ length: 4 }, (_, index) => void service.search({ query: `query ${index}` }))
+      await vi.waitFor(() => expect(gates).toHaveLength(4))
+      const queued = service.search({ query: 'queued' })
+      await vi.advanceTimersByTimeAsync(30_000)
+      expect(await queued).toMatchObject({ ok: false, code: 'WEB_QUEUE_TIMEOUT', attempts: [] })
+      gates.forEach(open => open())
+      await vi.advanceTimersByTimeAsync(1)
+      await service.dispose()
+    }
+    finally { vi.useRealTimers() }
+  })
+})

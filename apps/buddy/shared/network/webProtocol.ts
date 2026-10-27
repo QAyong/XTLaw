@@ -48,6 +48,7 @@ export const WEB_ERROR_CODES = [
   'WEB_TIMEOUT',
   'WEB_CANCELLED',
   'WEB_BUSY',
+  'WEB_QUEUE_TIMEOUT',
 ] as const
 
 export const webErrorCodeSchema = z.enum(WEB_ERROR_CODES)

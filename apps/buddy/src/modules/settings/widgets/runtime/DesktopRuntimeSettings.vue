@@ -185,6 +185,7 @@ function updateFollowUpBehavior(followUpBehavior: DesktopChatPreferences['follow
             <small :id="followUpDescriptionId">{{ t('desktop.settings.runtime.followUpBehaviorDescription') }}</small>
           </div>
           <DesktopSegmentedControl
+            class="runtime-settings__retry-modes"
             :aria-labelledby="followUpLabelId"
             :aria-describedby="followUpDescriptionId"
             :model-value="config.desktop.chat.followUpBehavior"

@@ -27,12 +27,24 @@ const kinds = computed(() => installedExtensionKinds(props.item.manifest))
 const contributes = computed(() => props.item.manifest.contributes)
 // Packages that add skills, connections or sub-agents list them on the card, so it grows past the plain plugin height.
 const hasCapabilities = computed(() => !!(contributes.value.skills.length || contributes.value.mcpConnectors.length || contributes.value.subagents.length))
+// Packages that only add skills, connections or sub-agents run no code, so restarting or diagnosing them means nothing.
+const hasRuntime = computed(() => kinds.value.includes('plugin'))
+const tags = computed(() => {
+  const kindLabels = new Set(Object.values(labels.value.kinds).map(label => label.toLowerCase()))
+  return props.item.manifest.tags.filter(tag => !kindLabels.has(tag.toLowerCase()))
+})
 const pending = computed(() => props.item.pending ?? props.unavailablePending)
 const warning = computed(() => {
   const issue = props.item.incompatibility ?? pending.value?.incompatibility
   return issue ? { issue, version: props.item.incompatibility ? undefined : pending.value?.manifest.version } : null
 })
-const status = computed(() => props.item.incompatibility ? (props.language === 'en-US' ? 'Unavailable' : '暂不可用') : labels.value[props.item.state === 'failed' ? 'failedState' : props.item.state])
+const status = computed(() => {
+  if (props.item.incompatibility)
+    return props.language === 'en-US' ? 'Unavailable' : '暂不可用'
+  if (!hasRuntime.value && props.item.state === 'inactive')
+    return props.language === 'en-US' ? 'Enabled' : '已启用'
+  return labels.value[props.item.state === 'failed' ? 'failedState' : props.item.state]
+})
 const actions = computed<DropdownOption[]>(() => {
   const pluginActions: DropdownOption[] = []
   if (props.item.manifest.permissions.localResources || props.item.manifest.permissions.fileEditing)
@@ -41,9 +53,13 @@ const actions = computed<DropdownOption[]>(() => {
     ...pluginActions,
     ...(pluginActions.length ? [{ key: 'plugin-actions-divider', type: 'divider' as const }] : []),
     ...(props.item.pending && !props.item.pending.incompatibility ? [{ key: 'apply-update', label: labels.value.applyUpdate, props: { 'role': 'menuitem', 'data-testid': 'extension-apply-update-menu' } }] : []),
-    { key: 'restart', label: labels.value.restart, disabled: !!props.item.incompatibility, props: { 'role': 'menuitem', 'data-testid': 'extension-restart' } },
-    { key: 'diagnostics', label: labels.value.diagnostics, props: { role: 'menuitem' } },
-    { key: 'divider', type: 'divider' },
+    ...(hasRuntime.value
+      ? [
+          { key: 'restart', label: labels.value.restart, disabled: !!props.item.incompatibility, props: { 'role': 'menuitem', 'data-testid': 'extension-restart' } },
+          { key: 'diagnostics', label: labels.value.diagnostics, props: { role: 'menuitem' } },
+          { key: 'divider', type: 'divider' as const },
+        ]
+      : []),
     { key: 'remove', label: labels.value.remove, props: { 'role': 'menuitem', 'data-testid': 'extension-uninstall' } },
   ]
 })
@@ -100,7 +116,7 @@ function handleAction(key: string | number) {
     </div>
     <DesktopExtensionCapabilities v-if="hasCapabilities" :manifest="item.manifest" :language="language" />
     <footer class="extension-card__footer">
-      <DesktopExtensionTags :tags="item.manifest.tags" />
+      <DesktopExtensionTags :tags="tags" />
       <div class="extension-card__actions">
         <NTooltip v-if="pending" :disabled="!!pending.incompatibility">
           <template #trigger>

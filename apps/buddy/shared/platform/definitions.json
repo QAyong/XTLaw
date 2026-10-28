@@ -22,7 +22,6 @@
     "linux": {
       "hostShellSupervision": true,
       "features": [
-        "nativePet",
         "systemActions"
       ],
       "shell": "bash",

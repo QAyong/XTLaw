@@ -5,7 +5,7 @@
   "name": "法律检索",
   "author": "XTLaw",
   "description": "中国大陆法律检索技能：查找核对法条与案例，检索明确的法律问题，结合案情开展实务研究，制作检索报告。",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "apiVersion": 4,
   "engines": {
     "lexora": ">=0.3.2 <1.0.0"

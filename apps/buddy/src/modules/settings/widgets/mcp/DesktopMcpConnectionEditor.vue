@@ -10,6 +10,7 @@ import { computed, reactive, shallowRef, useId } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import { createConnectorSavePlan } from '@/modules/settings/model/desktopConnectorForm'
 import DesktopSelect from '@/shared/ui/select/DesktopSelect.vue'
+import DesktopMcpManagedSource from './DesktopMcpManagedSource.vue'
 
 const props = withDefaults(defineProps<{
   connector: LocalConnector | null
@@ -24,6 +25,8 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{ close: [], save: [plan: DesktopConnectorSavePlan] }>()
 const { t } = useBuddyI18n(() => props.language)
 const existing = props.connector
+const managed = existing?.managed
+const credentialEditable = !managed || (['enabled', 'disabled'].includes(managed.state) && existing?.runtime.authorization === 'credentials')
 const formId = useId()
 const form = reactive<DesktopConnectorFormValue>({
   id: existing?.id ?? crypto.randomUUID(),
@@ -117,8 +120,14 @@ function submit() {
         <NAlert v-if="invalid || error" type="error" :show-icon="false" class="mcp-editor__alert">
           {{ invalid ? t('desktop.mcp.invalidForm') : error }}
         </NAlert>
+        <template v-if="managed">
+          <DesktopMcpManagedSource :source="managed" :language="language" />
+          <p class="text-muted text-[0.8rem]">
+            {{ t('desktop.mcp.managed.readOnly') }}
+          </p>
+        </template>
         <NFormItem :label="t('desktop.mcp.name')">
-          <NInput v-model:value="form.name" :maxlength="128" :input-props="{ 'aria-label': t('desktop.mcp.name') }" autofocus />
+          <NInput v-model:value="form.name" :readonly="!!managed" :maxlength="128" :input-props="{ 'aria-label': t('desktop.mcp.name') }" autofocus />
         </NFormItem>
         <template v-if="form.transport === 'stdio'">
           <NFormItem :label="t('desktop.mcp.command')">
@@ -153,15 +162,15 @@ function submit() {
         </template>
         <template v-else>
           <NFormItem :label="t('desktop.mcp.url')">
-            <NInput v-model:value="form.url" :placeholder="t('desktop.mcp.urlHint')" :input-props="{ 'aria-label': t('desktop.mcp.url') }" />
+            <NInput v-model:value="form.url" :readonly="!!managed" :placeholder="t('desktop.mcp.urlHint')" :input-props="{ 'aria-label': t('desktop.mcp.url') }" />
           </NFormItem>
           <NAlert v-if="insecureHttp" type="warning" :bordered="false" :show-icon="false" class="mcp-editor__alert">
             {{ t('desktop.mcp.httpWarning') }}
           </NAlert>
-          <NFormItem :label="t('desktop.mcp.token')">
+          <NFormItem v-if="credentialEditable" :label="t('desktop.mcp.token')">
             <NInput v-model:value="form.bearerToken" type="password" show-password-on="click" :input-props="{ autocomplete: 'new-password' }" />
           </NFormItem>
-          <NFormItem :label="t('desktop.mcp.headers')">
+          <NFormItem v-if="!managed" :label="t('desktop.mcp.headers')">
             <NInput v-model:value="form.headers" type="textarea" :autosize="{ minRows: 2, maxRows: 4 }" :placeholder="t('desktop.mcp.entriesHint')" :input-props="{ autocomplete: 'off', spellcheck: false }" />
           </NFormItem>
         </template>

@@ -12,6 +12,7 @@ import { openBuddyDatabase } from '../../storage/database'
 import { BuddiesService } from '../BuddiesService'
 import { BuddyDefinitionResolver } from '../BuddyDefinitionResolver'
 import { buddyExecutionDefinitionSchema, buddyExecutionFingerprint } from '../BuddyExecutionDefinition'
+import { managedBuddyFixture } from './managedBuddyFixture'
 
 const databases: DatabaseSync[] = []
 const services: BuddiesService[] = []
@@ -70,10 +71,44 @@ function setup(beforeResolve?: () => Promise<void>) {
     const current = buddies.get(buddyId)
     return buddies.update({ buddyId, expectedRevision: current.revision, settings: buddySettingsSchema.parse({ ...current.settings, ...changes }) })
   }
-  return { buddies, conversations, createConversation, repository, resolver, setMemberModel, updateSettings, setDefaultModel: (value: InteractiveModelSelection) => defaultModel = value }
+  return { database, buddies, conversations, createConversation, repository, resolver, setMemberModel, updateSettings, setDefaultModel: (value: InteractiveModelSelection) => defaultModel = value }
 }
 
 describe('buddy execution definitions', () => {
+  it.each(['disabled', 'removed', 'unavailable', 'dependency', 'user'] as const)('filters %s managed NPCs from new snapshots without rewriting bindings', async (reason) => {
+    const f = setup()
+    const managed = managedBuddyFixture(f.database)
+    const npc = f.buddies.installManagedNpc(managed.input)
+    const actor = await f.buddies.create({ name: 'Coordinator' })
+    await f.updateSettings(actor.id, { npcIds: [npc.id] })
+    const before = await f.resolver.capture({ buddyId: actor.id, kind: 'actor', conversationId: null })
+    if (reason === 'dependency')
+      managed.sources.setUnavailableReason(npc.id, 'dependency_unavailable')
+    else if (reason === 'user')
+      managed.sources.setUserEnabled(npc.id, false)
+    else
+      managed.sources.setState(npc.id, reason)
+    f.buddies.refreshManaged(npc.id)
+    const after = await f.resolver.capture({ buddyId: actor.id, kind: 'actor', conversationId: null })
+    expect(after.definition.settings.npcIds).toEqual([])
+    expect(before.definition.settings.npcIds).toEqual([npc.id])
+    expect(f.buddies.get(actor.id).settings.npcIds).toEqual([npc.id])
+    await expect(f.resolver.capture({ buddyId: npc.id, kind: 'npc', conversationId: null, callerModel: modelSelection('caller') })).rejects.toMatchObject({ code: 'BUDDY_DISABLED' })
+  })
+
+  it('rechecks NPC availability after model resolution without blocking the actor', async () => {
+    let disable = () => {}
+    const f = setup(async () => disable())
+    const managed = managedBuddyFixture(f.database)
+    const npc = f.buddies.installManagedNpc(managed.input)
+    const actor = await f.buddies.create({ name: 'Coordinator' })
+    await f.updateSettings(actor.id, { npcIds: [npc.id] })
+    disable = () => managed.sources.setState(npc.id, 'unavailable')
+    const resolved = await f.resolver.resolve({ buddyId: actor.id, kind: 'actor', conversationId: null })
+    expect(resolved.definition.settings.npcIds).toEqual([])
+    expect(f.buddies.get(actor.id).settings.npcIds).toEqual([npc.id])
+  })
+
   it('allows a disabled team to retain unavailable NPC bindings without blocking the actor', async () => {
     const fixture = setup()
     const actor = fixture.buddies.get('default')
@@ -82,8 +117,11 @@ describe('buddy execution definitions', () => {
     await fixture.buddies.update({ buddyId: npc.id, expectedRevision: npc.revision, enabled: false })
     await fixture.updateSettings(actor.id, { npcTeamEnabled: false })
     expect((await fixture.resolver.resolve({ buddyId: actor.id, kind: 'actor', conversationId: null })).definition.settings)
-      .toEqual({ ...actor.settings, npcTeamEnabled: false })
-    await expect(fixture.updateSettings(actor.id, { npcTeamEnabled: true })).rejects.toMatchObject({ code: 'BUDDY_INVALID_NPC_BINDING' })
+      .toEqual({ ...actor.settings, npcTeamEnabled: false, npcIds: [] })
+    await fixture.updateSettings(actor.id, { npcTeamEnabled: true })
+    expect((await fixture.resolver.resolve({ buddyId: actor.id, kind: 'actor', conversationId: null })).definition.settings.npcIds)
+      .toEqual(actor.settings.npcIds.filter(id => id !== npcId))
+    expect(fixture.buddies.get(actor.id).settings.npcIds).toEqual(actor.settings.npcIds)
   })
 
   it('resolves role defaults before the application default and applies an explicit request without changing either', async () => {
@@ -224,7 +262,7 @@ describe('buddy execution definitions', () => {
     expect(() => resolver.resolveSnapshotIdentity(legacy)).toThrow(failure)
   })
 
-  it.each(['instructions', 'actor-disabled', 'actor-deleted', 'npc-disabled', 'npc-deleted', 'member-model'] as const)('rejects %s changes while model availability is being validated', async (change) => {
+  it.each(['instructions', 'actor-disabled', 'actor-deleted', 'npc-disabled', 'npc-deleted', 'member-model'] as const)('rechecks %s changes while model availability is being validated', async (change) => {
     const started = deferred<void>()
     const release = deferred<void>()
     const fixture = setup(async () => {
@@ -237,7 +275,9 @@ describe('buddy execution definitions', () => {
     const conversation = fixture.createConversation('race')
     fixture.setMemberModel(conversation.id, actor.id, modelSelection('before-validation'))
     const pending = fixture.resolver.resolve({ buddyId: actor.id, kind: 'actor', conversationId: conversation.id })
-    const assertion = expect(pending).rejects.toMatchObject({ code: change.startsWith('npc-') ? 'BUDDY_INVALID_NPC_BINDING' : 'BUDDY_CONFLICT' })
+    const assertion = change.startsWith('npc-')
+      ? expect(pending).resolves.toMatchObject({ definition: { settings: { npcIds: [] } } })
+      : expect(pending).rejects.toMatchObject({ code: 'BUDDY_CONFLICT' })
     await started.promise
     if (change === 'member-model') {
       fixture.setMemberModel(conversation.id, actor.id, modelSelection('after-validation'))

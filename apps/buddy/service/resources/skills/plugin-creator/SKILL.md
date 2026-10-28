@@ -1,6 +1,6 @@
 ---
 name: plugin-creator
-description: 创建、修改并验证可安装的 Lexora 桌面插件，包括视图与面板、文件编辑、Agent 工具与任务动作、配套 Skills、主题、工作台装饰、网络查询和定时命令。也响应 $plugin-creator。普通任务执行、使用现有插件、其他产品的插件开发不属于此技能。
+description: 创建、修改并验证可安装的 Lexora 桌面插件，包括视图与面板、文件编辑、Agent 工具与任务动作、Skills、MCP 连接、NPC、主题、工作台装饰、网络查询和定时命令。也响应 $plugin-creator。普通任务执行、使用现有插件、其他产品的插件开发不属于此技能。
 ---
 
 # 创建 Lexora 插件
@@ -31,10 +31,11 @@ description: 创建、修改并验证可安装的 Lexora 桌面插件，包括�
 | 原生设置、配置热应用、条件函数 | [设置](references/settings.md)、[条件](references/conditions.md) |
 | 配色、图标、窗口样式和装饰 | [主题](references/themes.md)、[图标](references/file-icon-themes.md)、[样式](references/styles.md) |
 | Worker/WASM、插件 Skills、解释器候选 | [计算](references/workers.md)、[Skills](references/skills.md)、[Shell](references/shells.md) |
-| 随插件提供 MCP 连接、子代理 | [MCP 连接与子代理](references/mcp-and-subagents.md) |
+| 随插件提供远端 MCP 连接 | [MCP 连接](references/mcp-connectors.md) |
+| 随插件提供专业 NPC | [伙伴：NPC](references/buddies.md) |
 | 权限或访问失败 | [权限](references/permissions.md) |
 
-纯主题和纯 Skills 包不需要脚本入口。仅声明实际需要的权限，确认能力所属的后台、视图或本次 Agent 调用，不能互换上下文。
+主题、Skills、MCP 连接、NPC 均可独立声明，无需脚本入口；MCP 连接和 NPC 声明不需要额外插件权限，实际使用仍由宿主授权。仅声明实际需要的权限，确认能力所属的后台、视图或本次 Agent 调用，不能互换上下文。
 
 ## 3. 创建源码并构建
 

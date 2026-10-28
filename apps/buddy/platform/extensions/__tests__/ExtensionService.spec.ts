@@ -1,7 +1,8 @@
 import type { ApplicationDiagnostic } from '../../../shared/diagnostics/applicationDiagnostic'
-import type { ExtensionMcpConnectorContribution, ExtensionSubagentContribution } from '../../../shared/extensions/extensionCapabilities'
 import type { ExtensionHostFailure } from '../../../shared/extensions/extensionDiagnostic'
+import type { ExtensionMcpConnectorContribution } from '../../../shared/extensions/extensionMcpConnectors'
 import type { ExtensionLocalFile } from '../../../shared/extensions/extensionResources'
+import type { ExtensionSubagentContribution } from '../../../shared/extensions/extensionSubagents'
 import type { JsonValue } from '../../../shared/workbench/workbenchState'
 import type { ExtensionServicePorts } from '../ExtensionService'
 import { Buffer } from 'node:buffer'
@@ -839,14 +840,135 @@ it('denies clipboard and document metadata to decoration views despite declared 
     await expect(service.viewRequest(session.id, session.generation, session.token, method, data)).rejects.toThrow('EXTENSION_METHOD_DENIED')
 })
 
-const connector: ExtensionMcpConnectorContribution = { id: 'legal-search', name: 'Legal search', transport: 'streamable-http', url: 'https://legal.example.com/mcp', deferred: true, credential: 'bearer' }
-const subagent: ExtensionSubagentContribution = { id: 'law-finder', kind: 'npc', name: 'Law finder', description: '', instructions: 'Search statutes first.', tools: { mode: 'selected', ids: [JSON.stringify(['mcp', 'legal-search', 'legal__search'])] }, fileAccess: 'read_only' }
+it.each([false, true])('waits for capability revocation before removing packages and data with clearData=%s', async (clearData) => {
+  const entered = deferred<void>()
+  const acknowledged = deferred<void>()
+  const { service, store } = await fixture({ syncCapabilities: async (snapshot) => {
+    expect(snapshot.every(descriptor => !descriptor.enabled)).toBe(true)
+    entered.resolve()
+    await acknowledged.promise
+  } }, manifest({ id: 'tests.managed', apiVersion: 4, entry: undefined, contributes: { mcpConnectors: [{ id: 'search', name: 'Search', transport: 'streamable-http', url: 'https://example.com/mcp', authentication: 'none' }] } }))
+  const pkg = store.installed['tests.managed']!.current
+  await store.saveData('tests.managed', { retained: true }, 1)
+  let completed = false
+  const operation = service.uninstall('tests.managed', clearData).then(() => {
+    completed = true
+  })
+  await entered.promise
+  expect(completed).toBe(false)
+  expect(store.installed['tests.managed']).toBeDefined()
+  expect(await store.asset(pkg, 'extension.json')).toBeInstanceOf(Uint8Array)
+  expect(await store.data('tests.managed')).toEqual({ version: 1, value: { retained: true } })
+  acknowledged.resolve()
+  await operation
+  expect(completed).toBe(true)
+  expect(store.installed['tests.managed']).toBeUndefined()
+  await expect(readFile(join(store.packageRoot(pkg), 'extension.json'))).rejects.toMatchObject({ code: 'ENOENT' })
+  expect(await store.data('tests.managed')).toEqual(clearData ? { version: 0, value: {} } : { version: 1, value: { retained: true } })
+})
+
+it.each(['disable', 'uninstall', 'clear'] as const)('stops hosts and cancels dependency work when capability sync fails during %s, retaining a retryable installation', async (operation) => {
+  const readingStarted = deferred<void>()
+  const signals: AbortSignal[] = []
+  let waiting = false
+  let failSync = false
+  const value = manifest({ apiVersion: 4, contributes: { ...manifest().contributes, subagents: [{ id: 'helper', name: 'Helper', instructions: 'Help.', tools: [], fileAccess: 'read_only' }] } })
+  const { service, store, root, hosts } = await fixture({
+    readText: async (_target, signal) => {
+      if (!waiting)
+        return 'Selected'
+      signals.push(signal)
+      if (signals.length === 2)
+        readingStarted.resolve()
+      return new Promise<string>((_resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }))
+    },
+    syncCapabilities: async () => {
+      if (failSync)
+        throw new Error('EXTENSION_CAPABILITY_FAILED')
+    },
+  }, value)
+  await store.install((await reviewPackage(root, store, manifest({ id: 'tests.dependent', dependencies: { [value.id]: '^1.0.0' } }))).token)
+  await store.saveData(value.id, { retained: true }, 1)
+  await store.saveConfiguration(value.id, { enabled: false })
+  const pkg = store.installed[value.id]!.current
+  await service.execute(value.id, `${value.id}.open`, target)
+  await service.execute('tests.dependent', 'tests.dependent.open', target)
+  waiting = true
+  const readings = Promise.allSettled(hosts.map(host => host.broker('resources.readText', { id: (host.commands[0] as { resource: { id: string } }).resource.id })))
+  await readingStarted.promise
+  failSync = true
+  const change = () => operation === 'disable' ? service.enable(value.id, false) : service.uninstall(value.id, operation === 'clear')
+  await expect(change()).rejects.toThrow('EXTENSION_CAPABILITY_FAILED')
+  expect(hosts).toHaveLength(2)
+  expect(hosts.every(host => host.disposed)).toBe(true)
+  expect(signals.every(signal => signal.aborted)).toBe(true)
+  expect(await readings).toEqual(signals.map(() => ({ status: 'rejected', reason: expect.objectContaining({ name: 'AbortError' }) })))
+  for (const host of hosts)
+    await expect(host.broker('storage.set', { value: 'late', version: 1 })).rejects.toThrow('EXTENSION_HOST_STOPPED')
+  expect((await service.list()).find(item => item.manifest.id === value.id)).toMatchObject({ enabled: false, state: 'disabled', generation: null })
+  expect(JSON.parse(await readFile(join(store.root, 'installed.json'), 'utf8')).installed[value.id].enabled).toBe(false)
+  expect(await store.asset(pkg, 'extension.json')).toBeInstanceOf(Uint8Array)
+  expect(await store.data(value.id)).toEqual({ version: 1, value: { retained: true } })
+  expect(JSON.parse(await readFile(join(store.root, 'data', value.id, 'configuration.json'), 'utf8'))).toEqual({ enabled: false })
+  failSync = false
+  await change()
+  expect(store.installed[value.id]?.enabled).toBe(operation === 'disable' ? false : undefined)
+  expect(await store.data(value.id)).toEqual(operation === 'clear' ? { version: 0, value: {} } : { version: 1, value: { retained: true } })
+})
+
+it('revokes capabilities despite disposal failure and retries the failed host before deleting its package', async () => {
+  let failStop = true
+  let running = false
+  let revoked = false
+  const value = manifest({ apiVersion: 4, contributes: { ...manifest().contributes, subagents: [{ id: 'helper', name: 'Helper', instructions: 'Help.', tools: [], fileAccess: 'read_only' }] } })
+  const { service, store } = await fixture({
+    createHost: () => ({
+      call: async (method) => {
+        if (method === 'activate')
+          running = true
+        return null
+      },
+      dispose: async () => {
+        if (failStop)
+          throw new Error('EXTENSION_HOST_DISPOSE_FAILED')
+        running = false
+      },
+      devtools: () => {},
+    }),
+    syncCapabilities: async (descriptors) => { revoked = descriptors.every(descriptor => !descriptor.enabled) },
+  }, value)
+  const pkg = store.installed[value.id]!.current
+  await store.saveData(value.id, { retained: true }, 1)
+  await service.execute(value.id, `${value.id}.open`, null)
+  try {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await expect(service.uninstall(value.id, true)).rejects.toThrow('EXTENSION_HOST_DISPOSE_FAILED')
+      expect(running).toBe(true)
+      expect(revoked).toBe(true)
+      expect(store.installed[value.id]?.enabled).toBe(false)
+      expect(await store.asset(pkg, 'extension.json')).toBeInstanceOf(Uint8Array)
+      expect(await store.data(value.id)).toEqual({ version: 1, value: { retained: true } })
+    }
+    failStop = false
+    await service.uninstall(value.id, true)
+    expect(running).toBe(false)
+    expect(store.installed[value.id]).toBeUndefined()
+    await expect(readFile(join(store.packageRoot(pkg), 'extension.json'))).rejects.toMatchObject({ code: 'ENOENT' })
+    expect(await store.data(value.id)).toEqual({ version: 0, value: {} })
+  }
+  finally {
+    failStop = false
+  }
+})
+
+const connector: ExtensionMcpConnectorContribution = { id: 'legal-search', name: 'Legal search', transport: 'streamable-http', url: 'https://legal.example.com/mcp', authentication: 'bearer' }
+const subagent: ExtensionSubagentContribution = { id: 'law-finder', name: 'Law finder', description: '', instructions: 'Search statutes first.', skills: [], requiredSkills: [], tools: [{ source: 'mcp', connector: 'legal-search', name: 'legal__search' }], fileAccess: 'inherit' }
 
 it('publishes declared MCP connectors and sub-agents without activating hosts and follows package state', async () => {
   const value = manifest({ id: 'tests.legal', apiVersion: 4, entry: undefined, permissions: {}, contributes: { mcpConnectors: [connector], subagents: [subagent] } })
   const { service, hosts } = await fixture({}, value)
   const [descriptor] = await service.capabilityContributions()
-  expect(descriptor).toMatchObject({ extensionId: 'tests.legal', extensionName: value.name, enabled: true, mcpConnectors: [{ id: 'legal-search', url: 'https://legal.example.com/mcp', credential: 'bearer', deferred: true }], subagents: [{ id: 'law-finder', kind: 'npc' }] })
+  expect(descriptor).toMatchObject({ extensionId: 'tests.legal', extensionName: value.name, enabled: true, mcpConnectors: [{ id: 'legal-search', url: 'https://legal.example.com/mcp', authentication: 'bearer' }], subagents: [{ id: 'law-finder' }] })
   await service.enable('tests.legal', false)
   expect(await service.capabilityContributions()).toEqual([{ ...descriptor, enabled: false }])
   await service.enable('tests.legal', true)

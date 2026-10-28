@@ -2,6 +2,7 @@ import type { RuntimeRequestContract } from '../runtime/apiContract'
 
 import type { DeepReadonly } from '../runtime/apiValidation'
 import { z } from 'zod'
+import { managedCapabilitySourceSchema } from '../extensions/managedCapability'
 import { isHttpEndpointUrl } from '../network/networkSecurity'
 import { idSchema, isAbsolutePath, validationRequestSchemas, validationResponseSchemas } from '../runtime/apiValidation'
 import { editableConnectorCredentialSchema } from './connectorCredentials'
@@ -12,6 +13,7 @@ const toolNamespaceSchema = z.string().regex(/^\w{1,32}$/)
 const toolExposureSchema = z.enum(MCP_TOOL_EXPOSURES)
 
 export const connectorBaseSchema = z.object({
+  managed: managedCapabilitySourceSchema.optional(),
   credentialConfigured: z.boolean(),
   enabled: z.boolean(),
   executionConfirmed: z.boolean(),

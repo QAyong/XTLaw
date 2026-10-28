@@ -7,6 +7,7 @@ import { ProviderAuthenticationRequiredError } from '../providers/ProviderFailur
 import { resolveInteractiveModelSelection } from '../providers/resolveInteractiveModelSelection'
 import { BuddyServiceError } from '../rpc/runtimeRequest'
 import { buddyExecutionDefinitionSchema } from './BuddyExecutionDefinition'
+import { readAvailableNpcIds } from './readAvailableBuddy'
 
 export interface ResolveBuddyDefinitionInput {
   buddyId: string
@@ -72,11 +73,6 @@ export class BuddyDefinitionResolver {
       throw new BuddyServiceError('BUDDY_DISABLED')
     if (buddy.kind !== input.kind)
       throw new BuddyServiceError('BUDDY_NOT_ACTOR')
-    for (const id of buddy.settings.npcTeamEnabled ? buddy.settings.npcIds : []) {
-      const target = this.options.buddies.get(id)
-      if (target.deletedAt || !target.enabled || target.kind !== 'npc')
-        throw new BuddyServiceError('BUDDY_INVALID_NPC_BINDING')
-    }
     const member = input.kind === 'actor' && input.conversationId
       ? this.options.members.find(input.conversationId, buddy.id)
       : null
@@ -124,11 +120,13 @@ export class BuddyDefinitionResolver {
     const current = this.options.buddies.get(definition.id)
     if (current.revision !== definition.revision)
       throw new BuddyServiceError('BUDDY_CONFLICT')
-    for (const id of definition.settings.npcTeamEnabled ? definition.settings.npcIds : []) {
-      const npc = this.options.buddies.get(id)
-      if (npc.deletedAt || !npc.enabled || npc.kind !== 'npc')
-        throw new BuddyServiceError('BUDDY_INVALID_NPC_BINDING')
-    }
+    if (current.deletedAt)
+      throw new BuddyServiceError('BUDDY_DELETED')
+    if (!current.enabled)
+      throw new BuddyServiceError('BUDDY_DISABLED')
+    definition.settings.npcIds = definition.settings.npcTeamEnabled
+      ? readAvailableNpcIds(id => this.options.buddies.get(id), definition.settings.npcIds)
+      : []
     if (input.kind === 'actor' && input.conversationId && this.options.members.find(input.conversationId, definition.id) === null)
       throw new BuddyServiceError('BUDDY_NOT_MEMBER')
     if (input.kind === 'actor' && input.conversationId && JSON.stringify(this.options.members.find(input.conversationId, definition.id)?.modelSelection ?? null) !== JSON.stringify(memberModelSelection))

@@ -10,6 +10,7 @@ import { buddyLabels } from '../buddyLabels'
 import { useBuddyActions } from '../state/useBuddyActions'
 import { useBuddyProfile } from '../state/useBuddyProfile'
 import { useBuddySettings } from '../state/useBuddySettings'
+import BuddyManagedNotice from './BuddyManagedNotice.vue'
 import BuddyProfileCard from './BuddyProfileCard.vue'
 import BuddyProfileDialog from './BuddyProfileDialog.vue'
 import BuddySettingsEditor from './BuddySettingsEditor.vue'
@@ -19,7 +20,7 @@ const { api, ready } = useBuddiesContext()
 const { language } = useDesktopUi()
 const labels = computed(() => buddyLabels(language.value))
 const { buddy, failed, refresh } = useBuddyProfile(api, props.buddyId, ready)
-const { busy, error, isDefault, isBuiltin, confirmation, setDefault, setEnabled, request, confirm } = useBuddyActions(buddy)
+const { busy, error, isDefault, isBuiltin, confirmation, setDefault, setEnabled, duplicate, request, confirm } = useBuddyActions(buddy)
 const editing = shallowRef(false)
 const message = useMessage()
 let disposed = false
@@ -76,7 +77,7 @@ async function profileSaved() {
               <span class="inline-flex">
                 <NSwitch
                   :round="false"
-                  :value="buddy.enabled"
+                  :value="buddy.managed?.userEnabled ?? buddy.enabled"
                   :disabled="disabled || isDefault"
                   size="small"
                   :aria-label="labels.enabled"
@@ -86,7 +87,7 @@ async function profileSaved() {
             </template>
             {{ labels.defaultEnabledHint }}
           </NTooltip>
-          <NTooltip v-if="!isBuiltin">
+          <NTooltip v-if="!isBuiltin && !buddy.managed">
             <template #trigger>
               <span class="inline-flex">
                 <NButton
@@ -137,6 +138,7 @@ async function profileSaved() {
           <NAlert v-if="buddy.deletedAt" class="mb-6" :show-icon="false">
             {{ labels.deleted }}
           </NAlert>
+          <BuddyManagedNotice v-if="buddy.managed" class="mb-5" :buddy="buddy" :disabled="disabled || changed" @duplicate="runAction(duplicate)" />
           <BuddyProfileCard
             :buddy="buddy"
             :disabled="disabled"

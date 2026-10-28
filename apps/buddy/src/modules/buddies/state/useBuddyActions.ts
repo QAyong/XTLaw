@@ -36,7 +36,7 @@ export function useBuddyActions(buddy: Readonly<Ref<LocalBuddy | null>>) {
 
   async function setEnabled(enabled: boolean) {
     const target = buddy.value
-    if (busy.value || !target || target.enabled === enabled || (isDefault.value && !enabled))
+    if (busy.value || !target || (target.managed?.userEnabled ?? target.enabled) === enabled || (isDefault.value && !enabled))
       return
     busy.value = true
     error.value = ''
@@ -51,8 +51,26 @@ export function useBuddyActions(buddy: Readonly<Ref<LocalBuddy | null>>) {
     finally { busy.value = false }
   }
 
+  async function duplicate() {
+    const target = buddy.value
+    if (busy.value || !target || target.deletedAt)
+      return
+    busy.value = true
+    error.value = ''
+    try {
+      const copy = await api.duplicate({ buddyId: target.id, expectedRevision: target.revision })
+      await refresh()
+      await router.push(desktopRouteLocations.buddies(copy.id))
+    }
+    catch (reason) {
+      error.value = resolveLocalChatErrorMessage(reason, language.value)
+      await refresh()
+    }
+    finally { busy.value = false }
+  }
+
   function request(action: string) {
-    if (buddy.value && (action === 'delete' || action === 'resetProfile')) {
+    if (buddy.value && !buddy.value.managed && (action === 'delete' || action === 'resetProfile')) {
       error.value = ''
       confirmation.value = { action, buddy: buddy.value }
     }
@@ -79,5 +97,5 @@ export function useBuddyActions(buddy: Readonly<Ref<LocalBuddy | null>>) {
     finally { busy.value = false }
   }
 
-  return { busy, error, isDefault, isBuiltin, confirmation, setDefault, setEnabled, request, confirm }
+  return { busy, error, isDefault, isBuiltin, confirmation, setDefault, setEnabled, duplicate, request, confirm }
 }

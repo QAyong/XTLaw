@@ -7,7 +7,7 @@ import type { ExtensionTaskAction, ExtensionTaskActionInput, ExtensionTaskAction
 import type { ExtensionAgentCatalog, ExtensionAgentDescriptor, ExtensionAgentInvocation } from '../../../shared/extensions/extensionAgent'
 import type { ExtensionReview, ExtensionReviewResult, ExtensionWorkbenchEvent, ExtensionWorkbenchResult } from '../../../shared/extensions/extensionApi'
 import type { ExtensionInspection } from '../../../shared/extensions/extensionAuthoring'
-import type { ExtensionCapabilityImpact } from '../../../shared/extensions/extensionCapabilities'
+import type { ExtensionCapabilityDescriptor, ExtensionCapabilityImpact } from '../../../shared/extensions/extensionCapabilities'
 import type { ExtensionConditionRuntime } from '../../../shared/extensions/extensionConditionContext'
 import type { TaskFileTarget } from '../../../shared/files/taskFileApi'
 import type { SpaceFileTarget } from '../../../shared/spaces/spaceFileApi'
@@ -49,6 +49,7 @@ export function registerExtensionIpc(options: {
   skillsChanged?: () => void
   capabilitiesChanged?: () => void
   capabilityImpact?: (extensionId: string) => Promise<ExtensionCapabilityImpact>
+  syncCapabilities?: (descriptors: ExtensionCapabilityDescriptor[], clearExtensionId?: string) => Promise<void>
   agentChanged?: (catalog: ExtensionAgentCatalog) => void
   record?: ApplicationDiagnosticReporter
   conditionRuntime?: (input: { models: boolean, task: boolean, taskId: string | null, runId: string | null }, signal: AbortSignal) => Promise<ExtensionConditionRuntime>
@@ -71,6 +72,7 @@ export function registerExtensionIpc(options: {
   const replies = new Map<string, { kind: ExtensionWorkbenchEvent['kind'], finish: (result: ExtensionWorkbenchResult) => void }>()
   const bound = new Set<BrowserWindow>()
   let resourcePickerOpen = false
+  let initializing = true
   const guardNavigation = (event: Electron.Event<Electron.WebContentsWillFrameNavigateEventParams>) => {
     if (!event.isMainFrame && !protocol.validViewUrl(event.url))
       event.preventDefault()
@@ -81,6 +83,10 @@ export function registerExtensionIpc(options: {
     shellsChanged: options.shellsChanged,
     skillsChanged: options.skillsChanged,
     capabilitiesChanged: options.capabilitiesChanged,
+    syncCapabilities: async (descriptors, clearExtensionId) => {
+      if (!initializing)
+        await options.syncCapabilities?.(descriptors, clearExtensionId)
+    },
     themes: options.themes,
     createHost: (pkg, broker, failed) => {
       const host = new SandboxedExtensionHost(pkg, protocol, broker, failed)
@@ -242,6 +248,8 @@ export function registerExtensionIpc(options: {
       else
         await service.restart(review.manifest.id)
     }
+    initializing = false
+    options.capabilitiesChanged?.()
   })
   const record = safeDiagnosticReporter(options.record)
   void prepared.catch(error => record({ component: 'desktop.extensions', level: 'warn', event: 'extensions.initialize.failed', errorCode: extensionError(error) }))
@@ -289,7 +297,11 @@ export function registerExtensionIpc(options: {
         case 'restart': return await service.restart(input.id)
         case 'applyUpdate': return await service.applyUpdate(input.id)
         case 'uninstall': return await service.uninstall(input.id, input.clearData)
-        case 'capabilityImpact': return await (options.capabilityImpact?.(input.id) ?? { modified: [] })
+        case 'capabilityImpact': {
+          if (!options.capabilityImpact)
+            throw new Error('EXTENSION_SERVICE_UNAVAILABLE')
+          return await options.capabilityImpact(input.id)
+        }
         case 'devtools': return await service.devtools(input.id)
         case 'revokeResources': return await service.revokeResources(input.id)
         case 'execute': return await service.execute(input.id, input.command, input.resource)

@@ -7,12 +7,16 @@ import type { RunRecord, RunStatus } from './runRecord'
 import type { CreateRunInput } from './runRepository'
 import { createHash } from 'node:crypto'
 import { buddySettingsSchema } from '../../../shared/buddies/buddySettings'
+import { executionMailboxMessageSchema } from '../../../shared/executions/executionApi'
 import { executionReviewSchema, executionSubmissionSchema } from '../../../shared/executions/executionWork'
 import { isExecutionProfileWithin } from '../../../shared/permissions/executionProfile'
 import { buddyExecutionDefinitionSchema } from '../buddies/BuddyExecutionDefinition'
+import { readAvailableBuddy, readAvailableNpcIds } from '../buddies/readAvailableBuddy'
+import { createBuddyRepository } from './buddyRepository'
 import { freezeConversationMemberModel } from './conversationMemberRepository'
 import { createConversationPublicationRepository } from './conversationPublicationRepository'
 import { withTransaction } from './database'
+import { createExecutionPublicContext } from './executionPublicContext'
 import { createExecutionWorkRepository } from './executionWorkRepository'
 import { createRunInputRepository } from './runInputRepository'
 import { createRunRepository } from './runRepository'
@@ -61,7 +65,7 @@ export interface AdmitChildExecutionInput {
 export const MAX_CHILD_ATTEMPTS_PER_ROOT = 64
 
 export class ExecutionAdmissionError extends Error {
-  readonly code: 'conflict' | 'stale' | 'unauthorized' | 'busy' | 'pending' | 'budget_exceeded'
+  readonly code: 'conflict' | 'stale' | 'unauthorized' | 'busy' | 'pending' | 'budget_exceeded' | 'input_forwarded' | 'forward_closed'
 
   constructor(code: ExecutionAdmissionError['code']) {
     super(`Execution admission ${code}`)
@@ -90,11 +94,13 @@ export function executionFence(record: ExecutionStateRecord, root: ExecutionStat
 }
 
 export function createExecutionRepository(database: DatabaseSync) {
+  const buddies = createBuddyRepository(database)
   const runs = createRunRepository(database)
   const threads = createThreadBindingRepository(database)
   const inputs = createRunInputRepository(database)
   const work = createExecutionWorkRepository(database)
   const publications = createConversationPublicationRepository(database)
+  const publicContext = createExecutionPublicContext(database)
 
   function find(runId: string): ExecutionStateRecord | null {
     const run = runs.findById(runId)
@@ -203,9 +209,72 @@ export function createExecutionRepository(database: DatabaseSync) {
       WHERE work.work_id = ? AND queue.state = 'sent'`).all(record.work.workId, record.work.workId) as { id: string }[]).map(row => row.id)
   }
 
+  function assertNoForwardFallback(callerId: string, actorId: string): void {
+    const latestInput = publicContext.findForwardGuardInput(callerId)
+    if (!latestInput)
+      return
+    const forwarded = database.prepare(`SELECT mailbox.payload_json FROM execution_mailbox_sources mailbox
+      JOIN runs target ON target.id = mailbox.target_run_id
+      WHERE mailbox.id = ? AND target.buddy_id = ?`).get(latestInput.messageId, actorId)
+    const message = forwarded && executionMailboxMessageSchema.safeParse(JSON.parse(forwarded.payload_json as string))
+    if (message && message.success && publicContext.isForwardedInput(message.data))
+      throw new ExecutionAdmissionError('input_forwarded')
+  }
+
+  function publicCaller(runId: string): ExecutionStateRecord {
+    const caller = requireRecord(runId)
+    if (caller.run.actorSnapshot?.kind !== 'actor' || !['root', 'actor_child'].includes(caller.run.executionKind))
+      throw new ExecutionAdmissionError('unauthorized')
+    return caller
+  }
+
+  function requirePublicWork(callerId: string, runId: string): ExecutionStateRecord {
+    const caller = publicCaller(callerId)
+    if (!publicContext.hasWork(caller.run, contextBoundary(caller), runId))
+      throw new ExecutionAdmissionError('unauthorized')
+    return requireRecord(runId)
+  }
+
+  function summarizePublicWork(caller: ExecutionStateRecord, record: ExecutionStateRecord) {
+    return {
+      runId: record.run.id,
+      rootRunId: record.run.rootRunId,
+      workId: record.work.workId,
+      actorId: record.run.buddyId,
+      phase: record.phase,
+      status: record.run.status,
+      errorCode: record.run.errorCode,
+      task: publicContext.readTask(record.run, contextBoundary(caller)),
+    }
+  }
+
   return {
     find,
     listAttachments,
+    assertNoForwardFallback,
+    requirePublicWork,
+    isForwardedPublicInput: publicContext.isForwardedInput,
+    listAcceptedUserInputs(runId: string, offset = 0, limit = 13) {
+      publicCaller(runId)
+      return publicContext.listInputs(runId, offset, limit)
+    },
+    findForwardGuardInput(runId: string) {
+      publicCaller(runId)
+      return publicContext.findForwardGuardInput(runId)
+    },
+    findAcceptedUserInput(runId: string, sourceId: string) {
+      publicCaller(runId)
+      return publicContext.findInput(runId, sourceId)
+    },
+    listPublicWork(runId: string, offset = 0, limit = 13) {
+      const caller = publicCaller(runId)
+      return publicContext.listWorks(caller.run, contextBoundary(caller), offset, limit)
+        .map(row => summarizePublicWork(caller, requireRecord(row.id)))
+    },
+    readPublicWork(callerId: string, runId: string) {
+      const record = requirePublicWork(callerId, runId)
+      return { work: summarizePublicWork(publicCaller(callerId), record), reply: publicContext.readReply(record.run) }
+    },
     assertCurrent(fence: ExecutionFence): ExecutionStateRecord {
       return assertFence(fence)
     },
@@ -279,14 +348,22 @@ export function createExecutionRepository(database: DatabaseSync) {
         if (listTree(root.run.id).length - 1 >= MAX_CHILD_ATTEMPTS_PER_ROOT)
           throw new ExecutionAdmissionError('budget_exceeded')
         const snapshot = buddyExecutionDefinitionSchema.parse(input.run.actorSnapshot)
-        const target = database.prepare('SELECT kind, revision, enabled, deleted_at, settings_json FROM buddies WHERE id = ?').get(input.run.buddyId)
-        if (!target || target.enabled !== 1 || target.deleted_at !== null || target.revision !== snapshot.revision
-          || target.kind !== snapshot.kind || JSON.stringify(buddySettingsSchema.parse(JSON.parse(target.settings_json as string))) !== JSON.stringify(snapshot.settings) || snapshot.id !== input.run.buddyId
+        const target = readAvailableBuddy(buddies.get, input.run.buddyId)
+        const targetSettings = target ? buddySettingsSchema.parse(target.settings) : null
+        if (targetSettings) {
+          if (snapshot.settings.npcIds.some(id => !targetSettings.npcIds.includes(id)))
+            throw new ExecutionAdmissionError('unauthorized')
+          targetSettings.npcIds = targetSettings.npcTeamEnabled ? readAvailableNpcIds(buddies.get, snapshot.settings.npcIds) : []
+          snapshot.settings.npcIds = snapshot.settings.npcTeamEnabled ? readAvailableNpcIds(buddies.get, snapshot.settings.npcIds) : []
+        }
+        if (!target || target.revision !== snapshot.revision
+          || target.kind !== snapshot.kind || JSON.stringify(targetSettings) !== JSON.stringify(snapshot.settings) || snapshot.id !== input.run.buddyId
           || input.run.provider !== snapshot.model.providerId || input.run.model !== snapshot.model.modelId
           || input.initialInput.reasoning !== snapshot.model.reasoning || input.initialInput.serviceTier !== snapshot.model.serviceTier
           || !caller.run.actorSnapshot || caller.run.actorSnapshot.kind !== 'actor') {
           throw new ExecutionAdmissionError('unauthorized')
         }
+        assertNoForwardFallback(caller.run.id, snapshot.id)
         if (snapshot.kind === 'actor' && !database.prepare('SELECT 1 FROM conversation_members WHERE conversation_id = ? AND actor_id = ? AND removed_at IS NULL').get(caller.run.conversationId, snapshot.id))
           throw new ExecutionAdmissionError('unauthorized')
         if (snapshot.kind === 'npc') {

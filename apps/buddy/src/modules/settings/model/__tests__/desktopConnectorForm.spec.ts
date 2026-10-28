@@ -137,6 +137,26 @@ describe('createConnectorSavePlan', () => {
     }, connector)).toMatchObject({ config: { enabled: false }, credential: { mode: 'clear' } })
   })
 
+  it('preserves managed user settings and rejects source edits or identity changes', () => {
+    const connector: LocalConnector = {
+      id: 'managed',
+      name: 'Managed',
+      transport: 'streamable-http',
+      url: 'https://example.test/mcp',
+      toolNamespace: 'managed',
+      toolExposure: 'deferred',
+      executionConfirmed: false,
+      credentialConfigured: false,
+      enabled: false,
+      managed: { extensionId: 'fixture.plugin', extensionName: 'Fixture', contributionId: 'remote', revision: 'v1', state: 'disabled', userEnabled: true, unavailableReason: null },
+      runtime: { authorization: 'credentials', status: 'disabled', errorCode: null, toolCount: 0, updatedAt: null },
+    }
+    const form = { id: connector.id, name: connector.name, transport: 'streamable-http' as const, url: connector.url, args: '', bearerToken: '', command: '', env: '', headers: '', toolExposure: 'direct' as const }
+    expect(createConnectorSavePlan(form, connector)).toMatchObject({ config: { enabled: true, toolExposure: 'direct' }, credential: { mode: 'keep' } })
+    for (const patch of [{ id: 'takeover' }, { name: 'Override' }, { url: 'https://changed.example.test/mcp' }, { transport: 'stdio' as const }])
+      expect(() => createConnectorSavePlan({ ...form, ...patch }, connector)).toThrow('MCP_MANAGED_READ_ONLY')
+  })
+
   it('rejects credential names that the runtime protocol cannot accept', () => {
     expect(() => createConnectorSavePlan({
       args: '',

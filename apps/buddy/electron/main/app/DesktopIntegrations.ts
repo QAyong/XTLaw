@@ -20,7 +20,7 @@ import { extensionActionRpc } from '../../../shared/extensions/extensionActionAp
 import { extensionAgentRpc } from '../../../shared/extensions/extensionAgent'
 import { extensionJsonSchema } from '../../../shared/extensions/extensionApi'
 import { EXTENSION_REVIEW_REQUEST } from '../../../shared/extensions/extensionAuthoring'
-import { extensionCapabilitiesRpc, extensionCapabilityImpactSchema } from '../../../shared/extensions/extensionCapabilities'
+import { extensionCapabilitiesRpc, extensionCapabilityApplyRpc, extensionCapabilityImpactSchema } from '../../../shared/extensions/extensionCapabilities'
 import { extensionConditionSnapshotRpc } from '../../../shared/extensions/extensionConditionContext'
 import { extensionShellRpc } from '../../../shared/extensions/extensionShell'
 import { extensionSkillsRpc } from '../../../shared/extensions/extensionSkills'
@@ -163,6 +163,9 @@ export class DesktopIntegrations {
       skillsChanged: () => service.notify(extensionSkillsRpc.changed, {}),
       capabilitiesChanged: () => service.notify(extensionCapabilitiesRpc.changed, {}),
       capabilityImpact: async extensionId => extensionCapabilityImpactSchema.parse(await service.request(extensionCapabilitiesRpc.impact, { extensionId })),
+      syncCapabilities: async (descriptors, clearExtensionId) => {
+        extensionCapabilityApplyRpc.response.parse(await service.request(extensionCapabilitiesRpc.apply, { descriptors, clearExtensionId }))
+      },
       agentRequest: async (input, signal) => extensionJsonSchema.parse(await service.request(extensionAgentRpc.request, input, { signal, timeoutMs: null })),
       readResource: (target, signal, request) => readSpaceFileResource(target, signal, async input => spaceFilesRpc.locate.response.parse(await service.request(spaceFilesRpc.locate.method, input, { signal })), request),
       readTaskFileResource: async (target, signal, request) => {

@@ -23,7 +23,8 @@ import type { ConversationListFilter, ConversationModelControls, ConversationTim
 import type { ConversationNodeDetailRequest, LocalConversationTree } from '../../shared/conversation/conversationTree'
 import type { LocalTaskMark, LocalTaskMarkState, TaskMarkClearInput, TaskMarkInput, TaskMarkReadInput } from '../../shared/conversation/taskMarkApi'
 import type { LocalWorkspaceSetting, LocalWorkspaceStateValue } from '../../shared/conversation/workspaceApi'
-import type { ExecutionAnswer, ExecutionEventsRequest, ExecutionsChanged, ExecutionScope, ExecutionSend, ExecutionSendDraft, ExecutionTarget, LocalExecution, LocalExecutionDetail, LocalExecutionEventsPage } from '../../shared/executions/executionPresentationApi'
+import type { LocalExecutionInputsPage } from '../../shared/executions/executionInputReceipt'
+import type { ExecutionAnswer, ExecutionEventsRequest, ExecutionInputsRequest, ExecutionsChanged, ExecutionScope, ExecutionSend, ExecutionSendDraft, ExecutionTarget, LocalExecution, LocalExecutionDetail, LocalExecutionEventsPage } from '../../shared/executions/executionPresentationApi'
 import type { DirectoryPage, FilePreview } from '../../shared/files/filePreview'
 import type { TaskFile, TaskFileLink, TaskFileTarget } from '../../shared/files/taskFileApi'
 import type { WebSettings, WebSettingsSnapshot } from '../../shared/network/webProtocol'
@@ -50,6 +51,7 @@ import type { LocalUsageSnapshot } from '../../shared/usage/usageApi'
 export const LOCAL_CHAT_IPC_CHANNELS = {
   executionsList: 'lexora:local-chat:executions:list',
   executionsDetail: 'lexora:local-chat:executions:detail',
+  executionsInputs: 'lexora:local-chat:executions:inputs',
   executionsAnswer: 'lexora:local-chat:executions:answer',
   executionsCancel: 'lexora:local-chat:executions:cancel',
   executionsEvents: 'lexora:local-chat:executions:events',
@@ -61,6 +63,7 @@ export const LOCAL_CHAT_IPC_CHANNELS = {
   buddiesToolOptions: 'lexora:local-chat:buddies:tool-options',
   buddiesGet: 'lexora:local-chat:buddies:get',
   buddiesCreate: 'lexora:local-chat:buddies:create',
+  buddiesDuplicate: 'lexora:local-chat:buddies:duplicate',
   buddiesDelete: 'lexora:local-chat:buddies:delete',
   buddiesResetProfile: 'lexora:local-chat:buddies:resetProfile',
   buddiesSetDefault: 'lexora:local-chat:buddies:setDefault',
@@ -257,6 +260,7 @@ export interface LocalChatApi {
   executions: {
     list: (input: ExecutionScope) => Promise<readonly LocalExecution[]>
     detail: (input: ExecutionTarget) => Promise<LocalExecutionDetail>
+    inputs: (input: ExecutionInputsRequest) => Promise<LocalExecutionInputsPage>
     events: (input: ExecutionEventsRequest) => Promise<LocalExecutionEventsPage>
     send: (input: ExecutionSend) => Promise<{ accepted: boolean }>
     sendDraft: (input: ExecutionSendDraft) => Promise<LocalComposerDraft | null>
@@ -270,6 +274,7 @@ export interface LocalChatApi {
     list: () => Promise<BuddyCatalog>
     get: (buddyId: string) => Promise<LocalBuddy>
     create: (input: BuddyCreate) => Promise<LocalBuddy>
+    duplicate: (input: BuddyMutation) => Promise<LocalBuddy>
     delete: (input: BuddyMutation) => Promise<LocalBuddy>
     resetProfile: (input: BuddyMutation) => Promise<LocalBuddy>
     setDefault: (input: BuddyDefaultUpdate) => Promise<BuddyCatalog>

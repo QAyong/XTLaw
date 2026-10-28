@@ -50,38 +50,54 @@ export interface NavigationContribution {
   showHeader?: boolean
   when?: WorkbenchCondition
 }
-/** API 4: contributes.skills; path points to a packaged Skill directory's SKILL.md. */
+/** API 4: contributes.skills; id is plugin-prefixed and package-wide unique; path points to a packaged Skill directory's SKILL.md. */
 export interface SkillContribution { id: string, path: string }
 /**
- * API 4: contributes.mcpConnectors; adds one MCP connector record when the package is installed. The record is created
- * disabled and without credentials, nothing is downloaded or run, and the user enables it (after entering a token when
- * `credential` asks for one) in settings. `id` is the connector ID, not prefixed with the plugin ID.
+ * API 4 increment: contributes.mcpConnectors; see mcp-connectors.md and set engines.lexora to verified supporting hosts.
+ * Independent declarations need no other contributions, entry or plugin permissions.
+ * Connection definitions follow the plugin; credentials, enablement and authorization remain host-managed.
  */
 export interface McpConnectorContribution {
+  /** Unprefixed package-local ID matching /^[a-z0-9][a-z0-9_-]{0,63}$/, unique among MCP connectors; not a user connection ID. */
   id: string
   name: string
   transport: 'streamable-http'
-  /** HTTPS address without embedded credentials. */
+  /** HTTPS address without userinfo or secrets. */
   url: string
-  /** Defaults to true: tools are discovered on demand instead of being offered to the model directly. */
-  deferred?: boolean
-  /** Defaults to 'none'. Credentials never travel with the package. */
-  credential?: 'none' | 'bearer' | 'oauth'
+  /** Required authentication requirement, not credentials or a guarantee of host OAuth support. */
+  authentication: 'none' | 'bearer' | 'oauth'
+}
+export type SubagentToolReference = {
+  source: 'mcp'
+  /** Local ID declared in this package's contributes.mcpConnectors. */
+  connector: string
+  /** Exact remote tool name, not a host-generated or JSON-encoded identity. */
+  name: string
+} | {
+  source: 'builtin'
+  name: 'read' | 'find' | 'grep' | 'ls'
 }
 /**
- * API 4: contributes.subagents; adds one NPC sub-agent when the package is installed and lists it for delegation by the
- * default companion. Only `kind: 'npc'` is accepted. Selected tool IDs are JSON `[source, group, name]` strings; an
- * `mcp` source must name a connector declared in the same package's `mcpConnectors`.
+ * API 4 increment: contributes.subagents (NPC); see buddies.md and set engines.lexora to verified supporting hosts.
+ * Independent declarations need no MCP connectors, Skills, entry or plugin permissions and do not bind themselves to a companion.
+ * Enablement, model selection and companion bindings are user configuration, not manifest fields.
+ * Customize a copy; explicitly referenced plugin Skills and connectors remain dependencies of that copy.
  */
 export interface SubagentContribution {
+  /** Unprefixed package-local ID matching /^[a-z0-9][a-z0-9_-]{0,63}$/, unique among NPCs; built-in NPC IDs are reserved. */
   id: string
-  kind: 'npc'
   name: string
+  /** Defaults to ''. */
   description?: string
   instructions: string
-  tools: { mode: 'all' | 'none' } | { mode: 'selected', ids: string[] }
-  /** Defaults to 'read_only'. */
-  fileAccess?: 'inherit' | 'read_only'
+  /** Unique full plugin-prefixed contributes.skills IDs from this package. Defaults to []. */
+  skills?: string[]
+  /** Unique subset of skills that must be available. Defaults to []. */
+  requiredSkills?: string[]
+  /** Unique explicit references; no all-tools selection. Defaults to []. */
+  tools?: SubagentToolReference[]
+  /** Required. Inherits the task's limits or restricts file access; read_only forbids MCP references. */
+  fileAccess: 'inherit' | 'read_only'
 }
 export interface Resource { readonly id: string, readonly name: string, readonly sourceId?: string }
 export interface ResourceTransferOptions { name?: string, signal?: AbortSignal }

@@ -1,246 +1,252 @@
-import type { BuddyMutation, BuddyUpdate, LocalBuddy } from '../../../shared/buddies/buddyApi'
+import type { BuddyCatalog, LocalBuddy } from '../../../shared/buddies/buddyApi'
 import type { BuddySettings } from '../../../shared/buddies/buddySettings'
-import type { ExtensionCapabilityDescriptor, ExtensionCapabilityImpact, ExtensionMcpConnectorContribution, ExtensionSubagentContribution } from '../../../shared/extensions/extensionCapabilities'
-import type { McpServerConfig } from '../connectors/mcp/mcpSchemas'
+import type { ConnectorToolSummary } from '../../../shared/connectors/connectorState'
+import type { ExtensionCapabilityDescriptor, ExtensionCapabilityImpact } from '../../../shared/extensions/extensionCapabilities'
+import type { ExtensionSubagentContribution } from '../../../shared/extensions/extensionSubagents'
 import type { McpServerRecord } from '../storage/connectorRepository'
-import { createHash } from 'node:crypto'
-import { BUILTIN_BUDDY_ID } from '../../../shared/buddies/buddyApi'
-import { buddySettingsSchema, DEFAULT_BUDDY_SETTINGS } from '../../../shared/buddies/buddySettings'
-import { BUILTIN_SUBAGENT_IDS, connectorToolExposure, extensionSubagentId } from '../../../shared/extensions/extensionCapabilities'
+import type { ManagedCapabilityRecord, ManagedCapabilityRepository } from '../storage/managedCapabilityRepository'
+import { DEFAULT_BUDDY_SETTINGS } from '../../../shared/buddies/buddySettings'
+import { extensionCapabilityDescriptorSchema } from '../../../shared/extensions/extensionCapabilities'
+import { skillIdentity } from '../skills/skillFiles'
 
-/** What the sync remembers about a record it created, so it can tell the user's edits from its own definition. */
-export interface CapabilityLedgerEntry {
-  extensionId: string
-  kind: 'mcp' | 'agent'
-  /** Connector id, or the sub-agent row id. */
-  id: string
-  /** Digest of the definition as installed. A record whose current digest differs was edited by the user. */
-  digest: string
-  /** The package is disabled and the sync switched the record off; enabling the package lifts this. */
-  suspended?: boolean
-}
-export interface CapabilityLedger { version: 1, entries: CapabilityLedgerEntry[] }
-
-export interface CapabilityLedgerStore {
-  read: () => Promise<CapabilityLedger>
-  write: (ledger: CapabilityLedger) => Promise<void>
-}
 export interface CapabilityBuddies {
-  get: (buddyId: string) => LocalBuddy
-  update: (input: BuddyUpdate) => Promise<LocalBuddy>
-  delete: (input: BuddyMutation) => LocalBuddy
+  list: () => BuddyCatalog
+  get: (id: string) => LocalBuddy
   installManagedNpc: (input: { id: string, name: string, description: string, settings: BuddySettings }) => LocalBuddy
+  refreshManaged: (id: string) => void
+  clearManagedConfiguration: (id: string) => void
 }
 export interface CapabilityConnectors {
   list: () => readonly McpServerRecord[]
-  upsert: (config: McpServerConfig) => Promise<McpServerRecord>
-  setEnabled: (id: string, enabled: boolean) => Promise<McpServerRecord>
-  remove: (id: string) => Promise<boolean>
+  tools: (id: string) => ConnectorToolSummary[]
+  applyManaged: (source: ManagedCapabilityRecord) => Promise<void>
+  refreshManaged: (id: string) => Promise<void>
+  clearManagedConfiguration: (id: string) => Promise<void>
 }
 export interface ExtensionCapabilitySyncOptions {
   buddies: CapabilityBuddies
   connectors: CapabilityConnectors
-  ledger: CapabilityLedgerStore
+  sources: ManagedCapabilityRepository
   descriptors: () => Promise<ExtensionCapabilityDescriptor[]>
-  report?: (event: { event: string, level: 'info' | 'warn', errorCode?: string, extensionId?: string, count?: number }) => void
+  report?: (event: { event: string, level: 'warn', errorCode: string, extensionId?: string, kind?: ManagedCapabilityRecord['kind'], contributionId?: string }) => void
 }
 
-const digest = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex')
-export const connectorDigest = (connector: Pick<ExtensionMcpConnectorContribution, 'name' | 'url' | 'deferred'>) => digest(['mcp', connector.name, connector.url, connectorToolExposure(connector)])
-export const subagentDigest = (agent: { name: string, description: string, instructions: string, tools: unknown, fileAccess: string }) => digest(['agent', agent.name, agent.description, agent.instructions, agent.tools, agent.fileAccess])
-const connectorRecordDigest = (record: McpServerRecord) => digest(['mcp', record.name, record.url, record.toolExposure === 'direct' ? 'direct' : 'deferred'])
-const buddyDigest = (buddy: LocalBuddy) => subagentDigest({ name: buddy.name, description: buddy.description, instructions: buddy.settings.instructions, tools: buddy.settings.tools, fileAccess: buddy.settings.limits.fileAccess })
-
-/**
- * Turns the MCP connectors and sub-agents that installed packages declare into records in the service's own stores,
- * and takes them out again when the package goes. Nothing is downloaded or executed: a connector is a disabled record
- * without credentials, a sub-agent is a row bound to the default companion's delegation list.
- */
 export class ExtensionCapabilitySync {
   readonly #options: ExtensionCapabilitySyncOptions
-  #running: Promise<void> | undefined
-  #again = false
+  #queue: Promise<void> = Promise.resolve()
+  #epoch = 0
   #disposed = false
 
   constructor(options: ExtensionCapabilitySyncOptions) {
     this.#options = options
   }
 
-  /** Coalesces requests: a change that arrives while a pass is running triggers one more pass afterwards. */
-  schedule(): Promise<void> {
-    if (this.#disposed)
-      return Promise.resolve()
-    if (this.#running) {
-      this.#again = true
-      return this.#running
+  async schedule(): Promise<void> {
+    const epoch = this.#epoch
+    try {
+      const descriptors = await this.#options.descriptors()
+      if (this.#disposed || epoch !== this.#epoch)
+        return
+      await this.#enqueue(async () => {
+        if (epoch === this.#epoch)
+          await this.#apply(descriptors)
+      })
     }
-    const run = (async () => {
+    catch (error) {
+      if (!(error instanceof CapabilityApplicationError) && !this.#disposed && epoch === this.#epoch)
+        await this.#enqueue(() => this.#suspend()).catch(() => {})
+      this.#options.report?.({ event: 'extensions.capabilities.reconcile_failed', level: 'warn', errorCode: errorCode(error) })
+    }
+  }
+
+  apply(descriptors: ExtensionCapabilityDescriptor[], clearExtensionId?: string, signal?: AbortSignal): Promise<void> {
+    this.#epoch++
+    return this.#enqueue(async () => {
+      signal?.throwIfAborted()
       try {
-        do {
-          this.#again = false
-          await this.reconcile().catch(error => this.#options.report?.({ event: 'extensions.capabilities.reconcile_failed', level: 'warn', errorCode: errorCode(error) }))
-        } while (this.#again && !this.#disposed)
+        await this.#apply(descriptors, clearExtensionId)
       }
-      finally {
-        this.#running = undefined
+      catch (error) {
+        if (!(error instanceof CapabilityApplicationError))
+          await this.#suspend().catch(() => {})
+        throw error
       }
-    })()
-    this.#running = run
-    return run
+    })
+  }
+
+  refreshAvailability(): Promise<void> {
+    return this.#enqueue(async () => {
+      const failures: unknown[] = []
+      this.#refreshAvailability(failures)
+      if (failures.length)
+        throw new CapabilityApplicationError(failures)
+    })
+  }
+
+  async impact(extensionId: string): Promise<ExtensionCapabilityImpact> {
+    await this.#queue
+    const sources = this.#options.sources.list(extensionId)
+    const connectorIds = new Set(sources.filter(source => source.kind === 'mcp').map(source => source.id))
+    const skillIds = new Set(sources.filter(source => source.kind === 'subagent').flatMap(source => (source.definition as ExtensionSubagentContribution).skills.map(id => skillIdentity(`plugin:${id}`))))
+    const dependents = this.#options.buddies.list().buddies.filter((buddy) => {
+      if (buddy.managed || buddy.deletedAt || buddy.kind !== 'npc')
+        return false
+      const tools = buddy.settings.tools
+      return (tools.mode === 'selected' && tools.ids.some((id) => {
+        const [kind, connector] = JSON.parse(id) as string[]
+        return kind === 'mcp' && connectorIds.has(connector!)
+      })) || (buddy.settings.skills.mode === 'selected' && buddy.settings.skills.ids.some(id => skillIds.has(id))) || buddy.settings.requiredSkills.some(id => skillIds.has(id))
+    }).map(({ id, name }) => ({ id, name }))
+    return { retained: sources.map(source => ({ kind: source.kind, name: source.definition.name })), dependents }
   }
 
   async dispose(): Promise<void> {
     this.#disposed = true
-    await this.#running
+    this.#epoch++
+    await this.#queue
   }
 
-  /** Items the user changed since they were installed; uninstalling their package keeps these. */
-  async impact(extensionId: string): Promise<ExtensionCapabilityImpact> {
-    const { entries } = await this.#options.ledger.read()
-    const modified: ExtensionCapabilityImpact['modified'] = []
-    for (const entry of entries.filter(entry => entry.extensionId === extensionId)) {
-      const current = this.#current(entry)
-      if (current && current.modified)
-        modified.push({ kind: entry.kind, name: current.name })
-    }
-    return { modified }
+  #enqueue(operation: () => Promise<void>): Promise<void> {
+    if (this.#disposed)
+      return Promise.reject(new Error('EXTENSION_SERVICE_UNAVAILABLE'))
+    const pending = this.#queue.then(operation)
+    this.#queue = pending.catch(() => {})
+    return pending
   }
 
-  async reconcile(): Promise<void> {
-    // A failed read must leave everything alone: an empty answer would mean "everything was uninstalled".
-    const descriptors = await this.#options.descriptors()
-    const ledger = await this.#options.ledger.read()
-    const kept = new Map(ledger.entries.map(entry => [key(entry), entry]))
-    const wanted = new Set<string>()
+  async #apply(input: ExtensionCapabilityDescriptor[], clearExtensionId?: string): Promise<void> {
+    const descriptors = extensionCapabilityDescriptorSchema.array().parse(input)
+    validateDescriptors(descriptors)
+    if (clearExtensionId && descriptors.some(descriptor => descriptor.extensionId === clearExtensionId && descriptor.enabled))
+      throw new CapabilityApplicationError([new Error('EXTENSION_STILL_ENABLED')])
+    const { sources, buddies, connectors } = this.#options
+    const failures: unknown[] = []
+    const failed = new Set<string>()
+    const previous = new Map(sources.list().map(source => [identity(source), source]))
+    const current = new Map<string, { source: ManagedCapabilityRecord, descriptor: ExtensionCapabilityDescriptor, changed: boolean }>()
     for (const descriptor of descriptors) {
-      for (const connector of descriptor.mcpConnectors) {
-        wanted.add(key({ kind: 'mcp', id: connector.id }))
-        await this.#guard(descriptor, () => this.#connector(descriptor, connector, kept))
-      }
-      for (const subagent of descriptor.subagents) {
-        wanted.add(key({ kind: 'agent', id: extensionSubagentId(descriptor.extensionId, subagent.id) }))
-        await this.#guard(descriptor, () => this.#subagent(descriptor, subagent, kept))
+      for (const [kind, definitions] of [['mcp', descriptor.mcpConnectors], ['subagent', descriptor.subagents]] as const) {
+        for (const definition of definitions) {
+          const key = identity({ extensionId: descriptor.extensionId, kind, contributionId: definition.id })
+          const before = previous.get(key)
+          const state = descriptor.enabled ? 'enabled' : 'disabled'
+          const definitionChanged = !before || before.revision !== descriptor.revision || JSON.stringify(before.definition) !== JSON.stringify(definition)
+          const changed = definitionChanged || before?.state !== state || before.extensionName !== descriptor.extensionName
+          const source = sources.upsertSource({ extensionId: descriptor.extensionId, extensionName: descriptor.extensionName, revision: descriptor.revision, contributionId: definition.id, kind, definition, state: changed ? 'unavailable' : state })
+          if (before?.state === 'removed' && kind === 'mcp')
+            sources.setUserEnabled(source.id, false)
+          current.set(key, { source, descriptor, changed })
+        }
       }
     }
-    for (const [entryKey, entry] of [...kept]) {
-      if (wanted.has(entryKey))
-        continue
+    const removed = [...previous].filter(([key]) => !current.has(key)).map(([, source]) => source)
+    for (const source of removed) {
+      sources.setState(source.id, 'removed')
+      if (source.kind === 'mcp')
+        sources.setUserEnabled(source.id, false)
+    }
+    this.#refreshAvailability(failures, failed)
+    const attempt = async (source: ManagedCapabilityRecord, operation: () => void | Promise<void>) => {
       try {
-        await this.#remove(entry)
-        kept.delete(entryKey)
+        await operation()
       }
       catch (error) {
-        this.#options.report?.({ event: 'extensions.capabilities.remove_failed', level: 'warn', extensionId: entry.extensionId, errorCode: errorCode(error) })
+        failed.add(source.id)
+        this.#sourceFailed(source, error, failures)
+        try {
+          await this.#refresh(source)
+        }
+        catch (refreshError) {
+          failures.push(refreshError)
+        }
       }
     }
-    await this.#options.ledger.write({ version: 1, entries: [...kept.values()] })
-  }
-
-  async #guard(descriptor: ExtensionCapabilityDescriptor, operation: () => Promise<void>): Promise<void> {
-    try {
-      await operation()
-    }
-    catch (error) {
-      this.#options.report?.({ event: 'extensions.capabilities.install_failed', level: 'warn', extensionId: descriptor.extensionId, errorCode: errorCode(error) })
-    }
-  }
-
-  async #connector(descriptor: ExtensionCapabilityDescriptor, connector: ExtensionMcpConnectorContribution, kept: Map<string, CapabilityLedgerEntry>) {
-    const entryKey = key({ kind: 'mcp', id: connector.id })
-    const entry = kept.get(entryKey)
-    if (entry && entry.extensionId !== descriptor.extensionId) {
-      this.#options.report?.({ event: 'extensions.capabilities.conflict', level: 'warn', extensionId: descriptor.extensionId })
-      return
-    }
-    const existing = this.#options.connectors.list().find(record => record.id === connector.id)
-    const config = (enabled: boolean, credentialRef: string | null): McpServerConfig => ({ id: connector.id, name: connector.name, transport: 'streamable-http', url: connector.url, toolExposure: connectorToolExposure(connector), enabled, credentialRef })
-    if (!entry) {
-      // An unknown connector with the same id is the user's; never take it over.
-      if (existing) {
-        this.#options.report?.({ event: 'extensions.capabilities.conflict', level: 'warn', extensionId: descriptor.extensionId })
-        return
+    for (const source of removed)
+      await attempt(source, () => this.#refresh(source))
+    for (const { source } of current.values()) {
+      if (source.kind === 'mcp') {
+        await attempt(source, () => connectors.applyManaged(sources.get(source.id)!))
       }
-      await this.#options.connectors.upsert(config(false, null))
-      kept.set(entryKey, { extensionId: descriptor.extensionId, kind: 'mcp', id: connector.id, digest: connectorDigest(connector) })
-      return
-    }
-    // The user removed it after installing: leave it removed until the package itself is reinstalled.
-    if (!existing)
-      return
-    const next = connectorDigest(connector)
-    if (entry.digest !== next && connectorRecordDigest(existing) === entry.digest && (!existing.credentialRef || existing.url === connector.url)) {
-      await this.#options.connectors.upsert(config(existing.enabled, existing.credentialRef))
-      entry.digest = next
-    }
-    if (!descriptor.enabled && existing.enabled) {
-      await this.#options.connectors.setEnabled(existing.id, false)
-      entry.suspended = true
-    }
-    else if (descriptor.enabled && entry.suspended) {
-      delete entry.suspended
-    }
-  }
-
-  async #subagent(descriptor: ExtensionCapabilityDescriptor, subagent: ExtensionSubagentContribution, kept: Map<string, CapabilityLedgerEntry>) {
-    const id = extensionSubagentId(descriptor.extensionId, subagent.id)
-    if ((BUILTIN_SUBAGENT_IDS as readonly string[]).includes(subagent.id))
-      return
-    const entryKey = key({ kind: 'agent', id })
-    const entry = kept.get(entryKey)
-    const existing = this.#buddy(id)
-    const definition = { id, name: subagent.name, description: subagent.description, settings: subagentSettings(subagent) }
-    if (!entry) {
-      if (existing && !existing.deletedAt) {
-        this.#options.report?.({ event: 'extensions.capabilities.conflict', level: 'warn', extensionId: descriptor.extensionId })
-        return
+      else {
+        await attempt(source, () => {
+          const definition = source.definition as ExtensionSubagentContribution
+          buddies.installManagedNpc({ id: source.id, name: definition.name, description: definition.description, settings: compileSettings(source.extensionId, definition, sources) })
+        })
       }
-      this.#options.buddies.installManagedNpc(definition)
-      await this.#delegate(id, true)
-      kept.set(entryKey, { extensionId: descriptor.extensionId, kind: 'agent', id, digest: subagentDigest(subagent) })
-      return
     }
-    // Removed by the user after installing: leave it removed until the package itself is reinstalled.
-    if (!existing || existing.deletedAt)
-      return
-    const next = subagentDigest(subagent)
-    if (entry.digest !== next && buddyDigest(existing) === entry.digest) {
-      this.#options.buddies.installManagedNpc(definition)
-      entry.digest = next
+    if (clearExtensionId) {
+      for (const source of sources.list(clearExtensionId)) {
+        if (!failed.has(source.id))
+          await attempt(source, () => source.kind === 'mcp' ? connectors.clearManagedConfiguration(source.id) : buddies.clearManagedConfiguration(source.id))
+      }
     }
-    const current = this.#buddy(id)
-    if (current && !descriptor.enabled && current.enabled) {
-      await this.#options.buddies.update({ buddyId: id, expectedRevision: current.revision, enabled: false })
-      entry.suspended = true
+    for (const { source, descriptor, changed } of current.values()) {
+      if (failed.has(source.id))
+        continue
+      await attempt(source, async () => {
+        sources.setState(source.id, descriptor.enabled ? 'enabled' : 'disabled')
+        if (changed)
+          await this.#refresh(source)
+      })
     }
-    else if (current && descriptor.enabled && entry.suspended) {
-      if (!current.enabled)
-        await this.#options.buddies.update({ buddyId: id, expectedRevision: current.revision, enabled: true })
-      delete entry.suspended
-    }
+    this.#refreshAvailability(failures, failed)
+    if (failures.length)
+      throw new CapabilityApplicationError(failures)
   }
 
-  async #remove(entry: CapabilityLedgerEntry): Promise<void> {
-    const current = this.#current(entry)
-    // Already gone, or edited by the user: keep it as the user's own instead of deleting their work.
-    if (!current || current.modified)
-      return
-    if (entry.kind === 'mcp') {
-      await this.#options.connectors.remove(entry.id)
-      return
-    }
-    await this.#delegate(entry.id, false)
-    const buddy = this.#buddy(entry.id)
-    if (buddy && !buddy.deletedAt)
-      this.#options.buddies.delete({ buddyId: buddy.id, expectedRevision: buddy.revision })
+  async #refresh(source: ManagedCapabilityRecord): Promise<void> {
+    if (source.kind === 'mcp')
+      await this.#options.connectors.refreshManaged(source.id)
+    else if (this.#buddy(source.id))
+      this.#options.buddies.refreshManaged(source.id)
   }
 
-  #current(entry: CapabilityLedgerEntry): { name: string, modified: boolean } | null {
-    if (entry.kind === 'mcp') {
-      const record = this.#options.connectors.list().find(record => record.id === entry.id)
-      return record ? { name: record.name, modified: !!record.credentialRef || connectorRecordDigest(record) !== entry.digest } : null
+  #sourceFailed(source: ManagedCapabilityRecord, error: unknown, failures: unknown[]): void {
+    failures.push(error)
+    const { sources, report } = this.#options
+    if (sources.get(source.id)?.state !== 'removed')
+      sources.setState(source.id, 'unavailable')
+    report?.({ event: 'extensions.capabilities.source_failed', level: 'warn', errorCode: errorCode(error), extensionId: source.extensionId, kind: source.kind, contributionId: source.contributionId })
+  }
+
+  async #suspend(): Promise<void> {
+    const { sources } = this.#options
+    const affected = sources.list().filter(source => source.state !== 'removed')
+    sources.suspendAll()
+    const results = await Promise.allSettled(affected.map(source => this.#refresh(source)))
+    const failures = results.flatMap(result => result.status === 'rejected' ? [result.reason] : [])
+    if (failures.length)
+      throw new CapabilityApplicationError(failures)
+  }
+
+  #refreshAvailability(failures: unknown[], failed?: Set<string>): void {
+    const { sources, buddies, connectors } = this.#options
+    const connections = new Map(connectors.list().map(record => [record.id, record]))
+    for (const source of sources.list()) {
+      if (source.kind !== 'subagent')
+        continue
+      try {
+        const definition = source.definition as ExtensionSubagentContribution
+        const missing = definition.tools.some((tool) => {
+          if (tool.source !== 'mcp')
+            return false
+          const connection = sources.find(source.extensionId, 'mcp', tool.connector)
+          if (!connection || !connections.get(connection.id)?.enabled)
+            return true
+          return !connectors.tools(connection.id).some(candidate => candidate.name === tool.name)
+        })
+        const reason = missing ? 'dependency_unavailable' : null
+        if (source.unavailableReason !== reason) {
+          sources.setUnavailableReason(source.id, reason)
+          if (this.#buddy(source.id))
+            buddies.refreshManaged(source.id)
+        }
+      }
+      catch (error) {
+        failed?.add(source.id)
+        this.#sourceFailed(source, error, failures)
+      }
     }
-    const buddy = this.#buddy(entry.id)
-    return buddy && !buddy.deletedAt ? { name: buddy.name, modified: buddyDigest(buddy) !== entry.digest } : null
   }
 
   #buddy(id: string): LocalBuddy | null {
@@ -253,33 +259,43 @@ export class ExtensionCapabilitySync {
       throw error
     }
   }
+}
 
-  /** Puts a sub-agent into, or takes it out of, the default companion's delegation list. */
-  async #delegate(npcId: string, bound: boolean): Promise<void> {
-    for (let attempt = 0; attempt < 3; attempt++) {
-      const actor = this.#options.buddies.get(BUILTIN_BUDDY_ID)
-      const present = actor.settings.npcIds.includes(npcId)
-      if (present === bound)
-        return
-      const npcIds = bound ? [...actor.settings.npcIds, npcId] : actor.settings.npcIds.filter(id => id !== npcId)
-      try {
-        await this.#options.buddies.update({ buddyId: actor.id, expectedRevision: actor.revision, settings: buddySettingsSchema.parse({ ...actor.settings, npcIds }) })
-        return
-      }
-      catch (error) {
-        if (errorCode(error) !== 'BUDDY_CONFLICT' || attempt === 2)
-          throw error
-      }
+class CapabilityApplicationError extends AggregateError {
+  readonly code = 'EXTENSION_CAPABILITY_FAILED'
+
+  constructor(errors: unknown[]) { super(errors, 'EXTENSION_CAPABILITY_FAILED') }
+}
+
+function compileSettings(extensionId: string, definition: ExtensionSubagentContribution, sources: ManagedCapabilityRepository): BuddySettings {
+  const ids = definition.tools.map(tool => tool.source === 'builtin'
+    ? JSON.stringify(['builtin', 'core', tool.name])
+    : JSON.stringify(['mcp', sources.find(extensionId, 'mcp', tool.connector)!.id, tool.name]))
+  return {
+    ...structuredClone(DEFAULT_BUDDY_SETTINGS),
+    instructions: definition.instructions,
+    tools: ids.length ? { mode: 'selected', ids } : { mode: 'none' },
+    skills: definition.skills.length ? { mode: 'selected', ids: definition.skills.map(id => skillIdentity(`plugin:${id}`)) } : { mode: 'none' },
+    requiredSkills: definition.requiredSkills.map(id => skillIdentity(`plugin:${id}`)),
+    limits: { fileAccess: definition.fileAccess },
+  }
+}
+
+function validateDescriptors(descriptors: ExtensionCapabilityDescriptor[]): void {
+  if (new Set(descriptors.map(descriptor => descriptor.extensionId)).size !== descriptors.length)
+    throw new Error('EXTENSION_CAPABILITY_INVALID')
+  for (const descriptor of descriptors) {
+    const connections = new Set(descriptor.mcpConnectors.map(item => item.id))
+    const subagents = new Set(descriptor.subagents.map(item => item.id))
+    if (connections.size !== descriptor.mcpConnectors.length || subagents.size !== descriptor.subagents.length
+      || descriptor.subagents.some(agent => agent.tools.some(tool => tool.source === 'mcp' && !connections.has(tool.connector)) || agent.skills.some(id => !descriptor.skills.includes(id)))) {
+      throw new Error('EXTENSION_CAPABILITY_INVALID')
     }
   }
 }
 
-function subagentSettings(subagent: ExtensionSubagentContribution): BuddySettings {
-  return { ...structuredClone(DEFAULT_BUDDY_SETTINGS), instructions: subagent.instructions, tools: structuredClone(subagent.tools), limits: { fileAccess: subagent.fileAccess } }
-}
-
-function key(entry: Pick<CapabilityLedgerEntry, 'kind' | 'id'>): string {
-  return `${entry.kind}:${entry.id}`
+function identity(source: Pick<ManagedCapabilityRecord, 'extensionId' | 'kind' | 'contributionId'>): string {
+  return JSON.stringify([source.extensionId, source.kind, source.contributionId])
 }
 
 function errorCode(error: unknown): string {

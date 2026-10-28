@@ -43,6 +43,7 @@ const BUDDY_CURRENT_SCHEMA_COLUMNS = {
   buddy_catalog: ['id', 'default_buddy_id', 'revision'],
   conversation_members: ['conversation_id', 'actor_id', 'model_selection_json', 'model_selection_source', 'joined_at', 'removed_at'],
   mcp_servers: ['tool_namespace', 'tool_exposure'],
+  extension_capabilities: ['id', 'extension_id', 'kind', 'contribution_id', 'revision', 'definition_json', 'state', 'user_enabled', 'credential_target'],
   run_event_checkpoints: ['run_id', 'last_sequence', 'projection_version', 'file_fingerprint'],
   extension_invocations: ['id', 'extension_id', 'action_id', 'conversation_id', 'trigger', 'status', 'branch_id', 'source_message_id', 'extension_name', 'action_title', 'result_message'],
   usage_records: ['run_id', 'invocation_id'],

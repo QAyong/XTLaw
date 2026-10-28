@@ -7,13 +7,14 @@ import { workbenchSlashSchema } from '../workbench/workbenchCommand.ts'
 import { workbenchConditionSchema } from '../workbench/workbenchContext.ts'
 import { workbenchAnchorSchema, workbenchControls, workbenchControlSchema, workbenchMenuSchema, workbenchMountTargetSchema, workbenchPresentationSchema, workbenchSlots, workbenchSlotSchema } from '../workbench/workbenchUi.ts'
 import { extensionAgentSchema } from './extensionAgent.ts'
-import { BUILTIN_SUBAGENT_IDS, extensionMcpConnectorContributionSchema, extensionSubagentContributionSchema, subagentConnectorReferences } from './extensionCapabilities.ts'
 import { extensionConditionDefinitionSchema } from './extensionConditions.ts'
 import { extensionAuthorSchema } from './extensionIdentity.ts'
+import { extensionMcpConnectorContributionSchema } from './extensionMcpConnectors.ts'
 import { extensionPathSchema } from './extensionPath.ts'
 import { extensionSettingsGroups, extensionSettingsModules, extensionSettingsSchema, validateExtensionSetting } from './extensionSettings.ts'
 import { extensionShellContributionSchema } from './extensionShell.ts'
 import { extensionSkillContributionSchema, extensionSkillRoots } from './extensionSkills.ts'
+import { extensionSubagentContributionSchema, subagentConnectorReferences } from './extensionSubagents.ts'
 
 export const EXTENSION_API_VERSION = 4
 export const EXTENSION_PROTOCOL = 'lexora-extension'
@@ -171,16 +172,23 @@ export const extensionManifestSchema = extensionMetadataSchema.extend({
   const skillRoots = extensionSkillRoots(manifest.contributes.skills)
   if (skillRoots.length && manifest.apiVersion < 4)
     issue('Skill contributions require API 4')
-  const { mcpConnectors, subagents } = manifest.contributes
-  if ((mcpConnectors.length || subagents.length) && manifest.apiVersion < 4)
-    issue('MCP connector and sub-agent contributions require API 4')
-  if (new Set(mcpConnectors.map(connector => connector.id)).size !== mcpConnectors.length || new Set(subagents.map(subagent => subagent.id)).size !== subagents.length)
-    issue('MCP connector and sub-agent IDs must be unique')
-  if (subagents.some(subagent => (BUILTIN_SUBAGENT_IDS as readonly string[]).includes(subagent.id)))
-    issue('Sub-agent IDs must not reuse built-in ones')
-  // A sub-agent may only select tools of MCP connectors that travel with the same package, so the selection never points at a missing tool.
-  if (subagents.some(subagent => subagentConnectorReferences(subagent).some(id => !mcpConnectors.some(connector => connector.id === id))))
-    issue('Sub-agent tools may only reference MCP connectors declared by the same extension')
+  const { mcpConnectors, subagents, skills } = manifest.contributes
+  for (const [field, contributions] of [['mcpConnectors', mcpConnectors], ['subagents', subagents]] as const) {
+    if (contributions.length && manifest.apiVersion < 4)
+      context.addIssue({ code: 'custom', path: ['contributes', field], message: `${field} contributions require API 4` })
+    if (new Set(contributions.map(contribution => contribution.id)).size !== contributions.length)
+      context.addIssue({ code: 'custom', path: ['contributes', field], message: `${field} IDs must be unique within their contribution kind` })
+  }
+  const connectorIds = new Set(mcpConnectors.map(connector => connector.id))
+  const skillIds = new Set(skills.map(skill => skill.id))
+  for (const [index, subagent] of subagents.entries()) {
+    if (subagentConnectorReferences(subagent).some(id => !connectorIds.has(id)))
+      context.addIssue({ code: 'custom', path: ['contributes', 'subagents', index, 'tools'], message: 'NPC tools may only reference MCP connectors declared by the same extension' })
+    for (const field of ['skills', 'requiredSkills'] as const) {
+      if (subagent[field].some(id => !skillIds.has(id)))
+        context.addIssue({ code: 'custom', path: ['contributes', 'subagents', index, field], message: 'NPC skills must be declared by the same extension' })
+    }
+  }
   if (skillRoots.some((root, index) => skillRoots.some((other, otherIndex) => index !== otherIndex && root.startsWith(other))))
     issue('Skill directories must be distinct and must not contain one another')
   if ([manifest.entry, ...manifest.contributes.views.map(view => view.entry)].some(entry => entry && skillRoots.some(root => entry.startsWith(root))))

@@ -15,7 +15,8 @@ import BuddySettingsSection from './BuddySettingsSection.vue'
 import BuddySkillSelectionDialog from './BuddySkillSelectionDialog.vue'
 import BuddyToolSelectionDialog from './BuddyToolSelectionDialog.vue'
 
-defineProps<{ buddy: LocalBuddy, disabled: boolean }>()
+const props = defineProps<{ buddy: LocalBuddy, disabled: boolean }>()
+const definitionDisabled = computed(() => props.disabled || !!props.buddy.managed)
 const { language } = useDesktopUi()
 const { buddies } = useBuddiesContext()
 const labels = computed(() => buddyLabels(language.value))
@@ -149,7 +150,7 @@ function onSaveSkills(selectedIds: string[], requiredIds: string[]) {
             v-model="settings.instructions"
             :labelled-by="headingId"
             :placeholder="labels.instructionsPlaceholder"
-            :disabled="disabled"
+            :disabled="definitionDisabled"
           />
         </BuddySettingsSection>
 
@@ -169,7 +170,7 @@ function onSaveSkills(selectedIds: string[], requiredIds: string[]) {
               :summary="toolSummary"
               :tags="toolTags"
               :configure-label="labels.configureTools"
-              :disabled="disabled"
+              :disabled="definitionDisabled"
               @update:mode="updateToolMode"
               @configure="showToolDialog = true"
             />
@@ -181,7 +182,7 @@ function onSaveSkills(selectedIds: string[], requiredIds: string[]) {
               :summary="skillSummary"
               :tags="skillTags"
               :configure-label="labels.configureSkills"
-              :disabled="disabled"
+              :disabled="definitionDisabled"
               @update:mode="updateSkillMode"
               @configure="showSkillDialog = true"
             />
@@ -198,7 +199,7 @@ function onSaveSkills(selectedIds: string[], requiredIds: string[]) {
               class="w-[min(100%,15rem)]"
               :input-props="{ 'aria-labelledby': fileAccessId, 'aria-describedby': `${fileAccessId}-hint` }"
               :options="fileAccessOptions"
-              :disabled="disabled"
+              :disabled="definitionDisabled"
             />
           </div>
         </BuddySettingsSection>
@@ -219,7 +220,7 @@ function onSaveSkills(selectedIds: string[], requiredIds: string[]) {
       v-model:show="showToolDialog"
       :tool-catalog="toolCatalog"
       :selected-ids="settings.tools.mode === 'selected' ? settings.tools.ids : []"
-      :disabled="disabled"
+      :disabled="definitionDisabled"
       @save="onSaveTools"
     />
 
@@ -228,7 +229,7 @@ function onSaveSkills(selectedIds: string[], requiredIds: string[]) {
       :skill-catalog="skillCatalog"
       :selected-skill-ids="settings.skills.mode === 'selected' ? settings.skills.ids : skillCatalog.map(s => s.id)"
       :required-skill-ids="settings.requiredSkills"
-      :disabled="disabled"
+      :disabled="definitionDisabled"
       @save="onSaveSkills"
     />
   </div>

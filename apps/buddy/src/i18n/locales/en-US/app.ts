@@ -8,6 +8,8 @@ export default {
   'desktop.error.buddyInvalidNpcBinding': 'A bound NPC is unavailable. Check the actor configuration.',
   'desktop.error.buddyCapabilityUnavailable': 'A selected capability is unavailable. Check the tool configuration.',
   'desktop.error.buddyDeleted': 'This companion was removed and can no longer be selected or edited.',
+  'desktop.error.mcpManagedReadOnly': 'This connection is managed by a plugin. Its source definition cannot be edited or deleted directly.',
+  'desktop.error.buddyManagedProtected': 'This companion is managed by a plugin. Disable it, manage its plugin, or create a custom copy instead of editing or deleting its definition.',
   'desktop.error.buddyBuiltinProtected': 'The built-in companion cannot be deleted.',
   'desktop.error.buddyDefaultProtected': 'Choose another default companion before deleting this one.',
   'desktop.error.buddyResetUnavailable': 'Only the built-in companion supports restoring its original profile.',

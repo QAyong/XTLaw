@@ -41,7 +41,8 @@ const diagnostics = shallowRef<string | null>(null)
 const installationLog = shallowRef(false)
 const authorSettings = shallowRef(false)
 const removing = shallowRef<ExtensionStatus | null>(null)
-const kept = shallowRef<ExtensionCapabilityImpact['modified']>([])
+const removalImpact = shallowRef<ExtensionCapabilityImpact | null>(null)
+let disposed = false
 const message = useMessage()
 const router = useRouter()
 const selected = computed(() => installed.value.find(item => item.manifest.id === diagnostics.value))
@@ -119,17 +120,26 @@ function open(item: ExtensionStatus) {
   if (location)
     void router.push(location)
 }
-// Sub-agents and connectors the user changed outlive their package, so say so before the uninstall is confirmed.
 async function askRemove(item: ExtensionStatus) {
-  kept.value = await state.api.capabilityImpact(item.manifest.id).then(impact => impact.modified, () => [])
-  removing.value = item
+  await run(async () => {
+    removing.value = null
+    removalImpact.value = null
+    const impact = await state.api.capabilityImpact(item.manifest.id)
+    if (!disposed) {
+      removalImpact.value = impact
+      removing.value = item
+    }
+  })
 }
 async function remove(clearData: boolean) {
   const item = removing.value
-  if (item && await run(() => state.api.uninstall(item.manifest.id, { clearData })))
+  if (item && removalImpact.value && await run(() => state.api.uninstall(item.manifest.id, { clearData })))
     removing.value = null
 }
-onScopeDispose(cancel)
+onScopeDispose(() => {
+  disposed = true
+  cancel()
+})
 </script>
 
 <template>
@@ -202,7 +212,7 @@ onScopeDispose(cancel)
   </NModal>
   <DesktopExtensionInstallReview v-if="review" :key="review.token" :review="review" :language="language" :busy="busy" @cancel="cancel" @install="install" />
   <DesktopExtensionIncompatibleReview v-if="incompatibleReview" :review="incompatibleReview" :language="language" @close="incompatibleReview = null" />
-  <DesktopExtensionUninstallDialog v-if="removing" :name="removing.manifest.name" :kept="kept" :language="language" :busy="busy" @cancel="removing = null" @remove="remove" />
+  <DesktopExtensionUninstallDialog v-if="removing && removalImpact" :name="removing.manifest.name" :impact="removalImpact" :language="language" :busy="busy" @cancel="removing = null" @remove="remove" />
   <NModal :show="!!selected" preset="card" :title="labels.diagnostics" class="extension-dialog" @update:show="value => { if (!value) diagnostics = null }">
     <template v-if="selected">
       <h2>{{ selected.manifest.name }}</h2>

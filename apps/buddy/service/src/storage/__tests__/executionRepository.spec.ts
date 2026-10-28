@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { buddySettingsSchema } from '../../../../shared/buddies/buddySettings'
+import { managedBuddyFixture } from '../../buddies/__tests__/managedBuddyFixture'
 import { hashChildAdmissionRequest } from '../executionRepository'
 import { createTaskMarkRepository } from '../taskMarkRepository'
 import { createExecutionStorageFixture, executionNow } from './executionFixture'
@@ -17,6 +18,43 @@ function rehash<T extends Parameters<typeof hashChildAdmissionRequest>[0]>(input
 }
 
 describe('execution admission and fences', () => {
+  it.each(['disabled', 'removed', 'unavailable', 'dependency', 'user'] as const)('rejects %s managed targets in the admission transaction and preserves accepted snapshots', (reason) => {
+    const f = fixture()
+    const managed = managedBuddyFixture(f.database)
+    const npc = f.buddies.upsertManagedNpc(managed.input)
+    const actor = f.buddies.get('default')
+    f.buddies.update({ buddyId: actor.id, expectedRevision: actor.revision, settings: buddySettingsSchema.parse({ ...actor.settings, npcIds: [npc.id] }) })
+    f.runs.create({ ...f.runs.findById('root')!, id: 'managed-root', rootRunId: 'managed-root', actorSnapshot: f.snapshot('default') })
+    const accepted = f.child('accepted-managed', npc.id, 'managed-root')
+    accepted.run.executionProfile = 'read_only'
+    f.executions.admitChild(rehash(accepted))
+    const pending = f.child('rejected-managed', npc.id, 'managed-root')
+    pending.run.executionProfile = 'read_only'
+    if (reason === 'dependency')
+      managed.sources.setUnavailableReason(npc.id, 'dependency_unavailable')
+    else if (reason === 'user')
+      managed.sources.setUserEnabled(npc.id, false)
+    else
+      managed.sources.setState(npc.id, reason)
+    expect(() => f.executions.admitChild(rehash(pending))).toThrow(expect.objectContaining({ code: 'unauthorized' }))
+    expect(f.runs.findById('rejected-managed')).toBeNull()
+    expect(f.runs.findById('accepted-managed')?.actorSnapshot).toEqual(accepted.run.actorSnapshot)
+    expect(f.executions.admitChild(rehash(accepted)).created).toBe(false)
+    expect(f.executions.claimWorking(f.fence('accepted-managed')).phase).toBe('working')
+    const partner = f.child('actor-still-works', f.actor.id, 'managed-root')
+    const staleNpc = f.buddies.get(f.npc.id)
+    f.buddies.update({ buddyId: staleNpc.id, expectedRevision: staleNpc.revision, enabled: false })
+    expect(f.executions.admitChild(partner).execution.run.actorSnapshot?.settings.npcIds).toEqual([])
+  })
+
+  it('keeps the captured NPC scope narrowed when a previously unavailable binding becomes available', () => {
+    const f = fixture()
+    const request = f.child('narrowed-actor', f.actor.id)
+    request.run.actorSnapshot.settings.npcIds = []
+    expect(f.executions.admitChild(rehash(request)).execution.run.actorSnapshot?.settings.npcIds).toEqual([])
+    expect(f.buddies.get(f.actor.id).settings.npcIds).toEqual([f.npc.id])
+  })
+
   it('freezes a delegated actor model only when admission succeeds and leaves other members unchanged', () => {
     const f = fixture()
     const request = f.child('actor-child', f.actor.id)

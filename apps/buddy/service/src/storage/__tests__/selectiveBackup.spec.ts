@@ -1,6 +1,6 @@
 import type { BackupScope } from '../../../../shared/storage/backupScope'
 import { Buffer } from 'node:buffer'
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -96,6 +96,72 @@ it('restores sound settings and managed bytes without replacing current assets, 
     expect(await readFile(notificationSoundPath(targetHome, imported.id))).toEqual(currentBytes)
     expect(await targetLibrary.read(unrelated.id)).toEqual(Buffer.from('unrelated audio'))
   }
+})
+
+it.each([
+  { scope: 'buddies' as const, broad: false },
+  { scope: 'connections' as const, broad: false },
+  { scope: 'buddies' as const, broad: true },
+  { scope: 'connections' as const, broad: true },
+])('round-trips managed $scope independently of plugin files (broad snapshot=$broad)', async ({ scope, broad }) => {
+  const f = await fixture()
+  let db = f.database()
+  db.prepare('INSERT INTO buddies (id, kind, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)').run('managed-npc', 'npc', 'Managed NPC', now, now)
+  db.prepare('INSERT INTO mcp_servers (id, name, transport, url, credential_ref, trusted_at, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)')
+    .run('managed-mcp', 'Managed MCP', 'streamable-http', 'https://original.invalid/mcp', 'original-ref', now, now, now)
+  const source = db.prepare('INSERT INTO extension_capabilities (id, extension_id, extension_name, kind, contribution_id, revision, definition_json, state, user_enabled, credential_target) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+  source.run('managed-npc', 'test.plugin', 'Plugin', 'subagent', 'reviewer', 'old-revision', JSON.stringify({ id: 'reviewer', name: 'Review', instructions: 'Review', fileAccess: 'read_only' }), 'enabled', 1, null)
+  source.run('managed-mcp', 'test.plugin', 'Plugin', 'mcp', 'tools', 'old-revision', JSON.stringify({ id: 'tools', name: 'Tools', transport: 'streamable-http', url: 'https://original.invalid/mcp', authentication: 'bearer' }), 'enabled', 1, 'https://original.invalid/mcp')
+  const originalSources = db.prepare('SELECT * FROM extension_capabilities ORDER BY id').all()
+  db.close()
+  const pluginPath = join(f.root, 'buddy/extensions/data/test.plugin/state.json')
+  await writeStorageJson(pluginPath, { value: 'old' })
+  const snapshot = await f.snapshot(broad ? ['buddies', 'connections', 'plugins'] : [scope])
+  expect(snapshot.files.some(file => file.path === 'buddy/extensions/data/test.plugin/state.json')).toBe(broad)
+  const extracted = join(f.directory, 'extracted')
+  await extractSnapshotFiles(snapshotDirectory(f.root, snapshot.id), extracted, snapshot, { signal, report, privateDirectoriesExecutable })
+  const saved = openBuddyDatabase({ databasePath: join(extracted, 'buddy/buddy.sqlite3') })
+  expect(saved.prepare('SELECT id FROM extension_capabilities ORDER BY id').all()).toEqual(broad ? [{ id: 'managed-mcp' }, { id: 'managed-npc' }] : [{ id: scope === 'buddies' ? 'managed-npc' : 'managed-mcp' }])
+  saved.close()
+
+  db = f.database()
+  db.prepare('UPDATE buddies SET name = \'Newer NPC\' WHERE id = \'managed-npc\'').run()
+  db.prepare('UPDATE mcp_servers SET url = \'https://current.invalid/mcp\', credential_ref = \'current-ref\' WHERE id = \'managed-mcp\'').run()
+  db.prepare('UPDATE extension_capabilities SET revision = \'current-revision\', credential_target = CASE WHEN kind = \'mcp\' THEN \'https://current.invalid/mcp\' ELSE NULL END').run()
+  db.prepare('INSERT INTO mcp_servers (id, name, transport, url, credential_ref, trusted_at, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)')
+    .run('unselected-mcp', 'Unselected MCP', 'streamable-http', 'https://unselected.invalid/mcp', 'unselected-ref', now, now, now)
+  const unselectedSources = db.prepare('SELECT * FROM extension_capabilities WHERE kind != ?').all(scope === 'buddies' ? 'subagent' : 'mcp')
+  const unselectedMcp = db.prepare('SELECT * FROM mcp_servers WHERE id = \'unselected-mcp\'').get()
+  db.close()
+  const secretPath = (ref: string) => join(f.root, 'buddy/secrets/connectors', `${createHash('sha256').update(ref).digest('hex')}.credential`)
+  await mkdir(join(f.root, 'buddy/secrets/connectors'), { recursive: true })
+  await writeFile(secretPath('current-ref'), 'synthetic-current-target-credential')
+  await writeFile(secretPath('unselected-ref'), 'synthetic-unselected-credential')
+  await writeStorageJson(pluginPath, { value: 'current' })
+  await f.store.request('restore', f.root, [], snapshot.id, [scope])
+  await f.run()
+
+  db = f.database()
+  const selected = scope === 'buddies' ? 'managed-npc' : 'managed-mcp'
+  expect(db.prepare('SELECT * FROM extension_capabilities WHERE id = ?').get(selected)).toEqual({
+    ...originalSources.find(row => row.id === selected),
+    state: 'unavailable',
+    unavailable_reason: scope === 'connections' ? null : 'dependency_unavailable',
+    user_enabled: scope === 'connections' ? 0 : 1,
+  })
+  expect(db.prepare('SELECT * FROM extension_capabilities WHERE kind != ?').all(scope === 'buddies' ? 'subagent' : 'mcp')).toEqual(unselectedSources)
+  expect(db.prepare('SELECT * FROM mcp_servers WHERE id = \'unselected-mcp\'').get()).toEqual(unselectedMcp)
+  expect(db.prepare('SELECT name FROM buddies WHERE id = \'managed-npc\'').get()).toEqual({ name: scope === 'buddies' ? 'Managed NPC' : 'Newer NPC' })
+  expect(db.prepare('SELECT enabled, url, credential_ref FROM mcp_servers WHERE id = \'managed-mcp\'').get()).toEqual(scope === 'connections'
+    ? { enabled: 0, url: 'https://original.invalid/mcp', credential_ref: null }
+    : { enabled: 1, url: 'https://current.invalid/mcp', credential_ref: 'current-ref' })
+  db.close()
+  expect(JSON.parse(await readFile(pluginPath, 'utf8'))).toEqual({ value: 'current' })
+  expect(await readFile(secretPath('unselected-ref'), 'utf8')).toBe('synthetic-unselected-credential')
+  if (scope === 'connections')
+    await expect(readFile(secretPath('current-ref'))).rejects.toMatchObject({ code: 'ENOENT' })
+  else
+    expect(await readFile(secretPath('current-ref'), 'utf8')).toBe('synthetic-current-target-credential')
 })
 
 it('restores selected providers in place while retaining newer tasks, plugins, settings and unrelated providers', async () => {

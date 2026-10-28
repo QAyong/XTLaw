@@ -4,7 +4,9 @@ import type { BuddyLocale } from '@/i18n/buddyI18n'
 import { NButton, NPopconfirm, NSwitch, NTag, NTooltip } from 'naive-ui'
 import { computed } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
+import { connectorCanEnable, connectorCanLogin, connectorUserEnabled } from '../../model/desktopConnectorManaged'
 import { maskConnectorUrl } from '../../model/desktopConnectorTarget'
+import DesktopMcpManagedSource from './DesktopMcpManagedSource.vue'
 
 const props = defineProps<{ connector: LocalConnector, language: BuddyLocale, busy: boolean, codemodeEnabled: boolean }>()
 const emit = defineEmits<{ toggle: [enabled: boolean], edit: [], test: [], tools: [], remove: [], login: [], cancelLogin: [], clearCredential: [] }>()
@@ -13,8 +15,9 @@ const target = computed(() => props.connector.transport === 'stdio'
   ? [props.connector.command, ...props.connector.args].map(value => JSON.stringify(value)).join(' ')
   : maskConnectorUrl(props.connector.url))
 const authenticating = computed(() => props.connector.runtime.status === 'authenticating')
-const canLogin = computed(() => props.connector.runtime.authorization === 'oauth'
-  && ['MCP_AUTHENTICATION_REQUIRED', 'MCP_AUTHENTICATION_FAILED', 'MCP_AUTHENTICATION_CANCELLED', 'MCP_ACCESS_DENIED'].includes(props.connector.runtime.errorCode ?? ''))
+const canLogin = computed(() => connectorCanLogin(props.connector))
+const userEnabled = computed(() => connectorUserEnabled(props.connector))
+const toggleDisabled = computed(() => props.busy || (!userEnabled.value && !connectorCanEnable(props.connector)))
 const cachedTools = computed(() => props.connector.runtime.updatedAt !== null && props.connector.runtime.status !== 'ready')
 </script>
 
@@ -29,12 +32,13 @@ const cachedTools = computed(() => props.connector.runtime.updatedAt !== null &&
       </div>
       <NTooltip>
         <template #trigger>
-          <NSwitch :round="false" :value="connector.enabled" :disabled="busy" :aria-label="`${t('desktop.mcp.enabled')}: ${connector.name}`" @update:value="emit('toggle', $event)" />
+          <NSwitch :round="false" :value="userEnabled" :disabled="toggleDisabled" :aria-disabled="toggleDisabled" :aria-label="`${t('desktop.mcp.enabled')}: ${connector.name}`" @update:value="emit('toggle', $event)" />
         </template>
-        {{ t(connector.enabled ? 'desktop.mcp.disableHint' : 'desktop.mcp.enableHint') }}
+        {{ t(userEnabled ? 'desktop.mcp.disableHint' : 'desktop.mcp.enableHint') }}
       </NTooltip>
     </header>
-    <p class="font-mono overflow-hidden text-ellipsis whitespace-nowrap mt-[0.85rem] mr-0 mb-[0.35rem] ml-0 text-[0.8rem] text-muted" :title="target">
+    <DesktopMcpManagedSource v-if="connector.managed" :source="connector.managed" :language="language" />
+    <p class="font-mono overflow-hidden text-ellipsis whitespace-nowrap mt-[0.85rem] mr-0 mb-[0.35rem] ml-0 text-[0.8rem] text-muted">
       {{ target }}
     </p>
     <p class="flex gap-[0.4rem] m-0 text-[0.78rem] text-muted">
@@ -51,7 +55,7 @@ const cachedTools = computed(() => props.connector.runtime.updatedAt !== null &&
     </p>
     <footer>
       <div>
-        <NButton size="small" :disabled="busy || authenticating" @click="emit('test')">
+        <NButton size="small" :disabled="busy || authenticating || !!connector.managed && !connector.enabled" @click="emit('test')">
           {{ t('desktop.mcp.test') }}
         </NButton>
         <NButton size="small" quaternary :disabled="busy || !connector.runtime.toolCount" @click="emit('tools')">
@@ -65,24 +69,24 @@ const cachedTools = computed(() => props.connector.runtime.updatedAt !== null &&
         </NButton>
       </div>
       <div>
-        <NButton size="small" quaternary :disabled="busy" @click="emit('edit')">
+        <NButton size="small" quaternary :disabled="busy || connector.managed?.state === 'removed'" @click="emit('edit')">
           {{ t('desktop.mcp.edit') }}
         </NButton>
-        <NPopconfirm v-if="connector.credentialConfigured" @positive-click="emit('clearCredential')">
+        <NPopconfirm v-if="connector.credentialConfigured || connector.managed?.unavailableReason === 'target_changed'" @positive-click="emit('clearCredential')">
           <template #trigger>
             <NButton size="small" quaternary :disabled="busy">
-              {{ t('desktop.mcp.clearCredential') }}
+              {{ t(connector.managed?.unavailableReason === 'target_changed' ? 'desktop.mcp.managed.acceptTarget' : 'desktop.mcp.clearCredential') }}
             </NButton>
           </template>
-          {{ t('desktop.mcp.clearConfirm') }}
+          {{ t(connector.managed?.unavailableReason === 'target_changed' ? 'desktop.mcp.managed.acceptTargetConfirm' : 'desktop.mcp.clearConfirm') }}
         </NPopconfirm>
-        <NPopconfirm @positive-click="emit('remove')">
+        <NPopconfirm v-if="!connector.managed || connector.managed.state === 'removed'" @positive-click="emit('remove')">
           <template #trigger>
             <NButton size="small" quaternary :disabled="busy">
-              {{ t('desktop.mcp.remove') }}
+              {{ t(connector.managed ? 'desktop.mcp.managed.clear' : 'desktop.mcp.remove') }}
             </NButton>
           </template>
-          {{ t('desktop.mcp.removeConfirm') }}
+          {{ t(connector.managed ? 'desktop.mcp.managed.clearConfirm' : 'desktop.mcp.removeConfirm') }}
         </NPopconfirm>
       </div>
     </footer>

@@ -115,7 +115,7 @@ function onSaveRecruited(selectedIds: string[]) {
           <div class="min-w-0 flex-1">
             <div class="flex flex-wrap items-center gap-2">
               <strong class="text-[13px] font-600 text-fg break-all">{{ member.buddy?.name ?? member.id }}</strong>
-              <span v-if="!member.buddy || !member.buddy.enabled" class="text-[12px] text-muted">{{ member.buddy ? labels.paused : labels.unavailableChoice }}</span>
+              <span v-if="!member.buddy || !member.buddy.enabled" class="text-[12px] text-muted">{{ member.buddy && !member.buddy.managed ? labels.paused : labels.unavailableChoice }}</span>
             </div>
             <p v-if="member.buddy?.description" class="m-0 mt-1 text-[12px] text-muted leading-relaxed break-words line-clamp-2">
               {{ member.buddy.description }}

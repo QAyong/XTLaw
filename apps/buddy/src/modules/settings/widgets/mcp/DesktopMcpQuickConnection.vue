@@ -4,13 +4,16 @@ import type { BuddyLocale } from '@/i18n/buddyI18n'
 import { NButton, NSwitch, NTag, NTooltip } from 'naive-ui'
 import { computed } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
+import { connectorCanEnable, connectorCanLogin, connectorUserEnabled } from '../../model/desktopConnectorManaged'
+import DesktopMcpManagedSource from './DesktopMcpManagedSource.vue'
 
 const props = defineProps<{ connector: LocalConnector, language: BuddyLocale, busy: boolean, codemodeEnabled: boolean }>()
 const emit = defineEmits<{ toggle: [enabled: boolean], reconnect: [], tools: [], login: [], cancelLogin: [], runtime: [] }>()
 const { t } = useBuddyI18n(() => props.language)
 const authenticating = computed(() => props.connector.runtime.status === 'authenticating')
-const canLogin = computed(() => props.connector.runtime.authorization === 'oauth'
-  && ['MCP_AUTHENTICATION_REQUIRED', 'MCP_AUTHENTICATION_FAILED', 'MCP_AUTHENTICATION_CANCELLED', 'MCP_ACCESS_DENIED'].includes(props.connector.runtime.errorCode ?? ''))
+const canLogin = computed(() => connectorCanLogin(props.connector))
+const userEnabled = computed(() => connectorUserEnabled(props.connector))
+const toggleDisabled = computed(() => props.busy || (!userEnabled.value && !connectorCanEnable(props.connector)))
 const cachedTools = computed(() => props.connector.runtime.updatedAt !== null && props.connector.runtime.status !== 'ready')
 const showStatusTag = computed(() => {
   if (!props.connector.enabled)
@@ -34,11 +37,12 @@ const canReconnect = computed(() => {
       </NTag>
       <NTooltip>
         <template #trigger>
-          <NSwitch :round="false" :value="connector.enabled" :disabled="busy" :aria-label="`${t('desktop.mcp.enabled')}: ${connector.name}`" @update:value="emit('toggle', $event)" />
+          <NSwitch :round="false" :value="userEnabled" :disabled="toggleDisabled" :aria-disabled="toggleDisabled" :aria-label="`${t('desktop.mcp.enabled')}: ${connector.name}`" @update:value="emit('toggle', $event)" />
         </template>
-        {{ t(connector.enabled ? 'desktop.mcp.disableHint' : 'desktop.mcp.enableHint') }}
+        {{ t(userEnabled ? 'desktop.mcp.disableHint' : 'desktop.mcp.enableHint') }}
       </NTooltip>
     </div>
+    <DesktopMcpManagedSource v-if="connector.managed" :source="connector.managed" :language="language" />
     <div class="flex flex-wrap items-center gap-[0.35rem] mt-[0.35rem] text-muted text-[0.78rem]">
       <NButton
         v-if="connector.runtime.toolCount"
@@ -58,7 +62,7 @@ const canReconnect = computed(() => {
         <NButton v-if="authenticating" size="tiny" quaternary :disabled="busy" @click="emit('cancelLogin')">
           {{ t('desktop.mcp.cancelLogin') }}
         </NButton>
-        <NButton v-else-if="connector.enabled && canLogin" size="tiny" type="primary" :disabled="busy" @click="emit('login')">
+        <NButton v-else-if="canLogin && (connector.enabled || connector.managed)" size="tiny" type="primary" :disabled="busy" @click="emit('login')">
           {{ t('desktop.mcp.login') }}
         </NButton>
         <NButton v-else-if="canReconnect" size="tiny" quaternary :disabled="busy || connector.runtime.status === 'connecting'" @click="emit('reconnect')">

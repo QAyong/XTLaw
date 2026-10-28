@@ -1,63 +1,6 @@
 import { z } from 'zod'
-
-// Capabilities an extension contributes besides skills (which keep using `contributes.skills`): MCP connector
-// records and NPC sub-agents. Neither carries code. The host turns them into rows in its own stores.
-const localId = z.string().regex(/^[a-z0-9][a-z0-9_-]{0,63}$/)
-
-// Mirrors the tool selection of a sub-agent's settings. It is kept here, not imported, because the manifest schema is
-// also loaded by the plugin SDK export under plain Node, which cannot follow the extensionless imports of the settings module.
-const toolIdSchema = z.string().min(1).max(16384).refine((value) => {
-  try {
-    const identity: unknown = JSON.parse(value)
-    return Array.isArray(identity) && identity.length === 3
-      && identity.every(part => typeof part === 'string' && part.length > 0)
-      && JSON.stringify(identity) === value
-  }
-  catch {
-    return false
-  }
-})
-const subagentToolSelectionSchema = z.discriminatedUnion('mode', [
-  z.object({ mode: z.literal('all') }).strict(),
-  z.object({ mode: z.literal('none') }).strict(),
-  z.object({ mode: z.literal('selected'), ids: z.array(toolIdSchema).min(1).max(256).refine(ids => new Set(ids).size === ids.length) }).strict(),
-])
-
-export const extensionMcpConnectorContributionSchema = z.object({
-  id: localId,
-  name: z.string().trim().min(1).max(128),
-  transport: z.literal('streamable-http'),
-  url: z.url().max(2048).refine((value) => {
-    const url = new URL(value)
-    return url.protocol === 'https:' && !!url.hostname && !url.username && !url.password
-  }, 'Expected an HTTPS address without credentials'),
-  deferred: z.boolean().default(true),
-  credential: z.enum(['none', 'bearer', 'oauth']).default('none'),
-}).strict()
-
-export const extensionSubagentContributionSchema = z.object({
-  id: localId,
-  kind: z.literal('npc'),
-  name: z.string().trim().min(1).max(80),
-  description: z.string().trim().max(500).default(''),
-  instructions: z.string().min(1).max(16000),
-  tools: subagentToolSelectionSchema,
-  fileAccess: z.enum(['inherit', 'read_only']).default('read_only'),
-}).strict()
-
-export type ExtensionMcpConnectorContribution = z.infer<typeof extensionMcpConnectorContributionSchema>
-export type ExtensionSubagentContribution = z.infer<typeof extensionSubagentContributionSchema>
-
-/** MCP connectors a sub-agent's selected tools point at, from the `[source, group, name]` tool identities. */
-export function subagentConnectorReferences(subagent: Pick<ExtensionSubagentContribution, 'tools'>): string[] {
-  if (subagent.tools.mode !== 'selected')
-    return []
-  const ids = subagent.tools.ids.flatMap((id) => {
-    const identity: unknown = JSON.parse(id)
-    return Array.isArray(identity) && identity[0] === 'mcp' && typeof identity[1] === 'string' ? [identity[1]] : []
-  })
-  return [...new Set(ids)]
-}
+import { extensionMcpConnectorContributionSchema } from './extensionMcpConnectors.ts'
+import { extensionSubagentContributionSchema } from './extensionSubagents.ts'
 
 export const extensionCapabilityDescriptorSchema = z.object({
   extensionId: z.string().min(1),
@@ -66,12 +9,14 @@ export const extensionCapabilityDescriptorSchema = z.object({
   enabled: z.boolean(),
   mcpConnectors: z.array(extensionMcpConnectorContributionSchema),
   subagents: z.array(extensionSubagentContributionSchema),
+  skills: z.array(z.string().min(1)).default([]),
 }).strict()
 
 export type ExtensionCapabilityDescriptor = z.infer<typeof extensionCapabilityDescriptorSchema>
 
 export const extensionCapabilityImpactSchema = z.object({
-  modified: z.array(z.object({ kind: z.enum(['mcp', 'agent']), name: z.string() }).strict()),
+  retained: z.array(z.object({ kind: z.enum(['mcp', 'subagent']), name: z.string() }).strict()),
+  dependents: z.array(z.object({ id: z.string(), name: z.string() }).strict()),
 }).strict()
 export type ExtensionCapabilityImpact = z.infer<typeof extensionCapabilityImpactSchema>
 
@@ -81,20 +26,18 @@ export const extensionCapabilityImpactRpc = {
   response: extensionCapabilityImpactSchema,
 } as const
 
+export const extensionCapabilityApplyRpc = {
+  method: 'extensions.capabilities.apply',
+  input: z.object({
+    descriptors: z.array(extensionCapabilityDescriptorSchema).max(512),
+    clearExtensionId: z.string().min(1).max(120).optional(),
+  }).strict(),
+  response: z.null(),
+} as const
+
 export const extensionCapabilitiesRpc = {
+  apply: extensionCapabilityApplyRpc.method,
   list: 'extensions.capabilities.list',
   changed: 'extensions.capabilities.changed',
   impact: extensionCapabilityImpactRpc.method,
 } as const
-
-/** Row id of a sub-agent an extension contributes. The prefix keeps it apart from sub-agents the user created and from the built-in ones. */
-export function extensionSubagentId(extensionId: string, subagentId: string): string {
-  return `ext.${extensionId}.${subagentId}`
-}
-
-/** Sub-agents that ship inside the application. A package may not declare one with the same ID. */
-export const BUILTIN_SUBAGENT_IDS = ['npc-explorer', 'npc-researcher', 'npc-executor', 'npc-reviewer'] as const
-
-export function connectorToolExposure(connector: Pick<ExtensionMcpConnectorContribution, 'deferred'>) {
-  return connector.deferred ? 'deferred' as const : 'direct' as const
-}

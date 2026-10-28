@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import type { ExtensionReview } from '@buddy-shared/extensions/extensionApi'
 import type { FileOpeningChoice, FileOpeningReviewChoice } from '@buddy-shared/files/fileOpening'
-import { subagentConnectorReferences } from '@buddy-shared/extensions/extensionCapabilities'
 import { Warning20Regular } from '@vicons/fluent'
 import { NButton, NCheckbox, NEllipsis, NModal, NTag } from 'naive-ui'
-import { computed, shallowRef } from 'vue'
+import { computed, shallowRef, watch } from 'vue'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import DesktopPluginIcon from '@/shared/ui/icon/DesktopPluginIcon.vue'
 import { extensionLabels } from '../extensionLabels'
 import DesktopExtensionFileAssociations from './DesktopExtensionFileAssociations.vue'
+import DesktopExtensionReviewCapabilities from './DesktopExtensionReviewCapabilities.vue'
 import DesktopExtensionReviewPermissions from './DesktopExtensionReviewPermissions.vue'
 
 const props = defineProps<{ review: ExtensionReview, language: string, busy: boolean }>()
@@ -22,15 +22,11 @@ const skills = computed(() => props.review.manifest.contributes.skills.map(skill
   name: skill.path.split('/').at(-2)!,
 })))
 const dependencies = computed(() => Object.entries(props.review.manifest.dependencies))
-const connectors = computed(() => props.review.manifest.contributes.mcpConnectors)
-// Every sub-agent names the connectors its tool selection reaches, which the manifest guarantees travel with the same package.
-const subagents = computed(() => props.review.manifest.contributes.subagents.map(agent => ({
-  ...agent,
-  tools: agent.tools.mode === 'selected' ? labels.value.reviewAgentTools.selected.replace('{n}', String(agent.tools.ids.length)) : labels.value.reviewAgentTools[agent.tools.mode],
-  files: labels.value.reviewAgentFiles[agent.fileAccess],
-  connectors: subagentConnectorReferences(agent).map(id => connectors.value.find(connector => connector.id === id)?.name ?? id),
-})))
 const selectedAssociations = shallowRef(initialAssociations())
+watch(() => props.review.token, () => {
+  selectedAssociations.value = initialAssociations()
+  applyUpdate.value = true
+})
 function initialAssociations(): FileOpeningChoice[] {
   const selected = new Map<string, FileOpeningReviewChoice>()
   for (const choice of associations.value) {
@@ -42,6 +38,8 @@ function initialAssociations(): FileOpeningChoice[] {
     .map(({ extension, location, providerId }) => ({ extension, location, providerId }))
 }
 function install() {
+  if (props.busy)
+    return
   const changes = selectedAssociations.value.filter(selected => associations.value.some(choice => choice.extension === selected.extension && choice.location === selected.location && choice.providerId === selected.providerId && choice.currentProviderId !== selected.providerId))
   emit('install', applyUpdate.value, changes)
 }
@@ -86,19 +84,15 @@ const source = computed(() => props.review.development ? (english.value ? 'Devel
       {{ review.manifest.description }}
     </p>
 
-    <DesktopExtensionReviewPermissions class="mt-5" :review="review" :language="language" />
-
-    <DesktopExtensionFileAssociations
-      v-if="associations.length"
-      v-model="selectedAssociations"
-      class="mt-5 border-t border-t-solid border-t-border pt-4"
-      :associations="associations" :language="language" :busy="busy"
+    <DesktopExtensionReviewCapabilities
+      :key="review.token"
+      :review="review" :language="language" :busy="busy"
     />
 
     <section v-if="skills.length" class="mt-4" data-testid="extension-included-skills">
       <div class="flex flex-wrap items-start gap-x-4 gap-y-2">
         <h3 class="m-0 w-[112px] shrink-0 text-[13px] font-medium leading-[1.8] text-muted">
-          {{ english ? 'Included skills' : '附带技能' }}
+          {{ english ? 'Skills' : '技能' }}
         </h3>
         <ul class="m-0 p-0 flex flex-1 flex-wrap gap-1.5 list-none">
           <li v-for="skill in skills" :key="skill.id" class="min-w-0 max-w-full">
@@ -108,38 +102,14 @@ const source = computed(() => props.review.development ? (english.value ? 'Devel
       </div>
     </section>
 
-    <section v-if="connectors.length" class="mt-4" data-testid="extension-included-mcp">
-      <h3 class="m-0 mb-2 text-[13px] font-semibold leading-[1.6] text-fg">
-        {{ labels.reviewMcp }}
-      </h3>
-      <ul class="m-0 p-0 grid gap-3 list-none">
-        <li v-for="connector in connectors" :key="connector.id" class="grid gap-0.5 text-fg text-[13px] [overflow-wrap:anywhere]">
-          <strong>{{ connector.name }}</strong>
-          <span class="text-[12px] text-muted leading-[1.6]">{{ labels.reviewMcpAddress }}：<code>{{ connector.url }}</code></span>
-          <span class="text-[12px] text-muted leading-[1.6]">{{ labels.reviewMcpCredential[connector.credential] }} · {{ labels.reviewMcpExposure[connector.deferred ? 'deferred' : 'direct'] }}</span>
-        </li>
-      </ul>
-      <p class="mt-2 mb-0 text-[12px] text-muted leading-[1.6]">
-        {{ labels.reviewMcpNoDownload }}
-      </p>
-    </section>
+    <DesktopExtensionReviewPermissions class="mt-5" :review="review" :language="language" />
 
-    <section v-if="subagents.length" class="mt-4" data-testid="extension-included-agents">
-      <h3 class="m-0 mb-2 text-[13px] font-semibold leading-[1.6] text-fg">
-        {{ labels.reviewAgents }}
-      </h3>
-      <ul class="m-0 p-0 grid gap-3 list-none">
-        <li v-for="agent in subagents" :key="agent.id" class="grid gap-0.5 text-fg text-[13px] [overflow-wrap:anywhere]">
-          <strong>{{ agent.name }}</strong>
-          <span v-if="agent.description" class="text-[12px] text-muted leading-[1.6]">{{ agent.description }}</span>
-          <span class="text-[12px] text-muted leading-[1.6]">{{ agent.tools }} · {{ agent.files }}</span>
-          <span v-if="agent.connectors.length" class="text-[12px] text-muted leading-[1.6]">{{ labels.reviewAgentConnectors }}{{ agent.connectors.join('、') }}</span>
-        </li>
-      </ul>
-      <p class="mt-2 mb-0 text-[12px] text-muted leading-[1.6]">
-        {{ labels.reviewAgentDelegate }}
-      </p>
-    </section>
+    <DesktopExtensionFileAssociations
+      v-if="associations.length"
+      v-model="selectedAssociations"
+      class="mt-5 border-t border-t-solid border-t-border pt-4"
+      :associations="associations" :language="language" :busy="busy"
+    />
 
     <section v-if="dependencies.length" class="mt-4">
       <h3 class="m-0 mb-2 text-[13px] font-semibold leading-[1.6] text-fg">
@@ -170,7 +140,7 @@ const source = computed(() => props.review.development ? (english.value ? 'Devel
         <NButton :disabled="busy" @click="emit('cancel')">
           {{ labels.cancel }}
         </NButton>
-        <NButton type="primary" :loading="busy" data-testid="extension-confirm-install" @click="install">
+        <NButton type="primary" :loading="busy" :disabled="busy" data-testid="extension-confirm-install" @click="install">
           {{ review.currentVersion ? (applyUpdate ? labels.updateAndApply : labels.update) : labels.confirm }}
         </NButton>
       </div>
@@ -180,7 +150,7 @@ const source = computed(() => props.review.development ? (english.value ? 'Devel
 
 <style scoped lang="scss">
 :global(.extension-install-review) {
-  width: min(660px, calc(100vw - 32px));
+  width: min(720px, calc(100vw - 32px));
   max-height: calc(100dvh - 48px);
   border-radius: 12px;
 }

@@ -70,7 +70,8 @@ async function created(buddy: LocalBuddy) {
             <BuddyAvatar :buddy-id="buddy.id" :src="buddy.avatar" class="size-9" />
             <span class="min-w-0 flex-1">
               <span class="block truncate text-sidebar-item font-600">{{ buddy.name }}</span>
-              <span class="block mt-0.5 text-[11px] text-muted">{{ buddy.enabled ? (buddy.kind === 'actor' ? labels.actor : labels.npc) : labels.paused }}</span>
+              <span class="block mt-0.5 text-[11px] text-muted">{{ buddy.enabled ? (buddy.kind === 'actor' ? labels.actor : labels.npc) : buddy.managed ? labels.unavailableChoice : labels.paused }}</span>
+              <span v-if="buddy.managed" class="block mt-0.5 truncate text-[11px] text-muted">{{ labels.managedSource(buddy.managed.extensionName) }}</span>
             </span>
             <NTag v-if="catalog?.defaultBuddyId === buddy.id" size="small" :bordered="false" class="shrink-0">
               {{ labels.default }}

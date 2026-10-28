@@ -4,7 +4,6 @@ import type { Component } from 'vue'
 import { Alert20Regular, Clipboard20Regular, Clock20Regular, Document20Regular, Folder20Regular, Globe20Regular, Link20Regular, Settings20Regular, Sparkle20Regular, Warning20Regular } from '@vicons/fluent'
 import { computed } from 'vue'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
-import { extensionLabels } from '../extensionLabels'
 
 interface ReviewOperation {
   key: string
@@ -22,7 +21,6 @@ interface ReviewResource {
 
 const props = defineProps<{ review: ExtensionReview, language: string }>()
 const english = computed(() => props.language === 'en-US')
-const labels = computed(() => extensionLabels(props.language))
 const resources = computed<ReviewResource[]>(() => {
   const p = props.review.manifest.permissions
   const fileRead = [
@@ -180,11 +178,11 @@ function isNewOperation(operation: ReviewOperation): boolean {
 </script>
 
 <template>
-  <section class="extension-review-permissions" data-testid="extension-review-permissions">
+  <section v-if="resources.length" class="extension-review-permissions" data-testid="extension-review-permissions">
     <h3 class="m-0 mb-3 text-[13px] font-semibold leading-[1.6] text-fg">
-      {{ english ? 'This plugin can' : '此插件可以' }}
+      {{ english ? 'Requested permissions' : '申请权限' }}
     </h3>
-    <dl v-if="resources.length" class="m-0 grid gap-y-3">
+    <dl class="m-0 grid gap-y-3">
       <div v-for="resource in resources" :key="resource.key" class="extension-review-resource grid grid-cols-[112px_minmax(0,1fr)] gap-x-4 gap-y-1" :data-permission="resource.key">
         <dt class="m-0 flex items-start gap-2 text-[13px] leading-[1.6] text-muted">
           <DesktopIcon class="mt-0.5 shrink-0" :component="resource.icon" :size="16" aria-hidden="true" />
@@ -203,15 +201,9 @@ function isNewOperation(operation: ReviewOperation): boolean {
         </dd>
       </div>
     </dl>
-    <p v-else class="m-0 text-[12px] text-muted leading-[1.6]">
-      {{ labels.none }}
-    </p>
     <p v-if="sharesContent" class="mt-3 mb-0 flex items-start gap-2 text-[12px] leading-[1.65] text-warning" data-testid="extension-content-sharing-warning">
       <DesktopIcon class="mt-0.5 shrink-0" :component="Warning20Regular" :size="16" aria-hidden="true" />
       {{ english ? 'This plugin can send authorized content to the listed websites.' : '此插件可向列出的网站发送已授权读取的内容。' }}
-    </p>
-    <p v-if="review.currentVersion && !review.addedPermissions.length" class="mt-3 mb-0 text-[12px] text-muted leading-[1.6]">
-      {{ labels.noAdded }}
     </p>
   </section>
 </template>

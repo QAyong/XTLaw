@@ -58,6 +58,7 @@ export function registerMcpConnectorRpc(
 
 function toPublicConnector(record: McpServerRecord, runtime: ConnectorRuntimeState) {
   const common = {
+    ...(record.managed ? { managed: record.managed } : {}),
     runtime,
     credentialConfigured: record.credentialRef !== null,
     enabled: record.enabled,

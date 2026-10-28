@@ -6,6 +6,8 @@ export default {
   'desktop.error.buddyInvalidNpcBinding': '绑定的 NPC 不可用，请检查角色配置',
   'desktop.error.buddyCapabilityUnavailable': '角色选择的能力当前不可用，请检查工具配置',
   'desktop.error.buddyDeleted': '伙伴已删除，无法再选择或修改',
+  'desktop.error.mcpManagedReadOnly': '此连接由插件管理，不能修改来源定义或直接删除。',
+  'desktop.error.buddyManagedProtected': '此伙伴由插件管理，定义不可编辑或删除。可停用、前往插件管理，或创建自定义副本。',
   'desktop.error.buddyBuiltinProtected': '内置伙伴不可删除',
   'desktop.error.buddyDefaultProtected': '请先将其他伙伴设为默认，再删除这个伙伴',
   'desktop.error.buddyResetUnavailable': '只有内置伙伴支持恢复默认资料',

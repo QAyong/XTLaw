@@ -2,6 +2,7 @@ import type { WebCapabilityOptions } from '../WebCapabilityService'
 import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import process from 'node:process'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { applicationDiagnosticSchema } from '../../../../shared/diagnostics/applicationDiagnostic'
 import { DEFAULT_WEB_SETTINGS, WebError } from '../../../../shared/network/webProtocol'
@@ -161,6 +162,14 @@ describe('web capability routing', () => {
       expect(requests).toHaveLength(1)
     })
   })
+
+  it('reports unavailable native authentication without inventing a site attempt', async () => {
+    const { service } = await fixture()
+    const result = await service.search({ query: 'query', provider: 'native', model: { api: 'openai-responses', provider: 'fixture', id: 'fixture', baseUrl: 'https://example.com' } as never })
+    expect(result).toMatchObject({ ok: false, code: 'WEB_PROVIDER_UNAVAILABLE', attempts: [] })
+    await service.dispose()
+  })
+
   it('does not send a native request if disabled while authentication is resolving', async () => {
     const { options, settings } = await fixture()
     const sent: string[] = []
@@ -204,7 +213,8 @@ describe('web capability routing', () => {
     const { options } = await fixture()
     const cache = new WebContentCache(options.paths)
     const { path: other } = await cache.write('other-conversation', 'Other content')
-    expect((await stat(other)).mode & 0o777).toBe(0o600)
+    if (process.platform !== 'win32')
+      expect((await stat(other)).mode & 0o777).toBe(0o600)
     await Promise.all(Array.from({ length: 35 }, (_, index) => cache.write('conversation', `Content ${index}`)))
     expect(await readdir(join(options.paths.conversationDirectory('conversation'), 'web-cache'))).toHaveLength(32)
     expect(await readFile(other, 'utf8')).toBe('Other content')
@@ -268,5 +278,66 @@ describe('web capability routing', () => {
     const explicit = await service.search({ query: 'query', provider: 'duckduckgo' })
     expect(explicit).toMatchObject({ ok: false, code: 'WEB_CHALLENGE', provider: 'duckduckgo', attempts: [{ provider: 'duckduckgo', code: 'WEB_CHALLENGE' }] })
     expect(explicit.attempts).toHaveLength(1)
+  })
+})
+
+describe('web operation admission', () => {
+  it('bounds accepted operations and removes them after completion', async () => {
+    const { options } = await fixture()
+    const finish = Promise.withResolvers<void>()
+    options.host.render = async () => {
+      await finish.promise
+      return { ok: false, code: 'WEB_CANCELLED' }
+    }
+    options.host.get = async url => ({ url, status: 200, headers: new Headers({ 'content-type': 'text/html' }), bytes: new TextEncoder().encode('<html><body><div id="root"></div><script src="app.js"></script></body></html>') })
+    const service = new WebCapabilityService(options)
+    const pending = Array.from({ length: 64 }, () => service.fetch({ url: 'https://example.com', conversationId: 'conversation' }))
+    expect(await service.search({ query: 'overflow' })).toMatchObject({ ok: false, code: 'WEB_BUSY', attempts: [] })
+    finish.resolve()
+    await Promise.all(pending)
+    expect(service.snapshot.active).toEqual([])
+    await service.dispose()
+  })
+
+  it('lets a public search complete while four fetch operations wait for rendering', async () => {
+    const { options } = await fixture()
+    const originalGet = options.host.get
+    const finish = Promise.withResolvers<void>()
+    let renders = 0
+    options.host.get = (url, signal, limit) => url.includes('bing.com')
+      ? originalGet(url, signal, limit)
+      : Promise.reject(new WebError('WEB_RENDER_REQUIRED'))
+    options.host.render = async () => {
+      renders++
+      await finish.promise
+      return { ok: false, code: 'WEB_CANCELLED' }
+    }
+    const service = new WebCapabilityService(options)
+    const pending = Array.from({ length: 4 }, () => service.fetch({ url: 'https://example.com', conversationId: 'conversation' }))
+    try {
+      await vi.waitFor(() => expect(renders).toBe(4))
+      expect(await service.search({ query: 'independent search', provider: 'bing' })).toMatchObject({ ok: true, provider: 'bing' })
+    }
+    finally {
+      finish.resolve()
+      await Promise.all(pending)
+      await service.dispose()
+    }
+  })
+
+  it.each(['WEB_BUSY', 'WEB_QUEUE_TIMEOUT'] as const)('does not turn %s into a site failure or a paid fallback', async (code) => {
+    const { options, settings } = await fixture()
+    settings.fetch.remote = true
+    options.settings.getTavilyKey = async () => 'fixture-only-key'
+    options.host.get = async () => {
+      throw new WebError(code)
+    }
+    options.host.providerFetch = async () => {
+      throw new Error('Paid fallback must not start')
+    }
+    const service = new WebCapabilityService(options)
+    expect(await service.fetch({ url: 'https://example.com', conversationId: 'conversation' })).toMatchObject({ ok: false, code, attempts: [] })
+    expect(await service.search({ query: 'example' })).toMatchObject({ ok: false, code, attempts: [] })
+    await service.dispose()
   })
 })

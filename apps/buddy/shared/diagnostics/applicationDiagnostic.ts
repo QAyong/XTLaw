@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { extensionDiagnosticSchema } from '../extensions/extensionDiagnostic'
 import { extensionIdSchema } from '../extensions/extensionManifest'
 import { readLifecycleFailure } from '../lifecycle/lifecycleFailure'
+import { webResourceFactSchema } from '../network/webProtocol'
 import { sandboxProcessStateSchema } from '../permissions/sandboxLifecycle'
 import { credentialVaultFailureSchema } from './credentialVaultFailure'
 import { desktopBootstrapFailureSchema, processExitSchema, rendererLoadFailureSchema } from './desktopStartupDiagnostic'
@@ -53,6 +54,7 @@ export const applicationDiagnosticSchema = z.object({
   cpuProfile: cpuProfileSummarySchema.optional(),
   output: z.object({ bytes: z.number().int().nonnegative(), chunks: z.number().int().nonnegative() }).strict().optional(),
   sandboxProcess: sandboxProcessStateSchema.optional(),
+  webResource: webResourceFactSchema.optional(),
   recorderLoss: z.object({ dropped: z.number().int().nonnegative(), failed: z.number().int().nonnegative() }).strict().optional(),
   processExit: processExitSchema.optional(),
   loadFailure: rendererLoadFailureSchema.optional(),

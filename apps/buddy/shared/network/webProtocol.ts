@@ -48,6 +48,7 @@ export const WEB_ERROR_CODES = [
   'WEB_TIMEOUT',
   'WEB_CANCELLED',
   'WEB_BUSY',
+  'WEB_QUEUE_TIMEOUT',
 ] as const
 
 export const webErrorCodeSchema = z.enum(WEB_ERROR_CODES)
@@ -55,8 +56,33 @@ export type WebErrorCode = z.infer<typeof webErrorCodeSchema>
 export type WebSettings = z.infer<typeof webSettingsSchema>
 export type WebSettingsSnapshot = z.infer<typeof webSettingsSnapshotSchema>
 
+export const webRequestBudgetSchema = z.object({
+  operationId: z.uuid(),
+  deadline: z.number().int().positive(),
+  executionMs: z.number().int().min(1).max(50_000),
+}).strict()
+export type WebRequestBudget = z.infer<typeof webRequestBudgetSchema>
+
+export const webPreflightResultSchema = z.discriminatedUnion('ok', [
+  z.object({ ok: z.literal(true), executionMs: z.number().int().min(1).max(50_000) }).strict(),
+  z.object({ ok: z.literal(false), code: webErrorCodeSchema }).strict(),
+])
+
+export const webResourceFactSchema = z.object({
+  requestId: z.uuid(),
+  operationId: z.uuid(),
+  kind: z.enum(['network', 'render']),
+  phase: z.enum(['queued', 'running', 'cleaning', 'released', 'rejected', 'cleanup-failed']),
+  active: z.number().int().nonnegative(),
+  queued: z.number().int().nonnegative(),
+  durationMs: z.number().nonnegative(),
+  code: webErrorCodeSchema.optional(),
+}).strict()
+export type WebResourceFact = z.infer<typeof webResourceFactSchema>
+
 export const webRenderInputSchema = z.object({
   requestId: z.uuid(),
+  budget: webRequestBudgetSchema,
   url: z.string().min(1).max(4096),
 }).strict()
 export const webRenderCancelSchema = webRenderInputSchema.pick({ requestId: true })
@@ -72,6 +98,7 @@ export type WebRenderResult = z.infer<typeof webRenderResultSchema>
 
 export const webNetworkRequestSchema = z.object({
   requestId: z.uuid(),
+  budget: webRequestBudgetSchema,
   url: z.string().min(1).max(4096),
   scope: z.enum(['public', 'provider']),
   method: z.enum(['GET', 'POST']),
@@ -104,7 +131,9 @@ export class WebError extends Error {
 }
 
 export function webError(error: unknown, signal?: AbortSignal): WebError {
+  if (signal?.aborted && signal.reason?.name === 'TimeoutError' && error instanceof WebError && error.code === 'WEB_QUEUE_TIMEOUT')
+    return error
   if (signal?.aborted)
-    return new WebError(signal.reason?.name === 'TimeoutError' ? 'WEB_TIMEOUT' : 'WEB_CANCELLED')
+    return signal.reason instanceof WebError ? signal.reason : new WebError(signal.reason?.name === 'TimeoutError' ? 'WEB_TIMEOUT' : 'WEB_CANCELLED')
   return error instanceof WebError ? error : new WebError('WEB_NETWORK_ERROR')
 }

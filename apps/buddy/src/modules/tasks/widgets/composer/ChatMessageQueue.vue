@@ -111,9 +111,9 @@ const rows = computed(() => props.items.map((item) => {
     display: flex;
     align-items: center;
     min-width: 0;
-    height: 38px;
+    min-height: 38px;
     gap: 0.5rem;
-    padding: 0 0.35rem 0 0.65rem;
+    padding: 0.25rem 0.35rem 0.25rem 0.65rem;
 
     & + & { border-top: 1px solid var(--buddy-border-subtle); }
   }

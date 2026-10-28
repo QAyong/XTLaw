@@ -18,7 +18,6 @@ import { throwIfNetworkAuthorizationFailed } from '../network/networkAuthorizati
 import { githubWebFetch } from './githubWebFetch'
 import { nativeSearchFamily, nativeWebSearch } from './NativeWebSearch'
 import { sogouWeixinSearch } from './sogouWeixinSearch'
-import { WebConcurrencyGate } from './WebConcurrencyGate'
 import { extractHtml, extractWebResource } from './webContent'
 import { WebContentCache } from './WebContentCache'
 import { publicWebSearch, tavilyRequest, tavilySearch } from './webSearchBackends'
@@ -44,12 +43,6 @@ const STOP_FETCH_FALLBACK = new Set<WebErrorCode>([
   'WEB_CACHE_FAILED',
 ])
 
-// The host rejects a third concurrent render, so renders queue here instead of reaching it.
-const MAX_ACTIVE_OPERATIONS = 4
-const MAX_RENDERS = 2
-const MAX_QUEUED_OPERATIONS = 64
-const QUEUE_WAIT_MS = 30_000
-
 export class WebCapabilityService {
   readonly #changes = new Emitter<WebCapabilityChange>(() => console.error('WEB_OBSERVER_FAILED'))
   readonly onDidChange = this.#changes.event
@@ -59,8 +52,7 @@ export class WebCapabilityService {
   readonly #options: WebCapabilityOptions
   readonly #shutdown = new AbortController()
   readonly #cache: WebContentCache
-  readonly #gate = new WebConcurrencyGate(MAX_ACTIVE_OPERATIONS, MAX_QUEUED_OPERATIONS, QUEUE_WAIT_MS)
-  readonly #renderGate = new WebConcurrencyGate(MAX_RENDERS, MAX_QUEUED_OPERATIONS, QUEUE_WAIT_MS)
+  #active = 0
 
   constructor(options: WebCapabilityOptions) {
     this.#options = options
@@ -161,8 +153,7 @@ export class WebCapabilityService {
               if (failure.code !== 'WEB_RENDER_REQUIRED' || !this.#options.settings.get().fetch.render)
                 throw failure
               publish({ phase: 'render-fallback', provider, mode: 'render', attempt: attempts.length + 1 })
-              const releaseRender = await this.#renderGate.acquire(attemptSignal)
-              const rendered = await this.#options.host.render(url.href, attemptSignal).finally(releaseRender)
+              const rendered = await this.#options.host.render(url.href, attemptSignal)
               if (!rendered.ok)
                 throw new WebError(rendered.code)
               document = extractHtml(rendered.html, rendered.url)
@@ -263,28 +254,16 @@ export class WebCapabilityService {
     const attempts: WebAttempt[] = []
     if (this.#shutdown.signal.aborted)
       return Promise.resolve({ ok: false, provider: null, code: 'WEB_CANCELLED', attempts })
+    if (this.#active >= 4)
+      return Promise.resolve({ ok: false, provider: null, code: 'WEB_BUSY', attempts })
+    this.#active++
     const operationId = randomUUID()
     const publish: WebOperationObserver = fact => this.#changes.fire(copyEventSnapshot({ ...fact, kind, operationId, revision: ++this.#revision }))
-    const accepted = (async (): Promise<T | WebFailure> => {
-      const queuedAt = performance.now()
-      const queueSignal = AbortSignal.any([this.#shutdown.signal, ...(parent ? [parent] : [])])
-      let release: () => void
-      try {
-        if (this.#gate.saturated)
-          publish({ phase: 'queued', count: this.#gate.queued + 1 })
-        release = await this.#gate.acquire(queueSignal)
-      }
-      catch (error) {
-        const failure = webError(error, queueSignal)
-        this.#pending.delete(operationId)
-        publish({ phase: 'settled', outcome: 'failed', errorCode: failure.code, cancelled: queueSignal.aborted, durationMs: Math.round(performance.now() - queuedAt) })
-        return { ok: false, provider: null, code: failure.code, attempts }
-      }
-      // The execution timeout starts once a slot is held, so time spent queued does not eat into it.
-      const signal = AbortSignal.any([this.#shutdown.signal, AbortSignal.timeout(90_000), ...(parent ? [parent] : [])])
+    const signal = AbortSignal.any([this.#shutdown.signal, AbortSignal.timeout(90_000), ...(parent ? [parent] : [])])
+    const accepted = Promise.resolve().then(async (): Promise<T | WebFailure> => {
       let outcome: 'completed' | 'failed' = 'completed'
       const started = performance.now()
-      publish({ phase: 'started', durationMs: Math.round(started - queuedAt) })
+      publish({ phase: 'started' })
       try {
         signal.throwIfAborted()
         return await operation(signal, attempts, publish)
@@ -295,11 +274,11 @@ export class WebCapabilityService {
         return { ok: false, provider: attempts.at(-1)?.provider ?? null, code: webError(error, signal).code, attempts }
       }
       finally {
-        release()
+        this.#active--
         this.#pending.delete(operationId)
         publish({ phase: 'settled', outcome, cancelled: signal.aborted, durationMs: Math.round(performance.now() - started) })
       }
-    })()
+    })
     this.#pending.set(operationId, { kind, promise: accepted })
     return accepted
   }

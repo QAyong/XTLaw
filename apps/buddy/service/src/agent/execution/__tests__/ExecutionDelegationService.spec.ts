@@ -5,6 +5,7 @@ import { SessionManager } from '@earendil-works/pi-coding-agent'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { buddySettingsSchema } from '../../../../../shared/buddies/buddySettings'
 import { EXECUTION_MAILBOX_ENTRY_TYPE, executionMailboxMessageSchema } from '../../../../../shared/executions/executionApi'
+import { managedBuddyFixture } from '../../../buddies/__tests__/managedBuddyFixture'
 import { BuddyDefinitionResolver } from '../../../buddies/BuddyDefinitionResolver'
 import { createExecutionStorageFixture } from '../../../storage/__tests__/executionFixture'
 import { createConversationMemberRepository } from '../../../storage/conversationMemberRepository'
@@ -56,6 +57,24 @@ function fixture() {
 }
 
 describe('execution delegation boundary', () => {
+  it.each(['disabled', 'removed', 'unavailable', 'dependency'] as const)('hides %s managed NPCs and rejects stale target IDs without blocking actor partners', async (reason) => {
+    const f = fixture()
+    const managed = managedBuddyFixture(f.database)
+    const npc = f.buddies.upsertManagedNpc(managed.input)
+    const actor = f.buddies.get('default')
+    f.buddies.update({ buddyId: actor.id, expectedRevision: actor.revision, settings: buddySettingsSchema.parse({ ...actor.settings, npcIds: [npc.id] }) })
+    f.runs.create({ ...f.runs.findById('root')!, id: 'managed-root', rootRunId: 'managed-root', actorSnapshot: f.snapshot('default') })
+    const caller = { ...f.caller, run: { ...f.caller.run, runId: 'managed-root' } }
+    await expect(f.service.execute(caller, 'before', { operation: 'list' }, f.controller.signal)).resolves.toMatchObject({ npcs: [{ id: npc.id }] })
+    if (reason === 'dependency')
+      managed.sources.setUnavailableReason(npc.id, 'dependency_unavailable')
+    else
+      managed.sources.setState(npc.id, reason)
+    await expect(f.service.execute(caller, 'after', { operation: 'list' }, f.controller.signal)).resolves.toMatchObject({ actors: [{ id: f.actor.id }], npcs: [] })
+    await expect(f.service.execute(caller, 'stale', { operation: 'delegate', targetId: npc.id, text: 'Inspect' }, f.controller.signal)).rejects.toMatchObject({ code: 'unauthorized' })
+    expect(f.runs.findById('managed-root')?.actorSnapshot?.settings.npcIds).toEqual([npc.id])
+  })
+
   it('identifies an accepted partner separately from the other delegation targets after profile changes', async () => {
     const f = fixture()
     const actor = f.buddies.get(f.actor.id)

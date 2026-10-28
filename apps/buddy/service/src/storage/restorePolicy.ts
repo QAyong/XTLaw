@@ -13,6 +13,9 @@ export function sanitizeRestoredDatabase(database: DatabaseSync, preserveCredent
       UPDATE conversation_directory_grants SET revoked_at = datetime('now');
       UPDATE space_directory_bindings SET revoked_at = datetime('now'), resources_trusted_at = NULL;
       UPDATE mcp_servers SET enabled = 0, trusted_at = NULL;
+      UPDATE extension_capabilities SET state = 'unavailable',
+        unavailable_reason = CASE WHEN kind = 'subagent' THEN 'dependency_unavailable' ELSE NULL END,
+        user_enabled = CASE WHEN kind = 'mcp' THEN 0 ELSE user_enabled END;
       ${preserveCredentials ? '' : 'UPDATE mcp_servers SET credential_ref = NULL; UPDATE provider_configs SET credential_ref = NULL;'}
       UPDATE provider_states SET request_headers_json = '[]';
       UPDATE skill_installations SET enabled = 0;

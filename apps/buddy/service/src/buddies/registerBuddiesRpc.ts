@@ -14,6 +14,7 @@ export function registerBuddiesRpc(rpc: RuntimeRequestRegistrar, service: Buddie
     registerRuntimeRequest(rpc, buddiesRpc.list, () => service.list()),
     registerRuntimeRequest(rpc, buddiesRpc.get, input => service.get(input.buddyId)),
     registerRuntimeRequest(rpc, buddiesRpc.create, (input, signal) => service.create(input, signal)),
+    registerRuntimeRequest(rpc, buddiesRpc.duplicate, (input, signal) => service.duplicate(input, signal)),
     registerRuntimeRequest(rpc, buddiesRpc.delete, (input, signal) => service.delete(input, signal)),
     registerRuntimeRequest(rpc, buddiesRpc.resetProfile, (input, signal) => service.resetProfile(input, signal)),
     registerRuntimeRequest(rpc, buddiesRpc.setDefault, (input, signal) => service.setDefault(input, signal)),

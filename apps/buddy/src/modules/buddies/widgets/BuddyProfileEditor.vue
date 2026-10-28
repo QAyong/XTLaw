@@ -39,14 +39,14 @@ watch(() => busy.value || reading.value, value => emit('busy', value), { flush: 
       </div>
       <div class="flex flex-col gap-2">
         <label :for="`${id}-name`" class="text-[13px] font-600 text-fg">{{ labels.name }}</label>
-        <NInput v-model:value="name" :input-props="{ id: `${id}-name` }" :placeholder="labels.nameHint" :maxlength="80" :disabled="disabled" show-count />
+        <NInput v-model:value="name" :input-props="{ id: `${id}-name` }" :placeholder="labels.nameHint" :maxlength="80" :disabled="disabled || !!buddy?.managed" show-count />
       </div>
       <div class="flex flex-col gap-2">
         <div class="flex items-center gap-2">
           <label :for="`${id}-description`" class="text-[13px] font-600 text-fg">{{ labels.description }}</label>
           <span class="text-[12px] text-muted">{{ labels.optional }}</span>
         </div>
-        <NInput v-model:value="description" :input-props="{ id: `${id}-description` }" type="textarea" :placeholder="labels.descriptionHint" :maxlength="500" :autosize="{ minRows: 2, maxRows: 4 }" :disabled="disabled" show-count />
+        <NInput v-model:value="description" :input-props="{ id: `${id}-description` }" type="textarea" :placeholder="labels.descriptionHint" :maxlength="500" :autosize="{ minRows: 2, maxRows: 4 }" :disabled="disabled || !!buddy?.managed" show-count />
       </div>
     </div>
     <footer class="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t-1 border-t-solid border-t-border px-6 py-4">

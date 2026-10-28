@@ -30,6 +30,8 @@ export function createConnectorSavePlan(
 ): DesktopConnectorSavePlan {
   const id = form.id.trim()
   const name = form.name.trim()
+  if (existing?.managed && (id !== existing.id || name !== existing.name || form.transport !== existing.transport || existing.transport !== 'streamable-http' || form.url.trim() !== existing.url))
+    throw new Error('MCP_MANAGED_READ_ONLY')
 
   if (form.transport === 'stdio') {
     const args = parseArguments(form.args)
@@ -67,7 +69,7 @@ export function createConnectorSavePlan(
       : null
 
   const config: LocalConnectorConfig = {
-    enabled: existing?.transport === 'streamable-http' && existing.url === form.url.trim() ? existing.enabled : false,
+    enabled: existing?.transport === 'streamable-http' && existing.url === form.url.trim() ? existing.managed?.userEnabled ?? existing.enabled : false,
     id,
     name,
     toolNamespace: existing?.toolNamespace ?? (form.toolNamespace?.trim() || undefined),
@@ -92,7 +94,7 @@ function resolveCredentialMutation(
 ): LocalConnectorCredentialMutation {
   if (credential)
     return { mode: 'replace', value: credential }
-  if (existing?.credentialConfigured && sameTarget)
+  if (existing?.managed || (existing?.credentialConfigured && sameTarget))
     return { mode: 'keep' }
   return { mode: 'clear' }
 }

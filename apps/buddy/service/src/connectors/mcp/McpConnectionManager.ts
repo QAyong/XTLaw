@@ -22,6 +22,7 @@ interface Catalog {
 
 interface Connection {
   generation: number
+  record: McpServerRecord
   controller: AbortController
   session: Promise<McpClientSession>
 }
@@ -144,7 +145,9 @@ export class McpConnectionManager {
 
   available(id: string, generation: number): boolean {
     const record = this.#options.repository.findById(id)
+    const connection = this.#connections.get(id)
     return !this.#closed && !this.#paused.has(id) && generation === this.generation(id) && record?.enabled === true
+      && (!connection || sameManagedSource(connection.record, record))
       && (record.transport !== 'stdio' || record.executionConfirmedAt !== null)
   }
 
@@ -196,6 +199,7 @@ export class McpConnectionManager {
       connection.controller.signal.throwIfAborted()
       if (generation !== this.generation(id))
         return
+      this.#assertCurrent(record, generation)
       const previous = this.#catalogs.get(id)
       const updatedAt = new Date().toISOString()
       this.#options.repository.saveCatalog(id, JSON.stringify(tools), updatedAt)
@@ -292,20 +296,25 @@ export class McpConnectionManager {
 
   #connection(record: McpServerRecord): Connection {
     const existing = this.#connections.get(record.id)
-    if (existing)
+    if (existing) {
+      this.#assertCurrent(existing.record, existing.generation)
       return existing
+    }
     const generation = this.generation(record.id)
     const controller = new AbortController()
     const connection: Connection = {
       generation,
+      record,
       controller,
       session: Promise.resolve().then(async () => {
         const credential = record.credentialRef ? await this.#options.readCredential(record.credentialRef) : null
         controller.signal.throwIfAborted()
+        this.#assertCurrent(record, generation)
         if (credential?.type === 'oauth')
           this.setAuthorization(record.id, 'oauth')
         return new McpClientSession({
           config: this.#options.config(record),
+          assertAvailable: () => this.#assertCurrent(record, generation),
           credential,
           authProvider: this.#options.authProvider(record, credential, controller.signal),
           onAuthorization: (kind) => {
@@ -341,9 +350,17 @@ export class McpConnectionManager {
     const record = this.#options.repository.findById(id)
     if (this.#closed || this.#paused.has(id) || !record)
       throw new McpClientError('MCP_SERVER_UNAVAILABLE')
+    if (record.managed && !record.enabled)
+      throw new McpClientError('MCP_CONNECTOR_DISABLED')
     if (record.transport === 'stdio' && !record.executionConfirmedAt)
       throw new McpClientError('MCP_EXECUTION_CONFIRMATION_REQUIRED')
     return record
+  }
+
+  #assertCurrent(record: McpServerRecord, generation: number): void {
+    const current = this.#requireRecord(record.id)
+    if (generation !== this.generation(record.id) || !sameManagedSource(record, current))
+      throw new McpClientError('MCP_CONNECTOR_CHANGED')
   }
 
   #publishState(id: string, previous: ConnectorRuntimeState): void {
@@ -364,6 +381,13 @@ export class McpConnectionManager {
     this.#background.add(operation)
     void operation.finally(() => this.#background.delete(operation)).catch(() => {})
   }
+}
+
+function sameManagedSource(previous: McpServerRecord, current: McpServerRecord): boolean {
+  if (!previous.managed)
+    return !current.managed
+  return !!current.managed && previous.managed.extensionId === current.managed.extensionId
+    && previous.url === current.url && previous.credentialRef === current.credentialRef
 }
 
 function catalogRevision(tools: readonly McpCatalogTool[]): string {

@@ -63,6 +63,7 @@ export const LOCAL_CHAT_IPC_CHANNELS = {
   buddiesToolOptions: 'lexora:local-chat:buddies:tool-options',
   buddiesGet: 'lexora:local-chat:buddies:get',
   buddiesCreate: 'lexora:local-chat:buddies:create',
+  buddiesDuplicate: 'lexora:local-chat:buddies:duplicate',
   buddiesDelete: 'lexora:local-chat:buddies:delete',
   buddiesResetProfile: 'lexora:local-chat:buddies:resetProfile',
   buddiesSetDefault: 'lexora:local-chat:buddies:setDefault',
@@ -273,6 +274,7 @@ export interface LocalChatApi {
     list: () => Promise<BuddyCatalog>
     get: (buddyId: string) => Promise<LocalBuddy>
     create: (input: BuddyCreate) => Promise<LocalBuddy>
+    duplicate: (input: BuddyMutation) => Promise<LocalBuddy>
     delete: (input: BuddyMutation) => Promise<LocalBuddy>
     resetProfile: (input: BuddyMutation) => Promise<LocalBuddy>
     setDefault: (input: BuddyDefaultUpdate) => Promise<BuddyCatalog>

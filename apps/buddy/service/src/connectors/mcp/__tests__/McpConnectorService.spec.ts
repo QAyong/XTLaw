@@ -345,6 +345,8 @@ function createCredentialFailureFixture() {
   }
   const service = new McpConnectorService({
     connectors: {
+      findStoredById: () => record,
+      configureManaged: () => { throw new Error('database unavailable') },
       readCatalog: () => null,
       saveCatalog: () => {},
       clearCatalog: () => {},
@@ -395,6 +397,8 @@ function createAtomicSaveFailureFixture() {
   }
   const service = new McpConnectorService({
     connectors: {
+      findStoredById: () => record,
+      configureManaged: () => { throw new Error('database unavailable') },
       readCatalog: () => null,
       saveCatalog: () => {},
       clearCatalog: () => {},

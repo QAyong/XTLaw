@@ -9,10 +9,12 @@ import { workbenchAnchorSchema, workbenchControls, workbenchControlSchema, workb
 import { extensionAgentSchema } from './extensionAgent.ts'
 import { extensionConditionDefinitionSchema } from './extensionConditions.ts'
 import { extensionAuthorSchema } from './extensionIdentity.ts'
+import { extensionMcpConnectorContributionSchema } from './extensionMcpConnectors.ts'
 import { extensionPathSchema } from './extensionPath.ts'
 import { extensionSettingsGroups, extensionSettingsModules, extensionSettingsSchema, validateExtensionSetting } from './extensionSettings.ts'
 import { extensionShellContributionSchema } from './extensionShell.ts'
 import { extensionSkillContributionSchema, extensionSkillRoots } from './extensionSkills.ts'
+import { extensionSubagentContributionSchema, subagentConnectorReferences } from './extensionSubagents.ts'
 
 export const EXTENSION_API_VERSION = 4
 export const EXTENSION_PROTOCOL = 'lexora-extension'
@@ -131,6 +133,8 @@ export const extensionManifestSchema = extensionMetadataSchema.extend({
   permissions: extensionPermissionsSchema.prefault({}),
   contributes: z.object({
     skills: z.array(extensionSkillContributionSchema).max(32).default([]),
+    mcpConnectors: z.array(extensionMcpConnectorContributionSchema).max(16).default([]),
+    subagents: z.array(extensionSubagentContributionSchema).max(16).default([]),
     iconThemes: z.array(fileIconThemeContributionSchema).max(32).default([]),
     themes: z.array(themeContributionSchema).max(64).default([]),
     conditions: z.array(extensionConditionDefinitionSchema).max(32).default([]),
@@ -168,6 +172,23 @@ export const extensionManifestSchema = extensionMetadataSchema.extend({
   const skillRoots = extensionSkillRoots(manifest.contributes.skills)
   if (skillRoots.length && manifest.apiVersion < 4)
     issue('Skill contributions require API 4')
+  const { mcpConnectors, subagents, skills } = manifest.contributes
+  for (const [field, contributions] of [['mcpConnectors', mcpConnectors], ['subagents', subagents]] as const) {
+    if (contributions.length && manifest.apiVersion < 4)
+      context.addIssue({ code: 'custom', path: ['contributes', field], message: `${field} contributions require API 4` })
+    if (new Set(contributions.map(contribution => contribution.id)).size !== contributions.length)
+      context.addIssue({ code: 'custom', path: ['contributes', field], message: `${field} IDs must be unique within their contribution kind` })
+  }
+  const connectorIds = new Set(mcpConnectors.map(connector => connector.id))
+  const skillIds = new Set(skills.map(skill => skill.id))
+  for (const [index, subagent] of subagents.entries()) {
+    if (subagentConnectorReferences(subagent).some(id => !connectorIds.has(id)))
+      context.addIssue({ code: 'custom', path: ['contributes', 'subagents', index, 'tools'], message: 'NPC tools may only reference MCP connectors declared by the same extension' })
+    for (const field of ['skills', 'requiredSkills'] as const) {
+      if (subagent[field].some(id => !skillIds.has(id)))
+        context.addIssue({ code: 'custom', path: ['contributes', 'subagents', index, field], message: 'NPC skills must be declared by the same extension' })
+    }
+  }
   if (skillRoots.some((root, index) => skillRoots.some((other, otherIndex) => index !== otherIndex && root.startsWith(other))))
     issue('Skill directories must be distinct and must not contain one another')
   if ([manifest.entry, ...manifest.contributes.views.map(view => view.entry)].some(entry => entry && skillRoots.some(root => entry.startsWith(root))))

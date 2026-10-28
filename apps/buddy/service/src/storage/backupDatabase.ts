@@ -1,7 +1,7 @@
 import type { DatabaseSync, SQLInputValue } from 'node:sqlite'
 import type { BackupScope } from '../../../shared/storage/backupScope'
 import { storageError } from '../../../platform/storage/storageFiles'
-import { backupMergeColumns, backupTables, backupTableScopes, databaseRowScope } from './backupDatabasePolicy'
+import { backupCapabilityOwners, backupMergeColumns, backupTables, backupTableScopes, databaseRowScope } from './backupDatabasePolicy'
 import { reconcileRestoredTaskState } from './restoreTaskState'
 
 const quote = (name: string) => `"${name.replaceAll('"', '""')}"`
@@ -42,6 +42,9 @@ export function selectBackupDatabase(database: DatabaseSync, scopes: readonly Ba
         added += Number(database.prepare(`INSERT OR IGNORE INTO temp.keep_buddies SELECT parent.rowid FROM buddies parent JOIN ${quote(table!)} child ON child.${quote(field!)} = parent.id JOIN temp.${quote(`keep_${table}`)} kept ON kept.id = child.rowid`).run().changes)
       }
       added += Number(database.prepare(`INSERT OR IGNORE INTO temp.keep_buddies SELECT parent.rowid FROM buddies parent JOIN buddies child JOIN temp.keep_buddies kept ON kept.id = child.rowid JOIN json_each(child.settings_json, '$.npcIds') npc ON npc.value = parent.id`).run().changes)
+      for (const [kind, table] of backupCapabilityOwners) {
+        added += Number(database.prepare(`INSERT OR IGNORE INTO temp.keep_extension_capabilities SELECT source.rowid FROM extension_capabilities source JOIN ${quote(table)} owner ON owner.id = source.id JOIN temp.${quote(`keep_${table}`)} kept ON kept.id = owner.rowid WHERE source.kind = ?`).run(kind).changes)
+      }
       for (const table of tables) {
         const relations = database.prepare(`PRAGMA foreign_key_list(${quote(table)})`).all() as { id: number, seq: number, table: string, from: string, to: string | null }[]
         for (const id of new Set(relations.map(item => item.id))) {
@@ -71,10 +74,39 @@ export function selectBackupDatabase(database: DatabaseSync, scopes: readonly Ba
   finally { database.exec('PRAGMA foreign_keys = ON') }
 }
 
+function restoredCapabilityIds(target: DatabaseSync, source: DatabaseSync, scopes: readonly BackupScope[]): Set<SQLInputValue> {
+  const restored = new Set<SQLInputValue>()
+  const sourceIdentity = source.prepare('SELECT * FROM extension_capabilities WHERE id = ? AND kind = ?')
+  const targetIdentity = target.prepare('SELECT * FROM extension_capabilities WHERE id = ? AND kind = ?')
+  const targetContribution = target.prepare('SELECT id FROM extension_capabilities WHERE extension_id = ? AND kind = ? AND contribution_id = ?')
+  const targetKind = target.prepare('SELECT kind FROM extension_capabilities WHERE id = ?')
+  for (const [kind, table] of backupCapabilityOwners) {
+    const findOwner = target.prepare(`SELECT 1 FROM ${quote(table)} WHERE id = ?`)
+    for (const owner of source.prepare(`SELECT id FROM ${quote(table)}`).iterate()) {
+      const existing = findOwner.get(owner.id!)
+      if (existing && !scopes.includes(backupTableScopes.get(table)!))
+        continue
+      const incoming = sourceIdentity.get(owner.id!, kind)
+      const current = targetIdentity.get(owner.id!, kind)
+      if ((existing && !!incoming !== !!current) || (current && (!incoming || current.extension_id !== incoming.extension_id || current.contribution_id !== incoming.contribution_id)))
+        throw storageError('SNAPSHOT_DEPENDENCY_CONFLICT')
+      if (!incoming)
+        continue
+      const contribution = targetContribution.get(incoming.extension_id!, kind, incoming.contribution_id!)
+      const identity = targetKind.get(owner.id!)
+      if ((contribution && contribution.id !== owner.id) || (identity && identity.kind !== kind))
+        throw storageError('SNAPSHOT_DEPENDENCY_CONFLICT')
+      restored.add(owner.id!)
+    }
+  }
+  return restored
+}
+
 export function mergeBackupDatabase(target: DatabaseSync, source: DatabaseSync, scopes: readonly BackupScope[]): { added: number, updated: number, dependencies: number } {
   const counts = { added: 0, updated: 0, dependencies: 0 }
   target.exec('PRAGMA foreign_keys = OFF; BEGIN IMMEDIATE')
   try {
+    const capabilities = restoredCapabilityIds(target, source, scopes)
     const triggers = target.prepare('SELECT name, sql FROM sqlite_master WHERE type = \'trigger\' AND sql LIKE \'%AFTER %\'').all()
     for (const trigger of triggers)
       target.exec(`DROP TRIGGER ${quote(String(trigger.name))}`)
@@ -90,13 +122,15 @@ export function mergeBackupDatabase(target: DatabaseSync, source: DatabaseSync, 
       const insert = target.prepare(`INSERT INTO ${quote(table)} (${names.map(quote).join(',')}) VALUES (${names.map(() => '?').join(',')})`)
       const update = target.prepare(`UPDATE ${quote(table)} SET ${names.map(name => `${quote(name)} = ?`).join(',')} WHERE ${where}`)
       for (const row of source.prepare(`SELECT * FROM ${quote(table)}${order.length ? ` ORDER BY ${order.map(quote).join(',')}` : ''}`).iterate()) {
+        if (table === 'extension_capabilities' && !capabilities.has(row.id!))
+          continue
         const scope = databaseRowScope(table, row)
         if (!scope)
           continue
         const selected = scopes.includes(scope)
         const key = keys.map(name => row[name] as SQLInputValue)
         const existing = find.get(...key)
-        if (existing && !selected)
+        if (existing && !selected && table !== 'extension_capabilities')
           continue
         const values = names.map(name => row[name] as SQLInputValue)
         if (existing) {

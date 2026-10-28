@@ -15,12 +15,25 @@ import { SandboxedExtensionHost } from '../SandboxedExtensionHost'
 vi.mock('electron', async () => {
   const { EventEmitter } = await import('node:events')
   class WebContents extends EventEmitter {
+    readonly session: unknown
+    constructor(session: unknown) {
+      super()
+      this.session = session
+    }
+
     mainFrame = {}
     send(channel: string, message: unknown) { this.emit(channel, message) }
     setWindowOpenHandler() {}
+    setDevToolsWebContents() {}
+    openDevTools() {}
   }
   class BrowserWindow extends EventEmitter {
-    webContents = new WebContents()
+    readonly webContents: WebContents
+    constructor(options: { webPreferences: { session: unknown } }) {
+      super()
+      this.webContents = new WebContents(options.webPreferences.session)
+    }
+
     destroyed = false
     async loadURL() {}
     isDestroyed() { return this.destroyed }
@@ -35,7 +48,7 @@ vi.mock('electron', async () => {
       fromPartition: () => ({
         setPermissionRequestHandler() {},
         setPermissionCheckHandler() {},
-        webRequest: { onBeforeRequest() {} },
+        webRequest: { onBeforeRequest: vi.fn() },
         async closeAllConnections() {},
       }),
     },
@@ -55,9 +68,11 @@ async function fixture() {
   await store.install((await reviewPackage(root, store, value)).token)
   const failures: ExtensionHostFailure[] = []
   const gates = new Map<string, { entered: ReturnType<typeof deferred<void>>, done: ReturnType<typeof deferred<void>> }>()
+  const endpoint = { token: 'fixture', url: 'lexora-extension://fixture/__host.html', dispose: vi.fn() }
+  const stopProtocol = vi.fn()
   const protocol = {
-    register: () => ({ token: 'fixture', url: 'lexora-extension://fixture/__host.html', dispose() {} }),
-    install: () => () => {},
+    register: () => endpoint,
+    install: () => stopProtocol,
   } as unknown as ExtensionProtocol
   let host!: SandboxedExtensionHost
   let commandMessage: ReturnType<typeof deferred<string>> | undefined
@@ -88,7 +103,7 @@ async function fixture() {
       return host
     },
     createView: () => { throw new Error('unexpected view') },
-    workbench: async () => null,
+    workbench: async event => event.kind === 'clear-data' ? event.requestId : null,
     readText: async () => { throw new Error('unexpected external read') },
     get: async () => { throw new Error('unexpected network') },
     changed() {},
@@ -113,7 +128,7 @@ async function fixture() {
     return { id: await commandMessage.promise, outcome }
   }
   const request = (method: string, params: JsonValue = null) => host.request(method, params)
-  return { id, root, store, service, host, failures, hold, command, request, resources: createExtensionResourceClient(request), ignoreDeactivate: () => {
+  return { id, root, store, service, host, failures, endpoint, stopProtocol, hold, command, request, resources: createExtensionResourceClient(request), ignoreDeactivate: () => {
     acknowledgeDeactivate = false
   } }
 }

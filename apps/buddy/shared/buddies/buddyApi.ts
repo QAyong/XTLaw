@@ -1,6 +1,7 @@
 import type { RuntimeRequestContract } from '../runtime/apiContract'
 import type { DeepReadonly } from '../runtime/apiValidation'
 import { z } from 'zod'
+import { managedCapabilitySourceSchema } from '../extensions/managedCapability'
 import { idSchema, timestampSchema, validationRequestSchemas } from '../runtime/apiValidation'
 import { buddySettingsSchema } from './buddySettings'
 
@@ -14,6 +15,7 @@ export const buddySchema = z.object({
   id: idSchema,
   kind: z.enum(['actor', 'npc']),
   enabled: z.boolean(),
+  managed: managedCapabilitySourceSchema.optional(),
   name: z.string().trim().min(1).max(80),
   avatar: buddyAvatarSchema,
   customAvatars: z.array(buddyAvatarImageSchema),
@@ -69,6 +71,7 @@ export const buddiesRpc = {
   list: { method: 'buddies.list', input: validationRequestSchemas.empty, response: buddyCatalogSchema },
   get: { method: 'buddies.get', input: buddyTargetSchema, response: buddySchema },
   create: { method: 'buddies.create', input: buddyCreateSchema, response: buddySchema },
+  duplicate: { method: 'buddies.duplicate', input: buddyMutationSchema, response: buddySchema },
   delete: { method: 'buddies.delete', input: buddyMutationSchema, response: buddySchema },
   resetProfile: { method: 'buddies.resetProfile', input: buddyMutationSchema, response: buddySchema },
   setDefault: { method: 'buddies.setDefault', input: buddyDefaultUpdateSchema, response: buddyCatalogSchema },

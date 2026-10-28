@@ -48,7 +48,6 @@ export default defineConfig({
         },
         output: {
           format: 'es',
-          banner: chunk => chunk.name === 'extension-compiler' ? 'import { fileURLToPath as compilerFilePath } from "node:url"; import { dirname as compilerDirname } from "node:path"; const __filename = compilerFilePath(import.meta.url); const __dirname = compilerDirname(__filename);' : '',
         },
       },
     },

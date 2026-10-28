@@ -55,6 +55,27 @@ export class BuddiesService {
     return this.#changeProfile(() => this.#repository.update(request))
   }
 
+  installManagedNpc(input: Parameters<BuddyRepository['upsertManagedNpc']>[0], signal?: AbortSignal) {
+    this.#check(signal)
+    return this.#changeProfile(() => this.#repository.upsertManagedNpc(input))
+  }
+
+  refreshManaged(id: string): void {
+    this.#check()
+    this.#changeProfile(() => this.#repository.refreshManaged(id))
+  }
+
+  clearManagedConfiguration(id: string): void {
+    this.#check()
+    this.#changeProfile(() => this.#repository.clearManagedConfiguration(id))
+  }
+
+  duplicate(input: BuddyMutation, signal?: AbortSignal) {
+    this.#check(signal)
+    const request = parse(buddyMutationSchema, input)
+    return this.#changeProfile(() => this.#repository.duplicate(request))
+  }
+
   delete(input: BuddyMutation, signal?: AbortSignal) {
     this.#check(signal)
     const request = parse(buddyMutationSchema, input)

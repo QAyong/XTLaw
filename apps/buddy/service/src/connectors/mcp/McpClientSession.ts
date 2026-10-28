@@ -16,6 +16,7 @@ export interface McpClientSessionOptions {
   config: McpServerConfig
   credential: ConnectorCredential | null
   authProvider?: OAuthClientProvider
+  assertAvailable?: () => void
   maxReconnectAttempts?: number
   onUnavailable?: (code: ConnectorErrorCode) => void
   onToolsChanged?: () => void
@@ -36,6 +37,7 @@ export class McpClientSession {
   }
 
   async connect(): Promise<void> {
+    this.#options.assertAvailable?.()
     if (this.#lifetime.signal.aborted)
       throw new McpClientError('MCP_SERVER_UNAVAILABLE')
     if (this.#connected)
@@ -80,6 +82,7 @@ export class McpClientSession {
     this.#client = client
     const transport = createMcpTransport(this.#options.config, this.#options.credential, this.#options.authProvider, {
       signal: this.#lifetime.signal,
+      assertAvailable: this.#options.assertAvailable,
       discovered: kind => this.#options.onAuthorization?.(kind),
     })
     try {
@@ -157,6 +160,7 @@ export class McpClientSession {
   }
 
   #requireClient(): Client {
+    this.#options.assertAvailable?.()
     if (!this.#client || !this.#connected || this.#lifetime.signal.aborted)
       throw new McpClientError('MCP_SERVER_UNAVAILABLE')
     return this.#client

@@ -30,6 +30,7 @@ import { Emitter } from '../../shared/events/Emitter'
 import { executionsChanged } from '../../shared/executions/executionPresentationApi'
 import { extensionActionRpc } from '../../shared/extensions/extensionActionApi'
 import { extensionAgentRpc } from '../../shared/extensions/extensionAgent'
+import { extensionCapabilitiesRpc, extensionCapabilityApplyRpc, extensionCapabilityDescriptorSchema, extensionCapabilityImpactRpc } from '../../shared/extensions/extensionCapabilities'
 import { extensionShellRpc } from '../../shared/extensions/extensionShell'
 import { extensionSkillDescriptorSchema, extensionSkillsRpc } from '../../shared/extensions/extensionSkills'
 import { ServiceHost } from '../../shared/lifecycle/ServiceHost'
@@ -149,6 +150,7 @@ import { PetActionService } from './pet/PetActionService'
 import { bindExtensionActions } from './plugins/bindExtensionActions'
 import { ExtensionActionService } from './plugins/ExtensionActionService'
 import { ExtensionAgentRuntime } from './plugins/ExtensionAgentRuntime'
+import { ExtensionCapabilitySync } from './plugins/ExtensionCapabilitySync'
 import { createExtensionResourceCapabilities } from './plugins/extensionResourceCapabilities'
 import { observeExtensionAgentDiagnostics } from './plugins/observeExtensionAgentDiagnostics'
 import { PluginAuthoringService } from './plugins/PluginAuthoringService'
@@ -201,6 +203,7 @@ import { createExtensionInvocationRepository } from './storage/extensionInvocati
 import { createExtensionReferenceRepository } from './storage/extensionReferenceRepository'
 import { createExtensionTaskContextRepository } from './storage/extensionTaskContextRepository'
 import { createMailboxRepository } from './storage/mailboxRepository'
+import { createManagedCapabilityRepository } from './storage/managedCapabilityRepository'
 import { createNotificationAttentionRepository } from './storage/notificationAttentionRepository'
 import { createProviderRepository } from './storage/providerRepository'
 import { createRunInputRepository } from './storage/runInputRepository'
@@ -343,6 +346,8 @@ export async function startBuddyService(
       })
       return service
     })
+    const managedCapabilities = createManagedCapabilityRepository(options.database)
+    managedCapabilities.suspendAll()
     const buddies = await host.start('runtime.buddies', ({ defer }) => {
       const service = new BuddiesService(createBuddyRepository(options.database), () => record({ event: 'buddies.observer.failed', level: 'warn' }))
       const notices = service.onDidChange(event => options.rpc.notify(buddiesChanged.method, event))
@@ -689,6 +694,7 @@ export async function startBuddyService(
     const connectorService = await host.start('runtime.connectors', ({ defer }) => {
       const service = new McpConnectorService({
         connectors: connectorsRepository,
+        managed: managedCapabilities,
         openExternal: async (url) => {
           const result = openExternalResultSchema.parse(await options.rpc.request('host.openExternal', { url }))
           if (!result.ok)
@@ -761,6 +767,38 @@ export async function startBuddyService(
       connectorService.start()
       return consumer
     })
+    await host.start('runtime.extension_capabilities', ({ defer }) => {
+      const sync = new ExtensionCapabilitySync({
+        buddies,
+        connectors: connectorService,
+        sources: managedCapabilities,
+        descriptors: async () => extensionCapabilityDescriptorSchema.array().parse(await options.rpc.request(extensionCapabilitiesRpc.list, {})),
+        report: event => record(event),
+      })
+      const impact = registerRuntimeRequest(options.rpc, extensionCapabilityImpactRpc, input => sync.impact(input.extensionId))
+      const apply = registerRuntimeRequest(options.rpc, extensionCapabilityApplyRpc, async (input, signal) => {
+        await sync.apply(input.descriptors, input.clearExtensionId, signal)
+        return null
+      })
+      const refreshAvailability = () => {
+        void sync.refreshAvailability().catch(() => record({ event: 'extensions.capabilities.availability_failed', level: 'warn', errorCode: 'EXTENSION_CAPABILITY_FAILED' }))
+      }
+      const connectorChanges = connectorService.onDidChange(refreshAvailability)
+      const connectionChanges = connectorService.onDidChangeConnection(refreshAvailability)
+      defer(options.rpc.onNotification((method) => {
+        if (method === extensionCapabilitiesRpc.changed)
+          void sync.schedule()
+      }))
+      defer(async () => {
+        impact()
+        apply()
+        connectorChanges.dispose()
+        connectionChanges.dispose()
+        await sync.dispose()
+      })
+      void sync.schedule()
+      return sync
+    }, ['runtime.buddies', 'runtime.connectors'])
     const browserHost = new BrowserHostClient(options.rpc)
     const webSettings = await host.start('runtime.web_settings', ({ defer }) => {
       const service = new WebSettingsService(workspace, options.rpc)

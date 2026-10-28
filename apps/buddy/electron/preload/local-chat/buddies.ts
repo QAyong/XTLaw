@@ -10,6 +10,7 @@ export function createBuddiesApi(): Pick<LocalChatApi, 'buddies'> {
       list: () => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.buddiesList),
       get: buddyId => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.buddiesGet, { buddyId }),
       create: input => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.buddiesCreate, input),
+      duplicate: input => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.buddiesDuplicate, input),
       delete: input => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.buddiesDelete, input),
       resetProfile: input => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.buddiesResetProfile, input),
       setDefault: input => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.buddiesSetDefault, input),

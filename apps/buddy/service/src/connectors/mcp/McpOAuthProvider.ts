@@ -100,6 +100,7 @@ export async function loginMcpOAuth(options: {
   url: string
   signal: AbortSignal
   openExternal: (url: string) => Promise<void>
+  assertAvailable?: () => void
 }): Promise<OAuthConnectorCredential | null> {
   const signal = AbortSignal.any([options.signal, AbortSignal.timeout(180_000)])
   let provider: McpOAuthProvider | undefined
@@ -143,6 +144,7 @@ export async function loginMcpOAuth(options: {
       signal,
       save: async () => {},
       redirect: async (url) => {
+        options.assertAvailable?.()
         await options.openExternal(url.href)
         redirected = true
       },
@@ -150,7 +152,10 @@ export async function loginMcpOAuth(options: {
     const transport = new StreamableHTTPClientTransport(new URL(options.url), {
       authProvider: provider,
       requestInit: { redirect: 'error' },
-      fetch: (input, init) => fetch(input, { ...init, signal: init?.signal ? AbortSignal.any([signal, init.signal]) : signal }),
+      fetch: (input, init) => {
+        options.assertAvailable?.()
+        return fetch(input, { ...init, signal: init?.signal ? AbortSignal.any([signal, init.signal]) : signal })
+      },
     })
     client = new Client({ name: 'lexora-buddy', version }, { versionNegotiation: { mode: 'auto', probe: { timeoutMs: 10_000, maxRetries: 0 } } })
     try {

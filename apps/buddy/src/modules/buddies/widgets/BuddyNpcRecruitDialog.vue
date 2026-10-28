@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { LocalBuddy } from '@buddy-shared/buddies/buddyApi'
+import { isBuddyNpcBindable } from '@buddy-shared/buddies/buddyAvailability'
 import {
   CheckmarkCircle20Filled,
   Dismiss20Regular,
@@ -44,7 +45,7 @@ watch(() => props.show, (open) => {
 })
 
 const candidates = computed(() =>
-  props.buddies.filter(b => b.kind === 'npc' && !b.deletedAt),
+  props.buddies.filter(b => isBuddyNpcBindable(b) || (b.kind === 'npc' && props.selectedIds.includes(b.id))),
 )
 
 const filteredCandidates = computed(() => {
@@ -143,7 +144,7 @@ function confirm() {
                     <div class="flex items-center gap-1.5 flex-wrap">
                       <strong class="text-[14px] font-600 text-fg truncate max-w-[140px]">{{ npc.name }}</strong>
                       <NTag v-if="!npc.enabled" size="tiny" :bordered="false" class="text-muted">
-                        {{ labels.paused }}
+                        {{ npc.managed ? labels.unavailableChoice : labels.paused }}
                       </NTag>
                     </div>
                     <div class="mt-1 flex items-center gap-1.5 flex-wrap">

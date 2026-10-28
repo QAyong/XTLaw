@@ -50,8 +50,55 @@ export interface NavigationContribution {
   showHeader?: boolean
   when?: WorkbenchCondition
 }
-/** API 4: contributes.skills; path points to a packaged Skill directory's SKILL.md. */
+/** API 4: contributes.skills; id is plugin-prefixed and package-wide unique; path points to a packaged Skill directory's SKILL.md. */
 export interface SkillContribution { id: string, path: string }
+/**
+ * API 4 increment: contributes.mcpConnectors; see mcp-connectors.md and set engines.lexora to verified supporting hosts.
+ * Independent declarations need no other contributions, entry or plugin permissions.
+ * Connection definitions follow the plugin; credentials, enablement and authorization remain host-managed.
+ */
+export interface McpConnectorContribution {
+  /** Unprefixed package-local ID matching /^[a-z0-9][a-z0-9_-]{0,63}$/, unique among MCP connectors; not a user connection ID. */
+  id: string
+  name: string
+  transport: 'streamable-http'
+  /** HTTPS address without userinfo or secrets. */
+  url: string
+  /** Required authentication requirement, not credentials or a guarantee of host OAuth support. */
+  authentication: 'none' | 'bearer' | 'oauth'
+}
+export type SubagentToolReference = {
+  source: 'mcp'
+  /** Local ID declared in this package's contributes.mcpConnectors. */
+  connector: string
+  /** Exact remote tool name, not a host-generated or JSON-encoded identity. */
+  name: string
+} | {
+  source: 'builtin'
+  name: 'read' | 'find' | 'grep' | 'ls'
+}
+/**
+ * API 4 increment: contributes.subagents (NPC); see buddies.md and set engines.lexora to verified supporting hosts.
+ * Independent declarations need no MCP connectors, Skills, entry or plugin permissions and do not bind themselves to a companion.
+ * Enablement, model selection and companion bindings are user configuration, not manifest fields.
+ * Customize a copy; explicitly referenced plugin Skills and connectors remain dependencies of that copy.
+ */
+export interface SubagentContribution {
+  /** Unprefixed package-local ID matching /^[a-z0-9][a-z0-9_-]{0,63}$/, unique among NPCs; built-in NPC IDs are reserved. */
+  id: string
+  name: string
+  /** Defaults to ''. */
+  description?: string
+  instructions: string
+  /** Unique full plugin-prefixed contributes.skills IDs from this package. Defaults to []. */
+  skills?: string[]
+  /** Unique subset of skills that must be available. Defaults to []. */
+  requiredSkills?: string[]
+  /** Unique explicit references; no all-tools selection. Defaults to []. */
+  tools?: SubagentToolReference[]
+  /** Required. Inherits the task's limits or restricts file access; read_only forbids MCP references. */
+  fileAccess: 'inherit' | 'read_only'
+}
 export interface Resource { readonly id: string, readonly name: string, readonly sourceId?: string }
 export interface ResourceTransferOptions { name?: string, signal?: AbortSignal }
 export interface ResourceApi {

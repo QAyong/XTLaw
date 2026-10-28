@@ -13,6 +13,7 @@ import { z } from 'zod'
 import { currentPlatform } from '../../../../platform/currentPlatform'
 import { MAX_BUDDY_MESSAGE_TEXT_LENGTH } from '../../../../shared/conversation/buddyMessageContent'
 import { executionBriefSchema, executionContextModeSchema, executionReviewSchema, executionSubmissionSchema, renderExecutionBrief } from '../../../../shared/executions/executionWork'
+import { readAvailableBuddy } from '../../buddies/readAvailableBuddy'
 import { resolveShellExecution } from '../../sandbox/shellExecution'
 import { ExecutionAdmissionError, executionFence, hashChildAdmissionRequest, MAX_CHILD_ATTEMPTS_PER_ROOT } from '../../storage/executionRepository'
 import { getRoleToolDenial } from '../extensions/discovery/SessionToolScope'
@@ -265,8 +266,8 @@ export class ExecutionDelegationService {
     const ids = [...npcIds, ...this.#options.members.list(source.run.conversationId).map(member => member.actorId)]
     const targets = this.#options.actorTargets?.(source.run.rootRunId) ?? []
     const available = [...new Set(ids)].flatMap((id) => {
-      const buddy = this.#options.buddies.get(id)
-      return buddy.enabled && !buddy.deletedAt && buddy.id !== source.run.buddyId
+      const buddy = readAvailableBuddy(id => this.#options.buddies.get(id), id)
+      return buddy && buddy.id !== source.run.buddyId
         && (buddy.kind === 'npc' || targets.length < 2 || targets.includes(buddy.id))
         ? [{ id: buddy.id, name: buddy.name, description: buddy.description, kind: buddy.kind }]
         : []
@@ -306,7 +307,8 @@ export class ExecutionDelegationService {
         shell: unifiedShell || tools.some(tool => tool.name === shell.dialect) ? { tool: unifiedShell ? 'lexora_shell' : shell.dialect, boundary: shell.boundary, readOnly: shell.readOnly } : null,
       }
     }
-    return { self, actors: catalog.actors.map(describe), npcs: catalog.npcs.map(describe) }
+    const currentCatalog = this.#catalog(source)
+    return { self, actors: currentCatalog.actors.map(describe), npcs: currentCatalog.npcs.map(describe) }
   }
 
   async #delegate(caller: DelegationCaller, source: ExecutionStateRecord, requestKey: string, input: Exclude<DelegationInput, { operation: 'forward' }>, signal: AbortSignal, entries: readonly SessionEntry[]) {

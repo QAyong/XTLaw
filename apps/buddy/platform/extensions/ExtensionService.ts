@@ -2,6 +2,7 @@ import type { ExtensionAgentDescriptor, ExtensionAgentInvocation } from '../../s
 import type { ExtensionAgentResourceRequest, ExtensionAgentResourceResponse } from '../../shared/extensions/extensionAgentResources'
 import type { ExtensionFileOpeningInput, ExtensionFileOpeningSource, ExtensionMenuInvocation, ExtensionPreparedFileOpening, ExtensionResource, ExtensionStatus, ExtensionViewInput, ExtensionViewSession, ExtensionWorkbenchEvent, ExtensionWorkbenchResult } from '../../shared/extensions/extensionApi'
 import type { ExtensionInspection } from '../../shared/extensions/extensionAuthoring'
+import type { ExtensionCapabilityDescriptor } from '../../shared/extensions/extensionCapabilities'
 import type { ExtensionClipboardData } from '../../shared/extensions/extensionClipboard'
 import type { ExtensionConditionRuntime } from '../../shared/extensions/extensionConditionContext'
 import type { ExtensionConditionState } from '../../shared/extensions/extensionConditions'
@@ -93,6 +94,8 @@ export interface ExtensionServicePorts {
   agentChanged?: () => void
   shellsChanged?: () => void
   skillsChanged?: () => void
+  capabilitiesChanged?: () => void
+  syncCapabilities?: (descriptors: ExtensionCapabilityDescriptor[], clearExtensionId?: string) => Promise<void>
   conditionRuntime?: (input: { models: boolean, task: boolean, taskId: string | null, runId: string | null }, signal: AbortSignal) => Promise<ExtensionConditionRuntime>
   agentRequest?: (input: { invocationId: string, method: string, params: JsonValue }, signal: AbortSignal) => Promise<JsonValue>
   notify?: (id: string, notification: { title: string, body: string }) => boolean
@@ -141,6 +144,7 @@ export class ExtensionService {
   readonly #documents?: ExtensionDocuments
   readonly #ports: ExtensionServicePorts
   readonly #running = new Map<string, RunningExtension>()
+  readonly #pendingStops = new Map<string, RunningExtension>()
   readonly #viewOpenings = new Map<string, symbol>()
   readonly #views = new Map<string, RunningView>()
   readonly #diagnostics = new Map<string, Pick<ExtensionStatus, 'error' | 'activationMs' | 'logs'>>()
@@ -191,8 +195,10 @@ export class ExtensionService {
       workbench: () => this.#panes.map(({ id, active, visible }) => ({ id, active, visible })),
     })
     this.onDidChange((change) => {
-      if (change.kind === 'package' || change.kind === 'enabled')
+      if (change.kind === 'package' || change.kind === 'enabled') {
         ports.skillsChanged?.()
+        ports.capabilitiesChanged?.()
+      }
       if (change.kind === 'package' || change.kind === 'enabled' || (change.kind === 'configuration' && change.application.status === 'committed'))
         this.#refreshShellFingerprint()
       if (change.kind === 'resources-revoked') {
@@ -402,6 +408,30 @@ export class ExtensionService {
         skills: structuredClone(skills),
         hashes: Object.fromEntries(Object.entries(hashes).filter(([path]) => roots.some(root => path.startsWith(root)))),
       }]
+    })
+  }
+
+  /** MCP connectors and sub-agents that installed packages declare; the service process turns them into its own records. */
+  async capabilityContributions(): Promise<ExtensionCapabilityDescriptor[]> {
+    await this.initialize()
+    await this.#mutating
+    if (this.#disposed)
+      throw new Error('EXTENSION_SERVICE_UNAVAILABLE')
+    return this.#capabilityDescriptors()
+  }
+
+  #capabilityDescriptors(): ExtensionCapabilityDescriptor[] {
+    return Object.entries(this.store.installed).flatMap(([extensionId, record]) => {
+      const { manifest, revision } = record.current
+      const { mcpConnectors, subagents } = manifest.contributes
+      if (!mcpConnectors.length && !subagents.length)
+        return []
+      let enabled = record.enabled
+      try {
+        this.#order(extensionId)
+      }
+      catch { enabled = false }
+      return [{ extensionId, extensionName: manifest.name, revision, enabled, mcpConnectors: structuredClone(mcpConnectors), subagents: structuredClone(subagents), skills: manifest.contributes.skills.map(skill => skill.id) }]
     })
   }
 
@@ -748,6 +778,7 @@ export class ExtensionService {
         const id = await this.store.install(token, signal, choices)
         const installed = this.store.installed[id]!
         this.#publish({ kind: 'package', action: 'installed', extensionId: id, packageRevision: installed.current.revision, ...(installed.pending ? { pendingRevision: installed.pending.revision } : {}) })
+        await this.#ports.syncCapabilities?.(this.#capabilityDescriptors())
         this.#log(id, 'installed')
       })
       this.installations.log(job, 'completed', 'installed')
@@ -768,8 +799,10 @@ export class ExtensionService {
       await this.store.enable(id, enabled)
       if (previous !== enabled)
         this.#publish({ kind: 'enabled', extensionId: id, enabled })
-      if (!enabled)
-        await this.#stopClosure(id)
+      if (enabled)
+        await this.#ports.syncCapabilities?.(this.#capabilityDescriptors())
+      else
+        await this.#stopAndSyncCapabilities(id)
       this.#clearError(id)
       await this.scheduler.resume()
       this.#log(id, enabled ? 'enabled' : 'disabled')
@@ -799,6 +832,7 @@ export class ExtensionService {
         throw new ExtensionCompatibilityError(installed.pending.manifest, incompatibility)
       await this.#stopClosure(id)
       await this.store.promote(id)
+      await this.#ports.syncCapabilities?.(this.#capabilityDescriptors())
       this.#publish({ kind: 'package', action: 'promoted', extensionId: id, packageRevision: this.store.installed[id]!.current.revision })
       this.#clearError(id)
       await this.scheduler.resume()
@@ -825,7 +859,7 @@ export class ExtensionService {
       await this.store.enable(id, false)
       if (record.enabled)
         this.#publish({ kind: 'enabled', extensionId: id, enabled: false })
-      await this.#stopClosure(id)
+      await this.#stopAndSyncCapabilities(id, clearData)
       await this.store.resources.revoke(id)
       await this.store.revokeFileOpeningGrants(id)
       this.#publish({ kind: 'resources-revoked', extensionId: id })
@@ -839,6 +873,7 @@ export class ExtensionService {
       }
       await this.store.removePackages(id)
       await this.store.uninstall(id)
+      await this.#ports.syncCapabilities?.(this.#capabilityDescriptors())
       this.#diagnostics.delete(id)
       this.#configurationApplications.delete(id)
       this.#publish({ kind: 'package', action: 'uninstalled', extensionId: id })
@@ -1529,7 +1564,7 @@ export class ExtensionService {
 
   async resetHosts(): Promise<void> {
     this.#epoch++
-    await Promise.all([...this.#running.keys()].map(id => this.#stop(id)))
+    await Promise.all([...new Set([...this.#running.keys(), ...this.#pendingStops.keys()])].map(id => this.#stop(id)))
   }
 
   async withStoppedStorage<T>(operation: () => Promise<T>): Promise<T> {
@@ -1574,7 +1609,7 @@ export class ExtensionService {
     if (this.#disposed || this.#maintenance || epoch !== this.#epoch)
       throw new Error('EXTENSION_HOST_STOPPED')
     for (const dependency of this.#order(id)) {
-      if (this.#diagnostics.get(dependency)?.error)
+      if (this.#pendingStops.has(dependency) || this.#diagnostics.get(dependency)?.error)
         throw new Error('EXTENSION_RESTART_REQUIRED')
       let running = this.#running.get(dependency)
       if (!running) {
@@ -2186,9 +2221,10 @@ export class ExtensionService {
 
   async #stopHost(id: string): Promise<void> {
     this.conditions.invalidate({ extensionId: id })
-    const running = this.#running.get(id)
+    const running = this.#pendingStops.get(id) ?? this.#running.get(id)
     if (!running)
       return
+    this.#pendingStops.set(id, running)
     this.#running.delete(id)
     running.resourceEndpoint?.dispose()
     this.#ports.themes?.releaseOwner(`${id}:${running.generation}`)
@@ -2213,6 +2249,7 @@ export class ExtensionService {
     this.scheduler.refresh()
     try {
       await running.host.dispose()
+      this.#pendingStops.delete(id)
       this.#publish({ kind: 'host', extensionId: id, generation: running.generation, status: 'stopped' })
     }
     catch (error) {
@@ -2221,19 +2258,31 @@ export class ExtensionService {
     }
   }
 
+  async #stopAndSyncCapabilities(id: string, clearData = false): Promise<void> {
+    try {
+      await this.#stopClosure(id)
+    }
+    finally {
+      await this.#ports.syncCapabilities?.(this.#capabilityDescriptors(), clearData ? id : undefined)
+    }
+  }
+
   async #stopClosure(id: string): Promise<void> {
     const affected = new Set([id])
     let changed = true
     while (changed) {
       changed = false
-      for (const [next, running] of this.#running) {
+      for (const [next, running] of new Map([...this.#running, ...this.#pendingStops])) {
         if (!affected.has(next) && Object.keys(running.package.manifest.dependencies).some(dependency => affected.has(dependency))) {
           affected.add(next)
           changed = true
         }
       }
     }
-    await Promise.all([...affected].reverse().map(next => this.#stop(next)))
+    const stopped = await Promise.allSettled([...affected].reverse().map(next => this.#stop(next)))
+    const failed = stopped.find(result => result.status === 'rejected')
+    if (failed?.status === 'rejected')
+      throw failed.reason
   }
 
   #requestFailed(id: string, method: string, error: unknown): void {

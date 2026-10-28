@@ -1,11 +1,17 @@
 import type { DatabaseSync } from 'node:sqlite'
 import type { McpToolExposure } from '../../../shared/connectors/mcpToolExposure'
+import type { ManagedCapabilitySource } from '../../../shared/extensions/managedCapability'
+import type { ManagedCapabilityRecord } from './managedCapabilityRepository'
 import { createHash } from 'node:crypto'
+import { managedMcpCredentialTarget } from '../../../shared/connectors/managedMcp'
 import { mcpNamespaceBase } from '../../../shared/connectors/mcpToolExposure'
+import { isManagedCapabilityEnabled } from '../../../shared/extensions/managedCapability'
+import { createManagedCapabilityRepository, toManagedCapabilitySource } from './managedCapabilityRepository'
 
 export type McpTransport = 'stdio' | 'streamable-http'
 
 export interface McpServerRecord {
+  managed?: ManagedCapabilitySource
   id: string
   name: string
   toolNamespace: string
@@ -23,10 +29,12 @@ export interface McpServerRecord {
 }
 
 export interface ConnectorRepository {
+  configureManaged: (record: McpServerWrite, configuration: Pick<ManagedCapabilityRecord, 'credentialTarget' | 'userEnabled' | 'unavailableReason'>) => McpServerRecord
   readCatalog: (id: string) => { toolsJson: string, updatedAt: string } | null
   saveCatalog: (id: string, toolsJson: string, updatedAt: string) => void
   clearCatalog: (id: string) => void
   findById: (id: string) => McpServerRecord | null
+  findStoredById: (id: string) => McpServerRecord | null
   list: () => McpServerRecord[]
   remove: (id: string) => boolean
   upsert: (record: McpServerWrite) => McpServerRecord
@@ -52,6 +60,19 @@ interface McpServerRow {
 }
 
 export function createConnectorRepository(database: DatabaseSync): ConnectorRepository {
+  const managed = createManagedCapabilityRepository(database)
+  function project(record: McpServerRecord): McpServerRecord {
+    const source = managed.get(record.id)
+    if (!source || source.kind !== 'mcp' || !('authentication' in source.definition))
+      return record
+    const definition = source.definition
+    const metadata = toManagedCapabilitySource(source)
+    if (((source.credentialTarget !== null || record.credentialRef !== null) && source.credentialTarget !== managedMcpCredentialTarget(definition)) || record.url !== definition.url)
+      metadata.unavailableReason = 'target_changed'
+    else if (!metadata.unavailableReason && definition.authentication !== 'none' && !record.credentialRef)
+      metadata.unavailableReason = 'authentication_required'
+    return { ...record, name: definition.name, transport: definition.transport, url: definition.url, command: null, args: null, cwd: null, managed: metadata, enabled: isManagedCapabilityEnabled(metadata) }
+  }
   const namespaceOwner = database.prepare('SELECT id FROM mcp_servers WHERE tool_namespace = ?')
   function allocateNamespace(name: string, id: string): string {
     const base = mcpNamespaceBase(name) || 'server'
@@ -95,7 +116,26 @@ export function createConnectorRepository(database: DatabaseSync): ConnectorRepo
       enabled = excluded.enabled,
       updated_at = excluded.updated_at
   `)
-  return {
+  const repository: ConnectorRepository = {
+    configureManaged(record, configuration) {
+      const source = managed.get(record.id)
+      if (!source || source.kind !== 'mcp')
+        throw new Error('MCP_MANAGED_SOURCE_REQUIRED')
+      database.exec('SAVEPOINT mcp_configuration')
+      try {
+        repository.upsert(record)
+        managed.setCredentialTarget(record.id, configuration.credentialTarget)
+        managed.setUnavailableReason(record.id, configuration.unavailableReason)
+        managed.setUserEnabled(record.id, configuration.userEnabled)
+        const saved = repository.findById(record.id)!
+        database.exec('RELEASE mcp_configuration')
+        return saved
+      }
+      catch (error) {
+        database.exec('ROLLBACK TO mcp_configuration; RELEASE mcp_configuration')
+        throw error
+      }
+    },
     readCatalog(id) {
       const row = readCatalog.get(id) as { tools_json: string, updated_at: string } | undefined
       return row ? { toolsJson: row.tools_json, updatedAt: row.updated_at } : null
@@ -106,12 +146,16 @@ export function createConnectorRepository(database: DatabaseSync): ConnectorRepo
     clearCatalog(id) {
       clearCatalog.run(id)
     },
-    findById(id) {
+    findStoredById(id) {
       const row = find.get(id) as McpServerRow | undefined
       return row ? toMcpServer(row) : null
     },
+    findById(id) {
+      const row = find.get(id) as McpServerRow | undefined
+      return row ? project(toMcpServer(row)) : null
+    },
     list() {
-      return (list.all() as unknown as McpServerRow[]).map(toMcpServer)
+      return (list.all() as unknown as McpServerRow[]).map(row => project(toMcpServer(row)))
     },
     remove(id) {
       return Number(remove.run(id).changes) === 1
@@ -138,9 +182,10 @@ export function createConnectorRepository(database: DatabaseSync): ConnectorRepo
         toolNamespace,
         record.toolExposure ?? existing?.tool_exposure ?? 'deferred',
       )
-      return requireMcpServer(find.get(record.id), record.id)
+      return project(requireMcpServer(find.get(record.id), record.id))
     },
   }
+  return repository
 }
 
 function requireMcpServer(value: unknown, id: string): McpServerRecord {

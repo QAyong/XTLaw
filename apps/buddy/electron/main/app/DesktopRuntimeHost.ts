@@ -20,6 +20,7 @@ import { automationNotifications } from '../../../shared/automation/automationAp
 import { contextPanelRpc, contextPanelSourceSchema } from '../../../shared/context-panel/contextPanel'
 import { extensionAgentInvocationSchema, extensionAgentRpc } from '../../../shared/extensions/extensionAgent'
 import { extensionAgentResourceRequestSchema } from '../../../shared/extensions/extensionAgentResources'
+import { extensionCapabilitiesRpc } from '../../../shared/extensions/extensionCapabilities'
 import { extensionSkillsRpc } from '../../../shared/extensions/extensionSkills'
 import { networkPermissionGrantSchema, networkPermissionsRpc } from '../../../shared/permissions/networkPermissionsRpc'
 import { isLinux } from '../../../shared/platform/identifiers'
@@ -51,6 +52,7 @@ export class DesktopRuntimeHost {
   extensionAgent: ReturnType<typeof registerExtensionIpc>['agent'] | null = null
   extensionShells: ReturnType<typeof registerExtensionIpc>['shells'] | null = null
   extensionSkills: ReturnType<typeof registerExtensionIpc>['skills'] | null = null
+  extensionCapabilities: ReturnType<typeof registerExtensionIpc>['capabilities'] | null = null
   extensionStorage: Pick<ReturnType<typeof registerExtensionIpc>, 'withStoppedStorage'> | null = null
   readonly contextPanel: ContextPanelHost
   readonly configStore: LexoraConfigStore
@@ -237,6 +239,12 @@ export class DesktopRuntimeHost {
             if (!this.extensionAgent)
               throw new Error('EXTENSION_AGENT_UNAVAILABLE')
             return this.extensionAgent.readResource(extensionAgentResourceRequestSchema.parse(input), signal ?? new AbortController().signal)
+          }),
+          // Unlike skills, an empty answer here would read as "everything was uninstalled", so an unready service must fail instead.
+          peer.onRequest(extensionCapabilitiesRpc.list, () => {
+            if (!this.extensionCapabilities)
+              throw new Error('EXTENSION_SERVICE_UNAVAILABLE')
+            return this.extensionCapabilities.list()
           }),
           peer.onRequest(extensionAgentRpc.invoke, (input, signal) => {
             if (!this.extensionAgent)

@@ -38,11 +38,17 @@
 | `fileHandlers` | API 4；数组，每项必填 `id`、`title`、`extensions`；`preview`、`open` 至少提供一个，各含 `view` 和可选 `requestDefault`（默认 `true`）；见 [文件关联](resources.md#文件关联与独立入口) |
 | `launchers` | API 4；数组，每项必填 `id`、`title`、`view`，提供无需文件的独立入口 |
 | `skills` | API 4；数组，每项为 `{id,path}`，path 指向包内 `SKILL.md`；可独立提供，无需 entry 或额外权限，见 [插件 Skills](skills.md) |
+| `mcpConnectors` | API 4 增量；数组，每项必填 `id`、`name`、`transport`、`url`、`authentication`；可独立提供，无需 entry 或额外插件权限，见 [MCP 连接](mcp-connectors.md) |
+| `subagents` | API 4 增量；数组，每项必填 `id`、`name`、`instructions`、`fileAccess`；可独立提供 NPC，无需 entry 或额外插件权限，见 [伙伴：NPC](buddies.md) |
 | `agent` | API 3；指令、工具、任务动作和可选的 enabledWhen，见 [Agent 工具与动作](agent.md) |
 | `settings` | API 3；声明 modules/groups/items，由宿主渲染并保存，见 [声明式设置](settings.md) |
 | `shells` | API 4；固定本机解释器候选与原生设置映射；可选 settingsGroup 将插件自有组渲染为一行一个 Shell 的原生表格，文件选择仅限原生设置，需独立 shells 权限，见 [命令解释器](shells.md) |
 
-插件 ID 使用小写字母开头的两段名称，中间以 `.` 分隔，每段可含小写字母、数字与 `-`；贡献 ID 在插件 ID 后追加由小写字母、数字、`.`、`-` 组成的后缀。声明文件路径使用包内相对路径，`.ts` 文件名直接指向源码，编译工具负责产出运行文件。
+插件 ID 使用小写字母开头的两段名称，中间以 `.` 分隔，每段可含小写字母、数字与 `-`。命令、视图、Skills 等贡献 ID 在插件 ID 后追加由小写字母、数字、`.`、`-` 组成的后缀，且全包唯一。
+
+`mcpConnectors[].id` 与 `subagents[].id` 是例外：使用不带插件前缀的局部 ID，各自在同类贡献中唯一；格式与保留值见对应专题。两类贡献使用相同局部 ID 不会建立关联。NPC 引用 MCP 时使用连接的局部 ID，引用 Skills 时仍使用完整的插件前缀贡献 ID。
+
+声明文件路径使用包内相对路径，`.ts` 文件名直接指向源码，编译工具负责产出运行文件。
 
 
 ## 包格式与版本
@@ -52,7 +58,7 @@
 - `version` 标记插件版本；`apiVersion` 标记协议主版本；`engines.lexora` 标记实际支持的宿主版本范围。API 4 内的增量接口仍可能要求更新的宿主，不能仅凭主版本声明兼容。
 - `dataVersion` 对应插件私有数据迁移，视图 `stateVersion` 对应实例状态迁移，详见 [生命周期与状态](lifecycle.md)。升级维持插件和贡献 ID，保留用户数据。
 
-示例版本仅用于说明清单结构。采用文件编辑、引用捕获等新增能力时，以对应专题和实际验收的宿主为准。
+示例版本仅用于说明清单结构。采用文件编辑、引用捕获、MCP 连接或 NPC 等增量能力时，须按对应专题与目标宿主已确认的支持版本填写 `engines.lexora`，不沿用示例范围推断兼容性。
 
 ## 专题索引
 
@@ -68,4 +74,6 @@
 | 原生设置与生效条件 | [设置](settings.md)、[条件](conditions.md) |
 | 主题、样式与装饰 | [样式](styles.md)、[主题](themes.md)、[文件图标](file-icon-themes.md) |
 | Worker、WASM、插件 Skills、命令解释器 | [计算](workers.md)、[Skills](skills.md)、[Shell](shells.md) |
+| 随插件提供远端 MCP 连接 | [MCP 连接](mcp-connectors.md) |
+| 随插件提供专业 NPC | [伙伴：NPC](buddies.md) |
 | 权限与独立开发 | [权限](permissions.md)、[SDK 工作流](sdk-workflow.md) |

@@ -94,7 +94,7 @@ describe('extension service facts', () => {
         const input = params as { operationId: string, generation: string, configurationRevision: string }
         return { operationId: input.operationId, generation: input.generation, configurationRevision: input.configurationRevision, applied: false }
       },
-      dispose: async () => { throw new Error('EXTENSION_HOST_STOP_FAILED') },
+      dispose: vi.fn(async () => {}).mockRejectedValueOnce(new Error('EXTENSION_HOST_STOP_FAILED')),
       devtools() {},
     }))
     await service.execute('tests.events', 'tests.events.open', null)
@@ -103,5 +103,8 @@ describe('extension service facts', () => {
     expect(service.snapshot.extensions[0]).toMatchObject({ generation: null, active: false, configuration: { status: 'invalidated' } })
     expect(changes.filter(change => change.kind === 'configuration').map(change => change.application.status)).toEqual(['committed', 'invalidated'])
     expect(changes.filter(change => change.kind === 'host').at(-1)).toMatchObject({ status: 'stop-failed', errorCode: 'EXTENSION_HOST_STOP_FAILED' })
+    await expect(service.execute('tests.events', 'tests.events.open', null)).rejects.toThrow('EXTENSION_RESTART_REQUIRED')
+    await service.resetHosts()
+    expect(changes.filter(change => change.kind === 'host').at(-1)).toMatchObject({ status: 'stopped' })
   })
 })

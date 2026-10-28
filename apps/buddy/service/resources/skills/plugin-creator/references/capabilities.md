@@ -33,6 +33,8 @@
 | 输入、完成事件或任务菜单触发动作 | `agent.actions` 与精确触发声明 | [动作](agent.md#任务动作)、[事件](events.md) |
 | 请求已配置模型、读取当前任务 | 本次调用的 `models` / `task`，按权限开放 | [模型与任务](agent.md#模型与任务权限) |
 | 提供可搜索的工作方法与配套资源 | `contributes.skills` | [Skills](skills.md) |
+| 提供由宿主管理认证与启用的远端连接 | `contributes.mcpConnectors`，可独立声明 | [MCP 连接](mcp-connectors.md) |
+| 提供可由伙伴调用的专业 NPC | `contributes.subagents`，可独立声明 | [伙伴：NPC](buddies.md) |
 | 原生设置与实时生效条件 | `settings`、`configuration`、`conditions` | [设置](settings.md)、[条件](conditions.md) |
 | 关闭页面后仍通知或定时执行 | 后台命令、`notifications`、`schedules` | [命令](commands.md#通知与定时命令) |
 | 检测用户已有命令解释器 | 声明式 `shells`；运行仍归宿主 | [Shell](shells.md) |

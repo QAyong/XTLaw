@@ -10,11 +10,14 @@ const domains: Partial<Record<BackupScope, readonly string[]>> = {
   tasks: ['conversation_branches', 'messages', 'run_events', 'turn_requests', 'run_inputs', 'command_requests', 'approvals', 'attachments', 'space_events', 'automation_occurrences', 'automation_mutation_requests', 'run_change_sets', 'space_directory_bindings', 'spaces', 'conversations', 'runs', 'conversation_directory_grants', 'artifacts', 'run_file_change_captures', 'composer_resources', 'conversation_pi_trees', 'run_tree_sources', 'task_marks', 'task_attention', 'composer_drafts', 'extension_invocations', 'usage_records', 'conversation_members', 'execution_threads', 'execution_thread_bindings', 'execution_state', 'execution_work_attempts', 'execution_mailbox_sources', 'execution_mailbox_receipts', 'run_change_invocations', 'conversation_public_heads', 'conversation_publications', 'run_public_snapshots', 'run_session_reference_scopes', 'session_reference_exclusions', 'actor_public_cursors'],
 }
 export const backupTableScopes = new Map(Object.entries(domains).flatMap(([scope, tables]) => tables.map(table => [table, scope as BackupScope] as const)))
-export const backupTables = [...backupTableScopes.keys(), 'workspace_settings']
+export const backupTables = [...backupTableScopes.keys(), 'workspace_settings', 'extension_capabilities']
+export const backupCapabilityOwners = [['subagent', 'buddies'], ['mcp', 'mcp_servers']] as const
 
 export function databaseRowScope(table: string, row: Record<string, SQLOutputValue>): BackupScope | null {
   if (table === 'workspace_settings')
     return row.key === 'buddy.web' ? 'connections' : row.key === 'buddy.chat.workspace.v2' ? 'settings' : null
+  if (table === 'extension_capabilities')
+    return row.kind === 'subagent' ? 'buddies' : row.kind === 'mcp' ? 'connections' : null
   return backupTableScopes.get(table) ?? null
 }
 

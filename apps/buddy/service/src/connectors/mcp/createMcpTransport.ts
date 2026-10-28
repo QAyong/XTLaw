@@ -10,6 +10,7 @@ import { createChildProcessEnvironment } from '../../../../platform/process/chil
 
 export function createMcpTransport(config: McpServerConfig, credential: ConnectorCredential | null, authProvider?: OAuthClientProvider, authorization?: {
   signal: AbortSignal
+  assertAvailable?: () => void
   discovered: (kind: ConnectorRuntimeState['authorization']) => void
 }) {
   if (config.transport === 'stdio') {
@@ -49,6 +50,7 @@ export function createMcpTransport(config: McpServerConfig, credential: Connecto
   return new StreamableHTTPClientTransport(new URL(config.url), {
     authProvider,
     fetch: async (input, init) => {
+      authorization?.assertAvailable?.()
       const response = await fetch(input, init)
       if (authorization && !checkedAuthorization && (response.status === 401 || response.status === 403)) {
         checkedAuthorization = true
@@ -58,7 +60,10 @@ export function createMcpTransport(config: McpServerConfig, credential: Connecto
             const signal = AbortSignal.any([authorization.signal, AbortSignal.timeout(5_000)])
             const info = await discoverOAuthServerInfo(config.url, {
               resourceMetadataUrl: extractWWWAuthenticateParams(response).resourceMetadataUrl,
-              fetchFn: (url, options) => fetch(url, { ...options, redirect: 'error', signal }),
+              fetchFn: (url, options) => {
+                authorization.assertAvailable?.()
+                return fetch(url, { ...options, redirect: 'error', signal })
+              },
             })
             if (info.authorizationServerMetadata?.authorization_endpoint)
               kind = 'oauth'

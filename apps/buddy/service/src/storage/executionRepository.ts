@@ -11,6 +11,8 @@ import { executionMailboxMessageSchema } from '../../../shared/executions/execut
 import { executionReviewSchema, executionSubmissionSchema } from '../../../shared/executions/executionWork'
 import { isExecutionProfileWithin } from '../../../shared/permissions/executionProfile'
 import { buddyExecutionDefinitionSchema } from '../buddies/BuddyExecutionDefinition'
+import { readAvailableBuddy, readAvailableNpcIds } from '../buddies/readAvailableBuddy'
+import { createBuddyRepository } from './buddyRepository'
 import { freezeConversationMemberModel } from './conversationMemberRepository'
 import { createConversationPublicationRepository } from './conversationPublicationRepository'
 import { withTransaction } from './database'
@@ -92,6 +94,7 @@ export function executionFence(record: ExecutionStateRecord, root: ExecutionStat
 }
 
 export function createExecutionRepository(database: DatabaseSync) {
+  const buddies = createBuddyRepository(database)
   const runs = createRunRepository(database)
   const threads = createThreadBindingRepository(database)
   const inputs = createRunInputRepository(database)
@@ -345,9 +348,16 @@ export function createExecutionRepository(database: DatabaseSync) {
         if (listTree(root.run.id).length - 1 >= MAX_CHILD_ATTEMPTS_PER_ROOT)
           throw new ExecutionAdmissionError('budget_exceeded')
         const snapshot = buddyExecutionDefinitionSchema.parse(input.run.actorSnapshot)
-        const target = database.prepare('SELECT kind, revision, enabled, deleted_at, settings_json FROM buddies WHERE id = ?').get(input.run.buddyId)
-        if (!target || target.enabled !== 1 || target.deleted_at !== null || target.revision !== snapshot.revision
-          || target.kind !== snapshot.kind || JSON.stringify(buddySettingsSchema.parse(JSON.parse(target.settings_json as string))) !== JSON.stringify(snapshot.settings) || snapshot.id !== input.run.buddyId
+        const target = readAvailableBuddy(buddies.get, input.run.buddyId)
+        const targetSettings = target ? buddySettingsSchema.parse(target.settings) : null
+        if (targetSettings) {
+          if (snapshot.settings.npcIds.some(id => !targetSettings.npcIds.includes(id)))
+            throw new ExecutionAdmissionError('unauthorized')
+          targetSettings.npcIds = targetSettings.npcTeamEnabled ? readAvailableNpcIds(buddies.get, snapshot.settings.npcIds) : []
+          snapshot.settings.npcIds = snapshot.settings.npcTeamEnabled ? readAvailableNpcIds(buddies.get, snapshot.settings.npcIds) : []
+        }
+        if (!target || target.revision !== snapshot.revision
+          || target.kind !== snapshot.kind || JSON.stringify(targetSettings) !== JSON.stringify(snapshot.settings) || snapshot.id !== input.run.buddyId
           || input.run.provider !== snapshot.model.providerId || input.run.model !== snapshot.model.modelId
           || input.initialInput.reasoning !== snapshot.model.reasoning || input.initialInput.serviceTier !== snapshot.model.serviceTier
           || !caller.run.actorSnapshot || caller.run.actorSnapshot.kind !== 'actor') {

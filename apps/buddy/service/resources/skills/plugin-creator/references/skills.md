@@ -17,7 +17,7 @@ API 4 的 `contributes.skills` 将标准 Skill 随插件分发，可与工具、
 }
 ```
 
-将 `<plugin-id>` 替换为该插件已有的 ID。贡献 ID 必须以插件 ID 加 `.` 开头且全包唯一。最多声明 32 个 Skill；各 Skill 使用独立目录，目录不能相互包含，也不能包含插件宿主或视图的入口文件。
+将 `<plugin-id>` 替换为该插件已有的 ID。Skill 贡献 ID 必须以插件 ID 加 `.` 开头且全包唯一；不要套用 MCP 连接或 NPC 的局部 ID 规则。最多声明 32 个 Skill；各 Skill 使用独立目录，目录不能相互包含，也不能包含插件宿主或视图的入口文件。
 
 ```text
 extension.json

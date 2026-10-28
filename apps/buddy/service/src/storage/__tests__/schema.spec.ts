@@ -83,6 +83,42 @@ function seedRun(
 }
 
 describe('buddy schema', { timeout: MIGRATION_TEST_TIMEOUT }, () => {
+  it('adds managed capability sources to schema 35 without changing user definitions or history', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'buddy-capability-migration-'))
+    directories.push(directory)
+    const databasePath = join(directory, 'buddy.sqlite3')
+    const previous = openMigrationFixtureDatabase(databasePath)
+    for (const migration of BUDDY_SCHEMA_MIGRATIONS.filter(migration => migration.version <= 35))
+      previous.exec(migration.sql)
+    seedRun(previous)
+    previous.exec(`
+      INSERT INTO buddies (id, kind, name, description, enabled, created_at, updated_at)
+        VALUES ('user-npc', 'npc', 'User NPC', 'Keep user instructions', 0, '2026-10-27', '2026-10-27');
+      INSERT INTO mcp_servers (id, name, transport, url, credential_ref, trusted_at, enabled, created_at, updated_at)
+        VALUES ('user-mcp', 'User MCP', 'streamable-http', 'https://example.invalid/mcp', 'synthetic-ref', '2026-10-27', 1, '2026-10-27', '2026-10-27');
+      PRAGMA user_version = 35;
+    `)
+    const objects = previous.prepare('SELECT type, name, sql FROM sqlite_master WHERE name NOT LIKE \'sqlite_%\' ORDER BY name').all()
+    const rows = objects.filter(row => row.type === 'table').map(row => ({
+      name: String(row.name),
+      data: previous.prepare(`SELECT * FROM "${String(row.name)}" ORDER BY rowid`).all(),
+    }))
+    previous.close()
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const migrated = openBuddyDatabase({ databasePath })
+      expect(migrated.prepare('PRAGMA user_version').get()).toEqual({ user_version: BUDDY_SCHEMA_VERSION })
+      expect(BUDDY_SCHEMA_VERSION).toBeGreaterThanOrEqual(36)
+      expect(migrated.prepare('SELECT type, name, sql FROM sqlite_master WHERE name NOT LIKE \'sqlite_%\' AND name != \'extension_capabilities\' ORDER BY name').all()).toEqual(objects)
+      for (const row of rows)
+        expect(migrated.prepare(`SELECT * FROM "${row.name}" ORDER BY rowid`).all(), row.name).toEqual(row.data)
+      expect(migrated.prepare('SELECT * FROM extension_capabilities').all()).toEqual([])
+      expect(migrated.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+      expect(migrated.prepare('PRAGMA integrity_check').get()).toEqual({ integrity_check: 'ok' })
+      migrated.close()
+    }
+  })
+
   it('upgrades schema 34 without rewriting queued input or historical data', () => {
     const directory = mkdtempSync(join(tmpdir(), 'buddy-input-delivery-migration-'))
     directories.push(directory)

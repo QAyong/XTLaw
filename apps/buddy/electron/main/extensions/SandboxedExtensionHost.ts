@@ -21,12 +21,13 @@ export class SandboxedExtensionHost implements ExtensionHost {
   readonly #pending = new Map<string, Pending>()
   readonly #ready: Promise<void>
   readonly #broker: (method: string, params: unknown) => Promise<JsonValue>
-  readonly #cleanup: () => void
+  readonly #cleanup: () => Promise<void>
   readonly #onFailure: (failure: ExtensionHostFailure) => void
   #resolveReady!: () => void
   #rejectReady!: (error: Error) => void
   #io = 0
   #closing = false
+  #disposal: Promise<void> | undefined
   #started = false
   #developerWindow: BrowserWindow | null = null
   #readyTimer: ReturnType<typeof setTimeout>
@@ -51,11 +52,23 @@ export class SandboxedExtensionHost implements ExtensionHost {
     })
     void this.#ready.catch(() => {})
     this.#readyTimer = setTimeout(() => this.#fail({ code: 'EXTENSION_REQUEST_TIMEOUT', method: 'ready', stage: 'timeout' }), 15000)
-    this.#cleanup = () => {
-      endpoint.dispose()
-      stopProtocol()
-      isolated.webRequest.onBeforeRequest(null)
-      void isolated.closeAllConnections()
+    const cleanup = [
+      () => endpoint.dispose(),
+      stopProtocol,
+      () => isolated.closeAllConnections(),
+      () => {
+        if (!this.window.isDestroyed())
+          this.window.destroy()
+        if (!this.window.isDestroyed())
+          throw new Error('EXTENSION_HOST_STOP_FAILED')
+      },
+      () => isolated.webRequest.onBeforeRequest(null),
+    ]
+    this.#cleanup = async () => {
+      while (cleanup.length) {
+        await cleanup[0]!()
+        cleanup.shift()
+      }
     }
     const contents = this.window.webContents
     contents.setWindowOpenHandler(() => ({ action: 'deny' }))
@@ -160,18 +173,22 @@ export class SandboxedExtensionHost implements ExtensionHost {
     this.window.webContents.openDevTools({ mode: 'detach' })
   }
 
-  async dispose(): Promise<void> {
-    if (this.#closing)
-      return
+  dispose(): Promise<void> {
+    if (this.#disposal)
+      return this.#disposal
     this.#closing = true
     this.#rejectAll()
-    if (this.#started && !this.window.isDestroyed())
-      await this.#send('deactivate', null, 1500).catch(() => {})
-    this.#rejectAll()
-    this.#closeDeveloperWindow()
-    this.#cleanup()
-    if (!this.window.isDestroyed())
-      this.window.destroy()
+    this.#disposal = Promise.resolve().then(async () => {
+      if (this.#started && !this.window.isDestroyed())
+        await this.#send('deactivate', null, 1500).catch(() => {})
+      this.#rejectAll()
+      this.#closeDeveloperWindow()
+      await this.#cleanup()
+    }).catch((error) => {
+      this.#disposal = undefined
+      throw error
+    })
+    return this.#disposal
   }
 
   #send(method: string, params: JsonValue, timeout: number, signal?: AbortSignal): Promise<JsonValue> {
@@ -207,8 +224,16 @@ export class SandboxedExtensionHost implements ExtensionHost {
   #closeDeveloperWindow(): void {
     const window = this.#developerWindow
     this.#developerWindow = null
-    if (window && !window.isDestroyed())
-      window.destroy()
+    try {
+      if (window && !window.isDestroyed())
+        window.destroy()
+      if (window && !window.isDestroyed())
+        throw new Error('EXTENSION_HOST_STOP_FAILED')
+    }
+    catch (error) {
+      this.#developerWindow = window
+      throw error
+    }
   }
 
   #fail(failure: ExtensionHostFailure = { code: 'EXTENSION_HOST_CRASHED', method: 'unknown', stage: 'process' }): void {

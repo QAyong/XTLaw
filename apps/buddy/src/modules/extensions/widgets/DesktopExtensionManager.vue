@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ExtensionReview, ExtensionReviewResult, ExtensionStatus } from '@buddy-shared/extensions/extensionApi'
+import type { ExtensionCapabilityImpact } from '@buddy-shared/extensions/extensionCapabilities'
 import type { ExtensionIncompatibleReview } from '@buddy-shared/extensions/extensionCompatibility'
 import type { FileOpeningChoice } from '@buddy-shared/files/fileOpening'
 import { ChevronDown16Regular, MoreHorizontal20Regular, Wand20Regular } from '@vicons/fluent'
@@ -40,6 +41,8 @@ const diagnostics = shallowRef<string | null>(null)
 const installationLog = shallowRef(false)
 const authorSettings = shallowRef(false)
 const removing = shallowRef<ExtensionStatus | null>(null)
+const removalImpact = shallowRef<ExtensionCapabilityImpact | null>(null)
+let disposed = false
 const message = useMessage()
 const router = useRouter()
 const selected = computed(() => installed.value.find(item => item.manifest.id === diagnostics.value))
@@ -117,12 +120,26 @@ function open(item: ExtensionStatus) {
   if (location)
     void router.push(location)
 }
+async function askRemove(item: ExtensionStatus) {
+  await run(async () => {
+    removing.value = null
+    removalImpact.value = null
+    const impact = await state.api.capabilityImpact(item.manifest.id)
+    if (!disposed) {
+      removalImpact.value = impact
+      removing.value = item
+    }
+  })
+}
 async function remove(clearData: boolean) {
   const item = removing.value
-  if (item && await run(() => state.api.uninstall(item.manifest.id, { clearData })))
+  if (item && removalImpact.value && await run(() => state.api.uninstall(item.manifest.id, { clearData })))
     removing.value = null
 }
-onScopeDispose(cancel)
+onScopeDispose(() => {
+  disposed = true
+  cancel()
+})
 </script>
 
 <template>
@@ -181,7 +198,7 @@ onScopeDispose(cancel)
         @restart="run(() => state.api.restart(item.manifest.id))"
         @apply-update="applyUpdate(item.manifest.id)"
         @diagnostics="diagnostics = item.manifest.id"
-        @remove="removing = item"
+        @remove="askRemove(item)"
         @open="open(item)"
         @revoke-resources="run(() => state.api.revokeResources(item.manifest.id))"
       />
@@ -195,7 +212,7 @@ onScopeDispose(cancel)
   </NModal>
   <DesktopExtensionInstallReview v-if="review" :key="review.token" :review="review" :language="language" :busy="busy" @cancel="cancel" @install="install" />
   <DesktopExtensionIncompatibleReview v-if="incompatibleReview" :review="incompatibleReview" :language="language" @close="incompatibleReview = null" />
-  <DesktopExtensionUninstallDialog v-if="removing" :name="removing.manifest.name" :language="language" :busy="busy" @cancel="removing = null" @remove="remove" />
+  <DesktopExtensionUninstallDialog v-if="removing && removalImpact" :name="removing.manifest.name" :impact="removalImpact" :language="language" :busy="busy" @cancel="removing = null" @remove="remove" />
   <NModal :show="!!selected" preset="card" :title="labels.diagnostics" class="extension-dialog" @update:show="value => { if (!value) diagnostics = null }">
     <template v-if="selected">
       <h2>{{ selected.manifest.name }}</h2>

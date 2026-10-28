@@ -8,6 +8,13 @@ const features = [
 ]
 
 describe('feature discovery across releases', () => {
+  it('introduces follow-up behavior in 0.4.1 without announcing it in 0.4.0', () => {
+    const feature = { id: 'follow-up-behavior', version: '0.4.1' }
+    expect(availableFeatureGuides('0.4.0')).not.toContainEqual(feature)
+    expect(availableFeatureGuides('0.4.1')).toContainEqual(feature)
+    expect(advanceFeatureDiscovery({ version: '0.4.0', pending: [], notified: [] }, '0.4.1', false).pending).toEqual(['follow-up-behavior'])
+  })
+
   it('combines skipped releases without dropping unseen or dismissed items', () => {
     const previous = { version: '0.12.0', pending: ['older'], notified: ['older'] }
     expect(advanceFeatureDiscovery(previous, '0.13.1', false, features)).toEqual({ version: '0.13.1', pending: ['older', 'layout', 'npc'], notified: ['older'] })

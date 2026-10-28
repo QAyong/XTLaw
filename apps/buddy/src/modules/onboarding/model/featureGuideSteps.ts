@@ -1,6 +1,9 @@
 import type { FeatureGuideId } from '@buddy-shared/onboarding/featureDiscovery'
 
 const targets = {
+  'follow-up-behavior': [
+    { id: 'follow-up-behavior', selector: '[data-testid="follow-up-behavior-setting"]', title: 'discovery.follow-up-behavior.title', description: 'discovery.follow-up-behavior.hint', side: 'bottom', align: 'start' },
+  ],
   'additional-directories': [
     { id: 'additional-directories', selector: '.desktop-task-sidebar__spaces', title: 'discovery.additional-directories.title', description: 'discovery.additional-directories.hint', side: 'right', align: 'start' },
   ],

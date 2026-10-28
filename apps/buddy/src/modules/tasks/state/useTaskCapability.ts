@@ -218,6 +218,7 @@ export function useTaskCapability(options: UseTaskCapabilityOptions): TaskCapabi
     content: computed(() => drafts.load(drafts.targetKey.value).content),
     scopeKey: drafts.targetKey,
     defaultActorId: computed(getDefaultActorId),
+    followUpBehavior: computed(() => applicationSettings.config.value?.desktop.chat.followUpBehavior ?? 'steer'),
     tree: executionTree,
   })
   // 任务被移入空间后，当前会话的空间随之更新。
@@ -679,6 +680,7 @@ export function useTaskCapability(options: UseTaskCapabilityOptions): TaskCapabi
     execution: {
       isActorInput: computed(() => actorInput.mailboxTarget.value !== null),
       inputExecution: actorInput.execution,
+      inputDelivery: actorInput.delivery,
       activeRun: readonly(presentedActiveRun),
       approvalViews: readonly(approvalViews),
       canMutateBranch: readonly(canMutateBranch),

@@ -71,6 +71,7 @@ const desktopConfigSchema = z.object({
   plugin_author: extensionAuthorSchema.default(''),
   background_close_notice_shown: z.boolean().default(false),
   chat: z.object({
+    follow_up_behavior: z.enum(['queue', 'steer']).default(DEFAULT_DESKTOP_CHAT_PREFERENCES.followUpBehavior),
     outline_position: z.enum(DESKTOP_CHAT_OUTLINE_POSITIONS).default(DEFAULT_DESKTOP_CHAT_PREFERENCES.outlinePosition),
     paste_text_as_attachment: z.boolean().default(DEFAULT_DESKTOP_CHAT_PREFERENCES.pasteTextAsAttachment),
     permission_mode: z.enum(BUDDY_PERMISSION_MODES).default(DEFAULT_DESKTOP_CHAT_PREFERENCES.permissionMode),
@@ -127,6 +128,7 @@ const desktopConfigSchema = z.object({
   background_close_notice_shown: false,
   plugin_author: '',
   chat: {
+    follow_up_behavior: DEFAULT_DESKTOP_CHAT_PREFERENCES.followUpBehavior,
     outline_position: DEFAULT_DESKTOP_CHAT_PREFERENCES.outlinePosition,
     paste_text_as_attachment: DEFAULT_DESKTOP_CHAT_PREFERENCES.pasteTextAsAttachment,
     permission_mode: DEFAULT_DESKTOP_CHAT_PREFERENCES.permissionMode,
@@ -441,6 +443,7 @@ function decodeConfig(value: unknown): LexoraConfig {
       chat: {
         outlinePosition: config.desktop.chat.outline_position,
         pasteTextAsAttachment: config.desktop.chat.paste_text_as_attachment,
+        followUpBehavior: config.desktop.chat.follow_up_behavior,
         permissionMode: config.desktop.chat.permission_mode,
         welcome: normalizeDesktopChatWelcomePreference(config.desktop.chat.welcome, config.desktop.chat.welcome_items),
         welcomeItems: config.desktop.chat.welcome_items,
@@ -516,6 +519,7 @@ function encodeConfig(config: LexoraConfig) {
       chat: {
         outline_position: config.desktop.chat.outlinePosition,
         paste_text_as_attachment: config.desktop.chat.pasteTextAsAttachment,
+        follow_up_behavior: config.desktop.chat.followUpBehavior,
         permission_mode: config.desktop.chat.permissionMode,
         welcome: config.desktop.chat.welcome,
         welcome_items: config.desktop.chat.welcomeItems,
@@ -592,6 +596,7 @@ function mergeConfig(current: LexoraConfig, patch: LexoraConfigPatch): LexoraCon
         ...patch.desktop?.chat,
         welcomeItems,
         welcome: normalizeDesktopChatWelcomePreference(patch.desktop?.chat?.welcome ?? current.desktop.chat.welcome, welcomeItems),
+        followUpBehavior: z.enum(['queue', 'steer']).parse(patch.desktop?.chat?.followUpBehavior ?? current.desktop.chat.followUpBehavior),
         permissionMode: z.enum(BUDDY_PERMISSION_MODES).parse(
           patch.desktop?.chat?.permissionMode ?? current.desktop.chat.permissionMode,
         ),

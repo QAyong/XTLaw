@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { LexoraConfigPatch } from '@buddy-electron/shared/desktopApi'
+import type { DesktopChatPreferences, LexoraConfigPatch } from '@buddy-electron/shared/desktopApi'
 import type { BuddyPermissionMode } from '@buddy-shared/permissions/permissionMode'
 import type { RuntimePreferences } from '@buddy-shared/runtime/runtimePreferences'
 import type { ApplicationSettingsProps } from '../app/typing'
@@ -11,7 +11,7 @@ import { useBuddyI18n } from '@/i18n/buddyI18n'
 import { DesktopFullAccessConfirmationDialog } from '@/modules/prompt-input/ui'
 import DesktopSegmentedControl from '@/shared/ui/segmented-control/DesktopSegmentedControl.vue'
 
-type RuntimeSettingField = 'cacheWarming' | 'codemode' | 'defaultPermissionMode' | 'modelRetryLimit'
+type RuntimeSettingField = 'cacheWarming' | 'codemode' | 'defaultPermissionMode' | 'modelRetryLimit' | 'followUpBehavior'
 type RetryMode = 0 | 'limited' | 'unlimited'
 
 const props = defineProps<ApplicationSettingsProps>()
@@ -26,6 +26,8 @@ const fullAccessConfirmationText = computed(() => ({
 const message = useMessage()
 const cacheWarmingLabelId = useId()
 const cacheWarmingDescriptionId = useId()
+const followUpLabelId = useId()
+const followUpDescriptionId = useId()
 const codemodeLabelId = useId()
 const codemodeDescriptionId = useId()
 const defaultPermissionLabelId = useId()
@@ -52,6 +54,10 @@ const retryCount = computed(() => {
 })
 const pendingFields = shallowRef<ReadonlySet<RuntimeSettingField>>(new Set())
 const fullAccessConfirmationOpen = shallowRef(false)
+const followUpBehaviors = computed(() => [
+  { label: t('desktop.settings.runtime.followUpQueue'), value: 'queue' as const },
+  { label: t('desktop.settings.runtime.followUpSteer'), value: 'steer' as const },
+])
 const cacheWarmingModes = computed(() => [
   { label: t('desktop.settings.runtime.cacheWarmingOff'), value: 'off' },
   { label: t('desktop.settings.runtime.cacheWarmingStreaming'), value: 'streaming' },
@@ -119,6 +125,10 @@ function updateCacheWarming(cacheWarming: RuntimePreferences['cacheWarming']) {
 function updateCodemode(codemode: boolean) {
   void save('codemode', { runtime: { codemode } })
 }
+
+function updateFollowUpBehavior(followUpBehavior: DesktopChatPreferences['followUpBehavior']) {
+  void save('followUpBehavior', { desktop: { chat: { followUpBehavior } } })
+}
 </script>
 
 <template>
@@ -167,22 +177,38 @@ function updateCodemode(codemode: boolean) {
       </div>
     </section>
     <section class="runtime-settings__section">
-      <h2>{{ t('desktop.settings.runtime.toolExecution') }}</h2>
-      <div class="runtime-settings__row" data-testid="codemode-setting">
-        <div class="runtime-settings__copy">
-          <strong :id="codemodeLabelId">{{ t('desktop.settings.runtime.codemode') }}</strong>
-          <small :id="codemodeDescriptionId">{{ t('desktop.settings.runtime.codemodeDescription') }}</small>
+      <h2>{{ t('desktop.settings.runtime.executionBehavior') }}</h2>
+      <div class="runtime-settings__group">
+        <div class="runtime-settings__row" data-testid="follow-up-behavior-setting">
+          <div class="runtime-settings__copy">
+            <strong :id="followUpLabelId">{{ t('desktop.settings.runtime.followUpBehavior') }}</strong>
+            <small :id="followUpDescriptionId">{{ t('desktop.settings.runtime.followUpBehaviorDescription') }}</small>
+          </div>
+          <DesktopSegmentedControl
+            :aria-labelledby="followUpLabelId"
+            :aria-describedby="followUpDescriptionId"
+            :model-value="config.desktop.chat.followUpBehavior"
+            :options="followUpBehaviors"
+            :disabled="pendingFields.has('followUpBehavior')"
+            @update:model-value="updateFollowUpBehavior"
+          />
         </div>
-        <NSwitch
-          class="runtime-settings__toggle"
-          :round="false"
-          :aria-labelledby="codemodeLabelId"
-          :aria-describedby="codemodeDescriptionId"
-          :value="config.runtime.codemode"
-          :loading="pendingFields.has('codemode')"
-          :disabled="pendingFields.has('codemode')"
-          @update:value="updateCodemode"
-        />
+        <div class="runtime-settings__row" data-testid="codemode-setting">
+          <div class="runtime-settings__copy">
+            <strong :id="codemodeLabelId">{{ t('desktop.settings.runtime.codemode') }}</strong>
+            <small :id="codemodeDescriptionId">{{ t('desktop.settings.runtime.codemodeDescription') }}</small>
+          </div>
+          <NSwitch
+            class="runtime-settings__toggle"
+            :round="false"
+            :aria-labelledby="codemodeLabelId"
+            :aria-describedby="codemodeDescriptionId"
+            :value="config.runtime.codemode"
+            :loading="pendingFields.has('codemode')"
+            :disabled="pendingFields.has('codemode')"
+            @update:value="updateCodemode"
+          />
+        </div>
       </div>
     </section>
     <section class="runtime-settings__section">

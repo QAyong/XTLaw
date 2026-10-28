@@ -18,11 +18,18 @@ export const proxyServerSchema = z.string().trim().max(2048).refine((value) => {
   }
 }, 'Invalid proxy server')
 
+// Public GitHub acceleration mirrors, named by host. 'auto' tries them all in order, a host picks that one, 'off' goes to GitHub only; GitHub is always the last resort.
+export const DOWNLOAD_MIRROR_HOSTS = ['ghfast.top', 'gh-proxy.com', 'gh.monlor.com'] as const
+export const downloadMirrorModeSchema = z.enum(['auto', 'off', ...DOWNLOAD_MIRROR_HOSTS])
+
 export const proxySettingsSchema = z.object({
   mode: proxyModeSchema,
   server: proxyServerSchema,
+  downloadMirror: downloadMirrorModeSchema.default('off'),
 }).strict().refine(value => value.mode !== 'custom' || Boolean(value.server), 'Proxy server is required')
 
 export type ProxySettings = z.infer<typeof proxySettingsSchema>
+export type DownloadMirrorMode = z.infer<typeof downloadMirrorModeSchema>
 
-export const DEFAULT_PROXY_SETTINGS: ProxySettings = { mode: 'system', server: '' }
+export const DEFAULT_PROXY_SETTINGS: ProxySettings = { mode: 'system', server: '', downloadMirror: 'off' }
+export type ProxyConnectionSettings = Pick<ProxySettings, 'mode' | 'server'>

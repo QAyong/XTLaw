@@ -157,6 +157,7 @@ describe('update delivery', () => {
     const requests: string[] = []
     const delivery = new DesktopUpdateDelivery({
       directory,
+      downloadMirror: () => 'auto',
       get: async (url) => {
         requests.push(url)
         if (requests.length === 1) {

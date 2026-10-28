@@ -56,7 +56,7 @@ describe('desktop update packages', () => {
   it('falls back through mirrors to GitHub direct and verifies whichever route answers', async () => {
     const root = await createTemporaryDirectory('lexora-update-')
     const requests: string[] = []
-    const file = await downloadDesktopUpdatePackage({ directory: root, update, signal: new AbortController().signal, progress: () => {}, get: async (url) => {
+    const file = await downloadDesktopUpdatePackage({ directory: root, update, mirror: 'auto', signal: new AbortController().signal, progress: () => {}, get: async (url) => {
       requests.push(url)
       if (url === update.url)
         return new Response(body)

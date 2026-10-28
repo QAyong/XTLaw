@@ -7,8 +7,8 @@ export const REPOSITORY_URL = repositoryUrl.href
 export const RELEASE_TAG_PREFIX = 'xtlaw-v'
 export const releaseTagUrl = (version: string) => `${repositoryUrl.href}/releases/tag/${RELEASE_TAG_PREFIX}${version}`
 export const releaseDownloadUrl = (version: string, name: string) => `${repositoryUrl.href}/releases/download/${RELEASE_TAG_PREFIX}${version}/${name}`
-// Public GitHub acceleration prefixes, same list as the official site; the update package is verified by size and sha256, so a mirror is not trusted.
-export const RELEASE_DOWNLOAD_MIRRORS = ['https://ghfast.top/', 'https://gh-proxy.com/'] as const
+// Update packages are verified by size and sha256 from the GitHub release API, so a mirror is not trusted.
+export { DOWNLOAD_MIRRORS as RELEASE_DOWNLOAD_MIRRORS } from '../../shared/network/downloadMirrors'
 export const RELEASES_API_URL = `https://api.github.com/repos${repositoryUrl.pathname}/releases?per_page=100`
 export const OFFICIAL_SITE_URL = 'https://xtlaw.qayong.site/'
 export const SITE_FEED_URL = new URL('feed/notices.json', OFFICIAL_SITE_URL).href

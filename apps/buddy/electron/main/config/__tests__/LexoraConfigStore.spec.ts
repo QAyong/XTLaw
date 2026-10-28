@@ -299,10 +299,10 @@ keep=true
     const { configPath, store } = await createConfigStore()
     await mkdir(dirname(configPath), { recursive: true })
     await writeFile(configPath, '[desktop]\nlanguage = "en-US"\n[future]\nvalue = true\n')
-    expect((await store.read()).proxy).toEqual({ mode: 'system', server: '' })
-    await store.update({ proxy: { mode: 'custom', server: 'http://127.0.0.1:7890' } })
-    await store.update({ proxy: { mode: 'direct', server: 'http://127.0.0.1:7890' } })
-    expect((await store.read()).proxy).toEqual({ mode: 'direct', server: 'http://127.0.0.1:7890' })
+    expect((await store.read()).proxy).toEqual({ mode: 'system', server: '', downloadMirror: 'off' })
+    await store.update({ proxy: { mode: 'custom', server: 'http://127.0.0.1:7890', downloadMirror: 'auto' } })
+    await store.update({ proxy: { mode: 'direct', server: 'http://127.0.0.1:7890', downloadMirror: 'auto' } })
+    expect((await store.read()).proxy).toEqual({ mode: 'direct', server: 'http://127.0.0.1:7890', downloadMirror: 'auto' })
     expect(await readFile(configPath, 'utf8')).toContain('[future]')
     expect((await store.read()).desktop.language).toBe('en-US')
   })
@@ -336,7 +336,7 @@ keep=true
     const changes: string[] = []
     store.onDidChange(change => changes.push(change.kind))
     let active = previous.proxy
-    await expect(store.update({ proxy: { mode: 'custom', server: 'http://127.0.0.1:7890' } }, async (next) => {
+    await expect(store.update({ proxy: { mode: 'custom', server: 'http://127.0.0.1:7890', downloadMirror: 'auto' } }, async (next) => {
       active = next.proxy
       if (next.proxy.mode === 'custom')
         throw new Error('Proxy configuration unavailable')

@@ -1,7 +1,7 @@
 import { Buffer } from 'node:buffer'
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { join } from 'node:path'
 import process from 'node:process'
 import { describe, expect, it } from 'vitest'
 import { isLocalNamedPipe as isWindowsPipe } from '../../../shared/platform/localEndpoint'
@@ -36,7 +36,7 @@ describe('resolveBuddyRuntimePaths', () => {
         expect(() => resolveBuddyRuntimePaths({ ...BASE_OPTIONS, profileOverride, lexoraHomeOverride: root })).toThrow('must not overlap Lexora')
     }
     expect(() => resolveBuddyRuntimePaths({ ...BASE_OPTIONS, userDataOverride: '/home/lexora/.config/Lexora Buddy' })).toThrow('must not overlap Lexora')
-    expect(() => resolveBuddyRuntimePaths({ ...BASE_OPTIONS, nativePetSocketOverride: '/run/user/1000/lexora-buddy/native-pet.sock' })).toThrow('must not overlap Lexora')
+    expect(() => resolveBuddyRuntimePaths({ ...BASE_OPTIONS, nativePetSocketOverride: '/run/user/1000/lexora-buddy/native-pet.sock' })).not.toThrow()
   })
 
   it('isolates macOS profiles and bounds Unix socket paths independently of long temporary paths', () => {
@@ -69,8 +69,8 @@ describe('resolveBuddyRuntimePaths', () => {
       lexoraHome: '/home/lexora/.xtlaw-dev',
       logs: '/var/state/user/xtlaw-dev/logs',
       namespace: 'xtlaw-dev',
-      nativePetSocket: '/run/user/1000/xtlaw-dev/native-pet.sock',
-      nativePetState: '/var/state/user/xtlaw-dev/pet-state.json',
+      nativePetSocket: null,
+      nativePetState: null,
       profile: 'development',
       sessionData: '/var/cache/user/xtlaw-dev/chromium',
       userData: '/var/config/user/xtlaw-dev/electron',
@@ -93,8 +93,8 @@ describe('resolveBuddyRuntimePaths', () => {
       lexoraHome: '/home/lexora/.xtlaw',
       logs: '/var/state/user/xtlaw/logs',
       namespace: 'xtlaw',
-      nativePetSocket: '/run/user/1000/xtlaw/native-pet.sock',
-      nativePetState: '/var/state/user/xtlaw/pet-state.json',
+      nativePetSocket: null,
+      nativePetState: null,
       profile: 'stable',
       sessionData: '/var/cache/user/xtlaw/chromium',
       userData: '/home/lexora/.config/XTLaw',
@@ -115,7 +115,7 @@ describe('resolveBuddyRuntimePaths', () => {
     expect(paths.userData).toBe('/home/lexora/.config/xtlaw-dev/electron')
     expect(paths.logs).toBe('/home/lexora/.local/state/xtlaw-dev/logs')
     expect(paths.browserAdapterSocket).toBe('/tmp/xtlaw-dev-uid-1000/browser-adapter.sock')
-    expect(paths.nativePetSocket).toBe('/tmp/xtlaw-dev-uid-1000/native-pet.sock')
+    expect(paths.nativePetSocket).toBeNull()
   })
 
   it('keeps smoke-test runtime state inside its required temporary product home', () => {
@@ -123,7 +123,6 @@ describe('resolveBuddyRuntimePaths', () => {
       ...BASE_OPTIONS,
       isPackaged: true,
       lexoraHomeOverride: '/tmp/lexora-smoke/home',
-      nativePetSocketOverride: '/tmp/lexora-smoke/native-pet.sock',
       smokeTest: true,
     })).toEqual({
       agentDirectory: '/tmp/lexora-smoke/home/buddy/agent',
@@ -136,8 +135,8 @@ describe('resolveBuddyRuntimePaths', () => {
       lexoraHome: '/tmp/lexora-smoke/home',
       logs: '/tmp/lexora-smoke/home/.runtime/state/logs',
       namespace: 'xtlaw-test',
-      nativePetSocket: '/tmp/lexora-smoke/native-pet.sock',
-      nativePetState: '/tmp/lexora-smoke/home/.runtime/state/pet-state.json',
+      nativePetSocket: null,
+      nativePetState: null,
       profile: 'test',
       sessionData: '/tmp/lexora-smoke/home/.runtime/cache/chromium',
       userData: '/tmp/lexora-smoke/home/.runtime/electron',
@@ -149,13 +148,12 @@ describe('resolveBuddyRuntimePaths', () => {
     const paths = resolveBuddyRuntimePaths({
       ...BASE_OPTIONS,
       lexoraHomeOverride: '/tmp/lexora-home',
-      nativePetStateOverride: '/tmp/pet-state.json',
       profileOverride: 'development',
       userDataOverride: '/tmp/electron-user-data',
     })
 
     expect(paths.lexoraHome).toBe('/tmp/lexora-home')
-    expect(paths.nativePetState).toBe('/tmp/pet-state.json')
+    expect(paths.nativePetState).toBeNull()
     expect(paths.userData).toBe('/tmp/electron-user-data')
   })
 
@@ -170,7 +168,7 @@ describe('resolveBuddyRuntimePaths', () => {
     expect(paths.browserAdapterSocket).toMatch(
       /^\/tmp\/xtlaw-test-[\da-f]{16}\/browser-adapter\.sock$/,
     )
-    expect(dirname(paths.nativePetSocket!)).toBe(dirname(paths.browserAdapterSocket))
+    expect(paths.nativePetSocket).toBeNull()
     expect(Buffer.byteLength(paths.browserAdapterSocket, 'utf8')).toBeLessThanOrEqual(100)
     expect(paths.sessionData).toBe(`${lexoraHome}.runtime/cache/chromium`)
     expect(paths.userData).toBe(`${lexoraHome}.runtime/electron`)
@@ -214,11 +212,11 @@ describe('resolveBuddyRuntimePaths', () => {
     const options = { ...BASE_OPTIONS, profileOverride: 'test', isPackaged: true }
     const roots = ['one', 'two', 'three'].map(name => `/home/lexora/.lexora-test/runs/task/instances/${name}`)
     const instances = roots.map(lexoraHomeOverride => resolveBuddyRuntimePaths({ ...options, lexoraHomeOverride }))
-    for (const key of ['buddyHome', 'configPath', 'userData', 'sessionData', 'browserAdapterSocket', 'nativePetSocket'] as const)
+    for (const key of ['buddyHome', 'configPath', 'userData', 'sessionData', 'browserAdapterSocket'] as const)
       expect(new Set(instances.map(paths => paths[key])).size).toBe(3)
     expect(resolveBuddyRuntimePaths({ ...options, lexoraHomeOverride: roots[0] })).toEqual(instances[0])
     expect(() => resolveBuddyRuntimePaths({ ...options, lexoraHomeOverride: roots[0], userDataOverride: '/tmp/shared-browser' })).toThrow('state must stay inside')
-    expect(() => resolveBuddyRuntimePaths({ ...options, lexoraHomeOverride: roots[0], nativePetSocketOverride: '/run/user/1000/lexora-buddy/native-pet.sock' })).toThrow('must not overlap')
+    expect(() => resolveBuddyRuntimePaths({ ...options, lexoraHomeOverride: roots[0], nativePetSocketOverride: '/run/user/1000/lexora-buddy/native-pet.sock' })).not.toThrow()
     expect(() => resolveBuddyRuntimePaths({ ...options, smokeTest: true, profileOverride: 'stable', lexoraHomeOverride: roots[0] })).toThrow('requires the test profile')
   })
 

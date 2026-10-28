@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import type { ProxySettings } from '@buddy-shared/network/proxySettings'
+import type { DownloadMirrorMode, ProxySettings } from '@buddy-shared/network/proxySettings'
 import type { ApplicationSettingsProps } from './typing'
-import { proxySettingsSchema } from '@buddy-shared/network/proxySettings'
-import { NButton, NInput, useMessage } from 'naive-ui'
+import { DOWNLOAD_MIRROR_HOSTS, proxySettingsSchema } from '@buddy-shared/network/proxySettings'
+import { NButton, NInput, NSelect, useMessage } from 'naive-ui'
 import { computed, shallowRef, useId, watch } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
+import DesktopSegmentedControl from '@/shared/ui/segmented-control/DesktopSegmentedControl.vue'
 
 const props = defineProps<ApplicationSettingsProps>()
 const { t } = useBuddyI18n(() => props.language)
@@ -13,6 +14,9 @@ const groupId = useId()
 const mode = shallowRef<ProxySettings['mode']>('system')
 const server = shallowRef('')
 const pending = shallowRef(false)
+const mirrorPending = shallowRef(false)
+const mirrorLabelId = useId()
+const mirrorSourceLabelId = useId()
 const invalid = shallowRef(false)
 const modes = computed(() => [
   { value: 'system' as const, label: t('desktop.settings.proxy.system') },
@@ -32,7 +36,7 @@ watch([() => props.config?.proxy.mode, () => props.config?.proxy.server], ([next
 async function save() {
   if (pending.value)
     return
-  const parsed = proxySettingsSchema.safeParse({ mode: mode.value, server: server.value })
+  const parsed = proxySettingsSchema.safeParse({ mode: mode.value, server: server.value, downloadMirror: props.config?.proxy.downloadMirror })
   invalid.value = !parsed.success
   if (!parsed.success)
     return
@@ -46,6 +50,29 @@ async function save() {
   }
   finally {
     pending.value = false
+  }
+}
+
+const mirrorEnabled = computed(() => props.config?.proxy.downloadMirror !== 'off')
+const mirrorSwitch = computed(() => [
+  { label: t('desktop.settings.proxy.mirrorOn'), value: 'on' as const },
+  { label: t('desktop.settings.proxy.mirrorOff'), value: 'off' as const },
+])
+const mirrorSources = computed<Array<{ value: DownloadMirrorMode, label: string }>>(() => [
+  { value: 'auto', label: t('desktop.settings.proxy.mirrorAuto') },
+  ...DOWNLOAD_MIRROR_HOSTS.map(host => ({ value: host, label: host })),
+])
+
+async function updateMirror(downloadMirror: DownloadMirrorMode) {
+  if (mirrorPending.value || !props.config)
+    return
+  mirrorPending.value = true
+  try {
+    if (!await props.updateSettings({ proxy: { ...props.config.proxy, downloadMirror } }))
+      message.error(t('desktop.settings.saveFailed'))
+  }
+  finally {
+    mirrorPending.value = false
   }
 }
 
@@ -101,6 +128,37 @@ async function select(next: ProxySettings['mode']) {
         </div>
       </form>
     </div>
+    <h2>{{ t('desktop.settings.proxy.mirrorTitle') }}</h2>
+    <div class="desktop-proxy-settings__group">
+      <div class="desktop-proxy-settings__row" data-testid="download-mirror-setting">
+        <div class="desktop-proxy-settings__label">
+          <strong :id="mirrorLabelId">{{ t('desktop.settings.proxy.mirror') }}</strong>
+          <small>{{ t('desktop.settings.proxy.mirrorDescription') }}</small>
+        </div>
+        <DesktopSegmentedControl
+          :aria-labelledby="mirrorLabelId"
+          :model-value="mirrorEnabled ? 'on' : 'off'"
+          :options="mirrorSwitch"
+          :disabled="mirrorPending"
+          @update:model-value="updateMirror($event === 'on' ? 'auto' : 'off')"
+        />
+      </div>
+      <div v-if="mirrorEnabled" class="desktop-proxy-settings__row desktop-proxy-settings__row--sub" data-testid="download-mirror-source-setting">
+        <div class="desktop-proxy-settings__label">
+          <strong :id="mirrorSourceLabelId">{{ t('desktop.settings.proxy.mirrorSource') }}</strong>
+          <small>{{ t('desktop.settings.proxy.mirrorSourceDescription') }}</small>
+        </div>
+        <NSelect
+          class="desktop-proxy-settings__mirror-select"
+          :aria-labelledby="mirrorSourceLabelId"
+          :value="config.proxy.downloadMirror"
+          :options="mirrorSources"
+          :loading="mirrorPending"
+          :disabled="mirrorPending"
+          @update:value="updateMirror"
+        />
+      </div>
+    </div>
   </section>
 </template>
 
@@ -130,6 +188,14 @@ async function select(next: ProxySettings['mode']) {
 }
 
 .desktop-proxy-settings__label { display: grid; gap: 0.25rem; }
+
+.desktop-proxy-settings__row--sub {
+  margin-top: 0.9rem;
+  border-top: 1px solid var(--buddy-border-subtle);
+  padding-top: 0.9rem;
+}
+
+.desktop-proxy-settings__mirror-select { width: 15rem; max-width: 100%; }
 
 .desktop-proxy-settings__modes {
   position: relative;

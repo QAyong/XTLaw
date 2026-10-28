@@ -4,6 +4,7 @@ import { strToU8, zipSync } from 'fflate'
 import { afterEach, expect, it } from 'vitest'
 import { EXTENSION_CATALOG_URL, EXTENSION_PACKS_URL } from '../../../shared/extensions/extensionCatalog'
 import { EXTENSION_API_VERSION } from '../../../shared/extensions/extensionManifest'
+import { DOWNLOAD_MIRRORS } from '../../../shared/network/downloadMirrors'
 import { ExtensionCatalogService } from '../ExtensionCatalogService'
 import { sha256 } from '../extensionFiles'
 import { createStore, manifest } from './fixtures'
@@ -145,4 +146,41 @@ it('reads packs from their own file and keeps the saved ones when the file canno
   })
   cleanup.push(async () => restarted.dispose())
   expect((await restarted.list()).packs.map(pack => pack.id)).toEqual(['office'])
+})
+
+const GITHUB_ARTIFACT = 'https://github.com/QAyong/xtlaw-market/releases/download/plugin/plugin.lexora-extension'
+async function mirrorFixture(downloadMirror: 'auto' | 'off', respond: (url: string, bytes: Uint8Array) => Response) {
+  const { root, store } = await createStore()
+  const value = manifest()
+  const bytes = zipSync({ 'extension.json': strToU8(JSON.stringify(value)), 'extension.js': strToU8('export function activate() {}'), 'view.js': strToU8('export function render() {}') })
+  const catalog = { schemaVersion: 1, plugins: [{ manifest: value, repository: 'https://example.com/plugins', artifact: { url: GITHUB_ARTIFACT, sha256: sha256(bytes), size: bytes.length } }] }
+  const requests: string[] = []
+  const service = new ExtensionCatalogService(store.root, store.appVersion, async (url) => {
+    requests.push(url)
+    return url === EXTENSION_CATALOG_URL ? Response.json(catalog) : respond(url, bytes)
+  }, { downloadMirror: () => downloadMirror })
+  cleanup.push(async () => {
+    service.dispose()
+    await rm(root, { recursive: true, force: true })
+  })
+  await service.list()
+  requests.length = 0
+  return { service, value, bytes, requests }
+}
+
+it('downloads packages through a mirror first, skipping one that alters the file or fails', async () => {
+  const { service, value, bytes, requests } = await mirrorFixture('auto', (url, content) => {
+    if (url === `${DOWNLOAD_MIRRORS[0]}${GITHUB_ARTIFACT}`)
+      return new Response(null, { status: 503 })
+    return new Response(url.startsWith(DOWNLOAD_MIRRORS[1]) ? content.slice().reverse() : content)
+  })
+  const result = await service.download(value.id, value.version, new AbortController().signal)
+  expect(new Uint8Array(result.bytes)).toEqual(bytes)
+  expect(requests).toEqual([`${DOWNLOAD_MIRRORS[0]}${GITHUB_ARTIFACT}`, `${DOWNLOAD_MIRRORS[1]}${GITHUB_ARTIFACT}`, `${DOWNLOAD_MIRRORS[2]}${GITHUB_ARTIFACT}`])
+})
+
+it('downloads packages from GitHub only when mirrors are off', async () => {
+  const { service, value, requests } = await mirrorFixture('off', (_url, content) => new Response(content))
+  await service.download(value.id, value.version, new AbortController().signal)
+  expect(requests).toEqual([GITHUB_ARTIFACT])
 })

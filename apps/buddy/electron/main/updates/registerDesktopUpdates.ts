@@ -44,6 +44,7 @@ export function registerDesktopUpdates(environment: DesktopEnvironment, runtime:
     directory,
     cache: directory ? new DesktopUpdateCache(directory, policy, app.getVersion()) : undefined,
     get: runtime.network.download,
+    downloadMirror: () => runtime.config?.proxy.downloadMirror ?? 'off',
     requestInstall,
     launchInstaller: async (path, update) => {
       const format = policy.distribution?.format

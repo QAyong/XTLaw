@@ -55,7 +55,7 @@ export class ExtensionCatalogService {
     this.#version = version
     this.#get = get
     this.#bundled = options.bundled
-    this.#mirror = options.downloadMirror ?? (() => 'auto')
+    this.#mirror = options.downloadMirror ?? (() => 'off')
     this.#catalogUrl = options.catalogUrl === undefined ? EXTENSION_CATALOG_URL : options.catalogUrl
   }
 

@@ -25,11 +25,11 @@ export const downloadMirrorModeSchema = z.enum(['auto', 'off', ...DOWNLOAD_MIRRO
 export const proxySettingsSchema = z.object({
   mode: proxyModeSchema,
   server: proxyServerSchema,
-  downloadMirror: downloadMirrorModeSchema.default('auto'),
+  downloadMirror: downloadMirrorModeSchema.default('off'),
 }).strict().refine(value => value.mode !== 'custom' || Boolean(value.server), 'Proxy server is required')
 
 export type ProxySettings = z.infer<typeof proxySettingsSchema>
 export type DownloadMirrorMode = z.infer<typeof downloadMirrorModeSchema>
 
-export const DEFAULT_PROXY_SETTINGS: ProxySettings = { mode: 'system', server: '', downloadMirror: 'auto' }
+export const DEFAULT_PROXY_SETTINGS: ProxySettings = { mode: 'system', server: '', downloadMirror: 'off' }
 export type ProxyConnectionSettings = Pick<ProxySettings, 'mode' | 'server'>

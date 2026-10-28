@@ -85,7 +85,7 @@ export async function downloadDesktopUpdatePackage(options: {
     return destination
   }
   // Mirrors first, GitHub direct last (only GitHub when mirrors are off); any failure other than cancellation moves on to the next route.
-  const routes = downloadRoutes(update.url, options.mirror ?? 'auto')
+  const routes = downloadRoutes(update.url, options.mirror ?? 'off')
   let failure: unknown
   for (const [index, route] of routes.entries()) {
     signal.throwIfAborted()

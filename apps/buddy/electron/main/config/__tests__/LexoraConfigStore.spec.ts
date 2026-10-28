@@ -299,7 +299,7 @@ keep=true
     const { configPath, store } = await createConfigStore()
     await mkdir(dirname(configPath), { recursive: true })
     await writeFile(configPath, '[desktop]\nlanguage = "en-US"\n[future]\nvalue = true\n')
-    expect((await store.read()).proxy).toEqual({ mode: 'system', server: '', downloadMirror: 'auto' })
+    expect((await store.read()).proxy).toEqual({ mode: 'system', server: '', downloadMirror: 'off' })
     await store.update({ proxy: { mode: 'custom', server: 'http://127.0.0.1:7890', downloadMirror: 'auto' } })
     await store.update({ proxy: { mode: 'direct', server: 'http://127.0.0.1:7890', downloadMirror: 'auto' } })
     expect((await store.read()).proxy).toEqual({ mode: 'direct', server: 'http://127.0.0.1:7890', downloadMirror: 'auto' })

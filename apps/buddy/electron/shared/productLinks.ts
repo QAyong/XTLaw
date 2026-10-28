@@ -3,8 +3,8 @@ import buddyPackage from '../../package.json'
 const repositoryUrl = new URL(buddyPackage.repository.url.replace(/^git\+/, '').replace(/\.git$/, ''))
 
 export const REPOSITORY_URL = repositoryUrl.href
-// Public GitHub acceleration prefixes; the update package is verified by size and sha256, so a mirror is not trusted.
-export const RELEASE_DOWNLOAD_MIRRORS = ['https://ghfast.top/', 'https://gh-proxy.com/'] as const
+// Update packages are verified by size and sha256 from the GitHub release API, so a mirror is not trusted.
+export { DOWNLOAD_MIRRORS as RELEASE_DOWNLOAD_MIRRORS } from '../../shared/network/downloadMirrors'
 export const RELEASES_API_URL = `https://api.github.com/repos${repositoryUrl.pathname}/releases?per_page=100`
 export const FEEDBACK_ISSUE_URL = `${repositoryUrl.href}/issues/new`
 export const DOCUMENTATION_URL = new URL('guide/quick-start', buddyPackage.homepage).href

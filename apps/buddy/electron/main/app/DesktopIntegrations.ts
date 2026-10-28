@@ -154,6 +154,7 @@ export class DesktopIntegrations {
       developmentDirectory: !app.isPackaged && paths.profile === 'test' ? process.env.LEXORA_EXTENSION_DEVELOPMENT_PATH : undefined,
       getWindow: () => windows.window,
       get: runtime.network.get,
+      downloadMirror: () => runtime.config?.proxy.downloadMirror ?? 'auto',
       notificationsEnabled: () => runtime.config?.desktop.notificationsEnabled ?? true,
       conditionRuntime: async (input, signal) => extensionConditionSnapshotRpc.response.parse(await service.request(extensionConditionSnapshotRpc.method, input, { signal, timeoutMs: 5000 })),
       taskActions: async () => extensionActionRpc.list.response.parse(await service.request(extensionActionRpc.list.method, {})),

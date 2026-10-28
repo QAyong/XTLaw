@@ -1,5 +1,5 @@
 import type { lookup } from 'node:dns'
-import type { ProxySettings } from '../../../shared/network/proxySettings'
+import type { ProxyConnectionSettings } from '../../../shared/network/proxySettings'
 import { randomBytes } from 'node:crypto'
 import { Agent as HttpAgent } from 'node:http'
 import { Agent as HttpsAgent } from 'node:https'
@@ -98,7 +98,7 @@ export function resolveUpstreamProxy(result: string): string | undefined {
   return `${protocols[match[1]!]}://${match[2]}`
 }
 
-export function toElectronProxyConfig(settings: ProxySettings): Electron.ProxyConfig {
+export function toElectronProxyConfig(settings: ProxyConnectionSettings): Electron.ProxyConfig {
   if (settings.mode === 'custom') {
     const server = new URL(settings.server)
     return { mode: 'fixed_servers', proxyRules: `${server.protocol}//${server.host}` }

@@ -1,3 +1,4 @@
+import type { DownloadMirrorMode } from '../../../shared/network/proxySettings'
 import type { DesktopDistribution, DesktopPackageFormat } from '../../shared/desktopDistribution'
 import type { GithubRelease } from '../desktopUpdateService'
 import { createHash } from 'node:crypto'
@@ -5,9 +6,10 @@ import { createReadStream } from 'node:fs'
 import { lstat, mkdir, open, rename, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { z } from 'zod'
+import { downloadRoutes } from '../../../shared/network/downloadMirrors'
 import { desktopUpdateArtifactName } from '../../shared/desktopDistribution'
 import { desktopVersionSchema } from '../../shared/desktopUpdates'
-import { isLexoraReleaseUrl, RELEASE_DOWNLOAD_MIRRORS } from '../../shared/productLinks'
+import { isLexoraReleaseUrl } from '../../shared/productLinks'
 
 const assetSchema = z.object({
   name: z.string(),
@@ -69,6 +71,7 @@ export async function downloadDesktopUpdatePackage(options: {
   directory: string
   update: DesktopUpdatePackage
   get: (url: string, init: { signal: AbortSignal }) => Promise<Response>
+  mirror?: DownloadMirrorMode
   signal: AbortSignal
   progress: (percent: number, received: number) => void
 }): Promise<string> {
@@ -82,8 +85,8 @@ export async function downloadDesktopUpdatePackage(options: {
     signal.throwIfAborted()
     return destination
   }
-  // Mirrors first, GitHub direct last; any failure other than cancellation moves on to the next route.
-  const routes = [...RELEASE_DOWNLOAD_MIRRORS.map(prefix => `${prefix}${update.url}`), update.url]
+  // Mirrors first, GitHub direct last (only GitHub when mirrors are off); any failure other than cancellation moves on to the next route.
+  const routes = downloadRoutes(update.url, options.mirror ?? 'auto')
   let failure: unknown
   for (const [index, route] of routes.entries()) {
     signal.throwIfAborted()

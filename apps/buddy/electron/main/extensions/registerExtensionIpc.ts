@@ -42,6 +42,7 @@ export function registerExtensionIpc(options: {
   readTaskFileResource?: (target: TaskFileTarget, signal: AbortSignal, request?: Request) => Promise<{ name: string, response: Response }>
   readText: (target: SpaceFileTarget, signal: AbortSignal) => Promise<string>
   get: (url: string, init: { signal: AbortSignal }) => Promise<Response>
+  downloadMirror?: () => import('../../../shared/network/proxySettings').DownloadMirrorMode
   developmentDirectory?: string
   notificationsEnabled?: () => boolean
   taskActions: () => Promise<ExtensionTaskAction[]>
@@ -106,6 +107,7 @@ export function registerExtensionIpc(options: {
     agentRequest: options.agentRequest,
     conditionRuntime: options.conditionRuntime,
     get: options.get,
+    downloadMirror: options.downloadMirror,
     compile: compileExtension,
     selectResources: async (name, selection, signal) => {
       const owner = window()

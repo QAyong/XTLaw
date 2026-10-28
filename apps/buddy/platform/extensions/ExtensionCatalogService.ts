@@ -1,9 +1,11 @@
 import type { ExtensionCatalogEntry, ExtensionCatalogListing, ExtensionCatalogSnapshot } from '../../shared/extensions/extensionCatalog'
+import type { DownloadMirrorMode } from '../../shared/network/proxySettings'
 import { join } from 'node:path'
 import { rcompare } from 'semver'
 import { z } from 'zod'
 import { EXTENSION_CATALOG_URL, extensionCatalogEntrySchema, extensionCatalogListingSchema, extensionCatalogSchema } from '../../shared/extensions/extensionCatalog'
 import { ExtensionCompatibilityError, extensionCompatibilityIssue } from '../../shared/extensions/extensionCompatibility'
+import { downloadRoutes } from '../../shared/network/downloadMirrors'
 import { publicWebUrl, readResponseBytes } from '../network/publicWebTransport'
 import { readExtensionJson, sha256, writeExtensionJson } from './extensionFiles'
 
@@ -17,12 +19,14 @@ export class ExtensionCatalogService {
   #refreshing: Promise<ExtensionCatalogSnapshot> | null = null
   readonly #abort = new AbortController()
   readonly #checksum: (bytes: Uint8Array, signal: AbortSignal) => Promise<string>
+  readonly #mirror: () => DownloadMirrorMode
 
-  constructor(root: string, version: string, get: (url: string, init: { signal: AbortSignal }) => Promise<Response>, checksum: (bytes: Uint8Array, signal: AbortSignal) => Promise<string> = async bytes => sha256(bytes)) {
+  constructor(root: string, version: string, get: (url: string, init: { signal: AbortSignal }) => Promise<Response>, checksum: (bytes: Uint8Array, signal: AbortSignal) => Promise<string> = async bytes => sha256(bytes), downloadMirror: () => DownloadMirrorMode = () => 'auto') {
     this.#path = join(root, 'catalog.json')
     this.#version = version
     this.#get = get
     this.#checksum = checksum
+    this.#mirror = downloadMirror
   }
 
   async list(refresh = false): Promise<ExtensionCatalogSnapshot> {
@@ -54,13 +58,27 @@ export class ExtensionCatalogService {
     if (!parsed.success)
       throw new Error('EXTENSION_MANIFEST_INVALID')
     const entry = parsed.data
-    const bytes = await this.#fetch(entry.artifact.url, entry.artifact.size, signal)
     const checking = AbortSignal.any([signal, this.#abort.signal])
-    checking.throwIfAborted()
-    if (bytes.byteLength !== entry.artifact.size || await this.#checksum(bytes, checking) !== entry.artifact.sha256)
-      throw new Error('EXTENSION_DOWNLOAD_CHECKSUM_FAILED')
-    checking.throwIfAborted()
-    return { entry, bytes }
+    // The size and sha256 come from the catalog fetched straight from GitHub, so a mirror only carries bytes: a package it alters fails the check and the next route is tried.
+    let failure: unknown
+    for (const route of downloadRoutes(entry.artifact.url, this.#mirror())) {
+      checking.throwIfAborted()
+      try {
+        const bytes = await this.#fetch(route, entry.artifact.size, signal)
+        checking.throwIfAborted()
+        if (bytes.byteLength === entry.artifact.size && await this.#checksum(bytes, checking) === entry.artifact.sha256) {
+          checking.throwIfAborted()
+          return { entry, bytes }
+        }
+        failure = new Error('EXTENSION_DOWNLOAD_CHECKSUM_FAILED')
+      }
+      catch (error) {
+        if (checking.aborted)
+          throw error
+        failure = error
+      }
+    }
+    throw failure
   }
 
   dispose(): void {

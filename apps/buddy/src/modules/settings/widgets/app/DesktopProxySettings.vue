@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import type { ProxySettings } from '@buddy-shared/network/proxySettings'
+import type { DownloadMirrorMode, ProxySettings } from '@buddy-shared/network/proxySettings'
 import type { ApplicationSettingsProps } from './typing'
-import { proxySettingsSchema } from '@buddy-shared/network/proxySettings'
-import { NButton, NInput, useMessage } from 'naive-ui'
+import { DOWNLOAD_MIRROR_HOSTS, proxySettingsSchema } from '@buddy-shared/network/proxySettings'
+import { NButton, NInput, NSelect, useMessage } from 'naive-ui'
 import { computed, shallowRef, useId, watch } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
+import DesktopSegmentedControl from '@/shared/ui/segmented-control/DesktopSegmentedControl.vue'
 
 import { useSettingMutation } from '../../state/useSettingMutation'
 import DesktopSettingRow from '../shared/DesktopSettingRow.vue'
@@ -26,6 +27,15 @@ const modes = computed(() => [
   { value: 'direct' as const, label: t('desktop.settings.proxy.direct') },
   { value: 'custom' as const, label: t('desktop.settings.proxy.custom') },
 ])
+const mirrorEnabled = computed(() => props.config?.proxy.downloadMirror !== 'off')
+const mirrorSwitch = computed(() => [
+  { label: t('desktop.settings.proxy.mirrorOn'), value: 'on' as const },
+  { label: t('desktop.settings.proxy.mirrorOff'), value: 'off' as const },
+])
+const mirrorSources = computed<Array<{ value: DownloadMirrorMode, label: string }>>(() => [
+  { value: 'auto', label: t('desktop.settings.proxy.mirrorAuto') },
+  ...DOWNLOAD_MIRROR_HOSTS.map(host => ({ value: host, label: host })),
+])
 const selectedIndex = computed(() => modes.value.findIndex(option => option.value === mode.value))
 const dirty = computed(() => mode.value !== props.config?.proxy.mode || server.value.trim() !== props.config?.proxy.server)
 
@@ -39,12 +49,17 @@ watch([() => props.config?.proxy.mode, () => props.config?.proxy.server], ([next
 async function save() {
   if (pending.value)
     return
-  const parsed = proxySettingsSchema.safeParse({ mode: mode.value, server: server.value })
+  const parsed = proxySettingsSchema.safeParse({ mode: mode.value, server: server.value, downloadMirror: props.config?.proxy.downloadMirror })
   invalid.value = !parsed.success
   if (!parsed.success)
     return
   if (!await updateSetting('proxy', { proxy: parsed.data }) && props.config)
     mode.value = props.config.proxy.mode
+}
+
+async function updateMirror(downloadMirror: DownloadMirrorMode) {
+  if (props.config)
+    await updateSetting('proxy', { proxy: { ...props.config.proxy, downloadMirror } })
 }
 
 async function select(next: ProxySettings['mode']) {
@@ -97,6 +112,17 @@ async function select(next: ProxySettings['mode']) {
           </NButton>
         </div>
       </form>
+    </div>
+    <h2 class="m-0 text-[0.92rem]">
+      {{ t('desktop.settings.proxy.mirrorTitle') }}
+    </h2>
+    <div class="border border-solid border-border rounded-[0.65rem] bg-surface p-[0.9rem]" data-theme-surface="panel" data-testid="download-mirror-setting">
+      <DesktopSettingRow v-slot="{ controlAttrs }" :label="t('desktop.settings.proxy.mirror')" :description="t('desktop.settings.proxy.mirrorDescription')" toggle class="[--setting-row-height:0px] [--setting-row-px:0px] [--setting-row-py:0px] [--setting-control-min:0px] [--setting-control-max:max-content]">
+        <DesktopSegmentedControl v-bind="controlAttrs" :model-value="mirrorEnabled ? 'on' : 'off'" :options="mirrorSwitch" :disabled="pending" @update:model-value="updateMirror($event === 'on' ? 'auto' : 'off')" />
+      </DesktopSettingRow>
+      <DesktopSettingRow v-if="mirrorEnabled" v-slot="{ controlAttrs }" :label="t('desktop.settings.proxy.mirrorSource')" :description="t('desktop.settings.proxy.mirrorSourceDescription')" class="mt-4 border-t-1 border-t-solid border-t-border pt-4 [--setting-row-height:0px] [--setting-row-px:0px] [--setting-row-py:0px] [--setting-control-min:0px] [--setting-control-max:15rem]">
+        <NSelect v-bind="controlAttrs" :value="config.proxy.downloadMirror" :options="mirrorSources" :loading="pending" :disabled="pending" @update:value="updateMirror" />
+      </DesktopSettingRow>
     </div>
   </section>
 </template>

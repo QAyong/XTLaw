@@ -101,7 +101,7 @@ describe('lexoraConfigStore', () => {
     const preferences = {
       runtime: { cacheWarming: 'streaming' },
       browser: { linkOpening: 'system', screenshotDestination: 'clipboard', defaultZoomFactor: 1.25, freezeBackground: false, freezeForeground: true, freezeDelaySeconds: 120 },
-      proxy: { mode: 'custom', server: 'http://127.0.0.1:7890' },
+      proxy: { mode: 'custom', server: 'http://127.0.0.1:7890', downloadMirror: 'auto' },
       desktop: {
         localBackupLimit: 1,
         navigationLayout: 'immersive',
@@ -124,13 +124,13 @@ describe('lexoraConfigStore', () => {
     } satisfies LexoraConfigPatch
     expect(await store.update(preferences)).toMatchObject(preferences)
     await store.update({
-      proxy: { mode: 'direct', server: preferences.proxy.server },
+      proxy: { mode: 'direct', server: preferences.proxy.server, downloadMirror: 'auto' },
       desktop: { localBackupLimit: 10, language: 'en-US', contextPanelGlobal: false, profile: { userName: 'Bob' }, taskSidebar: { collapsedSpaces: ['space-b'] }, typography: { codeFont: 'Consolas' } },
     })
     const reopened = new LexoraConfigStore({ configPath })
     expect(await reopened.read()).toMatchObject({
       ...preferences,
-      proxy: { mode: 'direct', server: preferences.proxy.server },
+      proxy: { mode: 'direct', server: preferences.proxy.server, downloadMirror: 'auto' },
       desktop: {
         ...preferences.desktop,
         localBackupLimit: 10,
@@ -207,7 +207,7 @@ describe('lexoraConfigStore', () => {
       const saved = await readFile(configPath, 'utf8')
       let active = previous
       let expired = false
-      await expect(store.update({ proxy: { mode: 'custom', server: 'http://127.0.0.1:7890' } }, (next) => {
+      await expect(store.update({ proxy: { mode: 'custom', server: 'http://127.0.0.1:7890', downloadMirror: 'auto' } }, (next) => {
         active = next
         if (next.proxy.mode === 'custom') {
           if (failure === 'apply')

@@ -96,7 +96,7 @@ describe('settings action feedback', () => {
 
   it('keeps proxy validation inline, retains a failed draft, and saves it on retry', async () => {
     const config = await configFixture()
-    config.value.proxy = { mode: 'custom', server: 'http://127.0.0.1:7777' }
+    config.value.proxy = { mode: 'custom', server: 'http://127.0.0.1:7777', downloadMirror: 'auto' }
     let succeeds = false
     const root = mount(DesktopProxySettings, () => ({
       config: config.value,

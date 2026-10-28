@@ -46,6 +46,7 @@ export function registerExtensionIpc(options: {
   readBytes: (input: SpaceFileByteRequest, signal: AbortSignal) => Promise<SpaceFileByteChunk>
   saveBytes: (input: SpaceSaveBytes, signal: AbortSignal) => Promise<SpaceSaveBytesResult>
   get: (url: string, init: { signal: AbortSignal }) => Promise<Response>
+  downloadMirror?: () => import('../../../shared/network/proxySettings').DownloadMirrorMode
   developmentDirectory?: string
   notificationsEnabled?: () => boolean
   taskActions: () => Promise<ExtensionTaskAction[]>
@@ -106,6 +107,7 @@ export function registerExtensionIpc(options: {
     agentRequest: options.agentRequest,
     conditionRuntime: options.conditionRuntime,
     get: options.get,
+    downloadMirror: options.downloadMirror,
     bundled: new BundledExtensionCatalog(join(app.isPackaged ? process.resourcesPath : join(app.getAppPath(), '.output/resources'), 'bundled-extensions')),
     compile: compileExtension,
     selectResources: async (name, selection, signal) => {

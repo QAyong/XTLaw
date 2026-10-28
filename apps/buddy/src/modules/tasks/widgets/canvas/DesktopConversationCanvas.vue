@@ -28,7 +28,6 @@ const nodes = computed<readonly ConversationCanvasNode[]>(() => {
   const nodes: ConversationCanvasNode[] = (tree.value?.nodes ?? []).map(node => node.runId === run?.id && run
     ? {
         ...node,
-        canFollowup: node.id !== tree.value?.headId,
         text: streaming ? conversationTreePreview(streaming, true) : node.text,
         status: run.status,
         toolCount: projection ? projection.turn.nodes.filter(item => item.kind === 'tool').length : node.toolCount,
@@ -41,7 +40,7 @@ const nodes = computed<readonly ConversationCanvasNode[]>(() => {
           usage: projection?.turn.usage ?? node.metadata?.usage ?? null,
         },
       }
-    : { ...node, canFollowup: node.id !== tree.value?.headId })
+    : node)
   if (followup.value) {
     nodes.push({
       ...followup.value,

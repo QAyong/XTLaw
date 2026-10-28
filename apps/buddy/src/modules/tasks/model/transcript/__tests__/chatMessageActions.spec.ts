@@ -48,12 +48,12 @@ function result(runId: string, finalMessageId: string): ChatTranscriptTurnResult
 }
 
 describe('chat turn branch origins', () => {
-  it('offers history branching only after another public message, not for the current turn or trailing result metadata', () => {
+  it('offers branching from the latest completed result, including trailing result metadata', () => {
     const outcome = result('root', 'final')
     const source = reply('final', 'root', { turnResult: outcome.turn })
     const completed = new Set(['root'])
-    expect([...projectChatFollowupMessageIds([source], completed)]).toEqual([])
-    expect([...projectChatFollowupMessageIds([reply('final', 'root'), outcome], completed)]).toEqual([])
+    expect([...projectChatFollowupMessageIds([source], completed)]).toEqual(['final'])
+    expect([...projectChatFollowupMessageIds([reply('final', 'root'), outcome], completed)]).toEqual(['final'])
     expect([...projectChatFollowupMessageIds([source, question('next')], completed)]).toEqual(['final'])
     expect(projectChatAgentTurnActions(outcome.turn, false, true).showFollowup).toBe(false)
     expect(projectChatAgentTurnActions(outcome.turn, false, true, true).showFollowup).toBe(true)
@@ -63,7 +63,7 @@ describe('chat turn branch origins', () => {
     const firstPartner = reply('first-partner-reply', 'first-partner')
     const finalPartner = reply('last-partner-reply', 'last-partner', { turnResult: result('root', 'root-final').turn })
     const completed = new Set(['root', 'first-partner', 'last-partner'])
-    expect([...projectChatFollowupMessageIds([firstPartner, finalPartner], completed)]).toEqual([])
+    expect([...projectChatFollowupMessageIds([firstPartner, finalPartner], completed)]).toEqual(['root-final'])
     expect([...projectChatFollowupMessageIds([firstPartner, finalPartner, question('next')], completed)]).toEqual(['root-final'])
     expect(getChatMessageFollowupSourceId(firstPartner)).toBeNull()
     expect(getChatMessageFollowupSourceId(finalPartner)).toBe('root-final')
@@ -93,7 +93,7 @@ describe('chat turn branch origins', () => {
   it('preserves a historical completed result without a visible body, using its own final message as the source', () => {
     const outcome = result('root', 'empty-root-final')
     const partner = reply('partner-final', 'partner')
-    expect([...projectChatFollowupMessageIds([partner, outcome], new Set(['root', 'partner']))]).toEqual([])
+    expect([...projectChatFollowupMessageIds([partner, outcome], new Set(['root', 'partner']))]).toEqual(['empty-root-final'])
     expect([...projectChatFollowupMessageIds([partner, outcome, question('next')], new Set(['root', 'partner']))]).toEqual(['empty-root-final'])
   })
 

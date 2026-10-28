@@ -20,17 +20,14 @@ export function projectChatFollowupMessageIds(
   rows: readonly ChatTranscriptRow[],
   completedRunIds: ReadonlySet<string>,
 ): ReadonlySet<string> {
-  const finalMessages = new Map<string, { messageId: string, index: number, available: boolean }>()
-  let lastMessageIndex = -1
-  for (const [index, row] of rows.entries()) {
+  const finalMessages = new Map<string, { messageId: string, available: boolean }>()
+  for (const row of rows) {
     if (row.kind === 'message' && (row.message.role === 'user' || row.message.role === 'assistant')) {
-      lastMessageIndex = index
       const messageId = getChatMessageFollowupSourceId(row)
       const runId = row.turnResult?.runId ?? row.message.runId
       if (row.message.role === 'assistant' && messageId && runId) {
         finalMessages.set(runId, {
           messageId,
-          index,
           available: !row.streaming && !row.isIntermediate && row.showActions !== false,
         })
       }
@@ -38,13 +35,12 @@ export function projectChatFollowupMessageIds(
     else if ((row.kind === 'turn-result' || (row.kind === 'agent-turn' && row.ownsResultActions)) && row.turn.finalMessageId) {
       finalMessages.set(row.turn.runId, {
         messageId: row.turn.finalMessageId,
-        index,
         available: row.turn.status === 'completed',
       })
     }
   }
   return new Set([...finalMessages].flatMap(([runId, source]) =>
-    completedRunIds.has(runId) && source.available && source.index < lastMessageIndex
+    completedRunIds.has(runId) && source.available
       ? [source.messageId]
       : [],
   ))

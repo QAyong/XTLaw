@@ -6,11 +6,13 @@ import { isFileDownload } from '../../../shared/network/networkAuthorization'
 import { WebError } from '../../../shared/network/webProtocol'
 import { requestThroughHost } from './requestThroughHost'
 
+export type HostWebRequest = (session: Session, input: Parameters<typeof requestThroughHost>[1], signal: AbortSignal, track?: (closed: Promise<void>) => void) => Promise<Response>
+
 export class HostWebNetwork {
   readonly session: Session
-  readonly #request: typeof requestThroughHost
+  readonly #request: HostWebRequest
 
-  constructor(session: Session, request: typeof requestThroughHost = requestThroughHost) {
+  constructor(session: Session, request: HostWebRequest = (session, input, signal, track) => requestThroughHost(session, input, signal, undefined, track)) {
     this.session = session
     this.#request = request
   }
@@ -19,7 +21,7 @@ export class HostWebNetwork {
     return publicWebUrl(raw)
   }
 
-  async fetch(input: Pick<WebNetworkRequest, 'body' | 'headers' | 'method' | 'scope' | 'url'>, signal: AbortSignal, options: { redirect?: 'manual', authorize: NetworkAuthorizer }): Promise<{ response: Response, url: string }> {
+  async fetch(input: Pick<WebNetworkRequest, 'body' | 'headers' | 'method' | 'scope' | 'url'>, signal: AbortSignal, options: { redirect?: 'manual', authorize: NetworkAuthorizer, track?: (closed: Promise<void>) => void }): Promise<{ response: Response, url: string }> {
     let url = new URL(input.url)
     if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password)
       throw new WebError('WEB_URL_BLOCKED')
@@ -31,7 +33,7 @@ export class HostWebNetwork {
         url = await this.authorizePublicUrl(url.href)
       await options.authorize(url.href, 'access', signal)
       signal.throwIfAborted()
-      const response = await this.#request(this.session, { ...input, url: url.href }, signal)
+      const response = await this.#request(this.session, { ...input, url: url.href }, signal, options.track)
       if ([301, 302, 303, 307, 308].includes(response.status)) {
         await response.body?.cancel()
         const location = response.headers.get('location')

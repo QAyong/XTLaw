@@ -23,6 +23,8 @@ export function observeWebHostDiagnostics(client: WebHostClient, report: Applica
     component: 'runtime.web_host',
     level: change.outcome === 'unknown' || change.outcome === 'rejected' || change.phase === 'cancel-unconfirmed' ? 'warn' : 'info',
     requestId: change.requestId,
+    ...(change.operationId ? { operationId: change.operationId } : {}),
+    ...(change.durationMs === undefined ? {} : { durationMs: change.durationMs }),
     revision: change.revision,
     ...(change.count === undefined ? {} : { count: change.count }),
   }))

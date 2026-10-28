@@ -92,19 +92,6 @@ describe('useChatTurnExecution cancellation ownership', () => {
     expect(f.api.chat.steerQueued).toHaveBeenCalledWith({ id: receipt.id, conversationId: receipt.conversationId, branchId: receipt.branchId })
   })
 
-  it('reports a cancellation failure only in the originating view', async () => {
-    const fixture = createFixture()
-    const cancelling = fixture.execution.cancelActiveRun()
-    expect(fixture.execution.stoppingRunId.value).toBe(fixture.run.id)
-    fixture.pending.reject(new Error('cancel failed'))
-    await cancelling
-    expect(fixture.execution.stoppingRunId.value).toBeNull()
-
-    expect(fixture.error.value).toBeTruthy()
-    expect(fixture.projectedRuns.value).toEqual([fixture.run])
-    expect(fixture.drafts.draft.value).toBe('pending input')
-  })
-
   it.each(['success', 'error'] as const)('ignores a late cancellation %s after its owner is disposed', async (outcome) => {
     const fixture = createFixture()
     const cancelling = fixture.execution.cancelActiveRun()

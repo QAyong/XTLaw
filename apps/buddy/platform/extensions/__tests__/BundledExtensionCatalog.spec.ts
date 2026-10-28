@@ -134,7 +134,7 @@ it('offers actual Office packages in the remote market without preinstalling and
   const packages = join(root, 'market-packages')
   const prepareUrl = new URL('../../../../../packaging/buddy/release/prepare-bundled-extensions.mjs', import.meta.url)
   const discoveryUrl = new URL('bundled-plugins.mjs', prepareUrl)
-  execFileSync(process.execPath, ['--input-type=module', '-e', `import { prepareBundledExtensions } from ${JSON.stringify(prepareUrl.href)}; import { discoverPluginSources } from ${JSON.stringify(discoveryUrl.href)}; await prepareBundledExtensions({ sourceDirectories: discoverPluginSources().map(plugin => plugin.directory), outputDirectory: ${JSON.stringify(packages)} });`], { stdio: 'pipe' })
+  execFileSync(process.execPath, ['--input-type=module', '-e', `import { prepareBundledExtensions } from ${JSON.stringify(prepareUrl.href)}; import { discoverPluginSources } from ${JSON.stringify(discoveryUrl.href)}; await prepareBundledExtensions({ sourceDirectories: discoverPluginSources().filter(plugin => plugin.name.startsWith('office')).map(plugin => plugin.directory), outputDirectory: ${JSON.stringify(packages)} });`], { stdio: 'pipe' })
   const catalogUrl = 'https://example.com/office-catalog.json'
   const catalog = JSON.parse(await readFile(join(packages, 'catalog.json'), 'utf8'))
   const remote = { schemaVersion: 1, plugins: catalog.plugins.map((entry: ExtensionCatalogEntry) => {

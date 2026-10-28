@@ -8,11 +8,7 @@ import type { ChatComposerSubmitPayload, ChatPromptContextOption } from '@/modul
 import type { WorkbenchMenuSelection } from '@/shared/ui/contributions/workbenchUiContext'
 import { getBuddyUserContentActorReferences } from '@buddy-shared/conversation/buddyUserContent'
 import { EditorContent } from '@tiptap/vue-3'
-import {
-  ArrowUp20Regular,
-  Stop20Filled,
-} from '@vicons/fluent'
-import { NButton, NTooltip } from 'naive-ui'
+import { NButton } from 'naive-ui'
 import { computed, shallowRef, toRef, useTemplateRef } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import { DesktopModelSelector } from '@/modules/models/ui'
@@ -23,11 +19,11 @@ import DesktopChatComposerInteractionHost from '@/modules/tasks/widgets/composer
 import { useChatComposer } from '@/modules/tasks/widgets/composer/useChatComposer'
 import WorkbenchMenu from '@/shared/ui/contributions/WorkbenchMenu.vue'
 import WorkbenchSlot from '@/shared/ui/contributions/WorkbenchSlot.vue'
-import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import ChatInputMaterialStrip from '../materials/ChatInputMaterialStrip.vue'
 import ChatComposerSourceMenu from './ChatComposerSourceMenu.vue'
 import ChatComposerSourcePicker from './ChatComposerSourcePicker.vue'
 import ComposerTextPreview from './ComposerTextPreview.vue'
+import DesktopComposerSubmitActions from './DesktopComposerSubmitActions.vue'
 
 const props = defineProps<DesktopChatComposerProps>()
 
@@ -102,7 +98,12 @@ const {
   onLocateMaterial: material => resourceStrip.value?.highlightMaterial(material),
 })
 
-const queuesSubmission = computed(() => !props.isActorInput && !isLocalCommand.value && (props.isRunning || props.hasQueuedMessages))
+const inputDelivery = computed(() => isLocalCommand.value ? undefined : props.inputDelivery)
+const queuesSubmission = computed(() => {
+  if (isLocalCommand.value || inputDelivery.value)
+    return false
+  return !props.isActorInput && Boolean(props.isRunning || props.hasQueuedMessages)
+})
 const collaborationCount = computed(() => isLocalCommand.value ? 0 : getBuddyUserContentActorReferences(chatComposerDocumentToUserContent(props.composerContent)).length)
 const modelSelectorRef = useTemplateRef<InstanceType<typeof DesktopModelSelector>>('modelSelectorRef')
 
@@ -314,65 +315,19 @@ function captureDraft(): WorkbenchMenuSelection {
         />
       </div>
 
-      <NTooltip v-if="queuesSubmission">
-        <template #trigger>
-          <span class="desktop-chat-composer__send-trigger">
-            <NButton
-              class="buddy-icon-button desktop-chat-composer__queue-action"
-              quaternary
-              :aria-label="t('desktop.chat.queueAdd')"
-              :disabled="!canSubmit"
-              :loading="isSending"
-              @click="submit"
-            >
-              <template #icon>
-                <DesktopIcon name="messageQueue" />
-              </template>
-            </NButton>
-          </span>
-        </template>
-        {{ (quotePasteLimitMessage ?? modelInputIssueMessage) || t('desktop.chat.queueAdd') }}
-      </NTooltip>
-      <NTooltip v-if="isRunning">
-        <template #trigger>
-          <span class="desktop-chat-composer__send-trigger">
-            <NButton
-              class="buddy-icon-button desktop-chat-composer__send-action"
-              secondary
-              type="error"
-              :aria-label="isStopping ? t('desktop.chat.progressStopping') : t('desktop.chat.stop')"
-              :aria-busy="isStopping"
-              :disabled="isStopping"
-              :loading="isStopping"
-              @click="emit('stop')"
-            >
-              <template #icon>
-                <DesktopIcon :component="Stop20Filled" />
-              </template>
-            </NButton>
-          </span>
-        </template>
-        {{ isStopping ? t('desktop.chat.progressStopping') : t('desktop.chat.stop') }}
-      </NTooltip>
-      <NTooltip v-if="!queuesSubmission">
-        <template #trigger>
-          <span class="desktop-chat-composer__send-trigger">
-            <NButton
-              class="buddy-icon-button desktop-chat-composer__send-action"
-              type="primary"
-              :aria-label="isLocalCommand ? t('desktop.command.run') : t('desktop.chat.send')"
-              :disabled="!canSubmit"
-              :loading="isSending"
-              @click="submit"
-            >
-              <template #icon>
-                <DesktopIcon :component="ArrowUp20Regular" />
-              </template>
-            </NButton>
-          </span>
-        </template>
-        {{ isLocalCommand ? t('desktop.command.run') : (quotePasteLimitMessage ?? modelInputIssueMessage) || t('desktop.chat.send') }}
-      </NTooltip>
+      <DesktopComposerSubmitActions
+        :language="language"
+        :can-submit="canSubmit"
+        :queues-submission="queuesSubmission"
+        :input-delivery="inputDelivery"
+        :is-running="isRunning"
+        :is-stopping="isStopping"
+        :is-sending="isSending"
+        :is-local-command="isLocalCommand"
+        :issue-message="quotePasteLimitMessage ?? modelInputIssueMessage"
+        @submit="submit"
+        @stop="emit('stop')"
+      />
     </template>
 
     <template #footer>

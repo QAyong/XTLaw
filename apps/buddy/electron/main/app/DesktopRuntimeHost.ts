@@ -35,6 +35,7 @@ import { DesktopPerformanceMonitor } from '../diagnostics/DesktopPerformanceMoni
 import { registerExtensionAuthoringRpc } from '../extensions/registerExtensionAuthoringRpc'
 import { registerExtensionShellRpc } from '../extensions/registerExtensionShellRpc'
 import { DesktopNetwork } from '../network/DesktopNetwork'
+import { HostWebService } from '../network/HostWebService'
 import { registerWebHostRpc } from '../network/registerWebHostRpc'
 import { createDesktopFeatures } from '../platform/desktopFeatures'
 import { installRendererProtocol } from '../rendererProtocol'
@@ -64,6 +65,7 @@ export class DesktopRuntimeHost {
   #features: DesktopFeature[] = []
   #service: BuddyServiceSupervisor | null = null
   #network: DesktopNetwork | null = null
+  #webHost: HostWebService | null = null
   #windowsPowerShell: string | undefined
   readonly #subscriptions: Array<() => void> = []
   #prepareSandbox: (() => void) | undefined
@@ -176,6 +178,21 @@ export class DesktopRuntimeHost {
     const networkDiagnostics = this.#network.onDidChange(change => environment.events.publish({ event: `network.${change.kind}.${change.status}`, component: 'desktop.network', level: ['failed', 'degraded', 'unavailable'].includes(change.status) ? 'warn' : 'info', operationId: change.operationId, revision: change.revision, ...(change.failure ? { failure: change.failure, errorCode: 'NETWORK_START_FAILED' } : {}) }))
     this.#subscriptions.push(() => networkDiagnostics.dispose())
     await this.#network.start(config.proxy)
+    this.#webHost = new HostWebService({
+      authenticateProxy: this.#network.authenticateProxy,
+      assertAvailable: this.#network.assertAvailable,
+      report: fact => environment.events.publish({
+        event: `web.resource.${fact.kind}.${fact.phase.replaceAll('-', '_')}`,
+        component: 'desktop.web',
+        webResource: fact,
+        level: fact.code ? 'warn' : 'info',
+        requestId: fact.requestId,
+        operationId: fact.operationId,
+        durationMs: fact.durationMs,
+        count: fact.phase === 'queued' ? fact.queued : fact.active,
+        ...(fact.code ? { errorCode: fact.code } : {}),
+      }),
+    })
     this.#windowsPowerShell = currentPlatform.shell === 'powershell'
       ? await resolveWindowsPowerShell()
       : undefined
@@ -247,7 +264,7 @@ export class DesktopRuntimeHost {
             const source = contextPanelSourceSchema.parse(params)
             return this.contextPanel.execute({ action: 'open', target: { kind: 'browser', source } }, 'harness')
           }),
-          registerWebHostRpc(peer, this.#network!.authenticateProxy, this.#network!.assertAvailable),
+          registerWebHostRpc(peer, this.#webHost!),
           registerBrowserHostRpc(peer, {
             createAdapterLease: input => this.#browser.adapter.issueLease(input),
             getHost: () => this.#browser.host,
@@ -335,6 +352,7 @@ export class DesktopRuntimeHost {
       () => this.configStore.dispose(),
       () => this.#service?.stop(),
       () => Promise.all(this.#sandboxCleanup),
+      () => this.#webHost?.dispose(),
       () => this.#network?.stop(),
       ...this.#features.map(feature => () => feature.stop()),
       ...this.#subscriptions.splice(0),

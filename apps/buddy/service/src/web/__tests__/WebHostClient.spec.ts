@@ -32,7 +32,7 @@ describe('web host transport facts', () => {
     expect(await response.text()).toBe('ok')
     expect(facts.at(-1)).toMatchObject({ phase: 'settled', outcome: 'received', count: 2 })
     expect(client.snapshot.active).toEqual([])
-    expect(listeners.size).toBe(0)
+    expect(listeners.size).toBe(1)
     expect(JSON.stringify(facts)).not.toMatch(/private|https/)
     await client.dispose()
   })

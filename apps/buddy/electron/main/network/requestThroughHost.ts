@@ -15,11 +15,14 @@ function usesSessionCookies(raw: string): boolean {
   catch { return false }
 }
 
-export async function requestThroughHost(session: Session, input: { url: string, method: string, headers: Record<string, string>, body?: string | Buffer }, signal: AbortSignal, authenticateProxy?: ProxyAuthenticator): Promise<Response> {
+export async function requestThroughHost(session: Session, input: { url: string, method: string, headers: Record<string, string>, body?: string | Buffer }, signal: AbortSignal, authenticateProxy?: ProxyAuthenticator, trackClose?: (closed: Promise<void>) => void): Promise<Response> {
   const { net } = await import('electron')
   signal.throwIfAborted()
   return new Promise((resolve, reject) => {
     const request = net.request({ url: input.url, method: input.method, session, redirect: 'manual', credentials: usesSessionCookies(input.url) ? 'include' : 'omit', useSessionCookies: false })
+    const closed = Promise.withResolvers<void>()
+    request.once('close', () => closed.resolve())
+    trackClose?.(closed.promise)
     let stream: ReadableStreamDefaultController<Uint8Array> | undefined
     let ended = false
     function cleanup() {

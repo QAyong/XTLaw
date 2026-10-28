@@ -2,20 +2,24 @@ import type { WebNetworkRequest, WebRenderResult } from '../../../shared/network
 import type { ProviderWebFetch, PublicWebGet } from '../../../shared/network/webTransport'
 import type { RuntimeRpcPeerContract } from '../../../shared/runtime/rpcPeer'
 import { Buffer } from 'node:buffer'
+import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { readResponseBytes } from '../../../platform/network/publicWebTransport'
 import { Emitter } from '../../../shared/events/Emitter'
 import { copyEventSnapshot } from '../../../shared/events/eventSnapshot'
-import { WebError, webNetworkChunkSchema, webNetworkHeadSchema, webRenderResultSchema } from '../../../shared/network/webProtocol'
+import { WebError, webError, webNetworkChunkSchema, webNetworkHeadSchema, webRenderCancelSchema, webRenderResultSchema, webResourceFactSchema } from '../../../shared/network/webProtocol'
 
 import { beginNetworkRequest } from '../network/networkAuthorizationContext'
+import { WebRequestContext, webRequestContext } from './webRequestContext'
 
 type WebHostRequestKind = 'authorization' | 'network' | 'render'
 export interface WebHostChange {
   readonly revision: number
   readonly requestId: string
   readonly kind: WebHostRequestKind
-  readonly phase: 'requested' | 'head-received' | 'cancel-requested' | 'cancel-unconfirmed' | 'settled'
+  readonly operationId?: string
+  readonly durationMs?: number
+  readonly phase: 'queued' | 'running' | 'cleaning' | 'released' | 'rejected' | 'cleanup-failed' | 'requested' | 'head-received' | 'cancel-requested' | 'cancel-unconfirmed' | 'settled'
   readonly outcome?: 'received' | 'rejected' | 'unknown'
   readonly cancelled?: boolean
   readonly count?: number
@@ -29,10 +33,39 @@ export class WebHostClient {
   readonly #active = new Map<string, WebHostRequestKind>()
   readonly #authorizations = new Map<string, ReturnType<typeof beginNetworkRequest>>()
   readonly #pending = new Set<Promise<unknown>>()
+  readonly #dispatched = new Set<string>()
+  readonly #contexts = new Map<string, WebRequestContext>()
+  readonly #subscriptions: Array<() => void> = []
   #revision = 0
   #disposing: Promise<void> | undefined
 
-  constructor(peer: WebHostClient['peer']) { this.peer = peer }
+  constructor(peer: WebHostClient['peer']) {
+    this.peer = peer
+    if (peer.onRequest) {
+      this.#subscriptions.push(peer.onRequest('runtime.web.preflight', (params) => {
+        const { requestId } = webRenderCancelSchema.parse(params)
+        try {
+          const context = this.#contexts.get(requestId)
+          if (!context)
+            throw new WebError('WEB_CANCELLED')
+          this.#authorizations.get(requestId)?.check()
+          const executionMs = context.preflight()
+          this.#dispatched.add(requestId)
+          return { ok: true, executionMs }
+        }
+        catch (error) { return { ok: false, code: webError(error).code } }
+      }))
+    }
+    this.#subscriptions.push(peer.onNotification((method, params) => {
+      if (method !== 'host.web.resource')
+        return
+      const result = webResourceFactSchema.safeParse(params)
+      if (result.success) {
+        const { requestId, operationId, kind, phase, durationMs, active, queued } = result.data
+        this.#publish(requestId, kind, { operationId, phase, durationMs, count: phase === 'queued' ? queued : active })
+      }
+    }))
+  }
 
   get snapshot() {
     return copyEventSnapshot({ revision: this.#revision, stopping: this.#shutdown.signal.aborted, active: [...this.#active].map(([requestId, kind]) => ({ requestId, kind })) })
@@ -70,12 +103,13 @@ export class WebHostClient {
     signal.addEventListener('abort', cancel, { once: true })
     let outcome: WebHostChange['outcome'] = 'unknown'
     try {
-      const result = webRenderResultSchema.parse(await this.#track(this.peer.request('host.web.render', { url, requestId }, null, signal, requestId)))
+      const result = webRenderResultSchema.parse(await this.#track(this.peer.request('host.web.render', { url, requestId, budget: this.#contexts.get(requestId)!.budget }, null, signal, requestId)))
       outcome = result.ok ? 'received' : 'rejected'
       this.#authorizations.get(requestId)?.check()
       signal.throwIfAborted()
       return result
     }
+    catch (error) { throw this.#deadlineError(error, requestId, signal) }
     finally {
       signal.removeEventListener('abort', cancel)
       if (outcome === 'unknown' && !signal.aborted)
@@ -89,13 +123,15 @@ export class WebHostClient {
       return this.#disposing
     this.#disposing = Promise.resolve().then(async () => {
       await Promise.allSettled([...this.#pending])
+      this.#subscriptions.forEach(dispose => dispose())
+      this.#contexts.clear()
       this.#changes.dispose()
     })
     this.#shutdown.abort()
     return this.#disposing
   }
 
-  async #request(input: Omit<WebNetworkRequest, 'requestId'>, parent: AbortSignal): Promise<{ response: Response, url: string }> {
+  async #request(input: Omit<WebNetworkRequest, 'requestId' | 'budget'>, parent: AbortSignal): Promise<{ response: Response, url: string }> {
     const { requestId, signal } = this.#begin('network', parent)
     let controller: ReadableStreamDefaultController<Uint8Array>
     let finished = false
@@ -118,7 +154,7 @@ export class WebHostClient {
       if (finished)
         return
       cancelRequest()
-      controller.error(new WebError('WEB_CANCELLED'))
+      controller.error(webError(signal.reason, signal))
       cleanup('unknown')
     }
     const stream = new ReadableStream<Uint8Array>({
@@ -157,7 +193,7 @@ export class WebHostClient {
     })
     signal.addEventListener('abort', cancel, { once: true })
     try {
-      const result = webNetworkHeadSchema.parse(await this.#track(this.peer.request('host.web.request', { ...input, requestId }, null, signal, requestId)))
+      const result = webNetworkHeadSchema.parse(await this.#track(this.peer.request('host.web.request', { ...input, requestId, budget: this.#contexts.get(requestId)!.budget }, null, signal, requestId)))
       this.#authorizations.get(requestId)?.check()
       signal.throwIfAborted()
       headSettled = true
@@ -178,14 +214,21 @@ export class WebHostClient {
       return { response, url: result.url }
     }
     catch (error) {
+      const failure = this.#deadlineError(error, requestId, signal)
       if (!finished)
         this.#cancel(requestId)
       headSettled = true
       cleanup('unknown')
       this.#finish(requestId, 'unknown', signal.aborted, received)
       await stream.cancel().catch(() => {})
-      throw error
+      throw failure
     }
+  }
+
+  #deadlineError(error: unknown, requestId: string, signal: AbortSignal): unknown {
+    return signal.aborted && signal.reason?.name === 'TimeoutError' && !this.#dispatched.has(requestId)
+      ? new WebError('WEB_QUEUE_TIMEOUT')
+      : error
   }
 
   #begin(kind: WebHostRequestKind, parent?: AbortSignal) {
@@ -195,6 +238,7 @@ export class WebHostClient {
     const { requestId } = request
     this.#authorizations.set(requestId, request)
     this.#active.set(requestId, kind)
+    this.#contexts.set(requestId, webRequestContext.getStore() ?? new WebRequestContext({ operationId: randomUUID(), deadline: Date.now() + 120_000, executionMs: kind === 'render' ? 20_000 : 45_000 }))
     this.#publish(requestId, kind, { phase: 'requested' })
     return { requestId, signal: request.signal }
   }
@@ -210,6 +254,8 @@ export class WebHostClient {
     if (!kind)
       return
     this.#active.delete(requestId)
+    this.#contexts.delete(requestId)
+    this.#dispatched.delete(requestId)
     this.#authorizations.get(requestId)?.dispose()
     this.#authorizations.delete(requestId)
     this.#publish(requestId, kind, { phase: 'settled', outcome, cancelled, ...(count === undefined ? {} : { count }) })

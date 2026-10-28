@@ -44,8 +44,15 @@ describe('plugin source discovery', () => {
     expect(() => discoverPluginSources(root)).toThrow('Plugin directory name')
   })
 
-  it('retains the three Office source folders with their existing package names', () => {
-    expect(discoverPluginSources().map(plugin => plugin.file)).toEqual(['office.lexora-extension', 'office-pptx.lexora-extension', 'office-xlsx.lexora-extension'])
+  it('retains the plugin source folders with their existing package names', () => {
+    expect(discoverPluginSources().map(plugin => plugin.file)).toEqual([
+      'legal-research.lexora-extension',
+      'legal-research-agent.lexora-extension',
+      'office.lexora-extension',
+      'office-pptx.lexora-extension',
+      'office-xlsx.lexora-extension',
+      'pkulaw.lexora-extension',
+    ])
   })
 })
 

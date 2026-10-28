@@ -25,6 +25,7 @@ import BuddyExecutionGroup from '../executions/BuddyExecutionGroup.vue'
 import BuddyChatAgentTurn from './BuddyChatAgentTurn.vue'
 import BuddyChatAgentTurnFlow from './BuddyChatAgentTurnFlow.vue'
 import BuddyChatCompactionRow from './BuddyChatCompactionRow.vue'
+import BuddyChatExecutionInput from './BuddyChatExecutionInput.vue'
 import BuddyChatMessageRow from './BuddyChatMessageRow.vue'
 import BuddyChatOutline from './BuddyChatOutline.vue'
 import BuddyChatRunActivity from './BuddyChatRunActivity.vue'
@@ -263,6 +264,14 @@ onBeforeUnmount(clearOutlineHighlight)
             />
           </template>
         </BuddyChatMessageRow>
+
+        <BuddyChatExecutionInput
+          v-else-if="item.kind === 'execution-input'"
+          :data-chat-row-key="item.key"
+          class="buddy-chat-transcript-row"
+          :input="item.input"
+          :language="language"
+        />
 
         <BuddyChatTurnResult
           v-else-if="item.kind === 'turn-result'"

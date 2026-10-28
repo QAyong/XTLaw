@@ -14,9 +14,15 @@
 
 无。
 
-## 待办（单独成轮）
+## 不移植（有意不同）
 
-`80b38d769`（插件贡献 MCP 连接器与 NPC，#469）：102 个文件，带迁移 v36 `ExtensionCapabilities`。试做 cherry-pick 时 30 个文件、68 处冲突，涉及扩展管理、MCP 设置界面、`BuddiesService`、`buddyRepository`、`schema.ts` 与 `plugin-creator` 技能。超过规则阈值，已中止，未应用任何内容。它依赖上面已移植的 `ce8648ebd`（共同改了 10 个文件），移植时要在其之后做。
+`80b38d769`（插件贡献 MCP 连接器与 NPC，#469）：不移植，保留本地实现。它与本地 `6e5dae803` 起的市场能力层是同一功能的两套实现，数据格式不兼容：
+- MCP 连接器：本地用 `credential` 和 `deferred`，上游用 `authentication`，没有 `deferred`。
+- 子代理：本地有 `kind: 'npc'`，工具用 `tools: { mode, ids }`，可整选连接器的全部工具并引用内置的北大法宝；上游改为逐个工具引用，只能引用同包连接器，并新增 `skills` / `requiredSkills`。
+- 存储：本地用 `extension-capabilities.json` 账本，上游用数据库表 `extension_capabilities`（迁移 v36），并接入备份恢复。
+- 本地独有、上游没有的 `BUILTIN_CAPABILITY_IDS`、`installedExtensionKinds`、`connectorSetupState` 会随替换丢失；`xtlaw-market` 的 `legal-research-agent` 按本地格式声明，会被上游的 `.strict()` 校验拒绝。
+
+本地账本功能尚未随任何版本发布。以后若要对齐上游，需要先决定声明格式，再单独成轮；迁移编号届时顺延为 v38。
 
 ## 冲突解决
 
@@ -43,4 +49,4 @@
 
 ## 基线
 
-`docs/upstream-baseline.json` 的 `lastChecked` 推进到 `80b38d769`，其中 `80b38d769` 列入待办。
+`docs/upstream-baseline.json` 的 `lastChecked` 推进到 `80b38d769`，`80b38d769` 记为不移植。

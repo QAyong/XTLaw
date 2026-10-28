@@ -1,5 +1,5 @@
 import type { Api, Model, Usage } from '@earendil-works/pi-ai'
-import type { WebErrorCode } from '../../../shared/network/webProtocol'
+import type { WebErrorCode, WebRequestBudget } from '../../../shared/network/webProtocol'
 import type { BuddyDataPaths } from '../storage/BuddyDataPaths'
 import type { NativeSearchModels } from './NativeWebSearch'
 import type { WebCapabilityChange, WebOperationObserver } from './WebCapabilityEvents'
@@ -17,9 +17,9 @@ import { WebError, webError } from '../../../shared/network/webProtocol'
 import { throwIfNetworkAuthorizationFailed } from '../network/networkAuthorizationContext'
 import { githubWebFetch } from './githubWebFetch'
 import { nativeSearchFamily, nativeWebSearch } from './NativeWebSearch'
-import { WebConcurrencyGate } from './WebConcurrencyGate'
 import { extractHtml, extractWebResource } from './webContent'
 import { WebContentCache } from './WebContentCache'
+import { WebRequestContext, webRequestContext } from './webRequestContext'
 import { publicWebSearch, tavilyRequest, tavilySearch } from './webSearchBackends'
 
 interface WebAttempt { provider: string, code: WebErrorCode | null, durationMs: number }
@@ -43,11 +43,7 @@ const STOP_FETCH_FALLBACK = new Set<WebErrorCode>([
   'WEB_CACHE_FAILED',
 ])
 
-// The host rejects a third concurrent render, so renders queue here instead of reaching it.
-const MAX_ACTIVE_OPERATIONS = 4
-const MAX_RENDERS = 2
-const MAX_QUEUED_OPERATIONS = 64
-const QUEUE_WAIT_MS = 30_000
+const LOCAL_ADMISSION_ERRORS = new Set<WebErrorCode>(['WEB_BUSY', 'WEB_QUEUE_TIMEOUT', 'WEB_CANCELLED', 'WEB_PROVIDER_UNAVAILABLE'])
 
 export class WebCapabilityService {
   readonly #changes = new Emitter<WebCapabilityChange>(() => console.error('WEB_OBSERVER_FAILED'))
@@ -58,8 +54,6 @@ export class WebCapabilityService {
   readonly #options: WebCapabilityOptions
   readonly #shutdown = new AbortController()
   readonly #cache: WebContentCache
-  readonly #gate = new WebConcurrencyGate(MAX_ACTIVE_OPERATIONS, MAX_QUEUED_OPERATIONS, QUEUE_WAIT_MS)
-  readonly #renderGate = new WebConcurrencyGate(MAX_RENDERS, MAX_QUEUED_OPERATIONS, QUEUE_WAIT_MS)
 
   constructor(options: WebCapabilityOptions) {
     this.#options = options
@@ -73,7 +67,7 @@ export class WebCapabilityService {
     let modelUsage: Usage | undefined
     const nativeId = input.model && nativeSearchFamily(input.model) ? `${input.model.provider}-native` : null
     const enabled = (provider: string) => this.#options.settings.get().search.some(source => source.enabled && source.provider === (provider === nativeId ? 'native' : provider))
-    const result = await this.#run('search', input.signal, async (signal, attempts, publish) => {
+    const result = await this.#run('search', input.signal, async (signal, attempts, publish, budget) => {
       const sources = this.#options.settings.get().search
       const hasKey = sources.some(source => source.provider === 'tavily' && source.enabled) && await this.#hasTavilyKey()
       const routes = sources.filter(source => source.enabled && (source.provider !== 'native' || nativeId) && (source.provider !== 'tavily' || hasKey))
@@ -84,25 +78,31 @@ export class WebCapabilityService {
       if (!selected.length)
         throw new WebError('WEB_PROVIDER_UNAVAILABLE')
       let last: WebSearchResponse | undefined
+      let unavailable = false
       for (const route of selected) {
         const provider = route.id
         signal.throwIfAborted()
         if (!enabled(provider))
           continue
         const started = Date.now()
-        const attemptSignal = AbortSignal.any([signal, AbortSignal.timeout(provider === nativeId ? 50_000 : 15_000)])
+        const attemptSignal = signal
+        const context = new WebRequestContext({ ...budget, executionMs: provider === nativeId ? 50_000 : 15_000 }, () => {
+          if (!enabled(provider))
+            throw new WebError('WEB_PROVIDER_UNAVAILABLE')
+        })
+        const get: WebHostClient['get'] = (...args) => webRequestContext.run(context, () => this.#options.host.get(...args))
         publish({ phase: 'attempt-started', provider: route.provider, attempt: attempts.length + 1 })
         try {
           const providerFetch: WebHostClient['providerFetch'] = (url, init) => {
             if (!enabled(provider))
               throw new WebError('WEB_PROVIDER_UNAVAILABLE')
-            return this.#options.host.providerFetch(url, init)
+            return webRequestContext.run(context, () => this.#options.host.providerFetch(url, init))
           }
           const result = route.provider === 'native'
             ? await nativeWebSearch(providerFetch, this.#options.models, input.model!, input.query, attemptSignal, (usage) => { modelUsage = usage })
             : route.provider === 'tavily'
               ? await tavilySearch(providerFetch, input.query, await this.#key(), attemptSignal)
-              : await publicWebSearch(this.#options.host.get, route.provider, input.query, attemptSignal)
+              : await publicWebSearch(get, route.provider, input.query, attemptSignal)
           attempts.push({ provider, code: null, durationMs: Date.now() - started })
           publish({ phase: 'attempt-finished', provider: route.provider, attempt: attempts.length, count: result.sources.length, durationMs: Date.now() - started })
           if (result.sources.length)
@@ -112,6 +112,12 @@ export class WebCapabilityService {
         catch (error) {
           throwIfNetworkAuthorizationFailed(error)
           const errorCode = webError(error, attemptSignal).code
+          if (errorCode === 'WEB_PROVIDER_UNAVAILABLE') {
+            unavailable = true
+            continue
+          }
+          if (LOCAL_ADMISSION_ERRORS.has(errorCode))
+            throw new WebError(errorCode)
           attempts.push({ provider, code: errorCode, durationMs: Date.now() - started })
           publish({ phase: 'attempt-finished', provider: route.provider, attempt: attempts.length, errorCode, durationMs: Date.now() - started })
         }
@@ -119,14 +125,14 @@ export class WebCapabilityService {
       signal.throwIfAborted()
       if (last && attempts.at(-1)?.code === null)
         return { ...last, ok: true as const, provider: attempts.at(-1)!.provider, query: input.query, attempts }
-      throw new WebError(attempts.at(-1)?.code ?? 'WEB_EMPTY_CONTENT')
+      throw new WebError(attempts.at(-1)?.code ?? (unavailable ? 'WEB_PROVIDER_UNAVAILABLE' : 'WEB_EMPTY_CONTENT'))
     })
     return { ...result, ...(modelUsage ? { modelUsage } : {}), availableProviders: availableProviders.filter(enabled) }
   }
 
   async fetch(input: { url: string, provider?: string, conversationId: string, signal?: AbortSignal }): Promise<FetchResult> {
     let availableProviders: string[] = []
-    const result = await this.#run('fetch', input.signal, async (signal, attempts, publish) => {
+    const result = await this.#run('fetch', input.signal, async (signal, attempts, publish, budget) => {
       const url = publicWebUrl(input.url)
       const settings = this.#options.settings.get().fetch
       const hasKey = settings.remote && await this.#hasTavilyKey()
@@ -141,15 +147,20 @@ export class WebCapabilityService {
         if (provider === 'tavily' && !this.#options.settings.get().fetch.remote)
           continue
         const started = Date.now()
-        const attemptSignal = AbortSignal.any([signal, AbortSignal.timeout(provider === 'local' ? 45_000 : 20_000)])
+        const attemptSignal = signal
+        const context = new WebRequestContext({ ...budget, executionMs: provider === 'local' ? 45_000 : 20_000 }, () => {
+          if (provider === 'tavily' && !this.#options.settings.get().fetch.remote)
+            throw new WebError('WEB_PROVIDER_UNAVAILABLE')
+        })
+        const get: WebHostClient['get'] = (...args) => webRequestContext.run(context, () => this.#options.host.get(...args))
         publish({ phase: 'attempt-started', provider, attempt: attempts.length + 1 })
         try {
           let document: WebDocument
           let mode: 'http' | 'render' | 'remote' = provider === 'local' ? 'http' : 'remote'
           if (provider === 'local') {
             try {
-              document = await githubWebFetch(this.#options.host.get, url, attemptSignal)
-                ?? await extractWebResource(await this.#options.host.get(url.href, attemptSignal), attemptSignal)
+              document = await githubWebFetch(get, url, attemptSignal)
+                ?? await extractWebResource(await get(url.href, attemptSignal), attemptSignal)
             }
             catch (error) {
               throwIfNetworkAuthorizationFailed(error)
@@ -157,8 +168,11 @@ export class WebCapabilityService {
               if (failure.code !== 'WEB_RENDER_REQUIRED' || !this.#options.settings.get().fetch.render)
                 throw failure
               publish({ phase: 'render-fallback', provider, mode: 'render', attempt: attempts.length + 1 })
-              const releaseRender = await this.#renderGate.acquire(attemptSignal)
-              const rendered = await this.#options.host.render(url.href, attemptSignal).finally(releaseRender)
+              const renderContext = new WebRequestContext({ ...budget, executionMs: 20_000 }, () => {
+                if (!this.#options.settings.get().fetch.render)
+                  throw new WebError('WEB_PROVIDER_UNAVAILABLE')
+              })
+              const rendered = await webRequestContext.run(renderContext, () => this.#options.host.render(url.href, attemptSignal))
               if (!rendered.ok)
                 throw new WebError(rendered.code)
               document = extractHtml(rendered.html, rendered.url)
@@ -169,7 +183,7 @@ export class WebCapabilityService {
             const providerFetch: WebHostClient['providerFetch'] = (url, init) => {
               if (!this.#options.settings.get().fetch.remote)
                 throw new WebError('WEB_PROVIDER_UNAVAILABLE')
-              return this.#options.host.providerFetch(url, init)
+              return webRequestContext.run(context, () => this.#options.host.providerFetch(url, init))
             }
             const result = z.object({
               results: z.array(z.object({ url: z.string(), raw_content: z.string() })),
@@ -202,6 +216,8 @@ export class WebCapabilityService {
         catch (error) {
           throwIfNetworkAuthorizationFailed(error)
           const failure = webError(error, attemptSignal)
+          if (LOCAL_ADMISSION_ERRORS.has(failure.code))
+            throw failure
           attempts.push({ provider, code: failure.code, durationMs: Date.now() - started })
           publish({ phase: 'attempt-finished', provider, attempt: attempts.length, errorCode: failure.code, durationMs: Date.now() - started })
           if (STOP_FETCH_FALLBACK.has(failure.code))
@@ -255,35 +271,23 @@ export class WebCapabilityService {
     return { ...document, content: bytes.subarray(0, end).toString('utf8'), outputTruncated: true, contentPath: receipt.path }
   }
 
-  #run<T>(kind: 'search' | 'fetch', parent: AbortSignal | undefined, operation: (signal: AbortSignal, attempts: WebAttempt[], publish: WebOperationObserver) => Promise<T>): Promise<T | WebFailure> {
+  #run<T>(kind: 'search' | 'fetch', parent: AbortSignal | undefined, operation: (signal: AbortSignal, attempts: WebAttempt[], publish: WebOperationObserver, budget: Omit<WebRequestBudget, 'executionMs'>) => Promise<T>): Promise<T | WebFailure> {
     const attempts: WebAttempt[] = []
-    if (this.#shutdown.signal.aborted)
+    if (this.#shutdown.signal.aborted || parent?.aborted)
       return Promise.resolve({ ok: false, provider: null, code: 'WEB_CANCELLED', attempts })
+    if (this.#pending.size >= 64)
+      return Promise.resolve({ ok: false, provider: null, code: 'WEB_BUSY', attempts })
     const operationId = randomUUID()
+    const deadline = Date.now() + 120_000
     const publish: WebOperationObserver = fact => this.#changes.fire(copyEventSnapshot({ ...fact, kind, operationId, revision: ++this.#revision }))
-    const accepted = (async (): Promise<T | WebFailure> => {
-      const queuedAt = performance.now()
-      const queueSignal = AbortSignal.any([this.#shutdown.signal, ...(parent ? [parent] : [])])
-      let release: () => void
-      try {
-        if (this.#gate.saturated)
-          publish({ phase: 'queued', count: this.#gate.queued + 1 })
-        release = await this.#gate.acquire(queueSignal)
-      }
-      catch (error) {
-        const failure = webError(error, queueSignal)
-        this.#pending.delete(operationId)
-        publish({ phase: 'settled', outcome: 'failed', errorCode: failure.code, cancelled: queueSignal.aborted, durationMs: Math.round(performance.now() - queuedAt) })
-        return { ok: false, provider: null, code: failure.code, attempts }
-      }
-      // The execution timeout starts once a slot is held, so time spent queued does not eat into it.
-      const signal = AbortSignal.any([this.#shutdown.signal, AbortSignal.timeout(90_000), ...(parent ? [parent] : [])])
+    const signal = AbortSignal.any([this.#shutdown.signal, AbortSignal.timeout(120_000), ...(parent ? [parent] : [])])
+    const accepted = Promise.resolve().then(async (): Promise<T | WebFailure> => {
       let outcome: 'completed' | 'failed' = 'completed'
       const started = performance.now()
-      publish({ phase: 'started', durationMs: Math.round(started - queuedAt) })
+      publish({ phase: 'started' })
       try {
         signal.throwIfAborted()
-        return await operation(signal, attempts, publish)
+        return await operation(signal, attempts, publish, { operationId, deadline })
       }
       catch (error) {
         outcome = 'failed'
@@ -291,11 +295,10 @@ export class WebCapabilityService {
         return { ok: false, provider: attempts.at(-1)?.provider ?? null, code: webError(error, signal).code, attempts }
       }
       finally {
-        release()
         this.#pending.delete(operationId)
         publish({ phase: 'settled', outcome, cancelled: signal.aborted, durationMs: Math.round(performance.now() - started) })
       }
-    })()
+    })
     this.#pending.set(operationId, { kind, promise: accepted })
     return accepted
   }

@@ -2,6 +2,7 @@ import type { WebCapabilityOptions } from '../WebCapabilityService'
 import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import process from 'node:process'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { applicationDiagnosticSchema } from '../../../../shared/diagnostics/applicationDiagnostic'
 import { DEFAULT_WEB_SETTINGS, WebError } from '../../../../shared/network/webProtocol'
@@ -100,6 +101,13 @@ describe('web capability routing', () => {
     expect(await service.search({ query: 'query', provider: 'brave' })).toMatchObject({ ok: false, code: 'WEB_PROVIDER_UNAVAILABLE', attempts: [], availableProviders: ['bing', 'duckduckgo', 'google'] })
     expect(requests).toEqual([])
   })
+  it('reports unavailable native authentication without inventing a site attempt', async () => {
+    const { service } = await fixture()
+    const result = await service.search({ query: 'query', provider: 'native', model: { api: 'openai-responses', provider: 'fixture', id: 'fixture', baseUrl: 'https://example.com' } as never })
+    expect(result).toMatchObject({ ok: false, code: 'WEB_PROVIDER_UNAVAILABLE', attempts: [] })
+    await service.dispose()
+  })
+
   it('does not send a native request if disabled while authentication is resolving', async () => {
     const { options, settings } = await fixture()
     const sent: string[] = []
@@ -143,7 +151,8 @@ describe('web capability routing', () => {
     const { options } = await fixture()
     const cache = new WebContentCache(options.paths)
     const { path: other } = await cache.write('other-conversation', 'Other content')
-    expect((await stat(other)).mode & 0o777).toBe(0o600)
+    if (process.platform !== 'win32')
+      expect((await stat(other)).mode & 0o777).toBe(0o600)
     await Promise.all(Array.from({ length: 35 }, (_, index) => cache.write('conversation', `Content ${index}`)))
     expect(await readdir(join(options.paths.conversationDirectory('conversation'), 'web-cache'))).toHaveLength(32)
     expect(await readFile(other, 'utf8')).toBe('Other content')
@@ -210,76 +219,63 @@ describe('web capability routing', () => {
   })
 })
 
-async function drain(gates: Array<() => void>, work: Promise<unknown>) {
-  const state = { done: false }
-  void work.finally(() => {
-    state.done = true
-  })
-  while (!state.done) {
-    gates.shift()?.()
-    await new Promise(resolve => setTimeout(resolve, 1))
-  }
-}
-
-describe('web concurrency queue', () => {
-  const searchHtml = '<html><body><ol id="b_results"><li class="b_algo"><h2><a href="https://example.com/doc">Source</a></h2></li></ol></body></html>'
-
-  async function gated() {
-    const { options, settings } = await fixture()
-    settings.search.forEach(source => source.enabled = source.provider === 'bing')
-    const gates: Array<() => void> = []
-    let running = 0
-    let peak = 0
-    options.host.get = async (url) => {
-      running++
-      peak = Math.max(peak, running)
-      await new Promise<void>(resolve => gates.push(resolve))
-      running--
-      return { bytes: new TextEncoder().encode(searchHtml), url, status: 200, headers: new Headers({ 'content-type': 'text/html' }) }
+describe('web operation admission', () => {
+  it('bounds accepted operations and removes them after completion', async () => {
+    const { options } = await fixture()
+    const finish = Promise.withResolvers<void>()
+    options.host.render = async () => {
+      await finish.promise
+      return { ok: false, code: 'WEB_CANCELLED' }
     }
-    return { service: new WebCapabilityService(options), gates, peak: () => peak }
-  }
-
-  it('queues requests beyond the cap instead of rejecting them', async () => {
-    const { service, gates, peak } = await gated()
-    const results = Array.from({ length: 6 }, (_, index) => service.search({ query: `query ${index}` }))
-    await vi.waitFor(() => expect(gates).toHaveLength(4))
-    expect(service.snapshot.active).toHaveLength(6)
-    await drain(gates, Promise.all(results))
-    const settled = await Promise.all(results)
-    expect(settled.every(result => result.ok)).toBe(true)
-    expect(peak()).toBe(4)
+    options.host.get = async url => ({ url, status: 200, headers: new Headers({ 'content-type': 'text/html' }), bytes: new TextEncoder().encode('<html><body><div id="root"></div><script src="app.js"></script></body></html>') })
+    const service = new WebCapabilityService(options)
+    const pending = Array.from({ length: 64 }, () => service.fetch({ url: 'https://example.com', conversationId: 'conversation' }))
+    expect(await service.search({ query: 'overflow' })).toMatchObject({ ok: false, code: 'WEB_BUSY', attempts: [] })
+    finish.resolve()
+    await Promise.all(pending)
+    expect(service.snapshot.active).toEqual([])
     await service.dispose()
   })
 
-  it('releases the slot when a queued request is cancelled', async () => {
-    const { service, gates } = await gated()
-    const running = Array.from({ length: 4 }, (_, index) => service.search({ query: `query ${index}` }))
-    await vi.waitFor(() => expect(gates).toHaveLength(4))
-    const controller = new AbortController()
-    const queued = service.search({ query: 'queued', signal: controller.signal })
-    controller.abort()
-    expect(await queued).toMatchObject({ ok: false, code: 'WEB_CANCELLED' })
-    expect(service.snapshot.active).toHaveLength(4)
-    const next = service.search({ query: 'next' })
-    await drain(gates, Promise.all([...running, next]))
-    expect((await next).ok).toBe(true)
-    await service.dispose()
-  })
-
-  it('reports a queue timeout distinctly from a site failure', async () => {
-    vi.useFakeTimers()
+  it('lets a public search complete while four fetch operations wait for rendering', async () => {
+    const { options } = await fixture()
+    const originalGet = options.host.get
+    const finish = Promise.withResolvers<void>()
+    let renders = 0
+    options.host.get = (url, signal, limit) => url.includes('bing.com')
+      ? originalGet(url, signal, limit)
+      : Promise.reject(new WebError('WEB_RENDER_REQUIRED'))
+    options.host.render = async () => {
+      renders++
+      await finish.promise
+      return { ok: false, code: 'WEB_CANCELLED' }
+    }
+    const service = new WebCapabilityService(options)
+    const pending = Array.from({ length: 4 }, () => service.fetch({ url: 'https://example.com', conversationId: 'conversation' }))
     try {
-      const { service, gates } = await gated()
-      Array.from({ length: 4 }, (_, index) => void service.search({ query: `query ${index}` }))
-      await vi.waitFor(() => expect(gates).toHaveLength(4))
-      const queued = service.search({ query: 'queued' })
-      await vi.advanceTimersByTimeAsync(30_000)
-      expect(await queued).toMatchObject({ ok: false, code: 'WEB_QUEUE_TIMEOUT', attempts: [] })
-      gates.forEach(open => open())
-      await vi.advanceTimersByTimeAsync(1)
+      await vi.waitFor(() => expect(renders).toBe(4))
+      expect(await service.search({ query: 'independent search', provider: 'bing' })).toMatchObject({ ok: true, provider: 'bing' })
+    }
+    finally {
+      finish.resolve()
+      await Promise.all(pending)
       await service.dispose()
     }
-    finally { vi.useRealTimers() }
+  })
+
+  it.each(['WEB_BUSY', 'WEB_QUEUE_TIMEOUT'] as const)('does not turn %s into a site failure or a paid fallback', async (code) => {
+    const { options, settings } = await fixture()
+    settings.fetch.remote = true
+    options.settings.getTavilyKey = async () => 'fixture-only-key'
+    options.host.get = async () => {
+      throw new WebError(code)
+    }
+    options.host.providerFetch = async () => {
+      throw new Error('Paid fallback must not start')
+    }
+    const service = new WebCapabilityService(options)
+    expect(await service.fetch({ url: 'https://example.com', conversationId: 'conversation' })).toMatchObject({ ok: false, code, attempts: [] })
+    expect(await service.search({ query: 'example' })).toMatchObject({ ok: false, code, attempts: [] })
+    await service.dispose()
   })
 })

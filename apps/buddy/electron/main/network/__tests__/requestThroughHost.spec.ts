@@ -32,6 +32,7 @@ function transport(statusCode = 200) {
   })
   net.request.mockReturnValue(request)
   return {
+    close: () => request.emit('close'),
     get resumed() { return resumed },
     get aborted() { return aborted },
   }
@@ -40,6 +41,40 @@ function transport(statusCode = 200) {
 beforeEach(() => net.request.mockReset())
 
 describe('host response body boundary', () => {
+  it('reports native closure separately from headers and body completion', async () => {
+    const wire = transport()
+    let closed = false
+    const response = await requestThroughHost({} as Session, { url: 'https://example.com', method: 'GET', headers: {} }, new AbortController().signal, undefined, (promise) => {
+      void promise.then(() => {
+        closed = true
+      })
+    })
+    expect(closed).toBe(false)
+    expect(await response.text()).toBe('file bytes')
+    expect(closed).toBe(false)
+    wire.close()
+    await Promise.resolve()
+    expect(closed).toBe(true)
+  })
+
+  it('does not report closure merely because abort was requested', async () => {
+    const wire = transport()
+    let closed = false
+    const controller = new AbortController()
+    const response = await requestThroughHost({} as Session, { url: 'https://example.com', method: 'GET', headers: {} }, controller.signal, undefined, (promise) => {
+      void promise.then(() => {
+        closed = true
+      })
+    })
+    controller.abort()
+    await expect(response.text()).rejects.toThrow()
+    expect(wire.aborted).toBe(true)
+    expect(closed).toBe(false)
+    wire.close()
+    await Promise.resolve()
+    expect(closed).toBe(true)
+  })
+
   it('does not start reading the native response before a consumer receives permission', async () => {
     const wire = transport()
     const response = await requestThroughHost({} as Session, { url: 'https://files.example/report', method: 'GET', headers: {} }, new AbortController().signal)

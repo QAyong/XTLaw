@@ -1,7 +1,7 @@
 import type { WebErrorCode, WebSearchProvider } from '../../../shared/network/webProtocol'
 
 export interface WebOperationFact {
-  readonly phase: 'queued' | 'started' | 'attempt-started' | 'attempt-finished' | 'render-fallback' | 'received' | 'cache-published' | 'cache-cleanup-failed' | 'settled'
+  readonly phase: 'started' | 'attempt-started' | 'attempt-finished' | 'render-fallback' | 'received' | 'cache-published' | 'cache-cleanup-failed' | 'settled'
   readonly provider?: WebSearchProvider | 'local'
   readonly mode?: 'http' | 'render' | 'remote'
   readonly attempt?: number

@@ -36,6 +36,7 @@ const semanticColorTokens = {
   'selected-hover': '--buddy-state-hover',
   'accent': '--buddy-accent-solid',
   'accent-text': '--buddy-accent-text',
+  'accent-on-surface': '--buddy-accent-on-surface',
   'accent-subtle': '--buddy-accent-surface-subtle',
   'accent-surface': '--buddy-accent-surface',
   'accent-border': '--buddy-accent-border',

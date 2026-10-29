@@ -10,6 +10,7 @@ import { featureDiscoverySchema } from '../../shared/onboarding/featureDiscovery
 import { BUDDY_PERMISSION_MODES } from '../../shared/permissions/permissionMode'
 import { runtimePreferencesSchema } from '../../shared/runtime/runtimePreferences'
 import { keybindingsSchema } from '../../shared/shortcuts/keybindingSchema'
+import { speechPreferencesSchema } from '../../shared/speech/speechApi'
 import { localBackupLimitSchema } from '../../shared/storage/backupRetention'
 import { themePreferenceSchema } from '../../shared/theme/themePreferences'
 import { typographyPreferencesSchema } from '../../shared/typography/typographyPreferences'
@@ -110,6 +111,7 @@ export const lexoraConfigPatchSchema: z.ZodType<LexoraConfigPatch> = z.object({
     typography: typographyPreferencesSchema.partial().optional(),
     profile: desktopUserProfilePatchSchema.optional(),
     developerToolsEnabled: z.boolean().optional(),
+    speech: speechPreferencesSchema.optional(),
     pluginAuthor: extensionAuthorSchema.optional(),
     language: z.enum(['zh-CN', 'en-US']).optional(),
     launchAtLogin: z.boolean().optional(),

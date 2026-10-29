@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import type { ModelProvidersStore } from '@/modules/models/state/typing'
-import { Add20Regular, Info20Regular } from '@vicons/fluent'
-import { NButton, NPopconfirm, NSpace, NSwitch, NTooltip } from 'naive-ui'
-import { computed } from 'vue'
+import { Add20Regular, Info20Regular, Search20Regular } from '@vicons/fluent'
+import { NButton, NInput, NPopconfirm, NSpace, NSwitch, NTooltip } from 'naive-ui'
+import { computed, ref } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import DesktopManualModelDialog from '@/modules/models/widgets/providers/DesktopManualModelDialog.vue'
 import DesktopModelCapabilityTags from '@/modules/models/widgets/providers/DesktopModelCapabilityTags.vue'
 import DesktopModelDetailDialog from '@/modules/models/widgets/providers/DesktopModelDetailDialog.vue'
 import DesktopProviderConnectionDialog from '@/modules/models/widgets/providers/DesktopProviderConnectionDialog.vue'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
+import DesktopSegmentedControl from '@/shared/ui/segmented-control/DesktopSegmentedControl.vue'
 import { useProviderDetail } from './useProviderDetail'
 
 const props = defineProps<{
@@ -38,6 +39,14 @@ const {
   formatTokens,
   removeUnavailableModel,
 } = useProviderDetail(() => props.providerSettings, () => props.providerId)
+const typeFilter = ref('all')
+const query = ref('')
+const typeOptions = computed(() => (['all', 'chat', 'transcription', 'speech'] as const).map(value => ({ value, label: t(`desktop.providers.modelTypes.${value}`) })))
+const visibleModels = computed(() => {
+  const search = query.value.trim().toLocaleLowerCase()
+  return models.value.filter(model => (typeFilter.value === 'all' || model.type === typeFilter.value)
+    && (!search || [model.displayName, model.modelId].some(value => value.toLocaleLowerCase().includes(search))))
+})
 </script>
 
 <template>
@@ -123,7 +132,6 @@ const {
             {{ t(`desktop.providers.syncUnavailable.${provider.syncUnavailableReason ?? 'unsupported_api'}`) }}
           </NTooltip>
           <NButton
-            v-if="provider.custom"
             class="buddy-icon-button desktop-provider-detail__add-model"
             quaternary
             size="small"
@@ -136,22 +144,31 @@ const {
           </NButton>
         </div>
       </div>
-      <div class="desktop-provider-detail__group">
+      <div class="desktop-provider-detail__toolbar">
+        <DesktopSegmentedControl v-model="typeFilter" :options="typeOptions" :aria-label="t('desktop.providers.modelType')" />
+        <NInput v-model:value="query" class="desktop-provider-detail__search" clearable :placeholder="t('desktop.chat.searchModels')" :aria-label="t('desktop.chat.searchModels')">
+          <template #prefix>
+            <DesktopIcon :component="Search20Regular" />
+          </template>
+        </NInput>
+      </div>
+      <div v-if="visibleModels.length" class="desktop-provider-detail__group">
         <div
-          v-for="model in models"
+          v-for="model in visibleModels"
           :key="model.modelId"
           class="desktop-provider-detail__row desktop-provider-detail__model-row"
         >
           <div class="desktop-provider-detail__row-copy">
             <strong>{{ model.displayName }}</strong>
             <small>{{ model.modelId }}</small>
-            <small class="desktop-provider-detail__model-parameters">
+            <small v-if="model.type === 'chat'" class="desktop-provider-detail__model-parameters">
               {{ t('desktop.providers.compactParameters', {
                 contextWindow: formatTokens(model.contextWindow),
                 maxTokens: formatTokens(model.maxTokens),
               }) }}
             </small>
-            <DesktopModelCapabilityTags :language="language" :model="model" />
+            <small>{{ t(`desktop.providers.modelTypes.${model.type}`) }}</small>
+            <DesktopModelCapabilityTags v-if="model.type === 'chat'" :language="language" :model="model" />
           </div>
           <div class="desktop-provider-detail__model-actions">
             <template v-if="model.available">
@@ -201,11 +218,15 @@ const {
           </div>
         </div>
       </div>
+      <p v-else class="desktop-provider-detail__empty" role="status">
+        {{ t(models.length ? 'desktop.chat.noMatchingModels' : 'desktop.providers.noModels') }}
+      </p>
     </section>
   </div>
   <DesktopManualModelDialog
     v-model:show="showManualModelDialog"
     :form-key="manualFormKey"
+    :allow-chat="!!provider?.custom"
     :language="language"
     :saving="savingManualModel"
     @save="saveManualModel"
@@ -326,5 +347,27 @@ const {
 .desktop-provider-detail__section-heading {
   align-items: flex-start;
   justify-content: space-between;
+}
+
+.desktop-provider-detail__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.desktop-provider-detail__search {
+  flex-basis: 16rem;
+  max-width: 100%;
+  margin-left: auto;
+}
+
+.desktop-provider-detail__empty {
+  margin: 0;
+  padding: 2rem 0;
+  color: var(--buddy-text-secondary);
+  font-size: 0.8rem;
+  text-align: center;
 }
 </style>

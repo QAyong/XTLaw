@@ -31,12 +31,14 @@ withDefaults(defineProps<{
       </div>
 
       <div class="desktop-chat-composer__toolbar">
-        <div class="desktop-chat-composer__leading-actions">
-          <slot name="leading" />
-        </div>
-        <div class="desktop-chat-composer__actions">
-          <slot name="actions" />
-        </div>
+        <slot name="toolbar">
+          <div class="desktop-chat-composer__leading-actions">
+            <slot name="leading" />
+          </div>
+          <div class="desktop-chat-composer__actions">
+            <slot name="actions" />
+          </div>
+        </slot>
       </div>
     </div>
 

@@ -56,6 +56,7 @@ module.exports = {
     extraResources: (target.platform === OPERATING_SYSTEM.MacOS ? resources : []),
     target: [{ target: 'dmg', arch: ['arm64'] }],
     category: 'public.app-category.productivity',
+    extendInfo: { NSMicrophoneUsageDescription: 'XTLaw uses the microphone when you record voice input or test your microphone.' },
     minimumSystemVersion: target.minimumSystemVersion,
     icon: 'resources/icons/app-icon.png',
     identity: signedMacos ? undefined : '-',

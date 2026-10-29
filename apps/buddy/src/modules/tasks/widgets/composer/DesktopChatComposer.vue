@@ -2,18 +2,22 @@
 import type { BuddyMessageQuote } from '@buddy-shared/conversation/buddyUserContent'
 import type { BuddyServiceTier, BuddyThinkingLevel } from '@buddy-shared/conversation/modelSelection'
 import type { BuddyPermissionMode } from '@buddy-shared/permissions/permissionMode'
+import type { SpeechProvider } from '@buddy-shared/speech/speechApi'
 import type { JSONContent } from '@tiptap/core'
 import type { DesktopChatComposerProps } from './typing'
 import type { ChatComposerSubmitPayload, ChatPromptContextOption } from '@/modules/prompt-input'
 import type { WorkbenchMenuSelection } from '@/shared/ui/contributions/workbenchUiContext'
 import { getBuddyUserContentActorReferences } from '@buddy-shared/conversation/buddyUserContent'
 import { EditorContent } from '@tiptap/vue-3'
+import { useEventListener } from '@vueuse/core'
 import { NButton } from 'naive-ui'
-import { computed, shallowRef, toRef, useTemplateRef } from 'vue'
+import { computed, shallowRef, toRef, useTemplateRef, watch } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import { DesktopModelSelector } from '@/modules/models/ui'
 import { chatComposerDocumentToUserContent, createChatComposerContentFromText } from '@/modules/prompt-input'
 import { DesktopChatComposerFrame, DesktopPermissionModeSelector } from '@/modules/prompt-input/ui'
+import { speechErrorKey, useSpeechRecorder } from '@/modules/speech'
+import { SpeechPlaybackStatus, SpeechRecorderButton, SpeechRecordingToolbar } from '@/modules/speech/ui'
 import ChatContextUsage from '@/modules/tasks/widgets/composer/ChatContextUsage.vue'
 import DesktopChatComposerInteractionHost from '@/modules/tasks/widgets/composer/DesktopChatComposerInteractionHost.vue'
 import { useChatComposer } from '@/modules/tasks/widgets/composer/useChatComposer'
@@ -45,6 +49,16 @@ defineSlots<{
 
 const { t } = useBuddyI18n(() => props.language)
 const resourceStrip = useTemplateRef('resourceStrip')
+let insertTranscript: ((text: string) => void) | undefined
+const speech = useSpeechRecorder({
+  onTranscript: (text) => {
+    insertTranscript?.(text)
+    insertTranscript = undefined
+  },
+})
+const speechError = computed(() => speech.error.value
+  ? t(speechErrorKey(speech.error.value, 'speech.failed'))
+  : speech.state.value === 'review' && !speech.text.value.trim() ? t('speech.empty') : '')
 const {
   activeSuggestionIndex,
   activeTrigger,
@@ -75,7 +89,7 @@ const {
   suggestions,
 } = useChatComposer({
   pasteTextAsAttachment: toRef(props, 'pasteTextAsAttachment'),
-  canSend: toRef(props, 'canSend'),
+  canSend: computed(() => props.canSend && !speech.busy.value),
   composerContent: toRef(props, 'composerContent'),
   draft: toRef(props, 'draft'),
   draftId: toRef(props, 'draftId'),
@@ -143,6 +157,57 @@ const modelInputIssueMessage = computed(() => {
   return ''
 })
 
+function startRecording(provider: SpeechProvider) {
+  const current = editor.value
+  if (!current || !current.isEditable || props.isSending)
+    return
+  const draftId = props.draftId
+  const { doc, selection } = current.state
+  insertTranscript = (text) => {
+    if (editor.value !== current || current.isDestroyed || !current.isEditable || props.isSending || props.draftId !== draftId)
+      return
+    const transcript = text.trim()
+    if (!transcript)
+      return
+    const content: JSONContent[] = transcript.split(/\r\n?|\n/).flatMap((line, index) => [
+      ...(index ? [{ type: 'hardBreak' }] : []),
+      ...(line ? [{ type: 'text', text: line }] : []),
+    ])
+    if (current.state.doc.eq(doc))
+      current.chain().focus().insertContentAt({ from: selection.from, to: selection.to }, content).run()
+    else current.chain().focus('end').insertContent(content).run()
+  }
+  closeSuggestions()
+  sourceMenuOpen.value = false
+  void speech.start(provider)
+}
+function cancelRecording() {
+  speech.cancel()
+  insertTranscript = undefined
+  editor.value?.commands.focus()
+}
+useEventListener('keydown', (event) => {
+  if (speech.busy.value && event.key === 'Escape') {
+    event.preventDefault()
+    event.stopPropagation()
+    cancelRecording()
+  }
+}, { capture: true })
+watch(() => props.draftId, () => {
+  speech.cancel()
+  insertTranscript = undefined
+})
+watch(() => props.isSending, (sending) => {
+  if (sending) {
+    speech.cancel()
+    insertTranscript = undefined
+  }
+})
+watch(() => props.speechEnabled, (enabled) => {
+  if (enabled === false)
+    speech.cancel(false)
+})
+
 function handleFileDragover(event: DragEvent) {
   if (event.dataTransfer?.types.includes('Files'))
     event.preventDefault()
@@ -184,6 +249,7 @@ function captureDraft(): WorkbenchMenuSelection {
 <template>
   <DesktopChatComposerFrame
     class="desktop-chat-composer-wrap"
+    :class="{ 'is-recording': speech.busy.value }"
     single-line-toolbar
     @dragover="handleFileDragover"
     @drop="handleFileDrop"
@@ -250,7 +316,15 @@ function captureDraft(): WorkbenchMenuSelection {
     </template>
 
     <template #editor>
+      <SpeechPlaybackStatus :language="language" />
       <EditorContent v-if="editor" :editor="editor" />
+      <p v-if="speechError" role="alert" class="m-0 py-1 text-xs text-danger">
+        {{ speechError }}
+      </p>
+    </template>
+
+    <template v-if="speech.busy.value" #toolbar>
+      <SpeechRecordingToolbar :language="language" :state="speech.state.value" :levels="speech.levels.value" :elapsed-ms="speech.elapsedMs.value" @cancel="cancelRecording" @finish="speech.finish" />
     </template>
 
     <template #leading>
@@ -317,6 +391,8 @@ function captureDraft(): WorkbenchMenuSelection {
         />
       </div>
 
+      <SpeechRecorderButton :language="language" :disabled="isSending || speechEnabled === false" @start="startRecording" />
+
       <DesktopComposerSubmitActions
         :language="language"
         :can-submit="canSubmit"
@@ -353,6 +429,10 @@ function captureDraft(): WorkbenchMenuSelection {
 <style scoped lang="scss">
 .desktop-chat-composer-wrap {
   position: relative;
+
+  &.is-recording :deep(.desktop-chat-composer) {
+    border-color: var(--buddy-accent-solid);
+  }
 }
 
 .desktop-chat-composer {

@@ -74,6 +74,8 @@ const BUDDY_CURRENT_SCHEMA_COLUMNS = {
   ],
   conversation_pi_trees: ['conversation_id', 'session_file', 'root_entry_id'],
   provider_model_states: [
+    'model_type',
+    'type_override',
     'thinking_level_map_json',
     'sampling_params_json',
     'compat_json',

@@ -1,4 +1,5 @@
 import type { ExtensionInspection } from '../../../shared/extensions/extensionAuthoring'
+import type { SpeechProvider } from '../../../shared/speech/speechApi'
 import type { LexoraConfig } from '../../shared/desktopApi'
 import type { BrowserIntegration } from '../browser/BrowserIntegration'
 import type { registerExtensionIpc } from '../extensions/registerExtensionIpc'
@@ -26,6 +27,7 @@ import { networkPermissionGrantSchema, networkPermissionsRpc } from '../../../sh
 import { isLinux } from '../../../shared/platform/identifiers'
 import { developerToolsRpc } from '../../../shared/runtime/developerTools'
 import { runtimePreferencesRpc } from '../../../shared/runtime/runtimePreferences'
+import { HOST_SPEECH_MODELS } from '../../../shared/speech/speechApi'
 import { installAttachmentProtocol } from '../attachmentProtocol'
 import { registerBrowserHostRpc } from '../browser/registerBrowserHostRpc'
 import { initializeDesktopConfig } from '../config/initializeDesktopConfig'
@@ -233,6 +235,7 @@ export class DesktopRuntimeHost {
           return this.inspectExtension(id)
         }, () => this.#config?.desktop.pluginAuthor ?? '')
         const disposers = [
+          peer.onRequest(HOST_SPEECH_MODELS, () => this.speechModels?.() ?? []),
           registerExtensionShellRpc(peer, () => this.extensionShells),
           peer.onRequest(extensionAgentRpc.list, () => this.extensionAgent?.list() ?? []),
           peer.onRequest(extensionSkillsRpc.list, () => this.extensionSkills?.list() ?? []),
@@ -336,6 +339,14 @@ export class DesktopRuntimeHost {
     this.performance.start()
     this.#subscriptions.push(installAttachmentProtocol(service))
     this.#subscriptions.push(installRendererProtocol())
+  }
+
+  speechModels: (() => Promise<SpeechProvider[]>) | undefined
+
+  readProviderCredential(providerId: string): Promise<unknown> {
+    if (!this.#credentials)
+      throw new Error('Desktop credential vault is not prepared')
+    return this.#credentials.read('providers', providerId)
   }
 
   readWebCredential(): Promise<unknown> {

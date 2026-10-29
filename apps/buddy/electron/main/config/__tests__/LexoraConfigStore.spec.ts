@@ -4,6 +4,7 @@ import { access, mkdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import process from 'node:process'
 import { createTemporaryDirectory } from '@buddy-tests/temporaryDirectories'
+import { parse } from 'smol-toml'
 import { describe, expect, it, vi } from 'vitest'
 import { DEFAULT_BROWSER_PREFERENCES } from '../../../../shared/browser/browserPreferences'
 import { DEFAULT_THEME_PREFERENCE } from '../../../../shared/theme/themePreferences'
@@ -11,9 +12,13 @@ import { DEFAULT_TYPOGRAPHY } from '../../../../shared/typography/typographyPref
 import { DEFAULT_DESKTOP_CHAT_PREFERENCES, DESKTOP_CHAT_OUTLINE_POSITIONS } from '../../../shared/desktopApi'
 import { LexoraConfigStore } from '../LexoraConfigStore'
 
-async function createConfigStore() {
+async function createConfigStore(content?: string) {
   const directory = await createTemporaryDirectory('lexora-config-test-')
   const configPath = join(directory, '.lexora', 'config.toml')
+  if (content !== undefined) {
+    await mkdir(dirname(configPath), { recursive: true })
+    await writeFile(configPath, content)
+  }
 
   return {
     configPath,
@@ -299,10 +304,10 @@ keep=true
     const { configPath, store } = await createConfigStore()
     await mkdir(dirname(configPath), { recursive: true })
     await writeFile(configPath, '[desktop]\nlanguage = "en-US"\n[future]\nvalue = true\n')
-    expect((await store.read()).proxy).toEqual({ mode: 'system', server: '', downloadMirror: 'off' })
-    await store.update({ proxy: { mode: 'custom', server: 'http://127.0.0.1:7890', downloadMirror: 'auto' } })
-    await store.update({ proxy: { mode: 'direct', server: 'http://127.0.0.1:7890', downloadMirror: 'auto' } })
-    expect((await store.read()).proxy).toEqual({ mode: 'direct', server: 'http://127.0.0.1:7890', downloadMirror: 'auto' })
+    expect((await store.read()).proxy).toEqual({ mode: 'system', server: '' })
+    await store.update({ proxy: { mode: 'custom', server: 'http://127.0.0.1:7890' } })
+    await store.update({ proxy: { mode: 'direct', server: 'http://127.0.0.1:7890' } })
+    expect((await store.read()).proxy).toEqual({ mode: 'direct', server: 'http://127.0.0.1:7890' })
     expect(await readFile(configPath, 'utf8')).toContain('[future]')
     expect((await store.read()).desktop.language).toBe('en-US')
   })
@@ -336,7 +341,7 @@ keep=true
     const changes: string[] = []
     store.onDidChange(change => changes.push(change.kind))
     let active = previous.proxy
-    await expect(store.update({ proxy: { mode: 'custom', server: 'http://127.0.0.1:7890', downloadMirror: 'auto' } }, async (next) => {
+    await expect(store.update({ proxy: { mode: 'custom', server: 'http://127.0.0.1:7890' } }, async (next) => {
       active = next.proxy
       if (next.proxy.mode === 'custom')
         throw new Error('Proxy configuration unavailable')
@@ -680,4 +685,29 @@ it('persists an optional Unicode plugin signature without changing profile or pr
   await store.update({ desktop: { pluginAuthor: '' } })
   expect((await reopened.read()).desktop.profile.userName).toBe('个人名称')
   expect((await reopened.read()).desktop.pluginAuthor).toBe('')
+})
+
+it('reads a 0.4.2 config that still carries proxy.downloadMirror and drops it on the next save', async () => {
+  const { configPath, store } = await createConfigStore('[proxy]\nmode="custom"\nserver="http://127.0.0.1:7890"\ndownloadMirror="off"\n')
+  const config = await store.read()
+  expect(config.proxy).toEqual({ mode: 'custom', server: 'http://127.0.0.1:7890' })
+  expect(config.downloads.enabled).toBe(true)
+  await store.update({ desktop: { language: 'en-US' } })
+  expect(parse(await readFile(configPath, 'utf8')).proxy).toEqual({ mode: 'custom', server: 'http://127.0.0.1:7890' })
+})
+
+it('persists download proxy edits, order and deletion independently of the master switch and connection proxy', async () => {
+  const { configPath, store } = await createConfigStore('[proxy]\nmode="custom"\nserver="http://127.0.0.1:7890"\n')
+  const defaults = (await store.read()).downloads
+  expect(defaults.enabled).toBe(true)
+  const proxies = [...defaults.proxies].reverse().slice(1).map((proxy, index) => ({ ...proxy, name: `Edited ${index}`, enabled: index === 0 }))
+  await store.update({ downloads: { proxies } })
+  await store.update({ downloads: { enabled: false } })
+  expect((await new LexoraConfigStore({ configPath }).read()).downloads).toEqual({ enabled: false, proxies })
+  await store.update({ downloads: { enabled: true } })
+  expect((await store.read()).downloads).toEqual({ enabled: true, proxies })
+  await store.update({ downloads: { proxies: [] } })
+  await store.update({ desktop: { language: 'en-US' } })
+  expect((await new LexoraConfigStore({ configPath }).read()).downloads).toEqual({ enabled: true, proxies: [] })
+  expect(parse(await readFile(configPath, 'utf8')).proxy).toEqual({ mode: 'custom', server: 'http://127.0.0.1:7890' })
 })

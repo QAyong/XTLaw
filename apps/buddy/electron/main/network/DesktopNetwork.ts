@@ -1,7 +1,7 @@
 import type { AuthenticationResponseDetails, AuthInfo, Event, ProxyConfig, Session, WebContents } from 'electron'
 import type { SyncTransport } from '../../../platform/sync/SyncAdapter'
 import type { NetworkStartupFailure } from '../../../shared/diagnostics/networkStartupFailure'
-import type { ProxyConnectionSettings } from '../../../shared/network/proxySettings'
+import type { ProxySettings } from '../../../shared/network/proxySettings'
 import { Buffer } from 'node:buffer'
 import { randomUUID } from 'node:crypto'
 import { app, session } from 'electron'
@@ -18,7 +18,7 @@ export interface DesktopNetworkChange {
   readonly revision: number
   readonly operationId: string
   readonly status: 'starting' | 'ready' | 'degraded' | 'applied' | 'failed' | 'unavailable' | 'stopping' | 'stopped'
-  readonly mode: ProxyConnectionSettings['mode'] | null
+  readonly mode: ProxySettings['mode'] | null
   readonly failure?: NetworkStartupFailure
 }
 
@@ -30,7 +30,7 @@ export class DesktopNetwork {
   #stopPromise: Promise<void> | undefined
   readonly #resolver = session.fromPartition(`lexora-proxy-resolver:${randomUUID()}`, { cache: false })
   readonly #proxy = new OutboundProxy(url => this.#resolve(url))
-  #settings: ProxyConnectionSettings | null = null
+  #settings: ProxySettings | null = null
   #updating: Promise<void> = Promise.resolve()
   #sessionConfig: ProxyConfig | null = null
   readonly #sessionSetup = new Set<Promise<void>>()
@@ -113,7 +113,7 @@ export class DesktopNetwork {
     }
   }
 
-  async start(settings: ProxyConnectionSettings): Promise<void> {
+  async start(settings: ProxySettings): Promise<void> {
     if (this.#status !== 'idle' || this.#stopPromise)
       throw new Error('NETWORK_ALREADY_STARTED')
     this.#status = 'starting'
@@ -148,7 +148,7 @@ export class DesktopNetwork {
       this.#publish('lifecycle', this.#status, operationId)
   }
 
-  async apply(settings: ProxyConnectionSettings): Promise<void> {
+  async apply(settings: ProxySettings): Promise<void> {
     if (this.#stopPromise || this.#status === 'stopped')
       throw new Error('NETWORK_STOPPED')
     const input = { ...settings }

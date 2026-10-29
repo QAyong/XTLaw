@@ -14,6 +14,7 @@ import { Emitter } from '../../../shared/events/Emitter'
 import { copyEventSnapshot } from '../../../shared/events/eventSnapshot'
 import { extensionAuthorSchema } from '../../../shared/extensions/extensionIdentity'
 import { BUILTIN_FILE_ICON_THEME, fileIconPreferenceSchema } from '../../../shared/icons/fileIconTheme'
+import { downloadSettingsSchema } from '../../../shared/network/downloadSettings'
 import { DEFAULT_PROXY_SETTINGS, proxySettingsSchema } from '../../../shared/network/proxySettings'
 import { DEFAULT_NOTIFICATION_SOUND_PREFERENCES, notificationSoundAssetIdSchema, notificationSoundAssetSchema, notificationSoundPreferencesPatchSchema, notificationSoundPreferencesSchema } from '../../../shared/notifications/notificationSound'
 import { EMPTY_FEATURE_DISCOVERY, featureDiscoverySchema } from '../../../shared/onboarding/featureDiscovery'
@@ -190,6 +191,7 @@ const lexoraConfigFileSchema = z.object({
     network_permissions: browserPreferencesSchema.shape.networkPermissions,
   }).passthrough().prefault({}),
   proxy: proxySettingsSchema.default(DEFAULT_PROXY_SETTINGS),
+  downloads: downloadSettingsSchema.prefault({}),
   desktop: desktopConfigSchema,
   pet: petConfigSchema,
 }).passthrough()
@@ -412,11 +414,19 @@ export class LexoraConfigStore {
   }
 }
 
+// XTLaw 0.4.2 saved proxy.downloadMirror next to the connection proxy; the strict proxy schema no longer has it, and the old choice is dropped rather than migrated to `downloads`.
+function withoutLegacyDownloadMirror(value: unknown): unknown {
+  if (!value || typeof value !== 'object' || !('proxy' in value) || !value.proxy || typeof value.proxy !== 'object' || !('downloadMirror' in value.proxy))
+    return value
+  const { downloadMirror: _legacy, ...proxy } = value.proxy as Record<string, unknown>
+  return { ...value, proxy }
+}
+
 function decodeConfig(value: unknown): LexoraConfig {
   let config: z.infer<typeof lexoraConfigFileSchema>
 
   try {
-    config = lexoraConfigFileSchema.parse(value)
+    config = lexoraConfigFileSchema.parse(withoutLegacyDownloadMirror(value))
   }
   catch (error) {
     throw createConfigError(error)
@@ -434,6 +444,7 @@ function decodeConfig(value: unknown): LexoraConfig {
       networkPermissions: config.browser.network_permissions,
     },
     proxy: config.proxy,
+    downloads: config.downloads,
     desktop: {
       featureDiscovery: config.desktop.feature_discovery,
       featureAnnouncementsEnabled: config.desktop.feature_announcements_enabled,
@@ -510,6 +521,7 @@ function encodeConfig(config: LexoraConfig) {
       network_permissions: config.browser.networkPermissions,
     },
     proxy: config.proxy,
+    downloads: config.downloads,
     desktop: {
       feature_discovery: config.desktop.featureDiscovery,
       feature_announcements_enabled: config.desktop.featureAnnouncementsEnabled,
@@ -579,6 +591,7 @@ function mergeConfig(current: LexoraConfig, patch: LexoraConfigPatch): LexoraCon
     runtime: runtimePreferencesSchema.parse({ ...current.runtime, ...patch.runtime }),
     browser: browserPreferencesSchema.parse({ ...current.browser, ...patch.browser }),
     proxy: proxySettingsSchema.parse(patch.proxy ?? current.proxy),
+    downloads: downloadSettingsSchema.parse({ ...current.downloads, ...patch.downloads }),
     desktop: {
       ...current.desktop,
       ...patch.desktop,
@@ -652,6 +665,7 @@ function mergeConfigFile(file: unknown, config: LexoraConfig): Record<string, un
     runtime: { ...asRecord(root.runtime), ...encoded.runtime },
     browser: { ...asRecord(root.browser), ...encoded.browser },
     proxy: encoded.proxy,
+    downloads: encoded.downloads,
     desktop: nextDesktop,
     pet: {
       ...pet,

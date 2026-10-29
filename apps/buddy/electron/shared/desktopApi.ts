@@ -207,6 +207,7 @@ export interface LexoraConfig {
   runtime: import('../../shared/runtime/runtimePreferences').RuntimePreferences
   browser: import('../../shared/browser/browserPreferences').BrowserPreferences
   proxy: import('../../shared/network/proxySettings').ProxySettings
+  downloads: import('../../shared/network/downloadSettings').DownloadSettings
   desktop: {
     featureDiscovery: import('../../shared/onboarding/featureDiscovery').FeatureDiscoveryState
     featureAnnouncementsEnabled: boolean
@@ -249,6 +250,7 @@ export interface LexoraConfigPatch {
   runtime?: Partial<LexoraConfig['runtime']>
   browser?: Partial<LexoraConfig['browser']>
   proxy?: LexoraConfig['proxy']
+  downloads?: Partial<LexoraConfig['downloads']>
   desktop?: Partial<Omit<LexoraConfig['desktop'], 'chat' | 'taskSidebar' | 'profile' | 'typography' | 'notificationSound'>> & {
     notificationSound?: Partial<Pick<NotificationSoundPreferences, 'selected' | 'volume'>>
     typography?: Partial<LexoraConfig['desktop']['typography']>

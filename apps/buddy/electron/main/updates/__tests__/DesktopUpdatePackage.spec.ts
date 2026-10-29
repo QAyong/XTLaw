@@ -1,11 +1,11 @@
 import type { DesktopUpdatePackage } from '../DesktopUpdatePackage'
 import { Buffer } from 'node:buffer'
 import { createHash } from 'node:crypto'
-import { readdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { createTemporaryDirectory } from '@buddy-tests/temporaryDirectories'
 import { describe, expect, it } from 'vitest'
-import { RELEASE_DOWNLOAD_MIRRORS } from '../../../shared/productLinks'
+import { DEFAULT_DOWNLOAD_SETTINGS } from '../../../../shared/network/downloadSettings'
 import { downloadDesktopUpdatePackage, selectDesktopUpdatePackage, verifyDesktopUpdatePackage } from '../DesktopUpdatePackage'
 
 const body = Buffer.from('isolated installer fixture')
@@ -56,13 +56,13 @@ describe('desktop update packages', () => {
   it('falls back through mirrors to GitHub direct and verifies whichever route answers', async () => {
     const root = await createTemporaryDirectory('lexora-update-')
     const requests: string[] = []
-    const file = await downloadDesktopUpdatePackage({ directory: root, update, mirror: 'auto', signal: new AbortController().signal, progress: () => {}, get: async (url) => {
+    const file = await downloadDesktopUpdatePackage({ directory: root, update, signal: new AbortController().signal, progress: () => {}, get: async (url) => {
       requests.push(url)
       if (url === update.url)
         return new Response(body)
-      return url.startsWith(RELEASE_DOWNLOAD_MIRRORS[0]) ? new Response(Buffer.alloc(body.length)) : new Response(null, { status: 503 })
+      return url.startsWith(DEFAULT_DOWNLOAD_SETTINGS.proxies[0]!.url) ? new Response(Buffer.alloc(body.length)) : new Response(null, { status: 503 })
     } })
-    expect(requests).toEqual([...RELEASE_DOWNLOAD_MIRRORS.map(prefix => `${prefix}${update.url}`), update.url])
+    expect(requests).toEqual([...DEFAULT_DOWNLOAD_SETTINGS.proxies.map(proxy => `${proxy.url}${update.url}`), update.url])
     expect(await readFile(file)).toEqual(body)
   })
 
@@ -78,4 +78,41 @@ describe('desktop update packages', () => {
     await expect(downloadDesktopUpdatePackage({ directory: root, update, signal: controller.signal, progress: () => controller.abort(), get: async () => new Response(body) })).rejects.toThrow()
     expect(await readdir(join(root, 'pending'))).toEqual([])
   })
+})
+
+it('uses the original URL when disabled and releases HTTP error bodies before trying the next route', async () => {
+  const root = await createTemporaryDirectory('lexora-update-')
+  const requests: string[] = []
+  let released = false
+  const options = { directory: root, update, signal: new AbortController().signal, progress: () => {} }
+  await downloadDesktopUpdatePackage({ ...options, get: async (url) => {
+    requests.push(url)
+    if (requests.length === 1) {
+      return new Response(new ReadableStream({
+        cancel() { released = true },
+      }), { status: 503 })
+    }
+    expect(released).toBe(true)
+    return new Response(body)
+  } })
+  expect(requests).toHaveLength(2)
+  const otherRoot = await createTemporaryDirectory('lexora-update-')
+  const direct: string[] = []
+  await downloadDesktopUpdatePackage({ ...options, directory: otherRoot, settings: { ...DEFAULT_DOWNLOAD_SETTINGS, enabled: false }, get: async (url) => {
+    direct.push(url)
+    return new Response(body)
+  } })
+  expect(direct).toEqual([update.url])
+})
+
+it('does not retry local commit failures through another proxy', async () => {
+  const root = await createTemporaryDirectory('lexora-update-')
+  await mkdir(join(root, 'pending', update.name), { recursive: true })
+  let requests = 0
+  await expect(downloadDesktopUpdatePackage({ directory: root, update, signal: new AbortController().signal, progress: () => {}, get: async () => {
+    requests++
+    return new Response(body)
+  } })).rejects.toThrow()
+  expect(requests).toBe(1)
+  expect(await readdir(join(root, 'pending'))).toEqual([update.name])
 })

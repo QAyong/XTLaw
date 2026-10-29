@@ -4,7 +4,7 @@ import { strToU8, zipSync } from 'fflate'
 import { afterEach, expect, it } from 'vitest'
 import { EXTENSION_CATALOG_URL, EXTENSION_PACKS_URL } from '../../../shared/extensions/extensionCatalog'
 import { EXTENSION_API_VERSION } from '../../../shared/extensions/extensionManifest'
-import { DOWNLOAD_MIRRORS } from '../../../shared/network/downloadMirrors'
+import { DEFAULT_DOWNLOAD_SETTINGS } from '../../../shared/network/downloadSettings'
 import { ExtensionCatalogService } from '../ExtensionCatalogService'
 import { sha256 } from '../extensionFiles'
 import { createStore, manifest } from './fixtures'
@@ -158,7 +158,7 @@ async function mirrorFixture(downloadMirror: 'auto' | 'off', respond: (url: stri
   const service = new ExtensionCatalogService(store.root, store.appVersion, async (url) => {
     requests.push(url)
     return url === EXTENSION_CATALOG_URL ? Response.json(catalog) : respond(url, bytes)
-  }, { downloadMirror: () => downloadMirror })
+  }, { getDownloadSettings: () => ({ ...DEFAULT_DOWNLOAD_SETTINGS, enabled: downloadMirror === 'auto' }) })
   cleanup.push(async () => {
     service.dispose()
     await rm(root, { recursive: true, force: true })
@@ -170,13 +170,13 @@ async function mirrorFixture(downloadMirror: 'auto' | 'off', respond: (url: stri
 
 it('downloads packages through a mirror first, skipping one that alters the file or fails', async () => {
   const { service, value, bytes, requests } = await mirrorFixture('auto', (url, content) => {
-    if (url === `${DOWNLOAD_MIRRORS[0]}${GITHUB_ARTIFACT}`)
+    if (url === `${DEFAULT_DOWNLOAD_SETTINGS.proxies[0]!.url}${GITHUB_ARTIFACT}`)
       return new Response(null, { status: 503 })
-    return new Response(url.startsWith(DOWNLOAD_MIRRORS[1]) ? content.slice().reverse() : content)
+    return new Response(url.startsWith(DEFAULT_DOWNLOAD_SETTINGS.proxies[1]!.url) ? content.slice().reverse() : content)
   })
   const result = await service.download(value.id, value.version, new AbortController().signal)
   expect(new Uint8Array(result.bytes)).toEqual(bytes)
-  expect(requests).toEqual([`${DOWNLOAD_MIRRORS[0]}${GITHUB_ARTIFACT}`, `${DOWNLOAD_MIRRORS[1]}${GITHUB_ARTIFACT}`, `${DOWNLOAD_MIRRORS[2]}${GITHUB_ARTIFACT}`])
+  expect(requests).toEqual([`${DEFAULT_DOWNLOAD_SETTINGS.proxies[0]!.url}${GITHUB_ARTIFACT}`, `${DEFAULT_DOWNLOAD_SETTINGS.proxies[1]!.url}${GITHUB_ARTIFACT}`, `${DEFAULT_DOWNLOAD_SETTINGS.proxies[2]!.url}${GITHUB_ARTIFACT}`])
 })
 
 it('downloads packages from GitHub only when mirrors are off', async () => {

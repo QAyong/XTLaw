@@ -99,7 +99,7 @@ export interface ExtensionServicePorts {
   get: (url: string, init: { signal: AbortSignal }) => Promise<Response>
   bundled?: BundledExtensionProvider
   catalogUrl?: string | null
-  downloadMirror?: () => import('../../shared/network/proxySettings').DownloadMirrorMode
+  getDownloadSettings?: () => import('../../shared/network/downloadSettings').DownloadSettings | undefined
   changed?: () => void
   agentChanged?: () => void
   shellsChanged?: () => void
@@ -222,7 +222,7 @@ export class ExtensionService {
         ports.agentChanged?.()
     })
     this.installations = new ExtensionInstallations(store.root, () => this.#publish({ kind: 'installation-progress' }))
-    this.catalog = new ExtensionCatalogService(store.root, store.appVersion, ports.get, { bundled: ports.bundled, catalogUrl: ports.catalogUrl, downloadMirror: ports.downloadMirror })
+    this.catalog = new ExtensionCatalogService(store.root, store.appVersion, ports.get, { bundled: ports.bundled, catalogUrl: ports.catalogUrl, getDownloadSettings: ports.getDownloadSettings })
     this.scheduler = new ExtensionScheduler(store.root, {
       available: (id, command) => {
         if (this.#disposed || this.#diagnostics.get(id)?.error)

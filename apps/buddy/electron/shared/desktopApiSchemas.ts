@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { browserPreferencesPatchSchema } from '../../shared/browser/browserPreferences'
 import { extensionAuthorSchema } from '../../shared/extensions/extensionIdentity'
 import { fileIconPreferenceSchema } from '../../shared/icons/fileIconTheme'
+import { downloadSettingsSchema } from '../../shared/network/downloadSettings'
 import { proxySettingsSchema } from '../../shared/network/proxySettings'
 import { notificationSoundPreferencesPatchSchema } from '../../shared/notifications/notificationSound'
 import { featureDiscoverySchema } from '../../shared/onboarding/featureDiscovery'
@@ -81,6 +82,7 @@ export const lexoraConfigPatchSchema: z.ZodType<LexoraConfigPatch> = z.object({
   runtime: runtimePreferencesSchema.partial().optional(),
   browser: browserPreferencesPatchSchema.optional(),
   proxy: proxySettingsSchema.optional(),
+  downloads: downloadSettingsSchema.partial().optional(),
   desktop: z.object({
     featureDiscovery: featureDiscoverySchema.optional(),
     featureAnnouncementsEnabled: z.boolean().optional(),

@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { deferred } from '@buddy-tests/deferred'
 import { createTemporaryDirectory } from '@buddy-tests/temporaryDirectories'
 import { describe, expect, it } from 'vitest'
-import { RELEASE_DOWNLOAD_MIRRORS } from '../../../shared/productLinks'
+import { DEFAULT_DOWNLOAD_SETTINGS } from '../../../../shared/network/downloadSettings'
 import { DesktopUpdateDelivery } from '../DesktopUpdateDelivery'
 
 const body = Buffer.from('delivery fixture')
@@ -157,7 +157,7 @@ describe('update delivery', () => {
     const requests: string[] = []
     const delivery = new DesktopUpdateDelivery({
       directory,
-      downloadMirror: () => 'auto',
+      getDownloadSettings: () => DEFAULT_DOWNLOAD_SETTINGS,
       get: async (url) => {
         requests.push(url)
         if (requests.length === 1) {
@@ -189,7 +189,7 @@ describe('update delivery', () => {
         delivery.discover({ mode: 'release', reason: 'asset-unavailable', update: null, fallback: null })
       finish.resolve()
       await queued
-      expect(requests).toEqual([`${RELEASE_DOWNLOAD_MIRRORS[0]}${update.url}`])
+      expect(requests).toEqual([`${DEFAULT_DOWNLOAD_SETTINGS.proxies[0]!.url}${update.url}`])
       expect(delivery.state.status).toBe(decision === 'changed' ? 'idle' : 'available')
       await expect(readFile(join(directory, 'pending', newer.name))).rejects.toMatchObject({ code: 'ENOENT' })
       if (decision !== 'changed') {

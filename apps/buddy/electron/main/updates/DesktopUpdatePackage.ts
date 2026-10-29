@@ -1,4 +1,4 @@
-import type { DownloadMirrorMode } from '../../../shared/network/proxySettings'
+import type { DownloadSettings } from '../../../shared/network/downloadSettings'
 import type { DesktopDistribution, DesktopPackageFormat } from '../../shared/desktopDistribution'
 import type { GithubRelease } from '../desktopUpdateService'
 import { createHash } from 'node:crypto'
@@ -6,6 +6,7 @@ import { createReadStream } from 'node:fs'
 import { lstat, mkdir, open, rename, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { z } from 'zod'
+import { downloadBytes, DownloadRouteError } from '../../../platform/network/downloadBytes'
 import { downloadRoutes } from '../../../shared/network/downloadMirrors'
 import { desktopUpdateArtifactName } from '../../shared/desktopDistribution'
 import { desktopVersionSchema } from '../../shared/desktopUpdates'
@@ -70,7 +71,7 @@ export async function downloadDesktopUpdatePackage(options: {
   directory: string
   update: DesktopUpdatePackage
   get: (url: string, init: { signal: AbortSignal }) => Promise<Response>
-  mirror?: DownloadMirrorMode
+  settings?: DownloadSettings
   signal: AbortSignal
   progress: (percent: number, received: number) => void
 }): Promise<string> {
@@ -84,8 +85,7 @@ export async function downloadDesktopUpdatePackage(options: {
     signal.throwIfAborted()
     return destination
   }
-  // Mirrors first, GitHub direct last (only GitHub when mirrors are off); any failure other than cancellation moves on to the next route.
-  const routes = downloadRoutes(update.url, options.mirror ?? 'off')
+  const routes = downloadRoutes(update.url, options.settings)
   let failure: unknown
   for (const [index, route] of routes.entries()) {
     signal.throwIfAborted()
@@ -93,16 +93,15 @@ export async function downloadDesktopUpdatePackage(options: {
       return await downloadFromRoute({ directory: pending, destination, route, update, get, signal, progress, direct: index === routes.length - 1 })
     }
     catch (error) {
-      if (signal.aborted)
+      signal.throwIfAborted()
+      if (!(error instanceof DownloadRouteError))
         throw error
-      failure = error
+      const code = error.kind === 'integrity' ? 'UPDATE_PACKAGE_INVALID' : error.kind === 'url' ? 'UPDATE_DOWNLOAD_URL_INVALID' : 'UPDATE_DOWNLOAD_FAILED'
+      failure = error.kind === 'network' ? error.cause : error.kind === 'timeout' ? new DOMException('UPDATE_DOWNLOAD_TIMEOUT', 'TimeoutError') : new Error(code, { cause: error })
     }
   }
   throw failure
 }
-
-// A mirror that does not answer within this time is skipped, like the site's 5s probe.
-const MIRROR_RESPONSE_TIMEOUT = 15_000
 
 async function downloadFromRoute(options: {
   directory: string
@@ -118,49 +117,26 @@ async function downloadFromRoute(options: {
   const temporary = `${destination}.download`
   await rm(temporary, { force: true })
   const file = await open(temporary, 'wx', 0o600)
-  let reader: ReadableStreamDefaultReader<Uint8Array> | undefined
   try {
-    let url = route
-    const allowedHosts = ['github.com', 'release-assets.githubusercontent.com', 'objects.githubusercontent.com', new URL(route).hostname]
-    let response: Response | undefined
-    for (let redirects = 0; redirects <= 5; redirects++) {
-      signal.throwIfAborted()
-      const requestController = new AbortController()
-      const requestSignal = AbortSignal.any([signal, requestController.signal])
-      const timer = direct ? undefined : setTimeout(() => requestController.abort(), MIRROR_RESPONSE_TIMEOUT)
-      try {
-        response = await get(url, { signal: requestSignal })
-      }
-      finally {
-        clearTimeout(timer)
-      }
-      if (![301, 302, 303, 307, 308].includes(response.status))
-        break
-      await response.body?.cancel()
-      const location = response.headers.get('location')
-      if (!location)
-        throw new Error('UPDATE_DOWNLOAD_FAILED')
-      const target = new URL(location, url)
-      if (target.protocol !== 'https:' || target.username || target.password || target.port
-        || !allowedHosts.includes(target.hostname)) {
-        throw new Error('UPDATE_DOWNLOAD_URL_INVALID')
-      }
-      url = target.href
-    }
-    if (!response?.ok || !response.body)
-      throw new Error('UPDATE_DOWNLOAD_FAILED')
-    reader = response.body.getReader()
+    const allowedOrigins = new Set(['https://github.com', 'https://release-assets.githubusercontent.com', 'https://objects.githubusercontent.com', new URL(route).origin])
     const hash = createHash('sha256')
     let received = 0
-    let previousPercent = -1
-    while (true) {
-      signal.throwIfAborted()
-      const { done, value } = await reader.read()
-      if (done)
-        break
+    let previousPercent = 0
+    progress(0, 0)
+    for await (const value of downloadBytes({
+      url: route,
+      get,
+      signal,
+      timeoutMs: direct ? 30_000 : 15_000,
+      validateUrl: (raw) => {
+        const target = new URL(raw)
+        if (target.protocol !== 'https:' || target.username || target.password || !allowedOrigins.has(target.origin))
+          throw new Error('UPDATE_DOWNLOAD_URL_INVALID')
+      },
+    })) {
       received += value.byteLength
       if (received > update.size)
-        throw new Error('UPDATE_PACKAGE_INVALID')
+        throw new DownloadRouteError('integrity')
       hash.update(value)
       await file.writeFile(value)
       const percent = Math.min(99, Math.floor(received * 100 / update.size))
@@ -170,7 +146,7 @@ async function downloadFromRoute(options: {
       }
     }
     if (received !== update.size || hash.digest('hex') !== update.sha256)
-      throw new Error('UPDATE_PACKAGE_INVALID')
+      throw new DownloadRouteError('integrity')
     signal.throwIfAborted()
     await file.sync()
     await file.close()
@@ -178,7 +154,6 @@ async function downloadFromRoute(options: {
     return destination
   }
   finally {
-    await reader?.cancel().catch(() => {})
     await file.close()
     await rm(temporary, { force: true })
   }

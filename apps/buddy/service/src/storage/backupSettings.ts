@@ -8,7 +8,7 @@ export function portableSettings(text: string): string {
   const desktop = record(source.desktop)
   const profile = record(desktop.profile)
   return stringify({
-    ...Object.fromEntries(['runtime', 'browser', 'proxy', 'pet'].filter(key => source[key] !== undefined).map(key => [key, source[key]])),
+    ...Object.fromEntries(['runtime', 'browser', 'proxy', 'downloads', 'pet'].filter(key => source[key] !== undefined).map(key => [key, source[key]])),
     desktop: { ...Object.fromEntries(desktopKeys.filter(key => desktop[key] !== undefined).map(key => [key, desktop[key]])), profile: { ...(profile.user_name !== undefined ? { user_name: profile.user_name } : {}), ...(profile.avatar !== undefined ? { avatar: profile.avatar } : {}) } },
   } as ReturnType<typeof parse>)
 }

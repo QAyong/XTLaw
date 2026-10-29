@@ -1,9 +1,13 @@
 import type { ExtensionCatalogEntry, ExtensionCatalogListing, ExtensionCatalogSnapshot } from '../../shared/extensions/extensionCatalog'
+import type { DownloadSettings } from '../../shared/network/downloadSettings'
+import { Buffer } from 'node:buffer'
 import { join } from 'node:path'
 import { rcompare } from 'semver'
 import { z } from 'zod'
 import { EXTENSION_CATALOG_URL, extensionCatalogEntrySchema, extensionCatalogListingSchema, extensionCatalogSchema } from '../../shared/extensions/extensionCatalog'
 import { ExtensionCompatibilityError, extensionCompatibilityIssue } from '../../shared/extensions/extensionCompatibility'
+import { downloadRoutes } from '../../shared/network/downloadMirrors'
+import { downloadBytes, DownloadRouteError } from '../network/downloadBytes'
 import { publicWebUrl, readResponseBytes } from '../network/publicWebTransport'
 import { readExtensionJson, sha256, writeExtensionJson } from './extensionFiles'
 
@@ -17,12 +21,14 @@ export class ExtensionCatalogService {
   #refreshing: Promise<ExtensionCatalogSnapshot> | null = null
   readonly #abort = new AbortController()
   readonly #checksum: (bytes: Uint8Array, signal: AbortSignal) => Promise<string>
+  readonly #getDownloadSettings: (() => DownloadSettings | undefined) | undefined
 
-  constructor(root: string, version: string, get: (url: string, init: { signal: AbortSignal }) => Promise<Response>, checksum: (bytes: Uint8Array, signal: AbortSignal) => Promise<string> = async bytes => sha256(bytes)) {
+  constructor(root: string, version: string, get: (url: string, init: { signal: AbortSignal }) => Promise<Response>, checksum: (bytes: Uint8Array, signal: AbortSignal) => Promise<string> = async bytes => sha256(bytes), getDownloadSettings?: () => DownloadSettings | undefined) {
     this.#path = join(root, 'catalog.json')
     this.#version = version
     this.#get = get
     this.#checksum = checksum
+    this.#getDownloadSettings = getDownloadSettings
   }
 
   async list(refresh = false): Promise<ExtensionCatalogSnapshot> {
@@ -54,13 +60,44 @@ export class ExtensionCatalogService {
     if (!parsed.success)
       throw new Error('EXTENSION_MANIFEST_INVALID')
     const entry = parsed.data
-    const bytes = await this.#fetch(entry.artifact.url, entry.artifact.size, signal)
     const checking = AbortSignal.any([signal, this.#abort.signal])
-    checking.throwIfAborted()
-    if (bytes.byteLength !== entry.artifact.size || await this.#checksum(bytes, checking) !== entry.artifact.sha256)
-      throw new Error('EXTENSION_DOWNLOAD_CHECKSUM_FAILED')
-    checking.throwIfAborted()
-    return { entry, bytes }
+    let failure: unknown
+    for (const route of downloadRoutes(entry.artifact.url, this.#getDownloadSettings?.())) {
+      checking.throwIfAborted()
+      try {
+        const chunks: Uint8Array[] = []
+        let length = 0
+        for await (const chunk of downloadBytes({
+          url: route,
+          get: this.#get,
+          signal: checking,
+          timeoutMs: route === entry.artifact.url ? 30_000 : 15_000,
+          validateUrl: (url) => {
+            if (publicWebUrl(url).protocol !== 'https:')
+              throw new Error('EXTENSION_DOWNLOAD_URL_DENIED')
+          },
+        })) {
+          length += chunk.byteLength
+          if (length > entry.artifact.size)
+            throw new DownloadRouteError('integrity')
+          chunks.push(chunk)
+        }
+        const bytes = Buffer.concat(chunks, length)
+        checking.throwIfAborted()
+        if (length !== entry.artifact.size || await this.#checksum(bytes, checking) !== entry.artifact.sha256)
+          throw new DownloadRouteError('integrity')
+        checking.throwIfAborted()
+        return { entry, bytes }
+      }
+      catch (error) {
+        checking.throwIfAborted()
+        if (!(error instanceof DownloadRouteError))
+          throw error
+        const code = error.kind === 'integrity' ? 'EXTENSION_DOWNLOAD_CHECKSUM_FAILED' : error.kind === 'url' ? 'EXTENSION_DOWNLOAD_URL_DENIED' : 'EXTENSION_DOWNLOAD_FAILED'
+        failure = new Error(code, { cause: error })
+      }
+    }
+    throw failure
   }
 
   dispose(): void {

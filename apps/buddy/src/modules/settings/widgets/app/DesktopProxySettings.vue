@@ -8,6 +8,7 @@ import { useBuddyI18n } from '@/i18n/buddyI18n'
 
 import { useSettingMutation } from '../../state/useSettingMutation'
 import DesktopSettingRow from '../shared/DesktopSettingRow.vue'
+import DesktopDownloadProxySettings from './DesktopDownloadProxySettings.vue'
 
 const props = defineProps<ApplicationSettingsProps>()
 const { t } = useBuddyI18n(() => props.language)
@@ -98,6 +99,7 @@ async function select(next: ProxySettings['mode']) {
         </div>
       </form>
     </div>
+    <DesktopDownloadProxySettings v-bind="props" />
   </section>
 </template>
 

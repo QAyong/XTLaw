@@ -1,3 +1,4 @@
+import type { DownloadSettings } from '../../../shared/network/downloadSettings'
 import type { DesktopUpdateDeliveryState } from '../../shared/desktopUpdates'
 import type { DesktopUpdateCache } from './DesktopUpdateCache'
 import type { DesktopUpdatePackage } from './DesktopUpdatePackage'
@@ -11,6 +12,7 @@ interface DeliveryOptions {
   directory: string | null
   cache?: DesktopUpdateCache
   get: (url: string, init: { signal: AbortSignal }) => Promise<Response>
+  getDownloadSettings?: () => DownloadSettings | undefined
   requestInstall: (prepare: () => Promise<(() => void) | void>) => Promise<boolean>
   launchInstaller: (path: string, update: DesktopUpdatePackage) => Promise<(() => void) | void>
   openPackage: (path: string) => Promise<void>
@@ -165,6 +167,7 @@ export class DesktopUpdateDelivery {
       directory: this.#options.directory,
       update,
       get: this.#options.get,
+      settings: this.#options.getDownloadSettings?.(),
       signal,
       progress: (progressPercent, downloadedBytes) => {
         if (this.#update === update && !this.#stopped && !controller.signal.aborted)

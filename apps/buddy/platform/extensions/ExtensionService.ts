@@ -90,6 +90,7 @@ export interface ExtensionServicePorts {
   readArtifactResource?: (artifactId: string, signal: AbortSignal, request?: Request) => Promise<{ name: string, response: Response }>
   readTaskFileResource?: (target: TaskFileTarget, signal: AbortSignal, request?: Request) => Promise<{ name: string, response: Response }>
   get: (url: string, init: { signal: AbortSignal }) => Promise<Response>
+  getDownloadSettings?: () => import('../../shared/network/downloadSettings').DownloadSettings | undefined
   changed?: () => void
   agentChanged?: () => void
   shellsChanged?: () => void
@@ -210,7 +211,7 @@ export class ExtensionService {
         ports.agentChanged?.()
     })
     this.installations = new ExtensionInstallations(store.root, () => this.#publish({ kind: 'installation-progress' }))
-    this.catalog = new ExtensionCatalogService(store.root, store.appVersion, ports.get, (bytes, signal) => store.processPackage({ kind: 'hash', bytes }, signal))
+    this.catalog = new ExtensionCatalogService(store.root, store.appVersion, ports.get, (bytes, signal) => store.processPackage({ kind: 'hash', bytes }, signal), ports.getDownloadSettings)
     this.scheduler = new ExtensionScheduler(store.root, {
       available: (id, command) => {
         if (this.#disposed || this.#diagnostics.get(id)?.error)

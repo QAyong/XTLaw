@@ -43,6 +43,7 @@ export function registerExtensionIpc(options: {
   readTaskFileResource?: (target: TaskFileTarget, signal: AbortSignal, request?: Request) => Promise<{ name: string, response: Response }>
   readText: (target: SpaceFileTarget, signal: AbortSignal) => Promise<string>
   get: (url: string, init: { signal: AbortSignal }) => Promise<Response>
+  getDownloadSettings?: () => import('../../../shared/network/downloadSettings').DownloadSettings | undefined
   developmentDirectory?: string
   notificationsEnabled?: () => boolean
   taskActions: () => Promise<ExtensionTaskAction[]>
@@ -107,6 +108,7 @@ export function registerExtensionIpc(options: {
     agentRequest: options.agentRequest,
     conditionRuntime: options.conditionRuntime,
     get: options.get,
+    getDownloadSettings: options.getDownloadSettings,
     compile: compileExtension,
     selectResources: async (name, selection, signal) => {
       const owner = window()

@@ -305,3 +305,19 @@ text = "保留我的内容"
     }
   })
 })
+
+it('persists download proxy edits, order and deletion independently of the master switch and connection proxy', async () => {
+  const { configPath, store } = await createConfigStore('[proxy]\nmode="custom"\nserver="http://127.0.0.1:7890"\n')
+  const defaults = (await store.read()).downloads
+  expect(defaults.enabled).toBe(true)
+  const proxies = [...defaults.proxies].reverse().slice(1).map((proxy, index) => ({ ...proxy, name: `Edited ${index}`, enabled: index === 0 }))
+  await store.update({ downloads: { proxies } })
+  await store.update({ downloads: { enabled: false } })
+  expect((await new LexoraConfigStore({ configPath }).read()).downloads).toEqual({ enabled: false, proxies })
+  await store.update({ downloads: { enabled: true } })
+  expect((await store.read()).downloads).toEqual({ enabled: true, proxies })
+  await store.update({ downloads: { proxies: [] } })
+  await store.update({ desktop: { language: 'en-US' } })
+  expect((await new LexoraConfigStore({ configPath }).read()).downloads).toEqual({ enabled: true, proxies: [] })
+  expect(parse(await readFile(configPath, 'utf8')).proxy).toEqual({ mode: 'custom', server: 'http://127.0.0.1:7890' })
+})

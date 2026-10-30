@@ -514,3 +514,8 @@ body > main.pdf-shell { position: relative; display: flex; flex-direction: colum
     transition: none;
   }
 }
+
+/* The place a quote card's "locate source" found. */
+::highlight(lexora-quote) {
+  background-color: rgba(255, 196, 0, 0.5);
+}

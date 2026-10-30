@@ -147,6 +147,7 @@ export default {
   'desktop.chat.resourceQuotePreview': '查看引用：{title}',
   'desktop.chat.resourceQuoteLocate': '定位来源',
   'desktop.chat.resourceQuoteSourceUnavailable': '来源已不可用，引用内容仍保留。',
+  'desktop.chat.resourceQuoteOpenedOnly': '已打开文件，但没能定位到原来的位置。',
   'desktop.chat.resourceQuoteMore': '另有 {count} 条引用',
   'desktop.chat.resourceQuoteCollapse': '收起引用',
   'desktop.chat.attachmentLimit': '每次最多添加 16 个附件，当前输入引用的附件总大小不能超过 32 MiB',

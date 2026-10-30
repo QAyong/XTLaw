@@ -149,6 +149,7 @@ export default {
   'desktop.chat.resourceQuotePreview': 'View quote: {title}',
   'desktop.chat.resourceQuoteLocate': 'Locate source',
   'desktop.chat.resourceQuoteSourceUnavailable': 'The source is unavailable. The saved excerpt is still available.',
+  'desktop.chat.resourceQuoteOpenedOnly': 'The file is open, but the original position could not be found.',
   'desktop.chat.resourceQuoteMore': '{count} more quotes',
   'desktop.chat.resourceQuoteCollapse': 'Collapse quotes',
   'desktop.chat.attachmentLimit': 'Add up to 16 files at a time; files referenced by the current input must total no more than 32 MiB',

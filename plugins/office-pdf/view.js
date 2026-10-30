@@ -1,6 +1,8 @@
 import { installAutoSaveToggle } from './auto-save-toggle.js'
 import { readWholeFile } from './document-kit/read-file.js'
+import { registerReveal } from './document-kit/reveal.js'
 import { installOfficeToolbarNavigation } from './office-toolbar-navigation.js'
+import { createQuoteReveal } from './reveal-quote.js'
 import { installSelectionQuote } from './selection-quote.js'
 
 const MAX_PDF_BYTES = 64 * 1024 * 1024
@@ -113,6 +115,9 @@ export async function render(context, container) {
     for (const link of links) link.remove()
   }, { once: true })
 
+  // "Locate source" on a quote card: requests wait until the document is mounted.
+  const reveal = registerReveal(context, createQuoteReveal(root, context.signal))
+
   async function size(resource) {
     if (resource.size !== undefined)
       return resource
@@ -164,6 +169,7 @@ export async function render(context, container) {
       pickPdfs,
     })
     installSelectionQuote(context, root)
+    reveal.ready(true)
     if (writable) {
       installAutoSaveToggle(root, context.signal, {
         enabled: viewState.autoSave !== false,
@@ -231,6 +237,7 @@ export async function render(context, container) {
     }
   }
   catch (error) {
+    reveal.ready(false)
     if (context.signal.aborted)
       return
     say(/PDF_RUNTIME_MISSING|OFFICE_FEATURE_UNAVAILABLE/.test(error?.message) ? copy().unsupported : describe(error), true)

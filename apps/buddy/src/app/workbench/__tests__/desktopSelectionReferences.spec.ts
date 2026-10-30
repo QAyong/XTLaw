@@ -57,6 +57,7 @@ async function fixture() {
   const selectTab = vi.fn((id: string) => activeTab.value = { id })
   let version = 0
   const reveal = vi.fn(async () => true)
+  const pluginReveal = vi.fn(async () => true)
   const selectionScope = shallowRef('task:a')
   const resources = { allTabs, tabs: visibleTabs, activeTab, browserStates, selectTab, selectionScope, isOpen: shallowRef(true), findArtifact: () => selectionArtifact, openArtifact: async () => activeTab.value = artifactTab, setArtifactViewMode: (_id: string, mode: 'preview' | 'source') => artifactTab.viewMode = mode } as unknown as TaskResourcePanel
   let ready = true
@@ -70,7 +71,7 @@ async function fixture() {
     void controller.dispose()
   })
   const quote = { id: 'q', text: 'Frozen file text', source: { kind: 'file' as const, title: 'auth.ts', file, format: 'source' as const } }
-  return { a, b, fileId, controller, host, quote, resources, selectionScope, browserStates, draftsA, draftsB, tasks, keyA, locateFile, openFile, locateElement, artifactTab, browserTab, allTabs, visibleTabs, activeTab, selectTab, reveal, navigate: () => version++, independent: () => independent = true, unavailable: () => ready = false, stop: () => scope.stop() }
+  return { a, b, fileId, controller, host, quote, resources, selectionScope, browserStates, draftsA, draftsB, tasks, keyA, locateFile, openFile, locateElement, artifactTab, browserTab, allTabs, visibleTabs, activeTab, selectTab, reveal, pluginReveal, navigate: () => version++, independent: () => independent = true, unavailable: () => ready = false, stop: () => scope.stop() }
 }
 
 describe('desktop resource quote adapter', () => {
@@ -366,6 +367,7 @@ describe('desktop resource quote adapter', () => {
       })
       const id = (await f.controller.open({ scheme, id: 'doc', data: { extensionId: 'pabc.csv-sheet', fileTarget: file } }, 'table.csv', { state: { contextTabId: 'files-a' }, focus: false }))!
       f.openFile.mockResolvedValue(id)
+      f.host.registerReveal(id, f.pluginReveal)
       return f
     }
 
@@ -373,6 +375,21 @@ describe('desktop resource quote adapter', () => {
       const f = await pluginFixture('extension')
       expect(await f.host.locate(extensionQuote('pabc.csv-sheet'))).toBe(true)
       expect(await f.host.locate(extensionQuote('pother.plugin'))).toBe(false)
+    })
+
+    it('asks the plugin to place the quote and says the file is only opened when it cannot', async () => {
+      const f = await pluginFixture('extension')
+      const quote = extensionQuote('pabc.csv-sheet')
+      expect(await f.host.locate(quote)).toBe(true)
+      expect(f.pluginReveal).toHaveBeenCalledWith(expect.objectContaining({ id: 'plugin-quote', text: '3,4' }), expect.any(Function))
+      f.pluginReveal.mockResolvedValueOnce(false)
+      expect(await f.host.locate(quote)).toBe('opened')
+    })
+
+    it('says the file is only opened when no plugin view can place the quote', async () => {
+      const f = await pluginFixture('extension')
+      f.openFile.mockResolvedValue((await f.controller.open({ scheme: 'extension', id: 'other', data: { extensionId: 'pabc.csv-sheet', fileTarget: file } }, 'table.csv', { state: { contextTabId: 'files-a' }, focus: false }))!)
+      expect(await f.host.locate(extensionQuote('pabc.csv-sheet'))).toBe('opened')
     })
 
     it('reopens earlier DOCX quotes in any plugin view and fails when the file fell back to the built-in preview', async () => {

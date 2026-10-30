@@ -1,9 +1,9 @@
 // Document kit: send a selection from the document view to a chat draft with the generic extension quote.
 // Copied into plugins by sync.mjs; edit the original in apps/buddy/extensions/document-kit.
 //
-// The host stores `kind` and `location` with the quote (it does not hand them back to the view when the quote card reopens
-// the file yet). It checks the same limits as checkQuoteLocation below and refuses the quote when they are broken, so
-// checking first just gives an early, readable error. See document-processor.md, section "引用到聊天".
+// The host stores `kind` and `location` with the quote and hands them back to the view (in the locator data, see reveal.js) when
+// the quote card reopens the file. It checks the same limits as checkQuoteLocation below and refuses the quote when they are
+// broken, so checking first just gives an early, readable error. See document-processor.md, section "引用到聊天".
 
 export const QUOTE_TEXT_LIMIT = 32768
 const LIMITS = { bytes: 4096, depth: 4, keys: 32, items: 64, nodes: 256, string: 512 }

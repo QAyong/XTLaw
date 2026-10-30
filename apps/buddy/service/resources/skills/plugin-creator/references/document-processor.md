@@ -74,7 +74,26 @@ await context.composer.addQuote(capture.id, targetId) // added | duplicate | lim
 
 数量与长度限制沿用聊天引用的公共限制：每条消息最多 16 条引用（含网页和消息引用），文字合计不超过 131072 个字符，`location` 的序列化长度同样计入合计；单条文字上限为 `BUDDY_QUOTE_TEXT_LIMIT`（32768）。捕获有效期 2 分钟，每个视图同时最多保留 8 个未使用的捕获。加入前宿主重新检查文件授权、文件版本、源视图和目标草稿身份。
 
-点击聊天里的引用卡片会重新打开源文件：宿主再次按 `accepts` 选择视图，并要求由生成这条引用的同一个插件打开（通用格式校验来源插件 ID）。**目前宿主不会把已保存的 `kind` 和 `location` 交给重新打开的视图**，视图不会因此自动滚动或选中原位置；位置信息先保存下来，供以后版本提供定位入口。插件被卸载、停用或不再接管该扩展名时，重新打开失败，文字快照仍然可读。
+点击聊天里的引用卡片的“定位来源”会重新打开源文件：宿主再次按 `accepts` 选择视图，并要求由生成这条引用的同一个插件打开（通用格式校验来源插件 ID）。打开后宿主通过 `context.references.onReveal` 请求视图定位，见下一节。插件被卸载、停用或不再接管该扩展名时，重新打开失败，文字快照仍然可读。
+
+### 定位来源
+
+视图用 `context.references.onReveal(handler)` 注册定位处理器（API 4，对已保存的文件引用同样适用；宿主不支持时不会调用）。处理器收到 `{ referenceId, text, locator, signal }`，`text` 是引用时的文字快照，`locator` 为 `{ version: 1, data }` 或 `null`，其中 `data` 是引用时保存的位置信息，宿主不解释：
+
+| 引用格式 | `data` |
+| --- | --- |
+| 通用 `extension` | `{ format: 'extension', kind, hash, location }`，`kind`、`location` 就是 `captureQuote` 传入的值 |
+| `docx` / `pptx` | `{ format, hash, indexes, from, to }` |
+| `xlsx` | `{ format: 'xlsx', hash, sheetIndex, sheet, range }` |
+
+要求：
+
+- **位置只是线索，文字才是依据。** 文档在引用之后可能被改过，`hash` 是引用时读到的文件内容哈希。按位置取出当前文字，与 `text` 比较；对不上就在文档里按文字查找，找不到返回 `false`，不要选错位置。
+- 处理器返回 `true` 表示已定位并选中或高亮；`false` 或抛错都表示没找到。此时文件仍然打开，聊天卡片提示“已打开文件，但没能定位到原来的位置”，不会提示来源不可用。
+- 文档可能还在加载。宿主只等到视图会话可用，编辑器内部加载由插件自己等，并遵守 `signal`。宿主对一次定位最多等 10 秒。
+- 不要修改文档，不要触发保存。
+
+文档工具包 `document-kit/reveal.js` 提供 `registerReveal(context, handler)`：处理器会等到你调用 `ready(true)`（文档加载完）才执行，加载失败调用 `ready(false)`，抛错按未找到处理，并解析 `locator`；另有 `findTextRange(root, text)`，忽略空白差异在 DOM 里找到文字并返回 `Range`。示例见 Office PDF 插件的 `reveal-quote.js`。
 
 只有**自己接管的文件类型**才能引用：宿主要求当前视图声明了对应 `accepts`、`resource: "selected-file"`、`location: "context"`，且文件由该视图打开。
 

@@ -9,7 +9,7 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 const kit = fileURLToPath(new URL('.', import.meta.url))
-export const documentKitFiles = ['read-file.js', 'zip-validate.js', 'quote.js']
+export const documentKitFiles = ['read-file.js', 'zip-validate.js', 'quote.js', 'reveal.js']
 
 // Returns the kit files whose copy in the plugin is missing or different.
 export async function documentKitDrift(plugin) {

@@ -1,7 +1,7 @@
 # Feature-043：Office 文档引用的“定位来源”
 
 **日期：** 2026-10-30
-**状态：** 方案已确认（2026-10-30）；第 0 步（重开路径统一走文件管理器）已实现并通过类型检查与单测，未在桌面应用里实测；第 1 步起未开始
+**状态：** 方案已确认（2026-10-30）；第 0 步（重开路径统一走文件管理器）已实现并通过类型检查与单测，未在桌面应用里实测；第 1 步（宿主调用插件 `onReveal` + 三态结果 + PDF）已实现，PDF 用模拟宿主冒烟，未在桌面应用里实测；第 2 步起未开始
 **范围：** 宿主 `apps/buddy/src/app/workbench`（文件引用的“定位来源”重开路径对**所有文件格式**生效，包括 `source`、`markdown`）；插件 `plugins/office`、`plugins/office-pptx`、`plugins/office-xlsx`、`plugins/office-pdf` 及对应的 `apps/buddy/extensions/*` 构建脚本；`apps/buddy/extensions/document-kit`
 **承接：** [Feature-033 文档插件契约](feature-033-document-plugin-contract.md)、[Spec-013 工作台选区引用](feature-013-workbench-selection-reference.md)（第 15 节）、[Feature-042 Office PDF 插件](feature-042-office-pdf-plugin.md)
 
@@ -214,3 +214,16 @@ DOCX、PPTX、XLSX 的编辑器和引擎来自 GenOffice 的预编译产物，�
 - **测试：** 新增 `openQuoteSourceFile.spec.ts`（5 项）、`useTaskResourcePanelArtifact.spec.ts` 里 9 项（普通文件、Office 显示文件树与用目录当前 revision、同目录复用标签页、聚焦已开编辑器、只对 Office 找编辑器、非本空间/无空间返回 null）、`desktopSelectionReferences.spec.ts` 里 2 项（打开器切换标签页后仍能定位，活动标签页被换走则不高亮）。`pnpm exec vitest run src/app src/shared/ui/selection src/modules/tasks src/modules/files` 152 个文件、1369 项通过；`pnpm type-check`（需 `NODE_OPTIONS=--max-old-space-size=8192`）与相关目录 eslint 通过。
 - **未验证：** WSL 里跑不了桌面预览和 Playwright E2E。`selectionReferences.e2e.mjs`、`artifactSelectionReferences.e2e.mjs` 里点“定位来源”后检查高亮的断言与打开方式无关，预期不用改，但**未跑**；文件管理器内联文件视图上的高亮、Office 编辑器聚焦、文件树展开都需要回 Windows 本机验收。
 - **和方案的差别：** 文件树对 Office 显示、对其他文件折叠，写进了代码；方案里“已有编辑器则聚焦”也按 `revealOpenOfficeDocument` 实现。第 6 节风险 6（定位期间切换标签页）由 `acceptTab` 加既有的 `current()` 失效检查覆盖，单测验证了活动标签页被换走时不高亮，真实切换仍需实机确认。
+
+## 12. 第 1 步实施记录（2026-10-30）
+
+- **宿主：**
+  - 新增 `extensionDocumentLocator.ts`：把文件引用里保存的位置包成 `{version:1, data}`（`docx`/`pptx`、`xlsx`、`extension` 各自的字段加 `format`、`hash`），`source`/`markdown` 不适用。
+  - 新增 `useExtensionDocumentReveal.ts`：跟随布局为每个插件视图注册 `references.registerReveal`；收到定位请求时等插件视图会话就绪（`current()` 失效或视图出错就放弃），再调用既有的 `views.revealReference`，请求在 `current()` 失效时取消。在 `DesktopAppProvider.vue` 里一行接入。
+  - 文件提供者的插件文档分支：不再打开就返回成功，而是 `request.reveal`，插件找到位置返回 `true`，否则返回 `'opened'`。
+  - 三态：`SelectionReferenceLocateResult = boolean | 'opened'`；`locate` 在 `current()` 仍有效时保留 `'opened'`。卡片预览里 `'opened'` 显示“已打开文件，但没能定位到原来的位置。”，`false` 仍显示“来源已不可用”。中英文文案各一条。
+- **插件契约：** 新增 `document-kit/reveal.js`（`registerReveal`、`findTextRange`），已同步到 `plugins/office-pdf` 和 `examples/csv-viewer`；`quote.js` 的注释更新；`plugin-creator/references/document-processor.md` 新增“定位来源”一节，去掉“宿主不会交回位置”的旧说明。
+- **PDF 插件 0.1.5：** `reveal-quote.js` 翻到页并在文字层里找到引用文字后用 CSS 自定义高亮标出（`pdf-overrides.css` 里 `::highlight(lexora-quote)`），点击或按键后清除；`view.js` 在文档挂载完调用 `ready(true)`，失败调用 `ready(false)`。
+- **和方案的差别：** 位置对不上时不做“最近的一处”选择，PDF 只有页码，按页内文字第一处匹配；页面不存在返回未找到（设计里写的是等待超时）。`findTextRange` 忽略所有空白差异，因为文字层的片段边界不保证有空格。
+- **验证：** 新增 `useExtensionDocumentReveal.spec.ts`（11 项：位置包装、等待就绪、取消、注册随布局变化）；`desktopSelectionReferences.spec.ts` 更新并新增 `'opened'` 用例；`pnpm type-check` 与相关目录 eslint 通过。PDF 用无头 Chromium + 模拟宿主冒烟，覆盖加载中到达的请求、两页的定位、空白差异、跨页引用、文字不在该页、页码超出、无位置、位置类型不对、点击清除高亮，结果符合预期。
+- **未验证：** 真实宿主里的完整流程（打开文件、等待、`views.revealReference` 到插件、卡片提示）；大 PDF 里页面是否按需创建（`.pdf-page` 是否都在 DOM 里）；深色主题下高亮的可读性；Windows 桌面与 E2E。PDF 插件还没有上架市场，所以没有运行 `pnpm market:sync`。

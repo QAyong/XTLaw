@@ -42,7 +42,9 @@ export interface SelectionReferenceLocateRequest {
   navigate: SelectionReferenceNavigate
   reveal: (id: string, quote: BuddyTextQuote, current?: () => boolean) => Promise<boolean>
 }
-export type SelectionReferenceLocateHandler = (request: SelectionReferenceLocateRequest) => Promise<boolean>
+// true: the place was found. 'opened': the source is open but the place could not be found. false: the source is unavailable.
+export type SelectionReferenceLocateResult = boolean | 'opened'
+export type SelectionReferenceLocateHandler = (request: SelectionReferenceLocateRequest) => Promise<SelectionReferenceLocateResult>
 export interface SelectionReferenceProvider {
   captureSource?: (viewId: string) => SelectionReferenceSource | null
   resolveLocate?: (quote: BuddyResourceQuote) => SelectionReferenceLocateHandler | null
@@ -167,7 +169,7 @@ export class WorkbenchSelectionReferences {
     return this.captureSource(request.viewId)?.identity === request.sourceIdentity
   }
 
-  async locate(quote: BuddyResourceQuote): Promise<boolean> {
+  async locate(quote: BuddyResourceQuote): Promise<SelectionReferenceLocateResult> {
     const operation = ++this.#operation.value
     this.#pending?.cancel()
     this.#pending = null
@@ -185,10 +187,10 @@ export class WorkbenchSelectionReferences {
     catch { return false }
   }
 
-  async #locate(registration: ProviderRegistration, handler: SelectionReferenceLocateHandler, operation: number, scopeCurrent: () => boolean): Promise<boolean> {
+  async #locate(registration: ProviderRegistration, handler: SelectionReferenceLocateHandler, operation: number, scopeCurrent: () => boolean): Promise<SelectionReferenceLocateResult> {
     const active = shallowRef(true)
     const abort = new AbortController()
-    const cancelled = Promise.withResolvers<boolean>()
+    const cancelled = Promise.withResolvers<SelectionReferenceLocateResult>()
     const pending = {
       registration,
       cancel: () => {
@@ -225,7 +227,7 @@ export class WorkbenchSelectionReferences {
         },
         reveal: (id, quote, sourceCurrent) => this.reveal(id, quote, () => current() && (sourceCurrent?.() ?? true)),
       })
-      return await Promise.race([result.then(value => value && current()), cancelled.promise])
+      return await Promise.race([result.then(value => value === 'opened' ? current() && 'opened' as const : value && current()), cancelled.promise])
     }
     finally {
       stop()

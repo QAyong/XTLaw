@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fileChangeAffects, fileChangeKey, fileTargetKey, fileTargetSchema, grantFileTargetSchema, isGrantFileTarget, readFileTarget, requireFileTarget, sameFileDirectory, sameFileRoot, sameFileTarget, spaceFileTargetOnly, spaceFilesChanged, spaceFileMutationSchema } from '../spaceFileApi'
+import { fileChangeAffects, fileChangeKey, fileTargetKey, fileTargetSchema, grantFileTargetSchema, isGrantFileTarget, readFileTarget, requireFileTarget, sameFileDirectory, sameFileRoot, sameFileTarget, spaceFileMutationSchema, spaceFilesChanged, spaceFileTargetOnly } from '../spaceFileApi'
 
 const space = { spaceId: 'space-1', directoryId: 'directory-1', revision: 2, path: 'src/a.ts' }
 const grant = { conversationId: 'conversation-1', root: '/work/out', path: 'report.docx' }

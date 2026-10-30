@@ -3,7 +3,7 @@ import type { BuddyCatalog } from '@buddy-shared/buddies/buddyApi'
 import type { BuddyUserContentV1 } from '@buddy-shared/conversation/buddyUserContent'
 import type { ClosePreparation } from '@buddy-shared/lifecycle/closePreparation'
 import type { ApplicationEvents } from '@buddy-shared/observability/ApplicationEvents'
-import type { SpaceFileTarget } from '@buddy-shared/spaces/spaceFileApi'
+import type { FileTarget } from '@buddy-shared/spaces/spaceFileApi'
 import type { Ref } from 'vue'
 import type { Router } from 'vue-router'
 import type { DesktopStores } from '../bootstrap/useDesktopAppState'
@@ -18,7 +18,7 @@ import { buddyUserContentToText, getBuddyUserContentResourceIds, hasBuddyUserCon
 import { resolveBuiltinFileOpening } from '@buddy-shared/files/fileOpening'
 import { parseLocalChatPublicError } from '@buddy-shared/runtime/localChatError'
 import { isSkillAvailable } from '@buddy-shared/skills/skillApi'
-import { spaceFileTargetSchema } from '@buddy-shared/spaces/spaceFileApi'
+import { fileChangeAffects, fileChangeKey, fileTargetKey, isGrantFileTarget, readFileTarget, requireFileTarget } from '@buddy-shared/spaces/spaceFileApi'
 import { NButton, useDialog } from 'naive-ui'
 import { computed, h, onScopeDispose, shallowReactive, shallowRef } from 'vue'
 import { fileOpeningHandler } from '@/modules/files'
@@ -59,8 +59,8 @@ export function useDesktopWorkbench(options: { beforeExtensionClose?: (viewId: s
   const openingFiles = new Map<string, Promise<string | null | undefined>>()
   const documents = new ExtensionDocumentRouter(api.extensions, options.fileOpening)
   const copies = new WorkingCopyService({
-    read: resource => api.localChat.spaces.readDocument(spaceFileTargetSchema.strip().parse(resource.data)),
-    save: (resource, document, operationId) => api.localChat.spaces.saveDocument({ ...spaceFileTargetSchema.strip().parse(resource.data), ...document, operationId }),
+    read: resource => api.localChat.spaces.readDocument(requireFileTarget(resource.data)),
+    save: (resource, document, operationId) => api.localChat.spaces.saveDocument({ ...requireFileTarget(resource.data), ...document, operationId }),
   })
   const controller = new WorkbenchController(new ContributionRegistry(), beforeClose)
   const diagnostics = new WorkbenchDiagnostics({ controller, copies, events: options.events })
@@ -144,12 +144,13 @@ export function useDesktopWorkbench(options: { beforeExtensionClose?: (viewId: s
   const stopFileChanges = api.localChat.spaces.onFilesChanged((event) => {
     if (event.kind !== 'changed')
       return
-    const key = `${event.directoryId}:${event.directoryRevision}`
+    const key = fileChangeKey(event)
     clearTimeout(fileRefreshTimers.get(key))
     fileRefreshTimers.set(key, setTimeout(() => {
       fileRefreshTimers.delete(key)
       for (const copy of copies.copies.values()) {
-        if (copy.resource.data.directoryId === event.directoryId && copy.resource.data.revision === event.directoryRevision)
+        const target = readFileTarget(copy.resource.data)
+        if (target && fileChangeAffects(event, target))
           void copies.refresh(copy.resource).catch(options.onError)
       }
     }, 200))
@@ -424,9 +425,9 @@ export function useDesktopWorkbench(options: { beforeExtensionClose?: (viewId: s
       return
     return activateTask(resource, options.taskIndex.index.tasks.value.find(task => task.id === resource.id)?.title ?? labels().newTask, { paneId, direction: position === 'center' ? undefined : position, move: true })
   }
-  function fileView(target: SpaceFileTarget, tabId?: string) {
+  function fileView(target: FileTarget, tabId?: string) {
     return Object.values(controller.layout.views).find(view => ['file', 'file-preview'].includes(view.resource.scheme)
-      && view.resource.id === JSON.stringify([target.directoryId, target.revision, target.path])
+      && view.resource.id === fileTargetKey(target)
       && view.state.contextTabId === tabId)
   }
   function contextViews(tabIds: readonly string[]) {
@@ -465,8 +466,8 @@ export function useDesktopWorkbench(options: { beforeExtensionClose?: (viewId: s
     }
   }
 
-  function openFile(target: SpaceFileTarget, tabId?: string) {
-    const key = JSON.stringify([tabId, target.directoryId, target.revision, target.path])
+  function openFile(target: FileTarget, tabId?: string) {
+    const key = JSON.stringify([tabId, fileTargetKey(target)])
     const pending = openingFiles.get(key)
     if (pending)
       return pending
@@ -474,7 +475,7 @@ export function useDesktopWorkbench(options: { beforeExtensionClose?: (viewId: s
     openingFiles.set(key, opening)
     return opening
   }
-  async function createFile(target: SpaceFileTarget, tabId?: string, current: () => boolean = () => true) {
+  async function createFile(target: FileTarget, tabId?: string, current: () => boolean = () => true) {
     if (!current())
       return null
     if (!documents.loaded) {
@@ -495,6 +496,9 @@ export function useDesktopWorkbench(options: { beforeExtensionClose?: (viewId: s
         controller.focus(existing.id)
         return existing.id
       }
+      // Document plugins still address space files only; a granted directory file opens as a plain preview until they learn that target (Spec-044 step 4).
+      if (isGrantFileTarget(target))
+        return fallback
       try {
         return await api.extensions.openFile(target, documents.providerId(target.path) ?? undefined) ?? fallback
       }
@@ -509,7 +513,7 @@ export function useDesktopWorkbench(options: { beforeExtensionClose?: (viewId: s
         controller.focus(previous.id)
       return openDocument(previous.id)
     }
-    let resource: ResourceRef = { scheme: 'file', id: JSON.stringify([target.directoryId, target.revision, target.path]), data: { ...target, canonicalRoot: fileOperations.root(target) } }
+    let resource: ResourceRef = { scheme: 'file', id: fileTargetKey(target), data: { ...target, canonicalRoot: fileOperations.root(target) } }
     const provider = (options.fileOpening?.resolve(target.path, 'inline') ?? resolveBuiltinFileOpening(target.path, 'inline')).provider
     if (fileOpeningHandler(provider)?.input === 'resource' && !copies.get(resource))
       resource = { ...resource, scheme: 'file-preview' }
@@ -781,7 +785,7 @@ export function useDesktopWorkbench(options: { beforeExtensionClose?: (viewId: s
     return saved
   }
   const selectionReferences = createDesktopSelectionReferences({ controller, pool, documents, language, openFile: createQuoteSourceOpener({ resources: options.resources, openInTab: openFile, openStandalone: (target, current) => createFile(target, undefined, current) }), browser: api.browser, resources: options.resources, ready: () => initialized.value, independent: () => stores.applicationSettings.config.value?.desktop.contextPanelMode === 'independent', locateFile: target => api.localChat.spaces.readFile(target), navigationVersion: () => navigationVersion })
-  return { revealOpenOfficeDocument: (target: SpaceFileTarget) => revealOpenOfficeDocument(controller, options.resources(), target), selectionReferences, documents, api, renderers, autoSave, fileOperations, fileToolbarTargets, fileView, closeContextFiles, readingPositions, discardTask, prepareTaskDeletion, activeTask, activeTaskId, activeResource: activity.resource, backupError, controller, copies, models, pool, persistence, initialize, flush, dispose, openTask, newTask, prepareNewTaskInput, showTaskInput, showReferencePage, startTaskWithSkill, openFile, dropResource, language, get initialized() {
+  return { revealOpenOfficeDocument: (target: FileTarget) => revealOpenOfficeDocument(controller, options.resources(), target), selectionReferences, documents, api, renderers, autoSave, fileOperations, fileToolbarTargets, fileView, closeContextFiles, readingPositions, discardTask, prepareTaskDeletion, activeTask, activeTaskId, activeResource: activity.resource, backupError, controller, copies, models, pool, persistence, initialize, flush, dispose, openTask, newTask, prepareNewTaskInput, showTaskInput, showReferencePage, startTaskWithSkill, openFile, dropResource, language, get initialized() {
     return initialized.value
   }, get navigationVersion() {
     return navigationVersion

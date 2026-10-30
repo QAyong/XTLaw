@@ -2,6 +2,7 @@ import type { LocalArtifact } from '@buddy-shared/artifacts/artifactApi'
 import type { LocalChangeSetSummary } from '@buddy-shared/changes/changeApi'
 import type { LocalRunOutput } from '@buddy-shared/runs/runApi'
 import type { LocalSpace } from '@buddy-shared/spaces/spaceApi'
+import type { SpaceFileTarget } from '@buddy-shared/spaces/spaceFileApi'
 
 import { describe, expect, it } from 'vitest'
 import { nextTick, shallowRef } from 'vue'
@@ -17,16 +18,28 @@ describe('useTaskContextPanel', () => {
     const tab = panel.activeTab.value!
     if (tab.kind !== 'files')
       throw new Error('Expected files tab')
-    panel.locateFile({ ...tab.target, path: 'src/report.md' }, 'file')
+    panel.locateFile({ ...(tab.target as SpaceFileTarget), path: 'src/report.md' }, 'file')
     expect(panel.allTabs.value).toHaveLength(1)
     expect(panel.activeTab.value).toMatchObject({ id: tab.id, target: { path: 'src/report.md' }, treeTarget: { path: 'src/report.md', kind: 'file' } })
-    panel.locateFile({ ...tab.target, path: 'src' }, 'directory')
+    panel.locateFile({ ...(tab.target as SpaceFileTarget), path: 'src' }, 'directory')
     expect(panel.allTabs.value).toHaveLength(1)
     expect(panel.activeTab.value).toMatchObject({ id: tab.id, target: { path: '' }, treeTarget: { path: 'src', kind: 'directory' } })
     expect(readContextTab(panel.activeTab.value)).toEqual(panel.activeTab.value)
     panel.selectFile(tab.id, 'src/manual.md')
     expect(panel.activeTab.value).toMatchObject({ target: { path: 'src/manual.md' }, treeTarget: undefined })
     expect(readContextTab(tab)).toEqual(tab)
+  })
+
+  it('keeps a saved granted-directory tab when the panel restores, and drops one with a malformed target', () => {
+    const space = fileSpace()
+    const panel = createTaskPanel({ spaces: shallowRef([space]), activeSpace: shallowRef(space) })
+    const saved = { id: 'files:granted', scope: 'independent', kind: 'files', rootName: 'out', target: { conversationId: 'conversation-1', root: '/work/out', path: 'report.docx' } }
+    expect(readContextTab(saved)).toEqual(saved)
+    expect(readContextTab({ ...saved, target: { conversationId: 'conversation-1', root: 'relative', path: '' } })).toBeNull()
+    expect(readContextTab({ ...saved, target: { ...saved.target, spaceId: 'space-1' } })).toBeNull()
+    panel.restoreSnapshot({ tabs: [saved, { ...saved, id: 'files:bad', target: { conversationId: 'conversation-1', root: 'relative', path: '' } }] })
+    expect(panel.allTabs.value.map(tab => tab.id)).toEqual(['files:granted'])
+    expect(panel.allTabs.value[0]).toMatchObject({ kind: 'files', target: saved.target })
   })
 
   it('refuses stale directory revisions instead of opening another binding', () => {
@@ -43,13 +56,13 @@ describe('useTaskContextPanel', () => {
     const tab = panel.activeTab.value!
     if (tab.kind !== 'files')
       throw new Error('Expected files tab')
-    panel.locateFile({ ...tab.target, path: 'src/a.md' }, 'file')
+    panel.locateFile({ ...(tab.target as SpaceFileTarget), path: 'src/a.md' }, 'file')
     panel.previewFile('/workspace/b.md', undefined, false)
     expect(panel.allTabs.value).toHaveLength(1)
     expect(panel.activeTab.value).toMatchObject({ id: tab.id, target: { path: 'b.md' }, tree: { visible: false } })
     expect(panel.activeTab.value).toHaveProperty('treeTarget', undefined)
 
-    panel.locateFile({ ...tab.target, path: 'src' }, 'directory')
+    panel.locateFile({ ...(tab.target as SpaceFileTarget), path: 'src' }, 'directory')
     expect(panel.activeTab.value).toMatchObject({ treeTarget: { path: 'src', kind: 'directory' } })
     panel.openDirectory('/workspace/docs')
     expect(panel.activeTab.value).toMatchObject({ target: { path: '' }, expand: { path: 'docs' }, tree: { visible: true } })

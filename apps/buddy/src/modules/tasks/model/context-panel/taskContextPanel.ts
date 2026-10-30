@@ -3,7 +3,7 @@ import type { LocalArtifact } from '@buddy-shared/artifacts/artifactApi'
 import type { LocalChangeSetSummary } from '@buddy-shared/changes/changeApi'
 import type { ContextPanelSource } from '@buddy-shared/context-panel/contextPanel'
 import type { LocalRunOutput } from '@buddy-shared/runs/runApi'
-import type { SpaceFileTarget } from '@buddy-shared/spaces/spaceFileApi'
+import type { FileTarget } from '@buddy-shared/spaces/spaceFileApi'
 
 export type ArtifactViewMode = 'preview' | 'source'
 export type ContextPanelScope = `task:${string}` | `draft:${string}` | 'independent' | 'workspace'
@@ -50,7 +50,7 @@ export interface TaskBrowserContextTab extends ContextTabSource {
 export interface TaskFilesContextTab extends ContextTabSource {
   id: string
   kind: 'files'
-  target: SpaceFileTarget
+  target: FileTarget
   rootName: string
   // Where "locate" points in the tree; selecting a file clears it.
   treeTarget?: { path: string, kind: 'file' | 'directory' }

@@ -10,7 +10,7 @@ import type { WorkbenchPersistence } from '@/workbench/services/WorkbenchPersist
 import { extensionCommandNamespace } from '@buddy-shared/extensions/extensionCommands'
 import { extensionDocumentInfoSchema } from '@buddy-shared/extensions/extensionDocumentInfo'
 import { extensionFileOpeningProviders } from '@buddy-shared/extensions/extensionFileOpening'
-import { spaceFileTargetSchema } from '@buddy-shared/spaces/spaceFileApi'
+import { isGrantFileTarget, readFileTarget, sameFileTarget, spaceFileTargetSchema } from '@buddy-shared/spaces/spaceFileApi'
 import { qualifyWorkbenchCommand } from '@buddy-shared/workbench/workbenchCommand'
 import { matchesWorkbenchContext } from '@buddy-shared/workbench/workbenchContext'
 import { parseWorkbenchUiSelection, workbenchUiSelectionKey, workbenchUiTargetCatalog } from '@buddy-shared/workbench/workbenchUi'
@@ -80,8 +80,9 @@ export function useExtensionContributions(options: { controller: WorkbenchContro
           scope.command({ id: command.id, label: command.title, slash: command.slash ? { ...command.slash, name: qualifyWorkbenchCommand(extensionCommandNamespace(id), command.slash.name), origin: { id, name: item.manifest.name, author: item.manifest.author, version: item.manifest.version, source: item.source?.artifact } } : undefined, enabled: () => matchesWorkbenchContext(command.when, controller.contextKeys.snapshot()), execute: async ({ view, pane, source, arguments: argumentsText }) => {
             if (source === 'slash')
               return api.executeSlash(id, command.id, argumentsText ?? '', pane?.id)
-            const parsed = view && ['file', 'file-preview'].includes(view.resource.scheme) ? spaceFileTargetSchema.strip().safeParse(view.resource.data) : null
-            await api.execute(id, command.id, parsed?.success ? parsed.data : null)
+            const parsed = view && ['file', 'file-preview'].includes(view.resource.scheme) ? readFileTarget(view.resource.data) : null
+            // Plugin commands still receive space files only; a granted directory file is passed as no resource until plugins learn that target (Spec-044 step 4).
+            await api.execute(id, command.id, parsed && !isGrantFileTarget(parsed) ? parsed : null)
           } })
         }
       })
@@ -286,7 +287,7 @@ export function useExtensionContributions(options: { controller: WorkbenchContro
           if (event.kind === 'quote-capture') {
             const file = spaceFileTargetSchema.parse(view.resource.data.fileTarget)
             const quotedFile = event.quote.source.file
-            if (file.spaceId !== quotedFile.spaceId || file.directoryId !== quotedFile.directoryId || file.revision !== quotedFile.revision || file.path !== quotedFile.path)
+            if (!sameFileTarget(file, quotedFile))
               return
             const request = references.capture(view.id, event.quote)
             if (!request)

@@ -1,6 +1,7 @@
-import type { LocalSpaceDirectoryPage, LocalSpaceFilePreview, SpaceDirectoryRequest, SpaceFileByteChunk, SpaceFileByteRequest, SpaceFileMutation, SpaceFileOperation, SpaceFilesChange, SpaceFileTarget, SpaceSaveBytes, SpaceSaveBytesResult, SpaceSaveDocument, SpaceSaveResult, SpaceTextDocument } from '../../../shared/spaces/spaceFileApi'
+import type { FileTarget, LocalSpaceDirectoryPage, LocalSpaceFilePreview, SpaceDirectoryRequest, SpaceFileByteChunk, SpaceFileByteRequest, SpaceFileMutation, SpaceFileOperation, SpaceFilesChange, SpaceSaveBytes, SpaceSaveBytesResult, SpaceSaveDocument, SpaceSaveResult, SpaceTextDocument } from '../../../shared/spaces/spaceFileApi'
 import type { FileAction, NativeFileEngine, NativeFileOperation } from '../files/NativeFileEngine'
 import type { SpaceRepository } from '../storage/spaceRepository'
+import type { ConversationFileRoots } from './ConversationFileRoots'
 import type { SpaceWorkspaceDirectories } from './SpaceWorkspaceDirectories'
 import { Buffer } from 'node:buffer'
 import { createHash, randomUUID } from 'node:crypto'
@@ -10,8 +11,9 @@ import { BoundedFileReadError, readBoundedFile, readBoundedFileChunk } from '../
 import { saveBoundedBinaryFile } from '../../../platform/filesystem/saveBoundedTextFile'
 import { Emitter } from '../../../shared/events/Emitter'
 import { FILE_IMAGE_PREVIEW_MAX_BYTES } from '../../../shared/files/filePreview'
-import { spaceFileMediaUrl } from '../../../shared/files/mediaPreview'
+import { fileMediaUrl } from '../../../shared/files/mediaPreview'
 import { isSpaceWorkspaceDirectoryId } from '../../../shared/spaces/spaceApi'
+import { isGrantFileTarget } from '../../../shared/spaces/spaceFileApi'
 import { GrantedPathError, resolveGrantedPath } from '../directories/resolveGrantedPath'
 import { readFilePreview } from '../files/readFilePreview'
 import { resolveMediaPreview } from '../files/resolveMediaPreview'
@@ -27,24 +29,26 @@ export class SpaceFileService {
   readonly #spaces: Pick<SpaceRepository, 'findById'>
   readonly #engine: NativeFileEngine
   readonly #workspaces: SpaceWorkspaceDirectories | undefined
+  readonly #grants: ConversationFileRoots | undefined
   readonly #changes = new Emitter<SpaceFileChange>(() => console.error('SPACE_FILE_OBSERVER_FAILED'))
   readonly onDidChange = this.#changes.event
-  readonly #roots = new Map<string, SpaceFileTarget>()
-  readonly #operations = new Map<string, SpaceFileTarget>()
+  readonly #roots = new Map<string, { target: FileTarget, directoryId: string }>()
+  readonly #operations = new Map<string, FileTarget>()
   readonly #pending = new Set<Promise<unknown>>()
   readonly #binarySaves = new Map<string, Promise<SpaceSaveBytesResult>>()
   readonly #subscription: { dispose: () => void }
   #revision = 0
   #disposed = false
 
-  constructor(spaces: Pick<SpaceRepository, 'findById'>, engine: NativeFileEngine, workspaces?: SpaceWorkspaceDirectories) {
+  constructor(spaces: Pick<SpaceRepository, 'findById'>, engine: NativeFileEngine, workspaces?: SpaceWorkspaceDirectories, grants?: ConversationFileRoots) {
     this.#spaces = spaces
     this.#engine = engine
     this.#workspaces = workspaces
+    this.#grants = grants
     this.#subscription = engine.onDidChange((event) => {
       if (event.event === 'changed') {
         for (const key of event.roots) {
-          const input = this.#roots.get(key)
+          const input = this.#roots.get(key)?.target
           if (!input)
             continue
           try {
@@ -68,16 +72,16 @@ export class SpaceFileService {
     return { ...result, entries: result.entries.filter(entry => !internal?.has(entry.path) && !sensitive.matches(resolve(directory.canonicalRoot, entry.path))) }
   }
 
-  async read(input: SpaceFileTarget): Promise<LocalSpaceFilePreview> {
+  async read(input: FileTarget): Promise<LocalSpaceFilePreview> {
     const target = await this.resolve(input).catch(rethrowMissingFile)
     this.requireDirectory(input)
-    const url = spaceFileMediaUrl(input)
+    const url = fileMediaUrl(input)
     const preview = await readFilePreview(target.root, target.path, { image: url, media: url }).catch(error => rethrowMissingFile(error, target.path))
     this.requireDirectory(input)
     return preview
   }
 
-  async resolveMedia(input: SpaceFileTarget) {
+  async resolveMedia(input: FileTarget) {
     const target = await this.resolve(input).catch(rethrowMissingFile)
     const preview = await resolveMediaPreview(target.root, target.path, { imageBytesLimit: FILE_IMAGE_PREVIEW_MAX_BYTES }).catch(error => rethrowMissingFile(error, target.path))
     const current = await this.resolve(input).catch(rethrowMissingFile)
@@ -86,7 +90,7 @@ export class SpaceFileService {
     return preview
   }
 
-  async locate(input: SpaceFileTarget): Promise<{ path: string, kind: 'directory' | 'file' }> {
+  async locate(input: FileTarget): Promise<{ path: string, kind: 'directory' | 'file' }> {
     const target = await this.resolve(input)
     const metadata = await stat(target.path)
     this.requireDirectory(input)
@@ -95,7 +99,7 @@ export class SpaceFileService {
     return { path: target.path, kind: metadata.isDirectory() ? 'directory' : 'file' }
   }
 
-  async readDocument(input: SpaceFileTarget): Promise<SpaceTextDocument> {
+  async readDocument(input: FileTarget): Promise<SpaceTextDocument> {
     const root = await this.root(input, 'existing').catch(rethrowMissingFile)
     const result = await this.#engine.read(root, input.path)
     this.requireDirectory(input)
@@ -123,7 +127,7 @@ export class SpaceFileService {
 
   saveBytes(input: SpaceSaveBytes, signal?: AbortSignal): Promise<SpaceSaveBytesResult> {
     input = { ...input }
-    const key = JSON.stringify([input.directoryId, input.revision, input.path])
+    const key = JSON.stringify(isGrantFileTarget(input) ? [input.conversationId, input.root, input.path] : [input.directoryId, input.revision, input.path])
     const previous = this.#binarySaves.get(key) ?? Promise.resolve()
     const save = previous.catch(() => {}).then(() => this.track(async (): Promise<SpaceSaveBytesResult> => {
       signal?.throwIfAborted()
@@ -192,12 +196,15 @@ export class SpaceFileService {
 
   mutate(input: SpaceFileMutation): Promise<SpaceFileOperation> {
     return this.track(async () => {
+      await this.prepare(input)
       this.requireDirectory(input)
       this.#operations.set(input.operationId, input)
       try {
         const root = await this.root(input)
         if (input.action.kind === 'rename')
           await this.resolve({ ...input, path: input.action.destination }, 'create')
+        if (input.action.kind === 'copy' || input.action.kind === 'move')
+          this.requireSameRoot(input, input.action.destination)
         const action: FileAction = input.action.kind === 'copy' || input.action.kind === 'move'
           ? { kind: input.action.kind, destinationRoot: await this.root(input.action.destination), destination: input.action.destination.path }
           : input.action
@@ -217,18 +224,18 @@ export class SpaceFileService {
     })
   }
 
-  async history(input: SpaceFileTarget): Promise<SpaceFileOperation[]> {
+  async history(input: FileTarget): Promise<SpaceFileOperation[]> {
     const records = await this.#engine.history(await this.root(input))
     return records.map(record => this.present(input, record))
   }
 
-  async query(input: SpaceFileTarget & { operationId: string }): Promise<SpaceFileOperation | null> {
+  async query(input: FileTarget & { operationId: string }): Promise<SpaceFileOperation | null> {
     await this.root(input)
     const record = await this.#engine.query(input.operationId)
     return record ? this.present(input, record) : null
   }
 
-  async acknowledge(input: SpaceFileTarget & { operationId: string }): Promise<SpaceFileOperation> {
+  async acknowledge(input: FileTarget & { operationId: string }): Promise<SpaceFileOperation> {
     const root = await this.root(input)
     const record = await this.#engine.acknowledge(root, input.operationId)
     await this.root(input)
@@ -236,18 +243,19 @@ export class SpaceFileService {
     return this.present(input, record)
   }
 
-  async cancel(input: SpaceFileTarget & { operationId: string }): Promise<null> {
+  async cancel(input: FileTarget & { operationId: string }): Promise<null> {
+    await this.prepare(input)
     this.requireDirectory(input)
     const active = this.#operations.get(input.operationId)
-    if (active && active.spaceId === input.spaceId && active.directoryId === input.directoryId && active.revision === input.revision)
+    if (active && this.requireDirectory(active).id === this.requireDirectory(input).id)
       return this.#engine.cancel(input.operationId)
     await this.query(input)
     return null
   }
 
   revoke(directoryIds: readonly string[]): void {
-    for (const [key, input] of this.#roots) {
-      if (directoryIds.includes(input.directoryId)) {
+    for (const [key, { directoryId }] of this.#roots) {
+      if (directoryIds.includes(directoryId)) {
         void this.#engine.revoke(key).catch(() => {})
         this.#roots.delete(key)
       }
@@ -269,17 +277,18 @@ export class SpaceFileService {
     return pending
   }
 
-  private async root(input: SpaceFileTarget, mode: 'existing' | 'create' = 'create'): Promise<string> {
+  private async root(input: FileTarget, mode: 'existing' | 'create' = 'create'): Promise<string> {
+    await this.prepare(input)
     const directory = this.requireDirectory(input)
     await this.resolve(input, mode)
     const key = JSON.stringify([directory.id, directory.revision])
     await this.#engine.register(key, directory.canonicalRoot, true)
     this.requireDirectory(input)
-    this.#roots.set(key, { ...input })
+    this.#roots.set(key, { target: { ...input }, directoryId: directory.id })
     return key
   }
 
-  private present(input: SpaceFileTarget, record: NativeFileOperation): SpaceFileOperation {
+  private present(input: FileTarget, record: NativeFileOperation): SpaceFileOperation {
     const directory = this.requireDirectory(input)
     const within = (path: string | null) => {
       if (path === null)
@@ -294,11 +303,38 @@ export class SpaceFileService {
     return { operationId: record.operationId, kind: record.kind, path, destination, status: record.status, error: record.error, createdAt: record.createdAt, updatedAt: record.updatedAt, temporaryPath: typeof record.receipt?.staging === 'string' ? within(record.receipt.staging) : null, restorable: record.kind === 'trash' && record.status === 'applied' && !!record.receipt && !record.receipt.restoredBy }
   }
 
-  private publish(input: SpaceFileTarget, operationId: string, kind: SpaceFilesChange['kind']): void {
-    this.#changes.fire({ revision: ++this.#revision, operationId, spaceId: input.spaceId, directoryId: input.directoryId, directoryRevision: input.revision, kind })
+  private publish(input: FileTarget, operationId: string, kind: SpaceFilesChange['kind']): void {
+    const revision = ++this.#revision
+    this.#changes.fire(isGrantFileTarget(input)
+      ? { revision, operationId, conversationId: input.conversationId, root: input.root, kind }
+      : { revision, operationId, spaceId: input.spaceId, directoryId: input.directoryId, directoryRevision: input.revision, kind })
   }
 
-  private requireDirectory(input: SpaceFileTarget) {
+  // A granted-directory target needs one asynchronous lookup (the folder's real path) before the synchronous rechecks can run.
+  private async prepare(input: FileTarget): Promise<void> {
+    if (isGrantFileTarget(input))
+      await this.requireGrants().resolve(input.conversationId, input.root)
+  }
+
+  private requireGrants(): ConversationFileRoots {
+    if (!this.#grants)
+      throw new BuddyServiceError('VALIDATION_FAILED')
+    return this.#grants
+  }
+
+  // Copies and moves stay inside one directory: a granted root never reaches another root, and a space target keeps its current rules.
+  private requireSameRoot(source: FileTarget, destination: FileTarget): void {
+    if (isGrantFileTarget(source) !== isGrantFileTarget(destination))
+      throw new BuddyServiceError('VALIDATION_FAILED')
+    if (isGrantFileTarget(source) && isGrantFileTarget(destination)
+      && (source.conversationId !== destination.conversationId || this.requireDirectory(source).id !== this.requireDirectory(destination).id)) {
+      throw new BuddyServiceError('VALIDATION_FAILED')
+    }
+  }
+
+  private requireDirectory(input: FileTarget): { id: string, root: string, canonicalRoot: string, revision: number, revokedAt: string | null } {
+    if (isGrantFileTarget(input))
+      return this.requireGrants().require(input.conversationId, input.root)
     const space = requireActiveSpace(this.#spaces.findById(input.spaceId))
     // A workspace id carries its space id, so another space's id never resolves to this space's folder.
     const workspace = isSpaceWorkspaceDirectoryId(input.directoryId) ? this.#workspaces?.get(space) ?? null : null
@@ -313,7 +349,8 @@ export class SpaceFileService {
     return { size: Number(metadata.size), etag: createHash('sha256').update([metadata.dev, metadata.ino, metadata.size, metadata.mtimeNs, metadata.ctimeNs].join(':')).digest('hex') }
   }
 
-  private async resolve(input: SpaceFileTarget, mode: 'existing' | 'create' = 'existing'): Promise<{ path: string, root: string }> {
+  private async resolve(input: FileTarget, mode: 'existing' | 'create' = 'existing'): Promise<{ path: string, root: string }> {
+    await this.prepare(input)
     const directory = this.requireDirectory(input)
     if (isAbsolute(input.path) || input.path.includes('\\') || input.path.split('/').includes('..'))
       throw new BuddyServiceError('VALIDATION_FAILED')

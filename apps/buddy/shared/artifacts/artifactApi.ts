@@ -30,6 +30,8 @@ export type LocalArtifact = DeepReadonly<z.infer<typeof artifactSchema>>
 
 export type LocalArtifactText = DeepReadonly<z.infer<typeof artifactTextSchema>>
 
+export type ArtifactFileRoot = z.infer<typeof artifactsResponseSchemas.fileRoot>
+
 export const artifactTargetSchema = z.object({ conversationId: idSchema, artifactId: idSchema }).strict()
 export const artifactOpenRequestSchema = artifactTargetSchema.extend({ action: z.enum(['open', 'reveal', 'choose-app']) }).strict()
 export const artifactOpenResultSchema = z.object({ status: z.enum(['opened', 'choose-app', 'chooser-shown', 'cancelled']) }).strict()
@@ -48,10 +50,18 @@ export const artifactsResponseSchemas = {
   }).strict(),
   artifactText: artifactTextSchema,
   externalEntry: z.object({ path: z.string().refine(isAbsolutePath), kind: z.enum(['file', 'directory']) }).strict(),
+  // Where an output sits inside the directory it was written to: the file manager opens that directory as its root (Spec-044).
+  fileRoot: z.object({
+    conversationId: idSchema,
+    root: z.string().refine(isAbsolutePath),
+    path: z.string().max(4096),
+    kind: z.enum(['file', 'directory']),
+  }).strict(),
 } as const
 
 export const artifactsRpc = {
   locate: { method: 'artifacts.locate', input: artifactsRequestSchemas.artifactPreview, response: artifactsResponseSchemas.externalEntry },
+  resolveFileRoot: { method: 'artifacts.resolveFileRoot', input: artifactsRequestSchemas.artifactPreview, response: artifactsResponseSchemas.fileRoot },
   resolveExternalEntry: { method: 'artifacts.resolveExternalEntry', input: artifactTargetSchema, response: artifactsResponseSchemas.externalEntry },
   resolveMedia: { method: 'artifacts.resolveMedia', input: artifactsRequestSchemas.artifactPreview, response: mediaPreviewLocationSchema },
   readText: { method: 'artifacts.readText', input: artifactsRequestSchemas.artifactText, response: artifactsResponseSchemas.artifactText },

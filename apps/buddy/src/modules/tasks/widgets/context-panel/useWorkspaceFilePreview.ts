@@ -2,6 +2,7 @@ import type { LocalChatApi } from '@buddy-electron/shared/localChatApi'
 import type { Ref } from 'vue'
 import type { TaskFilesContextTab } from '@/modules/tasks/model/context-panel/taskContextPanel'
 import type { ExplorerNode } from '@/shared/ui/explorer/treeCollection'
+import { fileChangeAffects, sameFileRoot } from '@buddy-shared/spaces/spaceFileApi'
 import { computed, onScopeDispose, shallowReactive, watch, watchEffect } from 'vue'
 import { replaceChildren } from '@/shared/ui/explorer/treeCollection'
 
@@ -37,7 +38,7 @@ export function useWorkspaceFilePreview(tab: Readonly<Ref<TaskFilesContextTab | 
     if (!value)
       return
     let view = views.get(value.id)
-    if (!view || view.tab.target.directoryId !== value.target.directoryId || view.tab.target.revision !== value.target.revision || view.tab.target.spaceId !== value.target.spaceId) {
+    if (!view || !sameFileRoot(view.tab.target, value.target)) {
       view = shallowReactive<FileView>({ generation: 0, tab: value, nodes: [], expandedKeys: [], treeVisible: value.tree?.visible ?? true, treeWidth: 220, wrap: false, treeFailed: false, loadingKeys: shallowReactive(new Set<string>()), requests: new Map() })
       views.set(value.id, view)
       void refresh(value)
@@ -212,7 +213,7 @@ export function useWorkspaceFilePreview(tab: Readonly<Ref<TaskFilesContextTab | 
   const refreshTimers = new Map<string, ReturnType<typeof setTimeout>>()
   onScopeDispose(api.onFilesChanged((event) => {
     for (const [id, view] of views) {
-      if (view.tab.target.directoryId !== event.directoryId || view.tab.target.revision !== event.directoryRevision)
+      if (!fileChangeAffects(event, view.tab.target))
         continue
       clearTimeout(refreshTimers.get(id))
       refreshTimers.set(id, setTimeout(() => {

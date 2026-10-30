@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import type { LocalChatApi } from '@buddy-electron/shared/localChatApi'
-import type { SpaceFileOperation, SpaceFileTarget } from '@buddy-shared/spaces/spaceFileApi'
+import type { FileTarget, SpaceFileOperation } from '@buddy-shared/spaces/spaceFileApi'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import type { ExplorerNode } from '@/shared/ui/explorer/treeCollection'
+import { fileChangeAffects, fileTargetKey, sameFileRoot } from '@buddy-shared/spaces/spaceFileApi'
 import { DocumentAdd20Regular, FolderAdd20Regular, SubtractSquare20Regular } from '@vicons/fluent'
 import { NDropdown, NSpin } from 'naive-ui'
 import { computed, onMounted, onScopeDispose, shallowRef, watch } from 'vue'
@@ -19,7 +20,7 @@ import { useExplorerCommands } from './useExplorerCommands'
 const props = defineProps<{
   nodes: readonly ExplorerNode[]
   loadingKeys: ReadonlySet<string>
-  target: SpaceFileTarget
+  target: FileTarget
   reveal?: { path: string, token: string }
   language: BuddyLocale
   api: Pick<LocalChatApi['spaces'], 'revealFile' | 'fileHistory' | 'acknowledgeFileOperation' | 'cancelFileOperation' | 'onFilesChanged'>
@@ -66,18 +67,18 @@ async function refreshRecovery() {
   const target = { ...props.target }
   try {
     const result = await props.api.fileHistory(target)
-    if (props.target.directoryId === target.directoryId && props.target.revision === target.revision)
+    if (sameFileRoot(props.target, target))
       recoveryOperations.value = result.filter(operation => operation.status === 'needs-recovery')
   }
   catch { error.value = labels.value.failure }
 }
-watch(() => `${props.target.directoryId}:${props.target.revision}`, () => {
+watch(() => fileTargetKey({ ...props.target, path: '' }), () => {
   recoveryOperations.value = []
   void refreshRecovery()
 }, { immediate: true })
 let timer: ReturnType<typeof setTimeout> | undefined
 onScopeDispose(props.api.onFilesChanged((event) => {
-  if (event.directoryId !== props.target.directoryId || event.directoryRevision !== props.target.revision)
+  if (!fileChangeAffects(event, props.target))
     return
   clearTimeout(timer)
   timer = setTimeout(() => void refreshRecovery(), 250)

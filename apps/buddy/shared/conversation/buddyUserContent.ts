@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { browserElementSnapshotSchema, browserSelectionSourceSchema } from '../browser/browserSelection'
 import { idSchema, timestampSchema } from '../runtime/apiValidation'
 import { skillReferenceSchema } from '../skills/skillApi'
-import { spaceFileTargetSchema } from '../spaces/spaceFileApi'
+import { fileTargetSchema, sameFileTarget } from '../spaces/spaceFileApi'
 import { extensionQuoteLocationLength, extensionQuoteSourceSchema } from './extensionQuoteLocation'
 import { buddyLocalResourceSchema } from './localResource'
 import { referenceLocatorSchema, referenceViewSourceSchema, sameReferenceJson } from './referenceMaterial'
@@ -85,7 +85,7 @@ const xlsxQuoteLocationSchema = z.object({
 const buddyFileQuoteSourceSchema = z.object({
   kind: z.literal('file'),
   title: z.string().trim().min(1).max(512),
-  file: spaceFileTargetSchema.readonly(),
+  file: fileTargetSchema.readonly(),
   format: z.enum(['source', 'markdown', 'docx', 'pptx', 'xlsx', 'extension']),
   docx: officeQuoteLocationSchema.optional(),
   // PPTX: indexes are the 0-based slide numbers the excerpt came from; from/to span the excerpt text itself.
@@ -347,8 +347,7 @@ function sameResourceQuote(a: BuddyResourceQuote, b: BuddyResourceQuote): boolea
     ? a.source.artifactId === b.source.artifactId && a.source.conversationId === b.source.conversationId
     && a.source.runId === b.source.runId && a.source.updatedAt === b.source.updatedAt && a.source.path === b.source.path
     : a.source.kind === 'file' && b.source.kind === 'file'
-      && a.source.file.spaceId === b.source.file.spaceId && a.source.file.directoryId === b.source.file.directoryId
-      && a.source.file.revision === b.source.file.revision && a.source.file.path === b.source.file.path
+      && sameFileTarget(a.source.file, b.source.file)
   return sameSource && a.source.format === b.source.format
     && JSON.stringify(a.source.kind === 'file' ? a.source.docx : undefined) === JSON.stringify(b.source.kind === 'file' ? b.source.docx : undefined)
     && JSON.stringify(a.source.kind === 'file' ? a.source.pptx : undefined) === JSON.stringify(b.source.kind === 'file' ? b.source.pptx : undefined)

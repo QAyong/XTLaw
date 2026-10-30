@@ -1,4 +1,4 @@
-import type { SpaceFileTarget } from '../spaces/spaceFileApi'
+import type { FileTarget, SpaceFileTarget } from '../spaces/spaceFileApi'
 import type { TaskFileTarget } from './taskFileApi'
 import { z } from 'zod'
 import { isAbsolutePath } from '../runtime/apiValidation'
@@ -20,6 +20,14 @@ export function mediaFileIdentity(metadata: { dev: bigint, ino: bigint, size: bi
 
 export function taskFileMediaUrl(target: TaskFileTarget): string {
   return `lexora-file://task-media/?${new URLSearchParams(target)}`
+}
+
+// The media URL of a file manager target: a space file by directory binding, a granted directory file by its real root.
+export function fileMediaUrl(target: FileTarget): string {
+  // spaceFileApi imports this module, so the type guard cannot be imported back.
+  if ('conversationId' in target)
+    return `lexora-file://grant-media/?${new URLSearchParams({ conversationId: target.conversationId, root: target.root, path: target.path })}`
+  return spaceFileMediaUrl(target)
 }
 
 export function spaceFileMediaUrl(target: SpaceFileTarget): string {

@@ -3,6 +3,7 @@ import type { TaskFilesContextTab } from '../../model/context-panel/taskContextP
 import type { WorkspaceFilesApi } from './useWorkspaceFilePreview'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import { isSpaceWorkspaceDirectoryId } from '@buddy-shared/spaces/spaceApi'
+import { fileTargetKey, isGrantFileTarget } from '@buddy-shared/spaces/spaceFileApi'
 import { computed, toRef } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import { WorkspaceExplorer } from '@/modules/files/ui'
@@ -23,7 +24,10 @@ const fileTab = toRef(() => props.tab)
 const filePreview = useWorkspaceFilePreview(fileTab, props.files, id => props.hasTab(id))
 const fileView = filePreview.current
 const treeTarget = computed(() => fileTab.value ? { ...fileTab.value.target, path: fileTab.value.treeTarget?.path ?? fileTab.value.target.path } : null)
-const rootName = computed(() => fileTab.value && isSpaceWorkspaceDirectoryId(fileTab.value.target.directoryId) ? t('desktop.context.defaultFolder') : fileTab.value?.rootName ?? '')
+const rootName = computed(() => {
+  const target = fileTab.value?.target
+  return target && !isGrantFileTarget(target) && isSpaceWorkspaceDirectoryId(target.directoryId) ? t('desktop.context.defaultFolder') : fileTab.value?.rootName ?? ''
+})
 </script>
 
 <template>
@@ -47,7 +51,7 @@ const rootName = computed(() => fileTab.value && isSpaceWorkspaceDirectoryId(fil
             {{ t('desktop.context.retry') }}
           </button>
         </div>
-        <WorkspaceExplorer v-if="treeTarget" :key="`${fileTab.id}:${fileTab.target.directoryId}:${fileTab.target.revision}`" v-model:expanded-keys="fileView.expandedKeys" :nodes="fileView.nodes" :loading-keys="fileView.loadingKeys" :target="treeTarget" :reveal="fileTab.expand" :language="language" :load="filePreview.load" :refresh="filePreview.refresh" :api="files" @select="emit('select', fileTab.id, $event)" />
+        <WorkspaceExplorer v-if="treeTarget" :key="`${fileTab.id}:${fileTargetKey({ ...fileTab.target, path: '' })}`" v-model:expanded-keys="fileView.expandedKeys" :nodes="fileView.nodes" :loading-keys="fileView.loadingKeys" :target="treeTarget" :reveal="fileTab.expand" :language="language" :load="filePreview.load" :refresh="filePreview.refresh" :api="files" @select="emit('select', fileTab.id, $event)" />
       </template>
     </DesktopContextSplit>
   </WorkbenchPanelContent>

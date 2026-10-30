@@ -177,6 +177,7 @@ import {
   registerSkillServiceRpc,
   SkillService,
 } from './skills/SkillService'
+import { ConversationFileRoots } from './spaces/ConversationFileRoots'
 import { registerSpaceFileRpc } from './spaces/registerSpaceFileRpc'
 import { registerSpaceRpc } from './spaces/registerSpaceRpc'
 import { SpaceDependents } from './spaces/SpaceDependents'
@@ -381,14 +382,14 @@ export async function startBuddyService(
     })
     const fileResources = new FileResourceCoordinator(fileEngine)
     const spaceFiles = await host.start('runtime.space_files', ({ defer }) => {
-      const service = new SpaceFileService(spacesRepository, fileEngine, spaceWorkspaces)
+      const service = new SpaceFileService(spacesRepository, fileEngine, spaceWorkspaces, new ConversationFileRoots({ conversations, conversationGrants: conversationDirectoryGrants, spaces: spacesRepository, paths }))
       const notices = service.onDidChange(event => options.rpc.notify(spaceFilesChanged.method, event))
       const revoked = spaceService.onDidCommit(event => service.revoke(event.revokedDirectoryIds))
       defer(() => {
         notices.dispose()
         revoked.dispose()
       })
-      const diagnostics = service.onDidChange(event => record({ event: `space.file.${event.kind.replaceAll('-', '_')}`, level: event.kind === 'response-denied' ? 'warn' : 'info', operationId: event.operationId, spaceId: event.spaceId, directoryId: event.directoryId, revision: event.revision }))
+      const diagnostics = service.onDidChange(event => record({ event: `space.file.${event.kind.replaceAll('-', '_')}`, level: event.kind === 'response-denied' ? 'warn' : 'info', operationId: event.operationId, ...('spaceId' in event ? { spaceId: event.spaceId, directoryId: event.directoryId } : { conversationId: event.conversationId }), revision: event.revision }))
       defer(async () => {
         await service.dispose()
         diagnostics.dispose()

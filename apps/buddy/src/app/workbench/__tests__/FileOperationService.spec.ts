@@ -1,5 +1,5 @@
 import type { LocalSpace } from '@buddy-shared/spaces/spaceApi'
-import type { SpaceFileMutation, SpaceFileOperation, SpaceFileTarget } from '@buddy-shared/spaces/spaceFileApi'
+import type { FileTarget, SpaceFileMutation, SpaceFileOperation, SpaceFileTarget } from '@buddy-shared/spaces/spaceFileApi'
 import type { ResourceRef } from '@/workbench/common/workbench'
 import { getActiveSpaceDirectories } from '@buddy-shared/spaces/spaceApi'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -25,7 +25,7 @@ function fixture(confirm: boolean, root = '/shared') {
   const writeClipboardText = vi.fn<(text: string) => Promise<void>>().mockResolvedValue(undefined)
   const spaces = [space('one', root), space('two', '/shared'), space('other', '/other')]
   const disk = new Map([['/shared/a.txt', 'original']])
-  const physical = (value: SpaceFileTarget) => absolute(getActiveSpaceDirectories(spaces.find(space => space.id === value.spaceId)).find(directory => directory.id === value.directoryId)!.canonicalRoot, value.path)
+  const physical = (value: FileTarget) => 'conversationId' in value ? absolute(value.root, value.path) : absolute(getActiveSpaceDirectories(spaces.find(space => space.id === value.spaceId)).find(directory => directory.id === value.directoryId)!.canonicalRoot, value.path)
   const copies = new WorkingCopyService({
     read: async (value) => {
       const text = disk.get(physical(value.data as unknown as SpaceFileTarget))!
@@ -122,6 +122,26 @@ describe('file operations protect all physical aliases before disk mutation', ()
     f.spaces[0] = base
     await expect(f.operations.execute({ ...source, operationId: crypto.randomUUID(), action: { kind: 'rename', destination: 'denied.txt' } })).rejects.toThrow('FILE_PERMISSION_REVOKED')
     expect(f.disk.get('/extra/renamed.txt')).toBe('additional')
+  })
+
+  it('moves a granted-directory working copy and keeps its root', async () => {
+    const f = fixture(true)
+    f.disk.set('/out/a.txt', 'generated')
+    const source = { conversationId: 'conversation-1', root: '/out', path: 'a.txt' }
+    const value: ResourceRef = { scheme: 'file', id: JSON.stringify(['conversation-1', '/out', 'a.txt']), data: { ...source, canonicalRoot: '/out' } }
+    await f.copies.open(value)
+    const id = (await f.controller.open(value, 'a.txt'))!
+    await f.operations.execute({ ...source, operationId: crypto.randomUUID(), action: { kind: 'rename', destination: 'renamed.txt' } })
+    expect(f.disk.get('/out/renamed.txt')).toBe('generated')
+    expect(f.disk.has('/out/a.txt')).toBe(false)
+    expect(f.controller.layout.views[id]!.resource).toMatchObject({ id: JSON.stringify(['conversation-1', '/out', 'renamed.txt']), data: { conversationId: 'conversation-1', root: '/out', path: 'renamed.txt', canonicalRoot: '/out' } })
+    expect(f.controller.layout.views[id]!.resource.data).not.toHaveProperty('spaceId')
+  })
+
+  it('copies the absolute path of a granted-directory file without any space', async () => {
+    const f = fixture(true)
+    await f.operations.copyPath({ conversationId: 'conversation-1', root: '/out/', path: 'folder/a.txt' })
+    expect(f.writeClipboardText).toHaveBeenCalledExactlyOnceWith('/out/folder/a.txt')
   })
 
   it('retains dirty copies in every Space when saving is declined', async () => {

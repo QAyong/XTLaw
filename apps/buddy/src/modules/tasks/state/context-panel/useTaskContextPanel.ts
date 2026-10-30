@@ -2,10 +2,11 @@ import type { LocalArtifact } from '@buddy-shared/artifacts/artifactApi'
 import type { LocalChangeSetSummary } from '@buddy-shared/changes/changeApi'
 import type { ContextPanelSource } from '@buddy-shared/context-panel/contextPanel'
 import type { LocalSpaceAdditionalDirectory } from '@buddy-shared/spaces/spaceApi'
-import type { SpaceFileTarget } from '@buddy-shared/spaces/spaceFileApi'
+import type { FileTarget, SpaceFileTarget } from '@buddy-shared/spaces/spaceFileApi'
 import type { ArtifactViewMode, TaskContextTab, TaskFilesContextTab } from '../../model/context-panel/taskContextPanel'
 import type { UseTaskContextPanelOptions } from './typing'
 import { getActiveSpaceDirectories } from '@buddy-shared/spaces/spaceApi'
+import { isGrantFileTarget, sameFileDirectory, sameFileRoot, spaceFileTargetOnly } from '@buddy-shared/spaces/spaceFileApi'
 import { computed, readonly, watch } from 'vue'
 import { useContextPanelControl } from '@/platform/desktop/useContextPanelControl'
 import { readContextSelection, readContextTab } from '../../model/context-panel/readContextTab'
@@ -181,8 +182,7 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
     const directory = getActiveSpaceDirectories(space).find(directory => directory.id === target.directoryId && directory.revision === target.revision)
     if (!directory)
       throw new Error('FILE_DIRECTORY_UNAVAILABLE')
-    const candidates = store.tabs.value.filter(tab => tab.kind === 'files' && tab.target.spaceId === target.spaceId
-      && tab.target.directoryId === target.directoryId && tab.target.revision === target.revision)
+    const candidates = store.tabs.value.filter(tab => tab.kind === 'files' && sameFileRoot(tab.target, target))
     const previous = candidates.find(tab => tab.id === store.activeTab.value?.id) ?? candidates[0]
     openTab({
       id: previous?.id ?? `files:${crypto.randomUUID()}`,
@@ -214,7 +214,10 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
   }
 
   // The target at the task space's current directory revision, or null when the file is not in the task's space.
-  function resolveSpaceFile(target: SpaceFileTarget): { target: SpaceFileTarget, directory: LocalSpaceAdditionalDirectory } | null {
+  function resolveSpaceFile(target: FileTarget): { target: SpaceFileTarget, directory: LocalSpaceAdditionalDirectory } | null {
+    // A granted directory has no entry in the task's space; its files open through their own tab.
+    if (isGrantFileTarget(target))
+      return null
     const space = options.activeSpace?.value ?? null
     const directory = space?.id === target.spaceId ? getActiveSpaceDirectories(space).find(directory => directory.id === target.directoryId) : undefined
     // The saved revision can be older than the directory's; the file itself is checked by the caller's read.
@@ -222,21 +225,23 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
   }
 
   // Opens a file the caller already has a target for (a quote's source) the way a card does, in the file manager tab.
-  function openSpaceFile(target: SpaceFileTarget, treeVisible: boolean): { target: SpaceFileTarget, tabId: string } | null {
+  function openSpaceFile(target: FileTarget, treeVisible: boolean): { target: SpaceFileTarget, tabId: string } | null {
     const resolved = resolveSpaceFile(target)
     if (!resolved)
       return null
     previewTarget(resolved.target, resolved.directory, undefined, treeVisible)
     // The tab's own target is what the file surface opens, so the caller must open that one to share its view.
     const tab = store.activeTab.value
-    return tab?.kind === 'files' && tab.target.path === resolved.target.path ? { target: { ...tab.target }, tabId: tab.id } : null
+    const opened = tab?.kind === 'files' ? spaceFileTargetOnly(tab.target) : undefined
+    if (!tab || !opened || opened.path !== resolved.target.path)
+      return null
+    return { target: { ...opened }, tabId: tab.id }
   }
 
   function previewTarget(target: SpaceFileTarget, directory: LocalSpaceAdditionalDirectory, source: ContextPanelSource | undefined, treeVisible: boolean | undefined) {
     const exactTab = store.tabs.value.find(tab =>
       tab.kind === 'files'
-      && tab.target.spaceId === target.spaceId
-      && tab.target.directoryId === target.directoryId
+      && sameFileDirectory(tab.target, target)
       && tab.target.path === target.path
       && (!source || tab.source?.runId === source.runId),
     )
@@ -268,12 +273,11 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
 
   function findSpaceFilesTab(target: SpaceFileTarget, source?: ContextPanelSource) {
     const active = store.activeTab.value
-    return (active?.kind === 'files' && active.target.spaceId === target.spaceId && active.target.directoryId === target.directoryId && (!source || active.source?.runId === source.runId))
+    return (active?.kind === 'files' && sameFileDirectory(active.target, target) && (!source || active.source?.runId === source.runId))
       ? active
       : store.tabs.value.find(tab =>
           tab.kind === 'files'
-          && tab.target.spaceId === target.spaceId
-          && tab.target.directoryId === target.directoryId
+          && sameFileDirectory(tab.target, target)
           && (!source || tab.source?.runId === source.runId),
         )
   }
@@ -316,9 +320,13 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
   function isAvailable(tab: TaskContextTab): boolean {
     if (tab.kind !== 'files')
       return true
-    const space = fileSpaces.value.find(space => space.id === tab.target.spaceId)
-    const directory = getActiveSpaceDirectories(space).find(directory => directory.id === tab.target.directoryId)
-    return Boolean(directory && tab.target.directoryId === directory.id && tab.target.revision === directory.revision)
+    // A granted directory is checked by the service on every read, so a saved tab for one stays; space directories are checked here.
+    const target = tab.target
+    if (isGrantFileTarget(target))
+      return true
+    const space = fileSpaces.value.find(space => space.id === target.spaceId)
+    const directory = getActiveSpaceDirectories(space).find(directory => directory.id === target.directoryId)
+    return Boolean(directory && target.directoryId === directory.id && target.revision === directory.revision)
   }
 
   function hasTab(id: string) {
@@ -387,7 +395,7 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
     locateFile,
     previewFile,
     openSpaceFile,
-    resolveSpaceFile: (target: SpaceFileTarget) => resolveSpaceFile(target)?.target ?? null,
+    resolveSpaceFile: (target: FileTarget) => resolveSpaceFile(target)?.target ?? null,
     selectFile,
     setArtifactViewMode,
     restoreTab,

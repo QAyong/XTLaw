@@ -6,7 +6,7 @@ import type { WorkbenchView } from '@/workbench/common/workbench'
 import { resolveBuiltinFileOpening } from '@buddy-shared/files/fileOpening'
 import { taskFileTargetSchema } from '@buddy-shared/files/taskFileApi'
 import { parseLocalChatPublicError } from '@buddy-shared/runtime/localChatError'
-import { spaceFileTargetSchema } from '@buddy-shared/spaces/spaceFileApi'
+import { requireFileTarget, spaceFileTargetOnly } from '@buddy-shared/spaces/spaceFileApi'
 import { computed, shallowRef, useTemplateRef, watch } from 'vue'
 import WorkbenchMenu from '@/shared/ui/contributions/WorkbenchMenu.vue'
 import DesktopDocumentContent from '@/shared/ui/files/DesktopDocumentContent.vue'
@@ -37,7 +37,7 @@ const failed = shallowRef(false)
 const missing = shallowRef(false)
 const opening = useFileOpening()
 const taskTarget = computed(() => props.view.resource.scheme === 'task-file' ? taskFileTargetSchema.parse({ conversationId: props.view.resource.data.conversationId, path: props.view.resource.data.path }) : null)
-const target = computed(() => taskTarget.value ? null : spaceFileTargetSchema.strip().parse(props.view.resource.data))
+const target = computed(() => taskTarget.value ? null : requireFileTarget(props.view.resource.data))
 const directory = computed(() => taskTarget.value !== null && props.view.resource.data.kind === 'directory')
 const provider = computed(() => {
   const location = taskTarget.value ? 'standalone' : 'inline'
@@ -57,7 +57,7 @@ const quoteSource = computed<BuddyFileQuote['source'] | undefined>(() => target.
   : undefined)
 const identity = computed(() => {
   const { scheme, id, data } = props.view.resource
-  return JSON.stringify([scheme, id, data.conversationId, data.spaceId, data.directoryId, data.revision, data.path])
+  return JSON.stringify([scheme, id, data.conversationId, data.spaceId, data.directoryId, data.revision, data.root, data.path])
 })
 const attempt = shallowRef(0)
 watch([identity, attempt], async (_, __, onCleanup) => {
@@ -71,7 +71,7 @@ watch([identity, attempt], async (_, __, onCleanup) => {
   try {
     const value = taskTarget.value && props.taskFiles
       ? await props.taskFiles.read(taskTarget.value)
-      : await props.files.readFile(spaceFileTargetSchema.strip().parse(props.view.resource.data))
+      : await props.files.readFile(requireFileTarget(props.view.resource.data))
     if (active)
       preview.value = value
   }
@@ -95,7 +95,7 @@ function loadPreview() {
   attempt.value++
 }
 function captureResource() {
-  return { resource: spaceFileTargetSchema.strip().parse(props.view.resource.data) }
+  return { resource: spaceFileTargetOnly(requireFileTarget(props.view.resource.data)) }
 }
 </script>
 

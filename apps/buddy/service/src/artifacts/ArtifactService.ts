@@ -1,5 +1,6 @@
 import type { ImageContent } from '@earendil-works/pi-ai'
 import type { Buffer } from 'node:buffer'
+import type { ArtifactFileRoot } from '../../../shared/artifacts/artifactApi'
 import type { CapturedFileWriter } from '../changes/CapturedFileWriter'
 import type { DirectoryGrant } from '../directories/resolveGrantedPath'
 import type {
@@ -451,6 +452,24 @@ export class ArtifactService {
     if (current.root !== target.root || current.path !== target.path)
       throw new ArtifactError('DIRECTORY_NOT_AUTHORIZED')
     return { path: target.path, kind: metadata.isDirectory() ? 'directory' : 'file' }
+  }
+
+  // The directory an output was written into and its path inside it, so the file manager can open that directory as a root (Spec-044).
+  async resolveFileRoot(id: string): Promise<ArtifactFileRoot> {
+    const artifact = this.#requireVisibleArtifact(id)
+    if (!this.#fileAccess)
+      throw new ArtifactError('DIRECTORY_NOT_AUTHORIZED')
+    const target = await this.#fileAccess.resolve(artifact)
+    const metadata = await stat(target.path)
+    if ((artifact.kind === 'file' && !metadata.isFile()) || (artifact.kind === 'directory' && !metadata.isDirectory()))
+      throw new ArtifactError('VALIDATION_FAILED')
+    const current = await this.#fileAccess.resolve(this.#requireVisibleArtifact(id))
+    if (current.root !== target.root || current.path !== target.path)
+      throw new ArtifactError('DIRECTORY_NOT_AUTHORIZED')
+    const offset = relative(target.root, target.path)
+    if (offset === '..' || offset.startsWith(`..${sep}`) || isAbsolute(offset))
+      throw new ArtifactError('PATH_OUTSIDE_GRANTED_DIRECTORY')
+    return { conversationId: artifact.conversationId, root: target.root, path: offset.split(sep).join('/'), kind: artifact.kind }
   }
 
   async resolveMedia(id: string) {

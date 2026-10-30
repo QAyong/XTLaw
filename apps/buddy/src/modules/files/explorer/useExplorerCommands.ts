@@ -1,5 +1,5 @@
 import type { LocalChatApi } from '@buddy-electron/shared/localChatApi'
-import type { SpaceFileMutation, SpaceFileTarget } from '@buddy-shared/spaces/spaceFileApi'
+import type { FileTarget, SpaceFileMutation } from '@buddy-shared/spaces/spaceFileApi'
 import type { ExplorerNode } from '@/shared/ui/explorer/treeCollection'
 import { parseLocalChatPublicError } from '@buddy-shared/runtime/localChatError'
 import { useDialog } from 'naive-ui'
@@ -8,7 +8,7 @@ import { useFileOperations } from '../fileOperationsContext'
 import { explorerLabels } from './explorerLabels'
 
 export function useExplorerCommands(options: {
-  target: () => SpaceFileTarget
+  target: () => FileTarget
   language: () => string
   api: Pick<LocalChatApi['spaces'], 'revealFile' | 'cancelFileOperation'>
   refresh: () => Promise<void>

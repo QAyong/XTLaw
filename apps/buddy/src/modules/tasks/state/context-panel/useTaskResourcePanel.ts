@@ -5,7 +5,7 @@ import type { ContextPanelSource } from '@buddy-shared/context-panel/contextPane
 import type { ExtensionFileOpeningSource } from '@buddy-shared/extensions/extensionFileOpening'
 import type { FileOpeningProvider } from '@buddy-shared/files/fileOpening'
 import type { TaskFile, TaskFileLink } from '@buddy-shared/files/taskFileApi'
-import type { SpaceFileTarget } from '@buddy-shared/spaces/spaceFileApi'
+import type { FileTarget, SpaceFileTarget } from '@buddy-shared/spaces/spaceFileApi'
 import type { Ref } from 'vue'
 import type { UseTaskContextPanelOptions } from './typing'
 import { localFileLinkPath } from '@buddy-shared/files/fileLink'
@@ -39,7 +39,7 @@ interface TaskResourcePanelOptions extends UseTaskContextPanelOptions {
   linkOpening: Readonly<Ref<BrowserPreferences['linkOpening']>>
   closeView?: (id: string) => Promise<boolean>
   closeFiles?: (tabId: string) => Promise<boolean>
-  revealOpenOfficeDocument?: (target: SpaceFileTarget) => boolean
+  revealOpenOfficeDocument?: (target: FileTarget) => boolean
   browser: Pick<DesktopBrowserApi, 'ensureSession' | 'close' | 'openArtifact' | 'openFile' | 'onStateChanged' | 'navigate'>
 }
 
@@ -268,7 +268,7 @@ export function useTaskResourcePanel(options: TaskResourcePanelOptions) {
   }
 
   // Where a quote's "locate source" opens its file: the route an output card takes (Spec-043). Null when the file is not in the task's space.
-  function openQuoteSourceFile(target: SpaceFileTarget): { target: SpaceFileTarget, tabId: string, viewId?: string } | null {
+  function openQuoteSourceFile(target: FileTarget): { target: SpaceFileTarget, tabId: string, viewId?: string } | null {
     const current = taskContext.resolveSpaceFile(target)
     if (!current)
       return null

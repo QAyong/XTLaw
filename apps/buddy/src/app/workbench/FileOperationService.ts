@@ -1,11 +1,11 @@
 import type { LocalChatApi } from '@buddy-electron/shared/localChatApi'
 import type { LocalSpace } from '@buddy-shared/spaces/spaceApi'
-import type { SpaceFileMutation, SpaceFileOperation, SpaceFileTarget } from '@buddy-shared/spaces/spaceFileApi'
+import type { FileTarget, SpaceFileMutation, SpaceFileOperation } from '@buddy-shared/spaces/spaceFileApi'
 import type { ResourceRef } from '@/workbench/common/workbench'
 import type { WorkbenchController } from '@/workbench/services/WorkbenchController'
 import type { WorkingCopyService } from '@/workbench/services/WorkingCopyService'
 import { getActiveSpaceDirectories } from '@buddy-shared/spaces/spaceApi'
-import { spaceFileTargetSchema } from '@buddy-shared/spaces/spaceFileApi'
+import { fileTargetKey, isGrantFileTarget, readFileTarget } from '@buddy-shared/spaces/spaceFileApi'
 import { shallowRef } from 'vue'
 import { resourceKey } from '@/workbench/common/workbench'
 
@@ -21,7 +21,7 @@ interface Options {
 }
 
 export class FileOperationService {
-  readonly clipboard = shallowRef<{ target: SpaceFileTarget, move: boolean } | null>(null)
+  readonly clipboard = shallowRef<{ target: FileTarget, move: boolean } | null>(null)
   readonly #options: Options
   #pending: Promise<unknown> = Promise.resolve()
   #stopped = false
@@ -37,7 +37,7 @@ export class FileOperationService {
     return pending
   }
 
-  async copyPath(target: SpaceFileTarget): Promise<void> {
+  async copyPath(target: FileTarget): Promise<void> {
     if (this.#stopped)
       throw new Error('FILE_OPERATIONS_STOPPED')
     const path = absolute(this.root(target), target.path)
@@ -49,7 +49,10 @@ export class FileOperationService {
     await this.#pending.catch(() => {})
   }
 
-  root(target: SpaceFileTarget): string {
+  root(target: FileTarget): string {
+    // A granted-directory target carries the folder's real path; the service has already matched it to an active grant.
+    if (isGrantFileTarget(target))
+      return target.root
     const space = this.#options.spaces().find(space => space.id === target.spaceId)
     const directory = getActiveSpaceDirectories(space).find(directory => directory.id === target.directoryId)
     if (!directory || directory.id !== target.directoryId || directory.revision !== target.revision || directory.revokedAt)
@@ -60,23 +63,23 @@ export class FileOperationService {
   #physical(resource: ResourceRef): string | null {
     if (resource.scheme !== 'file' && resource.scheme !== 'file-preview')
       return null
-    const parsed = spaceFileTargetSchema.strip().safeParse(resource.data)
-    if (!parsed.success)
+    const parsed = readFileTarget(resource.data)
+    if (!parsed)
       return null
     try {
-      return absolute(typeof resource.data.canonicalRoot === 'string' ? resource.data.canonicalRoot : this.root(parsed.data), parsed.data.path)
+      return absolute(typeof resource.data.canonicalRoot === 'string' ? resource.data.canonicalRoot : this.root(parsed), parsed.path)
     }
     catch { return null }
   }
 
-  #relocate(resource: ResourceRef, source: string, destination: string, target: SpaceFileTarget): ResourceRef {
+  #relocate(resource: ResourceRef, source: string, destination: string, target: FileTarget): ResourceRef {
     const path = this.#physical(resource)!
     const nextPath = destination + path.slice(source.length)
-    const oldTarget = spaceFileTargetSchema.strip().parse(resource.data)
+    const oldTarget = readFileTarget(resource.data)!
     const oldRoot = typeof resource.data.canonicalRoot === 'string' ? resource.data.canonicalRoot : this.root(oldTarget)
     const sameRoot = contains(absolute(oldRoot, ''), nextPath)
     const nextTarget = sameRoot ? { ...oldTarget, path: relative(absolute(oldRoot, ''), nextPath) } : { ...target, path: `${target.path}${path.slice(source.length)}` }
-    return { scheme: resource.scheme, id: JSON.stringify([nextTarget.directoryId, nextTarget.revision, nextTarget.path]), data: { ...spaceFileTargetSchema.strip().parse(nextTarget), canonicalRoot: sameRoot ? oldRoot : this.root(target) } }
+    return { scheme: resource.scheme, id: fileTargetKey(nextTarget), data: { ...readFileTarget(nextTarget)!, canonicalRoot: sameRoot ? oldRoot : this.root(target) } }
   }
 
   async #execute(input: SpaceFileMutation): Promise<SpaceFileOperation | null> {

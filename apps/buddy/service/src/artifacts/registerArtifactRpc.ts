@@ -8,7 +8,7 @@ const idSchema = z.string().trim().min(1).max(256)
 
 export interface RegisterArtifactRpcOptions {
   rpc: RuntimeRequestRegistrar
-  service: Pick<ArtifactService, 'readText' | 'resolveBrowserEntry' | 'resolvePreview' | 'resolveExternalEntry' | 'resolveMedia' | 'locate'>
+  service: Pick<ArtifactService, 'readText' | 'resolveBrowserEntry' | 'resolvePreview' | 'resolveExternalEntry' | 'resolveMedia' | 'locate' | 'resolveFileRoot'>
 }
 
 export function registerArtifactRpc(options: RegisterArtifactRpcOptions): () => void {
@@ -26,6 +26,7 @@ export function registerArtifactRpc(options: RegisterArtifactRpcOptions): () => 
       return options.service.resolvePreview(input.artifactId)
     }),
     registerRuntimeRequest(options.rpc, artifactsRpc.locate, input => options.service.locate(input.artifactId)),
+    registerRuntimeRequest(options.rpc, artifactsRpc.resolveFileRoot, input => options.service.resolveFileRoot(input.artifactId)),
     registerRuntimeRequest(options.rpc, artifactsRpc.resolveExternalEntry, input => options.service.resolveExternalEntry(input.conversationId, input.artifactId)),
     registerRuntimeRequest(options.rpc, artifactsRpc.readText, (input) => {
       return options.service.readText(input.artifactId)

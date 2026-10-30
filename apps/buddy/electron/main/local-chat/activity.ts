@@ -30,6 +30,7 @@ export function registerActivityIpc(context: LocalChatIpcContext): void {
       throw new Error(error)
   })
 
+  handle(LOCAL_CHAT_IPC_CHANNELS.artifactsResolveFileRoot, (_event, input) => request(artifactsRpc.resolveFileRoot, artifactsRpc.resolveFileRoot.input.parse(input)))
   handle(LOCAL_CHAT_IPC_CHANNELS.artifactsReadText, (_event, input) => request(artifactsRpc.readText, artifactsRequestSchemas.artifactText.parse(input)))
   handle(LOCAL_CHAT_IPC_CHANNELS.artifactsOpenExternal, async (_event, input) => {
     const target = artifactOpenRequestSchema.parse(input)

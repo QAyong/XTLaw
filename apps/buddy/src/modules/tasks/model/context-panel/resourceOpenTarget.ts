@@ -1,11 +1,11 @@
-import type { SpaceFileTarget } from '@buddy-shared/spaces/spaceFileApi'
+import type { FileTarget } from '@buddy-shared/spaces/spaceFileApi'
 import type { TaskContextTab } from './taskContextPanel'
 import type { WorkbenchView } from '@/workbench/common/workbench'
-import { spaceFileTargetSchema } from '@buddy-shared/spaces/spaceFileApi'
+import { readFileTarget } from '@buddy-shared/spaces/spaceFileApi'
 
 export type ResourceOpenTarget
-  = | { key: string, kind: 'directory', directory: SpaceFileTarget }
-    | { key: string, kind: 'file', target: SpaceFileTarget }
+  = | { key: string, kind: 'directory', directory: FileTarget }
+    | { key: string, kind: 'file', target: FileTarget }
     | { key: string, kind: 'artifact', artifact: { conversationId: string, artifactId: string }, file: boolean }
 
 export function resourceOpenTarget(tab: TaskContextTab | null, view?: Pick<WorkbenchView, 'id' | 'resource'> | null): ResourceOpenTarget | null {
@@ -20,10 +20,10 @@ export function resourceOpenTarget(tab: TaskContextTab | null, view?: Pick<Workb
   if (tab?.kind === 'view' && view?.id === tab.viewId) {
     const resource = view.resource
     const parsed = resource.scheme === 'extension'
-      ? spaceFileTargetSchema.safeParse(resource.data.fileTarget)
-      : ['file', 'file-preview'].includes(resource.scheme) ? spaceFileTargetSchema.strip().safeParse(resource.data) : null
-    if (parsed?.success && parsed.data.path)
-      return { key: JSON.stringify([tab.id, parsed.data]), kind: 'file', target: parsed.data }
+      ? readFileTarget(resource.data.fileTarget)
+      : ['file', 'file-preview'].includes(resource.scheme) ? readFileTarget(resource.data) : null
+    if (parsed?.path)
+      return { key: JSON.stringify([tab.id, parsed]), kind: 'file', target: parsed }
   }
   return null
 }

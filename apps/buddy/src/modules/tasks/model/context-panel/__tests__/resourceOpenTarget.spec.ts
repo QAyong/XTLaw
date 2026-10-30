@@ -45,3 +45,20 @@ it('does not reuse any resource for browser, resource-less plugin or empty tabs'
   expect(resourceOpenTarget({ id: 'browser-1', kind: 'browser', scope: 'independent', conversationId: null })).toBeNull()
   expect(resourceOpenTarget({ id: 'view-1', kind: 'view', scope: 'independent', label: 'Plugin', viewId: 'view-1' })).toBeNull()
 })
+
+it('opens a granted-directory file tab at its root and keeps the identity stable across file selections', () => {
+  const tab: TaskFilesContextTab = { id: 'files-1', kind: 'files', scope: 'independent', rootName: 'out', target: { conversationId: 'conversation-1', root: '/work/out', path: 'report.docx' } }
+  const first = resourceOpenTarget(tab)
+  expect(first).toMatchObject({ kind: 'directory', directory: { conversationId: 'conversation-1', root: '/work/out', path: '' } })
+  expect(resourceOpenTarget({ ...tab, target: { ...tab.target, path: 'code.ts' } })).toEqual(first)
+  expect(resourceOpenTarget({ ...tab, target: { ...tab.target, root: '/work/other' } })?.key).not.toBe(first?.key)
+})
+
+it.each(['file', 'file-preview'])('resolves a granted-directory %s view and a plugin view that shows one', (scheme) => {
+  const tab: TaskViewContextTab = { id: 'view-1', kind: 'view', scope: 'independent', label: 'report.docx', viewId: 'view-1' }
+  const target = { conversationId: 'conversation-1', root: '/work/out', path: 'report.docx' }
+  expect(resourceOpenTarget(tab, { id: tab.viewId, resource: { scheme, id: 'file-1', data: { ...target, canonicalRoot: '/work/out' } } })).toMatchObject({ kind: 'file', target })
+  const plugin = { id: tab.viewId, resource: { scheme: 'extension', id: 'plugin-resource', data: { fileTarget: target } } }
+  expect(resourceOpenTarget(tab, plugin)).toMatchObject({ kind: 'file', target })
+  expect(resourceOpenTarget(tab, { ...plugin, resource: { ...plugin.resource, data: { fileTarget: { ...target, path: '' } } } })).toBeNull()
+})

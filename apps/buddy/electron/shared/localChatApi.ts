@@ -1,5 +1,5 @@
 import type { LocalConversationStatus } from '@buddy-shared/runs/conversationStatusApi'
-import type { ArtifactChangeNotice, ArtifactOpenRequest, ArtifactOpenResult, LocalArtifactText } from '../../shared/artifacts/artifactApi'
+import type { ArtifactChangeNotice, ArtifactFileRoot, ArtifactOpenRequest, ArtifactOpenResult, LocalArtifactText } from '../../shared/artifacts/artifactApi'
 import type { LocalAutomation, LocalAutomationCreateRequest, LocalAutomationListRequest, LocalAutomationMutationRequest, LocalAutomationOccurrenceListRequest, LocalAutomationOccurrencePage, LocalAutomationPage, LocalAutomationPreviewRequest, LocalAutomationPreviewResult, LocalAutomationRunNowResult, LocalAutomationUpdateRequest } from '../../shared/automation/automationApi'
 import type { BuddyCatalog, BuddyCreate, BuddyDefaultUpdate, BuddyMutation, BuddyToolOption, BuddyUpdate, LocalBuddy } from '../../shared/buddies/buddyApi'
 import type { ChangeOverviewRequest, ChangeRecoveryListRequest, ChangeRecoveryRecheckRequest, ChangeRecoveryResolveRequest, ChangeSetChangeNotice, LocalChangeOverview, LocalChangeRecoveryItem, LocalChangeSetDetail } from '../../shared/changes/changeApi'
@@ -43,7 +43,7 @@ import type { LocalBuddyServiceSupervisorState } from '../../shared/runtime/serv
 import type { LocalSkillCatalog, SkillChangeNotice, SkillDetail, SkillDirectoryRequest, SkillFileTarget, SkillInstallPreview, SkillPreviewInput } from '../../shared/skills/skillApi'
 import type { LocalSpace, LocalSpaceCreateInput, LocalSpaceFile, LocalSpaceUpdateInput, SpaceChangeNotice } from '../../shared/spaces/spaceApi'
 
-import type { LocalSpaceDirectoryPage, LocalSpaceFilePreview, SpaceDirectoryRequest, SpaceFileTarget } from '../../shared/spaces/spaceFileApi'
+import type { FileTarget, LocalSpaceDirectoryPage, LocalSpaceFilePreview, SpaceDirectoryRequest } from '../../shared/spaces/spaceFileApi'
 import type { LocalUsageAnalytics, LocalUsageTopTasks, LocalUsageTrend, UsagePeriod, UsageTopTasksRequest, UsageTrendRequest } from '../../shared/usage/usageAnalyticsApi'
 
 import type { LocalUsageSnapshot } from '../../shared/usage/usageApi'
@@ -105,6 +105,7 @@ export const LOCAL_CHAT_IPC_CHANNELS = {
   artifactsChanged: 'lexora:buddy:artifacts:changed',
   changesChanged: 'lexora:buddy:changes:changed',
   artifactsReadText: 'lexora:buddy:artifacts:read-text',
+  artifactsResolveFileRoot: 'lexora:buddy:artifacts:resolve-file-root',
   artifactsRevealFile: 'lexora:buddy:artifacts:reveal-file',
   artifactsOpenExternal: 'lexora:buddy:artifacts:open-external',
   automationChanged: 'lexora:buddy:automations:changed',
@@ -302,6 +303,7 @@ export interface LocalChatApi {
     onChanged: (listener: (event: ArtifactChangeNotice) => void) => () => void
     readText: (artifactId: string) => Promise<LocalArtifactText>
     revealFile: (input: { artifactId: string }) => Promise<void>
+    resolveFileRoot: (input: { artifactId: string }) => Promise<ArtifactFileRoot>
     openExternal: (input: ArtifactOpenRequest) => Promise<ArtifactOpenResult>
   }
   automations: {
@@ -401,16 +403,16 @@ export interface LocalChatApi {
   spaces: {
     onChanged: (listener: (event: SpaceChangeNotice) => void) => () => void
     mutateFile: (input: import('../../shared/spaces/spaceFileApi').SpaceFileMutation) => Promise<import('../../shared/spaces/spaceFileApi').SpaceFileOperation>
-    fileHistory: (input: SpaceFileTarget) => Promise<import('../../shared/spaces/spaceFileApi').SpaceFileOperation[]>
-    queryFileOperation: (input: SpaceFileTarget & { operationId: string }) => Promise<import('../../shared/spaces/spaceFileApi').SpaceFileOperation | null>
-    acknowledgeFileOperation: (input: SpaceFileTarget & { operationId: string }) => Promise<import('../../shared/spaces/spaceFileApi').SpaceFileOperation>
-    cancelFileOperation: (input: SpaceFileTarget & { operationId: string }) => Promise<null>
+    fileHistory: (input: FileTarget) => Promise<import('../../shared/spaces/spaceFileApi').SpaceFileOperation[]>
+    queryFileOperation: (input: FileTarget & { operationId: string }) => Promise<import('../../shared/spaces/spaceFileApi').SpaceFileOperation | null>
+    acknowledgeFileOperation: (input: FileTarget & { operationId: string }) => Promise<import('../../shared/spaces/spaceFileApi').SpaceFileOperation>
+    cancelFileOperation: (input: FileTarget & { operationId: string }) => Promise<null>
     onFilesChanged: (listener: (event: import('../../shared/spaces/spaceFileApi').SpaceFilesChange) => void) => () => void
-    readDocument: (input: SpaceFileTarget) => Promise<import('../../shared/spaces/spaceFileApi').SpaceTextDocument>
+    readDocument: (input: FileTarget) => Promise<import('../../shared/spaces/spaceFileApi').SpaceTextDocument>
     saveDocument: (input: import('../../shared/spaces/spaceFileApi').SpaceSaveDocument) => Promise<import('../../shared/spaces/spaceFileApi').SpaceSaveResult>
     listDirectory: (input: SpaceDirectoryRequest) => Promise<LocalSpaceDirectoryPage>
-    readFile: (input: SpaceFileTarget) => Promise<LocalSpaceFilePreview>
-    revealFile: (input: SpaceFileTarget) => Promise<void>
+    readFile: (input: FileTarget) => Promise<LocalSpaceFilePreview>
+    revealFile: (input: FileTarget) => Promise<void>
     openFileExternal: (input: import('../../shared/spaces/spaceFileApi').SpaceFileOpenRequest) => Promise<ArtifactOpenResult>
     create: (input: LocalSpaceCreateInput) => Promise<LocalSpace>
     delete: (spaceId: string) => Promise<LocalMutationResult>

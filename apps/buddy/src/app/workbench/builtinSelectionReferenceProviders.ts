@@ -1,22 +1,22 @@
 import type { DesktopBrowserApi } from '@buddy-shared/browser/browserDesktopApi'
-import type { SpaceFileTarget } from '@buddy-shared/spaces/spaceFileApi'
+import type { FileTarget } from '@buddy-shared/spaces/spaceFileApi'
 import type { ExtensionDocumentRouter } from './extensionDocuments'
 import type { TaskResourcePanel } from '@/modules/tasks/contracts'
 import type { SelectionReferenceLocateRequest, SelectionReferenceProvider, WorkbenchSelectionReferences } from '@/shared/ui/selection/workbenchSelectionReferences'
 import type { WorkbenchController } from '@/workbench/services/WorkbenchController'
 import { isTextArtifactMimeType } from '@buddy-shared/artifacts/artifactApi'
 import { buddyArtifactQuoteSchema, buddyBrowserQuoteSchema, buddyFileQuoteSchema } from '@buddy-shared/conversation/buddyUserContent'
-import { spaceFileTargetSchema } from '@buddy-shared/spaces/spaceFileApi'
+import { readFileTarget } from '@buddy-shared/spaces/spaceFileApi'
 import { isMarkdownFile } from '@/shared/ui/files/fileDocumentPresentation'
 
 export interface BuiltinSelectionReferenceOptions {
   controller: WorkbenchController
   documents: Pick<ExtensionDocumentRouter, 'isQuotable'>
-  openFile: (target: SpaceFileTarget, current: () => boolean, acceptTab: (tabId: string) => boolean) => Promise<string | null | undefined>
+  openFile: (target: FileTarget, current: () => boolean, acceptTab: (tabId: string) => boolean) => Promise<string | null | undefined>
   resources: () => TaskResourcePanel
   independent: () => boolean
   ready: () => boolean
-  locateFile: (target: SpaceFileTarget) => Promise<unknown>
+  locateFile: (target: FileTarget) => Promise<unknown>
   browser?: DesktopBrowserApi
   navigationVersion: () => number
 }
@@ -47,7 +47,7 @@ function createFileProvider(options: BuiltinSelectionReferenceOptions): Selectio
     if (!view || !['file', 'file-preview', 'extension'].includes(view.resource.scheme))
       return null
     // A document opened by a plugin is quotable only when that plugin may quote and the file it shows is known.
-    if (view.resource.scheme === 'extension' && (!spaceFileTargetSchema.safeParse(view.resource.data.fileTarget).success || !options.documents.isQuotable(String((view.resource.data.fileTarget as { path?: string })?.path))))
+    if (view.resource.scheme === 'extension' && (!readFileTarget(view.resource.data.fileTarget) || !options.documents.isQuotable(String((view.resource.data.fileTarget as { path?: string })?.path))))
       return null
     const tabId = typeof view.state.contextTabId === 'string' ? view.state.contextTabId : view.id
     const tab = options.resources().allTabs.value.find(tab => tab.id === tabId)

@@ -9,6 +9,7 @@ export function createActivityApi(): Pick<LocalChatApi, 'artifacts' | 'notificat
   return {
     artifacts: Object.freeze({
       revealFile: input => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.artifactsRevealFile, { artifactId: input.artifactId }),
+      resolveFileRoot: input => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.artifactsResolveFileRoot, { artifactId: input.artifactId }),
       openExternal: input => ipcRenderer.invoke(LOCAL_CHAT_IPC_CHANNELS.artifactsOpenExternal, { ...input }),
       onChanged: listener => subscribe<ArtifactChangeNotice>(LOCAL_CHAT_IPC_CHANNELS.artifactsChanged, listener),
       readText: artifactId => ipcRenderer.invoke(

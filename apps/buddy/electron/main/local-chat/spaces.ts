@@ -2,7 +2,7 @@ import type { LocalChatIpcContext } from './registrar'
 import { shell } from 'electron'
 import { validationRequestSchemas } from '../../../shared/runtime/apiValidation'
 import { spacesRequestSchemas, spacesRpc } from '../../../shared/spaces/spaceApi'
-import { spaceDirectoryRequestSchema, spaceFileOpenRequestSchema, spaceFilesRpc, spaceFileTargetSchema, spaceSaveDocumentSchema } from '../../../shared/spaces/spaceFileApi'
+import { fileTargetSchema, spaceDirectoryRequestSchema, spaceFileOpenRequestSchema, spaceFilesRpc, spaceSaveDocumentSchema } from '../../../shared/spaces/spaceFileApi'
 import { LOCAL_CHAT_IPC_CHANNELS } from '../../shared/localChatApi'
 import { translateDesktopNative } from '../desktopNativeI18n'
 import { SpaceDirectorySelectionLedger } from '../spaceDirectorySelections'
@@ -18,17 +18,17 @@ export function registerSpacesIpc(context: LocalChatIpcContext): void {
   handle(LOCAL_CHAT_IPC_CHANNELS.spaceFilesAcknowledge, (_event, input) => request(spaceFilesRpc.acknowledge, spaceFilesRpc.acknowledge.input.parse(input)))
   handle(LOCAL_CHAT_IPC_CHANNELS.spaceFilesCancel, (_event, input) => request(spaceFilesRpc.cancel, spaceFilesRpc.cancel.input.parse(input)))
 
-  handle(LOCAL_CHAT_IPC_CHANNELS.spaceDocumentRead, (_event, input) => request(spaceFilesRpc.readDocument, spaceFileTargetSchema.parse(input)))
+  handle(LOCAL_CHAT_IPC_CHANNELS.spaceDocumentRead, (_event, input) => request(spaceFilesRpc.readDocument, fileTargetSchema.parse(input)))
   handle(LOCAL_CHAT_IPC_CHANNELS.spaceDocumentSave, (_event, input) => request(spaceFilesRpc.saveDocument, spaceSaveDocumentSchema.parse(input)))
   handle(LOCAL_CHAT_IPC_CHANNELS.spaceFilesList, (_event, input) => request(spaceFilesRpc.list, spaceDirectoryRequestSchema.parse(input)))
-  handle(LOCAL_CHAT_IPC_CHANNELS.spaceFilesRead, (_event, input) => request(spaceFilesRpc.read, spaceFileTargetSchema.parse(input)))
+  handle(LOCAL_CHAT_IPC_CHANNELS.spaceFilesRead, (_event, input) => request(spaceFilesRpc.read, fileTargetSchema.parse(input)))
   handle(LOCAL_CHAT_IPC_CHANNELS.spaceFilesOpenExternal, async (_event, input) => {
     const { action, ...file } = spaceFileOpenRequestSchema.parse(input)
     const entry = await request(spaceFilesRpc.locate, file)
     return openArtifactEntry(entry, action, options.getWindow())
   })
   handle(LOCAL_CHAT_IPC_CHANNELS.spaceFilesReveal, async (_event, input) => {
-    const target = await request(spaceFilesRpc.locate, spaceFileTargetSchema.parse(input))
+    const target = await request(spaceFilesRpc.locate, fileTargetSchema.parse(input))
     if (target.kind === 'file') {
       shell.showItemInFolder(target.path)
       return

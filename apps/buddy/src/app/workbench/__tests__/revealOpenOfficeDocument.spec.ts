@@ -2,7 +2,7 @@
 import type { DesktopBrowserApi } from '@buddy-electron/shared/desktopApi'
 import type { LocalArtifact } from '@buddy-shared/artifacts/artifactApi'
 import type { LocalSpace } from '@buddy-shared/spaces/spaceApi'
-import type { SpaceFileTarget } from '@buddy-shared/spaces/spaceFileApi'
+import type { FileTarget, SpaceFileTarget } from '@buddy-shared/spaces/spaceFileApi'
 import type { TaskResourcePanel } from '@/modules/tasks/contracts'
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import { nextTick, shallowRef } from 'vue'
@@ -58,7 +58,7 @@ function fixture() {
     throw new Error('unexpected file opening')
   }
   let panel: TaskResourcePanel
-  const reveal = vi.fn((file: SpaceFileTarget) => revealOpenOfficeDocument(controller, panel, file))
+  const reveal = vi.fn((file: FileTarget) => revealOpenOfficeDocument(controller, panel, file))
   panel = scope.run(() => useTaskResourcePanel({ ...options, autoCollapse: shallowRef(false), linkOpening: shallowRef('in-app'), files, openFile, browser, revealOpenOfficeDocument: reveal }))!
   const projection = new ContextTabProjection(controller, () => panel, () => true)
   onTestFinished(async () => {
@@ -70,6 +70,20 @@ function fixture() {
   }
   return { panel, controller, reveal, openEditor, registration }
 }
+
+describe('revealing an open Office document that lives in a granted directory', () => {
+  it('matches the open editor by conversation, root and path, and not by another root', async () => {
+    const f = fixture()
+    const granted = { conversationId: 'conversation-1', root: '/work/out', path: 'brief.docx' }
+    const id = (await f.controller.open({ scheme: 'extension', id: JSON.stringify(granted), data: { fileTarget: { ...granted } } }, 'brief.docx'))!
+    expect(revealOpenOfficeDocument(f.controller, f.panel, granted)).toBe(true)
+    expect(f.panel.activeTab.value).toMatchObject({ kind: 'view', viewId: id })
+    expect(revealOpenOfficeDocument(f.controller, f.panel, { ...granted, root: '/work/other' })).toBe(false)
+    expect(revealOpenOfficeDocument(f.controller, f.panel, { ...granted, conversationId: 'conversation-2' })).toBe(false)
+    expect(revealOpenOfficeDocument(f.controller, f.panel, { ...granted, path: 'notes.txt' })).toBe(false)
+    expect(revealOpenOfficeDocument(f.controller, f.panel, target)).toBe(false)
+  })
+})
 
 describe('revealing an open Office document from an artifact card', () => {
   it.each(['report.docx', 'report.xlsx', 'report.pptx', 'REPORT.DOCX'])('returns repeated %s card clicks to the existing editor without touching the file manager', async (path) => {

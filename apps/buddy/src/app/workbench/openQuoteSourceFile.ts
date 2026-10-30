@@ -1,4 +1,4 @@
-import type { SpaceFileTarget } from '@buddy-shared/spaces/spaceFileApi'
+import type { FileTarget } from '@buddy-shared/spaces/spaceFileApi'
 import type { TaskResourcePanel } from '@/modules/tasks/contracts'
 
 // "Locate source" on a file quote opens the file the way an output card does: in the file manager tab
@@ -6,10 +6,10 @@ import type { TaskResourcePanel } from '@/modules/tasks/contracts'
 export function createQuoteSourceOpener(deps: {
   resources: () => TaskResourcePanel
   // Opens the file inside a file manager tab; concurrent calls for the same tab and file share one view.
-  openInTab: (target: SpaceFileTarget, tabId: string) => Promise<string | null | undefined>
-  openStandalone: (target: SpaceFileTarget, current: () => boolean) => Promise<string | null | undefined>
+  openInTab: (target: FileTarget, tabId: string) => Promise<string | null | undefined>
+  openStandalone: (target: FileTarget, current: () => boolean) => Promise<string | null | undefined>
 }) {
-  return async (target: SpaceFileTarget, current: () => boolean, acceptTab: (tabId: string) => boolean = () => true): Promise<string | null | undefined> => {
+  return async (target: FileTarget, current: () => boolean, acceptTab: (tabId: string) => boolean = () => true): Promise<string | null | undefined> => {
     if (!current())
       return null
     const opened = deps.resources().openQuoteSourceFile(target)

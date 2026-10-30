@@ -2,7 +2,7 @@ import type { DesktopArtifactOpening, DesktopBrowserApi } from '@buddy-electron/
 import type { LocalArtifact } from '@buddy-shared/artifacts/artifactApi'
 import type { FileOpeningProvider } from '@buddy-shared/files/fileOpening'
 import type { LocalSpace } from '@buddy-shared/spaces/spaceApi'
-import type { SpaceFileTarget } from '@buddy-shared/spaces/spaceFileApi'
+import type { FileTarget, SpaceFileTarget } from '@buddy-shared/spaces/spaceFileApi'
 // @vitest-environment jsdom
 import { builtinFileOpeningProviders, resolveFileOpening } from '@buddy-shared/files/fileOpening'
 import { describe, expect, it, vi } from 'vitest'
@@ -42,7 +42,7 @@ function folder(overrides: Partial<LocalArtifact> = {}): LocalArtifact {
   return artifact({ artifactId: 'folder', kind: 'directory', mimeType: 'inode/directory', name: 'reports', path: '/workspace/docs/reports', sizeBytes: 0, ...overrides })
 }
 
-function fixture(activeSpace: LocalSpace | null = space(), extra: { artifactOpening?: DesktopArtifactOpening, providers?: FileOpeningProvider[], defaults?: Record<string, { standalone?: string }>, outputs?: LocalArtifact[], revealOpenOfficeDocument?: (target: SpaceFileTarget) => boolean } = {}) {
+function fixture(activeSpace: LocalSpace | null = space(), extra: { artifactOpening?: DesktopArtifactOpening, providers?: FileOpeningProvider[], defaults?: Record<string, { standalone?: string }>, outputs?: LocalArtifact[], revealOpenOfficeDocument?: (target: FileTarget) => boolean } = {}) {
   const browser: Pick<DesktopBrowserApi, 'onStateChanged' | 'ensureSession' | 'close' | 'openArtifact' | 'openFile' | 'navigate'> = {
     navigate: async () => { throw new Error('unexpected navigation') },
     onStateChanged: () => () => {},
@@ -268,7 +268,7 @@ describe('opening the source file of a quote (Spec-043)', () => {
 
   it('focuses an Office editor that is already open and hands back its view', () => {
     const target = quoted('brief.docx')
-    const reveal = vi.fn((_target: SpaceFileTarget) => true)
+    const reveal = vi.fn((_target: FileTarget) => true)
     const { panel } = fixture(space(), { revealOpenOfficeDocument: (file) => {
       reveal(file)
       panel.openView('view-1', 'brief.docx')

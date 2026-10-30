@@ -51,6 +51,16 @@ export async function handleMediaRequest(request: Request, runtime: Pick<BuddySe
       })
       return await createMediaResponse(request, () => runtime.request(taskFilesRpc.resolveMedia.method, input, { signal: request.signal }), executable)
     }
+    if (url.protocol === 'lexora-file:' && url.hostname === 'grant-media') {
+      if (url.pathname !== '/' || [...url.searchParams.keys()].some(key => !['conversationId', 'root', 'path', 'v'].includes(key)))
+        return new Response(null, { status: 400 })
+      const input = spaceFilesRpc.resolveMedia.input.parse({
+        conversationId: url.searchParams.get('conversationId'),
+        root: url.searchParams.get('root'),
+        path: url.searchParams.get('path'),
+      })
+      return await createMediaResponse(request, () => runtime.request(spaceFilesRpc.resolveMedia.method, input, { signal: request.signal }), executable)
+    }
     if (url.protocol === 'lexora-file:' && url.hostname === 'media') {
       if (url.pathname !== '/' || [...url.searchParams.keys()].some(key => !['spaceId', 'directoryId', 'revision', 'path', 'v'].includes(key)))
         return new Response(null, { status: 400 })

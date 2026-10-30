@@ -5,7 +5,7 @@ import type * as Monaco from 'monaco-editor/editor/editor.api.js'
 import type { TextModelPool } from '@/workbench/browser/TextModelPool'
 import type { ResourceRef, WorkbenchView } from '@/workbench/common/workbench'
 import { resolveBuiltinFileOpening } from '@buddy-shared/files/fileOpening'
-import { spaceFileTargetSchema } from '@buddy-shared/spaces/spaceFileApi'
+import { requireFileTarget, spaceFileTargetOnly } from '@buddy-shared/spaces/spaceFileApi'
 import { NButton, NSwitch } from 'naive-ui'
 import { computed, onScopeDispose, shallowRef, useId, useTemplateRef, watch } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
@@ -50,7 +50,7 @@ const quoteMenu = useTemplateRef<InstanceType<typeof ResourceSelectionQuoteMenu>
 const references = useSelectionReferences()
 const { t } = useBuddyI18n(() => props.language)
 function quoteSource(format: 'source' | 'markdown' = 'source'): BuddyFileQuote['source'] {
-  return { kind: 'file', title: props.view.title, file: spaceFileTargetSchema.strip().parse(props.view.resource.data), format }
+  return { kind: 'file', title: props.view.title, file: requireFileTarget(props.view.resource.data), format }
 }
 function captureMonacoQuote(quote: BuddyResourceQuote) {
   return quoteMenu.value?.captureMonaco(quote) ?? null
@@ -82,7 +82,7 @@ const saveStatusText = computed(() => {
   }
 })
 const opening = useFileOpening()
-const target = computed(() => spaceFileTargetSchema.strip().parse(props.view.resource.data))
+const target = computed(() => requireFileTarget(props.view.resource.data))
 const provider = computed(() => (opening?.resolve(props.view.title, 'inline') ?? resolveBuiltinFileOpening(props.view.title, 'inline')).provider)
 const handler = computed(() => fileOpeningHandler(provider.value))
 const previewRenderer = computed(() => filePreviewRenderer({ provider: provider.value, ownerId: props.view.id, target: target.value, source: 'working-copy', resourceReady: !!copy.value?.etag && !copy.value.blocked, text: copy.value?.text ?? '', name: props.view.title, visible: props.visible, language: props.language }))
@@ -93,11 +93,11 @@ const mode = computed({
 })
 function resourceIdentity(resource: ResourceRef): string {
   const { scheme, id, data } = resource
-  return JSON.stringify([scheme, id, data.spaceId, data.directoryId, data.revision, data.path])
+  return JSON.stringify([scheme, id, data.conversationId, data.spaceId, data.directoryId, data.revision, data.root, data.path])
 }
 const identity = computed(() => resourceIdentity(props.view.resource))
 function captureResource() {
-  return { resource: spaceFileTargetSchema.strip().parse(props.view.resource.data) }
+  return { resource: spaceFileTargetOnly(requireFileTarget(props.view.resource.data)) }
 }
 const viewId = computed(() => props.view.id)
 let editor: Monaco.editor.IStandaloneCodeEditor | undefined

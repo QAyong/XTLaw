@@ -37,7 +37,7 @@ export function explorerLabels(language: string) {
         recoveryDetail: '此记录不阻止新操作。确认只表示你已核对并接受当前文件状态，不会修复文件、重做上次操作或删除临时文件。无法确认时可暂不处理，修改前请重新读取文件。',
         recoveryFailure: '无法确认文件操作的状态。可在日志中导出诊断信息寻求协助。',
         acknowledge: '接受当前状态',
-        trashDetail: '文件将移到回收站，可恢复。WSL 和网络目录没有回收站，文件会移到该目录内的 .xtlaw-trash 文件夹，需要时可手动找回。',
+        trashDetail: '文件将移到回收站，可恢复。但 WSL 和网络目录没有回收站，会被直接删除，可能造成不可逆的后果，请确认后再操作。',
         unknown: '操作结果未知，请先在文件管理器中核对文件。',
       }
     : {
@@ -77,7 +77,7 @@ export function explorerLabels(language: string) {
         recoveryDetail: 'This record does not block new operations. Confirmation only records that you reviewed and accept the current file state; it does not repair files, replay the operation or delete temporary files. If unsure, leave it unconfirmed and reread the files before changing them.',
         recoveryFailure: 'The file operation’s state could not be confirmed. Export diagnostics from Logs for help.',
         acknowledge: 'Accept current state',
-        trashDetail: 'The file will be moved to the trash and can be restored. WSL and network folders have no recycle bin: the file is moved to the .xtlaw-trash folder inside that folder instead, where you can recover it manually.',
+        trashDetail: 'The file will be moved to the trash and can be restored. But WSL and network folders have no recycle bin: the file is deleted immediately, which may be irreversible. Please confirm before continuing.',
         unknown: 'The result is unknown. Check the files in your file manager first.',
       }
 }

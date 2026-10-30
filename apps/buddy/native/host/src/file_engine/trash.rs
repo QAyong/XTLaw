@@ -2,10 +2,32 @@ use super::{
     protocol::{Error, Result},
     resources::Root,
 };
-use serde_json::Value;
-#[cfg(not(windows))]
-use serde_json::json;
+use serde_json::{Value, json};
 use std::path::Path;
+
+// Volumes without a recycle bin (such as \\wsl.localhost) delete for good; the file manager warns that this cannot be undone.
+#[cfg_attr(not(windows), allow(dead_code))]
+pub fn delete_permanently(root: &Root, path: &str, expected: &str) -> Result<Value> {
+    let relative = super::resources::relative(path)?;
+    let metadata = root.dir.symlink_metadata(&relative)?;
+    if super::resources::identity(&metadata)? != expected {
+        return Err(Error::Conflict);
+    }
+    root.check()?;
+    if metadata.is_dir() {
+        // A directory watcher releases its handle asynchronously, so a first attempt can still fail on a share like \\wsl.localhost.
+        for attempt in 0.. {
+            match root.dir.remove_dir_all(&relative) {
+                Ok(()) => break,
+                Err(_) if attempt < 5 => std::thread::sleep(std::time::Duration::from_millis(100)),
+                Err(error) => return Err(error.into()),
+            }
+        }
+    } else {
+        root.dir.remove_file(&relative)?;
+    }
+    Ok(json!({ "permanent": true }))
+}
 
 #[cfg(target_os = "linux")]
 pub fn trash(path: &Path, _expected: &str) -> Result<Value> {
@@ -79,6 +101,9 @@ pub fn restore(root: &Root, path: &str, receipt: &Value) -> Result<()> {
         return Err(Error::Conflict);
     }
     root.check()?;
+    if receipt["permanent"].as_bool() == Some(true) {
+        return Err(Error::Unsupported);
+    }
     #[cfg(windows)]
     {
         super::windows_shell::restore(receipt, &destination)?;

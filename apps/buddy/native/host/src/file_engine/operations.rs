@@ -253,10 +253,6 @@ pub fn execute(
         record.receipt.get_or_insert_with(|| json!({}))["staging"] =
             json!(staging_root.resolve(&staging)?);
     }
-    #[cfg(windows)]
-    if matches!(request.action, Action::Trash) {
-        super::windows_shell::validate_trash_path(&source)?;
-    }
     journal.prepare(&fingerprint, &record, claims)?;
     if let Err(error) = io::check(&root, cancelled) {
         record.status = Status::NotApplied;
@@ -405,11 +401,7 @@ pub fn execute(
                     ) {
                         Ok(()) => return Ok(json!({})),
                         Err(Error::Io(error))
-                            if error.kind() == std::io::ErrorKind::CrossesDevices =>
-                        {
-                            #[cfg(windows)]
-                            super::windows_shell::validate_trash_path(&source)?;
-                        }
+                            if error.kind() == std::io::ErrorKind::CrossesDevices => {}
                         Err(error) => return Err(error),
                     }
                 }
@@ -437,14 +429,18 @@ pub fn execute(
                     json!(true);
                 journal.update(&mut record)?;
                 if moving {
-                    return trash::trash(
+                    return trash_entry(
+                        &root,
+                        &request.path,
                         &source,
                         expected_identity.as_deref().ok_or(Error::Conflict)?,
                     );
                 }
                 Ok(json!({}))
             }
-            Action::Trash => trash::trash(
+            Action::Trash => trash_entry(
+                &root,
+                &request.path,
                 &source,
                 expected_identity.as_deref().ok_or(Error::Conflict)?,
             ),
@@ -503,6 +499,16 @@ pub fn execute(
     }
     journal.update(&mut record)?;
     Ok(record)
+}
+
+fn trash_entry(root: &Root, path: &str, source: &Path, expected: &str) -> Result<Value> {
+    #[cfg(windows)]
+    if super::windows_shell::validate_trash_path(source).is_err() {
+        return trash::delete_permanently(root, path, expected);
+    }
+    #[cfg(not(windows))]
+    let _ = (root, path);
+    trash::trash(source, expected)
 }
 
 fn sibling(path: &str, name: &str) -> Result<String> {

@@ -38,7 +38,8 @@
 - WSL 本机：`vue-tsc -b` 通过；改动文件 eslint 通过；unit 项目 313 个文件通过；runtime + platform 项目 433 个文件通过（8 个跳过）。
 - 两个失败用例不是这一轮造成的：`bundledPlugins.spec.mjs` 和 `BundledExtensionCatalog.spec.ts` 数到工作区里多出一个 Office 插件，来自本机未提交的 `plugins/office-pdf` 和 `apps/buddy/extensions/office-pdf`（不在任何分支里），没有在干净的工作区里复核。
 - 未跑：Playwright E2E、开发预览、打包；真实的 OCR 服务调用；用服务商的 `/images/generations`、`/images/edits` 真实生图；迁移在真实开发库上的运行（本地 v39 到 v40）；设置页“图像”配置和模型多选的真实窗口表现。
-- 行为差异要留意：策略保持默认 `native` 时，读图交给当前对话模型；如果当前模型不支持图片输入，`read` 读图会返回“不支持”，不会自动换模型。本地之前对这种情况的处理没有逐项对照，实际表现待验证。
+- 与上游不同的一处（`readFileExtension.ts`）：上游在默认策略 `native` 下，当前模型不支持图片输入时，`read` 读图片文件会抛出裸代码 `IMAGE_READING_UNSUPPORTED`（上游没有任何展示逻辑和测试）。本地移植前，同样的情况是返回图片、由 pi-ai 换成占位文本，对话照常继续。这里改为：捕获该错误码，返回一段不报错的说明文本，告诉模型“没有读到图片、不要猜测内容”，并请用户到 设置 → 模型 → 图像 把“识图”改成“按需”或“指定模型”并选一个支持图片的模型；取消、`IMAGE_READING_FAILED`、`IMAGE_READING_INCOMPLETE` 等仍照常抛出。`ImageReadingService` 本身没有改，策略默认值也没有改。测试：`imageReadingUnavailable.spec.ts`。
+- 待办（没做）：设置页“图像 → 识图”在默认对话模型不支持图片且仍是“当前模型”时给出警告；输入框给不支持图片的模型附图时给出提示（可复用已有但未使用的文案 `desktop.chat.modelImageUnsupported`）。
 - 隐私：开启独立 OCR 后，图片会发到用户填的地址；用服务商模型读图或生图，内容发给对应服务商。
 
 ## 基线

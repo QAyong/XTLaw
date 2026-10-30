@@ -8,12 +8,16 @@ import { Type } from 'typebox'
 import { Check } from 'typebox/value'
 import { filePaths } from '../../../../platform/filesystem/filePaths'
 import { readTextMaterialPage, TEXT_MATERIAL_READ_MAX_BYTES } from '../../../../shared/conversation/textMaterialRead'
+import { ImageReadingError } from '../../images/ImageReadingService'
 import { projectReadHistory } from '../context/projectReadHistory'
 import { READ_CONTENT_NOTICE } from '../files/readFileContent'
 import { readFileSnapshot } from '../files/readFileSnapshot'
 import { describeTextFilePage, textFileReadStart } from '../files/readTextFilePage'
 
 export const READ_FILE_EXTENSION = 'lexora-read-file'
+
+// Shown instead of an error when no model that accepts images is available, so the model can tell the user how to fix it.
+const IMAGE_READING_UNAVAILABLE_NOTICE = 'The image was not read: no model that accepts images is available for it (the current model does not accept images, or the configured image-reading model is unavailable), so its visual content is unavailable. Do not guess what it shows. Tell the user to open Settings > Models > Images (设置 > 模型 > 图像), set Image understanding (识图) to Auto (按需) or Selected (指定模型), and choose a model that accepts images, then try again.'
 
 interface BuddyReadToolDetails extends ReadToolDetails {
   imageReading?: Omit<Extract<ImageReadingResult, { kind: 'text' }>, 'text'>
@@ -50,7 +54,16 @@ export function createBuddyReadTool(cwd: string, options?: Pick<ReadToolOptions,
         }
       }
       if (snapshot.kind === 'image' && readImage && context.model) {
-        const result = await readImage({ operation: input.imagePurpose ?? 'understand', question: input.imageQuestion ?? '', image: { type: 'image', data: snapshot.bytes.toString('base64'), mimeType: snapshot.mimeType }, model: context.model, signal: signal ?? new AbortController().signal })
+        let result: ImageReadingResult
+        try {
+          result = await readImage({ operation: input.imagePurpose ?? 'understand', question: input.imageQuestion ?? '', image: { type: 'image', data: snapshot.bytes.toString('base64'), mimeType: snapshot.mimeType }, model: context.model, signal: signal ?? new AbortController().signal })
+        }
+        catch (error) {
+          signal?.throwIfAborted()
+          if (!(error instanceof ImageReadingError) || error.code !== 'IMAGE_READING_UNSUPPORTED')
+            throw error
+          return { content: [{ type: 'text', text: IMAGE_READING_UNAVAILABLE_NOTICE }], structuredContent: IMAGE_READING_UNAVAILABLE_NOTICE, details: undefined }
+        }
         if (result.kind === 'text') {
           let materialPath: string | undefined
           try {

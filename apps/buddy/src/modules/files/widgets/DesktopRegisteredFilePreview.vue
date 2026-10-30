@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import type { FileOpeningProvider } from '@buddy-shared/files/fileOpening'
-import type { SpaceFileTarget } from '@buddy-shared/spaces/spaceFileApi'
+import type { FileTarget } from '@buddy-shared/spaces/spaceFileApi'
 import { computed, shallowRef, watch } from 'vue'
 import { requireDesktopApi } from '@/platform/desktop/desktopApi'
 import { useWorkbench } from '@/workbench/browser/workbenchContext'
 import WorkbenchSurface from '@/workbench/browser/WorkbenchSurface.vue'
 
-const props = defineProps<{ ownerId: string, provider: FileOpeningProvider, target: SpaceFileTarget, text?: string, visible: boolean, language: 'zh-CN' | 'en-US' }>()
+const props = defineProps<{ ownerId: string, provider: FileOpeningProvider, target: FileTarget, text?: string, visible: boolean, language: 'zh-CN' | 'en-US' }>()
 const { controller, revision } = useWorkbench()
 const api = requireDesktopApi().extensions
 const failed = shallowRef(false)

@@ -21,7 +21,7 @@ import { BUDDY_QUOTE_TEXT_LIMIT, xlsxQuoteCellsSchema } from '../conversation/bu
 import { extensionQuoteKindSchema, extensionQuoteLocationSchema } from '../conversation/extensionQuoteLocation'
 import { fileOpeningChoiceSchema, fileOpeningLocationSchema } from '../files/fileOpening'
 import { shellCandidateIdSchema } from '../shell/shellProgram'
-import { spaceFileTargetSchema } from '../spaces/spaceFileApi'
+import { fileTargetSchema } from '../spaces/spaceFileApi'
 import { themeTransportSchema } from '../theme/themeApi.ts'
 import { workbenchPanesSchema } from '../workbench/workbenchInteraction'
 import { workbenchMenuSchema } from '../workbench/workbenchUi'
@@ -106,7 +106,7 @@ export const extensionMenuInvocationSchema = z.object({
   target: workbenchMenuSchema,
   instanceId: z.string().uuid().optional(),
   content: z.string().max(131072).optional(),
-  resource: spaceFileTargetSchema.nullable().default(null),
+  resource: fileTargetSchema.nullable().default(null),
 }).strict()
 export type ExtensionMenuInvocation = z.infer<typeof extensionMenuInvocationSchema>
 export interface ExtensionViewSession {
@@ -160,7 +160,7 @@ export type ExtensionWorkbenchResult = string | ExtensionReferenceCapture | null
 export type ExtensionWorkbenchEvent
   = | { kind: 'cancel', requestId: string }
     | { kind: 'clear-data', requestId: string, extensionId: string }
-    | { kind: 'open', requestId: string, extensionId: string, generation: string, viewType: string, resource: ExtensionResource | null, fileTarget?: import('../spaces/spaceFileApi').SpaceFileTarget, state: JsonValue, stateVersion: number }
+    | { kind: 'open', requestId: string, extensionId: string, generation: string, viewType: string, resource: ExtensionResource | null, fileTarget?: import('../spaces/spaceFileApi').FileTarget, state: JsonValue, stateVersion: number }
     | { kind: 'state', requestId: string, viewId: string, generation: string, token: string, state: JsonValue, stateVersion: number }
     | { kind: 'quote-capture', requestId: string, viewId: string, generation: string, token: string, captureId: string, quote: BuddyFileQuote }
     | { kind: 'quote-add', requestId: string, viewId: string, generation: string, token: string, captureId: string, targetId: string }
@@ -178,7 +178,7 @@ export type ExtensionWorkbenchEvent
     | { kind: 'presentation', requestId: string, viewId: string, generation: string, token: string, presentation: WorkbenchPresentation }
 
 export const extensionManagementSchema = z.discriminatedUnion('action', [
-  z.object({ action: z.literal('openFile'), resource: spaceFileTargetSchema, providerId: z.string().min(1).max(180).optional() }).strict(),
+  z.object({ action: z.literal('openFile'), resource: fileTargetSchema, providerId: z.string().min(1).max(180).optional() }).strict(),
   z.object({ action: z.literal('list') }).strict(),
   z.object({ action: z.literal('fileOpeners') }).strict(),
   z.object({ action: z.literal('setFileOpener'), choice: fileOpeningChoiceSchema }).strict(),
@@ -205,7 +205,7 @@ export const extensionManagementSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('capabilityImpact'), id: extensionIdSchema }).strict(),
   z.object({ action: z.literal('devtools'), id: extensionIdSchema }).strict(),
   z.object({ action: z.literal('revokeResources'), id: extensionIdSchema }).strict(),
-  z.object({ action: z.literal('execute'), id: extensionIdSchema, command: z.string().max(180), resource: spaceFileTargetSchema.nullable() }).strict(),
+  z.object({ action: z.literal('execute'), id: extensionIdSchema, command: z.string().max(180), resource: fileTargetSchema.nullable() }).strict(),
   z.object({ action: z.literal('taskActions') }).strict(),
   z.object({ action: z.literal('invokeTaskAction'), input: extensionActionRpc.invoke.input }).strict(),
   z.object({ action: z.literal('executeMenu'), id: extensionIdSchema, menu: z.string().max(180), invocation: extensionMenuInvocationSchema }).strict(),
@@ -218,7 +218,7 @@ export const extensionManagementSchema = z.discriminatedUnion('action', [
 ])
 export type ExtensionManagementRequest = z.infer<typeof extensionManagementSchema>
 export interface ExtensionApi {
-  openFile: (resource: import('../spaces/spaceFileApi').SpaceFileTarget, providerId?: string) => Promise<string | null>
+  openFile: (resource: import('../spaces/spaceFileApi').FileTarget, providerId?: string) => Promise<string | null>
   fileOpeners: () => Promise<FileOpeningSnapshot>
   setFileOpener: (choice: FileOpeningChoice) => Promise<FileOpeningSnapshot>
   prepareFileOpening: (input: ExtensionFileOpeningInput) => Promise<ExtensionPreparedFileOpening>
@@ -248,7 +248,7 @@ export interface ExtensionApi {
   capabilityImpact: (id: string) => Promise<ExtensionCapabilityImpact>
   devtools: (id: string) => Promise<void>
   revokeResources: (id: string) => Promise<void>
-  execute: (id: string, command: string, resource: import('../spaces/spaceFileApi').SpaceFileTarget | null) => Promise<void>
+  execute: (id: string, command: string, resource: import('../spaces/spaceFileApi').FileTarget | null) => Promise<void>
   executeMenu: (id: string, menu: string, invocation: ExtensionMenuInvocation) => Promise<JsonValue>
   executeSlash: (id: string, command: string, argumentsText: string, instanceId?: string) => Promise<JsonValue>
   updatePanes: (panes: WorkbenchPaneSnapshot[]) => Promise<void>

@@ -18,7 +18,7 @@ import { buddyUserContentToText, getBuddyUserContentResourceIds, hasBuddyUserCon
 import { resolveBuiltinFileOpening } from '@buddy-shared/files/fileOpening'
 import { parseLocalChatPublicError } from '@buddy-shared/runtime/localChatError'
 import { isSkillAvailable } from '@buddy-shared/skills/skillApi'
-import { fileChangeAffects, fileChangeKey, fileTargetKey, isGrantFileTarget, readFileTarget, requireFileTarget } from '@buddy-shared/spaces/spaceFileApi'
+import { fileChangeAffects, fileChangeKey, fileTargetKey, readFileTarget, requireFileTarget } from '@buddy-shared/spaces/spaceFileApi'
 import { NButton, useDialog } from 'naive-ui'
 import { computed, h, onScopeDispose, shallowReactive, shallowRef } from 'vue'
 import { fileOpeningHandler } from '@/modules/files'
@@ -496,9 +496,6 @@ export function useDesktopWorkbench(options: { beforeExtensionClose?: (viewId: s
         controller.focus(existing.id)
         return existing.id
       }
-      // Document plugins still address space files only; a granted directory file opens as a plain preview until they learn that target (Spec-044 step 4).
-      if (isGrantFileTarget(target))
-        return fallback
       try {
         return await api.extensions.openFile(target, documents.providerId(target.path) ?? undefined) ?? fallback
       }

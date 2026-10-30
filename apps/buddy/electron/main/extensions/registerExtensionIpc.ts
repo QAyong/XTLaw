@@ -10,7 +10,7 @@ import type { ExtensionInspection } from '../../../shared/extensions/extensionAu
 import type { ExtensionCapabilityImpact } from '../../../shared/extensions/extensionCapabilities'
 import type { ExtensionConditionRuntime } from '../../../shared/extensions/extensionConditionContext'
 import type { TaskFileTarget } from '../../../shared/files/taskFileApi'
-import type { SpaceFileByteChunk, SpaceFileByteRequest, SpaceFileTarget, SpaceSaveBytes, SpaceSaveBytesResult } from '../../../shared/spaces/spaceFileApi'
+import type { FileTarget, SpaceFileByteChunk, SpaceFileByteRequest, SpaceSaveBytes, SpaceSaveBytesResult } from '../../../shared/spaces/spaceFileApi'
 import type { JsonValue } from '../../../shared/workbench/workbenchState'
 import { join } from 'node:path'
 import process from 'node:process'
@@ -39,10 +39,10 @@ export function registerExtensionIpc(options: {
   themes: ThemeService
   version: string
   getWindow: () => BrowserWindow | null
-  readResource: (target: SpaceFileTarget, signal: AbortSignal, request?: Request) => Promise<Response>
+  readResource: (target: FileTarget, signal: AbortSignal, request?: Request) => Promise<Response>
   readArtifactResource?: (artifactId: string, signal: AbortSignal, request?: Request) => Promise<{ name: string, response: Response }>
   readTaskFileResource?: (target: TaskFileTarget, signal: AbortSignal, request?: Request) => Promise<{ name: string, response: Response }>
-  readText: (target: SpaceFileTarget, signal: AbortSignal) => Promise<string>
+  readText: (target: FileTarget, signal: AbortSignal) => Promise<string>
   readBytes: (input: SpaceFileByteRequest, signal: AbortSignal) => Promise<SpaceFileByteChunk>
   saveBytes: (input: SpaceSaveBytes, signal: AbortSignal) => Promise<SpaceSaveBytesResult>
   get: (url: string, init: { signal: AbortSignal }) => Promise<Response>

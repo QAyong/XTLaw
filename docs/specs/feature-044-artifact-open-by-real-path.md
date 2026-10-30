@@ -2,7 +2,7 @@
 
 **日期：** 2026-10-30
 
-**状态：** 实施中（2026-10-30 起）。第 1、2 步（契约与服务端，前端“文件根”抽象）已完成，见第 7 节；第 3—6 步未做。
+**状态：** 已实现，等待用户在开发预览中验收（2026-10-30）。第 1—6 步均已完成，见第 7 节；未在真实窗口里验证，未打包。
 
 **相关：** [Spec-035：任务产出在文件管理器中打开](../archive/specs/feature-035-artifact-open-in-file-manager.md)、[Spec-039：没选本地文件夹的空间，其内部工作区在文件管理器中浏览](../archive/specs/feature-039-space-workspace-in-file-manager.md)、[Spec-033：文档插件契约](feature-033-document-plugin-contract.md)、[Spec-013：工作台选区引用与多分屏目标](feature-013-workbench-selection-reference.md)
 
@@ -165,3 +165,37 @@ Spec-035 / 039 已让空间主目录、附加目录和空间内部工作区的�
 **验证：** `pnpm type-check`、`eslint` 通过；`vitest` 跑了 `src`、`shared`、`electron`、`service/src/spaces|artifacts|files`，678 个文件、5338 个用例通过。新增测试：`shared/spaces/__tests__/fileTarget.spec.ts`（7 个）、`FileOperationService.spec.ts`（授权目录工作副本重命名、复制路径）、`resourceOpenTarget.spec.ts`（授权目录标签页和视图）、`useTaskContextPanel.spec.ts`（授权目录标签页恢复）、`revealOpenOfficeDocument.spec.ts`（授权目录文档聚焦）。
 
 **还没做：** 点卡片后真正打开授权目录标签页的流程（第 3 步）；`isAvailable` 对授权目录标签页目前一律视为可用，撤销后的表现要在第 3 步配合“无法访问该目录”的提示；没有在真实窗口里验证（WSL 里做不了）。
+
+### 第 3 步：授权目录根标签页与点卡片流程（已完成）
+
+- `useTaskResourcePanel.openInFileManager`：先走原来的空间路径（行为不变）；不在任务空间内的产出，调 `artifacts.resolveFileRoot`，再打开以产出所在目录为根的文件管理器标签页（`useTaskContextPanel` 新增 `openGrantedFile`、`openGrantedDirectory`、`openGrantedSourceFile`，与空间标签页共用 `showFile`）。文件产出树折叠、Office 显示树，目录产出展开到该目录，目录根本身不展开任何东西；同一目录的下一个产出复用同一个标签页，不同目录各自一个。
+- 产出不可达（授权撤销、任务删除、文件被移走）时调用 `onError` 提示，不回退到旧页签。已打开的授权目录标签页里，读取失败显示文件树已有的“目录加载失败”和预览错误状态。
+- “别的任务的产出”改用它自己所属任务的授权目录打开，标签页归属那个任务。
+- 选区引用定位：授权目录里的文件走同一条路，不再单独打开。
+- 去掉 `fitsSpaceFilePreview` 大小判断：超限文件在文件管理器里显示它自己的超限状态。
+
+### 第 4 步：编辑、保存与插件句柄（已完成）
+
+- 插件接口的资源目标放宽为联合类型：`extensionApi.ts` 的 `resource`、`openFile`、`execute`，`extensionFileOpening` 的 `space` 来源，`ExtensionPackageStore` 的授权句柄，`ExtensionService` 与 `registerExtensionIpc` 的读写端口。句柄仍不透明，插件拿不到真实路径。
+- 插件“引用到输入框”对授权目录文件不用“空间绑定引用”的捷径，而是读出文件内容作为文件附加。
+- 去掉第 2 步的临时限制：授权目录里的 docx、xlsx、pptx 现在交给文档插件，插件命令、菜单和内嵌预览都收到授权目录目标。
+- 服务端测试：二进制分片读取、`saveBytes` 的 etag 与 `expectedHash` 冲突检测在授权目录目标下与空间目标一致；`ExtensionService` 测试确认插件句柄不含根路径。
+
+### 第 5 步：文件操作（已完成）
+
+- 新建、重命名、移到回收站、恢复、复制、移动在授权目录根下全部可用：前端的操作都是对 `{ ...目标, path }` 的展开，不需要新入口。
+- 粘贴限制：授权目录根只接受在同一个根里复制或剪切的内容（`canPaste`），空间文件与授权目录之间也不能互相粘贴；服务端也会拒绝，前端先置灰。
+- 回收站与恢复在授权目录里可用（测试中通过）。操作日志的重启恢复：中断的操作按授权根登记，重启后能列出并确认；授权已撤销时不暴露也不改动。
+
+### 第 6 步：删除旧“产出”页签与设置（已完成）
+
+- 删除：`DesktopArtifactContextSurface.vue`、`DesktopArtifactToolbar.vue`、`useArtifactPreview.ts`、`artifactContextPresentation.ts`、`DesktopArtifactOpeningSetting.vue` 及对应测试；标签页类型 `artifact`、`ArtifactViewMode`、`spaceTaskArtifactTabs`、`isBrowserArtifact`；配置项 `desktop.artifactOpening`（TOML 里的 `artifact_opening` 因 desktop 段允许未知键而被忽略，备份键表里也已去掉）。
+- 与第 4.6 节计划的差别：旧会话快照里保存的 `artifact` 标签页**直接丢弃**，不转换成授权目录标签页。转换需要异步查询产出所在目录，而恢复是同步的；这类标签页只是预览，用户再点一次卡片即可。
+- “右键打开方式”选了内置的文本类打开方式时，现在也在文件管理器里打开（以前是产出页）；浏览器和插件的打开方式不变。HTML 默认仍转浏览器，由默认打开方式决定。
+- 旧的产出引用（`BuddyArtifactQuote`）：定位时在文件管理器里打开该产出，返回“已打开”，不再还原到文件内的具体位置；产出页不存在后，也不会再产生新的产出引用。授权目录文件的引用走文件引用，能定位回具体位置。
+
+### 验证（第 3—6 步）
+
+`pnpm type-check`、`eslint` 通过；全仓库 `vitest`：新增和改写的测试涵盖点卡片的各条路径（无空间任务、空间外、别的任务、目录、Office、插件聚焦、不可达提示、右键打开方式）、插件句柄、粘贴限制、回收站与恢复、重启恢复、旧快照丢弃、旧产出引用定位。
+
+**未验证：** 真实窗口里的表现（WSL 里做不了，需要在 Windows 本机开发预览里手测）：无空间任务点卡片、会话授权目录的产出、docx 产出的插件编辑与保存、超大文本、目录产出、新建和重命名和删除和复制、选区引用、旧会话打开；打包产物。授权被撤销后已打开的标签页只靠读取失败时的现有错误状态提示，没有专门的“无法访问该目录”文案。

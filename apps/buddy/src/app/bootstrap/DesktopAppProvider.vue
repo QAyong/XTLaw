@@ -169,7 +169,7 @@ const resources = useTaskResourcePanel({
   mode: computed(() => stores.applicationSettings.config.value?.desktop.contextPanelMode ?? 'task'),
   linkOpening: computed(() => stores.applicationSettings.config.value?.browser.linkOpening ?? 'in-app'),
   autoCollapse: computed(() => stores.applicationSettings.config.value?.desktop.contextPanelAutoCollapse ?? false),
-  artifactOpening: computed(() => stores.applicationSettings.config.value?.desktop.artifactOpening ?? 'file-manager'),
+  artifactFileRoot: artifactId => api.localChat.artifacts.resolveFileRoot({ artifactId }),
   taskVisible: computed(() => pages.current.value === 'lexora.tasks' || !!stores.applicationSettings.config.value?.desktop.contextPanelGlobal),
   control: api.contextPanel,
   browser: api.browser,

@@ -20,7 +20,7 @@ import { EXTENSION_REVIEW_BYTES_LIMIT, extensionFilesSize } from '../../shared/e
 import { extensionConfigurationSchema, resolveExtensionConfiguration } from '../../shared/extensions/extensionSettings'
 import { EXTENSION_UNO_STYLESHEET } from '../../shared/extensions/extensionStyles'
 import { builtinFileOpeningProviders, fileOpeningChoiceSchema, fileOpeningExtension, resolveFileOpening } from '../../shared/files/fileOpening'
-import { spaceFileTargetSchema } from '../../shared/spaces/spaceFileApi'
+import { fileTargetSchema } from '../../shared/spaces/spaceFileApi'
 import { validateFileIconThemeFiles } from '../icons/fileIconThemeAssets'
 import { validateThemeFiles } from '../themes/themeAssets'
 import { EXTENSION_ARCHIVE_LIMIT, readExtensionDirectory, readExtensionFile, readExtensionJson, sha256, unpackExtension, validateExtensionFiles, verifiedExtensionAsset, writeExtensionJson } from './extensionFiles'
@@ -30,7 +30,7 @@ import { validateExtensionSkillFiles } from './extensionSkillAssets'
 import { extensionPackageSchema as packageSchema, storedIndexSchema } from './extensionState'
 
 const grantSchema = z.union([
-  z.object({ resource: extensionResourceSchema, target: spaceFileTargetSchema }).strict().transform(value => ({ resource: value.resource, source: { kind: 'space' as const, target: value.target } })),
+  z.object({ resource: extensionResourceSchema, target: fileTargetSchema }).strict().transform(value => ({ resource: value.resource, source: { kind: 'space' as const, target: value.target } })),
   z.object({ resource: extensionResourceSchema, source: extensionFileOpeningSourceSchema }).strict(),
 ])
 export type { ExtensionPackage, InstalledExtension } from './extensionState'
@@ -418,7 +418,7 @@ export class ExtensionPackageStore {
     return url
   }
 
-  grant(id: string, target: z.infer<typeof spaceFileTargetSchema>, assertCurrent: () => void = () => {}) {
+  grant(id: string, target: z.infer<typeof fileTargetSchema>, assertCurrent: () => void = () => {}) {
     return this.#writeData(id, async () => {
       assertCurrent()
       const resource = { id: randomUUID(), name: target.path.split('/').at(-1) ?? target.path }

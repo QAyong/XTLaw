@@ -2,6 +2,7 @@ import type { LocalChatApi } from '@buddy-electron/shared/localChatApi'
 import type { FileTarget, SpaceFileMutation } from '@buddy-shared/spaces/spaceFileApi'
 import type { ExplorerNode } from '@/shared/ui/explorer/treeCollection'
 import { parseLocalChatPublicError } from '@buddy-shared/runtime/localChatError'
+import { isGrantFileTarget, sameFileRoot } from '@buddy-shared/spaces/spaceFileApi'
 import { useDialog } from 'naive-ui'
 import { computed, onScopeDispose, shallowRef } from 'vue'
 import { useFileOperations } from '../fileOperationsContext'
@@ -105,7 +106,7 @@ export function useExplorerCommands(options: {
     }
     if (command === 'paste') {
       const clipboard = operations.clipboard.value
-      if (!clipboard)
+      if (!clipboard || !canPaste(clipboard.target))
         return
       const name = clipboard.target.path.split('/').at(-1)!
       const result = await run({ ...clipboard.target, operationId: crypto.randomUUID(), action: { kind: clipboard.move ? 'move' : 'copy', destination: { ...target, path: parent ? `${parent}/${name}` : name } } })
@@ -129,5 +130,10 @@ export function useExplorerCommands(options: {
     const destination = folder ? `${folder}/${name}` : name
     await run({ ...target, path: command === 'rename' ? path : destination, operationId: crypto.randomUUID(), action: command === 'rename' ? { kind: 'rename', destination } : { kind: command === 'newFile' ? 'createFile' : 'createDirectory' } })
   }
-  return { clipboard: operations.clipboard, labels, nameRequest, finishName: (name: string | null) => finishName(name), busy, error, command, run, cancel: () => busy.value && options.api.cancelFileOperation(busy.value).catch(() => {}) }
+  // A granted directory never reaches another root, so a copy or cut made elsewhere cannot be pasted into it (or out of it); space files keep their rules.
+  function canPaste(source: FileTarget) {
+    const target = options.target()
+    return (!isGrantFileTarget(source) && !isGrantFileTarget(target)) || sameFileRoot(source, target)
+  }
+  return { canPaste, clipboard: operations.clipboard, labels, nameRequest, finishName: (name: string | null) => finishName(name), busy, error, command, run, cancel: () => busy.value && options.api.cancelFileOperation(busy.value).catch(() => {}) }
 }

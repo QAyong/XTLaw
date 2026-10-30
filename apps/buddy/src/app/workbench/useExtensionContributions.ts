@@ -10,7 +10,7 @@ import type { WorkbenchPersistence } from '@/workbench/services/WorkbenchPersist
 import { extensionCommandNamespace } from '@buddy-shared/extensions/extensionCommands'
 import { extensionDocumentInfoSchema } from '@buddy-shared/extensions/extensionDocumentInfo'
 import { extensionFileOpeningProviders } from '@buddy-shared/extensions/extensionFileOpening'
-import { isGrantFileTarget, readFileTarget, sameFileTarget, spaceFileTargetSchema } from '@buddy-shared/spaces/spaceFileApi'
+import { readFileTarget, requireFileTarget, sameFileTarget } from '@buddy-shared/spaces/spaceFileApi'
 import { qualifyWorkbenchCommand } from '@buddy-shared/workbench/workbenchCommand'
 import { matchesWorkbenchContext } from '@buddy-shared/workbench/workbenchContext'
 import { parseWorkbenchUiSelection, workbenchUiSelectionKey, workbenchUiTargetCatalog } from '@buddy-shared/workbench/workbenchUi'
@@ -81,8 +81,7 @@ export function useExtensionContributions(options: { controller: WorkbenchContro
             if (source === 'slash')
               return api.executeSlash(id, command.id, argumentsText ?? '', pane?.id)
             const parsed = view && ['file', 'file-preview'].includes(view.resource.scheme) ? readFileTarget(view.resource.data) : null
-            // Plugin commands still receive space files only; a granted directory file is passed as no resource until plugins learn that target (Spec-044 step 4).
-            await api.execute(id, command.id, parsed && !isGrantFileTarget(parsed) ? parsed : null)
+            await api.execute(id, command.id, parsed)
           } })
         }
       })
@@ -285,7 +284,7 @@ export function useExtensionContributions(options: { controller: WorkbenchContro
               quoteCaptures.delete(captureId)
           }
           if (event.kind === 'quote-capture') {
-            const file = spaceFileTargetSchema.parse(view.resource.data.fileTarget)
+            const file = requireFileTarget(view.resource.data.fileTarget)
             const quotedFile = event.quote.source.file
             if (!sameFileTarget(file, quotedFile))
               return

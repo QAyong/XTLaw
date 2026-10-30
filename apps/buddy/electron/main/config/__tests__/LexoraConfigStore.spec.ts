@@ -366,7 +366,6 @@ keep=true
       contextPanelMode: 'task',
       contextPanelGlobal: false,
       contextPanelAutoCollapse: false,
-      artifactOpening: 'file-manager',
       featureAnnouncementsEnabled: true,
       featureDiscovery: { version: '', pending: [], notified: [] },
       fileIconTheme: { id: 'lexora.material' },

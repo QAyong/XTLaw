@@ -33,9 +33,8 @@ async function flush() {
 function fixture(initial: ResourceOpenTarget | null) {
   const target = shallowRef(initial)
   const revealFile = vi.fn().mockResolvedValue(undefined)
-  const openArtifact = vi.fn().mockResolvedValue({ status: 'opened' })
   const openFileExternal = vi.fn().mockResolvedValue({ status: 'opened' })
-  const context = { files: { revealFile, openFileExternal, listDirectory: vi.fn(), readFile: vi.fn(), fileHistory: vi.fn(), acknowledgeFileOperation: vi.fn(), cancelFileOperation: vi.fn(), onFilesChanged: vi.fn(() => () => {}) }, openArtifact } satisfies Pick<TaskChatWorkspace['context'], 'files' | 'openArtifact'>
+  const context = { files: { revealFile, openFileExternal, listDirectory: vi.fn(), readFile: vi.fn(), fileHistory: vi.fn(), acknowledgeFileOperation: vi.fn(), cancelFileOperation: vi.fn(), onFilesChanged: vi.fn(() => () => {}) } } satisfies Pick<TaskChatWorkspace['context'], 'files'>
   const root = document.createElement('div')
   document.body.append(root)
   const app = createApp({ render: () => h(DesktopResourceOpenMenu, { target: target.value, context, language: 'zh-CN' }) })
@@ -44,9 +43,10 @@ function fixture(initial: ResourceOpenTarget | null) {
     app.unmount()
     root.remove()
   })
-  return { target, revealFile, openArtifact, openFileExternal, root, action: (key: string) => root.querySelector<HTMLButtonElement>(`[data-action="${key}"]`) }
+  return { target, revealFile, openFileExternal, root, action: (key: string) => root.querySelector<HTMLButtonElement>(`[data-action="${key}"]`) }
 }
-const artifact: ResourceOpenTarget = { key: 'report-1', kind: 'artifact', artifact: { conversationId: 'conversation-1', artifactId: 'report-1' }, file: true }
+// An output outside the task space opens in a tab rooted at its granted directory; the menu treats it like any file.
+const output: ResourceOpenTarget = { key: 'report-1', kind: 'file', target: { conversationId: 'conversation-1', root: '/work/out', path: 'report.docx' } }
 
 it('shows two actions and opens the bound directory for both, without opening a selected file', async () => {
   const directory = { spaceId: 'space-1', directoryId: 'directory-1', revision: 1, path: '' }
@@ -64,7 +64,6 @@ it('shows two actions and opens the bound directory for both, without opening a 
   f.action('reveal')!.click()
   await flush()
   expect(f.revealFile.mock.calls).toEqual([[directory], [directory]])
-  expect(f.openArtifact).not.toHaveBeenCalled()
   expect(f.action('choose-app')).toBeNull()
 })
 
@@ -83,7 +82,6 @@ it.each(['report.docx', 'slides.pptx', 'budget.xlsx'])('enables the menu and ope
   await flush()
   expect(f.openFileExternal).toHaveBeenLastCalledWith({ ...target, action: 'reveal' })
   expect(f.revealFile).not.toHaveBeenCalled()
-  expect(f.openArtifact).not.toHaveBeenCalled()
 })
 
 it('offers an application chooser for a plugin document and clears it on a tab switch', async () => {
@@ -115,8 +113,8 @@ it('reports an unavailable plugin file without offering an application chooser',
 })
 
 it('offers a chooser after failed default open and allows reveal or cancellation', async () => {
-  const f = fixture(artifact)
-  f.openArtifact.mockResolvedValueOnce({ status: 'choose-app' })
+  const f = fixture(output)
+  f.openFileExternal.mockResolvedValueOnce({ status: 'choose-app' })
   f.action('open')!.click()
   await flush()
   expect(messages.warning).toHaveBeenCalledOnce()
@@ -124,25 +122,25 @@ it('offers a chooser after failed default open and allows reveal or cancellation
   expect(f.action('choose-app')?.getAttribute('data-has-icon')).toBe('false')
   f.action('reveal')!.click()
   await flush()
-  expect(f.openArtifact).toHaveBeenLastCalledWith({ conversationId: 'conversation-1', artifactId: 'report-1', action: 'reveal' })
-  f.openArtifact.mockResolvedValueOnce({ status: 'cancelled' })
+  expect(f.openFileExternal).toHaveBeenLastCalledWith({ ...output.target, action: 'reveal' })
+  f.openFileExternal.mockResolvedValueOnce({ status: 'cancelled' })
   f.action('choose-app')!.click()
   await flush()
-  expect(f.openArtifact).toHaveBeenLastCalledWith({ conversationId: 'conversation-1', artifactId: 'report-1', action: 'choose-app' })
+  expect(f.openFileExternal).toHaveBeenLastCalledWith({ ...output.target, action: 'choose-app' })
   expect(messages.error).not.toHaveBeenCalled()
 })
 
 it('disables unsupported targets and discards a late fallback when the tab changes', async () => {
   const f = fixture(null)
   expect(f.root.querySelector<HTMLButtonElement>('[data-testid="resource-open-menu"]')!.disabled).toBe(true)
-  f.target.value = artifact
+  f.target.value = output
   await flush()
   let complete!: (result: { status: string }) => void
-  f.openArtifact.mockImplementationOnce(() => new Promise(resolve => complete = resolve))
+  f.openFileExternal.mockImplementationOnce(() => new Promise(resolve => complete = resolve))
   f.action('open')!.click()
   await flush()
   expect(f.root.querySelector<HTMLButtonElement>('[data-testid="resource-open-menu"]')!.disabled).toBe(true)
-  f.target.value = { ...artifact, key: 'report-2' }
+  f.target.value = { ...output, key: 'report-2' }
   await flush()
   complete({ status: 'choose-app' })
   await flush()
@@ -152,8 +150,8 @@ it('disables unsupported targets and discards a late fallback when the tab chang
 })
 
 it('reports open failures without treating missing files as an application association problem', async () => {
-  const f = fixture(artifact)
-  f.openArtifact.mockRejectedValueOnce(new Error('ARTIFACT_NOT_FOUND'))
+  const f = fixture(output)
+  f.openFileExternal.mockRejectedValueOnce(new Error('ARTIFACT_NOT_FOUND'))
   f.action('open')!.click()
   await flush()
   expect(messages.error).toHaveBeenCalledOnce()

@@ -59,7 +59,7 @@ function fixture() {
   }
   let panel: TaskResourcePanel
   const reveal = vi.fn((file: FileTarget) => revealOpenOfficeDocument(controller, panel, file))
-  panel = scope.run(() => useTaskResourcePanel({ ...options, autoCollapse: shallowRef(false), linkOpening: shallowRef('in-app'), files, openFile, browser, revealOpenOfficeDocument: reveal }))!
+  panel = scope.run(() => useTaskResourcePanel({ ...options, artifactFileRoot: async () => ({ conversationId: 'conversation', root: '/elsewhere', path: 'report.docx', kind: 'file' }), autoCollapse: shallowRef(false), linkOpening: shallowRef('in-app'), files, openFile, browser, revealOpenOfficeDocument: reveal }))!
   const projection = new ContextTabProjection(controller, () => panel, () => true)
   onTestFinished(async () => {
     projection.dispose()
@@ -196,11 +196,11 @@ describe('revealing an open Office document from an artifact card', () => {
     expect(f.reveal).not.toHaveBeenCalled()
   })
 
-  it('does not intercept files outside the task space', async () => {
+  it('does not take another root\'s file for the editor that is open, and opens its own tab', async () => {
     const f = fixture()
     await f.openEditor()
     await f.panel.openArtifact(artifact(target.path, { path: '/elsewhere/report.docx' }))
-    expect(f.panel.activeTab.value?.kind).toBe('artifact')
-    expect(f.reveal).not.toHaveBeenCalled()
+    expect(f.panel.activeTab.value).toMatchObject({ kind: 'files', target: { conversationId: 'conversation', root: '/elsewhere', path: 'report.docx' } })
+    expect(f.reveal).toHaveBeenCalledExactlyOnceWith({ conversationId: 'conversation', root: '/elsewhere', path: 'report.docx' })
   })
 })

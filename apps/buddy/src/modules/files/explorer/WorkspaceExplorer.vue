@@ -58,7 +58,7 @@ const menuOptions = computed(() => [
   { key: 'rename', label: labels.value.rename, disabled: !menu.value?.node },
   { key: 'copy', label: labels.value.copy, disabled: !menu.value?.node },
   { key: 'cut', label: labels.value.cut, disabled: !menu.value?.node },
-  { key: 'paste', label: labels.value.paste, disabled: !clipboard.value },
+  { key: 'paste', label: labels.value.paste, disabled: !clipboard.value || !commands.canPaste(clipboard.value.target) },
   { key: 'trash', label: labels.value.trash, disabled: !menu.value?.node },
   { key: 'reveal', label: labels.value.reveal },
   { key: 'refresh', label: labels.value.refresh },

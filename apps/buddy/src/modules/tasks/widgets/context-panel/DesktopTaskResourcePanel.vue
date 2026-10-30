@@ -12,7 +12,6 @@ import { resourceOpenTarget } from '@/modules/tasks/model/context-panel/resource
 import { useTaskEnvironment } from '@/modules/tasks/taskContext'
 import { useWorkbenchLaunchers } from '@/workbench/browser/useWorkbenchLaunchers'
 import { useWorkbench } from '@/workbench/browser/workbenchContext'
-import DesktopArtifactContextSurface from './DesktopArtifactContextSurface.vue'
 import DesktopBrowserContextSurface from './DesktopBrowserContextSurface.vue'
 import DesktopChangesContextSurface from './DesktopChangesContextSurface.vue'
 import DesktopFilesContextSurface from './DesktopFilesContextSurface.vue'
@@ -40,8 +39,6 @@ const openTarget = computed(() => resourceOpenTarget(activeTab.value, props.reso
 const tabs = computed<ContextPanelTab[]>(() => props.panel.tabs.value.map((tab) => {
   if (tab.kind === 'view')
     return { id: tab.id, pinned: tab.pinned, title: tab.label, dirty: tab.dirty, icon: 'file' }
-  if (tab.kind === 'artifact')
-    return { id: tab.id, pinned: tab.pinned, title: tab.artifact.name, icon: tab.artifact.kind === 'directory' ? 'folder' : 'file', fileName: tab.artifact.name }
   if (tab.kind === 'files')
     return { id: tab.id, pinned: tab.pinned, title: t('desktop.context.files'), icon: 'folder' }
   if (tab.kind === 'changes')
@@ -78,7 +75,6 @@ async function add(id: string) {
     </DesktopFilesContextSurface>
     <DesktopChangesContextSurface :tab="activeTab?.kind === 'changes' ? activeTab : null" :context="context" :has-tab="panel.hasTab" :language="language" />
     <DesktopBrowserContextSurface :tab="activeTab?.kind === 'browser' ? activeTab : null" :api="browserApi" :guest-host="browserGuests" :state="panel.activeBrowserState.value" :update-state="panel.updateBrowserState" :session-ready="panel.retainBrowserSession" :language="language" :visible="visible && activeTab?.kind === 'browser'" />
-    <DesktopArtifactContextSurface v-if="activeTab?.kind === 'artifact'" :key="activeTab.id" :artifact="activeTab.artifact" :provider-id="activeTab.providerId" :tab-id="activeTab.id" :visible="visible" :language="language" :view-mode="activeTab.viewMode" :read-artifact-text="context.readArtifactText" :write-clipboard-text="clipboard.writeText" @update:view-mode="panel.setArtifactViewMode(activeTab.id, $event)" />
     <slot v-if="activeTab?.kind === 'view'" name="view" :view-id="activeTab.viewId" />
   </DesktopTaskContextPanel>
 </template>

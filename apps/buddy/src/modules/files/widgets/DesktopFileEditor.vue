@@ -5,7 +5,7 @@ import type * as Monaco from 'monaco-editor/editor/editor.api.js'
 import type { TextModelPool } from '@/workbench/browser/TextModelPool'
 import type { ResourceRef, WorkbenchView } from '@/workbench/common/workbench'
 import { resolveBuiltinFileOpening } from '@buddy-shared/files/fileOpening'
-import { requireFileTarget, spaceFileTargetOnly } from '@buddy-shared/spaces/spaceFileApi'
+import { requireFileTarget } from '@buddy-shared/spaces/spaceFileApi'
 import { NButton, NSwitch } from 'naive-ui'
 import { computed, onScopeDispose, shallowRef, useId, useTemplateRef, watch } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
@@ -97,7 +97,7 @@ function resourceIdentity(resource: ResourceRef): string {
 }
 const identity = computed(() => resourceIdentity(props.view.resource))
 function captureResource() {
-  return { resource: spaceFileTargetOnly(requireFileTarget(props.view.resource.data)) }
+  return { resource: requireFileTarget(props.view.resource.data) }
 }
 const viewId = computed(() => props.view.id)
 let editor: Monaco.editor.IStandaloneCodeEditor | undefined

@@ -3,10 +3,11 @@ import type { ExtensionManifest } from './extensionManifest'
 import { z } from 'zod'
 import { taskFileTargetSchema } from '../files/taskFileApi'
 import { idSchema } from '../runtime/apiValidation'
-import { spaceFileTargetSchema } from '../spaces/spaceFileApi'
+import { fileTargetSchema } from '../spaces/spaceFileApi'
 
 export const extensionFileOpeningSourceSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('space'), target: spaceFileTargetSchema }).strict(),
+  // A file the file manager shows: a space file, or a file in a directory the conversation was granted (Spec-044).
+  z.object({ kind: z.literal('space'), target: fileTargetSchema }).strict(),
   z.object({ kind: z.literal('artifact'), artifactId: idSchema }).strict(),
   z.object({ kind: z.literal('task'), target: taskFileTargetSchema }).strict(),
 ])

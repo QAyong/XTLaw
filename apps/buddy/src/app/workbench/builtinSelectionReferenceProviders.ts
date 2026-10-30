@@ -4,10 +4,8 @@ import type { ExtensionDocumentRouter } from './extensionDocuments'
 import type { TaskResourcePanel } from '@/modules/tasks/contracts'
 import type { SelectionReferenceLocateRequest, SelectionReferenceProvider, WorkbenchSelectionReferences } from '@/shared/ui/selection/workbenchSelectionReferences'
 import type { WorkbenchController } from '@/workbench/services/WorkbenchController'
-import { isTextArtifactMimeType } from '@buddy-shared/artifacts/artifactApi'
 import { buddyArtifactQuoteSchema, buddyBrowserQuoteSchema, buddyFileQuoteSchema } from '@buddy-shared/conversation/buddyUserContent'
 import { readFileTarget } from '@buddy-shared/spaces/spaceFileApi'
-import { isMarkdownFile } from '@/shared/ui/files/fileDocumentPresentation'
 
 export interface BuiltinSelectionReferenceOptions {
   controller: WorkbenchController
@@ -94,22 +92,10 @@ function createFileProvider(options: BuiltinSelectionReferenceOptions): Selectio
   }
 }
 
+// Quotes taken from the old output preview carry an output instead of a file. That preview is gone, so locating one opens the output in the
+// file manager, which is as close as it gets: the position inside the file is not revealed.
 function createArtifactProvider(options: BuiltinSelectionReferenceOptions): SelectionReferenceProvider {
-  const captureSource: NonNullable<SelectionReferenceProvider['captureSource']> = (viewId) => {
-    const resources = options.resources()
-    const tab = resources.allTabs.value.find(tab => tab.id === viewId && tab.kind === 'artifact')
-    if (!tab || tab.kind !== 'artifact' || resources.activeTab.value?.id !== tab.id
-      || tab.artifact.kind !== 'file' || (!isTextArtifactMimeType(tab.artifact.mimeType) && !isMarkdownFile(tab.artifact.name))) {
-      return null
-    }
-    const independent = options.independent()
-    return {
-      identity: JSON.stringify([tab.id, tab.scope, tab.artifact, tab.viewMode, independent]),
-      owner: sourceOwner(tab.scope, independent),
-    }
-  }
   return {
-    captureSource,
     resolveLocate(quote) {
       const parsed = buddyArtifactQuoteSchema.safeParse(quote)
       if (!parsed.success)
@@ -124,11 +110,7 @@ function createArtifactProvider(options: BuiltinSelectionReferenceOptions): Sele
           return false
         await resources.openArtifact(artifact)
         const tab = resources.activeTab.value
-        if (tab?.kind !== 'artifact' || tab.artifact.artifactId !== source.artifactId || !scope.acceptTab(tab.id))
-          return false
-        resources.setArtifactViewMode(tab.id, source.format === 'markdown' ? 'preview' : 'source')
-        const identity = captureSource(tab.id)?.identity
-        return !!identity && await request.reveal(tab.id, reference, () => scope.current() && captureSource(tab.id)?.identity === identity)
+        return !!tab && scope.acceptTab(tab.id) && scope.current() ? 'opened' : false
       }
     },
   }

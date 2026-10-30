@@ -1,4 +1,4 @@
-import type { SpaceFileTarget } from '@buddy-shared/spaces/spaceFileApi'
+import type { FileTarget } from '@buddy-shared/spaces/spaceFileApi'
 import type { WorkbenchContextValues } from '@buddy-shared/workbench/workbenchContext'
 import type { JsonValue } from '@buddy-shared/workbench/workbenchState'
 import type { ComposerActivity, WorkbenchAnchor, WorkbenchControl, WorkbenchMenu } from '@buddy-shared/workbench/workbenchUi'
@@ -33,7 +33,7 @@ export interface WorkbenchUiHost {
 }
 export interface WorkbenchMenuSelection {
   content?: string
-  resource?: SpaceFileTarget
+  resource?: FileTarget
   apply?: (result: JsonValue) => void
 }
 export interface WorkbenchMenuProps {

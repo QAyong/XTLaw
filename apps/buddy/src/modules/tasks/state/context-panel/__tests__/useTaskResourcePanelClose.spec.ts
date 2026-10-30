@@ -1,5 +1,4 @@
 import type { DesktopBrowserState } from '@buddy-electron/shared/desktopApi'
-import type { LocalArtifact } from '@buddy-shared/artifacts/artifactApi'
 import { deferred } from '@buddy-tests/deferred'
 import { describe, expect, it } from 'vitest'
 import { nextTick, shallowRef } from 'vue'
@@ -40,24 +39,6 @@ function manualBrowser(panel: ReturnType<typeof useTaskResourcePanel>) {
   if (tab.kind !== 'browser')
     throw new Error('Expected a browser tab')
   return tab
-}
-
-function artifact(artifactId = 'report'): LocalArtifact {
-  return {
-    artifactId,
-    conversationId: 'task-a',
-    runId: 'source-run-a',
-    kind: 'file',
-    name: 'report.txt',
-    path: '/fixture/report.txt',
-    mimeType: 'text/plain',
-    previewUrl: null,
-    sizeBytes: 1,
-    sourceArtifactId: null,
-    sourceToolCallId: 'tool',
-    createdAt: '2026-10-14T00:00:00.000Z',
-    updatedAt: '2026-10-14T00:00:00.000Z',
-  }
 }
 
 describe('resource panel close', () => {
@@ -123,12 +104,13 @@ describe('resource panel close', () => {
       activeRunId: shallowRef('latest-run-b'),
       scopeSpaceIds: shallowRef(new Map([['task:task-a', 'space'], ['task:task-b', 'space']])),
     })
-    await f.panel.openArtifact(artifact('first'))
-    await f.panel.openArtifact(artifact('last'))
-    await f.panel.closeTab('artifact:first')
-    expect(f.panel.tabs.value.map(tab => tab.id)).toEqual(['artifact:last'])
+    const source = { conversationId: 'task-a', runId: 'source-run-a' }
+    f.panel.openView('first', 'First', source)
+    f.panel.openView('last', 'Last', source)
+    await f.panel.closeTab('first')
+    expect(f.panel.tabs.value.map(tab => tab.id)).toEqual(['last'])
     expect(f.host.getState().open).toBe(true)
-    expect(await f.panel.closeTab('artifact:last')).toBe(true)
+    expect(await f.panel.closeTab('last')).toBe(true)
     expect(f.host.getState().open).toBe(false)
     expect(f.operations.map(({ action, actor, source }) => ({ action, actor, source }))).toEqual([
       { action: 'open', actor: 'user', source: { conversationId: 'task-a', runId: 'source-run-a' } },
@@ -139,14 +121,14 @@ describe('resource panel close', () => {
   it('does not collapse after closing a resource outside the visible scope', async () => {
     const activeConversationId = shallowRef<string | null>('task-a')
     const f = fixture({ activeConversationId })
-    await f.panel.openArtifact(artifact())
+    f.panel.openView('report', 'Report', { conversationId: 'task-a', runId: 'source-run-a' })
     activeConversationId.value = 'task-b'
     expect(f.panel.tabs.value).toEqual([])
     // Entering a task with no saved layout restores its own (closed) state; settle that before measuring.
     await new Promise(resolve => setTimeout(resolve))
     const closes = () => f.operations.filter(operation => operation.action === 'close').length
     const before = closes()
-    await f.panel.closeTab('artifact:report')
+    await f.panel.closeTab('report')
     expect(closes()).toBe(before)
   })
 

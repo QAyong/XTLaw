@@ -38,7 +38,7 @@ function fixture() {
   const openFile = vi.fn<Parameters<typeof useTaskResourcePanel>[0]['openFile']>(async (file, _source, provider) => {
     documents.push(`${file.name}:${provider?.id}`)
   })
-  const panel = scope.run(() => useTaskResourcePanel({ ...options, autoCollapse: shallowRef(false), linkOpening, spaces: shallowRef([]), activeRunId: shallowRef(null), browser, changeSets: shallowRef([]), runOutputs, files, fileOpening, openFile }))!
+  const panel = scope.run(() => useTaskResourcePanel({ ...options, artifactFileRoot: async () => ({ conversationId: 'conversation', root: '/workspace', path: 'page.html', kind: 'file' }), autoCollapse: shallowRef(false), linkOpening, spaces: shallowRef([]), activeRunId: shallowRef(null), browser, changeSets: shallowRef([]), runOutputs, files, fileOpening, openFile }))!
   const release = () => gate.resolve({ sessionId: 'session', conversationId: 'conversation' } as DesktopBrowserState)
   return { activeConversationId, mode, browser, linkOpening, panel, release, runOutputs, scope, files, documents, fileOpening, openFile, onError: options.onError, sessionOpen: () => sessionOpen }
 }
@@ -222,7 +222,8 @@ describe('resource panel operations', () => {
   it('applies an explicit opener to registered HTML without changing the host default', async () => {
     const f = fixture()
     await f.panel.previewFile('page.html', undefined, 'lexora.text')
-    expect(f.panel.activeTab.value).toMatchObject({ kind: 'artifact', providerId: 'lexora.text' })
+    // The text opener shows the page's source in the file manager; the host default for HTML stays the browser.
+    expect(f.panel.activeTab.value).toMatchObject({ kind: 'files', target: { conversationId: 'conversation', root: '/workspace', path: 'page.html' } })
     expect(f.fileOpening.resolve('page.html', 'standalone').provider?.id).toBe('lexora.browser')
   })
 

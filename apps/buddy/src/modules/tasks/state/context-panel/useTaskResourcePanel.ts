@@ -1,20 +1,21 @@
-import type { DesktopArtifactOpening, DesktopBrowserApi, DesktopBrowserState } from '@buddy-electron/shared/desktopApi'
-import type { LocalArtifact } from '@buddy-shared/artifacts/artifactApi'
+import type { DesktopBrowserApi, DesktopBrowserState } from '@buddy-electron/shared/desktopApi'
+import type { ArtifactFileRoot, LocalArtifact } from '@buddy-shared/artifacts/artifactApi'
 import type { BrowserPreferences } from '@buddy-shared/browser/browserPreferences'
 import type { ContextPanelSource } from '@buddy-shared/context-panel/contextPanel'
 import type { ExtensionFileOpeningSource } from '@buddy-shared/extensions/extensionFileOpening'
 import type { FileOpeningProvider } from '@buddy-shared/files/fileOpening'
 import type { TaskFile, TaskFileLink } from '@buddy-shared/files/taskFileApi'
-import type { FileTarget, SpaceFileTarget } from '@buddy-shared/spaces/spaceFileApi'
+import type { FileTarget } from '@buddy-shared/spaces/spaceFileApi'
 import type { Ref } from 'vue'
 import type { UseTaskContextPanelOptions } from './typing'
 import { localFileLinkPath } from '@buddy-shared/files/fileLink'
 import { resolveBuiltinFileOpening } from '@buddy-shared/files/fileOpening'
 import { getActiveSpaceDirectories } from '@buddy-shared/spaces/spaceApi'
+import { isGrantFileTarget } from '@buddy-shared/spaces/spaceFileApi'
 import { computed, onScopeDispose, readonly, shallowRef, watch, watchEffect } from 'vue'
 import { fileOpeningHandler } from '@/modules/files'
-import { browserTabId, contextTabSource, isBrowserArtifact } from '../../model/context-panel/taskContextPanel'
-import { fitsSpaceFilePreview, resolveChatArtifactTarget, resolveChatToolFileTarget } from '../../model/transcript/chatToolFileTarget'
+import { browserTabId, contextTabSource } from '../../model/context-panel/taskContextPanel'
+import { resolveChatArtifactTarget, resolveChatToolFileTarget } from '../../model/transcript/chatToolFileTarget'
 import { useTaskContextPanel } from './useTaskContextPanel'
 
 export interface FileOpeningResource {
@@ -33,8 +34,8 @@ interface TaskResourcePanelOptions extends UseTaskContextPanelOptions {
   files: { resolve: (input: TaskFileLink) => Promise<TaskFile> }
   openFile: (file: TaskFile, source: ContextPanelSource | undefined, provider: FileOpeningProvider | null, current: () => boolean, signal: AbortSignal) => Promise<void>
   onError: (error?: unknown) => void
-  // Where an output card opens a file or folder that lives in the task's space: the file manager (default) or the output panel.
-  artifactOpening?: Readonly<Ref<DesktopArtifactOpening>>
+  // Where an output sits inside the directory it was written to; the file manager opens that directory as its root (Spec-044).
+  artifactFileRoot?: (artifactId: string) => Promise<ArtifactFileRoot>
   autoCollapse: Readonly<Ref<boolean>>
   linkOpening: Readonly<Ref<BrowserPreferences['linkOpening']>>
   closeView?: (id: string) => Promise<boolean>
@@ -243,14 +244,13 @@ export function useTaskResourcePanel(options: TaskResourcePanelOptions) {
   }
 
   function findArtifact(id: string) {
-    const tab = taskContext.allTabs.value.find(tab => tab.kind === 'artifact' && tab.artifact.artifactId === id)
-    return tab?.kind === 'artifact' ? tab.artifact : options.runOutputs.value.flatMap(output => output.artifacts).find(item => item.artifactId === id)
+    return options.runOutputs.value.flatMap(output => output.artifacts).find(item => item.artifactId === id)
   }
 
   // An output inside the task's space is just a space file: open it in the file manager so it gets the file preview, editing and document plugins.
   function openInTaskSpace(artifact: LocalArtifact): boolean {
     const source = { conversationId: artifact.conversationId, runId: artifact.runId }
-    if (artifact.conversationId !== options.activeConversationId.value || !fitsSpaceFilePreview(artifact))
+    if (artifact.conversationId !== options.activeConversationId.value)
       return false
     if (artifact.kind === 'directory' && taskContext.canOpenDirectory(artifact.path)) {
       act(() => taskContext.openDirectory(artifact.path, source))
@@ -267,8 +267,46 @@ export function useTaskResourcePanel(options: TaskResourcePanelOptions) {
     return false
   }
 
-  // Where a quote's "locate source" opens its file: the route an output card takes (Spec-043). Null when the file is not in the task's space.
-  function openQuoteSourceFile(target: FileTarget): { target: SpaceFileTarget, tabId: string, viewId?: string } | null {
+  // An output outside the task's space (a granted folder, the task's own workspace, another task's space) opens in a tab rooted at the directory it was written to.
+  async function openInGrantedDirectory(artifact: LocalArtifact, current: () => boolean): Promise<boolean> {
+    if (!options.artifactFileRoot)
+      return false
+    let located: ArtifactFileRoot
+    try {
+      located = await options.artifactFileRoot(artifact.artifactId)
+    }
+    catch (error) {
+      // The output is not reachable any more (authorization revoked, task deleted, file moved): say so instead of falling back to a weaker preview.
+      if (current())
+        options.onError(error)
+      return true
+    }
+    if (!current())
+      return true
+    const source = { conversationId: artifact.conversationId, runId: artifact.runId }
+    if (located.kind === 'directory') {
+      act(() => taskContext.openGrantedDirectory({ conversationId: located.conversationId, root: located.root, path: located.path }, source))
+      return true
+    }
+    const target = { conversationId: located.conversationId, root: located.root, path: located.path }
+    act(() => {
+      if (!options.revealOpenOfficeDocument?.(target))
+        taskContext.openGrantedFile(target, source, isOfficePath(target.path))
+    })
+    return true
+  }
+
+  // Where a quote's "locate source" opens its file: the route an output card takes (Spec-043). Null when no file manager tab can show it.
+  function openQuoteSourceFile(target: FileTarget): { target: FileTarget, tabId: string, viewId?: string } | null {
+    if (isGrantFileTarget(target)) {
+      return act(() => {
+        if (isOfficePath(target.path) && options.revealOpenOfficeDocument?.(target)) {
+          const tab = taskContext.activeTab.value
+          return tab?.kind === 'view' ? { target, tabId: tab.id, viewId: tab.viewId } : null
+        }
+        return taskContext.openGrantedSourceFile(target, isOfficePath(target.path))
+      })
+    }
     const current = taskContext.resolveSpaceFile(target)
     if (!current)
       return null
@@ -281,10 +319,9 @@ export function useTaskResourcePanel(options: TaskResourcePanelOptions) {
     })
   }
 
-  // Outputs in the task's space open in the file manager (Spec-035). Not for an explicit "open with", the output-panel setting, a browser output, or a type the user assigned to a plugin.
-  async function openInFileManager(artifact: LocalArtifact): Promise<boolean> {
-    if (options.artifactOpening?.value === 'panel' || isBrowserArtifact(artifact))
-      return false
+  // Every output opens in the file manager (Spec-035, Spec-044): a space file in its space, anything else in a tab rooted at the directory it was written to.
+  // Not for a browser output, a type the user assigned to a plugin, or an "open with" that names the browser or a plugin.
+  async function openInFileManager(artifact: LocalArtifact, providerId?: string): Promise<boolean> {
     operation.value += 1
     const requestCurrent = currentOperation()
     try {
@@ -297,10 +334,16 @@ export function useTaskResourcePanel(options: TaskResourcePanelOptions) {
     }
     if (!requestCurrent())
       return true
-    const provider = artifact.kind === 'file'
-      ? (options.fileOpening?.resolve(artifact.name, 'standalone') ?? resolveBuiltinFileOpening(artifact.name, 'standalone')).provider
+    const opening = artifact.kind === 'file'
+      ? options.fileOpening?.resolve(artifact.name, 'standalone') ?? resolveBuiltinFileOpening(artifact.name, 'standalone')
       : null
-    return !(provider?.renderer === 'extension' && !provider.implicit) && openInTaskSpace(artifact)
+    const provider = providerId ? opening?.candidates?.find(candidate => candidate.id === providerId) ?? null : opening?.provider ?? null
+    // An unknown provider is reported by openResource.
+    if (providerId && !provider)
+      return false
+    if (provider?.renderer === 'browser' || (provider?.renderer === 'extension' && (providerId || !provider.implicit)))
+      return false
+    return openInTaskSpace(artifact) || await openInGrantedDirectory(artifact, requestCurrent)
   }
 
   async function openArtifact(target: string | LocalArtifact, providerId?: string): Promise<void> {
@@ -311,9 +354,12 @@ export function useTaskResourcePanel(options: TaskResourcePanelOptions) {
       options.onError()
       return
     }
-    if (!providerId && await openInFileManager(artifact))
+    if (await openInFileManager(artifact, providerId))
       return
-    await openResource({ name: artifact.name, kind: artifact.kind, source: { kind: 'artifact', artifactId: artifact.artifactId }, context: { conversationId: artifact.conversationId, runId: artifact.runId } }, provider => act(() => taskContext.openArtifact(artifact, provider?.id)), providerId)
+    // What is left is a browser or plugin opening, which openResource runs; a plain document has nowhere else to go.
+    await openResource({ name: artifact.name, kind: artifact.kind, source: { kind: 'artifact', artifactId: artifact.artifactId }, context: { conversationId: artifact.conversationId, runId: artifact.runId } }, () => {
+      throw new Error('FILE_OPENER_UNAVAILABLE')
+    }, providerId)
   }
 
   async function openResource(resource: FileOpeningResource, document: (provider: FileOpeningProvider | null, current: () => boolean, signal: AbortSignal) => void | Promise<void>, providerId?: string) {

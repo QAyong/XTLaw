@@ -166,7 +166,6 @@ export interface DesktopTaskSidebarPreferences {
 
 export type { DesktopBrowserApi, DesktopBrowserAttachGuestInput, DesktopBrowserBlockedAction, DesktopBrowserDownload, DesktopBrowserEnsureSessionInput, DesktopBrowserError, DesktopBrowserErrorCode, DesktopBrowserGuestDescriptor, DesktopBrowserNavigateInput, DesktopBrowserOpenArtifactInput, DesktopBrowserProfileMode, DesktopBrowserSecurityKind, DesktopBrowserSecurityState, DesktopBrowserSessionInput, DesktopBrowserSetProfileModeInput, DesktopBrowserSetSurfaceInput, DesktopBrowserState, DesktopBrowserStatus } from '../../shared/browser/browserDesktopApi'
 export type DesktopContextPanelMode = 'task' | 'space' | 'independent'
-export type DesktopArtifactOpening = 'file-manager' | 'panel'
 
 export const DESKTOP_CHAT_OUTLINE_POSITIONS = [
   'top-left',
@@ -217,7 +216,6 @@ export interface LexoraConfig {
     contextPanelGlobal: boolean
     minimizeToTrayOnClose: boolean
     contextPanelAutoCollapse: boolean
-    artifactOpening: DesktopArtifactOpening
     keybindings: Record<string, string>
     taskSidebarPinnedItems: DesktopTaskPinnedItem[]
     taskSidebar: DesktopTaskSidebarPreferences

@@ -15,7 +15,7 @@ import type { ExtensionSkillDescriptor } from '../../shared/extensions/extension
 import type { FileOpeningChoice, FileOpeningSnapshot } from '../../shared/files/fileOpening'
 import type { TaskFileTarget } from '../../shared/files/taskFileApi'
 import type { ShellCandidate, ShellCandidateId } from '../../shared/shell/shellProgram'
-import type { SpaceFileByteChunk, SpaceFileByteRequest, SpaceFileTarget } from '../../shared/spaces/spaceFileApi'
+import type { FileTarget, SpaceFileByteChunk, SpaceFileByteRequest } from '../../shared/spaces/spaceFileApi'
 import type { WorkbenchPaneSnapshot } from '../../shared/workbench/workbenchInteraction'
 import type { JsonValue } from '../../shared/workbench/workbenchState'
 import type { ThemeService } from '../themes/ThemeService'
@@ -55,6 +55,7 @@ import { extensionSkillRoots } from '../../shared/extensions/extensionSkills'
 import { EXTENSION_UNO_STYLESHEET } from '../../shared/extensions/extensionStyles'
 import { windowStyleIdSchema, windowStyleSchema } from '../../shared/extensions/extensionWindowStyles'
 import { fileOpeningExtension } from '../../shared/files/fileOpening'
+import { isGrantFileTarget } from '../../shared/spaces/spaceFileApi'
 import { themeRequestSchema, themeTransportSchema } from '../../shared/theme/themeApi'
 import { workbenchHitRegionsSchema } from '../../shared/workbench/workbenchInteraction'
 import { controlProposalSchema, extensionPresentationRequestSchema } from '../../shared/workbench/workbenchUi'
@@ -89,11 +90,11 @@ export interface ExtensionServicePorts {
   createHost: (pkg: ExtensionPackage, broker: (method: string, params: unknown) => Promise<JsonValue>, failed: (failure?: ExtensionHostFailure) => void) => ExtensionHost
   createView: (pkg: ExtensionPackage, readSelected?: (id: string, request: Request, signal: AbortSignal) => Promise<Response>) => { token: string, url: string, dispose: () => void }
   workbench: (event: ExtensionWorkbenchEvent, signal: AbortSignal) => Promise<ExtensionWorkbenchResult>
-  readText: (target: SpaceFileTarget, signal: AbortSignal) => Promise<string>
+  readText: (target: FileTarget, signal: AbortSignal) => Promise<string>
   readBytes?: (input: SpaceFileByteRequest, signal: AbortSignal) => Promise<SpaceFileByteChunk>
   saveBytes?: (input: import('../../shared/spaces/spaceFileApi').SpaceSaveBytes, signal: AbortSignal) => Promise<import('../../shared/spaces/spaceFileApi').SpaceSaveBytesResult>
   openExternal?: (url: string) => Promise<void>
-  readResource?: (target: SpaceFileTarget, signal: AbortSignal, request?: Request) => Promise<Response>
+  readResource?: (target: FileTarget, signal: AbortSignal, request?: Request) => Promise<Response>
   readArtifactResource?: (artifactId: string, signal: AbortSignal, request?: Request) => Promise<{ name: string, response: Response }>
   readTaskFileResource?: (target: TaskFileTarget, signal: AbortSignal, request?: Request) => Promise<{ name: string, response: Response }>
   get: (url: string, init: { signal: AbortSignal }) => Promise<Response>
@@ -1015,7 +1016,7 @@ export class ExtensionService {
     return { extensionId: input.extensionId, viewType: view.id, resource }
   }
 
-  async execute(id: string, command: string, target: SpaceFileTarget | null): Promise<void> {
+  async execute(id: string, command: string, target: FileTarget | null): Promise<void> {
     const running = await this.#activate(id)
     await this.#executeCommand(running, command, target)
   }
@@ -1034,7 +1035,7 @@ export class ExtensionService {
     return matchFileHandlers(sources, path).find(handler => implicitFileHandlerId(handler.view.id) === providerId) ?? null
   }
 
-  async openFile(target: SpaceFileTarget, providerId?: string): Promise<string | null> {
+  async openFile(target: FileTarget, providerId?: string): Promise<string | null> {
     await this.initialize()
     await this.#mutating
     // Ambiguous or missing handlers leave the file in the built-in preview.
@@ -1114,7 +1115,7 @@ export class ExtensionService {
     return this.#executeCommand(running, menu.command, input.target === 'resource.actions' ? input.resource : null, invocation)
   }
 
-  async #executeCommand(running: RunningExtension, command: string, target: SpaceFileTarget | null, invocation: JsonValue = null, argumentsValue: JsonValue = null): Promise<JsonValue> {
+  async #executeCommand(running: RunningExtension, command: string, target: FileTarget | null, invocation: JsonValue = null, argumentsValue: JsonValue = null): Promise<JsonValue> {
     if (!running.package.manifest.contributes.commands.some(item => item.id === command))
       throw new Error('EXTENSION_COMMAND_UNAVAILABLE')
     let resource: ExtensionResource | null = null
@@ -2175,7 +2176,8 @@ export class ExtensionService {
     if (selected?.id === resourceId) {
       const source = await this.#resource(running, resourceId)
       response = await this.#selectedResponse(running, resourceId, signal)
-      if (source.kind === 'space' && !this.#fileSnapshots.has(resourceId)) {
+      // A file in a granted directory is not a space binding the composer can attach by reference, so it is read and attached as a file below.
+      if (source.kind === 'space' && !isGrantFileTarget(source.target) && !this.#fileSnapshots.has(resourceId)) {
         await response.body?.cancel()
         return { kind: 'source', source: { spaceId: source.target.spaceId, bindingId: source.target.directoryId, relativePath: source.target.path } }
       }
@@ -2206,7 +2208,7 @@ export class ExtensionService {
   }
 
   // Quoting and saving act on a Space file the view has read; an artifact or an editor snapshot offers nothing to write back to.
-  async #spaceResource(running: RunningExtension, id: string): Promise<SpaceFileTarget> {
+  async #spaceResource(running: RunningExtension, id: string): Promise<FileTarget> {
     const source = await this.#resource(running, id)
     if (source.kind !== 'space' || this.#fileSnapshots.has(id))
       throw new Error('EXTENSION_RESOURCE_DENIED')

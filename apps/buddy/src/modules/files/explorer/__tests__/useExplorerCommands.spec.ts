@@ -1,3 +1,4 @@
+import type { FileTarget } from '@buddy-shared/spaces/spaceFileApi'
 import type { ExplorerNode } from '@/shared/ui/explorer/treeCollection'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { effectScope, shallowRef } from 'vue'
@@ -14,7 +15,7 @@ afterEach(() => {
 const target = { spaceId: 'space', directoryId: 'directory', revision: 1, path: '' }
 const node: ExplorerNode = { key: '资料/合同 草稿.docx', label: '合同 草稿.docx', kind: 'file' }
 
-function fixture() {
+function fixture(current: FileTarget = target) {
   const operations = {
     clipboard: shallowRef(null),
     copyPath: vi.fn().mockResolvedValue(undefined),
@@ -24,13 +25,46 @@ function fixture() {
   const scope = effectScope()
   cleanup.push(() => scope.stop())
   const commands = scope.run(() => useExplorerCommands({
-    target: () => target,
+    target: () => current,
     language: () => 'zh-CN',
     api: { revealFile: vi.fn(), cancelFileOperation: vi.fn() },
     refresh: vi.fn().mockResolvedValue(undefined),
   }))!
   return { operations, commands }
 }
+
+describe('explorer operations in a granted directory', () => {
+  const grant = { conversationId: 'conversation', root: '/work/out', path: '' }
+
+  it('runs every file action against the granted root', async () => {
+    const { operations, commands } = fixture(grant)
+    await commands.command('trash', node).catch(() => {})
+    await commands.command('copy', node)
+    expect(operations.clipboard.value).toEqual({ target: { ...grant, path: node.key }, move: false })
+    await commands.command('paste', { key: 'destination', label: 'destination', kind: 'directory' })
+    expect(operations.execute).toHaveBeenCalledWith(expect.objectContaining({
+      conversationId: 'conversation',
+      root: '/work/out',
+      path: node.key,
+      action: { kind: 'copy', destination: { ...grant, path: 'destination/合同 草稿.docx' } },
+    }))
+    expect(operations.execute.mock.calls.every(([input]) => !('spaceId' in input))).toBe(true)
+  })
+
+  it('only pastes what was copied inside the same granted root', async () => {
+    const { operations, commands } = fixture(grant)
+    for (const source of [{ ...target, path: 'a.txt' }, { ...grant, root: '/work/other', path: 'a.txt' }, { ...grant, conversationId: 'other', path: 'a.txt' }]) {
+      expect(commands.canPaste(source)).toBe(false)
+      operations.clipboard.value = { target: source, move: false } as never
+      await commands.command('paste', { key: 'destination', label: 'destination', kind: 'directory' })
+    }
+    expect(operations.execute).not.toHaveBeenCalled()
+    expect(commands.canPaste({ ...grant, path: 'a.txt' })).toBe(true)
+    // A space file cannot be pasted into a granted root either, and the other way round.
+    expect(fixture(target).commands.canPaste({ ...grant, path: 'a.txt' })).toBe(false)
+    expect(fixture(target).commands.canPaste({ ...target, path: 'a.txt' })).toBe(true)
+  })
+})
 
 describe('explorer copy path', () => {
   it('copies the path while retaining internal file copy and paste', async () => {

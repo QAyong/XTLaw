@@ -1,11 +1,11 @@
-import type { SpaceFileTarget } from '../../../shared/spaces/spaceFileApi'
+import type { FileTarget } from '../../../shared/spaces/spaceFileApi'
 import { constants } from 'node:fs'
 import { open, stat } from 'node:fs/promises'
 import { extname } from 'node:path'
 import { fileResponse } from '../../../platform/filesystem/fileResponse'
 import { extensionResourceMimeType } from '../../../shared/extensions/extensionResources'
 
-export function readSpaceFileResource(target: SpaceFileTarget, signal: AbortSignal, locate: (target: SpaceFileTarget) => Promise<{ path: string, kind: 'file' | 'directory' }>, request?: Request): Promise<Response> {
+export function readSpaceFileResource(target: FileTarget, signal: AbortSignal, locate: (target: FileTarget) => Promise<{ path: string, kind: 'file' | 'directory' }>, request?: Request): Promise<Response> {
   return readAuthorizedFileResource(target, signal, locate, request)
 }
 

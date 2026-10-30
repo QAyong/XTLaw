@@ -1,5 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite'
-import { randomUUID } from 'node:crypto'
+import { Buffer } from 'node:buffer'
+import { createHash, randomUUID } from 'node:crypto'
 import { mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -68,6 +69,26 @@ describe('granted directory file targets', () => {
     expect(stale.status).toBe('conflict')
   })
 
+  it('reads and writes a binary document in chunks with the same conflict checks a plugin relies on', async () => {
+    const f = await fixture()
+    f.grant('grant-1', f.external)
+    const original = Buffer.from('PK-original-docx-bytes')
+    await writeFile(join(f.external, 'brief.docx'), original)
+    const target = f.target(f.external, 'brief.docx')
+    const first = await f.files.readBytes({ ...target, offset: 0, length: 8 })
+    expect(Buffer.from(first.base64, 'base64').toString()).toBe('PK-origi')
+    expect(first).toMatchObject({ size: original.length, eof: false })
+    const hash = createHash('sha256').update(original).digest('hex')
+    const updated = Buffer.from('PK-updated-docx-bytes!')
+    const saved = await f.files.saveBytes({ ...target, etag: first.etag, expectedHash: hash, base64: updated.toString('base64') })
+    expect(saved.status).toBe('saved')
+    expect(await readFile(join(f.external, 'brief.docx'))).toEqual(updated)
+    const stale = await f.files.saveBytes({ ...target, etag: first.etag, expectedHash: hash, base64: original.toString('base64') })
+    expect(stale.status).toBe('conflict')
+    expect(await readFile(join(f.external, 'brief.docx'))).toEqual(updated)
+    await expect(f.files.readBytes({ ...target, offset: 0, length: 4, etag: first.etag })).rejects.toThrow('EXTENSION_RESOURCE_CHANGED')
+  })
+
   it('serves a media URL that names the granted root instead of a space directory', async () => {
     const f = await fixture()
     f.grant('grant-1', f.external)
@@ -92,6 +113,20 @@ describe('granted directory file targets', () => {
     expect(await readFile(join(f.external, 'folder/c.txt'), 'utf8')).toBe('hello')
     expect(await readFile(join(f.external, 'folder/d.txt'), 'utf8')).toBe('hello')
     await expect(readFile(join(f.external, 'b.txt'))).rejects.toThrow()
+  })
+
+  it('moves a file to the trash and restores it inside the same granted root', async () => {
+    const f = await fixture()
+    f.grant('grant-1', f.external)
+    await writeFile(join(f.external, 'old.txt'), 'keep me')
+    const trashed = await f.files.mutate({ ...f.target(f.external, 'old.txt'), operationId: randomUUID(), action: { kind: 'trash' } })
+    expect(trashed).toMatchObject({ status: 'applied', restorable: true, path: 'old.txt' })
+    await expect(readFile(join(f.external, 'old.txt'))).rejects.toThrow()
+    const history = await f.files.history(f.target(f.external))
+    expect(history.map(item => item.operationId)).toContain(trashed.operationId)
+    const restored = await f.files.mutate({ ...f.target(f.external, 'old.txt'), operationId: randomUUID(), action: { kind: 'restore', originalOperationId: trashed.operationId } })
+    expect(restored.status).toBe('applied')
+    expect(await readFile(join(f.external, 'old.txt'), 'utf8')).toBe('keep me')
   })
 
   it('refuses to copy or move to another root, another conversation or a space directory', async () => {

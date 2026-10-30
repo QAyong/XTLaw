@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-import type { LocalArtifact, LocalArtifactText } from '@buddy-shared/artifacts/artifactApi'
 import type { LocalChangeSetDetail, LocalChangeSetSummary } from '@buddy-shared/changes/changeApi'
 import type { Ref } from 'vue'
 import type { WorkspaceFilesApi } from '../useWorkspaceFilePreview'
@@ -7,7 +6,6 @@ import type { TaskChangesContextTab, TaskFilesContextTab } from '@/modules/tasks
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { computed, effectScope, nextTick, shallowRef, watch } from 'vue'
 import { deferred } from '../../../../../../__tests__/deferred'
-import { useArtifactPreview } from '../useArtifactPreview'
 import { useContextChanges } from '../useContextChanges'
 import { useWorkspaceFilePreview } from '../useWorkspaceFilePreview'
 
@@ -309,59 +307,6 @@ describe('resource previews', () => {
     expect(state.current.value?.nodes[0]?.children?.[0]?.children?.[0]?.key).toBe('src/deep/note.txt')
   })
 
-  it('reads legacy Markdown artifacts without requiring their stored MIME type to change', async () => {
-    const artifact = { ...createArtifact('legacy'), name: 'legacy.markdown', mimeType: 'application/octet-stream' }
-    const text = { artifactId: artifact.artifactId, language: 'markdown', text: '# Original document' }
-    const { state } = own(() => useArtifactPreview({ artifact: () => artifact, readText: () => async () => text }))
-    expect(state.textPreviewLoading.value).toBe(true)
-    await nextTick()
-    expect(state.textPreview.value).toEqual(text)
-    expect(state.textPreviewLoading.value).toBe(false)
-  })
-
-  it('tells a moved or deleted file apart from other read failures', async () => {
-    const artifact = { ...createArtifact('moved'), name: 'moved.md', mimeType: 'text/markdown' }
-    const missing = own(() => useArtifactPreview({ artifact: () => artifact, readText: () => failWith('Error invoking remote method: Error: LEXORA_LOCAL_CHAT_ERROR:FILE_NOT_FOUND:0') }))
-    const broken = own(() => useArtifactPreview({ artifact: () => artifact, readText: () => failWith('LEXORA_LOCAL_CHAT_ERROR:LOCAL_CHAT_OPERATION_FAILED:0') }))
-    await vi.waitFor(() => expect(missing.state.textPreviewFailed.value).toBe(true))
-    await vi.waitFor(() => expect(broken.state.textPreviewFailed.value).toBe(true))
-    expect(missing.state.textPreviewMissing.value).toBe(true)
-    expect(broken.state.textPreviewMissing.value).toBe(false)
-  })
-
-  it('ignores late text success and failure after switching artifacts or closing the preview', async () => {
-    const first = deferred<LocalArtifactText>()
-    const second = deferred<LocalArtifactText>()
-    const artifact = shallowRef(createArtifact('first'))
-    const readText = vi.fn().mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise).mockResolvedValue({ artifactId: 'current', language: null, text: 'current' })
-    const { state, stop } = own(() => useArtifactPreview({ artifact: () => artifact.value, readText: () => readText }))
-    artifact.value = createArtifact('second')
-    artifact.value = createArtifact('current')
-    await nextTick()
-    first.resolve({ artifactId: 'first', language: null, text: 'old' })
-    second.reject(new Error('old failure'))
-    await nextTick()
-    expect(state.textPreview.value?.text).toBe('current')
-    expect(state.textPreviewFailed.value).toBe(false)
-    const pending = deferred<LocalArtifactText>()
-    readText.mockReturnValueOnce(pending.promise)
-    artifact.value = createArtifact('disposed')
-    stop()
-    pending.resolve({ artifactId: 'disposed', language: null, text: 'disposed' })
-    await nextTick()
-    expect(state.textPreview.value).toBeNull()
-  })
-
-  it('ignores image errors from a previously selected artifact', () => {
-    const artifact = shallowRef({ ...createArtifact('image-a'), mimeType: 'image/png' })
-    const { state } = own(() => useArtifactPreview({ artifact: () => artifact.value, readText: () => vi.fn() }))
-    const oldImage = document.createElement('img')
-    oldImage.setAttribute('src', state.previewUrl.value!)
-    artifact.value = { ...createArtifact('image-b'), mimeType: 'image/png' }
-    state.failImage({ target: oldImage } as unknown as Event)
-    expect(state.previewUrl.value).toContain('image-b')
-  })
-
   it('preserves selection and updates file counts when the same change set refreshes', async () => {
     const changeSet = shallowRef<LocalChangeSetSummary>(createChanges('set-a'))
     const refresh = deferred<LocalChangeSetDetail>()
@@ -406,12 +351,6 @@ describe('resource previews', () => {
   })
 })
 
-function failWith(message: string) {
-  return async (): Promise<never> => {
-    throw new Error(message)
-  }
-}
-
 function filesTab(): TaskFilesContextTab {
   return { id: 'files:first', scope: 'task:first', kind: 'files', rootName: 'fixture', target: { spaceId: 'space', directoryId: 'directory', revision: 1, path: '' } }
 }
@@ -420,9 +359,6 @@ function openFiles(tab: Ref<TaskFilesContextTab | null>, listDirectory: Workspac
   return own(() => useWorkspaceFilePreview(tab, { listDirectory, readFile: vi.fn(), revealFile: vi.fn(), onFilesChanged: () => () => {}, fileHistory: async () => [], acknowledgeFileOperation: vi.fn(), cancelFileOperation: async () => null }, hasTab))
 }
 
-function createArtifact(id: string): LocalArtifact {
-  return { artifactId: id, conversationId: 'conversation', createdAt: '2026-09-08T00:00:00.000Z', kind: 'file', mimeType: 'text/plain', name: `${id}.txt`, path: `/workspace/${id}.txt`, previewUrl: null, runId: 'run', sizeBytes: 10, sourceArtifactId: null, sourceToolCallId: 'tool', updatedAt: '2026-09-08T00:00:00.000Z' }
-}
 function createChanges(setId: string): LocalChangeSetDetail {
   return { changeSetId: setId, conversationId: 'conversation', coverage: 'complete', fileCount: 2, runId: 'run', status: 'completed', updatedAt: '2026-09-08T00:00:00.000Z', files: ['first', 'second'].map(id => ({ afterSizeBytes: 1, afterText: 'b', beforeSizeBytes: 1, beforeText: 'a', changeType: 'modified', id, language: 'typescript', path: `${setId}-${id}.ts`, preview: 'text', redacted: false })) }
 }

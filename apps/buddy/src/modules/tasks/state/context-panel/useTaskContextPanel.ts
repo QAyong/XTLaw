@@ -1,16 +1,15 @@
-import type { LocalArtifact } from '@buddy-shared/artifacts/artifactApi'
 import type { LocalChangeSetSummary } from '@buddy-shared/changes/changeApi'
 import type { ContextPanelSource } from '@buddy-shared/context-panel/contextPanel'
 import type { LocalSpaceAdditionalDirectory } from '@buddy-shared/spaces/spaceApi'
-import type { FileTarget, SpaceFileTarget } from '@buddy-shared/spaces/spaceFileApi'
-import type { ArtifactViewMode, TaskContextTab, TaskFilesContextTab } from '../../model/context-panel/taskContextPanel'
+import type { FileTarget, GrantFileTarget, SpaceFileTarget } from '@buddy-shared/spaces/spaceFileApi'
+import type { TaskContextTab, TaskFilesContextTab } from '../../model/context-panel/taskContextPanel'
 import type { UseTaskContextPanelOptions } from './typing'
 import { getActiveSpaceDirectories } from '@buddy-shared/spaces/spaceApi'
 import { isGrantFileTarget, sameFileDirectory, sameFileRoot, spaceFileTargetOnly } from '@buddy-shared/spaces/spaceFileApi'
 import { computed, readonly, watch } from 'vue'
 import { useContextPanelControl } from '@/platform/desktop/useContextPanelControl'
 import { readContextSelection, readContextTab } from '../../model/context-panel/readContextTab'
-import { artifactTabId, browserTabId, contextTabSource, spaceTaskBrowserTab, taskContextPanelScope } from '../../model/context-panel/taskContextPanel'
+import { browserTabId, contextTabSource, spaceTaskBrowserTab, taskContextPanelScope } from '../../model/context-panel/taskContextPanel'
 import { resolveChatToolDirectoryTarget, resolveChatToolFileTarget } from '../../model/transcript/chatToolFileTarget'
 import { useContextPanelTabs } from './useContextPanelTabs'
 
@@ -113,21 +112,6 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
     return conversationId && runId ? { conversationId, runId } : undefined
   }
 
-  function openArtifact(target: string | LocalArtifact, providerId?: string) {
-    const artifact = typeof target === 'string'
-      ? options.runOutputs.value.flatMap(output => output.artifacts).find(item => item.artifactId === target)
-      : target
-    if (!artifact)
-      return
-    const id = artifactTabId(artifact.artifactId)
-    const previous = store.resources.value.find(tab => tab.id === id)
-    openTab({ artifact, id, scope: taskContextPanelScope(artifact.conversationId), kind: 'artifact', label: artifact.name, providerId, viewMode: previous?.kind === 'artifact' && previous.providerId === providerId ? previous.viewMode : 'preview' })
-  }
-
-  function setArtifactViewMode(tabId: string, viewMode: ArtifactViewMode) {
-    store.update(tab => tab.id === tabId && tab.kind === 'artifact' ? { ...tab, viewMode } : tab)
-  }
-
   function openBrowser(source = currentSource()) {
     const tab = spaceTaskBrowserTab(source?.conversationId ?? options.activeConversationId.value)
     if (tab)
@@ -160,6 +144,8 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
     openTab({ id: browserTabId(null, browserKey), scope: store.scope.value, kind: 'browser', conversationId: null, browserKey })
   }
 
+  const rootNameOf = (root: string) => root.split(/[\\/]/).filter(Boolean).at(-1) ?? root
+
   function openFiles(spaceId: string, directoryId?: string) {
     const space = fileSpaces.value.find(space => space.id === spaceId)
     const directories = getActiveSpaceDirectories(space)
@@ -170,7 +156,7 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
       id: `files:${crypto.randomUUID()}`,
       scope: store.scope.value,
       kind: 'files',
-      rootName: directory.root.split(/[\\/]/).filter(Boolean).at(-1) ?? directory.root,
+      rootName: rootNameOf(directory.root),
       target: { spaceId: space.id, directoryId: directory.id, revision: directory.revision, path: '' },
       source: linked.value ? currentSource() : undefined,
     })
@@ -188,7 +174,7 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
       id: previous?.id ?? `files:${crypto.randomUUID()}`,
       scope: source ? taskContextPanelScope(source.conversationId) : previous?.scope ?? store.scope.value,
       kind: 'files',
-      rootName: directory.root.split(/[\\/]/).filter(Boolean).at(-1) ?? directory.root,
+      rootName: rootNameOf(directory.root),
       target: { ...target, path: kind === 'file' ? target.path : '' },
       treeTarget: { path: target.path, kind },
       source: source ?? previous?.source ?? currentSource(),
@@ -239,6 +225,11 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
   }
 
   function previewTarget(target: SpaceFileTarget, directory: LocalSpaceAdditionalDirectory, source: ContextPanelSource | undefined, treeVisible: boolean | undefined) {
+    showFile(target, rootNameOf(directory.root), source, treeVisible)
+  }
+
+  // Shows a file in the file manager tab of its root: the tab already showing exactly this file, else the root's tab, else a new one.
+  function showFile(target: FileTarget, rootName: string, source: ContextPanelSource | undefined, treeVisible: boolean | undefined) {
     const exactTab = store.tabs.value.find(tab =>
       tab.kind === 'files'
       && sameFileDirectory(tab.target, target)
@@ -264,14 +255,14 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
       return
     }
 
-    openTab({ ...newFilesTab(directory, target, source), tree })
+    openTab({ ...newFilesTab(rootName, target, source), tree })
   }
 
   function updateFilesTab(tabId: string, change: Partial<Pick<TaskFilesContextTab, 'expand' | 'tree' | 'treeTarget'>>) {
     store.update(tab => tab.id === tabId && tab.kind === 'files' ? { ...tab, ...change } : tab)
   }
 
-  function findSpaceFilesTab(target: SpaceFileTarget, source?: ContextPanelSource) {
+  function findSpaceFilesTab(target: FileTarget, source?: ContextPanelSource) {
     const active = store.activeTab.value
     return (active?.kind === 'files' && sameFileDirectory(active.target, target) && (!source || active.source?.runId === source.runId))
       ? active
@@ -282,12 +273,13 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
         )
   }
 
-  function newFilesTab(directory: LocalSpaceAdditionalDirectory, target: SpaceFileTarget, source?: ContextPanelSource): TaskFilesContextTab {
+  function newFilesTab(rootName: string, target: FileTarget, source?: ContextPanelSource): TaskFilesContextTab {
+    const root = isGrantFileTarget(target) ? `grant:${target.conversationId}:${target.root}` : `${target.spaceId}:${target.directoryId}`
     return {
-      id: `files:${source ? taskContextPanelScope(source.conversationId) : store.scope.value}:${target.spaceId}:${target.directoryId}:${source?.runId ?? 'preview'}`,
+      id: `files:${source ? taskContextPanelScope(source.conversationId) : store.scope.value}:${root}:${source?.runId ?? 'preview'}`,
       scope: source ? taskContextPanelScope(source.conversationId) : store.scope.value,
       kind: 'files',
-      rootName: directory.root.split(/[\\/]/).filter(Boolean).at(-1) ?? directory.root,
+      rootName,
       target,
       source: source ?? currentSource(),
     }
@@ -314,7 +306,38 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
       openPanel()
       return
     }
-    openTab({ ...newFilesTab(directory, { ...target, path: '' }, source), expand, tree })
+    openTab({ ...newFilesTab(rootNameOf(directory.root), { ...target, path: '' }, source), expand, tree })
+  }
+
+  // A granted directory is not in the task's space; its files open in a tab rooted at that directory (Spec-044).
+  function openGrantedFile(target: GrantFileTarget, source: ContextPanelSource | undefined, treeVisible: boolean | undefined) {
+    showFile(target, rootNameOf(target.root), source, treeVisible)
+  }
+
+  // Shows a folder of a granted directory in the tree, like openDirectory does for a space folder; an empty path is the root itself.
+  function openGrantedDirectory(target: GrantFileTarget, source?: ContextPanelSource) {
+    const root = { ...target, path: '' }
+    const expand = target.path ? { path: target.path, token: crypto.randomUUID() } : undefined
+    const tree = { visible: true, token: crypto.randomUUID() }
+    const existing = findSpaceFilesTab(root, source)
+    if (existing) {
+      updateFilesTab(existing.id, { expand, tree, treeTarget: undefined })
+      store.select(existing.id)
+      openPanel()
+      return
+    }
+    openTab({ ...newFilesTab(rootNameOf(target.root), root, source), expand, tree })
+  }
+
+  // Opens a quote's source file in the tab of its granted directory and returns the target that tab shows, so a caller can share its view.
+  function openGrantedSourceFile(target: GrantFileTarget, treeVisible: boolean): { target: GrantFileTarget, tabId: string } | null {
+    if (!target.path)
+      return null
+    showFile(target, rootNameOf(target.root), undefined, treeVisible)
+    const tab = store.activeTab.value
+    if (tab?.kind !== 'files' || !isGrantFileTarget(tab.target) || tab.target.path !== target.path)
+      return null
+    return { target: { ...tab.target }, tabId: tab.id }
   }
 
   function isAvailable(tab: TaskContextTab): boolean {
@@ -387,7 +410,6 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
     setTabPinned: store.setPinned,
     discardConversation: (id: string) => store.discard(taskContextPanelScope(id)),
     hasTab,
-    openArtifact,
     openBrowser,
     openChanges,
     openDirectory,
@@ -395,9 +417,11 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
     locateFile,
     previewFile,
     openSpaceFile,
+    openGrantedFile,
+    openGrantedDirectory,
+    openGrantedSourceFile,
     resolveSpaceFile: (target: FileTarget) => resolveSpaceFile(target)?.target ?? null,
     selectFile,
-    setArtifactViewMode,
     restoreTab,
     selectTab: store.select,
     getSource,

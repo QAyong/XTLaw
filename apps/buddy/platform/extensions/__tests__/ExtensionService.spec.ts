@@ -179,7 +179,7 @@ it('publishes static contributions without starting code and deduplicates concur
 it('exposes opaque selected-resource grants, revalidates bindings on every read, and blocks other grants', async () => {
   let allowed = true
   const { service, hosts } = await fixture({ readText: async (input) => {
-    if (!allowed || input.revision !== 4)
+    if (!allowed || !('revision' in input) || input.revision !== 4)
       throw new Error('RESOURCE_REVOKED')
     return 'Selected text'
   } })
@@ -188,6 +188,26 @@ it('exposes opaque selected-resource grants, revalidates bindings on every read,
   expect(Object.keys(command.resource).sort()).toEqual(['id', 'name'])
   expect(await hosts[0]!.broker('resources.readText', { id: command.resource.id })).toBe('Selected text')
   await expect(hosts[0]!.broker('resources.readText', { id: randomUUID() })).rejects.toThrow('EXTENSION_RESOURCE_DENIED')
+  allowed = false
+  await expect(hosts[0]!.broker('resources.readText', { id: command.resource.id })).rejects.toThrow('RESOURCE_REVOKED')
+})
+
+it('gives a plugin the same opaque handle for a file in a granted directory, without exposing its root', async () => {
+  const granted = { conversationId: 'conversation-1', root: '/work/out', path: 'brief.docx' }
+  const reads: unknown[] = []
+  let allowed = true
+  const { service, hosts } = await fixture({ readText: async (input) => {
+    reads.push(input)
+    if (!allowed || !('root' in input) || input.root !== '/work/out')
+      throw new Error('RESOURCE_REVOKED')
+    return 'Granted text'
+  } })
+  await service.execute('tests.reader', 'tests.reader.open', granted)
+  const command = hosts[0]!.commands[0] as { resource: { id: string, name: string } }
+  expect(Object.keys(command.resource).sort()).toEqual(['id', 'name'])
+  expect(JSON.stringify(command)).not.toContain('/work/out')
+  expect(await hosts[0]!.broker('resources.readText', { id: command.resource.id })).toBe('Granted text')
+  expect(reads).toContainEqual(granted)
   allowed = false
   await expect(hosts[0]!.broker('resources.readText', { id: command.resource.id })).rejects.toThrow('RESOURCE_REVOKED')
 })

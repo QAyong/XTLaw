@@ -1,11 +1,8 @@
 import type { DesktopContextPanelMode } from '@buddy-electron/shared/desktopApi'
-import type { LocalArtifact } from '@buddy-shared/artifacts/artifactApi'
 import type { LocalChangeSetSummary } from '@buddy-shared/changes/changeApi'
 import type { ContextPanelSource } from '@buddy-shared/context-panel/contextPanel'
-import type { LocalRunOutput } from '@buddy-shared/runs/runApi'
 import type { FileTarget } from '@buddy-shared/spaces/spaceFileApi'
 
-export type ArtifactViewMode = 'preview' | 'source'
 export type ContextPanelScope = `task:${string}` | `draft:${string}` | 'independent' | 'workspace'
 export type ContextPanelSelectionScope = ContextPanelScope | `space:${string}`
 
@@ -20,15 +17,6 @@ interface ContextTabSource {
   pinned?: boolean
   scope: ContextPanelScope
   source?: ContextPanelSource
-}
-
-export interface TaskArtifactContextTab extends ContextTabSource {
-  artifact: LocalArtifact
-  id: string
-  kind: 'artifact'
-  label: string
-  viewMode: ArtifactViewMode
-  providerId?: string
 }
 
 export interface TaskChangesContextTab extends ContextTabSource {
@@ -78,43 +66,10 @@ export interface ContextPanelTab {
   fileName?: string
 }
 
-export type TaskContextTab = TaskArtifactContextTab
-  | TaskBrowserContextTab
+export type TaskContextTab = TaskBrowserContextTab
   | TaskChangesContextTab
   | TaskFilesContextTab
   | TaskViewContextTab
-
-export function spaceTaskArtifactTabs(
-  outputs: ReadonlyArray<LocalRunOutput>,
-): ReadonlyArray<TaskArtifactContextTab> {
-  const artifacts = new Map<string, LocalArtifact>()
-  for (const output of outputs) {
-    for (const artifact of output.artifacts) {
-      artifacts.set(artifact.artifactId, artifact)
-    }
-  }
-  return [...artifacts.values()].map(artifact => ({
-    artifact,
-    scope: taskContextPanelScope(artifact.conversationId),
-    id: artifactTabId(artifact.artifactId),
-    kind: 'artifact',
-    label: artifact.name,
-    viewMode: 'preview',
-  }))
-}
-
-export function artifactTabId(artifactId: string): string {
-  return `artifact:${artifactId}`
-}
-
-// HTML outputs run in the task's browser session, so they never open in the file manager.
-export function isBrowserArtifact(
-  artifact: Pick<LocalArtifact, 'kind' | 'mimeType' | 'name'>,
-): boolean {
-  return artifact.kind === 'file'
-    && artifact.mimeType === 'text/html'
-    && /\.html?$/i.test(artifact.name)
-}
 
 export function spaceTaskBrowserTab(
   conversationId: string | null,
@@ -143,6 +98,6 @@ export function taskContextPanelScope(conversationId: string): ContextPanelScope
 }
 
 export function contextTabSource(tab: TaskContextTab | null): ContextPanelSource | null {
-  const source = tab?.kind === 'artifact' ? tab.artifact : tab?.kind === 'changes' ? tab.changeSet ?? tab.source : tab?.source
+  const source = tab?.kind === 'changes' ? tab.changeSet ?? tab.source : tab?.source
   return source ? { conversationId: source.conversationId, runId: source.runId } : null
 }

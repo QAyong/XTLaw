@@ -11,7 +11,7 @@ import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 
 const props = defineProps<{
   target: ResourceOpenTarget | null
-  context: Pick<TaskChatWorkspace['context'], 'files' | 'openArtifact'>
+  context: Pick<TaskChatWorkspace['context'], 'files'>
   language: BuddyLocale
 }>()
 const { t } = useBuddyI18n(() => props.language)
@@ -30,7 +30,7 @@ watch(() => props.target?.key, () => {
   menuOpen.value = false
   needsApplication.value = false
 }, { flush: 'sync' })
-const canChooseApplication = computed(() => props.target?.kind === 'file' || (props.target?.kind === 'artifact' && props.target.file))
+const canChooseApplication = computed(() => props.target?.kind === 'file')
 const options = computed<DropdownOption[]>(() => [
   { key: 'open', label: t('desktop.context.openExternal'), disabled: busy.value },
   { key: 'reveal', label: t('desktop.context.revealResource'), disabled: busy.value },
@@ -53,9 +53,7 @@ async function execute(action: string) {
     }
     else {
       const openAction = action as 'open' | 'reveal' | 'choose-app'
-      const result = target.kind === 'file'
-        ? await props.context.files.openFileExternal({ ...target.target, action: openAction })
-        : await props.context.openArtifact({ ...target.artifact, action: openAction })
+      const result = await props.context.files.openFileExternal({ ...target.target, action: openAction })
       if (!disposed && version === generation) {
         if (result.status === 'choose-app') {
           needsApplication.value = true

@@ -6,7 +6,7 @@ import type { WorkbenchView } from '@/workbench/common/workbench'
 import { resolveBuiltinFileOpening } from '@buddy-shared/files/fileOpening'
 import { taskFileTargetSchema } from '@buddy-shared/files/taskFileApi'
 import { parseLocalChatPublicError } from '@buddy-shared/runtime/localChatError'
-import { requireFileTarget, spaceFileTargetOnly } from '@buddy-shared/spaces/spaceFileApi'
+import { requireFileTarget } from '@buddy-shared/spaces/spaceFileApi'
 import { computed, shallowRef, useTemplateRef, watch } from 'vue'
 import WorkbenchMenu from '@/shared/ui/contributions/WorkbenchMenu.vue'
 import DesktopDocumentContent from '@/shared/ui/files/DesktopDocumentContent.vue'
@@ -95,7 +95,7 @@ function loadPreview() {
   attempt.value++
 }
 function captureResource() {
-  return { resource: spaceFileTargetOnly(requireFileTarget(props.view.resource.data)) }
+  return { resource: requireFileTarget(props.view.resource.data) }
 }
 </script>
 

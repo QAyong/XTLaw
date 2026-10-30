@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "format": "compiled",
+  "id": "pd2ec0b9018e6402d8ada6873f7fa8721.office-pdf",
+  "name": "Office PDF",
+  "author": "XTLaw官方",
+  "description": "用 PDF 编辑器打开、批注、填写表单并保存 PDF，可引用到聊天。",
+  "version": "0.1.4",
+  "icon": "icon.svg",
+  "categories": ["办公"],
+  "tags": ["PDF", "批注", "表单"],
+  "apiVersion": 4,
+  "engines": { "lexora": ">=0.4.2 <1.0.0" },
+  "entry": "extension.js",
+  "permissions": { "selectedResource": "read", "selectedResourceWrite": true, "composerReference": true, "localResources": true, "resourceExport": true, "webAssembly": true },
+  "contributes": {
+    "views": [
+      { "id": "pd2ec0b9018e6402d8ada6873f7fa8721.office-pdf.viewer", "title": "Office PDF", "entry": "view.js", "resource": "none", "location": "context" },
+      { "id": "pd2ec0b9018e6402d8ada6873f7fa8721.office-pdf.document", "title": "Office PDF", "entry": "view.js", "resource": "selected-file", "accepts": { "extensions": ["pdf"] }, "location": "context" }
+    ]
+  }
+}

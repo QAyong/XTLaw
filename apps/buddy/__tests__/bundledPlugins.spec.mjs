@@ -49,6 +49,7 @@ describe('plugin source discovery', () => {
       'legal-research.lexora-extension',
       'legal-research-agent.lexora-extension',
       'office.lexora-extension',
+      'office-pdf.lexora-extension',
       'office-pptx.lexora-extension',
       'office-xlsx.lexora-extension',
       'pkulaw.lexora-extension',

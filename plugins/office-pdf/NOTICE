@@ -1,0 +1,26 @@
+Office PDF (XTLaw)
+
+This plugin includes portions of GenOffice by Mainfunc, Inc., licensed under the
+Apache License 2.0, from revision 58dfd0b5b5eb3710efac0029b0452c61dba69035.
+https://github.com/genspark-ai/genoffice
+
+The GenOffice PDF editor is adapted to XTLaw's isolated plugin environment: the
+code that runs in GenOffice's Electron main process (saving, text and image
+editing, page operations) runs in the page instead, and the entries that need a
+main process, an AI service or the system certificate store are not offered. The
+adaptation is described in README.md and lexora-build/ of the XTLaw source
+(apps/buddy/extensions/office-pdf).
+
+Third-party components shipped in the package:
+
+- PDF.js (Apache-2.0): rendering and text extraction. LICENSE-pdfjs.txt
+- PDFium through @embedpdf/pdfium (BSD-3-Clause / Apache-2.0): editing of page
+  content, run as WebAssembly. LICENSE-pdfium.txt
+- HarfBuzz through harfbuzzjs (MIT): font subsetting, run as WebAssembly.
+  LICENSE-harfbuzzjs.txt
+- pdf-lib (MIT), fflate (MIT), React (MIT) and the other packages bundled into
+  editor/; their licenses are carried in the bundle.
+- Liberation fonts and the Noto Sans CJK SC subset (SIL Open Font License 1.1):
+  editor/runtime/. LICENSE-OFL.txt
+
+No source code from the happy-friday-lite application is included.

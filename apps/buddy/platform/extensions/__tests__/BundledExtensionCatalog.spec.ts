@@ -148,7 +148,7 @@ it('offers actual Office packages in the remote market without preinstalling and
   cleanup.push(() => service.dispose())
   expect(await service.list()).toEqual([])
   const listing = await service.catalog.list()
-  expect(listing.plugins).toHaveLength(3)
+  expect(listing.plugins).toHaveLength(4)
   expect(listing.plugins.every(entry => entry.compatible)).toBe(true)
   for (const entry of listing.plugins) {
     const review = await service.reviewCatalog(entry.manifest.id, entry.manifest.version)
@@ -157,8 +157,9 @@ it('offers actual Office packages in the remote market without preinstalling and
   const statuses = await service.list()
   expect(statuses.every(status => status.source?.catalog === catalogUrl)).toBe(true)
   const status = statuses.find(item => item.manifest.name === 'Office DOCX')
-  expect(statuses.map(item => item.manifest.name).sort()).toEqual(['Office DOCX', 'Office PPTX', 'Office XLSX'])
+  expect(statuses.map(item => item.manifest.name).sort()).toEqual(['Office DOCX', 'Office PDF', 'Office PPTX', 'Office XLSX'])
   expect(status).toMatchObject({ enabled: true, compatible: true, manifest: { name: 'Office DOCX', author: 'XTLaw官方', version: pluginVersion('office'), apiVersion: 4 } })
+  expect(statuses.find(item => item.manifest.name === 'Office PDF')).toMatchObject({ enabled: true, compatible: true, manifest: { author: 'XTLaw官方', version: pluginVersion('office-pdf'), apiVersion: 4 } })
   expect(statuses.find(item => item.manifest.name === 'Office PPTX')).toMatchObject({ enabled: true, compatible: true, manifest: { author: 'XTLaw官方', version: pluginVersion('office-pptx'), apiVersion: 4 } })
   expect(statuses.find(item => item.manifest.name === 'Office XLSX')).toMatchObject({ enabled: true, compatible: true, manifest: { author: 'XTLaw官方', version: pluginVersion('office-xlsx'), apiVersion: 4 } })
   const pkg = store.installed[status!.manifest.id]!.current

@@ -48,6 +48,7 @@ import { registerResourceContributions } from '../workbench/registerResourceCont
 import { useDesktopKeybindings } from '../workbench/useDesktopKeybindings'
 import { useDesktopWorkbench } from '../workbench/useDesktopWorkbench'
 import { useExtensionContributions } from '../workbench/useExtensionContributions'
+import { useExtensionDocumentReveal } from '../workbench/useExtensionDocumentReveal'
 import { useExtensionReferences } from '../workbench/useExtensionReferences'
 import { useTaskResourceSpaces } from '../workbench/useTaskResourceSpaces'
 import { createDesktopCapabilities } from './desktopCapabilities'
@@ -134,6 +135,7 @@ onScopeDispose(() => {
 })
 useProvideWorkbenchUi({ anchors, panes: paneRegistry, controlRenderer: DesktopExtensionControl, slotRenderer: DesktopExtensionSlot, menuRenderer: DesktopExtensionMenu })
 const ui = useExtensionUiContributions(extensions.installed, workbench.controller.configuration)
+useExtensionDocumentReveal({ references: workbench.selectionReferences, controller: workbench.controller, views: extensionViews })
 const extensionReferences = useExtensionReferences({
   references: workbench.selectionReferences,
   controller: workbench.controller,

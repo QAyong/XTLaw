@@ -1,4 +1,6 @@
+import { registerReveal } from './document-kit/reveal.js'
 import { installOfficeToolbarNavigation } from './office-toolbar-navigation.js'
+import { createQuoteReveal } from './reveal-quote.js'
 import { installSelectionMenu } from './selection-menu.js'
 import { readXlsx, validateXlsx } from './xlsx.js'
 
@@ -70,7 +72,10 @@ export async function render(context, container) {
     for (const finish of [...dialogs]) finish()
   }, { once: true })
   const describe = error => /^OFFICE_(?:INVALID|UNSUPPORTED)_XLSX$/.test(error?.message) ? copy.invalid : /RESOURCE_CHANGED|RESOURCE_UNAVAILABLE/.test(error?.message) ? copy.changed : copy.error
+  // "Locate source" on a quote card: requests wait until the editor is up.
+  const reveal = registerReveal(context, createQuoteReveal())
   if (!context.resource) {
+    reveal.ready(false)
     show(copy.empty)
     return
   }
@@ -160,6 +165,7 @@ export async function render(context, container) {
     await editor.ready
     context.signal.throwIfAborted()
     installSelectionMenu(context)
+    reveal.ready(true)
     const appearance = context.onEnvironmentChange((environment) => {
       copy = messages[environment.language.startsWith('zh') ? 'zh' : 'en']
       globalThis.__lexoraSheets?.setLanguage(environment.language)
@@ -169,6 +175,7 @@ export async function render(context, container) {
     show('')
   }
   catch (error) {
+    reveal.ready(false)
     if (context.signal.aborted)
       return
     console.error('[office-xlsx]', error)

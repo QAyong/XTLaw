@@ -1,5 +1,8 @@
-import { readPptx, validatePptx } from './pptx.js'
+import { registerReveal } from './document-kit/reveal.js'
+import { withFirstSlide } from './empty-deck.js'
 import { installOfficeToolbarNavigation } from './office-toolbar-navigation.js'
+import { readPptx, validatePptx } from './pptx.js'
+import { createQuoteReveal } from './reveal-quote.js'
 import { installSelectionMenu } from './selection-menu.js'
 
 const messages = {
@@ -66,7 +69,10 @@ export async function render(context, container) {
     for (const finish of [...dialogs]) finish()
   }, { once: true })
   const describe = error => /^OFFICE_(?:INVALID|UNSUPPORTED)_PPTX$/.test(error?.message) ? copy.invalid : /RESOURCE_CHANGED|RESOURCE_UNAVAILABLE/.test(error?.message) ? copy.changed : copy.error
+  // "Locate source" on a quote card: requests wait until the editor is up, and fail when only the read-only preview runs.
+  const reveal = registerReveal(context, createQuoteReveal())
   if (!context.resource) {
+    reveal.ready(false)
     show(copy.empty)
     return
   }
@@ -74,7 +80,8 @@ export async function render(context, container) {
     const resource = context.resource.size === undefined
       ? { ...context.resource, size: (await context.resources.readBytes(context.resource, { offset: 0, length: 1 })).size }
       : context.resource
-    const bytes = await readPptx(context.resources, resource, context.signal)
+    // A deck without any slide would leave the editor on "Opening…" for good.
+    const bytes = withFirstSlide(await readPptx(context.resources, resource, context.signal))
     context.signal.throwIfAborted()
     // The sandbox has an opaque origin: keep editor preferences in bounded memory instead of weakening the iframe.
     const viewState = context.state && typeof context.state === 'object' && !Array.isArray(context.state) ? { ...context.state } : {}
@@ -155,6 +162,7 @@ export async function render(context, container) {
     await editor.ready
     context.signal.throwIfAborted()
     installSelectionMenu(context)
+    reveal.ready(true)
     const appearance = context.onEnvironmentChange((environment) => {
       copy = messages[environment.language.startsWith('zh') ? 'zh' : 'en']
       globalThis.__lexoraSlides?.setLanguage(environment.language)
@@ -164,6 +172,7 @@ export async function render(context, container) {
     show('')
   }
   catch (error) {
+    reveal.ready(false)
     if (context.signal.aborted)
       return
     // Fall back to the read-only preview when the editor cannot start.

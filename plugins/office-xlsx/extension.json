@@ -5,7 +5,7 @@
   "name": "Office XLSX",
   "author": "XTLaw官方",
   "description": "用 Sheets 编辑器打开、编辑并保存 XLSX，可引用到聊天。",
-  "version": "0.3.13",
+  "version": "0.3.16",
   "icon": "icon.svg",
   "categories": ["办公"],
   "tags": ["XLSX", "Excel", "电子表格"],

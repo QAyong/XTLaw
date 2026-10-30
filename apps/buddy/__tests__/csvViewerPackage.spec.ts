@@ -46,7 +46,7 @@ describe('csv viewer example: package', () => {
       throw new Error(result.code)
     const unpacked = unpackExtension(Buffer.from(result.archive, 'base64'))
     validateExtensionFiles(unpacked)
-    expect([...unpacked.keys()].sort()).toEqual(['csv.js', 'document-kit/quote.js', 'document-kit/read-file.js', 'document-kit/zip-validate.js', 'extension.json', 'icon.svg', 'view.js'])
+    expect([...unpacked.keys()].sort()).toEqual(['csv.js', 'document-kit/quote.js', 'document-kit/read-file.js', 'document-kit/reveal.js', 'document-kit/zip-validate.js', 'extension.json', 'icon.svg', 'view.js'])
   })
 
   it('installs from a local package, takes over .csv files, and is not preinstalled', async () => {

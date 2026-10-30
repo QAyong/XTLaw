@@ -218,6 +218,18 @@ describe('document kit sync', () => {
     expect(await readFile(fileURLToPath(new URL('quote.js', kit)), 'utf8')).toContain('checkQuoteLocation')
   })
 
+  it('copies only the files asked for', async () => {
+    const plugin = await mkdtemp(join(tmpdir(), 'xtlaw-kit-'))
+    roots.push(plugin)
+    await syncDocumentKit(plugin, ['reveal.js'])
+    expect(await documentKitDrift(plugin, ['reveal.js'])).toEqual([])
+    expect(await documentKitDrift(plugin)).toEqual(['read-file.js', 'zip-validate.js', 'quote.js'])
+  })
+
+  it.each(['office', 'office-pptx', 'office-xlsx', 'office-pdf'])('%s ships the current reveal.js', async (name) => {
+    expect(await documentKitDrift(fileURLToPath(new URL(`../../../plugins/${name}/`, import.meta.url)), ['reveal.js'])).toEqual([])
+  })
+
   it('is the code the example plugin ships, and never a bundled plugin by itself', async () => {
     expect(await documentKitDrift(fileURLToPath(new URL('../extensions/examples/csv-viewer/', import.meta.url)))).toEqual([])
     expect(discoverBundledPlugins().map(plugin => plugin.name)).not.toContain('csv-viewer')

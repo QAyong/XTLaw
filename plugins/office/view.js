@@ -1,4 +1,7 @@
 import { createOfficeBridge } from './bridge.js'
+import { registerReveal } from './document-kit/reveal.js'
+import { suppressNativeContextMenu } from './native-context-menu.js'
+import { createQuoteReveal } from './reveal-quote.js'
 import { installSelectionMenu } from './selection-menu.js'
 import { installOfficeToolbarNavigation } from './office-toolbar-navigation.js'
 import { installOfficeLayoutStability } from './layout-stability.js'
@@ -56,6 +59,7 @@ export async function render(context, container) {
   container.append(root, status)
   installOfficeToolbarNavigation(root, context.signal)
   installOfficeLayoutStability(root, context.signal)
+  suppressNativeContextMenu(context.signal)
   let discardDialog = null
   let discardResolve = null
   const describeError = error => /^OFFICE_(?:INVALID|UNSUPPORTED)_DOCX$/.test(error?.message) ? copy.invalid : /RESOURCE_CHANGED|RESOURCE_UNAVAILABLE/.test(error?.message) ? copy.changed : copy.error
@@ -138,14 +142,28 @@ export async function render(context, container) {
     delete window.__lexoraTakeDocBytes
     for (const link of links) link.remove()
   }, { once: true })
+  // "Locate source" on a quote card: requests wait until the editor has loaded the file.
+  const reveal = registerReveal(context, createQuoteReveal())
   // Read the file while the editor code loads; the editor consumes it at boot.
   window.__lexoraTakeDocBytes = bridge.takeDocBytes
   const staged = context.resource ? bridge.stage(context.resource) : null
-  const editor = await import('./editor/editor.js')
-  await editor.ready
-  context.signal.throwIfAborted()
+  let editor
+  try {
+    editor = await import('./editor/editor.js')
+    await editor.ready
+    context.signal.throwIfAborted()
+  }
+  catch (error) {
+    reveal.ready(false)
+    throw error
+  }
   installSelectionMenu(context)
   // A failed read leaves its error on screen; otherwise the editor is up and the loading note goes away.
-  if (!staged || await staged)
+  if (!staged || await staged) {
     status.hidden = true
+    reveal.ready(!!context.resource)
+  }
+  else {
+    reveal.ready(false)
+  }
 }

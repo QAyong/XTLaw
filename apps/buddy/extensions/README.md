@@ -34,7 +34,7 @@ API 3 支持一个插件提供多个完整主题、可选欢迎文字与图片�
 
 API 3 还支持原生设置模块、分组和单项，以及带权限的 Agent 指令、工具、模型请求和当前任务标题更新。先通过能力目录确认宿主支持，再声明最低应用版本；接口与示例见 [Agent 与设置](../service/resources/skills/plugin-creator/references/agent.md)。
 
-文档插件（接管 DOCX、CSV、PDF 等文件格式）见下面的“文档插件”一节。内置的 [Office DOCX](../../../plugins/office/README.md)、[Office PPTX](../../../plugins/office-pptx/README.md)、[Office XLSX](../../../plugins/office-xlsx/README.md) 是同一套契约的官方实现，其中 XLSX 另声明 `permissions.webAssembly`。
+文档插件（接管 DOCX、CSV、PDF 等文件格式）见下面的“文档插件”一节。内置的 [Office DOCX](../../../plugins/office/README.md)、[Office PPTX](../../../plugins/office-pptx/README.md)、[Office XLSX](../../../plugins/office-xlsx/README.md)、[Office PDF](../../../plugins/office-pdf/README.md) 是同一套契约的官方实现，其中 XLSX 与 PDF 另声明 `permissions.webAssembly`。
 
 `format: "source"` 支持自包含 TS/JS 源码。Lexora 使用固定编译器，不执行 npm 安装、脚本或第三方构建配置。只能导入包内相对路径；含运行时 npm 依赖的插件需要作者预先打包为 `format: "compiled"`。已编译包直接安装，源码包确认权限后编译，失败不会替换已安装版本。`build` 和 `dev` 完整保留 `compiled` 包的目录、脚本与二进制资源，不再次打包其入口；第三方依赖应在交付 compiled 包之前完成构建。
 

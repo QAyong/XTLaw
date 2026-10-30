@@ -12,7 +12,7 @@ import { isMarkdownFile } from '@/shared/ui/files/fileDocumentPresentation'
 export interface BuiltinSelectionReferenceOptions {
   controller: WorkbenchController
   documents: Pick<ExtensionDocumentRouter, 'isQuotable'>
-  openFile: (target: SpaceFileTarget, current: () => boolean) => Promise<string | null | undefined>
+  openFile: (target: SpaceFileTarget, current: () => boolean, acceptTab: (tabId: string) => boolean) => Promise<string | null | undefined>
   resources: () => TaskResourcePanel
   independent: () => boolean
   ready: () => boolean
@@ -71,16 +71,21 @@ function createFileProvider(options: BuiltinSelectionReferenceOptions): Selectio
         await options.locateFile(reference.source.file)
         if (!scope.current())
           return false
-        const id = await options.openFile(reference.source.file, scope.current)
+        const id = await options.openFile(reference.source.file, scope.current, scope.acceptTab)
         const view = id ? options.controller.layout.views[id] : null
         if (!view)
           return false
         const tabId = typeof view.state.contextTabId === 'string' ? view.state.contextTabId : view.id
         if (!scope.acceptTab(tabId))
           return false
-        // Documents opened by a plugin: the plugin places the selection itself, and a generic quote must reopen in the plugin that made it.
-        if (reference.source.format !== 'source' && reference.source.format !== 'markdown')
-          return view.resource.scheme === 'extension' && (reference.source.format !== 'extension' || view.resource.data.extensionId === reference.source.extension?.extensionId)
+        // Documents opened by a plugin: a generic quote must reopen in the plugin that made it, and the plugin places the selection itself.
+        if (reference.source.format !== 'source' && reference.source.format !== 'markdown') {
+          if (view.resource.scheme !== 'extension' || (reference.source.format === 'extension' && view.resource.data.extensionId !== reference.source.extension?.extensionId))
+            return false
+          const identity = captureSource(view.id)?.identity
+          // The file is open either way; only a plugin that found the place counts as located.
+          return !!identity && await request.reveal(view.id, reference, () => scope.current() && captureSource(view.id)?.identity === identity) ? true : 'opened'
+        }
         options.controller.updateView(view.id, { state: { ...view.state, mode: reference.source.format === 'markdown' ? 'preview' : 'source' } })
         const identity = captureSource(view.id)?.identity
         return !!identity && await request.reveal(view.id, reference, () => scope.current() && captureSource(view.id)?.identity === identity)

@@ -28,6 +28,7 @@ const locateMessage = inject(chatQuoteNavigationKey, null)
 const locateSession = inject(sessionReferenceNavigationKey, null)
 const locating = shallowRef(false)
 const unavailable = shallowRef(false)
+const openedOnly = shallowRef(false)
 const label = computed(() => props.material.kind === 'resource' ? props.material.imageLabel ?? props.material.resource.name : inputMaterialLabel(props.material, props.language))
 const detail = computed(() => {
   const material = props.material
@@ -53,14 +54,20 @@ async function locate() {
     return
   locating.value = true
   unavailable.value = false
+  openedOnly.value = false
   try {
     const material = props.material
-    if (material.kind === 'resource_quote')
-      unavailable.value = !await references?.locate(material.quote)
-    else if (material.kind === 'message_quote')
+    if (material.kind === 'resource_quote') {
+      const located = await references?.locate(material.quote)
+      unavailable.value = !located
+      openedOnly.value = located === 'opened'
+    }
+    else if (material.kind === 'message_quote') {
       await locateMessage?.(material.quote)
-    else if (material.kind === 'session')
+    }
+    else if (material.kind === 'session') {
       await locateSession?.(material.id)
+    }
   }
   finally {
     locating.value = false
@@ -95,6 +102,9 @@ async function locate() {
         <pre v-if="material.kind === 'resource_quote' || material.kind === 'message_quote'" class="max-h-[min(320px,_45vh)] overflow-auto whitespace-pre-wrap [overflow-wrap:anywhere] font-[inherit] border-y border-y-solid border-y-border py-3 my-3 text-[length:var(--buddy-chat-user-font-size)] leading-[var(--buddy-chat-user-line-height)] select-text">{{ material.quote.text }}</pre>
         <p v-else class="my-2 text-muted text-[12px] [overflow-wrap:anywhere]">
           {{ detail }}
+        </p>
+        <p v-if="openedOnly" class="text-muted text-[12px]">
+          {{ t('desktop.chat.resourceQuoteOpenedOnly') }}
         </p>
         <p v-if="unavailable" class="text-muted text-[12px]">
           {{ t('desktop.chat.resourceQuoteSourceUnavailable') }}

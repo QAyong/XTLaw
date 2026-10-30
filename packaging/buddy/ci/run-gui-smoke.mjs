@@ -6,6 +6,7 @@ import { join, resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
+import definitions from '../../../apps/buddy/shared/platform/definitions.json' with { type: 'json' }
 import { writeError, writeOutput } from '../../shared/cli-output.mjs'
 import { resolveBuddyOutputPaths } from '../release/output-paths.mjs'
 
@@ -13,7 +14,7 @@ const repoRoot = resolve(import.meta.dirname, '../../..')
 const outputPaths = resolveBuddyOutputPaths(repoRoot)
 const nativePetShutdownTimeoutMs = 3_000
 async function main() {
-  const desktopOnly = process.argv.includes('--desktop-only')
+  const desktopOnly = process.argv.includes('--desktop-only') || !definitions.platforms.linux.features.includes('nativePet')
   const desktopPath = resolve(
     process.env.LEXORA_DESKTOP_EXECUTABLE_PATH
     ?? resolve(outputPaths.package.desktop, 'linux-unpacked/xtlaw'),

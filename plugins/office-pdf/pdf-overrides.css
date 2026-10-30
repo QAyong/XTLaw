@@ -1,0 +1,521 @@
+html, body { height: 100%; overflow: hidden; }
+body > main.pdf-shell { position: relative; display: flex; flex-direction: column; height: 100%; box-sizing: border-box; padding: 0; overflow: hidden; }
+.pdf-editor-root { flex: 1; min-height: 0; overflow: hidden; }
+.pdf-editor-root > .app, .pdf-editor-root > .pdf-app { height: 100%; }
+.pdf-status { position: absolute; inset: auto 12px 12px; z-index: 1000; margin: 0; padding: 8px 12px; border: 1px solid var(--lexora-border-subtle, var(--border)); border-radius: 8px; color: var(--lexora-text-primary, var(--text)); background: var(--lexora-surface-base, var(--surface)); box-shadow: var(--pdf-shadow-popup); font: 12px/1.5 system-ui, sans-serif; }
+.pdf-status[hidden] { display: none; }
+.pdf-status[role='alert'] { font-weight: 600; }
+.pdf-quote-menu[hidden] { display: none; }
+.pdf-quote-menu { max-width: min(360px, calc(100vw - 16px)); max-height: calc(100vh - 16px); overflow: auto; }
+.pdf-quote-menu button:focus-visible { background: var(--hover); outline: none; }
+.pdf-quote-menu button { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: start; }
+/* The quote button sits in the editor's selection bar, in the place of its hidden "Ask AI" button. */
+.lexora-quote-slot { display: contents; }
+.pdf-sel-popup button.pdf-sel-quote { width: auto; gap: 5px; padding: 0 9px; color: var(--text); font-size: 13px; font-weight: 500; }
+.pdf-sel-popup button.pdf-sel-quote:disabled { opacity: 0.6; cursor: default; }
+/* The inherited editor ships an AI assistant, printing and Office conversion; the plugin has none of them (no AI, account,
+   cloud service or main process). Entries are hidden together with the group and separator that only held them. */
+.pdf-editor-root [data-lexora-hidden], .pdf-editor-root .ai-entry, .pdf-editor-root .pdf-sel-ask, .pdf-editor-root .ai-dock, .pdf-editor-root .ai-rail { display: none !important; }
+.pdf-editor-root .ribbon-group:has(> .ribbon-group-items > .ai-entry),
+.pdf-editor-root .ribbon-group:has(> .ribbon-group-items > .rb-drop-wrap[data-lexora-hidden]:only-child) { display: none !important; }
+.pdf-editor-root .ribbon-group:has(.ai-entry) + .ribbon-sep { display: none !important; }
+.pdf-editor-root .ribbon-group:has(.rb-drop-wrap[data-lexora-hidden]) + .ribbon-sep { display: none !important; }
+@media (prefers-reduced-motion: reduce) { .pdf-shell *, .pdf-shell *::before, .pdf-shell *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }
+.pdf-open { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; height: 100%; color: var(--lexora-text-primary, var(--text)); font: 14px/1.6 system-ui, sans-serif; }
+.pdf-open p { margin: 0; }
+.pdf-open button { padding: 6px 14px; border: 1px solid var(--lexora-border-subtle, var(--border)); border-radius: 6px; color: var(--lexora-text-primary, var(--text)); background: var(--lexora-surface-base, var(--surface)); font: 13px system-ui, sans-serif; cursor: pointer; }
+.pdf-open button:hover:not(:disabled) { background: var(--lexora-surface-hover, var(--hover)); }
+.pdf-open button:focus-visible { outline: 2px solid var(--lexora-accent, Highlight); outline-offset: 2px; }
+
+/* Compact paged ribbon, shared with the DOCX plugin (office-toolbar-navigation.js pages the command row). */
+/* Keep the two ribbon rows horizontal and compact inside the docked work panel. */
+.ribbon-tabs,
+.ribbon-body {
+  position: relative;
+  scrollbar-width: none;
+  scroll-behavior: auto;
+}
+
+.ribbon-tabs::-webkit-scrollbar,
+.ribbon-body::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.ribbon-tabs {
+  gap: 0;
+  padding: 2px 8px 0 !important;
+  flex-wrap: nowrap !important;
+  overflow-x: hidden !important;
+  overflow-y: hidden !important;
+}
+
+/* The category row is fixed. Only the command row is paged. */
+.pi-office-toolbar-tabs {
+  flex: 0 0 auto;
+  min-width: 0;
+  overflow: hidden !important;
+}
+
+.ribbon-tabs > .qa-btn,
+.ribbon-tabs > .autosave-toggle,
+.ribbon-tabs > .qa-sep,
+.ribbon-tabs > .ribbon-tab,
+.ribbon-tabs > .file-tab-wrap {
+  flex: 0 0 auto !important;
+}
+
+.ribbon-tabs-win,
+.ribbon-tabs-mac {
+  padding-left: 8px !important;
+  padding-right: 8px !important;
+}
+
+.ribbon-tab {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  padding: 5px 7px 4px !important;
+  font-size: 12px !important;
+  line-height: 18px;
+}
+
+.ribbon-tab.active:after {
+  left: 9px;
+  right: 9px;
+}
+
+.ribbon-tabs-spacer {
+  min-width: 0;
+}
+
+.ribbon-body {
+  box-sizing: border-box;
+  height: 44px !important;
+  min-height: 44px;
+  padding: 2px 8px !important;
+  flex-wrap: nowrap !important;
+  overflow-x: hidden !important;
+  overflow-y: hidden !important;
+}
+
+.ribbon-body > .ribbon-group,
+.ribbon-body > .ribbon-sep,
+.ribbon-body > .table-ribbon-body > .ribbon-group,
+.ribbon-body > .table-ribbon-body > .ribbon-sep,
+.ribbon-body > .table-ribbon-body > .table-tool-group {
+  flex: 0 0 auto;
+}
+
+.ribbon-group {
+  flex-direction: row;
+  align-items: center;
+  min-width: max-content;
+  padding: 0 2px;
+}
+
+.ribbon-group-items,
+.rb-font-group {
+  align-items: center;
+  gap: 2px;
+  flex-wrap: nowrap !important;
+  min-width: max-content;
+  white-space: nowrap;
+}
+
+.rb-font-group {
+  flex-direction: row !important;
+}
+
+.rb-big {
+  flex-direction: row;
+  flex: 0 0 auto;
+  gap: 3px;
+  padding: 3px 5px 3px;
+  font-size: 11px;
+  line-height: 18px;
+}
+
+.rb-big-icon,
+.rb-big .rb-big-icon {
+  min-height: 20px;
+  flex: 0 0 auto;
+  padding: 1px 2px;
+  margin: 0;
+}
+
+.rb-big-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.rb-small {
+  flex: 0 0 auto;
+  gap: 3px;
+  padding: 3px 5px;
+  font-size: 11px;
+}
+
+/* GenOffice nests several compact commands in vertical columns. Keep the
+   commands in one horizontal row so the command bar never grows vertically. */
+.ribbon-body .rb-col,
+.ribbon-body .rb-row,
+.ribbon-body .layout-para,
+.ribbon-body .layout-col,
+.ribbon-body .layout-num,
+.ribbon-body .table-tool-row,
+.ribbon-body .table-tool-grid,
+.ribbon-body .style-gallery-wrap,
+.ribbon-body .style-gallery {
+  flex-wrap: nowrap !important;
+  white-space: nowrap;
+}
+
+.ribbon .ribbon-body .pi-office-layout-para {
+  display: flex !important;
+  flex: 0 0 auto !important;
+  flex-flow: row nowrap !important;
+  align-items: center !important;
+  gap: 7px !important;
+  min-width: max-content;
+}
+
+.ribbon .ribbon-body .pi-office-layout-col {
+  display: flex !important;
+  flex: 0 0 auto !important;
+  flex-flow: row nowrap !important;
+  align-items: center !important;
+  gap: 3px !important;
+  min-width: max-content;
+}
+
+.ribbon-body .rb-col,
+.ribbon-body .layout-col {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 3px;
+}
+
+.ribbon-body .layout-para {
+  gap: 7px;
+}
+
+.ribbon-body .layout-num {
+  flex: 0 0 auto;
+  gap: 3px;
+  font-size: 11px;
+}
+
+.ribbon-body .layout-num > span:first-child {
+  width: auto;
+  font-size: 11px;
+}
+
+.ribbon-body .layout-num input {
+  width: 32px;
+  height: 24px;
+}
+
+.ribbon-body .layout-unit {
+  font-size: 10px;
+}
+
+.ribbon-body .table-tool-grid {
+  display: flex !important;
+  gap: 3px;
+}
+
+.ribbon-body .style-gallery-wrap,
+.ribbon-body .style-gallery {
+  height: 32px;
+  overflow: hidden;
+}
+
+/* The compact toolbar gallery uses a horizontal preview-label card. The
+   vendor gallery is taller and stacked for its full ribbon, which clips when
+   the command row is paged into the narrow work-panel toolbar. */
+.ribbon-body .style-gallery .style-card {
+  display: inline-flex;
+  flex-direction: row !important;
+  align-items: baseline;
+  justify-content: flex-start;
+  gap: 4px;
+  width: 74px;
+  height: 28px;
+  padding: 2px 5px;
+}
+
+.ribbon-body .style-gallery .style-card-preview {
+  flex: 0 0 auto;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.ribbon-body .style-gallery .style-card-preview.style-h1 {
+  font-size: 14px;
+}
+
+.ribbon-body .style-gallery .style-card-preview.style-h2 {
+  font-size: 12px;
+}
+
+.ribbon-body .style-gallery .style-card-preview.style-h3 {
+  font-size: 11px;
+}
+
+.ribbon-body .style-gallery .style-card-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 9.5px;
+  line-height: 1;
+}
+
+.ribbon-body .style-gallery-more {
+  height: 28px;
+}
+
+/* Pages containing only one compact module should use the middle column as a
+   centered stage. This keeps the style gallery and color controls balanced
+   after the surrounding groups have paged out of view. */
+.ribbon-body.pi-office-toolbar-single-column > .ribbon-group,
+.ribbon-body.pi-office-toolbar-single-column > .table-ribbon-body {
+  justify-content: center;
+}
+
+.ribbon-body.pi-office-toolbar-single-column .style-gallery {
+  justify-content: center;
+}
+
+.ribbon-body.pi-office-toolbar-single-column .rb-col,
+.ribbon-body.pi-office-toolbar-single-column .rb-row {
+  justify-content: center;
+}
+
+.ribbon-body.pi-office-toolbar-single-column .rb-col {
+  align-items: center;
+}
+
+.ribbon-body .rb-split-wrap,
+.ribbon-body .table-tool-group {
+  flex: 0 0 auto;
+}
+
+/* A page boundary must never leave a partially visible command. Keep the
+   command's layout width so page stops remain stable, but hide the command
+   until the page containing it is active. */
+.ribbon-body .pi-office-toolbar-partial-item {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* The clipboard group is a high-frequency fixed-width cluster. Its labels
+   are available through aria-label/data-tip while the compact bar shows the
+   familiar icons without consuming a second line. */
+.ribbon-body .pi-office-clipboard-group {
+  min-width: max-content;
+}
+
+.ribbon-body .pi-office-clipboard-group .rb-big > span:last-child {
+  display: none;
+}
+
+.ribbon-body .pi-office-clipboard-group .rb-big-icon {
+  min-width: 22px;
+}
+
+.rb-icon {
+  min-width: 26px;
+  height: 26px;
+  padding: 0 3px;
+}
+
+.rb-select,
+.rb-caret.rb-combo-caret {
+  height: 26px;
+}
+
+.rb-font-family {
+  width: 112px;
+}
+
+.rb-font-size {
+  width: 40px;
+}
+
+.rb-caret.rb-combo-caret {
+  width: 16px;
+}
+
+.rb-mini-sep {
+  height: 18px;
+  margin: 0 3px;
+}
+
+.ribbon-sep {
+  margin: 0 4px;
+}
+
+/* Keep paging controls outside the command row. They stay fixed while one full
+   toolbar page at a time moves horizontally inside .ribbon-body. */
+.ribbon:has(> .pi-office-toolbar-nav) {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 32px;
+  grid-template-rows: auto 44px;
+  align-items: stretch;
+}
+
+.ribbon:has(> .pi-office-toolbar-nav) > .ribbon-tabs {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  min-width: 0;
+}
+
+.ribbon:has(> .pi-office-toolbar-nav) > .ribbon-body {
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
+  width: auto;
+  padding-left: 8px !important;
+  padding-right: 8px !important;
+  scroll-padding-inline: 8px;
+}
+
+.ribbon:has(> .pi-office-toolbar-nav) > .pi-office-toolbar-nav {
+  position: static;
+  grid-row: 2;
+  align-self: stretch;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  height: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--chrome-bg);
+  color: var(--text-secondary);
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+  box-shadow: none;
+}
+
+.ribbon:has(> .pi-office-toolbar-nav) > .pi-office-toolbar-nav svg {
+  width: 15px;
+  height: 15px;
+}
+
+.ribbon:has(> .pi-office-toolbar-nav) > .pi-office-toolbar-nav:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--text-primary);
+}
+
+.ribbon:has(> .pi-office-toolbar-nav) > .pi-office-toolbar-nav:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.ribbon:has(> .pi-office-toolbar-nav) > .pi-office-toolbar-nav-previous {
+  grid-column: 1;
+}
+
+.ribbon:has(> .pi-office-toolbar-nav) > .pi-office-toolbar-nav-next {
+  grid-column: 3;
+}
+
+.ribbon:has(> .pi-office-toolbar-nav) .pi-office-original-collapse-control {
+  display: none !important;
+}
+
+.ribbon:has(> .pi-office-toolbar-nav) > .pi-office-toolbar-nav[hidden] {
+  display: inline-flex !important;
+}
+
+/* The editor re-renders the ribbon root's whole `class` attribute when it collapses or expands, which drops the classes the paging
+   script added (`pi-office-toolbar-host`, `pi-office-ribbon-collapsed`) until the script's next refresh. Everything here is therefore keyed
+   on what survives: the arrows the script appended to the ribbon, and the editor's own `ribbon-collapsed` class. With the host class
+   it used before, collapsing left the unstyled arrows on screen as two empty buttons. */
+.ribbon.ribbon-collapsed:has(> .pi-office-toolbar-nav) {
+  grid-template-rows: auto;
+}
+
+.ribbon.ribbon-collapsed:has(> .pi-office-toolbar-nav) > .ribbon-body,
+.ribbon.ribbon-collapsed:has(> .pi-office-toolbar-nav) > .pi-office-toolbar-nav {
+  display: none !important;
+}
+
+/* AutoSave switch next to Redo (see auto-save-toggle.js): same markup and look as the other Office plugins. */
+.autosave-toggle {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 4px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-app-region: no-drag;
+}
+
+.autosave-toggle input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.autosave-toggle:has(input:focus-visible) {
+  border-radius: 4px;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.autosave-knob {
+  position: relative;
+  width: 26px;
+  height: 14px;
+  border-radius: 7px;
+  background: var(--border-strong);
+  transition: background 0.15s;
+}
+
+.autosave-knob::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #fff;
+  transition: left 0.15s;
+}
+
+.autosave-toggle.on .autosave-knob {
+  background: var(--accent);
+}
+
+.autosave-toggle.on .autosave-knob::after {
+  left: 14px;
+}
+
+.autosave-text {
+  color: var(--text-dim);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .autosave-knob,
+  .autosave-knob::after {
+    transition: none;
+  }
+}
+
+/* The place a quote card's "locate source" found. */
+::highlight(lexora-quote) {
+  background-color: rgba(255, 196, 0, 0.5);
+}

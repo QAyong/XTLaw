@@ -49,4 +49,4 @@
 
 ## 基线
 
-`docs/upstream-baseline.json` 的 `lastChecked` 仍是 `b31b0ed3d`（第一轮已越过 `c2c3978a9`），不用动。暂缓项只剩 `9d3fd48dd`（图像增强与 OCR），它依赖本轮的模型类型。
+`docs/upstream-baseline.json` 的 `lastChecked` 仍是 `b31b0ed3d`（第一轮已越过 `c2c3978a9`），不用动。`9d3fd48dd`（图像增强与 OCR）依赖本轮的模型类型，已在第三轮移植。

@@ -18,7 +18,7 @@
 ## 暂缓（不移植，本轮不做）
 
 - `c2c3978a9`（语音输入与回复朗读）：**已在第二轮移植，见 `upstream-20261030-2-integration.md`。**当时的评估：137 个文件、+3701/−154，含迁移 v37，模拟 cherry-pick 在 12 个文件里冲突。新增行里有 `NSMicrophoneUsageDescription: 'Lexora uses the microphone…'`，要改为 XTLaw；还改了 `electron-builder.config.cjs` 和 `packaging/buddy/macos`，Windows 和 macOS 打包在 WSL 里验证不了。
-- `9d3fd48dd`（图像增强与 OCR 服务）：85 个文件、+2812/−143，含迁移 v38，模拟 cherry-pick 在 20 个文件里冲突。它与 `c2c3978a9` 共同修改 24 个文件（`schema.ts`、`DesktopIntegrations.ts`、`LexoraConfigStore.ts`、模型相关的文件等），必须排在 `c2c3978a9` 之后。
+- `9d3fd48dd`（图像增强与 OCR 服务）：**已在第三轮移植，见 `upstream-20261030-3-integration.md`。**当时的评估：85 个文件、+2812/−143，含迁移 v38，模拟 cherry-pick 在 20 个文件里冲突。它与 `c2c3978a9` 共同修改 24 个文件（`schema.ts`、`DesktopIntegrations.ts`、`LexoraConfigStore.ts`、模型相关的文件等），必须排在 `c2c3978a9` 之后。
 - 迁移编号：本地没有上游 v36（`ExtensionCapabilities`，`80b38d769` 已决定不移植），本地 `BUDDY_SCHEMA_VERSION` 是 37（上游 v35 登记为 37）。按“上游编号 + 2”，v37、v38 应登记为本地 39、40，本地 38 空着；两个迁移只改 `provider_model_states`，不依赖 v36 的表，但上游测试把 `user_version = 36` 当作前置版本，移植时要改写。编号由用户在对应一轮决定，本轮没有动。
 
 ## 决定

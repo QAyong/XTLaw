@@ -2,7 +2,7 @@ use super::{
     io,
     journal::Journal,
     operations,
-    protocol::{Command, Error, MAX_FRAME, Request, Result, Status, VERSION},
+    protocol::{Action, Command, Error, MAX_FRAME, Request, Result, Status, VERSION},
     resources::{Claim, Roots, contains, identity, overlap, path_key},
 };
 use notify::{RecursiveMode, Watcher};
@@ -216,6 +216,27 @@ impl Engine {
         root.check()
     }
 
+    // A watched directory cannot be deleted, renamed or moved on some volumes (\\wsl.localhost), so drop the
+    // watches below the source first; the next listing watches them again.
+    fn release_watches(&mut self, root: &str, path: &str) {
+        let Ok(root) = self.roots.get(root) else {
+            return;
+        };
+        let Ok(source) = root.resolve(path) else {
+            return;
+        };
+        let Some(watcher) = &mut self.watcher else {
+            return;
+        };
+        self.watched.retain(|directory, _| {
+            let below = directory.starts_with(&source);
+            if below {
+                let _ = watcher.unwatch(directory);
+            }
+            !below
+        });
+    }
+
     fn revoke_watch(&mut self, key: &str) {
         self.subscriptions.remove(key);
         self.watched.retain(|path, _| {
@@ -393,6 +414,12 @@ impl Engine {
                     .lock()
                     .map_err(|_| Error::Recovery)?
                     .cancellation(&request.operation_id);
+                if matches!(
+                    request.action,
+                    Action::Trash | Action::Rename { .. } | Action::Move { .. }
+                ) {
+                    self.release_watches(&request.root, &request.path);
+                }
                 let output = self.output.clone();
                 let operation_id = request.operation_id.clone();
                 let progress = |bytes: u64| {

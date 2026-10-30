@@ -110,6 +110,36 @@ describe('artifactService', () => {
     expect(await readFile(path, 'utf8')).toBe('media')
   })
 
+  it('opens an output written under a one-run grant at the directory it recorded, and only that kind of output', async () => {
+    const fixture = await createFixture()
+    const service = new ArtifactService({ repository: fixture.repository, fileAccess: new ArtifactFileAccess({
+      conversations: createConversationRepository(fixture.database),
+      conversationGrants: createConversationDirectoryGrantRepository(fixture.database),
+      spaces: createSpaceRepository(fixture.database),
+      paths: new BuddyDataPaths(fixture.root),
+    }) })
+    const path = join(fixture.workspace, 'note.md')
+    await writeFile(path, 'hello')
+    // Nothing stores this grant: the conversation has none, and no Space owns the folder.
+    const runGrants = [{ root: fixture.workspace, canonicalRoot: fixture.workspace, grantId: 'run:run-1:call-1:0', kind: 'granted' as const }]
+    const [written] = await service.presentOutputs({ conversationId: 'conversation-1', cwd: fixture.workspace, grants: runGrants, paths: [path] })
+    expect(written!.directoryGrantId).toBe('run:run-1:call-1:0')
+    expect(await service.resolveFileRoot(written!.id)).toEqual({ conversationId: 'conversation-1', root: fixture.workspace, path: 'note.md', kind: 'file' })
+    // The rest of the artifact API still needs a live grant.
+    await expect(service.locate(written!.id)).rejects.toMatchObject({ code: 'DIRECTORY_NOT_AUTHORIZED' })
+    // A replaced file is no longer the recorded one.
+    const outside = join(fixture.root, 'private.md')
+    await writeFile(outside, 'private')
+    await rm(path)
+    await symlink(outside, path)
+    await expect(service.resolveFileRoot(written!.id)).rejects.toThrow()
+    // An output of a stored grant that was revoked is not covered by this.
+    await rm(path)
+    await writeFile(path, 'hello')
+    fixture.repository.save({ ...written!, directoryGrantId: 'revoked-grant' })
+    await expect(service.resolveFileRoot(written!.id)).rejects.toMatchObject({ code: 'DIRECTORY_NOT_AUTHORIZED' })
+  })
+
   it('supports owned task workspaces without a Space, rejecting replaced paths and deleted owners', async () => {
     const fixture = await createFixture()
     const paths = new BuddyDataPaths(fixture.root)

@@ -24,6 +24,8 @@ export interface ArtifactRepository {
   findById: (id: string) => ArtifactRecord | null
   findVisibleById: (id: string) => ArtifactRecord | null
   listForConversation: (conversationId: string) => ArtifactRecord[]
+  // Directories outputs were written into under a grant that only lived for one run (`run:<run>:<call>:<n>`), which no stored grant records.
+  listRunGrantRoots: (conversationId: string) => string[]
   save: (record: ArtifactRecord) => ArtifactRecord
 }
 
@@ -79,6 +81,12 @@ export function createArtifactRepository(database: DatabaseSync): ArtifactReposi
     ORDER BY updated_at, id
   `)
 
+  const listRunGrantRoots = database.prepare(`
+    SELECT DISTINCT directory_root FROM artifacts
+    WHERE conversation_id = ? AND directory_grant_id LIKE 'run:%'
+    ORDER BY directory_root
+  `)
+
   return {
     findByCurrentPath(conversationId, currentPath) {
       const row = findByCurrentPath.get(conversationId, currentPath) as ArtifactRow | undefined
@@ -95,6 +103,9 @@ export function createArtifactRepository(database: DatabaseSync): ArtifactReposi
     listForConversation(conversationId) {
       return (listForConversation.all(conversationId) as unknown as ArtifactRow[])
         .map(toArtifact)
+    },
+    listRunGrantRoots(conversationId) {
+      return (listRunGrantRoots.all(conversationId) as unknown as Array<{ directory_root: string }>).map(row => row.directory_root)
     },
     save(record) {
       return withTransaction(database, () => {

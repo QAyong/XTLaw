@@ -382,7 +382,7 @@ export async function startBuddyService(
     })
     const fileResources = new FileResourceCoordinator(fileEngine)
     const spaceFiles = await host.start('runtime.space_files', ({ defer }) => {
-      const service = new SpaceFileService(spacesRepository, fileEngine, spaceWorkspaces, new ConversationFileRoots({ conversations, conversationGrants: conversationDirectoryGrants, spaces: spacesRepository, paths }))
+      const service = new SpaceFileService(spacesRepository, fileEngine, spaceWorkspaces, new ConversationFileRoots({ conversations, conversationGrants: conversationDirectoryGrants, spaces: spacesRepository, paths, artifacts: createArtifactRepository(options.database) }))
       const notices = service.onDidChange(event => options.rpc.notify(spaceFilesChanged.method, event))
       const revoked = spaceService.onDidCommit(event => service.revoke(event.revokedDirectoryIds))
       defer(() => {

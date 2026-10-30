@@ -49,7 +49,7 @@ async function fixture() {
   })
   const grant = (id: string, root: string) => conversationGrants.grant({ id, conversationId, root, canonicalRoot: root, createdAt })
   const target = (root: string, path = '') => ({ conversationId, root, path })
-  return { home, workspace, external, conversations, conversationGrants, files, grant, target }
+  return { home, database, workspace, external, conversations, conversationGrants, files, grant, target }
 }
 
 describe('granted directory file targets', () => {
@@ -141,6 +141,29 @@ describe('granted directory file targets', () => {
     }
     await expect(readFile(join(f.external, 'a.txt'))).rejects.toThrow()
     expect(await readFile(join(f.workspace, 'a.txt'), 'utf8')).toBe('x')
+  })
+
+  it('browses the directory of an output written under a one-run grant, but not the directories around it', async () => {
+    const f = await fixture()
+    const folder = join(f.external, 'desktop')
+    await mkdir(folder)
+    await writeFile(join(folder, 'note.md'), 'hello')
+    await writeFile(join(f.external, 'sibling.txt'), 'other')
+    const runs = { listRunGrantRoots: (id: string) => id === conversationId ? [folder] : [] }
+    const roots = new ConversationFileRoots({ conversations: f.conversations, conversationGrants: createConversationDirectoryGrantRepository(f.database), spaces: createSpaceRepository(f.database), paths: new BuddyDataPaths(join(f.home, 'data')), artifacts: runs })
+    const engine = new NativeFileEngine(join(f.home, 'operations-2'))
+    await engine.ready()
+    const files = new SpaceFileService(createSpaceRepository(f.database), engine, undefined, roots)
+    try {
+      expect((await files.list(f.target(folder))).entries.map(entry => entry.path)).toEqual(['note.md'])
+      expect(await files.read(f.target(folder, 'note.md'))).toMatchObject({ kind: 'text', text: 'hello' })
+      await expect(files.list(f.target(f.external))).rejects.toMatchObject({ code: 'DIRECTORY_NOT_AUTHORIZED' })
+      await expect(files.read({ conversationId: 'other', root: folder, path: 'note.md' })).rejects.toMatchObject({ code: 'DIRECTORY_NOT_AUTHORIZED' })
+    }
+    finally {
+      await files.dispose()
+      await engine.dispose()
+    }
   })
 
   it('rejects a root the conversation was never granted, including a parent of a granted root', async () => {

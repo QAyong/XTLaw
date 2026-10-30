@@ -4,7 +4,7 @@ import type { ConversationDirectoryGrantRepository } from '../storage/conversati
 import type { ConversationRepository } from '../storage/conversationRepository'
 import type { SpaceRepository } from '../storage/spaceRepository'
 import { realpath } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { isAbsolute, relative, resolve, sep } from 'node:path'
 import { resolveGrantedPath } from '../directories/resolveGrantedPath'
 import { createSensitivePathMatcher } from '../permissions/sensitivePaths'
 import { BuddyServiceError } from '../rpc/runtimeRequest'
@@ -37,6 +37,24 @@ export class ArtifactFileAccess {
       throw new BuddyServiceError('DIRECTORY_NOT_AUTHORIZED')
     }
     return { root: grant.canonicalRoot, path: result.canonicalPath }
+  }
+
+  // An output written under a one-run grant has no stored grant to check. It is trusted at the directory it recorded, as long as that
+  // directory and file are still the ones that were recorded and nothing sensitive is involved.
+  async resolveRecordedRoot(artifact: ArtifactRecord): Promise<{ root: string, path: string }> {
+    const conversation = this.#options.conversations.findById(artifact.conversationId)
+    if (!artifact.directoryGrantId.startsWith('run:') || !conversation || conversation.deletedAt !== null)
+      throw new BuddyServiceError('DIRECTORY_NOT_AUTHORIZED')
+    const [root, path] = await Promise.all([realpath(artifact.directoryRoot), realpath(artifact.currentPath)]).catch(() => {
+      throw new BuddyServiceError('DIRECTORY_NOT_AUTHORIZED')
+    })
+    const sensitive = createSensitivePathMatcher()
+    const offset = relative(root, path)
+    if (root !== artifact.directoryRoot || path !== artifact.currentPath || offset === '..' || offset.startsWith(`..${sep}`) || isAbsolute(offset)
+      || sensitive.matches(root) || sensitive.matches(path)) {
+      throw new BuddyServiceError('DIRECTORY_NOT_AUTHORIZED')
+    }
+    return { root, path }
   }
 
   private async grant(artifact: ArtifactRecord): Promise<{ root: string, canonicalRoot: string, revision?: number }> {

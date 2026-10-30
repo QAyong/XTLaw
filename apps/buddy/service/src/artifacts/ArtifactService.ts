@@ -26,6 +26,7 @@ import { copyEventSnapshot } from '../../../shared/events/eventSnapshot'
 import { inferFileMimeType, isImageMimeType } from '../../../shared/files/fileMimeTypes'
 import { resolveGrantedPath } from '../directories/resolveGrantedPath'
 import { resolveMediaPreview } from '../files/resolveMediaPreview'
+import { BuddyServiceError } from '../rpc/runtimeRequest'
 
 export const BUDDY_ARTIFACT_COUNT_LIMIT = 512
 export const BUDDY_ARTIFACT_TOTAL_BYTES_LIMIT = 32 * 1024 * 1024
@@ -459,11 +460,18 @@ export class ArtifactService {
     const artifact = this.#requireVisibleArtifact(id)
     if (!this.#fileAccess)
       throw new ArtifactError('DIRECTORY_NOT_AUTHORIZED')
-    const target = await this.#fileAccess.resolve(artifact)
+    const access = this.#fileAccess
+    // Outputs written under a one-run grant keep no stored grant; they open at the directory they recorded.
+    const resolveRoot = (record: ArtifactRecord) => access.resolve(record).catch((error: unknown) => {
+      if (record.directoryGrantId.startsWith('run:') && error instanceof BuddyServiceError && error.code === 'DIRECTORY_NOT_AUTHORIZED')
+        return access.resolveRecordedRoot(record)
+      throw error
+    })
+    const target = await resolveRoot(artifact)
     const metadata = await stat(target.path)
     if ((artifact.kind === 'file' && !metadata.isFile()) || (artifact.kind === 'directory' && !metadata.isDirectory()))
       throw new ArtifactError('VALIDATION_FAILED')
-    const current = await this.#fileAccess.resolve(this.#requireVisibleArtifact(id))
+    const current = await resolveRoot(this.#requireVisibleArtifact(id))
     if (current.root !== target.root || current.path !== target.path)
       throw new ArtifactError('DIRECTORY_NOT_AUTHORIZED')
     const offset = relative(target.root, target.path)

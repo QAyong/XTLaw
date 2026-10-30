@@ -24,7 +24,7 @@ async function fixture(bytes = Buffer.alloc(140_000, 7), mimeType = 'application
   const root = await mkdtemp(join(tmpdir(), 'extension-artifact-'))
   roots.push(root)
   const records = new Map<string, ArtifactRecord>()
-  const repository: ArtifactRepository = { findByCurrentPath: (conversationId, path) => [...records.values()].find(record => record.conversationId === conversationId && record.currentPath === path) ?? null, findById: id => records.get(id) ?? null, findVisibleById: id => records.get(id) ?? null, listForConversation: id => [...records.values()].filter(record => record.conversationId === id), save: (record) => {
+  const repository: ArtifactRepository = { listRunGrantRoots: () => [], findByCurrentPath: (conversationId, path) => [...records.values()].find(record => record.conversationId === conversationId && record.currentPath === path) ?? null, findById: id => records.get(id) ?? null, findVisibleById: id => records.get(id) ?? null, listForConversation: id => [...records.values()].filter(record => record.conversationId === id), save: (record) => {
     records.set(record.id, record)
     return record
   } }

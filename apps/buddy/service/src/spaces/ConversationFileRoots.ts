@@ -1,3 +1,4 @@
+import type { ArtifactRepository } from '../storage/artifactRepository'
 import type { BuddyDataPaths } from '../storage/BuddyDataPaths'
 import type { ConversationDirectoryGrantRepository } from '../storage/conversationDirectoryGrantRepository'
 import type { ConversationRepository } from '../storage/conversationRepository'
@@ -28,6 +29,8 @@ export interface ConversationFileRootsOptions {
   conversationGrants: Pick<ConversationDirectoryGrantRepository, 'listActive'>
   spaces: Pick<SpaceRepository, 'findById'>
   paths: BuddyDataPaths
+  // Outputs written under a one-run grant leave no stored grant behind; their directory stays browsable for the conversation that wrote them.
+  artifacts?: Pick<ArtifactRepository, 'listRunGrantRoots'>
 }
 
 // The directories a conversation may browse as a file manager root: its space's directories, the folders the user granted to the task,
@@ -79,8 +82,11 @@ export class ConversationFileRoots {
     ].flatMap(grant => grant && !grant.revokedAt
       ? [{ id: grant.id, root: grant.root, canonicalRoot: grant.canonicalRoot, revision: 'revision' in grant ? grant.revision : 1 }]
       : [])
+    const written = (this.#options.artifacts?.listRunGrantRoots(conversation.id) ?? [])
+      .map(root => ({ id: `written:${root}`, root, canonicalRoot: root, revision: 1 }))
     return [
       ...granted,
+      ...written,
       { id: conversation.id, root: paths.conversationWorkspace(conversation.id), canonicalRoot: null, revision: 1 },
       ...(space ? [{ id: space.id, root: paths.spaceWorkspace(space.id), canonicalRoot: null, revision: 1 }] : []),
     ]

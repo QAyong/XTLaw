@@ -5,7 +5,7 @@
   "name": "Office PDF",
   "author": "XTLaw官方",
   "description": "用 PDF 编辑器打开、批注、填写表单并保存 PDF，可引用到聊天。",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "icon": "icon.svg",
   "categories": ["办公"],
   "tags": ["PDF", "批注", "表单"],

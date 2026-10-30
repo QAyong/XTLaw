@@ -1,7 +1,7 @@
 # Feature-043：Office 文档引用的“定位来源”
 
 **日期：** 2026-10-30
-**状态：** 方案已确认（2026-10-30）；第 0 步（重开路径统一走文件管理器）已实现并通过类型检查与单测，未在桌面应用里实测；第 1 步（宿主调用插件 `onReveal` + 三态结果 + PDF）已实现，PDF 用模拟宿主冒烟，未在桌面应用里实测；第 2 步起未开始
+**状态：** 方案已确认（2026-10-30）；第 0 步（重开路径统一走文件管理器）已实现并通过类型检查与单测，未在桌面应用里实测；第 0、1 步（重开路径统一走文件管理器、宿主调用插件 `onReveal`、三态结果、PDF）已实现，用户已在 Windows 开发预览里验证通过（2026-10-30）；第 2 步起进行中
 **范围：** 宿主 `apps/buddy/src/app/workbench`（文件引用的“定位来源”重开路径对**所有文件格式**生效，包括 `source`、`markdown`）；插件 `plugins/office`、`plugins/office-pptx`、`plugins/office-xlsx`、`plugins/office-pdf` 及对应的 `apps/buddy/extensions/*` 构建脚本；`apps/buddy/extensions/document-kit`
 **承接：** [Feature-033 文档插件契约](feature-033-document-plugin-contract.md)、[Spec-013 工作台选区引用](feature-013-workbench-selection-reference.md)（第 15 节）、[Feature-042 Office PDF 插件](feature-042-office-pdf-plugin.md)
 
@@ -227,3 +227,11 @@ DOCX、PPTX、XLSX 的编辑器和引擎来自 GenOffice 的预编译产物，�
 - **和方案的差别：** 位置对不上时不做“最近的一处”选择，PDF 只有页码，按页内文字第一处匹配；页面不存在返回未找到（设计里写的是等待超时）。`findTextRange` 忽略所有空白差异，因为文字层的片段边界不保证有空格。
 - **验证：** 新增 `useExtensionDocumentReveal.spec.ts`（11 项：位置包装、等待就绪、取消、注册随布局变化）；`desktopSelectionReferences.spec.ts` 更新并新增 `'opened'` 用例；`pnpm type-check` 与相关目录 eslint 通过。PDF 用无头 Chromium + 模拟宿主冒烟，覆盖加载中到达的请求、两页的定位、空白差异、跨页引用、文字不在该页、页码超出、无位置、位置类型不对、点击清除高亮，结果符合预期。
 - **未验证：** 真实宿主里的完整流程（打开文件、等待、`views.revealReference` 到插件、卡片提示）；大 PDF 里页面是否按需创建（`.pdf-page` 是否都在 DOM 里）；深色主题下高亮的可读性；Windows 桌面与 E2E。PDF 插件还没有上架市场，所以没有运行 `pnpm market:sync`。
+
+## 13. 用户验证（2026-10-30）
+
+- 用户在 Windows 开发预览（`D:\dev\Lexora-win`，分支 `preview/office-locate`，由 `codex/upstream-20261030-3` 合并 `codex/office-pdf-plugin` 得到）里验证：
+  - 第 0 步：点引用卡片的“定位来源”按文件管理器路径打开源文件。
+  - 第 1 步：Office PDF 0.1.5 点“定位来源”翻到引用页并高亮，用户回复“可以了，没有问题”。
+  - 同一份预览里，插件还是 0.1.4 时点“定位来源”显示“已打开文件，但没能定位到原来的位置。”，符合三态设计；装上 0.1.5 后恢复正常。
+- 验证范围：一份 PDF 的两行引用。没有记录大文件、深色主题、多个聊天目标；Windows E2E 仍未跑。

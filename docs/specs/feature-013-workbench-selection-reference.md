@@ -525,4 +525,4 @@
 
 - 引用卡片的“定位来源”原先用独立视图重开文件，与点产出卡片（Spec-035）的文件管理器路径不一致。现在源文件在当前任务的空间内时，改在文件管理器标签页里打开：Office 文件显示文件树并复用已开的编辑器，其他文件折叠文件树；不在当前任务空间时仍用独立视图。
 - 高亮、模式切换（`source` / `markdown` 预览）、失败时保留快照和“来源已不可用”的行为不变。详见 [Feature-043](feature-043-office-quote-locate.md) 第 4.1.1 节和第 11 节。
-- 未跑 `selectionReferences.e2e.mjs`、`artifactSelectionReferences.e2e.mjs`，需在 Windows 本机验证。
+- 用户已在 Windows 开发预览里确认这条路径（2026-10-30，PDF 引用）。`selectionReferences.e2e.mjs`、`artifactSelectionReferences.e2e.mjs` 仍未跑，需在 Windows 本机验证。

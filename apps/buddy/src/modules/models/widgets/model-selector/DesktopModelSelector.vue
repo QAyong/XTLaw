@@ -11,8 +11,9 @@ import {
   ChevronRight16Regular,
   DismissCircle16Filled,
   Flash20Filled,
+  Warning16Regular,
 } from '@vicons/fluent'
-import { NPopover } from 'naive-ui'
+import { NPopover, NTooltip } from 'naive-ui'
 import { computed, useTemplateRef } from 'vue'
 
 import { useBuddyI18n } from '@/i18n/buddyI18n'
@@ -149,26 +150,32 @@ defineExpose({
           class="desktop-model-selector__control"
           :class="{ 'is-clearable': canClearModel }"
         >
-          <button
-            class="desktop-model-selector__trigger"
-            :class="[`is-${surface}`, { 'is-fast': isFastMode }]"
-            type="button"
-            aria-haspopup="menu"
-            :aria-label="modelTriggerLabel"
-            :aria-expanded="isOpen"
-            :disabled="!canOpen"
-            @click="toggle"
-          >
-            <ProviderIcon class="desktop-model-selector__compact-icon" :provider-id="selectedProviderIconId" />
-            <DesktopIcon v-if="isFastMode" class="desktop-model-selector__flash" :component="Flash20Filled" />
-            <span class="desktop-model-selector__model">
-              {{ modelLabel }}
-            </span>
-            <span v-if="selectedEffortLabel" class="desktop-model-selector__separator">·</span>
-            <span v-if="selectedEffortLabel" class="desktop-model-selector__effort">
-              {{ selectedEffortLabel }}{{ isEffortUnavailable ? ` (${t('common.unavailable')})` : '' }}
-            </span>
-          </button>
+          <NTooltip :disabled="isOpen">
+            <template #trigger>
+              <button
+                class="desktop-model-selector__trigger"
+                :class="[`is-${surface}`, { 'is-fast': isFastMode }]"
+                type="button"
+                aria-haspopup="menu"
+                :aria-label="modelTriggerLabel"
+                :aria-expanded="isOpen"
+                :disabled="!canOpen"
+                @click="toggle"
+              >
+                <ProviderIcon class="desktop-model-selector__compact-icon" :provider-id="selectedProviderIconId" />
+                <DesktopIcon v-if="isFastMode" class="desktop-model-selector__flash" :component="Flash20Filled" />
+                <DesktopIcon v-if="isEffortUnavailable" class="desktop-model-selector__warning" :component="Warning16Regular" />
+                <span class="desktop-model-selector__model">
+                  {{ modelLabel }}
+                </span>
+                <span v-if="selectedEffortLabel" class="desktop-model-selector__separator">·</span>
+                <span v-if="selectedEffortLabel" class="desktop-model-selector__effort">
+                  {{ selectedEffortLabel }}{{ isEffortUnavailable ? ` (${t('common.unavailable')})` : '' }}
+                </span>
+              </button>
+            </template>
+            {{ modelTriggerLabel }}
+          </NTooltip>
           <button
             v-if="canClearModel"
             class="desktop-model-selector__clear"
@@ -344,7 +351,11 @@ defineExpose({
   position: relative;
   min-width: 0;
 
-  &.is-clearable .desktop-model-selector__trigger {
+  &.is-clearable {
+    --model-trigger-padding-right: 2rem;
+  }
+
+  &.is-clearable .desktop-model-selector__trigger.is-field {
     padding-right: 2rem;
   }
 
@@ -358,7 +369,7 @@ defineExpose({
 .desktop-model-selector__trigger {
   display: inline-flex;
   min-width: 0;
-  max-width: min(22rem, 44vw);
+  max-width: var(--composer-model-max-width, 22rem);
   height: var(--buddy-composer-control-height);
   align-items: center;
   gap: 0.35rem;
@@ -373,6 +384,16 @@ defineExpose({
   transition:
     background-color var(--buddy-motion-state-duration) var(--buddy-motion-state-easing),
     color var(--buddy-motion-state-duration) var(--buddy-motion-state-easing);
+
+  &.is-compact {
+    position: relative;
+    width: var(--composer-model-width, auto);
+    justify-content: center;
+    gap: var(--composer-model-gap, 0.35rem);
+    padding-left: var(--composer-model-padding, 0.55rem);
+    padding-right: var(--composer-model-padding, var(--model-trigger-padding-right, 0.45rem));
+    font-size: var(--composer-toolbar-font-size, 0.78rem);
+  }
 
   &.is-compact:hover,
   &.is-compact:focus-visible {
@@ -411,7 +432,7 @@ defineExpose({
 }
 
 .desktop-model-selector__compact-icon {
-  display: none;
+  display: var(--composer-model-icon-display, none);
   width: 18px;
   height: 18px;
   flex: none;
@@ -419,22 +440,37 @@ defineExpose({
 }
 
 .desktop-model-selector__model {
+  display: var(--composer-model-label-display, inline);
   min-width: 0;
   overflow: hidden;
-  font-weight: 650;
+  font-weight: var(--composer-model-font-weight, 650);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .desktop-model-selector__effort,
 .desktop-model-selector__separator {
+  display: var(--composer-effort-display, inline);
   flex: none;
   color: var(--buddy-text-muted);
+  font-size: var(--composer-effort-font-size, inherit);
+  white-space: nowrap;
+}
+
+.desktop-model-selector__flash,
+.desktop-model-selector__warning {
+  position: var(--composer-model-badge-position, static);
+  inset: var(--composer-model-badge-inset, auto);
+  flex: none;
+  font-size: var(--composer-model-badge-size, 1em);
 }
 
 .desktop-model-selector__flash {
-  flex: none;
   color: #3b82f6;
+}
+
+.desktop-model-selector__warning {
+  color: var(--buddy-status-warning-text);
 }
 
 .desktop-model-selector__clear {
@@ -754,10 +790,6 @@ defineExpose({
 }
 
 @media (max-width: 680px) {
-  .desktop-model-selector__trigger {
-    max-width: 50vw;
-  }
-
   .desktop-model-selector__popover {
     max-width: calc(100vw - 1.5rem);
     overflow-x: auto;

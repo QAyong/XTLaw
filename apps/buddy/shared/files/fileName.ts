@@ -10,3 +10,13 @@ export function validFileName(name: string, platform: string): boolean {
     && !/[. ]$/.test(name)
     && !/^(?:con|prn|aux|nul|conin\$|conout\$|com[1-9¹²³]|lpt[1-9¹²³])$/i.test(stem)
 }
+
+export const newFileExtensions = ['.md', '.docx', '.xlsx', '.pptx', '.txt', '.json', '.csv'] as const
+
+/** Appends the chosen extension unless the name already ends in one of the offered ones; an empty extension keeps the name as typed. */
+export function withFileExtension(name: string, extension: string): string {
+  if (!name || !extension)
+    return name
+  const typed = name.toLowerCase()
+  return newFileExtensions.some(known => typed.endsWith(known) && typed.length > known.length) ? name : `${name}${extension}`
+}

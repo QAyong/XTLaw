@@ -14,6 +14,8 @@ export function explorerLabels(language: string) {
         cancel: '取消',
         confirm: '确定',
         name: '名称',
+        extension: '文件类型',
+        noExtension: '无后缀',
         invalidName: '名称不符合当前系统的文件命名规则',
         failure: '文件操作未完成，请检查文件后重试。',
         conflict: '目标已存在或文件已更改，请刷新后重试。',
@@ -35,7 +37,7 @@ export function explorerLabels(language: string) {
         recoveryDetail: '此记录不阻止新操作。确认只表示你已核对并接受当前文件状态，不会修复文件、重做上次操作或删除临时文件。无法确认时可暂不处理，修改前请重新读取文件。',
         recoveryFailure: '无法确认文件操作的状态。可在日志中导出诊断信息寻求协助。',
         acknowledge: '接受当前状态',
-        trashDetail: '文件将移到回收站，可恢复。',
+        trashDetail: '文件将移到回收站，可恢复。WSL 和网络目录没有回收站，文件会移到该目录内的 .xtlaw-trash 文件夹，需要时可手动找回。',
         unknown: '操作结果未知，请先在文件管理器中核对文件。',
       }
     : {
@@ -52,6 +54,8 @@ export function explorerLabels(language: string) {
         cancel: 'Cancel',
         confirm: 'Confirm',
         name: 'Name',
+        extension: 'File type',
+        noExtension: 'No extension',
         invalidName: 'This name is not valid on your operating system',
         failure: 'File operation did not complete. Check the files and try again.',
         conflict: 'The destination exists or the file changed. Refresh and try again.',
@@ -73,7 +77,7 @@ export function explorerLabels(language: string) {
         recoveryDetail: 'This record does not block new operations. Confirmation only records that you reviewed and accept the current file state; it does not repair files, replay the operation or delete temporary files. If unsure, leave it unconfirmed and reread the files before changing them.',
         recoveryFailure: 'The file operation’s state could not be confirmed. Export diagnostics from Logs for help.',
         acknowledge: 'Accept current state',
-        trashDetail: 'The file will be moved to the trash and can be restored.',
+        trashDetail: 'The file will be moved to the trash and can be restored. WSL and network folders have no recycle bin: the file is moved to the .xtlaw-trash folder inside that folder instead, where you can recover it manually.',
         unknown: 'The result is unknown. Check the files in your file manager first.',
       }
 }

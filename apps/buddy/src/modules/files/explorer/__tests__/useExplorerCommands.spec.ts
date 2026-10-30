@@ -104,3 +104,19 @@ describe('explorer copy path', () => {
     expect(operations.clipboard.value).toBeNull()
   })
 })
+
+describe('new file name request', () => {
+  it('offers extensions for a new file but not for a folder or a rename', async () => {
+    const { commands } = fixture()
+    for (const [command, extension] of [['newFile', true], ['newFolder', false]] as const) {
+      const done = commands.command(command, null)
+      expect(commands.nameRequest.value).toMatchObject({ extension })
+      commands.finishName(null)
+      await done
+    }
+    const renamed = commands.command('rename', node)
+    expect(commands.nameRequest.value).toMatchObject({ extension: false })
+    commands.finishName(null)
+    await renamed
+  })
+})

@@ -1,6 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
-  <path d="M7 2.5h8l4 4v14H7z" stroke="#d32f2f" stroke-width="1.5" stroke-linejoin="round"/>
-  <path d="M15 2.5v4h4M15.8 11h2.2M15.8 14h2.2M15.8 17h1.4" stroke="#d32f2f" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-  <rect x="1" y="6.5" width="13.5" height="12" rx="1.5" fill="#d32f2f"/>
-  <path d="M2.7 15v-5h1.3a1.25 1.25 0 0 1 0 2.5H2.7M6.1 10v5h.7c1.6 0 2.4-1 2.4-2.5S8.4 10 6.8 10zM10.6 15v-5h2.4M10.6 12.4h1.7" stroke="white" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
-</svg>
+<svg viewBox="0 0 335 380" version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="m282.65 102.07v254.58h-230.86v-332.66h152.71z" fill="#fff"/><path d="m43.793 15.982v0.003906h-0.00586v348.66h246.85v-0.0039h0.00586v-265.9l-82.83-82.76h-164.02zm15.996 16.004h138.52l0.00391 0.003906v76.336h76.336v240.32h-214.86v-316.66z"/><path d="m43.785 137.24-27.748 27.748v126h302.35v-126l-27.744-27.748v27.748h-246.86v-27.748z" fill="#ed1c24"/><text x="52" y="272" fill="#ffffff" font-family="'DejaVu Sans', Arial, sans-serif" font-size="105px" font-weight="bold">PDF</text></svg>

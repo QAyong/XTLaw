@@ -5,7 +5,7 @@
   "name": "Office DOCX",
   "author": "XTLaw官方",
   "description": "用文件管理器里的 DOCX 直接预览、编辑并保存。",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "icon": "icon.svg",
   "categories": ["办公"],
   "tags": ["DOCX", "Word", "文档编辑"],

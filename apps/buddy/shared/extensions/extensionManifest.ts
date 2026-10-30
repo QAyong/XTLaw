@@ -10,6 +10,7 @@ import { workbenchAnchorSchema, workbenchControls, workbenchControlSchema, workb
 import { extensionAgentSchema } from './extensionAgent'
 import { BUILTIN_CAPABILITY_IDS, extensionMcpConnectorContributionSchema, extensionSubagentContributionSchema, subagentConnectorReferences } from './extensionCapabilities'
 import { extensionConditionDefinitionSchema } from './extensionConditions'
+import { extensionDataSourceSchema } from './extensionData'
 import { extensionAuthorSchema } from './extensionIdentity'
 import { extensionPathSchema } from './extensionPath'
 import { extensionSettingsGroups, extensionSettingsModules, extensionSettingsSchema, validateExtensionSetting } from './extensionSettings'
@@ -83,6 +84,7 @@ export const extensionPermissionsSchema = z.object({
   models: z.boolean().default(false),
   tasks: z.enum(['none', 'read', 'title']).default('none'),
   taskMessages: z.boolean().default(false),
+  data: z.array(extensionDataSourceSchema).max(extensionDataSourceSchema.options.length).refine(sources => new Set(sources).size === sources.length).default([]),
   windowEffects: z.boolean().default(false),
   controls: z.array(workbenchControlSchema).max(workbenchControlSchema.options.length).default([]),
   notifications: z.boolean().default(false),
@@ -336,6 +338,7 @@ export function addedExtensionPermissions(previous: ExtensionPermissions | undef
     ...(next.shells && !previous?.shells ? ['shells'] : []),
     ...(next.themeManagement && !previous?.themeManagement ? ['themeManagement'] : []),
     ...(next.taskMessages && !previous?.taskMessages ? ['taskMessages'] : []),
+    ...next.data.filter(source => !previous?.data?.includes(source)).map(source => `data:${source}`),
     ...(next.agent && !previous?.agent ? ['agent'] : []),
     ...(next.models && !previous?.models ? ['models'] : []),
     ...(next.tasks !== 'none' && next.tasks !== previous?.tasks && previous?.tasks !== 'title' ? [`tasks:${next.tasks}`] : []),

@@ -42,6 +42,7 @@ import { notificationsChanged } from '../../shared/notifications/notificationApi
 import { ApplicationEvents as EventPublisher } from '../../shared/observability/ApplicationEvents'
 import { observeLifecycleDiagnostics } from '../../shared/observability/lifecycleDiagnostics'
 import { promptsRpc } from '../../shared/prompts/promptApi'
+import { taskMetricsChanged } from '../../shared/runs/taskMetricsApi'
 import { openExternalResultSchema } from '../../shared/runtime/credentialProtocol'
 import { developerToolsRpc, developerToolsStateSchema } from '../../shared/runtime/developerTools'
 import { runtimePreferencesRpc, runtimePreferencesSchema } from '../../shared/runtime/runtimePreferences'
@@ -172,6 +173,7 @@ import { registerProviderRpc } from './providers/registerProviderRpc'
 import { refreshProviderSpeechModels, registerProviderSpeechRpc } from './providers/registerProviderSpeechRpc'
 import { resolveInteractiveModelSelection } from './providers/resolveInteractiveModelSelection'
 import { BuddyServiceError, registerRuntimeRequest } from './rpc/runtimeRequest'
+import { ConversationStatusService } from './runs/ConversationStatusService'
 import { registerRunRpc } from './runs/registerRunRpc'
 import { RunContinuityService } from './runs/RunContinuityService'
 import { RunLifecycleService } from './runs/RunLifecycleService'
@@ -209,6 +211,7 @@ import { createConversationDirectoryGrantRepository } from './storage/conversati
 import { createConversationHistoryStore } from './storage/conversationHistoryRepository'
 import { createConversationMemberRepository } from './storage/conversationMemberRepository'
 import { createConversationRepository } from './storage/conversationRepository'
+import { createConversationStatisticsRepository } from './storage/conversationStatisticsRepository'
 import { createConversationTreeRepository } from './storage/conversationTreeRepository'
 import { createExecutionRepository } from './storage/executionRepository'
 import { createExtensionInvocationRepository } from './storage/extensionInvocationRepository'
@@ -1482,7 +1485,35 @@ export async function startBuddyService(
     const runtime: BuddyRuntime = {
       startTurn: input => chatTurnService.start(input),
     }
+    const statistics = await host.start('runtime.conversation_statistics', ({ defer }) => {
+      const service = new ConversationStatusService({
+        repository: createConversationStatisticsRepository(options.database),
+        runs,
+        events: options.eventLog,
+        getCacheWarmingStatus: (conversationId) => {
+          const conversation = conversations.findById(conversationId)
+          const branchId = conversation?.activeBranchId
+          return branchId ? sessions.getReady(conversationId, branchId, conversation?.buddyId)?.getCacheWarmingStatus?.() ?? null : null
+        },
+      })
+      const notices = service.onDidChange(event => options.rpc.notify(taskMetricsChanged.method, event))
+      const inputs = chatQueueService.onDidChange((event) => {
+        if (event.kind === 'delivered' || event.kind === 'dispatched')
+          service.notifyChanged(event.scope.conversationId)
+      })
+      const reconciled = runLifecycleService.onDidReconcile(event => service.notifyChanged(event.conversationId))
+      defer(() => {
+        reconciled.dispose()
+        inputs.dispose()
+        notices.dispose()
+        service.dispose()
+      })
+      return service
+    })
     const contextUsageService = new ContextUsageSnapshotService({
+      runs,
+      threads,
+      events: options.eventLog,
       definitions: buddyDefinitions,
       getDefaultActorId: () => buddies.defaultBuddyId,
       getRuntimePreferences: async () => {
@@ -1597,17 +1628,12 @@ export async function startBuddyService(
       )
       register(
         registerRunRpc({
+          statistics,
           isBusy,
-          getCacheWarmingStatus: (conversationId) => {
-            const conversation = conversations.findById(conversationId)
-            const branchId = conversation?.activeBranchId
-            return branchId ? sessions.getReady(conversationId, branchId, conversation?.buddyId)?.getCacheWarmingStatus?.() ?? null : null
-          },
           eventLog: options.eventLog,
           inputs: runInputs,
           repository: runs,
           rpc: options.rpc,
-          usage: usageRepository,
         }),
       )
       register(registerRuntimeRequest(options.rpc, promptsRpc.get, () => getBuiltinPromptCatalog()))

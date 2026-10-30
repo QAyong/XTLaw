@@ -43,6 +43,7 @@ import WorkbenchSurfaceHost from '@/workbench/browser/surfaces/WorkbenchSurfaceH
 import { commandLabel } from '@/workbench/common/workbench'
 import { useDesktopPages } from '../router/useDesktopPages'
 import { useDesktopShellState } from '../shell/useDesktopShellState'
+import { createWorkbenchDataPort } from '../workbench/createWorkbenchDataPort'
 import { desktopWorkbenchKey } from '../workbench/desktopWorkbenchContext'
 import { registerResourceContributions } from '../workbench/registerResourceContributions'
 import { useDesktopKeybindings } from '../workbench/useDesktopKeybindings'
@@ -243,7 +244,7 @@ function getResources() {
   return resources
 }
 const capabilities = createDesktopCapabilities({ api, stores, selectedModel: computed(() => selectedTask.value?.workspace.composer.selectedModel.value ?? null), onAutomationRunFailure: error => message.error(error) })
-useProvideExtensionContext({ capabilityStatus: { connectors: computed(() => capabilities.mcpSettings.connectors.value), buddies: buddyDirectory.buddies, defaultBuddyId: computed(() => buddyDirectory.catalog.value?.defaultBuddyId ?? null), loadConnectors: () => capabilities.mcpSettings.load() }, settingsLocation: settingsRegistry.extensionLocation, authoring: { author: computed(() => stores.applicationSettings.config.value?.desktop.pluginAuthor ?? ''), save: author => stores.applicationSettings.updateSettings({ desktop: { pluginAuthor: author } }) }, state: extensions, views: extensionViews, themeColors: desktopTheme.extensionColors, themeRevision: desktopTheme.revision, anchors, ui, workbench: pages.context, language: stores.applicationSettings.language, isDark: desktopTheme.isDark, startCreation: prompt => workbench.startTaskWithSkill('plugin-creator', prompt), startSkillCreation: prompt => workbench.startTaskWithSkill('skill-creator', prompt), endInteraction: id => workbench.controller.interactions.end(id), focusView: (id) => {
+useProvideExtensionContext({ data: createWorkbenchDataPort({ api: api.localChat, controller: workbench.controller, pool: workbench.pool }), capabilityStatus: { connectors: computed(() => capabilities.mcpSettings.connectors.value), buddies: buddyDirectory.buddies, defaultBuddyId: computed(() => buddyDirectory.catalog.value?.defaultBuddyId ?? null), loadConnectors: () => capabilities.mcpSettings.load() }, settingsLocation: settingsRegistry.extensionLocation, authoring: { author: computed(() => stores.applicationSettings.config.value?.desktop.pluginAuthor ?? ''), save: author => stores.applicationSettings.updateSettings({ desktop: { pluginAuthor: author } }) }, state: extensions, views: extensionViews, themeColors: desktopTheme.extensionColors, themeRevision: desktopTheme.revision, anchors, ui, workbench: pages.context, language: stores.applicationSettings.language, isDark: desktopTheme.isDark, startCreation: prompt => workbench.startTaskWithSkill('plugin-creator', prompt), startSkillCreation: prompt => workbench.startTaskWithSkill('skill-creator', prompt), endInteraction: id => workbench.controller.interactions.end(id), focusView: (id) => {
   workbench.controller.focus(id)
 } })
 function onSpaceCreated(id: string) {

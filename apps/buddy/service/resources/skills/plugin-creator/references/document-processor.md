@@ -93,7 +93,7 @@ await context.composer.addQuote(capture.id, targetId) // added | duplicate | lim
 - 文档可能还在加载。宿主只等到视图会话可用，编辑器内部加载由插件自己等，并遵守 `signal`。宿主对一次定位最多等 10 秒。
 - 不要修改文档，不要触发保存。
 
-文档工具包 `document-kit/reveal.js` 提供 `registerReveal(context, handler)`：处理器会等到你调用 `ready(true)`（文档加载完）才执行，加载失败调用 `ready(false)`，抛错按未找到处理，并解析 `locator`；另有 `findTextRange(root, text)`，忽略空白差异在 DOM 里找到文字并返回 `Range`。示例见 Office PDF 插件的 `reveal-quote.js`。
+文档工具包 `document-kit/reveal.js`（用 `node extensions/document-kit/sync.mjs <插件目录> --only=reveal.js` 单独拷入）提供 `registerReveal(context, handler)`：处理器会等到你调用 `ready(true)`（文档加载完）才执行，加载失败调用 `ready(false)`，抛错按未找到处理，并解析 `locator`；另有 `findTextRange(root, text)`，忽略空白差异在 DOM 里找到文字并返回 `Range`。示例见 Office PDF 插件的 `reveal-quote.js`。
 
 只有**自己接管的文件类型**才能引用：宿主要求当前视图声明了对应 `accepts`、`resource: "selected-file"`、`location: "context"`，且文件由该视图打开。
 

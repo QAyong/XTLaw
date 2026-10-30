@@ -1,7 +1,7 @@
 # Feature-043：Office 文档引用的“定位来源”
 
 **日期：** 2026-10-30
-**状态：** 方案已确认（2026-10-30）；第 0 步（重开路径统一走文件管理器）已实现并通过类型检查与单测，未在桌面应用里实测；第 0、1 步（重开路径统一走文件管理器、宿主调用插件 `onReveal`、三态结果、PDF）已实现，用户已在 Windows 开发预览里验证通过（2026-10-30）；第 2 步起进行中
+**状态：** 方案已确认（2026-10-30）；第 0 步（重开路径统一走文件管理器）已实现并通过类型检查与单测，未在桌面应用里实测；第 0、1 步（重开路径统一走文件管理器、宿主调用插件 `onReveal`、三态结果、PDF）已实现，用户已在 Windows 开发预览里验证通过（2026-10-30）；第 2–4 步（PPTX、DOCX、XLSX）已实现，用无头 Chromium 加模拟宿主冒烟，未在桌面应用里实测
 **范围：** 宿主 `apps/buddy/src/app/workbench`（文件引用的“定位来源”重开路径对**所有文件格式**生效，包括 `source`、`markdown`）；插件 `plugins/office`、`plugins/office-pptx`、`plugins/office-xlsx`、`plugins/office-pdf` 及对应的 `apps/buddy/extensions/*` 构建脚本；`apps/buddy/extensions/document-kit`
 **承接：** [Feature-033 文档插件契约](feature-033-document-plugin-contract.md)、[Spec-013 工作台选区引用](feature-013-workbench-selection-reference.md)（第 15 节）、[Feature-042 Office PDF 插件](feature-042-office-pdf-plugin.md)
 
@@ -249,3 +249,19 @@ DOCX、PPTX、XLSX 的编辑器和引擎来自 GenOffice 的预编译产物，�
 - 上游 Lexora Office 1.1.0 对 DOCX、PPTX、XLSX、PDF 都实现了选区定位，入口同样是 `context.references.onReveal`（`office-view-agent.ts`），再交给各格式编辑器适配层的 `assistant.reveal(reference)`。
 - DOCX：ProseMirror `TextSelection.create(doc, from, to)` 加 `scrollIntoView`。PPTX：切到幻灯片、选中元素、进入文字编辑后按文字摘要建 DOM 选区。XLSX：`setActiveSheet` 后高亮区域。PDF：桥接层按矩形区域。定位前都先校验文字或摘要。
 - 上游是自己的 TypeScript 源码和编辑器适配层，我们的 DOCX、PPTX、XLSX 是 GenOffice 预编译产物加 shim，只能借方法，不能搬代码。
+
+## 15. 第 2–4 步实施记录（2026-10-30）
+
+三个 GenOffice 移植插件都在视图页里注册 `references.onReveal`（`document-kit/reveal.js` 的 `registerReveal`，等编辑器加载完才处理请求），各自一个 `reveal-quote.js`。**没有重编任何编辑器或引擎**，只用了编辑器已有的接口。
+
+| 插件 | 版本 | 做法 | 返回 `true` 的条件 |
+|---|---|---|---|
+| PPTX | 0.4.12 | 用 `__genofficeControl({cmd:'goto', target:{slide}})` 跳到幻灯片，`getRenderSlides()` 里找包含引用文字（忽略空白）的最小元素（同长时取内层），再 `{cmd:'select', target:{slide, el}}` 选中 | 找到单个元素并选中。引用只存了幻灯片号和文字，没有元素标识；引用跨多个元素或文字已不在该页时只显示幻灯片，返回 `false`。不进入文字编辑，不高亮元素内的具体文字 |
+| DOCX | 0.1.10 | tiptap 编辑器 `window.__aidocs.editor`：引用时保存的 ProseMirror 位置上文字仍一致就 `commands.setTextSelection`，否则在文档里按文字找离原位置最近的一处，再 `scrollIntoView` | 选区设置成功。文字已不在文档里返回 `false` |
+| XLSX | 0.3.14 | 上游已有的控制钩子 `target:{sheet, range}` 切到工作表并选中区域；之后用 `lexora-selection-text` 读出显示值与引用文字比较。工作表改名时按引用时的工作表序号兜底；大表单元格没加载好会等 | 显示值与引用文字一致。单元格变了、区域超出数据、区域格式不对返回 `false`，区域保持选中 |
+
+- **文档工具包：** `reveal.js` 本身没有再改；`sync.mjs` 新增 `--only=a.js,b.js`，三个插件只拷了 `reveal.js`，不带 `quote.js` 等用不到的文件。
+- **测试：** 新增 `__tests__/officeReveal.spec.mjs`（18 项，jsdom；`registerReveal`、`findTextRange` 以及四个插件的定位逻辑）；`documentKit.spec.mjs` 新增“只拷指定文件”和四个插件 `reveal.js` 无漂移。全量 `vitest` 740 个文件、5983 项通过。
+- **冒烟：** 用 python-pptx、python-docx、openpyxl 生成样例文件，在无头 Chromium + 模拟宿主里加载真实的插件和编辑器：PPTX 7 项（含两页、空白差异、别页文字、越界、无位置、格式不对）、DOCX 8 项（位置不变、位置过期按文字找、空白差异、多处匹配取最近、文字已删、取消）、XLSX 9 项（两个工作表、改名兜底、单元格已改、区域越界、格式错误）都符合预期；DOCX 选区滚动到了可见位置。
+- **未验证：** 真实宿主里这三个插件的完整流程；深色主题；大文档、大工作表、很多页的 PPTX；PPTX 在只读预览回退时（`preview.js`）不支持定位，返回未找到；Windows E2E。
+- **市场：** 三个插件已升版本，没有运行 `pnpm market:sync`：`pnpm market:check` 显示市场仓库本来就有多个插件不一致（含 `legal-research`、`office-pdf`），需要和发布一起处理。

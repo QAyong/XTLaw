@@ -15,7 +15,7 @@ function layoutText(layout) {
   return out
 }
 
-function nodeText(node) {
+export function nodeText(node) {
   if (node.type === 'group')
     return (node.children ?? []).map(nodeText).filter(Boolean).join('\n')
   if (node.type === 'table') {

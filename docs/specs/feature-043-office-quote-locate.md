@@ -235,3 +235,17 @@ DOCX、PPTX、XLSX 的编辑器和引擎来自 GenOffice 的预编译产物，�
   - 第 1 步：Office PDF 0.1.5 点“定位来源”翻到引用页并高亮，用户回复“可以了，没有问题”。
   - 同一份预览里，插件还是 0.1.4 时点“定位来源”显示“已打开文件，但没能定位到原来的位置。”，符合三态设计；装上 0.1.5 后恢复正常。
 - 验证范围：一份 PDF 的两行引用。没有记录大文件、深色主题、多个聊天目标；Windows E2E 仍未跑。
+
+## 13. 用户验证（2026-10-30）
+
+- 用户在 Windows 开发预览（`D:\dev\Lexora-win`，分支 `preview/office-locate`，由 `codex/upstream-20261030-3` 合并 `codex/office-pdf-plugin` 得到）里验证：
+  - 第 0 步：点引用卡片的“定位来源”按文件管理器路径打开源文件。
+  - 第 1 步：Office PDF 0.1.5 点“定位来源”翻到引用页并高亮，用户回复“可以了，没有问题”。
+  - 同一份预览里，插件还是 0.1.4 时点“定位来源”显示“已打开文件，但没能定位到原来的位置。”，符合三态设计；装上 0.1.5 后恢复正常。
+- 验证范围：一份 PDF 的两行引用。没有记录大文件、深色主题、多个聊天目标；Windows E2E 仍未跑。
+
+## 14. 上游怎么做（2026-10-30，读 `useLexora/plugins` 的 `plugins/office`，提交 `c476e90`，未运行）
+
+- 上游 Lexora Office 1.1.0 对 DOCX、PPTX、XLSX、PDF 都实现了选区定位，入口同样是 `context.references.onReveal`（`office-view-agent.ts`），再交给各格式编辑器适配层的 `assistant.reveal(reference)`。
+- DOCX：ProseMirror `TextSelection.create(doc, from, to)` 加 `scrollIntoView`。PPTX：切到幻灯片、选中元素、进入文字编辑后按文字摘要建 DOM 选区。XLSX：`setActiveSheet` 后高亮区域。PDF：桥接层按矩形区域。定位前都先校验文字或摘要。
+- 上游是自己的 TypeScript 源码和编辑器适配层，我们的 DOCX、PPTX、XLSX 是 GenOffice 预编译产物加 shim，只能借方法，不能搬代码。

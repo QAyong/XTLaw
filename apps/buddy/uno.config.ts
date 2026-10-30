@@ -86,7 +86,7 @@ export default defineConfig({
   },
   theme: {
     colors: themeColors,
-    boxShadow: { overlay: 'var(--buddy-shadow-overlay)' },
+    boxShadow: { overlay: 'var(--buddy-shadow-overlay)', soft: 'var(--buddy-shadow-soft)' },
     borderRadius: { 'micro': 'var(--buddy-radius-micro, 6px)', 'menu-item': 'var(--buddy-menu-item-radius, 3px)' },
     width: { 'workspace-sidebar': 'var(--buddy-workspace-sidebar-width, 15.5rem)' },
     height: { 'region-header': 'var(--buddy-region-header-height, 2.75rem)' },

@@ -1,5 +1,6 @@
 import type { ZodError } from 'zod'
 import type { EventSnapshot } from '../../../shared/events/eventTypes'
+import type { ImagePreferences } from '../../../shared/images/imagePreferences'
 import type { NotificationSoundAsset } from '../../../shared/notifications/notificationSound'
 import type { NetworkOperation } from '../../../shared/permissions/networkPermissions'
 import type { LexoraConfig, LexoraConfigPatch, SystemUserProfile } from '../../shared/desktopApi'
@@ -14,6 +15,7 @@ import { Emitter } from '../../../shared/events/Emitter'
 import { copyEventSnapshot } from '../../../shared/events/eventSnapshot'
 import { extensionAuthorSchema } from '../../../shared/extensions/extensionIdentity'
 import { BUILTIN_FILE_ICON_THEME, fileIconPreferenceSchema } from '../../../shared/icons/fileIconTheme'
+import { imagePreferencesSchema } from '../../../shared/images/imagePreferences'
 import { downloadSettingsSchema } from '../../../shared/network/downloadSettings'
 import { DEFAULT_PROXY_SETTINGS, proxySettingsSchema } from '../../../shared/network/proxySettings'
 import { DEFAULT_NOTIFICATION_SOUND_PREFERENCES, notificationSoundAssetIdSchema, notificationSoundAssetSchema, notificationSoundPreferencesPatchSchema, notificationSoundPreferencesSchema } from '../../../shared/notifications/notificationSound'
@@ -70,6 +72,7 @@ const desktopConfigSchema = z.object({
   feature_discovery: featureDiscoverySchema.default(EMPTY_FEATURE_DISCOVERY),
   feature_announcements_enabled: z.boolean().default(true),
   onboarding_completed: z.boolean().default(true),
+  images: imagePreferencesSchema.optional(),
   speech: speechPreferencesSchema.optional(),
   plugin_author: extensionAuthorSchema.default(''),
   background_close_notice_shown: z.boolean().default(false),
@@ -307,6 +310,10 @@ export class LexoraConfigStore {
     }, apply, () => {})
   }
 
+  updateImages(transform: (current: ImagePreferences) => ImagePreferences, apply?: (config: LexoraConfig) => Promise<void> | void): Promise<LexoraConfig> {
+    return this.#update(current => ({ ...current, desktop: { ...current.desktop, images: imagePreferencesSchema.parse(transform(current.desktop.images ?? {})) } }), apply, () => {})
+  }
+
   #update(transform: (current: LexoraConfig) => LexoraConfig, apply: ((config: LexoraConfig) => Promise<void> | void) | undefined, assertCurrent: () => void): Promise<LexoraConfig> {
     if (this.#disposing)
       return Promise.reject(new Error('CONFIG_STORE_STOPPED'))
@@ -452,6 +459,7 @@ function decodeConfig(value: unknown): LexoraConfig {
       featureAnnouncementsEnabled: config.desktop.feature_announcements_enabled,
       onboardingCompleted: config.desktop.onboarding_completed,
       backgroundCloseNoticeShown: config.desktop.background_close_notice_shown,
+      images: config.desktop.images,
       speech: config.desktop.speech,
       pluginAuthor: config.desktop.plugin_author,
       chat: {
@@ -530,6 +538,7 @@ function encodeConfig(config: LexoraConfig) {
       feature_announcements_enabled: config.desktop.featureAnnouncementsEnabled,
       onboarding_completed: config.desktop.onboardingCompleted,
       background_close_notice_shown: config.desktop.backgroundCloseNoticeShown,
+      images: config.desktop.images,
       speech: config.desktop.speech,
       plugin_author: config.desktop.pluginAuthor,
       chat: {
@@ -607,6 +616,7 @@ function mergeConfig(current: LexoraConfig, patch: LexoraConfigPatch): LexoraCon
       }),
       fileIconTheme: fileIconPreferenceSchema.parse(patch.desktop?.fileIconTheme ?? current.desktop.fileIconTheme),
       theme: themePreferenceSchema.parse(patch.desktop?.theme ?? current.desktop.theme),
+      images: patch.desktop?.images ?? current.desktop.images ? imagePreferencesSchema.parse(patch.desktop?.images ?? current.desktop.images) : undefined,
       speech: current.desktop.speech || patch.desktop?.speech ? speechPreferencesSchema.parse({ ...current.desktop.speech, ...patch.desktop?.speech }) : undefined,
       pluginAuthor: extensionAuthorSchema.parse(patch.desktop?.pluginAuthor ?? current.desktop.pluginAuthor),
       chat: {

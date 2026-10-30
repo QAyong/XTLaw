@@ -32,6 +32,9 @@ const referenceLabel = computed(() => {
       <header>{{ t('desktop.chat.processToolInput') }}</header>
       <p>{{ presentation.prompt }}</p>
       <small v-if="referenceLabel">{{ referenceLabel }}</small>
+      <small v-if="presentation.source">
+        {{ t('desktop.chat.processToolImageModel', { model: `${presentation.source.title} · ${presentation.source.owner}` }) }}
+      </small>
     </section>
     <section v-if="outputs.length" class="buddy-chat-image-tool-details__section is-output">
       <header>{{ t('desktop.chat.processToolOutput') }}</header>

@@ -1,5 +1,7 @@
 import type { LocalChatIpcContext } from './registrar'
+import process from 'node:process'
 import { shell } from 'electron'
+import { z } from 'zod'
 import { validationRequestSchemas } from '../../../shared/runtime/apiValidation'
 import { spacesRequestSchemas, spacesRpc } from '../../../shared/spaces/spaceApi'
 import { fileTargetSchema, spaceDirectoryRequestSchema, spaceFileOpenRequestSchema, spaceFilesRpc, spaceSaveDocumentSchema } from '../../../shared/spaces/spaceFileApi'
@@ -8,6 +10,20 @@ import { translateDesktopNative } from '../desktopNativeI18n'
 import { SpaceDirectorySelectionLedger } from '../spaceDirectorySelections'
 import { openArtifactEntry } from './artifactExternalOpen'
 import { selectPaths } from './nativeSelection'
+import { readWslDistributions, wslStartDirectory } from './wslDirectory'
+
+const selectDirectoryInputSchema = z.object({ source: z.object({ wsl: z.string().min(1).max(128) }).strict().optional() }).strict()
+
+async function listWslDistributions(): Promise<string[]> {
+  return process.platform === 'win32' ? (await readWslDistributions()).names : []
+}
+
+// Only a distribution that is actually installed can be opened; the name never becomes a path unchecked.
+async function wslDirectory(distribution: string): Promise<string> {
+  if (!(await listWslDistributions()).includes(distribution))
+    throw new Error('WSL_NOT_AVAILABLE')
+  return wslStartDirectory(distribution)
+}
 
 export function registerSpacesIpc(context: LocalChatIpcContext): void {
   const { handle, request, options } = context
@@ -48,16 +64,22 @@ export function registerSpacesIpc(context: LocalChatIpcContext): void {
 
   handle(LOCAL_CHAT_IPC_CHANNELS.spacesSearchFiles, (_event, input) => request(spacesRpc.searchFiles, spacesRequestSchemas.spaceFileSearch.parse(input)))
 
-  handle(LOCAL_CHAT_IPC_CHANNELS.spacesSelectDirectory, async () => {
+  handle(LOCAL_CHAT_IPC_CHANNELS.spacesSelectDirectory, async (_event, input) => {
+    const { source } = selectDirectoryInputSchema.parse(input ?? {})
+    // The system folder dialog does not list WSL, so open it inside the chosen distribution instead.
+    const defaultPath = source ? await wslDirectory(source.wsl) : undefined
     const paths = await selectPaths(options.getWindow(), {
       properties: ['openDirectory'],
       title: translateDesktopNative(options.getLanguage(), 'selectSpaceDirectory'),
+      ...(defaultPath ? { defaultPath } : {}),
     })
     const selected = paths[0] ?? null
     if (selected)
       spaceDirectorySelections.issue(selected)
     return selected
   })
+
+  handle(LOCAL_CHAT_IPC_CHANNELS.spacesWslDistributions, () => listWslDistributions())
 
   handle(LOCAL_CHAT_IPC_CHANNELS.spacesUpdate, (_event, input) => {
     const parsed = spacesRequestSchemas.spaceUpdate.parse(input)

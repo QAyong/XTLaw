@@ -49,11 +49,22 @@ function preview(material: InputMaterialView) {
   previewOpen.value = true
 }
 
+// A plain mouse wheel only sends vertical deltas; turn them into sideways movement while the strip can still move that way.
+function scrollSideways(event: WheelEvent) {
+  const port = event.currentTarget instanceof HTMLElement ? event.currentTarget.querySelector<HTMLElement>('.chat-input-material-strip__scrollport') : null
+  if (!port || event.ctrlKey || Math.abs(event.deltaY) <= Math.abs(event.deltaX))
+    return
+  const before = port.scrollLeft
+  port.scrollLeft += event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY
+  if (port.scrollLeft !== before)
+    event.preventDefault()
+}
+
 defineExpose({ highlightMaterial, highlightResource: (id: string) => highlightMaterial({ kind: 'resource', id }) })
 </script>
 
 <template>
-  <div v-if="materials.length" class="chat-input-material-strip min-w-0 max-w-full" :class="compact ? 'is-compact' : 'w-full mb-2'" data-quote-exclude>
+  <div v-if="materials.length" class="chat-input-material-strip min-w-0 max-w-full" :class="compact ? 'is-compact' : 'w-full mb-2'" data-quote-exclude @wheel="scrollSideways">
     <NScrollbar class="chat-input-material-strip__scrollbar" container-class="chat-input-material-strip__scrollport" content-style="width: max-content; min-width: 100%" trigger="hover" x-scrollable>
       <div ref="track" class="flex flex-nowrap items-start gap-[0.45rem]" :class="{ 'justify-end': alignEnd }">
         <ChatInputMaterialCard

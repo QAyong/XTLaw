@@ -1,3 +1,4 @@
+import { blankDocx } from './blank-docx.js'
 import { readDocx, validateDocx } from './docx.js'
 
 function noop() {}
@@ -78,6 +79,11 @@ export function createOfficeBridge(context, ui) {
     if (resource.size === undefined) {
       const metadata = await context.resources.readBytes(resource, { offset: 0, length: 1 })
       resource = { ...resource, size: metadata.size }
+    }
+    // An empty file is a new document: the read still happens once, so the host knows which version a later save replaces.
+    if (resource.size === 0) {
+      await context.resources.readBytes(resource, { offset: 0, length: 1 })
+      return { resource, bytes: blankDocx() }
     }
     return { resource, bytes: await readDocx(context.resources, resource, context.signal) }
   }

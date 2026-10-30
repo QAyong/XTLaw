@@ -2,7 +2,7 @@
 
 **日期：** 2026-10-30
 
-**状态：** 已实现，等待用户在开发预览中验收（2026-10-30）。第 1—6 步均已完成，见第 7 节；未在真实窗口里验证，未打包。
+**状态：** 已实现，用户已在 Windows 开发预览中验收通过（2026-10-31）。第 1—6 步均已完成并修正了运行期临时授权产出的问题，见第 7 节；未打包。
 
 **相关：** [Spec-035：任务产出在文件管理器中打开](../archive/specs/feature-035-artifact-open-in-file-manager.md)、[Spec-039：没选本地文件夹的空间，其内部工作区在文件管理器中浏览](../archive/specs/feature-039-space-workspace-in-file-manager.md)、[Spec-033：文档插件契约](feature-033-document-plugin-contract.md)、[Spec-013：工作台选区引用与多分屏目标](feature-013-workbench-selection-reference.md)
 

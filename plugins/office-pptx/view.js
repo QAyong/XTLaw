@@ -1,6 +1,7 @@
 import { registerReveal } from './document-kit/reveal.js'
-import { readPptx, validatePptx } from './pptx.js'
+import { withFirstSlide } from './empty-deck.js'
 import { installOfficeToolbarNavigation } from './office-toolbar-navigation.js'
+import { readPptx, validatePptx } from './pptx.js'
 import { createQuoteReveal } from './reveal-quote.js'
 import { installSelectionMenu } from './selection-menu.js'
 
@@ -79,7 +80,8 @@ export async function render(context, container) {
     const resource = context.resource.size === undefined
       ? { ...context.resource, size: (await context.resources.readBytes(context.resource, { offset: 0, length: 1 })).size }
       : context.resource
-    const bytes = await readPptx(context.resources, resource, context.signal)
+    // A deck without any slide would leave the editor on "Opening…" for good.
+    const bytes = withFirstSlide(await readPptx(context.resources, resource, context.signal))
     context.signal.throwIfAborted()
     // The sandbox has an opaque origin: keep editor preferences in bounded memory instead of weakening the iframe.
     const viewState = context.state && typeof context.state === 'object' && !Array.isArray(context.state) ? { ...context.state } : {}

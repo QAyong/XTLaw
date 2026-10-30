@@ -137,6 +137,27 @@ describe('desktop resource quote adapter', () => {
     expect(await f.host.locate(artifactQuote)).toBe(false)
   })
 
+  it('lets the opener switch to the file manager tab without cancelling the locate', async () => {
+    const f = await fixture()
+    f.openFile.mockImplementation((async (_target: unknown, _current: () => boolean, acceptTab: (id: string) => boolean) => {
+      f.activeTab.value = { id: 'files-a' }
+      return acceptTab('files-a') ? f.fileId : null
+    }) as never)
+    expect(await f.host.locate(f.quote)).toBe(true)
+    expect(f.activeTab.value.id).toBe('files-a')
+    expect(f.reveal).toHaveBeenCalledOnce()
+  })
+
+  it('does not reveal anything when the active tab changes behind the opener', async () => {
+    const f = await fixture()
+    f.openFile.mockImplementation((async () => {
+      f.activeTab.value = { id: 'somewhere-else' }
+      return f.fileId
+    }) as never)
+    expect(await f.host.locate(f.quote)).toBe(false)
+    expect(f.reveal).not.toHaveBeenCalled()
+  })
+
   it('rejects a late file lookup after navigation without opening the old source', async () => {
     const f = await fixture()
     const lookup = Promise.withResolvers<void>()

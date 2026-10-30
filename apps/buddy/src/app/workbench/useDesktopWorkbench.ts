@@ -37,6 +37,7 @@ import { ContextTabProjection } from './ContextTabProjection'
 import { createDesktopSelectionReferences } from './createDesktopSelectionReferences'
 import { ExtensionDocumentRouter } from './extensionDocuments'
 import { absolute, contains, FileOperationService } from './FileOperationService'
+import { createQuoteSourceOpener } from './openQuoteSourceFile'
 import { registerDesktopContributions } from './registerDesktopContributions'
 import { restoreTaskInputViews } from './restoreTaskInputViews'
 import { revealOpenOfficeDocument } from './revealOpenOfficeDocument'
@@ -779,7 +780,7 @@ export function useDesktopWorkbench(options: { beforeExtensionClose?: (viewId: s
     await inputs.flush().catch(options.onError)
     return saved
   }
-  const selectionReferences = createDesktopSelectionReferences({ controller, pool, documents, language, openFile: (target, current) => createFile(target, undefined, current), browser: api.browser, resources: options.resources, ready: () => initialized.value, independent: () => stores.applicationSettings.config.value?.desktop.contextPanelMode === 'independent', locateFile: target => api.localChat.spaces.readFile(target), navigationVersion: () => navigationVersion })
+  const selectionReferences = createDesktopSelectionReferences({ controller, pool, documents, language, openFile: createQuoteSourceOpener({ resources: options.resources, openInTab: openFile, openStandalone: (target, current) => createFile(target, undefined, current) }), browser: api.browser, resources: options.resources, ready: () => initialized.value, independent: () => stores.applicationSettings.config.value?.desktop.contextPanelMode === 'independent', locateFile: target => api.localChat.spaces.readFile(target), navigationVersion: () => navigationVersion })
   return { revealOpenOfficeDocument: (target: SpaceFileTarget) => revealOpenOfficeDocument(controller, options.resources(), target), selectionReferences, documents, api, renderers, autoSave, fileOperations, fileToolbarTargets, fileView, closeContextFiles, readingPositions, discardTask, prepareTaskDeletion, activeTask, activeTaskId, activeResource: activity.resource, backupError, controller, copies, models, pool, persistence, initialize, flush, dispose, openTask, newTask, prepareNewTaskInput, showTaskInput, showReferencePage, startTaskWithSkill, openFile, dropResource, language, get initialized() {
     return initialized.value
   }, get navigationVersion() {

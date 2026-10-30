@@ -267,6 +267,20 @@ export function useTaskResourcePanel(options: TaskResourcePanelOptions) {
     return false
   }
 
+  // Where a quote's "locate source" opens its file: the route an output card takes (Spec-043). Null when the file is not in the task's space.
+  function openQuoteSourceFile(target: SpaceFileTarget): { target: SpaceFileTarget, tabId: string, viewId?: string } | null {
+    const current = taskContext.resolveSpaceFile(target)
+    if (!current)
+      return null
+    return act(() => {
+      if (isOfficePath(current.path) && options.revealOpenOfficeDocument?.(current)) {
+        const tab = taskContext.activeTab.value
+        return tab?.kind === 'view' ? { target: current, tabId: tab.id, viewId: tab.viewId } : null
+      }
+      return taskContext.openSpaceFile(current, isOfficePath(current.path))
+    })
+  }
+
   // Outputs in the task's space open in the file manager (Spec-035). Not for an explicit "open with", the output-panel setting, a browser output, or a type the user assigned to a plugin.
   async function openInFileManager(artifact: LocalArtifact): Promise<boolean> {
     if (options.artifactOpening?.value === 'panel' || isBrowserArtifact(artifact))
@@ -438,6 +452,7 @@ export function useTaskResourcePanel(options: TaskResourcePanelOptions) {
     openWebLink,
     canPreviewFile,
     previewFile,
+    openQuoteSourceFile,
     closeTab,
     closeTabs,
     discardDraft: (id: string) => {

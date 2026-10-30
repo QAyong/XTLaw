@@ -12,7 +12,7 @@ import { isMarkdownFile } from '@/shared/ui/files/fileDocumentPresentation'
 export interface BuiltinSelectionReferenceOptions {
   controller: WorkbenchController
   documents: Pick<ExtensionDocumentRouter, 'isQuotable'>
-  openFile: (target: SpaceFileTarget, current: () => boolean) => Promise<string | null | undefined>
+  openFile: (target: SpaceFileTarget, current: () => boolean, acceptTab: (tabId: string) => boolean) => Promise<string | null | undefined>
   resources: () => TaskResourcePanel
   independent: () => boolean
   ready: () => boolean
@@ -71,7 +71,7 @@ function createFileProvider(options: BuiltinSelectionReferenceOptions): Selectio
         await options.locateFile(reference.source.file)
         if (!scope.current())
           return false
-        const id = await options.openFile(reference.source.file, scope.current)
+        const id = await options.openFile(reference.source.file, scope.current, scope.acceptTab)
         const view = id ? options.controller.layout.views[id] : null
         if (!view)
           return false

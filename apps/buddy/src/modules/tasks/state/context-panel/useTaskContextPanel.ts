@@ -210,7 +210,29 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
     const directory = getActiveSpaceDirectories(space).find(directory => directory.id === target?.directoryId)
     if (!target || !directory)
       return
+    previewTarget(target, directory, source, treeVisible)
+  }
 
+  // The target at the task space's current directory revision, or null when the file is not in the task's space.
+  function resolveSpaceFile(target: SpaceFileTarget): { target: SpaceFileTarget, directory: LocalSpaceAdditionalDirectory } | null {
+    const space = options.activeSpace?.value ?? null
+    const directory = space?.id === target.spaceId ? getActiveSpaceDirectories(space).find(directory => directory.id === target.directoryId) : undefined
+    // The saved revision can be older than the directory's; the file itself is checked by the caller's read.
+    return directory && target.path ? { target: { ...target, revision: directory.revision }, directory } : null
+  }
+
+  // Opens a file the caller already has a target for (a quote's source) the way a card does, in the file manager tab.
+  function openSpaceFile(target: SpaceFileTarget, treeVisible: boolean): { target: SpaceFileTarget, tabId: string } | null {
+    const resolved = resolveSpaceFile(target)
+    if (!resolved)
+      return null
+    previewTarget(resolved.target, resolved.directory, undefined, treeVisible)
+    // The tab's own target is what the file surface opens, so the caller must open that one to share its view.
+    const tab = store.activeTab.value
+    return tab?.kind === 'files' && tab.target.path === resolved.target.path ? { target: { ...tab.target }, tabId: tab.id } : null
+  }
+
+  function previewTarget(target: SpaceFileTarget, directory: LocalSpaceAdditionalDirectory, source: ContextPanelSource | undefined, treeVisible: boolean | undefined) {
     const exactTab = store.tabs.value.find(tab =>
       tab.kind === 'files'
       && tab.target.spaceId === target.spaceId
@@ -364,6 +386,8 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
     openFiles,
     locateFile,
     previewFile,
+    openSpaceFile,
+    resolveSpaceFile: (target: SpaceFileTarget) => resolveSpaceFile(target)?.target ?? null,
     selectFile,
     setArtifactViewMode,
     restoreTab,

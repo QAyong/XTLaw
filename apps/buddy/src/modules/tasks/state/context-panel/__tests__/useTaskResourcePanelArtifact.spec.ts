@@ -2,6 +2,7 @@ import type { DesktopArtifactOpening, DesktopBrowserApi } from '@buddy-electron/
 import type { LocalArtifact } from '@buddy-shared/artifacts/artifactApi'
 import type { FileOpeningProvider } from '@buddy-shared/files/fileOpening'
 import type { LocalSpace } from '@buddy-shared/spaces/spaceApi'
+import type { SpaceFileTarget } from '@buddy-shared/spaces/spaceFileApi'
 // @vitest-environment jsdom
 import { builtinFileOpeningProviders, resolveFileOpening } from '@buddy-shared/files/fileOpening'
 import { describe, expect, it, vi } from 'vitest'
@@ -41,7 +42,7 @@ function folder(overrides: Partial<LocalArtifact> = {}): LocalArtifact {
   return artifact({ artifactId: 'folder', kind: 'directory', mimeType: 'inode/directory', name: 'reports', path: '/workspace/docs/reports', sizeBytes: 0, ...overrides })
 }
 
-function fixture(activeSpace: LocalSpace | null = space(), extra: { artifactOpening?: DesktopArtifactOpening, providers?: FileOpeningProvider[], defaults?: Record<string, { standalone?: string }>, outputs?: LocalArtifact[] } = {}) {
+function fixture(activeSpace: LocalSpace | null = space(), extra: { artifactOpening?: DesktopArtifactOpening, providers?: FileOpeningProvider[], defaults?: Record<string, { standalone?: string }>, outputs?: LocalArtifact[], revealOpenOfficeDocument?: (target: SpaceFileTarget) => boolean } = {}) {
   const browser: Pick<DesktopBrowserApi, 'onStateChanged' | 'ensureSession' | 'close' | 'openArtifact' | 'openFile' | 'navigate'> = {
     navigate: async () => { throw new Error('unexpected navigation') },
     onStateChanged: () => () => {},
@@ -58,7 +59,7 @@ function fixture(activeSpace: LocalSpace | null = space(), extra: { artifactOpen
   const fileOpening = extra.providers
     ? { ensureReady: async () => {}, resolve: (name: string, location: 'standalone') => resolveFileOpening({ providers: [...builtinFileOpeningProviders, ...extra.providers!], defaults: extra.defaults ?? {} }, name, location), open }
     : undefined
-  const panel = scope.run(() => useTaskResourcePanel({ ...options, artifactOpening, ...(fileOpening ? { fileOpening } : {}), autoCollapse: shallowRef(false), linkOpening: shallowRef('in-app'), files, openFile, browser }))!
+  const panel = scope.run(() => useTaskResourcePanel({ ...options, artifactOpening, ...(fileOpening ? { fileOpening } : {}), ...(extra.revealOpenOfficeDocument ? { revealOpenOfficeDocument: extra.revealOpenOfficeDocument } : {}), autoCollapse: shallowRef(false), linkOpening: shallowRef('in-app'), files, openFile, browser }))!
   return { panel, artifactOpening, open, openFile }
 }
 
@@ -235,5 +236,69 @@ describe('opening task outputs', () => {
       await panel.openArtifact(output('docs/report.md'))
       expect(panel.activeTab.value).toMatchObject({ kind: 'artifact' })
     })
+  })
+})
+
+describe('opening the source file of a quote (Spec-043)', () => {
+  const quoted = (path: string, revision = 1): SpaceFileTarget => ({ spaceId: 'space', directoryId: 'directory', revision, path })
+
+  it('opens a plain file in the file manager tab with the tree folded, like an output card', () => {
+    const { panel } = fixture()
+    const opened = panel.openQuoteSourceFile(quoted('docs/report.md'))
+    expect(panel.activeTab.value).toMatchObject({ kind: 'files', target: { path: 'docs/report.md' }, tree: { visible: false } })
+    expect(opened).toMatchObject({ target: { path: 'docs/report.md' }, tabId: panel.activeTab.value?.id })
+    expect(opened?.viewId).toBeUndefined()
+  })
+
+  it('shows the tree for an Office file, and uses the directory revision rather than the saved one', () => {
+    const { panel } = fixture()
+    const opened = panel.openQuoteSourceFile(quoted('brief.docx', 0))
+    expect(panel.activeTab.value).toMatchObject({ kind: 'files', target: { path: 'brief.docx', revision: 1 }, tree: { visible: true } })
+    expect(opened?.target.revision).toBe(1)
+  })
+
+  it('reuses the tab for the next quote of a file in the same directory', () => {
+    const { panel } = fixture()
+    panel.openQuoteSourceFile(quoted('a.md'))
+    const second = panel.openQuoteSourceFile(quoted('b.md'))
+    expect(panel.allTabs.value).toHaveLength(1)
+    expect(second?.tabId).toBe(panel.activeTab.value?.id)
+    expect(panel.activeTab.value).toMatchObject({ target: { path: 'b.md' } })
+  })
+
+  it('focuses an Office editor that is already open and hands back its view', () => {
+    const target = quoted('brief.docx')
+    const reveal = vi.fn((_target: SpaceFileTarget) => true)
+    const { panel } = fixture(space(), { revealOpenOfficeDocument: (file) => {
+      reveal(file)
+      panel.openView('view-1', 'brief.docx')
+      return true
+    } })
+    const opened = panel.openQuoteSourceFile(target)
+    expect(reveal).toHaveBeenCalledWith(target)
+    expect(opened).toEqual({ target, tabId: 'view-1', viewId: 'view-1' })
+    expect(panel.allTabs.value.some(tab => tab.kind === 'files')).toBe(false)
+  })
+
+  it('only looks for an open editor for Office files', () => {
+    const reveal = vi.fn(() => true)
+    const { panel } = fixture(space(), { revealOpenOfficeDocument: reveal })
+    panel.openQuoteSourceFile(quoted('docs/report.md'))
+    expect(reveal).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['another space', { ...quoted('a.md'), spaceId: 'other' }],
+    ['another directory', { ...quoted('a.md'), directoryId: 'other' }],
+    ['no path', quoted('')],
+  ])('returns null for %s so the caller opens it on its own', (_name, target) => {
+    const { panel } = fixture()
+    expect(panel.openQuoteSourceFile(target)).toBeNull()
+    expect(panel.allTabs.value).toHaveLength(0)
+  })
+
+  it('returns null when the task has no space', () => {
+    const { panel } = fixture(null)
+    expect(panel.openQuoteSourceFile(quoted('a.md'))).toBeNull()
   })
 })

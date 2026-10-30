@@ -265,3 +265,10 @@ DOCX、PPTX、XLSX 的编辑器和引擎来自 GenOffice 的预编译产物，�
 - **冒烟：** 用 python-pptx、python-docx、openpyxl 生成样例文件，在无头 Chromium + 模拟宿主里加载真实的插件和编辑器：PPTX 7 项（含两页、空白差异、别页文字、越界、无位置、格式不对）、DOCX 8 项（位置不变、位置过期按文字找、空白差异、多处匹配取最近、文字已删、取消）、XLSX 9 项（两个工作表、改名兜底、单元格已改、区域越界、格式错误）都符合预期；DOCX 选区滚动到了可见位置。
 - **未验证：** 真实宿主里这三个插件的完整流程；深色主题；大文档、大工作表、很多页的 PPTX；PPTX 在只读预览回退时（`preview.js`）不支持定位，返回未找到；Windows E2E。
 - **市场：** 三个插件已升版本，没有运行 `pnpm market:sync`：`pnpm market:check` 显示市场仓库本来就有多个插件不一致（含 `legal-research`、`office-pdf`），需要和发布一起处理。
+
+## 16. 附带修复：DOCX 右键同时弹出两个菜单（2026-10-30）
+
+- **现象（用户在开发预览里发现）：** 在 DOCX 正文右键，编辑器自己的菜单上叠着一个小的原生菜单（Undo、Redo、Cut、Copy、Paste、Select All）。
+- **原因：** 宿主主窗口对所有可编辑区域注册了原生编辑菜单（`electron/main/window.ts` 的 `context-menu` 处理）。DOCX 编辑器弹自己的菜单时没有取消浏览器的右键事件，浏览器默认菜单照样触发。无头浏览器里旧版（本 Spec 之前）和新版插件都是右键事件未被取消，所以不是定位功能引入的。原生菜单本身在无头浏览器里不出现，该结论由事件状态和宿主代码推出，未在 Electron 里直接观察。
+- **修复（DOCX 0.1.11）：** 新增 `native-context-menu.js`，在 `document` 的捕获阶段对 `.ProseMirror` 内的 `contextmenu` 调 `preventDefault()`，不停止传播。无头浏览器里验证：事件被取消，编辑器菜单照常打开，“Quote to chat”仍在。其他区域（输入框等）保留原生菜单。
+- **没查：** PPTX、XLSX 的文字编辑区是否有同样现象。

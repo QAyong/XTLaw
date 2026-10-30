@@ -1,5 +1,6 @@
 import { createOfficeBridge } from './bridge.js'
 import { registerReveal } from './document-kit/reveal.js'
+import { suppressNativeContextMenu } from './native-context-menu.js'
 import { createQuoteReveal } from './reveal-quote.js'
 import { installSelectionMenu } from './selection-menu.js'
 import { installOfficeToolbarNavigation } from './office-toolbar-navigation.js'
@@ -58,6 +59,7 @@ export async function render(context, container) {
   container.append(root, status)
   installOfficeToolbarNavigation(root, context.signal)
   installOfficeLayoutStability(root, context.signal)
+  suppressNativeContextMenu(context.signal)
   let discardDialog = null
   let discardResolve = null
   const describeError = error => /^OFFICE_(?:INVALID|UNSUPPORTED)_DOCX$/.test(error?.message) ? copy.invalid : /RESOURCE_CHANGED|RESOURCE_UNAVAILABLE/.test(error?.message) ? copy.changed : copy.error

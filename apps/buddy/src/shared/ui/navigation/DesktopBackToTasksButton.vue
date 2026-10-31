@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ArrowLeft20Regular } from '@vicons/fluent'
-import { RouterLink } from 'vue-router'
+import { computed } from 'vue'
+import { RouterLink, useRoute } from 'vue-router'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import { desktopRouteLocations } from '@/shared/navigation/desktopRoutes'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
@@ -12,7 +13,11 @@ const props = withDefaults(defineProps<{
   floating: false,
 })
 
+const route = useRoute()
 const { t } = useBuddyI18n(() => props.language)
+
+/** 设置二级页（路由声明 meta.settingsParent）返回父级设置页，其余场景返回任务主页；文案统一。 */
+const to = computed(() => route.meta.settingsParent ?? desktopRouteLocations.tasks())
 </script>
 
 <template>
@@ -20,7 +25,7 @@ const { t } = useBuddyI18n(() => props.language)
     class="desktop-back-to-tasks"
     :class="{ 'is-floating': floating }"
     :title="t('desktop.navigation.backToTasks')"
-    :to="desktopRouteLocations.tasks()"
+    :to="to"
   >
     <DesktopIcon :component="ArrowLeft20Regular" :size="16" />
     <span>{{ t('desktop.navigation.back') }}</span>

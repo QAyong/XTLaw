@@ -28,7 +28,11 @@ export const settingsRoutes: ReadonlyArray<RouteRecordRaw> = [
         name: DESKTOP_ROUTE_NAMES.settingsProvider,
         component: () => import('./pages/DesktopProviderSettingsView.vue'),
         props: true,
-        meta: { settingsCategory: 'models', settingsModule: 'settings.models' },
+        meta: {
+          settingsCategory: 'models',
+          settingsModule: 'settings.models',
+          settingsParent: desktopRouteLocations.settings('models'),
+        },
       },
       { path: 'sync', name: 'desktop.settings.sync', redirect: desktopRouteLocations.settings('storage') },
       { path: 'extensions', name: DESKTOP_ROUTE_NAMES.settingsExtensions, redirect: desktopRouteLocations.extensions() },

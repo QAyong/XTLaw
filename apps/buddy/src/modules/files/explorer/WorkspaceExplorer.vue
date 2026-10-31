@@ -4,7 +4,7 @@ import type { FileTarget, SpaceFileOperation } from '@buddy-shared/spaces/spaceF
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import type { ExplorerNode } from '@/shared/ui/explorer/treeCollection'
 import { fileChangeAffects, fileTargetKey, sameFileRoot } from '@buddy-shared/spaces/spaceFileApi'
-import { DocumentAdd20Regular, FolderAdd20Regular, SubtractSquare20Regular } from '@vicons/fluent'
+import { Dismiss20Regular, DocumentAdd20Regular, FolderAdd20Regular, SubtractSquare20Regular } from '@vicons/fluent'
 import { NDropdown, NSpin } from 'naive-ui'
 import { computed, onMounted, onScopeDispose, shallowRef, watch } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
@@ -28,9 +28,6 @@ const props = defineProps<{
   refresh: () => Promise<void>
 }>()
 const emit = defineEmits<{ select: [key: string] }>()
-const showRefreshing = useDelayedLoading(() => props.loadingKeys.has('') && props.nodes.length > 0)
-// Quick operations finish before this, so they never flash a notice.
-const BUSY_NOTICE_DELAY = 400
 const ERROR_NOTICE_DURATION = 6000
 const { t } = useBuddyI18n(() => props.language)
 const expandedKeys = defineModel<string[]>('expandedKeys', { required: true })
@@ -48,8 +45,10 @@ const commands = useExplorerCommands({
     await refreshRecovery()
   },
 })
-const { labels, busy, error, nameRequest, clipboard } = commands
-const showBusy = useDelayedLoading(() => !!busy.value, BUSY_NOTICE_DELAY)
+const { labels, busy, nameRequest, nameError, clipboard } = commands
+const error = shallowRef('')
+const showRefreshing = useDelayedLoading(() => props.loadingKeys.has('') && props.nodes.length > 0)
+const showBusy = useDelayedLoading(() => !!busy.value && !nameRequest.value)
 watch(error, (value, _, onCleanup) => {
   if (!value)
     return
@@ -114,9 +113,12 @@ async function acknowledge(operation: SpaceFileOperation) {
 <template>
   <div class="workspace-explorer flex min-h-0 flex-1 flex-col">
     <div class="explorer-toolbar">
-      <span class="explorer-root truncate">{{ target.path ? target.path.split('/').slice(0, -1).join('/') || '/' : '/' }}</span>
-      <NSpin v-if="showRefreshing" :size="12" class="mr-[4px]" />
-      <button type="button" :aria-label="labels.newFile" :disabled="!!busy" @click="commands.command('newFile', null)">
+      <span class="explorer-root min-w-0 truncate" :role="showBusy ? 'status' : undefined">{{ showBusy ? labels.busy : target.path ? target.path.split('/').slice(0, -1).join('/') || '/' : '/' }}</span>
+      <NSpin v-if="showRefreshing || showBusy" :size="12" class="mr-[4px]" />
+      <button v-if="showBusy" type="button" :aria-label="labels.cancel" @click="commands.cancel()">
+        <DesktopIcon :component="Dismiss20Regular" :size="16" />
+      </button>
+      <button v-else type="button" :aria-label="labels.newFile" :disabled="!!busy" @click="commands.command('newFile', null)">
         <DesktopIcon :component="DocumentAdd20Regular" :size="16" />
       </button>
       <button type="button" :aria-label="labels.newFolder" :disabled="!!busy" @click="commands.command('newFolder', null)">
@@ -130,13 +132,6 @@ async function acknowledge(operation: SpaceFileOperation) {
       <DesktopFileLoading v-if="!nodes.length && loadingKeys.has('')" class="absolute inset-0" :loading="true" tree :label="t('desktop.loading.pane')" />
       <div class="explorer-notices">
         <Transition name="explorer-notice">
-          <div v-if="showBusy" class="explorer-notice" role="status">
-            <span class="truncate">{{ labels.busy }}</span><button type="button" @click="commands.cancel()">
-              {{ labels.cancel }}
-            </button>
-          </div>
-        </Transition>
-        <Transition name="explorer-notice">
           <div v-if="error" class="explorer-notice" role="alert">
             <span>{{ error }}</span><button type="button" :aria-label="labels.close" @click="error = ''">
               ×
@@ -148,7 +143,7 @@ async function acknowledge(operation: SpaceFileOperation) {
     </div>
     <ExplorerRecovery v-if="recoveryOperations.length" :operations="recoveryOperations" :language="language" :busy="!!busy" @acknowledge="acknowledge" />
     <NDropdown :show="!!menu" :x="menuPosition.x" :y="menuPosition.y" :options="menuOptions" trigger="manual" placement="bottom-start" @select="selectCommand" @clickoutside="menu = null" />
-    <ExplorerNameDialog :request="nameRequest" :language="language" :platform="platform" @finish="commands.finishName" />
+    <ExplorerNameDialog :request="nameRequest" :error="nameError" :busy="!!busy" :language="language" :platform="platform" @finish="commands.finishName" @edit="commands.clearNameError" />
   </div>
 </template>
 

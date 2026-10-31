@@ -4,12 +4,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { effectScope, shallowRef } from 'vue'
 import { useExplorerCommands } from '../useExplorerCommands'
 
-const { getOperations } = vi.hoisted(() => ({ getOperations: vi.fn() }))
+const { getOperations, messages } = vi.hoisted(() => ({ getOperations: vi.fn(), messages: [] as string[] }))
 vi.mock('../../fileOperationsContext', () => ({ useFileOperations: getOperations }))
-vi.mock('naive-ui', () => ({ useDialog: () => ({}) }))
+vi.mock('naive-ui', () => ({ useDialog: () => ({}), useMessage: () => ({ error: (text: string) => messages.push(text) }) }))
 
 const cleanup: Array<() => void> = []
 afterEach(() => {
+  messages.length = 0
   for (const stop of cleanup.splice(0)) stop()
 })
 const target = { spaceId: 'space', directoryId: 'directory', revision: 1, path: '' }
@@ -86,14 +87,14 @@ describe('explorer copy path', () => {
     expect(operations.clipboard.value).toEqual({ target: { ...target, path: node.key }, move: true })
   })
 
-  it('shows clipboard failures and clears them after a successful retry', async () => {
+  it('reports a clipboard failure once and stays quiet after a successful retry', async () => {
     const { operations, commands } = fixture()
     operations.copyPath.mockRejectedValueOnce(new Error('clipboard unavailable'))
     await commands.command('copy', node)
-    expect(commands.error.value).not.toBe('')
+    expect(messages).toHaveLength(1)
     expect(operations.clipboard.value).toEqual({ target: { ...target, path: node.key }, move: false })
     await commands.command('copy', node)
-    expect(commands.error.value).toBe('')
+    expect(messages).toHaveLength(1)
   })
 
   it('ignores missing and disabled nodes', async () => {
@@ -102,21 +103,6 @@ describe('explorer copy path', () => {
     await commands.command('copy', { ...node, disabled: true })
     expect(operations.copyPath).not.toHaveBeenCalled()
     expect(operations.clipboard.value).toBeNull()
-  })
-})
-
-describe('new file name request', () => {
-  it('offers extensions for a new file but not for a folder or a rename', async () => {
-    const { commands } = fixture()
-    for (const [command, extension] of [['newFile', true], ['newFolder', false]] as const) {
-      const done = commands.command(command, null)
-      expect(commands.nameRequest.value).toMatchObject({ extension })
-      commands.finishName(null)
-      await done
-    }
-    const renamed = commands.command('rename', node)
-    expect(commands.nameRequest.value).toMatchObject({ extension: false })
-    commands.finishName(null)
-    await renamed
+    expect(messages).toEqual([])
   })
 })

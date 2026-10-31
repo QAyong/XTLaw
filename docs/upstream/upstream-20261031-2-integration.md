@@ -31,4 +31,4 @@
 
 ## 基线
 
-`docs/upstream-baseline.json` 的 `lastChecked` 仍是 `b31b0ed3d`：`ce2707b81`（任务统计与上下文只读数据源）还没有决定，`1057555ea`（README）只是建议跳过。两者处理完后再推进到 `bb4c76c62`。
+`docs/upstream-baseline.json` 的 `lastChecked` 已推进到 `bb4c76c62`（见 `upstream-20261031-integration.md`）：`1057555ea` 跳过，`ce2707b81` 暂缓。

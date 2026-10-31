@@ -6,6 +6,7 @@ import { useResizeObserver } from '@vueuse/core'
 import { NDropdown, NPopover, NTooltip } from 'naive-ui'
 import { nextTick, shallowRef, useId, useTemplateRef, watch } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
+import { scrollWheelHorizontally } from '@/shared/lib/scrollWheelHorizontally'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import { useResourcePanelMenu } from './useResourcePanelMenu'
 import WorkbenchLauncherIcon from './WorkbenchLauncherIcon.vue'
@@ -65,15 +66,6 @@ async function navigateTab(event: KeyboardEvent, index: number) {
   await nextTick()
   document.getElementById(`${panelId}-${tab.id}`)?.focus()
 }
-function handleTabsWheel(event: WheelEvent) {
-  if (event.ctrlKey || Math.abs(event.deltaX) >= Math.abs(event.deltaY))
-    return
-  const root = tabsScrollRoot.value
-  if (!root || root.scrollWidth <= root.clientWidth)
-    return
-  event.preventDefault()
-  root.scrollBy({ left: event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? root.clientWidth : 1) })
-}
 async function revealActiveTab() {
   await nextTick()
   tabsScrollRoot.value?.querySelector('[aria-selected="true"]')?.closest('.desktop-task-context-panel__tab')?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
@@ -86,7 +78,7 @@ useResizeObserver(tabsScrollRoot, revealActiveTab)
   <section class="desktop-task-context-panel" data-testid="task-context-panel">
     <NDropdown class="min-w-36" trigger="manual" placement="bottom-start" :show="tabMenu.show.value" :x="tabMenu.position.value.x" :y="tabMenu.position.value.y" :options="tabMenu.entries.value" @clickoutside="tabMenu.clickOutside" @select="tabMenu.select" @update:show="show => !show && tabMenu.dismiss()" />
     <header class="desktop-task-context-panel__header" :style="{ '--tab-count': tabs.length }">
-      <div v-if="tabs.length" ref="tabsScrollRoot" class="desktop-task-context-panel__tabs-scroll" @wheel="handleTabsWheel">
+      <div v-if="tabs.length" ref="tabsScrollRoot" class="desktop-task-context-panel__tabs-scroll" @wheel="scrollWheelHorizontally">
         <div class="desktop-task-context-panel__tabs" role="tablist" :aria-label="t('desktop.context.tabCount', { count: tabs.length })">
           <div v-for="(tab, index) in tabs" :key="tab.id" :data-pinned="!!tab.pinned" class="desktop-task-context-panel__tab" :class="{ 'is-active': tab.id === activeTabId }" @contextmenu.prevent="tabMenu.open(tab.id, $event)">
             <button :id="`${panelId}-${tab.id}`" class="desktop-task-context-panel__tab-select" role="tab" type="button" :tabindex="tab.id === activeTabId ? 0 : -1" :aria-controls="panelId" :aria-selected="tab.id === activeTabId" @keydown="navigateTab($event, index)" @auxclick.middle.prevent="emit('closeTab', tab.id)" @click="emit('selectTab', tab.id)">

@@ -1,20 +1,11 @@
-import type { DownloadMirrorMode } from './proxySettings'
-import { DOWNLOAD_MIRROR_HOSTS } from './proxySettings'
+import type { DownloadSettings } from './downloadSettings'
+import { DEFAULT_DOWNLOAD_SETTINGS } from './downloadSettings'
 
-// Public GitHub acceleration prefixes. A mirror only moves bytes: callers must check size and sha256 taken from a direct GitHub response.
-export const DOWNLOAD_MIRRORS = DOWNLOAD_MIRROR_HOSTS.map(host => `https://${host}/`)
+const mirroredHosts = new Set(['github.com', 'raw.githubusercontent.com'])
 
-const MIRRORED_HOSTS = new Set(['github.com', 'raw.githubusercontent.com'])
-
-/** The URLs to try for a GitHub download, in order: the chosen mirror (all of them for 'auto') first, GitHub itself last. Anything else, or mode 'off', is fetched directly only. */
-export function downloadRoutes(url: string, mode: DownloadMirrorMode): string[] {
-  try {
-    const parsed = new URL(url)
-    if (mode !== 'off' && parsed.protocol === 'https:' && MIRRORED_HOSTS.has(parsed.hostname)) {
-      const prefixes = mode === 'auto' ? DOWNLOAD_MIRRORS : [`https://${mode}/`]
-      return [...prefixes.map(prefix => `${prefix}${url}`), url]
-    }
-  }
-  catch {}
-  return [url]
+export function downloadRoutes(url: string, settings: DownloadSettings = DEFAULT_DOWNLOAD_SETTINGS): string[] {
+  const parsed = URL.parse(url)
+  if (!settings.enabled || !parsed || parsed.protocol !== 'https:' || parsed.username || parsed.password || !mirroredHosts.has(parsed.hostname))
+    return [url]
+  return [...new Set(settings.proxies.filter(proxy => proxy.enabled).map(proxy => `${proxy.url}${url}`)), url]
 }

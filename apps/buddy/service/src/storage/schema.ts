@@ -36,6 +36,8 @@ import { BUDDY_V33_MUTATION_RECOVERY_SCHEMA_SQL } from './migrations/v33Mutation
 import { BUDDY_V34_ACTOR_IDENTITY_SCHEMA_SQL } from './migrations/v34ActorIdentity'
 import { BUDDY_V34_CHANGE_CAPTURE_SCHEMA_SQL } from './migrations/v34ChangeCapture'
 import { BUDDY_V35_INPUT_DELIVERY_SCHEMA_SQL } from './migrations/v35InputDelivery'
+import { BUDDY_V37_MODEL_TYPES_SCHEMA_SQL } from './migrations/v37ModelTypes'
+import { BUDDY_V38_IMAGE_MODELS_SCHEMA_SQL } from './migrations/v38ImageModels'
 
 export interface BuddySchemaMigration {
   foreignKeys?: 'off'
@@ -43,7 +45,7 @@ export interface BuddySchemaMigration {
   version: number
 }
 
-export const BUDDY_SCHEMA_VERSION = 37 as const
+export const BUDDY_SCHEMA_VERSION = 40 as const
 
 export const BUDDY_SCHEMA_MIGRATIONS: readonly BuddySchemaMigration[] = [
   { sql: BUDDY_V1_INITIAL_SCHEMA_SQL, version: 1 },
@@ -86,4 +88,8 @@ export const BUDDY_SCHEMA_MIGRATIONS: readonly BuddySchemaMigration[] = [
   { sql: BUDDY_V34_ACTOR_IDENTITY_SCHEMA_SQL, version: 36 },
   // Upstream numbers this migration v35; the local-only migrations shift it to v37 (table layout unchanged).
   { sql: BUDDY_V35_INPUT_DELIVERY_SCHEMA_SQL, version: 37 },
+  // Upstream numbers this migration v37; the local-only migrations and the unported upstream v36 (extension capabilities) shift it to v39, so local v38 stays unused (table layout unchanged).
+  { sql: BUDDY_V37_MODEL_TYPES_SCHEMA_SQL, version: 39 },
+  // Upstream numbers this migration v38; it follows the model-type migration (upstream v37, local v39) and lands on local v40 (table layout unchanged).
+  { sql: BUDDY_V38_IMAGE_MODELS_SCHEMA_SQL, version: 40 },
 ]

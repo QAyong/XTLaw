@@ -1,5 +1,6 @@
 import type { SQLOutputValue } from 'node:sqlite'
 import type { BackupScope } from '../../../shared/storage/backupScope'
+import { PROVIDER_SPEECH_SETTINGS_KEY } from '../../../shared/providers/providerSpeechApi'
 
 const domains: Partial<Record<BackupScope, readonly string[]>> = {
   buddies: ['buddies', 'buddy_catalog'],
@@ -14,7 +15,7 @@ export const backupTables = [...backupTableScopes.keys(), 'workspace_settings']
 
 export function databaseRowScope(table: string, row: Record<string, SQLOutputValue>): BackupScope | null {
   if (table === 'workspace_settings')
-    return row.key === 'buddy.web' ? 'connections' : row.key === 'buddy.chat.workspace.v2' ? 'settings' : null
+    return row.key === PROVIDER_SPEECH_SETTINGS_KEY ? 'providers' : row.key === 'buddy.web' ? 'connections' : row.key === 'buddy.chat.workspace.v2' ? 'settings' : null
   return backupTableScopes.get(table) ?? null
 }
 

@@ -13,6 +13,7 @@ import { app, nativeTheme, Notification, shell } from 'electron'
 import { z } from 'zod'
 import buddyVersion from '../../../buddy.version.json'
 import { FileIconThemeService } from '../../../platform/icons/FileIconThemeService'
+import { combineSpeechBackends } from '../../../platform/speech/combineSpeechBackends'
 import { ThemeService } from '../../../platform/themes/ThemeService'
 import { artifactsRpc } from '../../../shared/artifacts/artifactApi'
 import { CONVERSATION_CHANGED, conversationSchema } from '../../../shared/conversation/conversationApi'
@@ -26,7 +27,7 @@ import { extensionShellRpc } from '../../../shared/extensions/extensionShell'
 import { extensionSkillsRpc } from '../../../shared/extensions/extensionSkills'
 import { localDocumentRpc } from '../../../shared/files/localDocumentApi'
 import { taskFilesRpc } from '../../../shared/files/taskFileApi'
-import { providerNotifications } from '../../../shared/providers/providerApi'
+import { providerNotifications, providersRpc } from '../../../shared/providers/providerApi'
 import { runNotifications } from '../../../shared/runs/runApi'
 import { spaceFilesRpc, spaceTextDocumentSchema } from '../../../shared/spaces/spaceFileApi'
 import { DESKTOP_IPC_CHANNELS } from '../../shared/desktopApi'
@@ -38,6 +39,8 @@ import { ApplicationLogReader } from '../diagnostics/ApplicationLogReader'
 import { readAuthorizedFileResource, readSpaceFileResource } from '../extensions/readSpaceFileResource'
 import { registerExtensionIpc } from '../extensions/registerExtensionIpc'
 import { createFeedbackIssueUrl } from '../feedbackIssue'
+import { registerImageIpc } from '../images/registerImageIpc'
+import { registerOcrIpc } from '../images/registerOcrIpc'
 import { registerDesktopIpc } from '../ipc'
 import { registerLocalChatIpc } from '../localChatIpc'
 import { NotificationAudioPlayer } from '../notifications/NotificationAudioPlayer'
@@ -46,6 +49,8 @@ import { NotificationSoundService } from '../notifications/NotificationSoundServ
 import { registerDesktopNotificationIpc } from '../notifications/registerDesktopNotificationIpc'
 import { registerNotificationSoundIpc } from '../notifications/registerNotificationSoundIpc'
 import { registerSiteFeed } from '../site-feed/registerSiteFeed'
+import { createProviderSpeechBackend } from '../speech/createProviderSpeechBackend'
+import { registerSpeechIpc } from '../speech/registerSpeechIpc'
 import { registerStorageIpc } from '../storage/registerStorageIpc'
 import { StorageBackupService } from '../storage/StorageBackupService'
 import { registerSyncIpc } from '../sync/registerSyncIpc'
@@ -155,7 +160,7 @@ export class DesktopIntegrations {
       developmentDirectory: !app.isPackaged && paths.profile === 'test' ? process.env.LEXORA_EXTENSION_DEVELOPMENT_PATH : undefined,
       getWindow: () => windows.window,
       get: runtime.network.get,
-      downloadMirror: () => runtime.config?.proxy.downloadMirror ?? 'off',
+      getDownloadSettings: () => runtime.config?.downloads,
       notificationsEnabled: () => runtime.config?.desktop.notificationsEnabled ?? true,
       conditionRuntime: async (input, signal) => extensionConditionSnapshotRpc.response.parse(await service.request(extensionConditionSnapshotRpc.method, input, { signal, timeoutMs: 5000 })),
       taskActions: async () => extensionActionRpc.list.response.parse(await service.request(extensionActionRpc.list.method, {})),
@@ -189,6 +194,39 @@ export class DesktopIntegrations {
       readBytes: async (input, signal) => spaceFilesRpc.readBytes.response.parse(await service.request(spaceFilesRpc.readBytes.method, input, { signal })),
       saveBytes: async (input, signal) => spaceFilesRpc.saveBytes.response.parse(await service.request(spaceFilesRpc.saveBytes.method, input, { signal, timeoutMs: 60000 })),
     })
+    this.#subscriptions.push(registerImageIpc({ getWindow: () => windows.window, config: runtime.configStore, applyConfig: config => this.applyConfig(config), request: (method, input) => service.request(method, input) }))
+    this.#subscriptions.push(registerOcrIpc(() => windows.window, runtime.ocr))
+    runtime.speechModels = () => extensions.speech?.list() ?? Promise.resolve([])
+    this.#subscriptions.push(() => {
+      runtime.speechModels = undefined
+    })
+    const speech = createProviderSpeechBackend({
+      request: (method, input, signal) => service.request(method, input, { signal }),
+      onChanged: (listener) => {
+        const stopNotification = service.onNotification(notification => notification.method === providerNotifications.changed.method && listener())
+        const stopState = service.onStateChange((state) => {
+          if (state.status === 'ready')
+            listener()
+        })
+        return () => {
+          stopNotification()
+          stopState()
+        }
+      },
+      preferences: async () => (await runtime.configStore.read()).desktop.speech ?? {},
+      transport: runtime.network.request,
+    })
+    const speechBackends = combineSpeechBackends([speech, ...(extensions.speech ? [extensions.speech] : [])])
+    const speechBackend = {
+      ...speechBackends,
+      list: async () => {
+        const models = await speechBackends.list()
+        const providers = providersRpc.list.response.parse(await service.request(providersRpc.list.method, {}))
+        const registered = providersRpc.listModels.response.parse(await service.request(providersRpc.listModels.method, {}))
+        return models.map(model => ({ ...model, supported: model.supported && (!model.providerId || (!!providers.find(provider => provider.id === model.providerId)?.enabled && registered.some(item => item.providerId === model.providerId && item.modelId === model.modelId && item.enabled && item.available))) }))
+      },
+    }
+    this.#subscriptions.push(registerSpeechIpc({ getWindow: () => windows.window, config: runtime.configStore, applyConfig: config => this.applyConfig(config), backend: speechBackend }))
     this.#subscriptions.push(extensions.dispose)
     await extensions.themesReady.catch(() => {})
     this.#subscriptions.push(registerThemeIpc(themes, () => windows.window, (color, dark, system) => windows.setThemeAppearance(color, dark, system)))

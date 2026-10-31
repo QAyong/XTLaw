@@ -1,12 +1,14 @@
 import type { ExtensionCatalogEntry, ExtensionCatalogListing, ExtensionCatalogPack, ExtensionCatalogSnapshot } from '../../shared/extensions/extensionCatalog'
-import type { DownloadMirrorMode } from '../../shared/network/proxySettings'
+import type { DownloadSettings } from '../../shared/network/downloadSettings'
 import type { BundledExtensionProvider } from './BundledExtensionCatalog'
+import { Buffer } from 'node:buffer'
 import { join } from 'node:path'
 import { rcompare } from 'semver'
 import { z } from 'zod'
 import { EXTENSION_CATALOG_URL, extensionCatalogEntrySchema, extensionCatalogListingSchema, extensionCatalogSchema, extensionPackSchema, extensionPacksSchema, extensionPacksUrl } from '../../shared/extensions/extensionCatalog'
 import { ExtensionCompatibilityError, extensionCompatibilityIssue } from '../../shared/extensions/extensionCompatibility'
 import { downloadRoutes } from '../../shared/network/downloadMirrors'
+import { downloadBytes, DownloadRouteError } from '../network/downloadBytes'
 import { publicWebUrl, readResponseBytes } from '../network/publicWebTransport'
 import { catalogEntrySource } from './BundledExtensionCatalog'
 import { readExtensionJson, sha256, writeExtensionJson } from './extensionFiles'
@@ -40,7 +42,7 @@ export class ExtensionCatalogService {
   readonly #get: (url: string, init: { signal: AbortSignal }) => Promise<Response>
   readonly #catalogUrl: string | null
   readonly #bundled: BundledExtensionProvider | undefined
-  readonly #mirror: () => DownloadMirrorMode
+  readonly #getDownloadSettings: (() => DownloadSettings | undefined) | undefined
   #bundledEntries: ExtensionCatalogEntry[] = []
   #loadingBundles: Promise<void> | undefined
   #cache: z.infer<typeof cacheSchema> | null = null
@@ -49,13 +51,13 @@ export class ExtensionCatalogService {
   #refreshing: Promise<ExtensionCatalogSnapshot> | null = null
   readonly #abort = new AbortController()
 
-  constructor(root: string, version: string, get: (url: string, init: { signal: AbortSignal }) => Promise<Response>, options: { bundled?: BundledExtensionProvider, catalogUrl?: string | null, downloadMirror?: () => DownloadMirrorMode } = {}) {
+  constructor(root: string, version: string, get: (url: string, init: { signal: AbortSignal }) => Promise<Response>, options: { bundled?: BundledExtensionProvider, catalogUrl?: string | null, getDownloadSettings?: () => DownloadSettings | undefined } = {}) {
     this.#path = join(root, 'catalog.json')
     this.#packsPath = join(root, 'packs.json')
     this.#version = version
     this.#get = get
     this.#bundled = options.bundled
-    this.#mirror = options.downloadMirror ?? (() => 'off')
+    this.#getDownloadSettings = options.getDownloadSettings
     this.#catalogUrl = options.catalogUrl === undefined ? EXTENSION_CATALOG_URL : options.catalogUrl
   }
 
@@ -122,8 +124,7 @@ export class ExtensionCatalogService {
         throw new Error('EXTENSION_MANIFEST_INVALID')
       entry = parsed.data
       // The size and sha256 come from the catalog fetched straight from GitHub, so a mirror only carries bytes: a package it alters fails the check and the next route is tried.
-      const matches = (candidate: Uint8Array) => candidate.byteLength === entry.artifact.size && sha256(candidate) === entry.artifact.sha256
-      bytes = await this.#fetchVerified(downloadRoutes(parsed.data.artifact.url, this.#mirror()), entry.artifact.size, signal, matches)
+      bytes = await this.#downloadVerified(entry, signal)
     }
     if (bytes.byteLength !== entry.artifact.size || sha256(bytes) !== entry.artifact.sha256)
       throw new Error('EXTENSION_DOWNLOAD_CHECKSUM_FAILED')
@@ -187,20 +188,44 @@ export class ExtensionCatalogService {
     return { plugins: [...selected.values()], packs: this.#catalogUrl === null ? [] : this.#packs, invalidEntries, cachedAt: this.#catalogUrl === null ? null : this.#cache?.cachedAt ?? null, stale, error }
   }
 
-  async #fetchVerified(routes: readonly string[], limit: number, signal: AbortSignal, accept: (bytes: Uint8Array) => boolean): Promise<Uint8Array> {
+  async #downloadVerified(entry: ExtensionCatalogEntry, signal: AbortSignal): Promise<Uint8Array> {
+    if (!('url' in entry.artifact))
+      throw new Error('EXTENSION_MANIFEST_INVALID')
+    const { url, size, sha256: expected } = entry.artifact
+    const checking = AbortSignal.any([signal, this.#abort.signal])
     let failure: unknown
-    for (const route of routes) {
-      signal.throwIfAborted()
+    for (const route of downloadRoutes(url, this.#getDownloadSettings?.())) {
+      checking.throwIfAborted()
       try {
-        const bytes = await this.#fetch(route, limit, signal)
-        if (accept(bytes))
-          return bytes
-        failure = new Error('EXTENSION_DOWNLOAD_CHECKSUM_FAILED')
+        const chunks: Uint8Array[] = []
+        let length = 0
+        for await (const chunk of downloadBytes({
+          url: route,
+          get: this.#get,
+          signal: checking,
+          timeoutMs: route === url ? 30_000 : 15_000,
+          validateUrl: (candidate) => {
+            if (publicWebUrl(candidate).protocol !== 'https:')
+              throw new Error('EXTENSION_DOWNLOAD_URL_DENIED')
+          },
+        })) {
+          length += chunk.byteLength
+          if (length > size)
+            throw new DownloadRouteError('integrity')
+          chunks.push(chunk)
+        }
+        const bytes = Buffer.concat(chunks, length)
+        checking.throwIfAborted()
+        if (length !== size || sha256(bytes) !== expected)
+          throw new DownloadRouteError('integrity')
+        return bytes
       }
       catch (error) {
-        if (signal.aborted)
+        checking.throwIfAborted()
+        if (!(error instanceof DownloadRouteError))
           throw error
-        failure = error
+        const code = error.kind === 'integrity' ? 'EXTENSION_DOWNLOAD_CHECKSUM_FAILED' : error.kind === 'url' ? 'EXTENSION_DOWNLOAD_URL_DENIED' : 'EXTENSION_DOWNLOAD_FAILED'
+        failure = new Error(code, { cause: error })
       }
     }
     throw failure

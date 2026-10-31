@@ -206,6 +206,7 @@ export interface LexoraConfig {
   runtime: import('../../shared/runtime/runtimePreferences').RuntimePreferences
   browser: import('../../shared/browser/browserPreferences').BrowserPreferences
   proxy: import('../../shared/network/proxySettings').ProxySettings
+  downloads: import('../../shared/network/downloadSettings').DownloadSettings
   desktop: {
     featureDiscovery: import('../../shared/onboarding/featureDiscovery').FeatureDiscoveryState
     featureAnnouncementsEnabled: boolean
@@ -231,6 +232,8 @@ export interface LexoraConfig {
     localBackupLimit: number
     notifyWhenFocused: boolean
     profile: DesktopUserProfileConfig
+    images?: import('../../shared/images/imagePreferences').ImagePreferences
+    speech?: import('../../shared/speech/speechApi').SpeechPreferences
     pluginAuthor: string
     sidebarCollapsed: boolean
     fileIconTheme: { id: string }
@@ -247,6 +250,7 @@ export interface LexoraConfigPatch {
   runtime?: Partial<LexoraConfig['runtime']>
   browser?: Partial<LexoraConfig['browser']>
   proxy?: LexoraConfig['proxy']
+  downloads?: Partial<LexoraConfig['downloads']>
   desktop?: Partial<Omit<LexoraConfig['desktop'], 'chat' | 'taskSidebar' | 'profile' | 'typography' | 'notificationSound'>> & {
     notificationSound?: Partial<Pick<NotificationSoundPreferences, 'selected' | 'volume'>>
     typography?: Partial<LexoraConfig['desktop']['typography']>
@@ -260,6 +264,8 @@ export interface LexoraConfigPatch {
 export interface LexoraDesktopApi {
   notifications: DesktopNotificationsApi
   notificationSounds: NotificationSoundsApi
+  images: import('../../shared/images/imagePreferences').ImageApi
+  speech: import('../../shared/speech/speechApi').SpeechApi
   sync: import('../../shared/sync/syncApi').SyncApi
   storage: import('../../shared/storage/storageApi').StorageApi
   fileIcons: import('../../shared/icons/fileIconThemeApi').FileIconThemeApi

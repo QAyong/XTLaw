@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import type { LocalProvider, LocalRuntimeModelOption } from '@buddy-shared/providers/providerApi'
+import type { LocalProvider } from '@buddy-shared/providers/providerApi'
 
+import type { ModelPickerOption } from '../../model/modelCatalog'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import { Checkmark16Regular, Search20Regular } from '@vicons/fluent'
 import { NInput } from 'naive-ui'
+import { computed } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import { modelKey } from '../../model/modelSelection'
@@ -12,9 +14,14 @@ import { useModelPicker } from './useModelPicker'
 const props = defineProps<{
   disabled?: boolean
   language: BuddyLocale
-  models: ReadonlyArray<LocalRuntimeModelOption>
-  providers: ReadonlyArray<LocalProvider>
-  selectedModelId: string | null
+  models: ReadonlyArray<ModelPickerOption>
+  providers: ReadonlyArray<Pick<LocalProvider, 'id' | 'displayName'>>
+  selectedModelId?: string | null
+  selectedModelIds?: readonly string[]
+  multiple?: boolean
+  max?: number
+  searchPlaceholder?: string
+  emptyText?: string
 }>()
 
 const emit = defineEmits<{
@@ -23,16 +30,31 @@ const emit = defineEmits<{
 
 const { t } = useBuddyI18n(() => props.language)
 const { query, activeProviderId, visibleGroups, activeGroup } = useModelPicker(props)
+const selectedIds = computed(() => new Set(props.multiple ? props.selectedModelIds : props.selectedModelId ? [props.selectedModelId] : []))
+
+function isDisabled(model: ModelPickerOption) {
+  if (props.disabled)
+    return true
+  if (props.multiple && selectedIds.value.has(modelKey(model)))
+    return false
+  return Boolean(model.disabled || (props.multiple && props.max !== undefined && selectedIds.value.size >= props.max))
+}
+
+function select(model: ModelPickerOption) {
+  if (!isDisabled(model))
+    emit('select', modelKey(model))
+}
 </script>
 
 <template>
-  <section class="desktop-model-picker">
+  <section class="desktop-model-picker" :class="{ 'is-multiple': multiple }">
+    <slot name="selection" />
     <div class="desktop-model-picker__search">
       <NInput
         v-model:value="query"
         clearable
         size="small"
-        :placeholder="t('desktop.chat.searchModels')"
+        :placeholder="searchPlaceholder ?? t('desktop.chat.searchModels')"
       >
         <template #prefix>
           <DesktopIcon :component="Search20Regular" />
@@ -62,17 +84,17 @@ const { query, activeProviderId, visibleGroups, activeGroup } = useModelPicker(p
           :key="modelKey(model)"
           class="desktop-model-picker__model"
           type="button"
-          role="menuitemradio"
-          :disabled="disabled"
-          :aria-checked="selectedModelId === modelKey(model)"
-          @click="emit('select', modelKey(model))"
+          :role="multiple ? 'menuitemcheckbox' : 'menuitemradio'"
+          :disabled="isDisabled(model)"
+          :aria-checked="selectedIds.has(modelKey(model))"
+          @click="select(model)"
         >
           <span class="desktop-model-picker__model-copy">
             <strong>{{ model.displayName }}</strong>
-            <small>{{ model.modelId }}</small>
+            <small>{{ model.disabled ? t('provider.status.unavailable') : model.modelId }}</small>
           </span>
           <DesktopIcon
-            v-if="selectedModelId === modelKey(model)"
+            v-if="selectedIds.has(modelKey(model))"
             :component="Checkmark16Regular"
           />
         </button>
@@ -80,14 +102,15 @@ const { query, activeProviderId, visibleGroups, activeGroup } = useModelPicker(p
     </div>
 
     <span v-else class="desktop-model-picker__empty">
-      {{ t('desktop.chat.noMatchingModels') }}
+      {{ emptyText ?? t('desktop.chat.noMatchingModels') }}
     </span>
   </section>
 </template>
 
 <style scoped>
 .desktop-model-picker {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   width: min(29rem, calc(100vw - 18rem));
   min-width: 22rem;
@@ -98,7 +121,12 @@ const { query, activeProviderId, visibleGroups, activeGroup } = useModelPicker(p
   box-shadow: var(--buddy-shadow-overlay);
 }
 
+.desktop-model-picker.is-multiple {
+  max-height: min(36rem, 80vh);
+}
+
 .desktop-model-picker__search {
+  flex: none;
   border-bottom: 1px solid var(--buddy-border-subtle);
   padding: 0.55rem;
 }
@@ -109,6 +137,10 @@ const { query, activeProviderId, visibleGroups, activeGroup } = useModelPicker(p
   min-height: 0;
   grid-template-columns: minmax(8.5rem, 0.8fr) minmax(12rem, 1.35fr);
   overflow: hidden;
+}
+
+.desktop-model-picker.is-multiple .desktop-model-picker__body {
+  height: min(15rem, 40vh);
 }
 
 .desktop-model-picker__providers,

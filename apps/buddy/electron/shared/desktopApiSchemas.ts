@@ -3,12 +3,15 @@ import { z } from 'zod'
 import { browserPreferencesPatchSchema } from '../../shared/browser/browserPreferences'
 import { extensionAuthorSchema } from '../../shared/extensions/extensionIdentity'
 import { fileIconPreferenceSchema } from '../../shared/icons/fileIconTheme'
+import { imagePreferencesSchema } from '../../shared/images/imagePreferences'
+import { downloadSettingsSchema } from '../../shared/network/downloadSettings'
 import { proxySettingsSchema } from '../../shared/network/proxySettings'
 import { notificationSoundPreferencesPatchSchema } from '../../shared/notifications/notificationSound'
 import { featureDiscoverySchema } from '../../shared/onboarding/featureDiscovery'
 import { BUDDY_PERMISSION_MODES } from '../../shared/permissions/permissionMode'
 import { runtimePreferencesSchema } from '../../shared/runtime/runtimePreferences'
 import { keybindingsSchema } from '../../shared/shortcuts/keybindingSchema'
+import { speechPreferencesSchema } from '../../shared/speech/speechApi'
 import { localBackupLimitSchema } from '../../shared/storage/backupRetention'
 import { themePreferenceSchema } from '../../shared/theme/themePreferences'
 import { typographyPreferencesSchema } from '../../shared/typography/typographyPreferences'
@@ -81,6 +84,7 @@ export const lexoraConfigPatchSchema: z.ZodType<LexoraConfigPatch> = z.object({
   runtime: runtimePreferencesSchema.partial().optional(),
   browser: browserPreferencesPatchSchema.optional(),
   proxy: proxySettingsSchema.optional(),
+  downloads: downloadSettingsSchema.partial().optional(),
   desktop: z.object({
     featureDiscovery: featureDiscoverySchema.optional(),
     featureAnnouncementsEnabled: z.boolean().optional(),
@@ -107,6 +111,8 @@ export const lexoraConfigPatchSchema: z.ZodType<LexoraConfigPatch> = z.object({
     typography: typographyPreferencesSchema.partial().optional(),
     profile: desktopUserProfilePatchSchema.optional(),
     developerToolsEnabled: z.boolean().optional(),
+    images: imagePreferencesSchema.optional(),
+    speech: speechPreferencesSchema.optional(),
     pluginAuthor: extensionAuthorSchema.optional(),
     language: z.enum(['zh-CN', 'en-US']).optional(),
     launchAtLogin: z.boolean().optional(),

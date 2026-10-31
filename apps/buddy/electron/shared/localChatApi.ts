@@ -37,6 +37,7 @@ import type { LocalBuiltinProviderPreset, LocalCustomProvider, LocalCustomProvid
 import type { ModelCapabilityOverrides } from '../../shared/providers/providerCapabilities'
 import type { ModelCatalogReference } from '../../shared/providers/providerCatalog'
 import type { ProviderRequestHeader } from '../../shared/providers/providerHeaders'
+import type { ProviderModelType } from '../../shared/providers/providerModelType'
 import type { LocalRun, LocalRunEvent } from '../../shared/runs/runApi'
 import type { LocalBuddyServiceSupervisorState } from '../../shared/runtime/serviceState'
 
@@ -216,6 +217,7 @@ export const LOCAL_CHAT_IPC_CHANNELS = {
   providersSetModelEnabled: 'lexora:buddy:providers:set-model-enabled',
   providersSetModelParameters: 'lexora:buddy:providers:set-model-parameters',
   providersSetModelCatalogSource: 'lexora:buddy:providers:set-model-catalog-source',
+  providersSetModelType: 'lexora:buddy:providers:set-model-type',
   providersSetModelCapabilities: 'lexora:buddy:providers:set-model-capabilities',
   providersAcknowledgeModelSource: 'lexora:buddy:providers:acknowledge-model-source',
   providersRestoreModelSource: 'lexora:buddy:providers:restore-model-source',
@@ -369,6 +371,7 @@ export interface LocalChatApi {
       modelId: string,
       source: ModelCatalogReference | null,
     ) => Promise<LocalRuntimeModelOption>
+    setModelType: (providerId: string, modelId: string, type: ProviderModelType | null) => Promise<LocalRuntimeModelOption>
     setModelCapabilities: (
       providerId: string,
       modelId: string,

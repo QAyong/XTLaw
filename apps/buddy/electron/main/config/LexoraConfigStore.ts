@@ -1,5 +1,6 @@
 import type { ZodError } from 'zod'
 import type { EventSnapshot } from '../../../shared/events/eventTypes'
+import type { ImagePreferences } from '../../../shared/images/imagePreferences'
 import type { NotificationSoundAsset } from '../../../shared/notifications/notificationSound'
 import type { NetworkOperation } from '../../../shared/permissions/networkPermissions'
 import type { LexoraConfig, LexoraConfigPatch, SystemUserProfile } from '../../shared/desktopApi'
@@ -14,6 +15,8 @@ import { Emitter } from '../../../shared/events/Emitter'
 import { copyEventSnapshot } from '../../../shared/events/eventSnapshot'
 import { extensionAuthorSchema } from '../../../shared/extensions/extensionIdentity'
 import { BUILTIN_FILE_ICON_THEME, fileIconPreferenceSchema } from '../../../shared/icons/fileIconTheme'
+import { imagePreferencesSchema } from '../../../shared/images/imagePreferences'
+import { downloadSettingsSchema } from '../../../shared/network/downloadSettings'
 import { DEFAULT_PROXY_SETTINGS, proxySettingsSchema } from '../../../shared/network/proxySettings'
 import { DEFAULT_NOTIFICATION_SOUND_PREFERENCES, notificationSoundAssetIdSchema, notificationSoundAssetSchema, notificationSoundPreferencesPatchSchema, notificationSoundPreferencesSchema } from '../../../shared/notifications/notificationSound'
 import { EMPTY_FEATURE_DISCOVERY, featureDiscoverySchema } from '../../../shared/onboarding/featureDiscovery'
@@ -21,6 +24,7 @@ import { upsertNetworkPermission } from '../../../shared/permissions/networkPerm
 import { BUDDY_PERMISSION_MODES } from '../../../shared/permissions/permissionMode'
 import { DEFAULT_RUNTIME_PREFERENCES, runtimePreferencesSchema } from '../../../shared/runtime/runtimePreferences'
 import { keybindingsSchema } from '../../../shared/shortcuts/keybindingSchema'
+import { speechPreferencesSchema } from '../../../shared/speech/speechApi'
 import { DEFAULT_LOCAL_BACKUP_LIMIT, localBackupLimitSchema } from '../../../shared/storage/backupRetention'
 import { DESKTOP_ACCENT_COLORS, legacyThemePreferenceSchema, migrateThemePreference, themePreferenceSchema } from '../../../shared/theme/themePreferences'
 import { DEFAULT_TYPOGRAPHY, typographyPreferencesSchema } from '../../../shared/typography/typographyPreferences'
@@ -68,6 +72,8 @@ const desktopConfigSchema = z.object({
   feature_discovery: featureDiscoverySchema.default(EMPTY_FEATURE_DISCOVERY),
   feature_announcements_enabled: z.boolean().default(true),
   onboarding_completed: z.boolean().default(true),
+  images: imagePreferencesSchema.optional(),
+  speech: speechPreferencesSchema.optional(),
   plugin_author: extensionAuthorSchema.default(''),
   background_close_notice_shown: z.boolean().default(false),
   chat: z.object({
@@ -188,6 +194,7 @@ const lexoraConfigFileSchema = z.object({
     network_permissions: browserPreferencesSchema.shape.networkPermissions,
   }).passthrough().prefault({}),
   proxy: proxySettingsSchema.default(DEFAULT_PROXY_SETTINGS),
+  downloads: downloadSettingsSchema.prefault({}),
   desktop: desktopConfigSchema,
   pet: petConfigSchema,
 }).passthrough()
@@ -301,6 +308,10 @@ export class LexoraConfigStore {
     }, apply, () => {})
   }
 
+  updateImages(transform: (current: ImagePreferences) => ImagePreferences, apply?: (config: LexoraConfig) => Promise<void> | void): Promise<LexoraConfig> {
+    return this.#update(current => ({ ...current, desktop: { ...current.desktop, images: imagePreferencesSchema.parse(transform(current.desktop.images ?? {})) } }), apply, () => {})
+  }
+
   #update(transform: (current: LexoraConfig) => LexoraConfig, apply: ((config: LexoraConfig) => Promise<void> | void) | undefined, assertCurrent: () => void): Promise<LexoraConfig> {
     if (this.#disposing)
       return Promise.reject(new Error('CONFIG_STORE_STOPPED'))
@@ -410,11 +421,19 @@ export class LexoraConfigStore {
   }
 }
 
+// XTLaw 0.4.2 saved proxy.downloadMirror next to the connection proxy; the strict proxy schema no longer has it, and the old choice is dropped rather than migrated to `downloads`.
+function withoutLegacyDownloadMirror(value: unknown): unknown {
+  if (!value || typeof value !== 'object' || !('proxy' in value) || !value.proxy || typeof value.proxy !== 'object' || !('downloadMirror' in value.proxy))
+    return value
+  const { downloadMirror: _legacy, ...proxy } = value.proxy as Record<string, unknown>
+  return { ...value, proxy }
+}
+
 function decodeConfig(value: unknown): LexoraConfig {
   let config: z.infer<typeof lexoraConfigFileSchema>
 
   try {
-    config = lexoraConfigFileSchema.parse(value)
+    config = lexoraConfigFileSchema.parse(withoutLegacyDownloadMirror(value))
   }
   catch (error) {
     throw createConfigError(error)
@@ -432,11 +451,14 @@ function decodeConfig(value: unknown): LexoraConfig {
       networkPermissions: config.browser.network_permissions,
     },
     proxy: config.proxy,
+    downloads: config.downloads,
     desktop: {
       featureDiscovery: config.desktop.feature_discovery,
       featureAnnouncementsEnabled: config.desktop.feature_announcements_enabled,
       onboardingCompleted: config.desktop.onboarding_completed,
       backgroundCloseNoticeShown: config.desktop.background_close_notice_shown,
+      images: config.desktop.images,
+      speech: config.desktop.speech,
       pluginAuthor: config.desktop.plugin_author,
       chat: {
         outlinePosition: config.desktop.chat.outline_position,
@@ -507,11 +529,14 @@ function encodeConfig(config: LexoraConfig) {
       network_permissions: config.browser.networkPermissions,
     },
     proxy: config.proxy,
+    downloads: config.downloads,
     desktop: {
       feature_discovery: config.desktop.featureDiscovery,
       feature_announcements_enabled: config.desktop.featureAnnouncementsEnabled,
       onboarding_completed: config.desktop.onboardingCompleted,
       background_close_notice_shown: config.desktop.backgroundCloseNoticeShown,
+      images: config.desktop.images,
+      speech: config.desktop.speech,
       plugin_author: config.desktop.pluginAuthor,
       chat: {
         outline_position: config.desktop.chat.outlinePosition,
@@ -575,6 +600,7 @@ function mergeConfig(current: LexoraConfig, patch: LexoraConfigPatch): LexoraCon
     runtime: runtimePreferencesSchema.parse({ ...current.runtime, ...patch.runtime }),
     browser: browserPreferencesSchema.parse({ ...current.browser, ...patch.browser }),
     proxy: proxySettingsSchema.parse(patch.proxy ?? current.proxy),
+    downloads: downloadSettingsSchema.parse({ ...current.downloads, ...patch.downloads }),
     desktop: {
       ...current.desktop,
       ...patch.desktop,
@@ -586,6 +612,8 @@ function mergeConfig(current: LexoraConfig, patch: LexoraConfigPatch): LexoraCon
       }),
       fileIconTheme: fileIconPreferenceSchema.parse(patch.desktop?.fileIconTheme ?? current.desktop.fileIconTheme),
       theme: themePreferenceSchema.parse(patch.desktop?.theme ?? current.desktop.theme),
+      images: patch.desktop?.images ?? current.desktop.images ? imagePreferencesSchema.parse(patch.desktop?.images ?? current.desktop.images) : undefined,
+      speech: current.desktop.speech || patch.desktop?.speech ? speechPreferencesSchema.parse({ ...current.desktop.speech, ...patch.desktop?.speech }) : undefined,
       pluginAuthor: extensionAuthorSchema.parse(patch.desktop?.pluginAuthor ?? current.desktop.pluginAuthor),
       chat: {
         ...current.desktop.chat,
@@ -648,6 +676,7 @@ function mergeConfigFile(file: unknown, config: LexoraConfig): Record<string, un
     runtime: { ...asRecord(root.runtime), ...encoded.runtime },
     browser: { ...asRecord(root.browser), ...encoded.browser },
     proxy: encoded.proxy,
+    downloads: encoded.downloads,
     desktop: nextDesktop,
     pet: {
       ...pet,

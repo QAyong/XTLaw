@@ -11,6 +11,7 @@ export default antfu({
     '**/.output/**',
     'legacy/**',
     '**/native/target/**',
+    '**/native/vendor/**',
     '**/native-pet/target/**',
   ],
 }, {

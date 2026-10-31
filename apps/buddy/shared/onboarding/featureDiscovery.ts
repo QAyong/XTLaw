@@ -6,6 +6,8 @@ export const FEATURE_GUIDES = [
   { id: 'additional-directories', version: '0.3.1' },
   { id: 'network-permissions', version: '0.3.1' },
   { id: 'follow-up-behavior', version: '0.4.1' },
+  { id: 'speech-settings', version: '0.4.9' },
+  { id: 'image-settings', version: '0.4.9' },
 ] as const
 
 /** 引导功能上线前的最后一个 XTLaw 发布版本。从未记录过版本的老用户按它作为起点，升级后即可看到之后新增的功能。 */

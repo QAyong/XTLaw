@@ -10,7 +10,7 @@
   "categories": ["办公"],
   "tags": ["PDF", "批注", "表单"],
   "apiVersion": 4,
-  "engines": { "lexora": ">=0.4.8 <1.0.0" },
+  "engines": { "lexora": ">=0.4.2 <1.0.0" },
   "entry": "extension.js",
   "permissions": { "selectedResource": "read", "selectedResourceWrite": true, "composerReference": true, "localResources": true, "resourceExport": true, "webAssembly": true },
   "contributes": {

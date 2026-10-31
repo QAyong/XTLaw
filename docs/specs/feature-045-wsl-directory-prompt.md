@@ -2,7 +2,7 @@
 
 **日期：** 2026-10-31
 
-**状态：** 已实现（提示词、两处文字、测试，在 WSL 里跑过相关 spec、eslint 和类型检查），未提交；还没在 Windows 开发预览里验证智能体是否照做，见第 6 节。
+**状态：** 已实现并提交（36d3ce4c8）：提示词、两处文字、测试；WSL 里跑过相关 spec、eslint 和类型检查。Windows 开发预览复测显示智能体已改用 `wsl.exe` 且 Linux 命令全部跑通，`/tmp` 脚本这条路和审批次数还没测，见第 5、6 节。
 
 **相关：** [Spec-019：文件管理器基础](feature-019-file-manager-basics.md)（第 16 节：WSL 与网络目录）、[Spec-044：产出卡片在文件管理器中打开](feature-044-artifact-open-by-real-path.md)、`D:\code\Lexora\MOVED.md`（WSL 里的 AI 操作约定）
 
@@ -131,6 +131,27 @@ Use read/write/edit for file changes. These commands run on the host outside the
 
 从 WSL 一侧核对 `demo.sh`（62 字节）：前两行是 LF，**最后一行是 CRLF**（`0d0a`）。也就是说 PowerShell 写出的文件换行符是混合的；`hello.txt` 没被动过（`sed` 失败）。命令输出里的中文目录名显示为乱码，是控制台 GBK 解码造成的。
 
+### 复测：加了提示词之后（2026-10-31，提交 36d3ce4c8，预览副本合并后）
+
+同一个空间、同一条五步提示词（其中写着“不要用 read、write、edit”）。智能体全部用 `powershell` 工具，命令里通过 `wsl.exe -d Ubuntu-24.04 --cd ... --exec bash -c "..."` 进 WSL：
+
+| 步骤 | 基线 | 复测 |
+|---|---|---|
+| 1 `uname -a` | 报错，不存在 | 成功，输出 `Linux ... microsoft-standard-WSL2` |
+| 2 `grep \| wc` | 报错，不存在 | 成功，输出 `4` |
+| 3 写并运行 `demo.sh` | 写成，运行无输出 | 写成并运行，输出正确；其间一行 PowerShell 去 CR 的写法抛了 `MethodException`（智能体自己的写法问题，不影响结果） |
+| 4 `sed -i` | 报错，不存在 | 成功，`BETA` 变 `beta` |
+| 5 `git status` | 报错（本就不是仓库） | 同样报“不是 Git 仓库”，是正确结果 |
+
+从 WSL 一侧核对：`hello.txt` 为 LF，内容 `alpha / beta / gamma / delta`；`demo.sh` 68 字节、可执行、全是 LF、没有 CR，只是末行没有换行；`/tmp` 里没有残留脚本。
+
+结论：
+
+- 提示词有效：智能体认出了 WSL 目录，Linux 命令全部在 Linux 里跑通。
+- **中文没有乱码**：目录名 `测试` 和 git 的中文报错都正常显示（第 6 节第 4 项在这个场景下不成立）。
+- **`/tmp` 脚本这条路没被测到**：测试提示词禁止了 `write`，智能体就自己用 `bash -c` 加 base64 绕过去，并因此出了那行小错。多层引号仍是薄弱点，要用不禁止 `write` 的提示词再测一次。
+- 没记录：当时是沙箱还是完全访问模式、每条命令弹了几次审批。
+
 **没验证的：** 文件管理器是否在约 2 秒内自动刷出；并发和大文件；在已有 git 仓库的 WSL 目录里写；租约身份（`dev:ino`）在 9P 上长期是否稳定，只能说这一次没问题。
 
 ## 6. 待确认
@@ -138,7 +159,7 @@ Use read/write/edit for file changes. These commands run on the host outside the
 1. **`canonicalRoot` 的真实形态。** 提示词里显示的是 `realpath` 之后的路径，有可能是 `\\?\UNC\wsl.localhost\...` 这类前缀，`parseWslPath` 不认。实现时先在开发预览里把真实值打出来，再决定要不要在识别函数里兼容。
 2. **智能体是否真的照做。** 在开发预览里用同一条基线提示词再跑一遍：看它是否用 `wsl.exe` 直接 `--exec`；管道和引号那几步是否改走 `/tmp` 脚本；`write` 到 `\\wsl.localhost\<发行版>\tmp\...` 会不会弹审批、弹几次；脚本是不是 LF。
 3. **`wsl.exe` 在沙箱模式下能不能跑。** 影响文档里“只有完全访问模式可用”这句话，需要实测后改成事实。
-4. **中文输出乱码。** 命令输出经 PowerShell 以 GBK 解码，经 `wsl.exe` 跑的命令输出 UTF-8 的中文路径和内容也可能变成乱码，影响智能体读取输出。实测，必要时在提示词里加一句或让 AI 在命令前设置输出编码。
+4. ~~中文输出乱码。~~ 复测里中文目录名和报错都正常显示，暂不处理；换到别的场景再出现时再看。
 
 ## 7. 实施步骤
 

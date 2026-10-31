@@ -1,19 +1,18 @@
 <script setup lang="ts">
 import type { BuddyInputMaterial } from '@buddy-shared/conversation/buddyInputMaterial'
-import type { ScrollbarInst } from 'naive-ui'
 import type { InputMaterialView } from '../../model/materials/inputMaterialView'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import { buddyInputMaterialKey } from '@buddy-shared/conversation/buddyInputMaterial'
 import { usePreferredReducedMotion, useTimeoutFn } from '@vueuse/core'
 import { NScrollbar } from 'naive-ui'
 import { computed, nextTick, shallowRef, useTemplateRef, watch } from 'vue'
+import { scrollWheelHorizontally } from '@/shared/lib/scrollWheelHorizontally'
 import BuddyImagePreview from '@/shared/ui/media/BuddyImagePreview.vue'
 import ChatInputMaterialCard from './ChatInputMaterialCard.vue'
 
 const props = defineProps<{ materials: readonly InputMaterialView[], language: BuddyLocale, removable?: boolean, disabled?: boolean, compact?: boolean, expanded?: boolean, alignEnd?: boolean, wheelToHorizontal?: boolean }>()
 const emit = defineEmits<{ remove: [material: BuddyInputMaterial], retry: [id: string], previewText: [id: string] }>()
 const track = useTemplateRef<HTMLElement>('track')
-const scrollbar = useTemplateRef<ScrollbarInst>('scrollbar')
 const reducedMotion = usePreferredReducedMotion()
 const highlighted = shallowRef<string | null>(null)
 const { start } = useTimeoutFn(() => highlighted.value = null, 1400, { immediate: false })
@@ -52,23 +51,8 @@ function preview(material: InputMaterialView) {
 }
 
 function handleWheel(event: WheelEvent) {
-  if (!props.wheelToHorizontal || event.defaultPrevented || event.ctrlKey || event.shiftKey || event.deltaX !== 0 || event.deltaY === 0)
-    return
-  const port = event.currentTarget
-  if (!(port instanceof HTMLElement))
-    return
-  let delta = event.deltaY
-  if (event.deltaMode === WheelEvent.DOM_DELTA_LINE) {
-    const style = getComputedStyle(port)
-    delta *= Number.parseFloat(style.lineHeight) || Number.parseFloat(style.fontSize)
-  }
-  else if (event.deltaMode === WheelEvent.DOM_DELTA_PAGE) {
-    delta *= port.clientWidth
-  }
-  const before = port.scrollLeft
-  scrollbar.value?.scrollBy({ left: delta, behavior: 'instant' })
-  if (port.scrollLeft !== before)
-    event.preventDefault()
+  if (props.wheelToHorizontal)
+    scrollWheelHorizontally(event)
 }
 
 defineExpose({ highlightMaterial, highlightResource: (id: string) => highlightMaterial({ kind: 'resource', id }) })
@@ -76,7 +60,7 @@ defineExpose({ highlightMaterial, highlightResource: (id: string) => highlightMa
 
 <template>
   <div v-if="materials.length" class="chat-input-material-strip min-w-0 max-w-full" :class="compact ? 'is-compact' : 'w-full mb-2'" data-quote-exclude>
-    <NScrollbar ref="scrollbar" class="chat-input-material-strip__scrollbar" container-class="chat-input-material-strip__scrollport" content-style="width: max-content; min-width: 100%" trigger="hover" x-scrollable @wheel="handleWheel">
+    <NScrollbar class="chat-input-material-strip__scrollbar" container-class="chat-input-material-strip__scrollport" content-style="width: max-content; min-width: 100%" trigger="hover" x-scrollable @wheel="handleWheel">
       <div ref="track" class="flex flex-nowrap items-start gap-[0.45rem]" :class="{ 'justify-end': alignEnd }">
         <ChatInputMaterialCard
           v-for="material in materials" :id="material.kind === 'resource' ? `buddy-resource-${material.id}` : undefined"

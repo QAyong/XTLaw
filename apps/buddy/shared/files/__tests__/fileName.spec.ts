@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { validFileName } from '../fileName'
+import { validFileName, withFileExtension } from '../fileName'
 
 describe('file names', () => {
   it.each(['', '.', '..', 'a/b', 'a\\b', 'a\0b'])('rejects path components on all hosts: %s', (name) => {
@@ -20,5 +20,20 @@ describe('file names', () => {
       expect(validFileName('CON:notes?', platform)).toBe(true)
       expect(validFileName('trailing. ', platform)).toBe(true)
     }
+  })
+})
+
+describe('new file extensions', () => {
+  it.each([['合同', '.docx', '合同.docx'], ['notes', '.md', 'notes.md'], ['v1.2', '.md', 'v1.2.md'], ['数据', '', '数据']])('appends the chosen extension: %s %s', (name, extension, expected) => {
+    expect(withFileExtension(name, extension)).toBe(expected)
+  })
+
+  it.each([['a.txt', '.md'], ['A.DOCX', '.md'], ['表.xlsx', '.docx']])('keeps a name that already ends in an offered extension: %s', (name, extension) => {
+    expect(withFileExtension(name, extension)).toBe(name)
+  })
+
+  it('does not treat a bare extension as a finished name', () => {
+    expect(withFileExtension('.md', '.md')).toBe('.md.md')
+    expect(withFileExtension('', '.md')).toBe('')
   })
 })

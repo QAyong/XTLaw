@@ -16,7 +16,7 @@ export function useExplorerCommands(options: {
   const operations = useFileOperations()
   const dialog = useDialog()
   const labels = computed(() => explorerLabels(options.language()))
-  const nameRequest = shallowRef<{ title: string, name: string, parent: string } | null>(null)
+  const nameRequest = shallowRef<{ title: string, name: string, parent: string, extension?: boolean } | null>(null)
   const busy = shallowRef<SpaceFileMutation | null>(null)
   const error = shallowRef('')
   let finishName: (name: string | null) => void = () => {}
@@ -25,10 +25,10 @@ export function useExplorerCommands(options: {
     stopped = true
     finishName(null)
   })
-  function requestName(title: string, name: string, parent: string) {
+  function requestName(title: string, name: string, parent: string, extension = false) {
     return new Promise<string | null>((resolve) => {
       finishName(null)
-      nameRequest.value = { title, name, parent }
+      nameRequest.value = { title, name, parent, extension }
       finishName = (value) => {
         nameRequest.value = null
         resolve(value)
@@ -124,7 +124,7 @@ export function useExplorerCommands(options: {
     if (!['rename', 'newFile', 'newFolder'].includes(command))
       return
     const folder = command === 'rename' ? path.split('/').slice(0, -1).join('/') : parent
-    const name = await requestName(command === 'rename' ? labels.value.rename : command === 'newFile' ? labels.value.newFile : labels.value.newFolder, command === 'rename' ? node!.label : '', folder)
+    const name = await requestName(command === 'rename' ? labels.value.rename : command === 'newFile' ? labels.value.newFile : labels.value.newFolder, command === 'rename' ? node!.label : '', folder, command === 'newFile')
     if (name === null || stopped)
       return
     const destination = folder ? `${folder}/${name}` : name

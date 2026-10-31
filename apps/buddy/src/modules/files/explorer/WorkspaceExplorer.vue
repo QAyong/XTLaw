@@ -29,6 +29,9 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ select: [key: string] }>()
 const showRefreshing = useDelayedLoading(() => props.loadingKeys.has('') && props.nodes.length > 0)
+// Quick operations finish before this, so they never flash a notice.
+const BUSY_NOTICE_DELAY = 400
+const ERROR_NOTICE_DURATION = 6000
 const { t } = useBuddyI18n(() => props.language)
 const expandedKeys = defineModel<string[]>('expandedKeys', { required: true })
 const menu = shallowRef<{ node: ExplorerNode | null } | null>(null)
@@ -46,6 +49,13 @@ const commands = useExplorerCommands({
   },
 })
 const { labels, busy, error, nameRequest, clipboard } = commands
+const showBusy = useDelayedLoading(() => !!busy.value, BUSY_NOTICE_DELAY)
+watch(error, (value, _, onCleanup) => {
+  if (!value)
+    return
+  const dismiss = setTimeout(() => error.value = '', ERROR_NOTICE_DURATION)
+  onCleanup(() => clearTimeout(dismiss))
+})
 onMounted(async () => {
   try {
     platform.value = (await loadDesktopAppInfo()).platform
@@ -116,16 +126,24 @@ async function acknowledge(operation: SpaceFileOperation) {
         <DesktopIcon :component="SubtractSquare20Regular" :size="16" />
       </button>
     </div>
-    <div v-if="busy" class="explorer-notice" role="status">
-      <span>{{ labels.busy }}</span><button @click="commands.cancel()">
-        {{ labels.cancel }}
-      </button>
-    </div>
-    <div v-if="error" class="explorer-notice" role="alert">
-      <span>{{ error }}</span>
-    </div>
     <div class="relative flex min-h-0 flex-1 flex-col">
       <DesktopFileLoading v-if="!nodes.length && loadingKeys.has('')" class="absolute inset-0" :loading="true" tree :label="t('desktop.loading.pane')" />
+      <div class="explorer-notices">
+        <Transition name="explorer-notice">
+          <div v-if="showBusy" class="explorer-notice" role="status">
+            <span class="truncate">{{ labels.busy }}</span><button type="button" @click="commands.cancel()">
+              {{ labels.cancel }}
+            </button>
+          </div>
+        </Transition>
+        <Transition name="explorer-notice">
+          <div v-if="error" class="explorer-notice" role="alert">
+            <span>{{ error }}</span><button type="button" :aria-label="labels.close" @click="error = ''">
+              ×
+            </button>
+          </div>
+        </Transition>
+      </div>
       <ExplorerTree v-model:expanded-keys="expandedKeys" :loading-keys="loadingKeys" :aria-busy="loadingKeys.has('')" :nodes="nodes" :selected-key="target.path || null" :reveal="reveal" :language="language" :load="load" @select="emit('select', $event)" @contextmenu="contextmenu" @command="commands.command" />
     </div>
     <ExplorerRecovery v-if="recoveryOperations.length" :operations="recoveryOperations" :language="language" :busy="!!busy" @acknowledge="acknowledge" />
@@ -163,12 +181,32 @@ async function acknowledge(operation: SpaceFileOperation) {
   background: var(--buddy-state-hover);
   color: var(--buddy-text-primary);
 }
+.explorer-notices {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  left: 8px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  pointer-events: none;
+}
 .explorer-notice {
   padding: 6px 10px;
   font-size: 11px;
   color: var(--buddy-status-warning-text);
   display: flex;
+  align-items: center;
   gap: 6px;
+  pointer-events: auto;
+  border: 1px solid var(--buddy-border-subtle);
+  border-radius: 6px;
+  background: var(--buddy-surface-raised);
+  box-shadow: var(--buddy-shadow-overlay);
+}
+.explorer-notice[role='alert'] {
+  color: var(--buddy-status-danger-text);
 }
 .explorer-notice button {
   margin-left: auto;
@@ -176,5 +214,14 @@ async function acknowledge(operation: SpaceFileOperation) {
   background: transparent;
   color: inherit;
   cursor: pointer;
+}
+.explorer-notice-enter-active,
+.explorer-notice-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.explorer-notice-enter-from,
+.explorer-notice-leave-to {
+  opacity: 0;
+  transform: translateY(4px);
 }
 </style>

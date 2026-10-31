@@ -92,16 +92,25 @@ describe('buddySessionResources', () => {
 
     it('tells the agent to run commands through wsl.exe with the Linux path', async () => {
       const { directoryContext, revision } = await resolveContext(wslRoot)
-      expect(directoryContext).toContain(`- ${wslRoot} = Ubuntu-24.04:/home/lenovo/code/Foo`)
+      expect(directoryContext).toContain(`- ${wslRoot} (distribution Ubuntu-24.04, Linux path /home/lenovo/code/Foo)`)
       expect(directoryContext).toContain('wsl.exe -d Ubuntu-24.04 --cd /home/lenovo/code/Foo --exec <program> <args>')
       expect(directoryContext).toContain(String.raw`\\wsl.localhost\Ubuntu-24.04\tmp\<unique-name>.sh`)
       expect(directoryContext.match(/- \\\\wsl/g)).toHaveLength(1)
       expect((await resolveContext('/workspace')).revision).not.toBe(revision)
     })
 
+    it('keeps file-tool paths and shell paths apart', async () => {
+      const { directoryContext } = await resolveContext(wslRoot)
+      expect(directoryContext).not.toContain(' = Ubuntu-24.04:')
+      expect(directoryContext).toContain('Never pass a Linux path such as /home/... to a file tool')
+      expect(directoryContext).toContain('INVALID_PATH, not PATH_NOT_FOUND')
+      expect(directoryContext).toContain('Never inline such a script in PowerShell')
+      expect(directoryContext).toContain('git grep')
+    })
+
     it('also notes a WSL directory that is only an additional directory', async () => {
       const { directoryContext } = await resolveContext('/workspace', [String.raw`\\wsl$\Debian\var\log`])
-      expect(directoryContext).toContain('= Debian:/var/log')
+      expect(directoryContext).toContain('Linux path /var/log')
       expect(directoryContext).toContain('wsl.exe -d Debian --cd /var/log --exec')
     })
 

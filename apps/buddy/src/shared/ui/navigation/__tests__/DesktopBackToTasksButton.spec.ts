@@ -37,7 +37,7 @@ describe('desktopBackToTasksButton', () => {
     app.unmount()
   })
 
-  it('links to the declared settings parent on nested settings pages', async () => {
+  it('links to the declared parent page and labels the action as back on nested pages', async () => {
     const { app, root } = await mountButton('zh-CN', {
       initialPath: '/settings/models/openrouter',
       routes: [
@@ -47,7 +47,7 @@ describe('desktopBackToTasksButton', () => {
           path: '/settings/models/:providerId',
           name: 'desktop.settings.models.provider',
           component: { template: '<div />' },
-          meta: { settingsParent: { name: 'desktop.settings.models' } },
+          meta: { parentLocation: { name: 'desktop.settings.models' } },
         },
       ],
     })
@@ -55,6 +55,7 @@ describe('desktopBackToTasksButton', () => {
 
     expect(root.querySelector('a')?.getAttribute('href')).toBe('/settings/models')
     expect(root.querySelector('a')?.textContent?.trim()).toBe('返回')
+    expect(root.querySelector('a')?.getAttribute('title')).toBe('返回')
 
     app.unmount()
   })

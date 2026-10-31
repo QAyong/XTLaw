@@ -83,8 +83,8 @@ declare module 'vue-router' {
     desktopPage?: string | ((route: RouteLocationNormalizedLoaded) => string)
     settingsCategory?: DesktopSettingsCategory
     settingsModule?: string
-    /** @description 设置区二级页的父级设置页位置；底部返回按钮优先跳转这里。 */
-    settingsParent?: RouteLocationRaw
+    /** @description 二级页声明父级页面位置；返回按钮优先跳转这里。 */
+    parentLocation?: RouteLocationRaw
     /** @description 仅可信且独立于 Runtime 的页面可显式取消启动阻挡；未声明时仍阻挡。 */
     requiresRuntime?: boolean
   }

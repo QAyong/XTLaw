@@ -31,7 +31,7 @@ export const settingsRoutes: ReadonlyArray<RouteRecordRaw> = [
         meta: {
           settingsCategory: 'models',
           settingsModule: 'settings.models',
-          settingsParent: desktopRouteLocations.settings('models'),
+          parentLocation: desktopRouteLocations.settings('models'),
         },
       },
       { path: 'sync', name: 'desktop.settings.sync', redirect: desktopRouteLocations.settings('storage') },

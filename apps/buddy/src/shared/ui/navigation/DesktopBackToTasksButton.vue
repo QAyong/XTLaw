@@ -16,15 +16,16 @@ const props = withDefaults(defineProps<{
 const route = useRoute()
 const { t } = useBuddyI18n(() => props.language)
 
-/** 设置二级页（路由声明 meta.settingsParent）返回父级设置页，其余场景返回任务主页；文案统一。 */
-const to = computed(() => route.meta.settingsParent ?? desktopRouteLocations.tasks())
+/** 二级页（路由声明 meta.parentLocation）返回父级页面，其余场景返回任务主页；文案统一为“返回”。 */
+const to = computed(() => route.meta.parentLocation ?? desktopRouteLocations.tasks())
+const title = computed(() => (route.meta.parentLocation ? t('desktop.navigation.back') : t('desktop.navigation.backToTasks')))
 </script>
 
 <template>
   <RouterLink
     class="desktop-back-to-tasks"
     :class="{ 'is-floating': floating }"
-    :title="t('desktop.navigation.backToTasks')"
+    :title="title"
     :to="to"
   >
     <DesktopIcon :component="ArrowLeft20Regular" :size="16" />

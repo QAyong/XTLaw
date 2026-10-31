@@ -3,6 +3,7 @@ import { useRouter } from 'vue-router'
 import { useAutomationContext } from '@/modules/automations/automationContext'
 import DesktopAutomationEditor from '@/modules/automations/widgets/editor/DesktopAutomationEditor.vue'
 import { desktopRouteLocations } from '@/shared/navigation/desktopRoutes'
+import DesktopBackToTasksButton from '@/shared/ui/navigation/DesktopBackToTasksButton.vue'
 import { useDesktopUi } from '@/shared/ui/desktopUiContext'
 import { useAutomationEditorRoute } from './useAutomationEditorRoute'
 
@@ -34,18 +35,36 @@ const { models, providers } = providerSettings
 </script>
 
 <template>
-  <DesktopAutomationEditor
-    :automation="automation"
-    :busy="isSaving || isMutating"
-    :error="error"
-    :language="language"
-    :loading="isLoading"
-    :mode="mode"
-    :models="models"
-    :preview="automations.preview"
-    :providers="providers"
-    :spaces="spaces"
-    @cancel="cancel"
-    @save="save"
-  />
+  <section class="desktop-automation-editor-view">
+    <DesktopAutomationEditor
+      :automation="automation"
+      :busy="isSaving || isMutating"
+      :error="error"
+      :language="language"
+      :loading="isLoading"
+      :mode="mode"
+      :models="models"
+      :preview="automations.preview"
+      :providers="providers"
+      :spaces="spaces"
+      @cancel="cancel"
+      @save="save"
+    />
+    <DesktopBackToTasksButton floating :language="language" />
+  </section>
 </template>
+
+<style scoped>
+.desktop-automation-editor-view {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.desktop-automation-editor-view > :deep(.desktop-automation-editor) {
+  flex: 1;
+}
+</style>

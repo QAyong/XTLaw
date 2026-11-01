@@ -5,13 +5,14 @@ import type { RuntimePreferences } from '@buddy-shared/runtime/runtimePreference
 import type { ApplicationSettingsProps } from '../app/typing'
 import { BUDDY_PERMISSION_MODES } from '@buddy-shared/permissions/permissionMode'
 import { DEFAULT_MODEL_RETRY_LIMIT } from '@buddy-shared/runtime/runtimePreferences'
-import { NInputNumber, NSelect, NSwitch, useMessage } from 'naive-ui'
+import { NInputNumber, NSelect, useMessage } from 'naive-ui'
 import { computed, shallowRef, useId } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import { DesktopFullAccessConfirmationDialog } from '@/modules/prompt-input/ui'
 import DesktopSegmentedControl from '@/shared/ui/segmented-control/DesktopSegmentedControl.vue'
+import DesktopCodemodeSettings from './DesktopCodemodeSettings.vue'
 
-type RuntimeSettingField = 'cacheWarming' | 'codemode' | 'defaultPermissionMode' | 'modelRetryLimit' | 'followUpBehavior'
+type RuntimeSettingField = 'cacheWarming' | 'defaultPermissionMode' | 'modelRetryLimit' | 'followUpBehavior'
 type RetryMode = 0 | 'limited' | 'unlimited'
 
 const props = defineProps<ApplicationSettingsProps>()
@@ -28,8 +29,6 @@ const cacheWarmingLabelId = useId()
 const cacheWarmingDescriptionId = useId()
 const followUpLabelId = useId()
 const followUpDescriptionId = useId()
-const codemodeLabelId = useId()
-const codemodeDescriptionId = useId()
 const defaultPermissionLabelId = useId()
 const defaultPermissionDescriptionId = useId()
 const retryLabelId = useId()
@@ -122,10 +121,6 @@ function updateCacheWarming(cacheWarming: RuntimePreferences['cacheWarming']) {
   void save('cacheWarming', { runtime: { cacheWarming } })
 }
 
-function updateCodemode(codemode: boolean) {
-  void save('codemode', { runtime: { codemode } })
-}
-
 function updateFollowUpBehavior(followUpBehavior: DesktopChatPreferences['followUpBehavior']) {
   void save('followUpBehavior', { desktop: { chat: { followUpBehavior } } })
 }
@@ -194,22 +189,7 @@ function updateFollowUpBehavior(followUpBehavior: DesktopChatPreferences['follow
             @update:model-value="updateFollowUpBehavior"
           />
         </div>
-        <div class="runtime-settings__row" data-testid="codemode-setting">
-          <div class="runtime-settings__copy">
-            <strong :id="codemodeLabelId">{{ t('desktop.settings.runtime.codemode') }}</strong>
-            <small :id="codemodeDescriptionId">{{ t('desktop.settings.runtime.codemodeDescription') }}</small>
-          </div>
-          <NSwitch
-            class="runtime-settings__toggle"
-            :round="false"
-            :aria-labelledby="codemodeLabelId"
-            :aria-describedby="codemodeDescriptionId"
-            :value="config.runtime.codemode"
-            :loading="pendingFields.has('codemode')"
-            :disabled="pendingFields.has('codemode')"
-            @update:value="updateCodemode"
-          />
-        </div>
+        <DesktopCodemodeSettings v-bind="props" />
       </div>
     </section>
     <section class="runtime-settings__section">

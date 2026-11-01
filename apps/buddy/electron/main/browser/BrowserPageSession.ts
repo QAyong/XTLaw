@@ -11,6 +11,7 @@ import { browserZoomFactorSchema, stepBrowserZoom } from '../../../shared/browse
 import { BrowserDebugger } from './BrowserDebugger'
 import { BrowserElementPicker } from './BrowserElementPicker'
 import { BrowserHostError } from './BrowserHostError'
+import { browserFaviconOrigin } from './browserFaviconCache'
 import { browserNoticeOrigin, fileChooserFilters } from './browserHumanActions'
 import { BrowserNetworkAuthorization } from './BrowserNetworkAuthorization'
 import { BrowserPageActivity } from './BrowserPageActivity'
@@ -84,6 +85,8 @@ interface BrowserPageDeferred {
 interface BrowserPageSessionOptions {
   getFreezeDelay: (visible: boolean) => number | null
   fetchFavicon?: (url: string, signal: AbortSignal) => Promise<string | null>
+  recallFavicon?: (partition: string, origin: string) => string | null
+  rememberFavicon?: (partition: string, origin: string, dataUrl: string) => void
   onActivityError: () => void
   createId: () => string
   descriptor: DesktopBrowserGuestDescriptor
@@ -132,6 +135,7 @@ export class BrowserPageSession {
   #navigationDownloadGesture: { gesture: BrowserHumanGesture, revision: number } | null = null
   #lastBlockedNotice: { action: DesktopBrowserBlockedAction, at: number, message: string } | null = null
   #pickRequest: string | null = null
+  #faviconOrigin: string | null = null
   #faviconRequest: AbortController | null = null
   navigationSequence = 0
   page: BrowserPage | null = null
@@ -196,6 +200,25 @@ export class BrowserPageSession {
     this.semanticDriver?.invalidateDocument()
     this.publish()
     return snapshot(this.state)
+  }
+
+  /**
+   * Show the destination origin's last validated icon immediately.
+   * A different origin never keeps the previous site's icon; the same origin keeps its current icon until a replacement arrives.
+   */
+  prepareFaviconForNavigation(nextUrl: string): void {
+    this.#faviconRequest?.abort()
+    this.#faviconRequest = null
+    const nextOrigin = browserFaviconOrigin(nextUrl)
+    this.#faviconOrigin = nextOrigin
+    const cached = nextOrigin ? this.#options.recallFavicon?.(this.descriptor.partition, nextOrigin) ?? null : null
+    if (cached) {
+      this.state.favicon = cached
+      return
+    }
+    if (nextOrigin && nextOrigin === browserFaviconOrigin(this.state.url) && this.state.favicon)
+      return
+    this.state.favicon = null
   }
 
   publish(): void {
@@ -625,7 +648,7 @@ export class BrowserPageSession {
         }
       },
     )
-    this.#listen(page, 'did-start-navigation', (_event, _url: string, isInPlace: boolean, isMainFrame: boolean) => {
+    this.#listen(page, 'did-start-navigation', (_event, url: string, isInPlace: boolean, isMainFrame: boolean) => {
       if (!isMainFrame || isInPlace)
         return
       if (
@@ -642,9 +665,7 @@ export class BrowserPageSession {
       this.invalidateElementReferences()
       if (gesture)
         this.#navigationDownloadGesture = { gesture, revision: this.documentVersion }
-      this.#faviconRequest?.abort()
-      this.#faviconRequest = null
-      this.state.favicon = null
+      this.prepareFaviconForNavigation(url)
       const isIndependentNavigation = this.activeNavigationSequence === null
       if (isIndependentNavigation) {
         this.navigationSequence += 1
@@ -682,16 +703,17 @@ export class BrowserPageSession {
       const source = favicons.map(safeBrowserFavicon).find(Boolean) ?? null
       this.#faviconRequest?.abort()
       this.#faviconRequest = null
-      this.state.favicon = null
-      this.publish()
       if (!source || !this.#options.fetchFavicon)
         return
+      const origin = this.#faviconOrigin ?? browserFaviconOrigin(this.state.url)
       const request = new AbortController()
       this.#faviconRequest = request
       void this.#options.fetchFavicon(source, request.signal).then((favicon) => {
-        if (request.signal.aborted || !favicon)
+        if (request.signal.aborted || this.#faviconRequest !== request || !favicon)
           return
         this.state.favicon = favicon
+        if (origin)
+          this.#options.rememberFavicon?.(this.descriptor.partition, origin, favicon)
         this.publish()
       })
     })

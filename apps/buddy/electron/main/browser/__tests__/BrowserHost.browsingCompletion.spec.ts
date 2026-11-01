@@ -122,7 +122,7 @@ describe('browser browsing completion safety', () => {
     f.host.dispose()
   })
 
-  it('inlines the fetched favicon and clears stale icons on navigation', async () => {
+  it('keeps a same-origin favicon and clears it for another origin', async () => {
     const icon = 'data:image/png;base64,AAAA'
     const fetchFavicon = vi.fn(async () => icon)
     const f = await setup({ fetchFavicon })
@@ -130,7 +130,41 @@ describe('browser browsing completion safety', () => {
     await vi.waitFor(() => expect(f.host.getState(f.state.sessionId).favicon).toBe(icon))
     expect(fetchFavicon).toHaveBeenCalledWith('https://example.com/icon.png', expect.any(AbortSignal))
     f.webContents.emit('did-start-navigation', {}, 'https://example.com/next', false, true)
+    expect(f.host.getState(f.state.sessionId).favicon).toBe(icon)
+    f.webContents.emit('did-start-navigation', {}, 'https://other.example/next', false, true)
     expect(f.host.getState(f.state.sessionId).favicon).toBeNull()
+    f.host.dispose()
+  })
+
+  it('shows the cached favicon as soon as the same origin opens again', async () => {
+    const icon = 'data:image/png;base64,AAAA'
+    const fetchFavicon = vi.fn(async () => icon)
+    const f = await setup({ fetchFavicon })
+    f.webContents.emit('page-favicon-updated', {}, ['https://example.com/icon.png'])
+    await vi.waitFor(() => expect(f.host.getState(f.state.sessionId).favicon).toBe(icon))
+    const second = f.host.ensureSession('conversation', 'again')
+    const state = await f.host.navigate(second.sessionId, 'https://example.com/again')
+    expect(state.favicon).toBe(icon)
+    expect(fetchFavicon).toHaveBeenCalledTimes(1)
+    f.host.dispose()
+  })
+
+  it('keeps the current icon until the replacement arrives', async () => {
+    const pending: Array<(icon: string) => void> = []
+    const fetchFavicon = vi.fn(() => new Promise<string>((resolve) => {
+      pending.push(resolve)
+    }))
+    const f = await setup({ fetchFavicon })
+    const first = 'data:image/png;base64,AAAA'
+    const second = 'data:image/png;base64,BBBB'
+    f.webContents.emit('page-favicon-updated', {}, ['https://example.com/icon.png'])
+    expect(f.host.getState(f.state.sessionId).favicon ?? null).toBeNull()
+    pending[0]!(first)
+    await vi.waitFor(() => expect(f.host.getState(f.state.sessionId).favicon).toBe(first))
+    f.webContents.emit('page-favicon-updated', {}, ['https://example.com/next.png'])
+    expect(f.host.getState(f.state.sessionId).favicon).toBe(first)
+    pending[1]!(second)
+    await vi.waitFor(() => expect(f.host.getState(f.state.sessionId).favicon).toBe(second))
     f.host.dispose()
   })
 

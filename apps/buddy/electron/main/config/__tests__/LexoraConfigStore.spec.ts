@@ -184,7 +184,7 @@ keep=true
     const { store, configPath } = await createConfigStore()
     await mkdir(dirname(configPath), { recursive: true })
     await writeFile(configPath, '[runtime]\ncache_warming = "streaming"\nfuture = true\n')
-    expect((await store.read()).runtime).toEqual({ cacheWarming: 'streaming', codemode: true, codemodeWorkerLimit: 4, codemodeOverflow: 'wait', modelRetryLimit: 3 })
+    expect((await store.read()).runtime).toEqual({ cacheWarming: 'streaming', codemode: true, codemodeWorkerLimit: 8, codemodeOverflow: 'wait', modelRetryLimit: 3 })
     for (const modelRetryLimit of [0, 7, 'unlimited'] as const) {
       await store.update({ runtime: { modelRetryLimit } })
       await store.update({ desktop: { language: 'en-US' } })

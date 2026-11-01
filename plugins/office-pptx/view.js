@@ -1,7 +1,8 @@
+import { documentMessages, openDocumentSession, showChoice } from './document-kit/document-session.js'
 import { registerReveal } from './document-kit/reveal.js'
 import { withFirstSlide } from './empty-deck.js'
 import { installOfficeToolbarNavigation } from './office-toolbar-navigation.js'
-import { readPptx, validatePptx } from './pptx.js'
+import { validatePptx } from './pptx.js'
 import { createQuoteReveal } from './reveal-quote.js'
 import { installSelectionMenu } from './selection-menu.js'
 
@@ -37,6 +38,12 @@ function memoryStorage(onAutoSaveChange = () => {}) {
   }
 }
 
+// A text box the reader is typing in holds edits the editor has not counted yet.
+function typing() {
+  const element = document.activeElement
+  return !!element && (element.isContentEditable || /^(?:INPUT|TEXTAREA)$/.test(element.tagName))
+}
+
 export async function render(context, container) {
   let copy = messages[context.environment.language.startsWith('zh') ? 'zh' : 'en']
   container.className = 'slides-shell'
@@ -68,7 +75,8 @@ export async function render(context, container) {
     for (const link of links) link.remove()
     for (const finish of [...dialogs]) finish()
   }, { once: true })
-  const describe = error => /^OFFICE_(?:INVALID|UNSUPPORTED)_PPTX$/.test(error?.message) ? copy.invalid : /RESOURCE_CHANGED|RESOURCE_UNAVAILABLE/.test(error?.message) ? copy.changed : copy.error
+  const kit = () => documentMessages(context.environment.language)
+  const describe = error => /^OFFICE_(?:INVALID|UNSUPPORTED)_PPTX$/.test(error?.message) ? copy.invalid : /RESOURCE_CHANGED|RESOURCE_UNAVAILABLE/.test(error?.message) ? copy.changed : error?.message === 'DOCUMENT_CONFLICT' ? kit().conflict : error?.message === 'DOCUMENT_READ_ONLY' ? kit().readOnly : copy.error
   // "Locate source" on a quote card: requests wait until the editor is up, and fail when only the read-only preview runs.
   const reveal = registerReveal(context, createQuoteReveal())
   if (!context.resource) {
@@ -77,11 +85,42 @@ export async function render(context, container) {
     return
   }
   try {
-    const resource = context.resource.size === undefined
-      ? { ...context.resource, size: (await context.resources.readBytes(context.resource, { offset: 0, length: 1 })).size }
-      : context.resource
+    const { resource } = context
+    let copyExported = false
+    // The file is edited through the host's working copy: it refuses to replace a file that changed since it was read.
+    const session = await openDocumentSession(context, {
+      validate: validatePptx,
+      recover: async () => (await showChoice(container, context.signal, { message: kit().recover, buttons: [kit().recoverCopy, kit().recoverDiscard], cancelId: 0 })) === 0 ? 'copy' : 'discard',
+      // The editor's main process knows whether the deck has unsaved changes; before it has started nothing is known.
+      isDirty: async () => {
+        try {
+          const dirty = await window.slidesApi?.isDirty?.()
+          return typeof dirty === 'boolean' ? dirty || typing() : undefined
+        }
+        catch {
+          return undefined
+        }
+      },
+      ask: async () => (await showChoice(container, context.signal, { message: kit().changedAsk, buttons: [kit().reload, kit().copy], cancelId: 1 })) === 0 ? 'reload' : 'copy',
+      // The editor's Save As exports the current deck through exportCopy below and reports whether the reader wrote it.
+      saveCopy: async () => {
+        copyExported = false
+        try {
+          await window.slidesApi.saveAs(resource.name)
+        }
+        catch {
+          return false
+        }
+        return copyExported
+      },
+      // The editor opens one deck per page load: give the file back and start the page again to see the new content.
+      reload: async () => {
+        await session.discard()
+        globalThis.location.reload()
+      },
+    })
     // A deck without any slide would leave the editor on "Opening…" for good.
-    const bytes = withFirstSlide(await readPptx(context.resources, resource, context.signal))
+    const bytes = withFirstSlide(session.bytes)
     context.signal.throwIfAborted()
     // The sandbox has an opaque origin: keep editor preferences in bounded memory instead of weakening the iframe.
     const viewState = context.state && typeof context.state === 'object' && !Array.isArray(context.state) ? { ...context.state } : {}
@@ -105,23 +144,22 @@ export async function render(context, container) {
       language: context.environment.language,
       theme: context.environment.colorScheme === 'dark' ? 'dark' : 'light',
       autoSave: viewState.autoSave !== false,
-      // The host checks the file version, directory grant and content hash before writing; a conflict rejects here.
+      // The working copy checks the file version and identity before writing; a file changed on disk rejects here and the reader chooses.
       async save(data) {
         context.signal.throwIfAborted()
         try {
-          const saved = await context.resources.saveFile({ name: resource.name, data: validatePptx(data), resource: context.resource })
-          if (!saved)
-            throw new Error('OFFICE_SAVE_CANCELLED')
+          await session.save(validatePptx(data))
         }
         catch (error) {
-          throw new Error(error?.message === 'OFFICE_SAVE_CANCELLED' ? copy.cancelled : describe(error))
+          throw new Error(describe(error))
         }
       },
       // Save As leaves the open document untouched and exports a copy through the system dialog.
       async exportCopy(name, data) {
         context.signal.throwIfAborted()
         try {
-          return !!(await context.resources.saveFile({ name: /\.pptx$/i.test(name) ? name : resource.name, data: validatePptx(data) }))
+          copyExported = !!(await context.resources.saveFile({ name: /\.pptx$/i.test(name) ? name : resource.name, data: validatePptx(data) }))
+          return copyExported
         }
         catch (error) {
           throw new Error(describe(error))
@@ -162,6 +200,7 @@ export async function render(context, container) {
     await editor.ready
     context.signal.throwIfAborted()
     installSelectionMenu(context)
+    session.watch()
     reveal.ready(true)
     const appearance = context.onEnvironmentChange((environment) => {
       copy = messages[environment.language.startsWith('zh') ? 'zh' : 'en']

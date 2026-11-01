@@ -1,4 +1,5 @@
 import { installAutoSaveToggle } from './auto-save-toggle.js'
+import { documentMessages, openDocumentSession, showChoice } from './document-kit/document-session.js'
 import { readWholeFile } from './document-kit/read-file.js'
 import { registerReveal } from './document-kit/reveal.js'
 import { installOfficeToolbarNavigation } from './office-toolbar-navigation.js'
@@ -99,7 +100,11 @@ export async function render(context, container) {
   let preferenceSave = Promise.resolve()
   let editor = null
   let hideTimer = 0
-  const describe = error => /UNSUPPORTED|INVALID/.test(error?.message) ? copy().invalid : /RESOURCE_CHANGED|RESOURCE_UNAVAILABLE/.test(error?.message) ? copy().changed : copy().error
+  // The working copy of the file this view was opened for, and whether the editor holds unsaved edits.
+  let session = null
+  let dirty = false
+  const kit = () => documentMessages(context.environment.language)
+  const describe = error => /UNSUPPORTED|INVALID/.test(error?.message) ? copy().invalid : /RESOURCE_CHANGED|RESOURCE_UNAVAILABLE/.test(error?.message) ? copy().changed : error?.message === 'DOCUMENT_CONFLICT' ? kit().conflict : error?.message === 'DOCUMENT_READ_ONLY' ? kit().readOnly : copy().error
   const note = (text) => {
     say(text)
     clearTimeout(hideTimer)
@@ -136,6 +141,28 @@ export async function render(context, container) {
       throw new Error('OFFICE_INVALID_PDF')
     return bytes
   }
+  // The file is edited through the host's working copy: it refuses to replace a file that changed since it was read.
+  async function openOwn() {
+    session = await openDocumentSession(context, {
+      validate: (bytes) => {
+        if (bytes.length < 8 || bytes.length > MAX_PDF_BYTES)
+          throw new Error('OFFICE_UNSUPPORTED_PDF')
+        if (!isPdf(bytes))
+          throw new Error('OFFICE_INVALID_PDF')
+        return bytes
+      },
+      isDirty: () => dirty,
+      recover: async () => (await showChoice(container, context.signal, { message: kit().recover, buttons: [kit().recoverCopy, kit().recoverDiscard], cancelId: 0 })) === 0 ? 'copy' : 'discard',
+      ask: async () => (await showChoice(container, context.signal, { message: kit().changedAsk, buttons: [kit().reload, kit().copy], cancelId: 1 })) === 0 ? 'reload' : 'copy',
+      saveCopy: async () => !!(await editor?.saveAs()),
+      // The editor opens one file per page load: give the file back and start the page again to see the new content.
+      reload: async () => {
+        await session.discard()
+        globalThis.location.reload()
+      },
+    })
+    return session.bytes
+  }
   async function pickPdfs(multiple) {
     const files = await context.resources.pickFiles({ filters: [{ name: 'PDF', extensions: ['pdf'] }], multiple })
     const result = []
@@ -144,7 +171,7 @@ export async function render(context, container) {
     return result
   }
   async function mount(resource, writable) {
-    const bytes = await read(resource)
+    const bytes = writable ? await openOwn() : await read(resource)
     const base = new URL('./editor/', import.meta.url)
     const { mountPdf } = await import('./editor/editor.js')
     context.signal.throwIfAborted()
@@ -157,12 +184,15 @@ export async function render(context, container) {
       theme: context.environment.colorScheme,
       signal: context.signal,
       createWorker: () => context.workers.create(new URL('./editor/pdf-worker.js', import.meta.url), { type: 'module' }),
-      onDirty: () => {},
+      onDirty: (value) => { dirty = value },
       onSave: writable
         ? async (data) => {
-          const saved = await context.resources.saveFile({ name: resource.name, data, resource })
-          if (!saved)
-            throw new Error('OFFICE_SAVE_REFUSED')
+          try {
+            await session.save(data)
+          }
+          catch (error) {
+            throw new Error(describe(error))
+          }
         }
         : undefined,
       onExport: (name, data) => context.resources.saveFile({ name, data }),
@@ -194,9 +224,13 @@ export async function render(context, container) {
         void editor.saveAs().catch(error => say(describe(error), true))
       }
     }, { signal: context.signal })
-    if (writable)
+    if (writable) {
+      session.watch()
       say('')
-    else note(copy().readonly)
+    }
+    else {
+      note(copy().readonly)
+    }
   }
 
   try {

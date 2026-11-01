@@ -1,4 +1,5 @@
 import { createOfficeBridge } from './bridge.js'
+import { documentMessages, showChoice } from './document-kit/document-session.js'
 import { registerReveal } from './document-kit/reveal.js'
 import { suppressNativeContextMenu } from './native-context-menu.js'
 import { createQuoteReveal } from './reveal-quote.js'
@@ -62,15 +63,25 @@ export async function render(context, container) {
   suppressNativeContextMenu(context.signal)
   let discardDialog = null
   let discardResolve = null
-  const describeError = error => /^OFFICE_(?:INVALID|UNSUPPORTED)_DOCX$/.test(error?.message) ? copy.invalid : /RESOURCE_CHANGED|RESOURCE_UNAVAILABLE/.test(error?.message) ? copy.changed : copy.error
+  const kit = () => documentMessages(context.environment.language)
+  const describeError = error => /^OFFICE_(?:INVALID|UNSUPPORTED)_DOCX$/.test(error?.message) ? copy.invalid : /RESOURCE_CHANGED|RESOURCE_UNAVAILABLE/.test(error?.message) ? copy.changed : error?.message === 'DOCUMENT_CONFLICT' ? kit().conflict : error?.message === 'DOCUMENT_READ_ONLY' ? kit().readOnly : copy.error
+  const note = (text, alert = false) => {
+    status.textContent = text
+    status.setAttribute('role', alert ? 'alert' : 'status')
+    status.hidden = false
+  }
   const bridge = createOfficeBridge(context, {
     describeError,
     busy: () => {},
     file: () => { status.hidden = true },
     status: (value) => {
-      if (value === 'saved' || value === 'savedCopy')
+      if (value === 'saved' || value === 'savedCopy' || value === 'opened')
         status.hidden = true
+      else if (value === 'reloaded')
+        note(kit().reloaded)
     },
+    ask: async () => (await showChoice(container, context.signal, { message: kit().changedAsk, buttons: [kit().reload, kit().copy], cancelId: 1 })) === 0 ? 'reload' : 'copy',
+    recover: async () => (await showChoice(container, context.signal, { message: kit().recover, buttons: [kit().recoverCopy, kit().recoverDiscard], cancelId: 0 })) === 0 ? 'copy' : 'discard',
     error: (error) => {
       status.textContent = describeError(error)
       status.setAttribute('role', 'alert')

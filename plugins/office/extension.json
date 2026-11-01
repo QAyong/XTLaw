@@ -5,14 +5,14 @@
   "name": "Office DOCX",
   "author": "XTLaw官方",
   "description": "用文件管理器里的 DOCX 直接预览、编辑并保存。",
-  "version": "0.1.14",
+  "version": "0.1.15",
   "icon": "icon.svg",
   "categories": ["办公"],
   "tags": ["DOCX", "Word", "文档编辑"],
   "apiVersion": 4,
-  "engines": { "lexora": ">=0.1.0 <1.0.0" },
+  "engines": { "lexora": ">=0.4.9 <1.0.0" },
   "entry": "extension.js",
-  "permissions": { "selectedResource": "read", "selectedResourceWrite": true, "composerReference": true, "localResources": true, "resourceExport": true },
+  "permissions": { "selectedResource": "read", "fileEditing": true, "composerReference": true, "localResources": true, "resourceExport": true },
   "contributes": {
     "views": [
       { "id": "pd2ec0b9018e6402d8ada6873f7fa8721.office.editor", "title": "Office DOCX", "entry": "view.js", "resource": "none", "location": "context" },

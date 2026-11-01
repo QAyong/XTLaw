@@ -74,7 +74,7 @@ API 2 通过 `contributes.placements` 提供装饰、工作台面板与思考等
 
 1. 新建文件夹，写 `extension.json`：`apiVersion: 4`，`permissions.selectedResource: "read"`，一个 `resource: "selected-file"`、`location: "context"` 的视图并声明 `accepts.extensions`。需要引用、写回、另存为时再加对应权限，只声明实际用到的。
 2. 视图入口导出 `render(context, container)`，用 `context.resource` 和 `context.resources.readBytes` 读文件。**完整例子是 [`examples/csv-viewer`](examples/csv-viewer/)**：只读 CSV 查看器，选中单元格后引用到聊天，只用上表里已发布的能力。
-3. 可选的 [`document-kit`](document-kit/)：`read-file.js`（整文件读取并检测中途变化）、`zip-validate.js`（ZIP 类文档的安全校验，例如 DOCX、EPUB）、`quote.js`（通用引用，含与宿主一致的位置检查）。插件运行时必须自包含，所以用 `node extensions/document-kit/sync.mjs <插件文件夹>` 把它们复制进插件的 `document-kit/`，用 `--check` 可检查副本是否与原件一致。三个 Office 插件的工具栏分页等与具体编辑器绑定的代码不在共享范围内，各自保留。
+3. 可选的 [`document-kit`](document-kit/)：`read-file.js`（整文件读取并检测中途变化）、`zip-validate.js`（ZIP 类文档的安全校验，例如 DOCX、EPUB）、`quote.js`（通用引用，含与宿主一致的位置检查）。另有按需拷贝的 `document-session.js`（用 `--only` 指定）：经 `context.documents` 编辑选中的文件，发现磁盘上的文件被 AI 等外部修改后让用户选择重新加载或保留，保存被拒绝的内容作为恢复副本保留。插件运行时必须自包含，所以用 `node extensions/document-kit/sync.mjs <插件文件夹>` 把它们复制进插件的 `document-kit/`，用 `--check` 可检查副本是否与原件一致。三个 Office 插件的工具栏分页等与具体编辑器绑定的代码不在共享范围内，各自保留。
 
 ### 测试、打包、安装
 

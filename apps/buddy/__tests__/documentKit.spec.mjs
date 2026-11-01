@@ -230,6 +230,10 @@ describe('document kit sync', () => {
     expect(await documentKitDrift(fileURLToPath(new URL(`../../../plugins/${name}/`, import.meta.url)), ['reveal.js'])).toEqual([])
   })
 
+  it.each(['office', 'office-pptx', 'office-xlsx', 'office-pdf'])('%s ships the current document-session.js', async (name) => {
+    expect(await documentKitDrift(fileURLToPath(new URL(`../../../plugins/${name}/`, import.meta.url)), ['document-session.js'])).toEqual([])
+  })
+
   it('is the code the example plugin ships, and never a bundled plugin by itself', async () => {
     expect(await documentKitDrift(fileURLToPath(new URL('../extensions/examples/csv-viewer/', import.meta.url)))).toEqual([])
     expect(discoverBundledPlugins().map(plugin => plugin.name)).not.toContain('csv-viewer')

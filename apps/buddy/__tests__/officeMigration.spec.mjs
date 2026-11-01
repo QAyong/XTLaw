@@ -208,7 +208,7 @@ it('ships fonts but no PDF assets, workers, export routes or network permission'
     composerReference: true,
     localResources: true,
     resourceExport: true,
+    fileEditing: true,
     selectedResource: 'read',
-    selectedResourceWrite: true,
   })
 })

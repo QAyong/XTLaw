@@ -83,6 +83,7 @@ interface BrowserPageDeferred {
 
 interface BrowserPageSessionOptions {
   getFreezeDelay: (visible: boolean) => number | null
+  fetchFavicon?: (url: string, signal: AbortSignal) => Promise<string | null>
   onActivityError: () => void
   createId: () => string
   descriptor: DesktopBrowserGuestDescriptor
@@ -131,6 +132,7 @@ export class BrowserPageSession {
   #navigationDownloadGesture: { gesture: BrowserHumanGesture, revision: number } | null = null
   #lastBlockedNotice: { action: DesktopBrowserBlockedAction, at: number, message: string } | null = null
   #pickRequest: string | null = null
+  #faviconRequest: AbortController | null = null
   navigationSequence = 0
   page: BrowserPage | null = null
   #connection: BrowserDebugger | null = null
@@ -640,6 +642,8 @@ export class BrowserPageSession {
       this.invalidateElementReferences()
       if (gesture)
         this.#navigationDownloadGesture = { gesture, revision: this.documentVersion }
+      this.#faviconRequest?.abort()
+      this.#faviconRequest = null
       this.state.favicon = null
       const isIndependentNavigation = this.activeNavigationSequence === null
       if (isIndependentNavigation) {
@@ -675,8 +679,21 @@ export class BrowserPageSession {
       this.publish()
     })
     this.#listen(page, 'page-favicon-updated', (_event, favicons: string[]) => {
-      this.state.favicon = favicons.map(safeBrowserFavicon).find(Boolean) ?? null
+      const source = favicons.map(safeBrowserFavicon).find(Boolean) ?? null
+      this.#faviconRequest?.abort()
+      this.#faviconRequest = null
+      this.state.favicon = null
       this.publish()
+      if (!source || !this.#options.fetchFavicon)
+        return
+      const request = new AbortController()
+      this.#faviconRequest = request
+      void this.#options.fetchFavicon(source, request.signal).then((favicon) => {
+        if (request.signal.aborted || !favicon)
+          return
+        this.state.favicon = favicon
+        this.publish()
+      })
     })
     this.#listen(page, 'page-title-updated', (_event, title: string) => {
       this.state.title = title.slice(0, 512)
@@ -863,6 +880,8 @@ export class BrowserPageSession {
     this.networkAuthorization.dispose()
     this.cancelDownloads()
     this.state.viewport = null
+    this.#faviconRequest?.abort()
+    this.#faviconRequest = null
     this.state.favicon = null
     this.invalidateElementReferences()
     this.elementPicker?.dispose()

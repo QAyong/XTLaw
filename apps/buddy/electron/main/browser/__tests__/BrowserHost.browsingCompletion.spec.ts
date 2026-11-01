@@ -122,11 +122,25 @@ describe('browser browsing completion safety', () => {
     f.host.dispose()
   })
 
-  it('syncs safe favicon URLs and clears stale icons on navigation', async () => {
-    const f = await setup()
+  it('inlines the fetched favicon and clears stale icons on navigation', async () => {
+    const icon = 'data:image/png;base64,AAAA'
+    const fetchFavicon = vi.fn(async () => icon)
+    const f = await setup({ fetchFavicon })
     f.webContents.emit('page-favicon-updated', {}, ['javascript:alert(1)', 'https://example.com/icon.png'])
-    expect(f.host.getState(f.state.sessionId).favicon).toBe('https://example.com/icon.png')
+    await vi.waitFor(() => expect(f.host.getState(f.state.sessionId).favicon).toBe(icon))
+    expect(fetchFavicon).toHaveBeenCalledWith('https://example.com/icon.png', expect.any(AbortSignal))
     f.webContents.emit('did-start-navigation', {}, 'https://example.com/next', false, true)
+    expect(f.host.getState(f.state.sessionId).favicon).toBeNull()
+    f.host.dispose()
+  })
+
+  it('drops a favicon that arrives after the page navigated away', async () => {
+    let finish!: (icon: string) => void
+    const f = await setup({ fetchFavicon: () => new Promise<string>((resolve) => { finish = resolve }) })
+    f.webContents.emit('page-favicon-updated', {}, ['https://example.com/icon.png'])
+    f.webContents.emit('did-start-navigation', {}, 'https://example.com/next', false, true)
+    finish('data:image/png;base64,AAAA')
+    await Promise.resolve()
     expect(f.host.getState(f.state.sessionId).favicon).toBeNull()
     f.host.dispose()
   })

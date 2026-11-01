@@ -7,7 +7,7 @@ import { createTemporaryDirectory } from '@buddy-tests/temporaryDirectories'
 import { vi } from 'vitest'
 import { BrowserHost } from '../BrowserHost'
 
-export function createFixture(options: { showDialog?: (input: { type: 'alert' | 'confirm', message: string, origin: string }) => Promise<boolean>, operations?: BrowserOperationGuard, getDefaultZoomFactor?: () => number, getFreezeDelay?: (visible: boolean) => number | null, openExternal?: (url: string) => Promise<void>, selectFiles?: (input: { multiple: boolean }) => Promise<string[] | null> } = {}) {
+export function createFixture(options: { showDialog?: (input: { type: 'alert' | 'confirm', message: string, origin: string }) => Promise<boolean>, operations?: BrowserOperationGuard, getDefaultZoomFactor?: () => number, getFreezeDelay?: (visible: boolean) => number | null, fetchFavicon?: (url: string, signal: AbortSignal) => Promise<string | null>, openExternal?: (url: string) => Promise<void>, selectFiles?: (input: { multiple: boolean }) => Promise<string[] | null> } = {}) {
   const ids = Array.from({ length: 16 }, (_, index) => (
     `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`
   ))

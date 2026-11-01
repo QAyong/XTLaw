@@ -3,6 +3,7 @@ import type { BuddyExecutionProfile } from '../../../../../shared/permissions/ex
 import type { ToolExecutionPhaseChange } from '../../../../../shared/runs/toolExecutionPhase'
 import type { BuddyToolClassification } from '../../../approvals/toolClassification'
 import type { BuddyExtensionRunContext } from '../BuddyExtensionRunContext'
+import type { MutationToolOptions } from '../changeCaptureExtension'
 import { appendFile, mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -20,6 +21,7 @@ import { MutationRecoveryService } from '../../../changes/MutationRecoveryServic
 import { createMutationRepository } from '../../../changes/mutationRepository'
 import { ToolAuthorizationService } from '../../../permissions/ToolAuthorizationService'
 import { ToolExecutionPermissions } from '../../../permissions/ToolExecutionPermissions'
+import { createWslShellCapability, WSL_SHELL_TOOL_NAME } from '../../../sandbox/wslShellCapability'
 import { BuddyDataPaths } from '../../../storage/BuddyDataPaths'
 import { createConversationRepository } from '../../../storage/conversationRepository'
 import { openBuddyDatabase } from '../../../storage/database'
@@ -27,6 +29,7 @@ import { createRunRepository } from '../../../storage/runRepository'
 import { createMutationToolWrapper } from '../changeCaptureExtension'
 
 const cleanups: (() => Promise<void> | void)[] = []
+const wslMutationEffect = createWslShellCapability({ cwd: String.raw`\\wsl.localhost\Ubuntu-24.04\home\lenovo\code\Foo`, getRunContext: () => null }).mutationEffect
 afterEach(async () => {
   for (const cleanup of cleanups.splice(0).reverse()) await cleanup()
 })
@@ -52,6 +55,41 @@ describe('authorized mutation execution', () => {
       expect(fixture.mutations.getRunState('run-2')).toEqual({ pending: 0, active: 0, hazards: [] })
     }
     finally { active.release() }
+  })
+
+  it('runs the WSL shell in a separate directory beside a held workspace, without a process of its own', async () => {
+    const fixture = await setup()
+    const held = join(fixture.root, 'run-1')
+    const independent = join(fixture.root, 'run-2')
+    await writeFile(join(independent, 'result.txt'), 'BEFORE')
+    const active = await fixture.mutations.acquire({ runId: 'run-1', invocationId: 'held', lifetime: 'external', claims: [{ kind: 'tree', canonicalPath: held }], signal: new AbortController().signal })
+    try {
+      const actor = fixture.actor('run-2', async (path, content) => {
+        const invocation = fixture.mutations.getCurrentInvocation()!
+        expect(fixture.mutationRepository.listUnreleased().find(lease => lease.invocationId === invocation.invocationId)?.claims).toEqual([{ kind: 'tree', canonicalPath: independent }])
+        await writeFile(path, content)
+      }, WSL_SHELL_TOOL_NAME, { profile: 'full_access', workspaceRoot: independent, mutationEffect: wslMutationEffect })
+      await actor.execute({ path: join(independent, 'result.txt'), content: 'PARALLEL', timeout: 1 })
+      expect(await readFile(join(independent, 'result.txt'), 'utf8')).toBe('PARALLEL')
+      expect(fixture.mutations.getRunState('run-1').active).toBe(1)
+    }
+    finally { active.release() }
+  })
+
+  it('times out a WSL shell queued behind the same workspace without starting it', async () => {
+    const fixture = await setup()
+    const active = await fixture.mutations.acquire({ runId: 'run-1', invocationId: 'held', lifetime: 'external', claims: [{ kind: 'tree', canonicalPath: fixture.root }], signal: new AbortController().signal })
+    const actor = fixture.actor('run-2', (path, content) => writeFile(path, content), WSL_SHELL_TOOL_NAME, { profile: 'full_access', mutationEffect: wslMutationEffect })
+    const rejected = expect(actor.execute({ path: fixture.path, content: 'LATE_WRITE', timeout: 0.1 })).rejects.toThrow('SHELL_RESOURCE_TIMEOUT')
+    try {
+      await expect.poll(() => fixture.mutations.getRunState('run-2').pending).toBe(1)
+      expect(actor.phases).toContainEqual(expect.objectContaining({ phase: 'resource', waitingFor: expect.objectContaining({ runId: 'run-1', state: 'active' }) }))
+      await rejected
+    }
+    finally { active.release() }
+    await delay(20)
+    expect(await readFile(fixture.path, 'utf8')).toBe('A')
+    expect(fixture.mutations.getRunState('run-2')).toEqual({ pending: 0, active: 0, hazards: [] })
   })
 
   it.each(['timeout', 'cancel'] as const)('removes a full-access shell waiter on %s without any late writes', async (outcome) => {
@@ -418,7 +456,7 @@ async function setup(options: { afterCapture?: () => void, beforeFinish?: () => 
   const mutations = new MutationCoordinator({ repository: mutationRepository })
   cleanups.push(() => mutations.dispose())
   const grants = [{ canonicalRoot: root, root, grantId: 'workspace', kind: 'workspace' as const }]
-  function actor(runId: string, mutate: (path: string, content: string, signal?: AbortSignal, timeout?: number) => Promise<void>, toolName = 'mutate', toolOptions: { profile?: BuddyExecutionProfile, workspaceRoot?: string, readOnly?: boolean, signal?: AbortSignal, validateBeforeExecution?: BuddyToolClassification['validateBeforeExecution'] } = {}) {
+  function actor(runId: string, mutate: (path: string, content: string, signal?: AbortSignal, timeout?: number) => Promise<void>, toolName = 'mutate', toolOptions: { profile?: BuddyExecutionProfile, workspaceRoot?: string, readOnly?: boolean, signal?: AbortSignal, mutationEffect?: MutationToolOptions['mutationEffect'], validateBeforeExecution?: BuddyToolClassification['validateBeforeExecution'] } = {}) {
     const cwd = join(root, runId)
     const actorGrants = toolOptions.workspaceRoot ? [{ ...grants[0]!, root: toolOptions.workspaceRoot, canonicalRoot: toolOptions.workspaceRoot }] : grants
     const phases: ToolExecutionPhaseChange[] = []
@@ -443,6 +481,7 @@ async function setup(options: { afterCapture?: () => void, beforeFinish?: () => 
       getWorkspaceGrants: () => actorGrants,
       classify: async event => classify(event.input as { path: string }),
       workspaceMutationTools: [],
+      mutationEffect: toolOptions.mutationEffect,
       changes: {
         beginInvocation: async (input) => {
           const handle = await changes.beginInvocation(input)

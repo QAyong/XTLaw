@@ -11,6 +11,7 @@ import { randomUUID } from 'node:crypto'
 import { resolveFilePath } from '../../../../platform/filesystem/resolveFilePath'
 import { isToolClassificationFailure } from '../../approvals/toolClassification'
 import { ShellCommandDeadline } from '../../sandbox/ShellCommandDeadline'
+import { WSL_SHELL_TOOL_NAME } from '../../sandbox/wslShellCapability'
 import { isShellToolName } from './piBuiltinTools'
 
 export type BuddyToolWrapper = <Parameters extends TSchema, Details>(tool: ToolDefinition<Parameters, Details>) => ToolDefinition<Parameters, Details>
@@ -50,7 +51,7 @@ export function createMutationToolWrapper(options: MutationToolOptions): BuddyTo
       const run = options.getRunContext()
       if (!run)
         throw new Error('RUN_CONTEXT_UNAVAILABLE')
-      const deadline = isShellToolName(tool.name) || tool.name === 'lexora_host_shell' ? new ShellCommandDeadline((parameters as Record<string, unknown>).timeout) : undefined
+      const deadline = isShellToolName(tool.name) || tool.name === 'lexora_host_shell' || tool.name === WSL_SHELL_TOOL_NAME ? new ShellCommandDeadline((parameters as Record<string, unknown>).timeout) : undefined
       const executionSignal = AbortSignal.any([run.signal, ...signal ? [signal] : [], ...deadline ? [deadline.signal] : []])
       const event: ToolCallEvent = { type: 'tool_call', toolCallId, toolName: tool.name, input: parameters as Record<string, unknown>, signal: executionSignal }
       const phase = (phase: ToolExecutionPhase) => run.onToolExecutionPhase?.({ toolCallId, toolName: tool.name, phase })

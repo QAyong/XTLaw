@@ -55,10 +55,10 @@ describe('wsl shell capability', () => {
     expect(await setup('C:\\work').capability.classify(event, signal)).toBeNull()
   })
 
-  it('holds the workspace as a host mutation while it runs, with no process of its own to recover', () => {
+  it('holds the workspace directories, not the whole host, while it runs, with no process of its own to recover', () => {
     const { capability } = setup(wslRoot)
     expect(capability.workspaceMutationTools).toEqual([WSL_SHELL_TOOL_NAME])
-    expect(capability.mutationEffect!({ toolName: WSL_SHELL_TOOL_NAME } as never, {})).toEqual({ kind: 'host', ownedProcess: false })
+    expect(capability.mutationEffect!({ toolName: WSL_SHELL_TOOL_NAME } as never, {})).toEqual({ kind: 'workspace', ownedProcess: false })
     expect(capability.mutationEffect!({ toolName: 'bash' } as never, {})).toBeNull()
   })
 

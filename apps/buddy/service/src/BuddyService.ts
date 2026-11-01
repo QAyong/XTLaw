@@ -253,6 +253,7 @@ export interface StartBuddyServiceOptions {
 
 export interface BuddyServiceHandle {
   dispose: () => Promise<void>
+  prepareIdleShutdown: () => boolean
   runtime: BuddyRuntime
 }
 
@@ -1537,6 +1538,19 @@ export async function startBuddyService(
     })
     automationScheduler = scheduler
 
+    const isBusy = () => runner.hasActiveExecutions
+      || composerDraftService.hasPendingOperations
+      || chatTurnService.hasPendingOperations
+      || chatCommandService.hasPendingOperations
+      || chatQueueService!.hasPendingOperations
+      || dispatcher.hasPendingOperations
+      || runs.hasIncomplete()
+      || chatQueue.hasWaiting()
+      || approvalsRepository.listPending().some((approval) => {
+        const run = runs.findById(approval.runId)
+        return run?.status === 'queued' || run?.status === 'running'
+      })
+
     await host.step('runtime.recovery', async () => {
       await automationOccurrenceLifecycle.recoverPendingDeletions()
       await conversationLifecycle.recoverPendingDeletions()
@@ -1580,15 +1594,7 @@ export async function startBuddyService(
       )
       register(
         registerRunRpc({
-          isBusy: () => {
-            if (runner.hasActiveExecutions)
-              return true
-            return runs.hasIncomplete()
-              || approvalsRepository.listPending().some((approval) => {
-                const run = runs.findById(approval.runId)
-                return run?.status === 'queued' || run?.status === 'running'
-              })
-          },
+          isBusy,
           getCacheWarmingStatus: (conversationId) => {
             const conversation = conversations.findById(conversationId)
             const branchId = conversation?.activeBranchId
@@ -1742,7 +1748,21 @@ export async function startBuddyService(
       })
       return scheduler.start()
     }, ['runtime.rpc', 'runtime.execution'])
-    return { dispose: () => host.stop().finally(stopLifecycleDiagnostics), runtime }
+    return {
+      dispose: () => host.stop().finally(stopLifecycleDiagnostics),
+      prepareIdleShutdown() {
+        if (isBusy())
+          return false
+        void composerDraftService.dispose()
+        void chatTurnService.dispose()
+        void chatCommandService.dispose()
+        chatQueueService!.dispose()
+        void scheduler.dispose()
+        dispatcher.stop()
+        return true
+      },
+      runtime,
+    }
   }
   catch (error) {
     try {

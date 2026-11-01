@@ -171,9 +171,12 @@ export async function render(context, container) {
     return result
   }
   async function mount(resource, writable) {
+    // Load the editor code while the file is read; importing it has no side effects.
+    const loading = import('./editor/editor.js')
+    loading.catch(() => {})
     const bytes = writable ? await openOwn() : await read(resource)
     const base = new URL('./editor/', import.meta.url)
-    const { mountPdf } = await import('./editor/editor.js')
+    const { mountPdf } = await loading
     context.signal.throwIfAborted()
     editor = await mountPdf({
       container: root,

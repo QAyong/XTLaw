@@ -84,6 +84,12 @@ export async function render(context, container) {
     show(copy.empty)
     return
   }
+  // Fetch the editor code while the working copy is prepared. modulepreload only downloads: the module runs after the host globals below are set.
+  const preload = document.createElement('link')
+  preload.rel = 'modulepreload'
+  preload.href = new URL('./slides/slides.js', import.meta.url).href
+  document.head.append(preload)
+  links.push(preload)
   try {
     const { resource } = context
     let copyExported = false

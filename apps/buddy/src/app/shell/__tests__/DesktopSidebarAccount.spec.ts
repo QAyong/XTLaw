@@ -79,6 +79,9 @@ describe('desktopSidebarAccount', () => {
     expect(menuOption('检查更新')?.textContent).toContain('0.3.2')
     expect(document.body.querySelector('.desktop-sidebar-account-menu__device')?.textContent).toBe('Desktop')
     expect(segmentTab('跟随系统')).toBeDefined()
+    const menuIcons = [...document.body.querySelectorAll<SVGElement>('.desktop-sidebar-account-menu svg')]
+    expect(menuIcons.length).toBe(6)
+    expect(menuIcons.every(icon => icon.getAttribute('viewBox') === '0 0 20 20')).toBe(true)
 
     menuOption('设置')?.click()
     await settle()

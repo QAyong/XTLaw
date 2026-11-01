@@ -150,7 +150,7 @@ export function createDesktopWindow(options: CreateDesktopWindowOptions): Deskto
   })
 
   // Side buttons are browser back/forward. Hash history would otherwise leave the current page, often the chat, for the previous route.
-  window.webContents.on('app-command', (event, command) => {
+  window.on('app-command', (event, command) => {
     if (command === 'browser-backward' || command === 'browser-forward')
       event.preventDefault()
   })

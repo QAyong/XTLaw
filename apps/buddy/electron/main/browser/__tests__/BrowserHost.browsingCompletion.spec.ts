@@ -170,7 +170,11 @@ describe('browser browsing completion safety', () => {
 
   it('drops a favicon that arrives after the page navigated away', async () => {
     let finish!: (icon: string) => void
-    const f = await setup({ fetchFavicon: () => new Promise<string>((resolve) => { finish = resolve }) })
+    const f = await setup({
+      fetchFavicon: () => new Promise<string>((resolve) => {
+        finish = resolve
+      }),
+    })
     f.webContents.emit('page-favicon-updated', {}, ['https://example.com/icon.png'])
     f.webContents.emit('did-start-navigation', {}, 'https://example.com/next', false, true)
     finish('data:image/png;base64,AAAA')

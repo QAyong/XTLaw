@@ -169,7 +169,7 @@ describe('mouse history navigation', () => {
       rendererUrl: null,
     })
     const window = electron.FakeBrowserWindow.instances.at(-1)!
-    const handler = window.webContents.on.mock.calls.find(call => call[0] === 'app-command')?.[1] as ((event: { preventDefault: () => void }, command: string) => void) | undefined
+    const handler = window.listeners.get('app-command')?.[0] as ((event: { preventDefault: () => void }, command: string) => void) | undefined
     expect(handler).toBeTypeOf('function')
 
     const back = { preventDefault: vi.fn() }

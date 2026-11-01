@@ -46,6 +46,8 @@ describe('fetchBrowserFavicon', () => {
     await expect(fetchBrowserFavicon('https://example.com/a', async () => image('<html>', { 'content-type': 'text/html' }))).resolves.toBeNull()
     await expect(fetchBrowserFavicon('https://example.com/a', async () => image(new Uint8Array(BROWSER_FAVICON_MAX_BYTES + 1)))).resolves.toBeNull()
     await expect(fetchBrowserFavicon('https://example.com/a', async () => image(undefined, { 'content-type': 'image/png' }, 404))).resolves.toBeNull()
-    await expect(fetchBrowserFavicon('https://example.com/a', async () => { throw new Error('offline') })).resolves.toBeNull()
+    await expect(fetchBrowserFavicon('https://example.com/a', async () => {
+      throw new Error('offline')
+    })).resolves.toBeNull()
   })
 })

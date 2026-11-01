@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer'
 import { isIP } from 'node:net'
 
 export const BROWSER_FAVICON_MAX_BYTES = 32 * 1024

@@ -23,7 +23,7 @@ export class BrowserFaviconCache {
   recall(partition: string, origin: string): string | null {
     const icons = this.#entries.get(partition)
     const icon = icons?.get(origin)
-    if (!icon)
+    if (!icons || !icon)
       return null
     icons.delete(origin)
     icons.set(origin, icon)

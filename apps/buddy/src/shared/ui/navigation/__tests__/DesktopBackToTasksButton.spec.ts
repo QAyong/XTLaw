@@ -1,7 +1,7 @@
+import type { RouteRecordRaw } from 'vue-router'
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
 import { createApp, h, nextTick } from 'vue'
-import type { RouteRecordRaw } from 'vue-router'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import DesktopBackToTasksButton from '../DesktopBackToTasksButton.vue'
 

@@ -3,8 +3,8 @@ import { useRouter } from 'vue-router'
 import { useAutomationContext } from '@/modules/automations/automationContext'
 import DesktopAutomationEditor from '@/modules/automations/widgets/editor/DesktopAutomationEditor.vue'
 import { desktopRouteLocations } from '@/shared/navigation/desktopRoutes'
-import DesktopBackToTasksButton from '@/shared/ui/navigation/DesktopBackToTasksButton.vue'
 import { useDesktopUi } from '@/shared/ui/desktopUiContext'
+import DesktopBackToTasksButton from '@/shared/ui/navigation/DesktopBackToTasksButton.vue'
 import { useAutomationEditorRoute } from './useAutomationEditorRoute'
 
 const props = defineProps<{

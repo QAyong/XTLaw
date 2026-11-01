@@ -37,6 +37,7 @@ export default {
   'desktop.account.localNotice': 'Tasks, spaces, and settings remain completely on this device. Local features do not require an account.',
   'desktop.account.editProfile': 'Edit profile',
   'desktop.account.checkUpdates': 'Check for updates',
+  'desktop.account.getHelp': 'Get help',
   'desktop.account.saveAction': 'Save Changes',
   'desktop.account.saveSuccess': 'Profile updated',
   'desktop.account.saveFailed': 'Failed to save profile',

@@ -35,6 +35,7 @@ export default {
   'desktop.account.localNotice': '数据完整保存在本机，所有 AI 能力在本地或通过你配置的 Provider 运行，无需云端账号即可完整使用。',
   'desktop.account.editProfile': '编辑资料',
   'desktop.account.checkUpdates': '检查更新',
+  'desktop.account.getHelp': '获取帮助',
   'desktop.account.saveAction': '保存更改',
   'desktop.account.saveSuccess': '个人资料已更新',
   'desktop.account.saveFailed': '保存失败，请重试',

@@ -12,6 +12,7 @@ export const OFFICIAL_SITE_URL = 'https://xtlaw.qayong.site/'
 export const SITE_FEED_URL = new URL('feed/notices.json', OFFICIAL_SITE_URL).href
 export const FEEDBACK_ISSUE_URL = `${repositoryUrl.href}/issues/new`
 export const DOCUMENTATION_URL = new URL('guide/quick-start', buddyPackage.homepage).href
+export const HELP_URL = 'https://my.feishu.cn/wiki/EXMQw20OliQpMNkAUoacGv27nje?from=from_copylink'
 
 export function isOfficialSiteUrl(value: string): boolean {
   try {

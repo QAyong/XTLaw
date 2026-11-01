@@ -1,38 +1,21 @@
-import type { SpawnWsl, SpawnWslHelper, WslSearchProcess } from '../wslProcess'
-import { Buffer } from 'node:buffer'
-import { spawn, spawnSync } from 'node:child_process'
+import type { SpawnWsl, WslSearchProcess } from '../wslProcess'
+import type { Helper } from './wslFixtures'
 import { EventEmitter } from 'node:events'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import process from 'node:process'
 import { PassThrough } from 'node:stream'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { WSL_HELPER_VERSION } from '../wslHelperScript'
 import { WslHostPool } from '../WslHostPool'
 import { executeWslFind, executeWslGrep, executeWslLs } from '../wslSearch'
-
-const distribution = 'Ubuntu-24.04'
+import { distribution, FakeHelper, hasHelperStack, localHelper, sequence } from './wslFixtures'
 
 function text(result: { content: { text: string }[] }) {
   return result.content.map(item => item.text).join('\n')
 }
 
-// Runs `wsl.exe -d <distribution> --exec python3 -u -c <script> <idle>` as a local python3, so the real helper script
-// and the real rg and find are exercised. They are Linux tools, hence the skips elsewhere.
-type Helper = ReturnType<SpawnWslHelper>
-function localHelper(started: Helper[]): SpawnWslHelper {
-  return (_executable, args) => {
-    const [, , , program, ...rest] = args
-    const child = spawn(program!, rest, { stdio: ['pipe', 'pipe', 'pipe'] })
-    started.push(child)
-    return child
-  }
-}
-const python = process.platform !== 'win32' ? spawnSync('python3', ['-c', 'import asyncio; asyncio.get_running_loop; import sys; sys.exit(0 if sys.version_info >= (3, 7) else 1)']) : undefined
-const hasStack = python?.status === 0 && spawnSync('rg', ['--version']).status === 0 && spawnSync('find', ['.', '-maxdepth', '0', '-printf', 'x']).status === 0
-
-describe.skipIf(!hasStack)('wslHostPool with the real helper', () => {
+describe.skipIf(!hasHelperStack)('wslHostPool with the real helper', () => {
   let root: string
   let target: { distribution: string, linuxPath: string }
   let started: Helper[]
@@ -125,60 +108,6 @@ describe.skipIf(!hasStack)('wslHostPool with the real helper', () => {
     await expect(pool.run({ distribution, program: 'sh', args: ['-c', 'true'], separator: 10, successCodes: [0], onRecord: () => {} })).rejects.toThrow('sh is not allowed in the WSL helper')
   })
 })
-
-// A helper that is scripted rather than run: it writes frames and closes when the test says so.
-class FakeHelper {
-  readonly child: Helper
-  readonly requests: { id: number, program: string, args: string[], op?: string }[] = []
-  readonly #stdout = new PassThrough()
-  readonly #stderr = new PassThrough()
-  readonly #stdin = new PassThrough()
-
-  constructor(options: { ready?: unknown, onRequest?: (request: FakeHelper['requests'][number], helper: FakeHelper) => void } = {}) {
-    this.child = Object.assign(new EventEmitter(), { stdout: this.#stdout, stderr: this.#stderr, stdin: this.#stdin, kill: () => this.close(null) }) as unknown as Helper
-    let buffer = ''
-    this.#stdin.on('data', (chunk: Buffer) => {
-      buffer += chunk.toString()
-      for (let end = buffer.indexOf('\n'); end !== -1; end = buffer.indexOf('\n')) {
-        const request = JSON.parse(buffer.slice(0, end))
-        buffer = buffer.slice(end + 1)
-        this.requests.push(request)
-        options.onRequest?.(request, this)
-      }
-    })
-    this.#stdin.on('end', () => this.close(0))
-    if (options.ready !== null)
-      setImmediate(() => this.frame(options.ready ?? { t: 'ready', v: WSL_HELPER_VERSION }))
-  }
-
-  frame(value: unknown) {
-    this.#stdout.write(`${JSON.stringify(value)}\n`)
-  }
-
-  out(id: number, data: string) {
-    this.frame({ id, t: 'o', d: Buffer.from(data).toString('base64') })
-  }
-
-  stderr(data: string) {
-    this.#stderr.write(data)
-  }
-
-  close(code: number | null) {
-    setImmediate(() => this.child.emit('close', code))
-  }
-}
-
-function sequence(...helpers: FakeHelper[]) {
-  const calls: string[][] = []
-  const spawnProcess: SpawnWslHelper = (_executable, args) => {
-    calls.push(args)
-    const helper = helpers[calls.length - 1]
-    if (!helper)
-      throw new Error('No scripted helper left')
-    return helper.child
-  }
-  return { spawnProcess, calls }
-}
 
 // The one-shot runner a search falls back to, answering with one record.
 function oneShot(record: string, used: string[][] = []): SpawnWsl {

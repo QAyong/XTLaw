@@ -105,6 +105,7 @@ describe('buddySessionResources', () => {
       expect(directoryContext).toContain('Never pass a Linux path such as /home/... to a file tool')
       expect(directoryContext).toContain('INVALID_PATH, not PATH_NOT_FOUND')
       expect(directoryContext).toContain('Never inline such a script in PowerShell')
+      expect(directoryContext).toContain('when a lexora_wsl_shell tool is available, run commands for the working directory with it')
       expect(directoryContext).toContain('use grep, find and ls rather than a shell script')
       expect(directoryContext).not.toContain('git grep')
     })

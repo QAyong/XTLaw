@@ -11,16 +11,19 @@ import type { BuddySessionMode } from '../../../../shared/permissions/sessionMod
 import type { ApprovalService } from '../../approvals/ApprovalService'
 import type { BuddyToolClassificationResult } from '../../approvals/toolClassification'
 import type { AttachmentService } from '../../attachments/AttachmentService'
+import type { ImageBlobStore } from '../../attachments/ImageBlobStore'
 import type { ChangeCaptureService } from '../../changes/ChangeCaptureService'
 import type { MutationCoordinator } from '../../changes/MutationCoordinator'
 import type { DirectoryGrantService } from '../../directories/DirectoryGrantService'
 import type { DirectoryGrant } from '../../directories/resolveGrantedPath'
 import type { FileResourceCoordinator } from '../../files/FileResourceCoordinator'
+import type { ImageReadingMaterialWriter } from '../../images/ImageReadingMaterialStore'
 import type { ImageReadingService } from '../../images/ImageReadingService'
 import type { NetworkPermissionsStore } from '../../permissions/NetworkPermissionsClient'
 import type { ShellSandboxClient } from '../../sandbox/ShellSandboxClient'
 import type { ExtensionShellRegistry } from '../../sandbox/ShellSelection'
 import type { BuddyInputReferenceStore } from '../context/BuddyInputReference'
+import type { CodemodeWorkerPool } from '../execution/CodemodeWorkerPool'
 import type { ExecutionDelegationService } from '../execution/ExecutionDelegationService'
 import type { BuddyCapability, BuddyCapabilityFactory, BuddyCapabilityResourceRevision } from './BuddyCapability'
 import type { BuddyExtensionRunContext, BuddyExtensionRunContextStore } from './BuddyExtensionRunContext'
@@ -29,6 +32,7 @@ import type { BuddyToolExposureResolver } from './discovery/toolDiscoveryContrac
 import { copyEventSnapshot } from '../../../../shared/events/eventSnapshot'
 import { createCapturedFileWriter } from '../../changes/CapturedFileWriter'
 import { SessionDirectoryGrants } from '../../directories/SessionDirectoryGrants'
+import { createImageReadingCapability } from '../../images/imageReadingExtension'
 import { observeSessionPermissions } from '../../permissions/observeSessionPermissions'
 import { ToolAuthorizationService } from '../../permissions/ToolAuthorizationService'
 import { ToolExecutionPermissions } from '../../permissions/ToolExecutionPermissions'
@@ -51,6 +55,7 @@ import { createModelSwitchExtension } from './modelSwitchExtension'
 import { createToolPolicyExtension } from './toolPolicyExtension'
 
 export interface BuddySessionExtensionServices {
+  codemodeWorkers: CodemodeWorkerPool
   getInputProjection?: (conversationId: string, messageId: string) => Pick<BuddyUserMessageContentV1, 'materialProjection' | 'resourceSnapshots'> | null
   networkPermissions?: NetworkPermissionsStore
   imageReading?: Pick<ImageReadingService, 'read' | 'allowsNativeInput'>
@@ -73,6 +78,8 @@ export interface BuddySessionExtensionServices {
 }
 
 export interface CreateBuddySessionExtensionsOptions {
+  imageStore?: ImageBlobStore
+  writeImageMaterial?: ImageReadingMaterialWriter
   actorKind?: 'actor' | 'npc'
   approvalPolicy: BuddyApprovalPolicy
   canonicalRoot: string
@@ -114,7 +121,24 @@ export async function createBuddySessionExtensions(
   const runContext: BuddyExtensionRunContextStore = { current: null }
   let permissionSettings: BuddyPermissionSettings = { approvalPolicy: options.approvalPolicy, executionProfile: options.executionProfile }
   let codemodeEnabled = false
-  const codemode = createCodemodeCapability(() => codemodeEnabled)
+  const codemode = createCodemodeCapability(() => codemodeEnabled, {
+    async acquireWorker(toolCallId, signal) {
+      const run = runContext.current
+      if (!run)
+        throw new Error('RUN_CONTEXT_UNAVAILABLE')
+      const release = await services.codemodeWorkers.acquire(signal, () => {
+        run.onToolExecutionPhase?.({ toolCallId, toolName: 'codemode', phase: 'queued' })
+      })
+      try {
+        run.onToolExecutionPhase?.({ toolCallId, toolName: 'codemode', phase: 'executing', executionBasis: 'tool' })
+        return release
+      }
+      catch (error) {
+        release()
+        throw error
+      }
+    },
+  })
   const fileAccessLimit = options.fileAccessLimit ?? 'inherit'
   const getExecutionProfile = () => fileAccessLimit === 'read_only' ? 'read_only' : permissionSettings.executionProfile
   const inputReferences: BuddyInputReferenceStore = { pending: null }
@@ -207,6 +231,15 @@ export async function createBuddySessionExtensions(
       sessionMode: options.sessionMode,
       signal: lifetime.signal,
     }))
+    if (services.imageReading && options.imageStore && options.writeImageMaterial) {
+      capabilities.push(createImageReadingCapability({
+        cwd: options.canonicalRoot,
+        store: options.imageStore,
+        writeMaterial: options.writeImageMaterial,
+        readImage: input => services.imageReading!.read({ ...input, runId: runContext.current?.runId, preferences: runContext.current?.imagePreferences }),
+        getGrants: toolCallId => [...grants.snapshot, ...executionPermissions.get(runContext.current, toolCallId)],
+      }))
+    }
     const shells = await services.shells?.snapshot(lifetime.signal)
     const shellCapability = createShellCapability({
       shells,

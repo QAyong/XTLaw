@@ -131,10 +131,8 @@ async function confirmSetup() {
             :aria-description="boundaryWarning ? t(`desktop.chat.shellSandboxStatus.${sandboxStatus}`) : t(selected.label)"
             :aria-expanded="popoverOpen"
           >
-            <template #icon>
-              <DesktopIcon :component="selected.icon" />
-            </template>
-            <span class="desktop-permission-mode-selector__trigger-label">
+            <DesktopIcon :component="selected.icon" :size="16" />
+            <span class="desktop-permission-mode-selector__trigger-label translate-y-px">
               {{ t(selected.label) }}
             </span>
             <NTooltip v-if="boundaryWarning" placement="top" :disabled="popoverOpen">
@@ -259,18 +257,14 @@ async function confirmSetup() {
     outline-offset: -2px;
   }
 
-  :deep(.n-button__icon) {
-    margin: var(--composer-permission-icon-margin, 0 6px 0 0);
+  :deep(.n-button__content) {
+    min-width: 0;
+    gap: var(--composer-permission-gap, 0.3rem);
   }
 
   &.is-full-access {
+    background-color: var(--buddy-status-danger-surface);
     color: var(--buddy-status-danger-text);
-
-    &:hover,
-    &:focus-visible,
-    &[aria-expanded='true'] {
-      background-color: var(--buddy-nav-hover);
-    }
   }
 }
 

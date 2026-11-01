@@ -23,10 +23,11 @@ const views = computed(() => [
   { value: 'year', label: t('usageAnalytics.yearly') },
 ])
 const buckets = computed(() => props.trend.buckets.value)
+const request = computed(() => props.trend.displayRequest.value)
 const hasRecords = computed(() => buckets.value.some(bucket => bucket.recordCount > 0))
 const labels = computed(() => {
-  const timeZone = props.trend.request.value.timeZone
-  const hourly = props.trend.view.value === 'day'
+  const timeZone = request.value.timeZone
+  const hourly = request.value.granularity === 'hour'
   const number = new Intl.NumberFormat(props.language)
   const date = new Intl.DateTimeFormat(props.language, { dateStyle: 'medium', timeZone })
   const hour = new Intl.DateTimeFormat(props.language, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZoneName: 'shortOffset', timeZone })
@@ -42,8 +43,8 @@ const option = computed<UsageChartOption>(() => {
   const colors = theme.value
   const number = new Intl.NumberFormat(props.language, { notation: 'compact', maximumFractionDigits: 1 })
   const date = new Intl.DateTimeFormat(props.language, {
-    timeZone: props.trend.request.value.timeZone,
-    ...(props.trend.view.value === 'day' ? { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' as const } : { month: 'short', day: 'numeric' }),
+    timeZone: request.value.timeZone,
+    ...(request.value.granularity === 'hour' ? { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' as const } : { month: 'short', day: 'numeric' }),
   })
   const axisLabels = new Map(buckets.value.map(bucket => [bucket.startAt, date.format(new Date(bucket.startAt))]))
   return {
@@ -73,7 +74,7 @@ const option = computed<UsageChartOption>(() => {
 })
 const activeIndex = shallowRef<number | null>(null)
 const { showTip, hideTip } = useUsageChart(chart, option)
-watch(buckets, () => activeIndex.value = null)
+watch([buckets, () => props.trend.loading.value], dismiss)
 function isDateDisabled(timestamp: number) {
   const date = localUsageDate(new Date(timestamp))
   return date < props.trend.annual.value.startDate || date > props.trend.annual.value.endDate
@@ -103,20 +104,21 @@ function navigate(event: KeyboardEvent) {
 </script>
 
 <template>
-  <section class="usage-trend" :data-view="trend.view.value">
+  <section class="usage-trend" :data-view="trend.view.value" :aria-busy="trend.loading.value">
     <header class="usage-trend__heading">
       <div>
         <h3 :id="headingId">
           {{ t('usageAnalytics.trend') }}
         </h3>
         <p class="usage-trend__range">
-          {{ trend.request.value.startDate }}<template v-if="trend.request.value.startDate !== trend.request.value.endDate">
-            — {{ trend.request.value.endDate }}
+          {{ request.startDate }}<template v-if="request.startDate !== request.endDate">
+            — {{ request.endDate }}
           </template>
+          <span v-if="trend.loading.value && trend.hasSnapshot.value" class="ml-[8px]" role="status">{{ t('usageAnalytics.updating') }}</span>
         </p>
       </div>
       <div class="usage-trend__controls">
-        <label v-if="trend.view.value !== 'year'" class="usage-trend__date">
+        <label v-if="trend.view.value === 'day'" class="usage-trend__date">
           <span class="usage-trend__accessible">{{ t('usageAnalytics.trendDate') }}</span>
           <NDatePicker
             :formatted-value="trend.date.value" type="date" size="small" value-format="yyyy-MM-dd"
@@ -130,8 +132,8 @@ function navigate(event: KeyboardEvent) {
         </NRadioGroup>
       </div>
     </header>
-    <DesktopPaneBoundary :loading="trend.loading.value" :error="trend.error.value" :label="t('desktop.loading.pane')" :retry-label="t('desktop.loading.retry')" @retry="trend.retry">
-      <div class="usage-trend__plot">
+    <DesktopPaneBoundary :loading="trend.loading.value && !trend.hasSnapshot.value" :error="trend.error.value" :label="t('desktop.loading.pane')" :retry-label="t('desktop.loading.retry')" @retry="trend.retry">
+      <div class="usage-trend__plot" :inert="trend.loading.value">
         <div
           ref="chart" class="usage-trend__chart" role="group" tabindex="0" :aria-labelledby="headingId" :aria-describedby="helpId"
           @focus="inspect(buckets.length - 1)" @blur="dismiss" @keydown="navigate" @pointerleave="dismiss"

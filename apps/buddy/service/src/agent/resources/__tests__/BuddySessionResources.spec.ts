@@ -105,7 +105,8 @@ describe('buddySessionResources', () => {
       expect(directoryContext).toContain('Never pass a Linux path such as /home/... to a file tool')
       expect(directoryContext).toContain('INVALID_PATH, not PATH_NOT_FOUND')
       expect(directoryContext).toContain('Never inline such a script in PowerShell')
-      expect(directoryContext).toContain('git grep')
+      expect(directoryContext).toContain('use grep, find and ls rather than a shell script')
+      expect(directoryContext).not.toContain('git grep')
     })
 
     it('also notes a WSL directory that is only an additional directory', async () => {

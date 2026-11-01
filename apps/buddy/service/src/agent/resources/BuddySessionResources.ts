@@ -158,7 +158,7 @@ function createWslNotes(directories: readonly (string | undefined)[]): string[] 
     'Shell: PowerShell by default, with no WSL shell. Run commands for these directories inside WSL, with Linux paths.',
     `- One command whose arguments contain no $, quotes or pipes: ${command} --exec <program> <args>`,
     `- Anything with $, |, quotes, bash -c or several statements: use the write tool to save a bash script with LF line endings at \\\\wsl.localhost\\${first.distribution}\\tmp\\<unique-name>.sh, run it with ${command} --exec bash /tmp/<unique-name>.sh, then delete it. Never inline such a script in PowerShell; it expands $ before bash sees it.`,
-    '- To search the whole repository, run git grep inside such a script. Do not point grep or find at the repository root: over \\\\wsl.localhost it also walks .git and times out. After a timeout, narrow the directory instead of retrying unchanged.',
+    '- To search, use grep, find and ls rather than a shell script: they run inside WSL with ripgrep, so they stay fast on the whole repository and skip .git. They need ripgrep in the distribution (sudo apt install ripgrep); find lists files, not directories.',
     'Use read/write/edit for file changes. These commands run on the host outside the shell sandbox and need host approval.',
   ]
 }

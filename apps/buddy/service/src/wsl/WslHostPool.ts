@@ -349,7 +349,7 @@ export class WslHostPool {
     for (let attempt = 0; ; attempt++) {
       const connection = await host.acquire()
       if (!connection)
-        throw new Error(`Commands cannot run in the WSL distribution ${request.distribution}: its helper did not start${host.reason ? ` (${host.reason})` : ''}. Python 3.7 or later (python3) must be installed there.`)
+        throw new Error(`Commands cannot run in the WSL distribution ${request.distribution}: its helper did not start${host.reason ? ` (${host.reason})` : ''}. Python 3.7 or later (python3) must be installed there, for example: sudo apt install python3`)
       try {
         return await connection.shell(request)
       }

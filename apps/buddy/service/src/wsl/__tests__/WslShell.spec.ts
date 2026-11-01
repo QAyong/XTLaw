@@ -154,7 +154,7 @@ describe('wslHostPool shell when the helper misbehaves', () => {
     })
     const { spawnProcess, calls } = sequence(helper)
     const pool = new WslHostPool({ spawnProcess })
-    await expect(pool.shell(shellRequest())).rejects.toThrow(/Commands cannot run in the WSL distribution Ubuntu-24\.04.*execvpe\(python3\).*python3/s)
+    await expect(pool.shell(shellRequest())).rejects.toThrow(/Commands cannot run in the WSL distribution Ubuntu-24\.04.*execvpe\(python3\).*python3.*sudo apt install python3/s)
     expect(calls).toHaveLength(1)
     await pool.dispose()
   })

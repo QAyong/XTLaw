@@ -16,7 +16,6 @@ export const ONBOARDING_DEFAULT_AVATAR = 'preset:actor-xiaoxiao'
 export interface OnboardingPreferences {
   updateNotificationsEnabled: boolean
   autoDownloadUpdates: boolean
-  petEnabled: boolean
 }
 
 export function useDesktopOnboarding(options: {
@@ -36,7 +35,7 @@ export function useDesktopOnboarding(options: {
   const busy = shallowRef(false)
   const reading = shallowRef(false)
   const error = shallowRef<BuddyI18nKey | null>(null)
-  const preferences = shallowRef<OnboardingPreferences>({ updateNotificationsEnabled: true, autoDownloadUpdates: true, petEnabled: true })
+  const preferences = shallowRef<OnboardingPreferences>({ updateNotificationsEnabled: true, autoDownloadUpdates: true })
   const disabled = computed(() => busy.value || reading.value)
   const canContinue = computed(() => !disabled.value && !!original.value && !!name.value.trim() && error.value !== 'onboarding.buddyConflict')
   let initializedPreferences = false
@@ -61,7 +60,7 @@ export function useDesktopOnboarding(options: {
     if (!config)
       return
     initializedPreferences = true
-    preferences.value = { updateNotificationsEnabled: config.desktop.updateNotificationsEnabled, autoDownloadUpdates: config.desktop.autoDownloadUpdates, petEnabled: config.pet.enabled }
+    preferences.value = { updateNotificationsEnabled: config.desktop.updateNotificationsEnabled, autoDownloadUpdates: config.desktop.autoDownloadUpdates }
   }
   watch(settings.config, () => {
     if (!initializedPreferences)
@@ -161,8 +160,7 @@ export function useDesktopOnboarding(options: {
     busy.value = true
     error.value = null
     try {
-      const { petEnabled, ...desktop } = preferences.value
-      if (!await settings.updateSettings({ desktop: { ...desktop, onboardingCompleted: true }, pet: { enabled: petEnabled } })) {
+      if (!await settings.updateSettings({ desktop: { ...preferences.value, onboardingCompleted: true } })) {
         error.value = 'onboarding.saveFailed'
         return
       }

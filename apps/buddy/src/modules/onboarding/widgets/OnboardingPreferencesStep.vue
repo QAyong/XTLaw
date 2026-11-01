@@ -14,7 +14,6 @@ const focused = shallowRef<string | null>(null)
 const toggles = computed(() => [
   { field: 'updateNotificationsEnabled' as const, label: t('desktop.update.autoCheck'), description: t('onboarding.autoCheckHint'), reason: props.capabilities?.automaticCheck ? null : t('desktop.update.autoCheckUnavailable') },
   { field: 'autoDownloadUpdates' as const, label: t('desktop.update.autoDownload'), description: t(preferences.value.updateNotificationsEnabled ? 'onboarding.autoDownloadHint' : 'desktop.update.autoDownloadPaused'), reason: props.capabilities?.download ? null : t('desktop.update.autoDownloadUnavailable') },
-  { field: 'petEnabled' as const, label: t('onboarding.pet'), description: t('onboarding.petHint'), reason: null },
 ])
 function update<K extends keyof OnboardingPreferences>(key: K, value: OnboardingPreferences[K]) {
   preferences.value = { ...preferences.value, [key]: value }

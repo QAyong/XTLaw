@@ -2,7 +2,7 @@ import type { ExtensionWorkbenchEvent } from '../../../shared/extensions/extensi
 import type { ExtensionServicePorts } from '../ExtensionService'
 import { Buffer } from 'node:buffer'
 import { randomUUID } from 'node:crypto'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, expect, it } from 'vitest'
@@ -138,7 +138,8 @@ it('keeps the earlier DOCX, PPTX and XLSX quote shapes working for matching file
 })
 
 it('quotes against the working copy of a file the view edits, and refuses once the file changed on disk', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'lexora-quote-'))
+  // Working copies are bound to the canonical path, which differs from tmpdir() on macOS (/var) and Windows (8.3 names).
+  const directory = await realpath(await mkdtemp(join(tmpdir(), 'lexora-quote-')))
   cleanup.push(() => rm(directory, { recursive: true, force: true }))
   const file = join(directory, 'book.xlsx')
   await writeFile(file, 'first version')

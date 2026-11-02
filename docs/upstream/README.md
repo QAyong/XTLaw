@@ -10,7 +10,7 @@
 
 ## 当前记录
 
-- [上游集成记录：2026-11-02](upstream-20261102-integration.md)
+- [上游集成记录：2026-11-02](upstream-20261102-integration.md)（另有 [第二轮](upstream-20261102-2-integration.md)、[第三轮](upstream-20261102-3-integration.md)、[第四轮](upstream-20261102-4-integration.md)）
 - [上游集成记录：2026-10-27](upstream-20261027-integration.md)
 - [上游集成记录：2026-10-26](upstream-20261026-integration.md)
 - [上游集成记录：2026-10-25](upstream-20261025-integration.md)（另有 [第二轮](upstream-20261025-2-integration.md)、[第三轮](upstream-20261025-3-integration.md)）

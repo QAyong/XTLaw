@@ -12,8 +12,8 @@ const MAX_TIMEOUT_MS = 2_147_483_647
 
 // Runs a bash command inside the WSL distribution of the working directory, through the resident helper. It is a host-level
 // tool like lexora_host_shell: a Linux process is outside the Windows sandbox, so it is denied in read-only mode, always asks
-// unless the profile is full access, and holds the workspace authorization directories as a mutation while it runs, so commands
-// in other workspaces run in parallel; its timeout covers the wait for that lock. The command is passed as one
+// unless the profile is full access, and is observed as a mutation while it runs rather than locking the workspace, so it runs
+// alongside other commands and file tools; changes that overlap it are recorded as partial. The command is passed as one
 // argument all the way to `bash -lc`, so nothing is quoted for PowerShell and no temporary script is needed.
 // It is offered only when the working directory is in WSL.
 export function createWslShellCapability(options: {
@@ -67,7 +67,7 @@ export function createWslShellCapability(options: {
           ...native,
           name: WSL_SHELL_TOOL_NAME,
           label: 'WSL shell',
-          description: `Run a bash command inside the WSL distribution ${workspace.distribution}, in the current working directory, with Linux paths. The command runs as the distribution's own user with the PATH of its login shell (nvm, cargo and similar tools are found), outside the Windows sandbox. It is noninteractive and has no terminal. Optional timeout in seconds includes resource waiting after authorization. Commands in different workspaces may run concurrently; coordinate access to shared files outside the workspace. ${native.description}`,
+          description: `Run a bash command inside the WSL distribution ${workspace.distribution}, in the current working directory, with Linux paths. The command runs as the distribution's own user with the PATH of its login shell (nvm, cargo and similar tools are found), outside the Windows sandbox. It is noninteractive and has no terminal. Optional timeout in seconds includes resource waiting after authorization. Commands and file tools may run concurrently in the same workspace. Coordinate writes to shared files and repository metadata; a running command does not lock the workspace. ${native.description}`,
           promptSnippet: 'Run a bash command inside WSL',
           promptGuidelines: [
             `Use ${WSL_SHELL_TOOL_NAME} for commands in the WSL working directory: write the command for bash with Linux paths. Do not run wsl.exe through another shell, quote for PowerShell, or write a temporary script file.`,

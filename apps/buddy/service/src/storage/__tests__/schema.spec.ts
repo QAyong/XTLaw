@@ -151,7 +151,7 @@ describe('buddy schema', { timeout: MIGRATION_TEST_TIMEOUT }, () => {
     expect(reopened.prepare('SELECT * FROM runs ORDER BY id').all()).toEqual(before.runs)
   })
 
-  it('marks the actor identity format upgrade without rewriting legacy execution snapshots', () => {
+  it('upgrades identity and input formats without rewriting queued input, execution snapshots or history', () => {
     const directory = mkdtempSync(join(tmpdir(), 'buddy-actor-identity-migration-'))
     directories.push(directory)
     const databasePath = join(directory, 'buddy.sqlite3')
@@ -159,6 +159,8 @@ describe('buddy schema', { timeout: MIGRATION_TEST_TIMEOUT }, () => {
     for (const migration of BUDDY_SCHEMA_MIGRATIONS.filter(migration => migration.version <= 35))
       previous.exec(migration.sql)
     seedRun(previous)
+    const legacy = JSON.stringify({ buddyId: 'default', userMessageContent: { text: 'Keep this queued input' }, requestId: 'legacy' }, null, 2)
+    previous.prepare('INSERT INTO chat_queue (id, conversation_id, branch_id, request_id, request_fingerprint, prepared_json, state, created_at) VALUES (?, \'conversation-1\', \'branch-1\', ?, ?, ?, \'paused\', ?)').run('legacy', 'legacy', 'legacy-fingerprint', legacy, '2026-10-27T00:00:00.000Z')
     const settings = previous.prepare('SELECT settings_json FROM buddies WHERE id = ?').get('default')!.settings_json
     const configuration = { version: 1, id: 'default', kind: 'actor', revision: 1, settings: JSON.parse(String(settings)) }
     const actorSnapshot = JSON.stringify({ ...configuration, model: { providerId: 'fixture', modelId: 'model', reasoning: null, serviceTier: null }, modelSource: 'application' }, null, 2)
@@ -180,19 +182,23 @@ describe('buddy schema', { timeout: MIGRATION_TEST_TIMEOUT }, () => {
         automation_revision, execution_snapshot_json, status, queued_at, actor_snapshot_json
       ) VALUES (?, ?, ?, 'scheduled', ?, 1, ?, 'queued', ?, ?)
     `).run('occurrence-1', 'automation-1', 'scheduled-review', '2026-10-27T00:00:00.000Z', JSON.stringify({ actorId: 'default', executionProfile: 'workspace_write', model: { mode: 'default' }, name: 'Scheduled review', prompt: 'Review', spaceId: null }), '2026-10-26T00:00:00.000Z', automationSnapshot)
+    const before = ['chat_queue', 'messages', 'runs', 'automation_occurrences'].map(table => ({
+      table,
+      rows: previous.prepare(`SELECT * FROM ${table} ORDER BY id`).all(),
+    }))
     previous.exec('PRAGMA user_version = 35')
     previous.close()
 
-    const migrated = openBuddyDatabase({ databasePath })
-    expect(migrated.prepare('PRAGMA user_version').get()).toEqual({ user_version: BUDDY_SCHEMA_VERSION })
-    expect(migrated.prepare('SELECT actor_snapshot_json FROM runs WHERE id = ?').get('run-1')).toEqual({ actor_snapshot_json: actorSnapshot })
-    expect(migrated.prepare('SELECT actor_snapshot_json FROM automation_occurrences WHERE id = ?').get('occurrence-1')).toEqual({ actor_snapshot_json: automationSnapshot })
-    expect(migrated.prepare('PRAGMA foreign_key_check').all()).toEqual([])
-    migrated.close()
-    const reopened = openBuddyDatabase({ databasePath })
-    databases.push(reopened)
-    expect(reopened.prepare('SELECT actor_snapshot_json FROM runs WHERE id = ?').get('run-1')).toEqual({ actor_snapshot_json: actorSnapshot })
-    expect(reopened.prepare('SELECT actor_snapshot_json FROM automation_occurrences WHERE id = ?').get('occurrence-1')).toEqual({ actor_snapshot_json: automationSnapshot })
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const migrated = openBuddyDatabase({ databasePath })
+      try {
+        expect(migrated.prepare('PRAGMA user_version').get()).toEqual({ user_version: BUDDY_SCHEMA_VERSION })
+        for (const { table, rows } of before)
+          expect(migrated.prepare(`SELECT * FROM ${table} ORDER BY id`).all(), table).toEqual(rows)
+        expect(migrated.prepare('PRAGMA foreign_key_check').all()).toEqual([])
+      }
+      finally { migrated.close() }
+    }
   })
 
   it('upgrades capture coverage without rewriting historical file snapshots or invocation identities', () => {
@@ -350,7 +356,7 @@ describe('buddy schema', { timeout: MIGRATION_TEST_TIMEOUT }, () => {
     previous.close()
     const migrated = openBuddyDatabase({ databasePath })
     databases.push(migrated)
-    expect(migrated.prepare('SELECT * FROM provider_model_states').get()).toEqual({ ...original, model_type: 'chat', type_override: null })
+    expect(migrated.prepare('SELECT * FROM provider_model_states').get()).toEqual({ ...original, model_type: 'chat', type_override: null, resolution_json: null })
     expect(() => migrated.exec('UPDATE provider_model_states SET context_window = NULL, max_tokens = NULL')).toThrow()
     migrated.exec('UPDATE provider_model_states SET model_type = \'speech\', context_window = NULL, max_tokens = NULL')
     expect(migrated.prepare('SELECT model_type, context_window, max_tokens FROM provider_model_states').get()).toEqual({ model_type: 'speech', context_window: null, max_tokens: null })
@@ -393,20 +399,20 @@ describe('buddy schema', { timeout: MIGRATION_TEST_TIMEOUT }, () => {
       ...config,
       builtin_provider_id: config.builtin_provider_id === 'azure-openai-responses' ? 'azure' : config.builtin_provider_id,
     })))
-    expect(tables.map(table => upgraded.prepare(`SELECT * FROM ${table}`).all())).toEqual(before.map((rows, index) => ['runs', 'conversations'].includes(tables[index]!) ? rows.map(row => ({ ...row, buddy_id: 'default', ...(tables[index] === 'runs' ? { actor_snapshot_json: null, model_override_json: null, root_run_id: row.id, parent_run_id: null, execution_kind: 'root', thread_id: 'actor:["conversation-1","default"]', generation: 0, scheduling_lane: 'conversation' } : {}) })) : rows.map(row => ({ ...row, ...(tables[index] === 'provider_model_states' ? { service_metadata_json: null, model_type: 'chat', type_override: null } : {}) }))))
+    expect(tables.map(table => upgraded.prepare(`SELECT * FROM ${table}`).all())).toEqual(before.map((rows, index) => ['runs', 'conversations'].includes(tables[index]!) ? rows.map(row => ({ ...row, buddy_id: 'default', ...(tables[index] === 'runs' ? { actor_snapshot_json: null, model_override_json: null, root_run_id: row.id, parent_run_id: null, execution_kind: 'root', thread_id: 'actor:["conversation-1","default"]', generation: 0, scheduling_lane: 'conversation' } : {}) })) : rows.map(row => ({ ...row, ...(tables[index] === 'provider_model_states' ? { service_metadata_json: null, model_type: 'chat', type_override: null, resolution_json: null } : {}) }))))
     upgraded.close()
     const reopened = openBuddyDatabase({ databasePath })
     databases.push(reopened)
-    expect(tables.map(table => reopened.prepare(`SELECT * FROM ${table}`).all())).toEqual(before.map((rows, index) => ['runs', 'conversations'].includes(tables[index]!) ? rows.map(row => ({ ...row, buddy_id: 'default', ...(tables[index] === 'runs' ? { actor_snapshot_json: null, model_override_json: null, root_run_id: row.id, parent_run_id: null, execution_kind: 'root', thread_id: 'actor:["conversation-1","default"]', generation: 0, scheduling_lane: 'conversation' } : {}) })) : rows.map(row => ({ ...row, ...(tables[index] === 'provider_model_states' ? { service_metadata_json: null, model_type: 'chat', type_override: null } : {}) }))))
+    expect(tables.map(table => reopened.prepare(`SELECT * FROM ${table}`).all())).toEqual(before.map((rows, index) => ['runs', 'conversations'].includes(tables[index]!) ? rows.map(row => ({ ...row, buddy_id: 'default', ...(tables[index] === 'runs' ? { actor_snapshot_json: null, model_override_json: null, root_run_id: row.id, parent_run_id: null, execution_kind: 'root', thread_id: 'actor:["conversation-1","default"]', generation: 0, scheduling_lane: 'conversation' } : {}) })) : rows.map(row => ({ ...row, ...(tables[index] === 'provider_model_states' ? { service_metadata_json: null, model_type: 'chat', type_override: null, resolution_json: null } : {}) }))))
     expect(reopened.prepare('PRAGMA foreign_key_check').all()).toEqual([])
   })
 
-  it.each([22, 23])('upgrades v%i with checkpoints without changing historical data', (version) => {
+  it('upgrades v23 with checkpoints without changing historical data', () => {
     const root = mkdtempSync(join(tmpdir(), 'buddy-checkpoint-migration-'))
     directories.push(root)
     const databasePath = join(root, 'buddy.sqlite3')
     const legacy = openMigrationFixtureDatabase(databasePath)
-    for (const migration of BUDDY_SCHEMA_MIGRATIONS.filter(migration => migration.version <= version)) {
+    for (const migration of BUDDY_SCHEMA_MIGRATIONS.filter(migration => migration.version <= 23)) {
       legacy.exec(migration.sql)
       legacy.exec(`PRAGMA user_version = ${migration.version}`)
     }
@@ -426,12 +432,12 @@ describe('buddy schema', { timeout: MIGRATION_TEST_TIMEOUT }, () => {
     expect(migrated.prepare('PRAGMA user_version').get()).toEqual({ user_version: BUDDY_SCHEMA_VERSION })
   })
 
-  it('rejects a current database missing checkpoint invalidation triggers', () => {
+  it.each(['invalidate_run_checkpoint_messages_delete', 'provider_resolution_invalidate_update', 'dirty_run_events_messages_update'])('rejects a current database missing invalidation trigger %s', (trigger) => {
     const root = mkdtempSync(join(tmpdir(), 'buddy-checkpoint-schema-'))
     directories.push(root)
     const databasePath = join(root, 'buddy.sqlite3')
     const database = openBuddyDatabase({ databasePath })
-    database.exec('DROP TRIGGER invalidate_run_checkpoint_messages_delete')
+    database.exec(`DROP TRIGGER ${trigger}`)
     database.close()
     expect(() => openBuddyDatabase({ databasePath })).toThrow(/incomplete checkpoint invalidation schema/i)
   })
@@ -560,6 +566,7 @@ describe('buddy schema', { timeout: MIGRATION_TEST_TIMEOUT }, () => {
       catalog_selection_json: null,
       capability_overrides_json: null,
       service_metadata_json: null,
+      resolution_json: null,
     })))
     upgraded.prepare('UPDATE builtin_provider_configs SET display_name = ? WHERE id = ?').run('Personal', 'anthropic')
     upgraded.prepare('UPDATE provider_states SET request_headers_json = ? WHERE provider_id = ?').run(`[{"name":"api-key","value":"\${apiKey}"}]`, 'anthropic')

@@ -18,6 +18,8 @@ function fixture(overrides: Partial<PanelOptions> = {}) {
     browser: {
       navigate: async () => state('session', 'task-a'),
       onStateChanged: () => () => {},
+      onGuestsChanged: () => () => {},
+      listGuests: async () => [],
       ensureSession: async conversationId => state('session', conversationId),
       close: async () => {},
       openFile: async () => { throw new Error('Unexpected file link') },

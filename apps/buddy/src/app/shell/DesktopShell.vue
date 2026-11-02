@@ -158,7 +158,7 @@ function toggleContextPosition() {
       </WorkbenchHost>
       <DesktopOnboardingScreen v-if="onboardingVisible && !startupVisible" :controller="bindings.onboarding" :app-info="bindings.appInfo.value" />
       <Transition name="desktop-startup-reveal">
-        <DesktopStartupScreen v-if="startupVisible" :failed="bindings.lifecycle.failed.value" :language="language" @retry="bindings.lifecycle.retry()" @open-logs="router.push(desktopRouteLocations.settings('logs'))" @open-storage="router.push(desktopRouteLocations.settings('storage'))" />
+        <DesktopStartupScreen v-if="startupVisible" :failed="bindings.lifecycle.failed.value" :stages="bindings.lifecycle.state.value.stages" :language="language" @retry="bindings.lifecycle.retry()" @open-logs="router.push(desktopRouteLocations.settings('logs'))" @open-storage="router.push(desktopRouteLocations.settings('storage'))" />
       </Transition>
     </div>
     <DesktopFeatureDiscovery v-if="!blocked" :controller="bindings.featureDiscovery" :language="language" :can-remind="hasBeenReady && bindings.taskIndex.tasks.value.every(task => task.activity === 'idle')" />

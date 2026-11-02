@@ -4,7 +4,7 @@ import type { FileOpeningChoice } from '@buddy-shared/files/fileOpening'
 import { BUNDLED_EXTENSION_CATALOG_URL } from '@buddy-shared/extensions/extensionCatalog'
 import { extensionManifestSchema } from '@buddy-shared/extensions/extensionManifest'
 import { afterEach, expect, it } from 'vitest'
-import { createApp, h, nextTick } from 'vue'
+import { createApp, h, nextTick, shallowRef } from 'vue'
 import DesktopExtensionInstallReview from '../DesktopExtensionInstallReview.vue'
 
 const cleanups: (() => void)[] = []
@@ -25,13 +25,14 @@ const review: ExtensionReview = {
   ],
 }
 
-async function mount(value: ExtensionReview = review) {
+async function mount(value: ExtensionReview = review, language: 'en-US' | 'zh-CN' = 'en-US') {
   const root = document.createElement('div')
   document.body.append(root)
+  const current = shallowRef(value)
   const submissions: { applyUpdate: boolean, choices: FileOpeningChoice[] }[] = []
   const app = createApp({ render: () => h(DesktopExtensionInstallReview, {
-    review: value,
-    language: 'en-US',
+    review: current.value,
+    language,
     busy: false,
     onInstall: (applyUpdate: boolean, choices: FileOpeningChoice[]) => submissions.push({ applyUpdate, choices }),
   }) })
@@ -44,8 +45,30 @@ async function mount(value: ExtensionReview = review) {
   const content = document.querySelector<HTMLElement>('[data-testid="extension-file-associations"]')!
   const submit = () => document.querySelector<HTMLButtonElement>('[data-testid="extension-confirm-install"]')!.click()
   const dialog = document.querySelector<HTMLElement>('[data-testid="extension-install-review"]')!
-  return { content, submissions, submit, dialog }
+  return { content, submissions, submit, dialog, current }
 }
+
+it.each(['en-US', 'zh-CN'] as const)('reviews each requested data source separately from message access in %s', async (language) => {
+  const { current } = await mount({
+    ...review,
+    currentVersion: '0.9.0',
+    addedPermissions: ['data:context.usage'],
+    manifest: extensionManifestSchema.parse({ ...review.manifest, permissions: { data: ['task.metrics', 'context.usage'], network: ['https://metrics.example.com'] } }),
+  }, language)
+  const permissions = document.querySelector('[data-testid="extension-review-permissions"]')!
+  const text = permissions.textContent ?? ''
+  expect(text).toContain(language === 'en-US' ? 'Bound data sources' : '绑定范围的数据源')
+  expect(text).toContain(language === 'en-US' ? 'Task metrics' : '任务统计')
+  expect(text).toContain(language === 'en-US' ? 'Context usage' : '上下文用量')
+  expect(text).toContain(language === 'en-US' ? 'No message text, logs or credentials' : '不读取正文、日志或凭据')
+  expect(text).toContain(language === 'en-US' ? 'New' : '新增')
+  expect(text).not.toContain(language === 'en-US' ? 'Read messages' : '读取消息')
+  expect(document.querySelector('[data-testid="extension-content-sharing-warning"]')).not.toBeNull()
+  current.value = { ...review, fileAssociations: [] }
+  await nextTick()
+  expect(document.querySelector('[data-testid="extension-review-permissions"]')?.textContent).not.toContain(language === 'en-US' ? 'Task metrics' : '任务统计')
+  expect(document.querySelector('[data-testid="extension-content-sharing-warning"]')).toBeNull()
+})
 
 it('preselects requested associations and keeps existing defaults when replacements are cleared', async () => {
   const { content, submissions, submit } = await mount({

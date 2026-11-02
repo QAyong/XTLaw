@@ -51,12 +51,12 @@ describe('resource panel ownership', () => {
     const panel = f.scope.run(() => useTaskContextPanel(f.options))!
     const source = { conversationId: 'browser-task', runId: 'run-1' }
     await f.host.execute({ action: 'open', target: { kind: 'browser', source } }, 'harness')
-    expect(panel.activeTab.value).toMatchObject({ id: 'browser:browser-task', source })
+    expect(panel.activeTab.value).toMatchObject({ id: 'browser:browser-task:agent:run-1', source })
     expect(panel.isOpen.value).toBe(true)
     panel.addBrowser()
     expect(panel.activeTab.value).toMatchObject({ conversationId: null })
     await f.host.execute({ action: 'open', target: { kind: 'browser', source } }, 'harness')
-    expect(panel.activeTab.value).toMatchObject({ id: 'browser:browser-task', source })
+    expect(panel.activeTab.value).toMatchObject({ id: 'browser:browser-task:agent:run-1', source })
     expect(f.operations.map(({ action, actor }) => ({ action, actor }))).toEqual([{ action: 'open', actor: 'harness' }])
     await panel.toggle()
     expect(f.operations.at(-1)).toMatchObject({ action: 'close', actor: 'user', source })
@@ -68,7 +68,7 @@ describe('resource panel ownership', () => {
     if (mode === 'task')
       expect(panel.activeTab.value).toBeNull()
     else
-      expect(panel.activeTab.value).toMatchObject({ id: 'browser:browser-task', source })
+      expect(panel.activeTab.value).toMatchObject({ id: 'browser:browser-task:agent:run-1', source })
     expect(f.operations.map(operation => operation.action)).toEqual(['open', 'close', 'open'])
   })
 
@@ -84,7 +84,7 @@ describe('resource panel ownership', () => {
     expect(panel.activeTab.value).toEqual(first)
     activeConversationId.value = 'second'
     expect(panel.tabs.value).toHaveLength(1)
-    expect(panel.activeTab.value).toMatchObject({ id: 'browser:second', source })
+    expect(panel.activeTab.value).toMatchObject({ id: 'browser:second:agent:run', source })
     activeConversationId.value = 'first'
     expect(panel.activeTab.value).toEqual(first)
   })
@@ -97,7 +97,7 @@ describe('resource panel ownership', () => {
     const source = { conversationId: 'second', runId: 'background-run' }
     await f.host.execute({ action: 'open', target: { kind: 'browser', source } }, 'harness')
     expect(panel.activeTab.value).toEqual(selected)
-    expect(panel.allTabs.value).toContainEqual(expect.objectContaining({ id: 'browser:second', source }))
+    expect(panel.allTabs.value).toContainEqual(expect.objectContaining({ id: 'browser:second:agent:background-run', source }))
   })
 
   it('retains independent resources without changing task selections or assigning them to the left task', () => {

@@ -1,5 +1,5 @@
 import type { LocalChangeSetSummary } from '@buddy-shared/changes/changeApi'
-import type { LocalConversationTimelineItem, LocalConversationTimelinePage } from '@buddy-shared/conversation/conversationApi'
+import type { LocalConversationTimelineItem, LocalConversationTimelinePage, LocalMessage } from '@buddy-shared/conversation/conversationApi'
 import type { LocalApproval } from '@buddy-shared/permissions/approvalApi'
 import type { LocalRun, LocalRunEvent, LocalRunOutput } from '@buddy-shared/runs/runApi'
 import type { ChatRunEventBucket, ChatRunEventBuckets } from '../../model/runs/typing'
@@ -41,6 +41,7 @@ export function useChatRunProjection() {
     messages: ReadonlyMap<string, LocalConversationTimelineItem>
   }>())
   let hasLoadedTimelinePage = false
+  let syncedTimelineTailKey: string | null = null
 
   const presentedRuns = computed(() => runs.value.map(run => cancelledPresentations.get(run.id)?.run ?? run))
   const presentedBuckets = computed<ChatRunEventBuckets>(() => {
@@ -115,6 +116,8 @@ export function useChatRunProjection() {
     else {
       timelineItems.value = mergeTailTimelineItems(timelineItems.value, page.items)
     }
+    const tail = page.items.at(-1)
+    syncedTimelineTailKey = tail ? timelineItemKey(tail) : null
     mergePage(page)
     approvals.value = pendingApprovals
   }
@@ -148,7 +151,18 @@ export function useChatRunProjection() {
     runs.value = [...byId.values()].sort((left, right) => right.startedAt.localeCompare(left.startedAt))
   }
 
+  function upsertMessage(message: LocalMessage) {
+    timelineItems.value = mergeTailTimelineItems(timelineItems.value, [{ ...message, kind: 'message' }])
+  }
+
+  function getRefreshBoundaryKey(): string | null {
+    const running = timelineItems.value.find(item => item.kind === 'extension-action' && item.status === 'running')
+    return running ? timelineItemKey(running) : syncedTimelineTailKey
+  }
+
   function clear(retainedTimeline: ReadonlyArray<LocalConversationTimelineItem> = []) {
+    const tail = retainedTimeline.at(-1)
+    syncedTimelineTailKey = tail ? timelineItemKey(tail) : null
     hasLoadedTimelinePage = false
     timelineCursor.value = null
     timelineItems.value = retainedTimeline
@@ -190,10 +204,12 @@ export function useChatRunProjection() {
     appendEvents,
     applySnapshot,
     clear,
+    getRefreshBoundaryKey,
     hasRun: (runId: string) => knownRunIds.has(runId),
     prependPage,
     replaceTurn,
     timelineCursor,
     upsertRuns,
+    upsertMessage,
   }
 }

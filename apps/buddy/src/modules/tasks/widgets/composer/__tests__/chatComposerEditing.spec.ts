@@ -59,6 +59,8 @@ async function mountComposer(options: {
   const content = shallowRef(createChatComposerContentFromText(''))
   const draft = shallowRef('')
   const draftId = shallowRef('draft-1')
+  const editorKey = shallowRef('editor-1')
+  const isSending = shallowRef(false)
   const resources = shallowRef<readonly ComposerResourceView[]>([])
   const selectedEffort = shallowRef<BuddyThinkingLevel | null>(null)
   const selectedServiceTier = shallowRef<BuddyServiceTier | null>(null)
@@ -76,10 +78,11 @@ async function mountComposer(options: {
         composerContent: content,
         draft,
         draftId,
+        editorKey,
         resources,
         rejectedResourceIds: () => new Set(),
         isRunning: shallowRef(false),
-        isSending: shallowRef(false),
+        isSending,
         language: shallowRef('zh-CN'),
         selectedModel: shallowRef(options.model ?? null),
         selectedEffort,
@@ -132,10 +135,89 @@ async function mountComposer(options: {
     editor.view.dom.dispatchEvent(event)
     return event
   }
-  return { canSend, composer, content, draft, draftId, editor, keydown, resources, root, selectedEffort, selectedServiceTier, sent, sentPayloads, updates, unmount }
+  return { canSend, composer, content, draft, draftId, editorKey, isSending, editor, keydown, resources, root, selectedEffort, selectedServiceTier, sent, sentPayloads, updates, unmount }
 }
 
 describe('chat composer editing', () => {
+  it('keeps the focused editor mounted while locking submission and clears sent undo history', async () => {
+    const flow = await mountComposer()
+    flow.editor.commands.insertContent('sent message')
+    flow.editor.view.focus()
+    await nextTick()
+    const input = flow.editor.view.dom
+    flow.isSending.value = true
+    await nextTick()
+    expect(input.getAttribute('aria-readonly')).toBe('true')
+    expect(document.activeElement).toBe(input)
+    flow.editor.commands.insertContent('blocked edit')
+    expect(flow.editor.getText()).toBe('sent message')
+
+    flow.draft.value = ''
+    flow.content.value = createChatComposerContentFromText('')
+    flow.editorKey.value = 'editor-2'
+    await nextTick()
+    flow.isSending.value = false
+    await nextTick()
+    expect(flow.editor.view.dom).toBe(input)
+    expect(document.activeElement).toBe(input)
+    expect(flow.editor.getText()).toBe('')
+    expect(flow.editor.commands.undo()).toBe(false)
+    flow.editor.commands.insertContent('next message')
+    expect(flow.editor.getText()).toBe('next message')
+    expect(flow.editor.commands.undo()).toBe(true)
+    expect(flow.editor.getText()).toBe('')
+    expect(flow.draft.value).toBe('')
+  })
+
+  it.each(['quote', 'resource'] as const)('pastes copied %s text instead of stale references after sending the same draft', async (kind) => {
+    const flow = await mountComposer()
+    if (kind === 'quote') {
+      flow.composer.addQuote({
+        id: 'quote',
+        text: 'quoted evidence',
+        source: { conversationId: 'conversation', branchId: 'branch', messageId: 'message', role: 'assistant', runId: 'run' },
+      })
+    }
+    else {
+      flow.resources.value = [{
+        accepted: true,
+        canRetry: false,
+        resource: { draftId: 'draft-1', resourceId: 'file', kind: 'text', mimeType: 'text/plain', name: 'notes.txt', sizeBytes: 10, state: 'ready', attachmentId: 'attachment', previewUrl: null },
+      }]
+      insertChatComposerResources(flow.editor, ['file'], 'inline')
+    }
+    flow.editor.commands.setTextSelection({ from: 1, to: 2 })
+    const data = new Map<string, string>()
+    const clipboardData = { files: [], getData: (type: string) => data.get(type) ?? '', setData: (type: string, value: string) => data.set(type, value) }
+    function clipboardEvent(type: string) {
+      const event = new Event(type, { bubbles: true, cancelable: true })
+      Object.defineProperty(event, 'clipboardData', { value: clipboardData })
+      return event
+    }
+    flow.editor.view.dom.dispatchEvent(clipboardEvent('copy'))
+    const readable = data.get('text/plain')!
+    expect(readable.length).toBeGreaterThan(0)
+
+    const input = flow.editor.view.dom
+    const draftId = flow.draftId.value
+    flow.isSending.value = true
+    await nextTick()
+    flow.draft.value = ''
+    flow.content.value = createChatComposerContentFromText('')
+    flow.editorKey.value = 'after-send'
+    await nextTick()
+    flow.isSending.value = false
+    await nextTick()
+
+    flow.editor.view.dom.dispatchEvent(clipboardEvent('paste'))
+    expect(flow.editor.view.dom).toBe(input)
+    expect(flow.draftId.value).toBe(draftId)
+    expect(flow.editor.getText()).toBe(readable)
+    expect(flow.draft.value).toBe(readable)
+    expect(getChatComposerResourceIds(flow.editor.getJSON())).toEqual([])
+    expect(chatComposerDocumentToUserContent(flow.editor.getJSON()).quotes).toBeUndefined()
+  })
+
   it('pastes a host-copied snapshot into the current task without changing another draft or leaking its locator into the prompt', async () => {
     const first = await mountComposer()
     first.editor.commands.insertContent('First task draft')

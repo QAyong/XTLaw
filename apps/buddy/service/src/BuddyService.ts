@@ -1641,6 +1641,8 @@ export async function startBuddyService(
       )
       register(
         registerChatRpc({
+          attachments: attachmentService,
+          conversations,
           drafts: composerDraftService,
           commands: chatCommandService,
           rpc: options.rpc,

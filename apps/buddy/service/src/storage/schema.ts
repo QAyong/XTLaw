@@ -38,6 +38,8 @@ import { BUDDY_V34_CHANGE_CAPTURE_SCHEMA_SQL } from './migrations/v34ChangeCaptu
 import { BUDDY_V35_INPUT_DELIVERY_SCHEMA_SQL } from './migrations/v35InputDelivery'
 import { BUDDY_V37_MODEL_TYPES_SCHEMA_SQL } from './migrations/v37ModelTypes'
 import { BUDDY_V38_IMAGE_MODELS_SCHEMA_SQL } from './migrations/v38ImageModels'
+import { BUDDY_V39_PROVIDER_RESOLUTION_SCHEMA_SQL } from './migrations/v39ProviderResolution'
+import { BUDDY_V40_EVENT_MAINTENANCE_SCHEMA_SQL } from './migrations/v40EventMaintenance'
 
 export interface BuddySchemaMigration {
   foreignKeys?: 'off'
@@ -45,7 +47,7 @@ export interface BuddySchemaMigration {
   version: number
 }
 
-export const BUDDY_SCHEMA_VERSION = 40 as const
+export const BUDDY_SCHEMA_VERSION = 42 as const
 
 export const BUDDY_SCHEMA_MIGRATIONS: readonly BuddySchemaMigration[] = [
   { sql: BUDDY_V1_INITIAL_SCHEMA_SQL, version: 1 },
@@ -92,4 +94,8 @@ export const BUDDY_SCHEMA_MIGRATIONS: readonly BuddySchemaMigration[] = [
   { sql: BUDDY_V37_MODEL_TYPES_SCHEMA_SQL, version: 39 },
   // Upstream numbers this migration v38; it follows the model-type migration (upstream v37, local v39) and lands on local v40 (table layout unchanged).
   { sql: BUDDY_V38_IMAGE_MODELS_SCHEMA_SQL, version: 40 },
+  // Upstream numbers this migration v39; it follows the image-model migration (upstream v38, local v40), so the local-only migrations and the unported upstream v36 shift it to v41 (table layout unchanged).
+  { sql: BUDDY_V39_PROVIDER_RESOLUTION_SCHEMA_SQL, version: 41 },
+  // Upstream numbers this migration v40; it follows the provider-resolution migration and lands on local v42 (table layout unchanged).
+  { sql: BUDDY_V40_EVENT_MAINTENANCE_SCHEMA_SQL, version: 42 },
 ]

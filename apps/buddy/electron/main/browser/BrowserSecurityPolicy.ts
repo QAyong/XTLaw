@@ -134,6 +134,7 @@ type HeadersReceivedListener = (
 
 interface BrowserSecurityRoute {
   allowDownload: () => boolean
+  isActive: () => boolean
   authorizeDownload: (url: string) => Promise<void>
   isRequestAllowed: (details: BrowserRequestDetails) => Promise<boolean>
   onDownloadBlocked: () => void
@@ -157,14 +158,15 @@ class BrowserSecuritySessionCoordinator {
     this.#session = session
     this.#beforeRequestListener = (details, callback) => {
       const route = details.webContentsId === undefined ? undefined : this.#routes.get(details.webContentsId)
-      if (!route) {
+      if (!route?.isActive()) {
         callback({ cancel: true })
         return
       }
       void route.isRequestAllowed(details).then((allowed) => {
-        if (!allowed)
+        const cancel = !allowed || !route.isActive()
+        if (cancel)
           route.onRequestBlocked(details)
-        callback({ cancel: !allowed })
+        callback({ cancel })
       }).catch(() => {
         route.onRequestBlocked(details)
         callback({ cancel: true })
@@ -172,7 +174,7 @@ class BrowserSecuritySessionCoordinator {
     }
     this.#session.webRequest.onHeadersReceived((details, callback) => {
       const route = details.webContentsId === undefined ? undefined : this.#routes.get(details.webContentsId)
-      if (!route) {
+      if (!route?.isActive()) {
         callback({ cancel: true })
         return
       }
@@ -184,7 +186,7 @@ class BrowserSecuritySessionCoordinator {
         return
       }
       void route.authorizeDownload(details.url).then(
-        () => callback({ cancel: false }),
+        () => callback({ cancel: !route.isActive() }),
         () => {
           route.onRequestBlocked(details)
           callback({ cancel: true })
@@ -193,7 +195,7 @@ class BrowserSecuritySessionCoordinator {
     })
     this.#downloadListener = (event, item, webContents) => {
       const route = this.#routes.get(readWebContentsId(webContents))
-      if (!route || !route.allowDownload()) {
+      if (!route || !route.isActive() || !route.allowDownload()) {
         // Human downloads keep Electron's own save dialog; everything else stays blocked.
         event.preventDefault()
         route?.onDownloadBlocked()
@@ -306,6 +308,7 @@ export class BrowserSecurityPolicy {
   readonly #session: BrowserSecuritySession
   #disposed = false
   #fileChooserSubscription: (() => void) | null = null
+  #quarantined = false
   #fileChooserGuardPromise: Promise<void> | null = null
   #localFileRoot: string | null = null
   readonly #connection: BrowserDebugger
@@ -329,6 +332,7 @@ export class BrowserSecurityPolicy {
       this.#page.id,
       {
         allowDownload: () => !this.#disposed && this.#allowDownload(),
+        isActive: () => !this.#disposed && !this.#quarantined,
         isRequestAllowed: details => this.#isRequestAllowed(details),
         onDownloadBlocked: () => this.#onDownloadBlocked(),
         onDownloadStarted: item => this.#onDownloadStarted(item),
@@ -401,6 +405,11 @@ export class BrowserSecurityPolicy {
     return pathToFileURL(entry).toString()
   }
 
+  quarantine(): void {
+    this.#quarantined = true
+    this.#localFileRoot = null
+  }
+
   dispose(): void {
     if (this.#disposed)
       return
@@ -415,8 +424,8 @@ export class BrowserSecurityPolicy {
   }
 
   #assertActive(): void {
-    if (this.#disposed)
-      throw new Error('Browser security policy is disposed')
+    if (this.#disposed || this.#quarantined)
+      throw new Error('Browser security policy is not active')
   }
 
   async #ensureFileChooserGuard(): Promise<void> {
@@ -447,7 +456,7 @@ export class BrowserSecurityPolicy {
     this.#fileChooserSubscription ??= this.#connection.onEvent(
       CDP_FILE_CHOOSER_OPENED,
       (params) => {
-        if (this.#disposed)
+        if (this.#disposed || this.#quarantined)
           return
         const request = parseFileChooserRequest(params)
         if (request)

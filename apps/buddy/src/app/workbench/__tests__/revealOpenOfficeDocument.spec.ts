@@ -40,7 +40,9 @@ function fixture() {
     scope.view({ id: 'office-test.fallback', renderer: 'office-test.fallback', label: 'Preview', locations: ['context'], multiple: true, supports: resource => resource.scheme === 'file-preview' })
   })
   const controller = new WorkbenchController(registry)
-  const browser: Pick<DesktopBrowserApi, 'onStateChanged' | 'ensureSession' | 'close' | 'openArtifact' | 'openFile' | 'navigate'> = {
+  const browser: Pick<DesktopBrowserApi, 'onStateChanged' | 'onGuestsChanged' | 'listGuests' | 'ensureSession' | 'close' | 'openArtifact' | 'openFile' | 'navigate'> = {
+    onGuestsChanged: () => () => {},
+    listGuests: async () => [],
     onStateChanged: () => () => {},
     ensureSession: async () => { throw new Error('unexpected browser session') },
     close: async () => {},

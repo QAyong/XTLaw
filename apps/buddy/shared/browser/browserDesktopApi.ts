@@ -2,6 +2,7 @@ import type { TaskFileTarget } from '../files/taskFileApi'
 import type { BrowserClearDataInput, BrowserClearDataResult, BrowserDataSummary } from './browserData'
 import type { BrowserLocateElementInput, BrowserPickResult } from './browserSelection'
 import type { BrowserFailureReason } from './primitives'
+import type { BrowserPageOwner } from './session'
 
 export type BrowserScreenshotResult = 'saved' | 'copied' | 'canceled'
 
@@ -76,6 +77,7 @@ export interface DesktopBrowserViewport {
 }
 
 export interface DesktopBrowserState {
+  owner?: BrowserPageOwner
   favicon?: string | null
   viewport?: DesktopBrowserViewport | null
   /** Host-created popup identity; renderer uses the opener to retain the owning panel scope. */
@@ -100,6 +102,8 @@ export interface DesktopBrowserState {
 }
 
 export interface DesktopBrowserGuestDescriptor {
+  owner?: BrowserPageOwner
+  conversationId?: string
   partition: string
   sessionId: string
 }

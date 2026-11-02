@@ -54,7 +54,9 @@ function folder(overrides: Partial<LocalArtifact> = {}): LocalArtifact {
 }
 
 function fixture(activeSpace: LocalSpace | null = space(), extra: { providers?: FileOpeningProvider[], defaults?: Record<string, { standalone?: string }>, outputs?: LocalArtifact[], revealOpenOfficeDocument?: (target: FileTarget) => boolean, artifactFileRoot?: (artifactId: string) => Promise<ArtifactFileRoot> } = {}) {
-  const browser: Pick<DesktopBrowserApi, 'onStateChanged' | 'ensureSession' | 'close' | 'openArtifact' | 'openFile' | 'navigate'> = {
+  const browser: Pick<DesktopBrowserApi, 'onStateChanged' | 'onGuestsChanged' | 'listGuests' | 'ensureSession' | 'close' | 'openArtifact' | 'openFile' | 'navigate'> = {
+    onGuestsChanged: () => () => {},
+    listGuests: async () => [],
     navigate: async () => { throw new Error('unexpected navigation') },
     onStateChanged: () => () => {},
     ensureSession: async () => { throw new Error('unexpected session') },

@@ -9,7 +9,7 @@ import { isGrantFileTarget, sameFileDirectory, sameFileRoot, spaceFileTargetOnly
 import { computed, readonly, watch } from 'vue'
 import { useContextPanelControl } from '@/platform/desktop/useContextPanelControl'
 import { readContextSelection, readContextTab } from '../../model/context-panel/readContextTab'
-import { browserTabId, contextTabSource, spaceTaskBrowserTab, taskContextPanelScope } from '../../model/context-panel/taskContextPanel'
+import { agentBrowserTab, browserTabId, contextTabSource, spaceTaskBrowserTab, taskContextPanelScope } from '../../model/context-panel/taskContextPanel'
 import { resolveChatToolDirectoryTarget, resolveChatToolFileTarget } from '../../model/transcript/chatToolFileTarget'
 import { useContextPanelTabs } from './useContextPanelTabs'
 
@@ -23,9 +23,8 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
     getSource,
     onError: options.onError,
     onTarget: (target) => {
-      const tab = spaceTaskBrowserTab(target.source.conversationId)
-      if (tab)
-        store.put({ ...tab, source: target.source }, options.taskVisible.value && target.source.conversationId === options.activeConversationId.value)
+      store.put(agentBrowserTab(target.source), options.mode.value === 'task'
+      || (options.taskVisible.value && target.source.conversationId === options.activeConversationId.value))
     },
   })
   let expectedOpenState: boolean | null = null
@@ -411,6 +410,11 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
     discardConversation: (id: string) => store.discard(taskContextPanelScope(id)),
     hasTab,
     openBrowser,
+    registerAgentBrowser(source: ContextPanelSource) {
+      const tab = agentBrowserTab(source)
+      if (!hasTab(tab.id))
+        store.put(tab, false)
+    },
     openChanges,
     openDirectory,
     openFiles,

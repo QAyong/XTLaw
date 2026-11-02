@@ -2,6 +2,7 @@ import type { DesktopContextPanelMode } from '@buddy-electron/shared/desktopApi'
 import type { LocalChangeSetSummary } from '@buddy-shared/changes/changeApi'
 import type { ContextPanelSource } from '@buddy-shared/context-panel/contextPanel'
 import type { FileTarget } from '@buddy-shared/spaces/spaceFileApi'
+import { browserAgentTabId } from '@buddy-shared/browser/session'
 
 export type ContextPanelScope = `task:${string}` | `draft:${string}` | 'independent' | 'workspace'
 export type ContextPanelSelectionScope = ContextPanelScope | `space:${string}`
@@ -82,6 +83,22 @@ export function spaceTaskBrowserTab(
         kind: 'browser',
       }
     : null
+}
+
+export function agentBrowserTab(source: ContextPanelSource): TaskBrowserContextTab {
+  const browserKey = browserAgentTabId(source.runId)
+  return {
+    conversationId: source.conversationId,
+    scope: taskContextPanelScope(source.conversationId),
+    id: browserTabId(source.conversationId, browserKey),
+    kind: 'browser',
+    browserKey,
+    source,
+  }
+}
+
+export function isAgentBrowserTab(tab: TaskContextTab): boolean {
+  return tab.kind === 'browser' && !!tab.source && tab.browserKey === browserAgentTabId(tab.source.runId)
 }
 
 export function browserTabId(conversationId: string | null, browserKey?: string): string {

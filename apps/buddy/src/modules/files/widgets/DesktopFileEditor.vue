@@ -21,6 +21,7 @@ import { useResourceQuoteReveal } from '@/shared/ui/selection/useResourceQuoteRe
 import { useSelectionReferences } from '@/shared/ui/selection/workbenchSelectionReferences'
 import { useWorkbench } from '@/workbench/browser/workbenchContext'
 
+import { fileImageResolver } from '../model/documentImageResolver'
 import { fileOpeningHandler } from '../model/fileOpeningHandlers'
 import { useFileOpening } from '../state/fileOpeningContext'
 import { filePreviewRenderer } from './filePreviewRenderers'
@@ -83,6 +84,7 @@ const saveStatusText = computed(() => {
 })
 const opening = useFileOpening()
 const target = computed(() => requireFileTarget(props.view.resource.data))
+const imageResolver = computed(() => fileImageResolver(target.value))
 const provider = computed(() => (opening?.resolve(props.view.title, 'inline') ?? resolveBuiltinFileOpening(props.view.title, 'inline')).provider)
 const handler = computed(() => fileOpeningHandler(provider.value))
 const previewRenderer = computed(() => filePreviewRenderer({ provider: provider.value, ownerId: props.view.id, target: target.value, source: 'working-copy', resourceReady: !!copy.value?.etag && !copy.value.blocked, text: copy.value?.text ?? '', name: props.view.title, visible: props.visible, language: props.language }))
@@ -263,7 +265,7 @@ onScopeDispose(controller.configuration.subscribe(() => editor?.updateOptions({ 
     <ResourceSelectionQuoteMenu v-if="references" ref="quoteMenu" :view-id="view.id" :owner-key="`${view.id}:${identity}:${mode}`" :language="language" :visible="visible" />
     <DesktopDocumentContent
       ref="document" :source-ready="editorReady" :reveal-source="revealSource"
-      :mode="mode" :name="view.title" :text="copy?.text ?? ''" :language="language" :write-clipboard-text="writeClipboardText"
+      :mode="mode" :name="view.title" :text="copy?.text ?? ''" :resolve-image="imageResolver" :language="language" :write-clipboard-text="writeClipboardText"
       :quote-source="references ? quoteSource('markdown') : undefined" :prepare-quote="prepareQuote" @scroll.capture="quoteMenu?.close()"
     >
       <template v-if="previewRenderer" #preview>

@@ -18,6 +18,7 @@ import { useResourceQuoteReveal } from '@/shared/ui/selection/useResourceQuoteRe
 import { useSelectionReferences } from '@/shared/ui/selection/workbenchSelectionReferences'
 import { useWorkbench } from '@/workbench/browser/workbenchContext'
 
+import { fileImageResolver, taskFileImageResolver } from '../model/documentImageResolver'
 import { fileOpeningHandler } from '../model/fileOpeningHandlers'
 import { useFileOpening } from '../state/fileOpeningContext'
 import { filePreviewRenderer } from './filePreviewRenderers'
@@ -39,6 +40,7 @@ const opening = useFileOpening()
 const taskTarget = computed(() => props.view.resource.scheme === 'task-file' ? taskFileTargetSchema.parse({ conversationId: props.view.resource.data.conversationId, path: props.view.resource.data.path }) : null)
 const target = computed(() => taskTarget.value ? null : requireFileTarget(props.view.resource.data))
 const directory = computed(() => taskTarget.value !== null && props.view.resource.data.kind === 'directory')
+const imageResolver = computed(() => taskTarget.value ? taskFileImageResolver(taskTarget.value) : target.value ? fileImageResolver(target.value) : undefined)
 const provider = computed(() => {
   const location = taskTarget.value ? 'standalone' : 'inline'
   const resolved = opening?.resolve(props.view.title, location) ?? resolveBuiltinFileOpening(props.view.title, location)
@@ -124,7 +126,7 @@ function captureResource() {
     </p>
     <DesktopDocumentContent
       v-else
-      ref="document" :mode="mode" :name="view.title" :text="preview?.text" :image-url="preview?.imageUrl" :media-kind="preview?.kind === 'audio' || preview?.kind === 'video' ? preview.kind : null" :media-url="preview?.mediaUrl" :visible="visible" :wrap="view.state.wrap !== false" :language="language" :write-clipboard-text="writeClipboardText"
+      ref="document" :mode="mode" :name="view.title" :text="preview?.text" :image-url="preview?.imageUrl" :media-kind="preview?.kind === 'audio' || preview?.kind === 'video' ? preview.kind : null" :media-url="preview?.mediaUrl" :resolve-image="imageResolver" :visible="visible" :wrap="view.state.wrap !== false" :language="language" :write-clipboard-text="writeClipboardText"
       :quote-source="references ? quoteSource : undefined" :prepare-quote="prepareQuote" :capture-monaco-quote="captureMonacoQuote" @preview-error="failed = true" @scroll.capture="quoteMenu?.close()"
     >
       <template v-if="previewRenderer" #preview>

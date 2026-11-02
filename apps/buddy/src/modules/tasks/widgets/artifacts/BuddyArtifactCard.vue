@@ -177,8 +177,8 @@ function handleKeydown(event: KeyboardEvent) {
       <FileIcon v-else :name="artifact.name" size="medium" />
     </div>
     <div
-      class="buddy-artifact-collection__actions pointer-events-none absolute z-2 flex items-center border-1 border-solid border-border rounded-micro bg-[rgb(from_var(--buddy-surface-raised)_r_g_b_/_0.96)] p-[1px] text-muted opacity-0 transition-opacity duration-120 motion-reduce:transition-none"
-      :class="['top-1 right-1', { 'is-open': menuOpen || contextMenuOpen }]"
+      class="buddy-artifact-collection__actions pointer-events-none absolute z-2 flex items-center border-1 border-solid border-border rounded-micro bg-[rgb(from_var(--buddy-surface-raised)_r_g_b_/_0.96)] p-[1px] text-muted opacity-0 transition-opacity duration-120 motion-reduce:transition-none top-1 right-1"
+      :class="[{ 'is-open': menuOpen || contextMenuOpen }]"
     >
       <NButton
         class="buddy-icon-button buddy-artifact-collection__open focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-focus"

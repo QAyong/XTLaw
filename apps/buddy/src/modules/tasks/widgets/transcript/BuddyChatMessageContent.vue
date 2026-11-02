@@ -93,7 +93,7 @@ function handleMarkdownLink(href: string) {
 
 <template>
   <div
-    class="buddy-chat-message-content"
+    class="buddy-chat-message-content grid w-fit max-w-[min(42rem,_92%)] min-w-0 gap-[0.45rem] bg-transparent p-0"
     :class="`is-${message.role}`"
     :data-quote-source="message.role === 'user' || message.role === 'assistant' ? JSON.stringify({ conversationId: message.conversationId, branchId: message.branchId, messageId: message.id, runId: message.runId, role: message.role }) : undefined"
   >

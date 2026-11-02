@@ -36,6 +36,7 @@ export function useDesktopLifecycle(options: DesktopLifecycleOptions) {
   let tail = Promise.resolve()
   let requestedGeneration: string | null = null
   const runtimeReady = computed(() => state.value.stages.some(stage => stage.stage === 'runtime.connection' && stage.status === 'completed'))
+  const maintenance = computed(() => state.value.maintenance)
   const loading = computed(() => !dataReady.value && !failed.value && state.value.status !== 'failed')
   const hasFailed = computed(() => failed.value || state.value.status === 'failed')
   watch(hasFailed, value => value && resolveReady(), { immediate: true, flush: 'sync' })
@@ -190,5 +191,5 @@ export function useDesktopLifecycle(options: DesktopLifecycleOptions) {
     appState.dispose()
   })
 
-  return { ready, state, loading, failed: hasFailed, dataReady, retry }
+  return { ready, state, loading, maintenance, failed: hasFailed, dataReady, retry }
 }

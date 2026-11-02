@@ -18,7 +18,7 @@ const navigation = [Chat20Regular, Grid20Regular, Settings20Regular]
           {{ t('onboarding.greeting', { name: name.trim() || '晓晓' }) }}
         </h2>
         <p class="m-0 max-w-72 text-[14px] leading-[1.8] text-muted">
-          {{ t(step === 2 ? 'onboarding.previewPreferences' : 'onboarding.previewIntro') }}
+          {{ t(step === 3 ? 'onboarding.previewPreferences' : step === 2 ? 'onboarding.previewPermission' : 'onboarding.previewIntro') }}
         </p>
       </div>
     </div>

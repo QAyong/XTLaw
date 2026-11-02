@@ -1,4 +1,5 @@
 import { blankDocx } from './blank-docx.js'
+import { openDocumentSession } from './document-kit/document-session.js'
 import { readDocx, validateDocx } from './docx.js'
 
 function noop() {}
@@ -21,6 +22,9 @@ export function createOfficeBridge(context, ui) {
   // The file the editor consumes at boot (consumePendingOpenDocx), staged while the editor code is still loading.
   let staging = null
   let saving = false
+  // The working copy of the file this view was opened for; documents picked inside the editor are only read.
+  let session = null
+  let revision = 0
   const subscriptions = []
   let preferences = { side: 'left', fontSize: 'default', customFontSize: 14, spellcheck: true }
   const language = () => context.environment.language.startsWith('zh') ? 'zh' : 'en'
@@ -66,15 +70,48 @@ export function createOfficeBridge(context, ui) {
   async function describeFile(resource, bytes) {
     const dataUrl = `lexora-doc://${crypto.randomUUID()}`
     handoff.set(dataUrl, bytes)
-    // This is an editor-only identity, not a local file path.
-    return { path: `document/${resource.id}/${resource.name}`, name: resource.name, dataUrl, hash: await hashOf(bytes) }
+    // This is an editor-only identity, not a local file path. A reload gets a new one so the editor opens it as a new document.
+    return { path: revision ? `document/${resource.id}/${revision}/${resource.name}` : `document/${resource.id}/${resource.name}`, name: resource.name, dataUrl, hash: await hashOf(bytes) }
   }
   function takeDocBytes(url) {
     const bytes = handoff.get(url)
     handoff.delete(url)
     return bytes
   }
+  // Shows the file as it is on disk now, after the reader chose to (or nothing was unsaved).
+  async function reload({ silent }) {
+    assertActive()
+    const bytes = await session.refresh()
+    assertActive()
+    if (!openHandler)
+      throw new Error('OFFICE_EDITOR_NOT_READY')
+    revision += 1
+    const file = await describeFile(context.resource, bytes)
+    current = { resource: context.resource, file }
+    await openHandler(file)
+    ui.status(silent ? 'reloaded' : 'opened')
+  }
   async function readResource(selectedResource) {
+    if (context.resource && selectedResource.id === context.resource.id) {
+      session = await openDocumentSession(context, {
+        // An empty file is a new document.
+        validate: bytes => bytes.length ? validateDocx(bytes) : blankDocx(),
+        isDirty: async () => {
+          try {
+            return (await queryState())?.dirty
+          }
+          catch {
+            return undefined
+          }
+        },
+        recover: document => ui.recover(document),
+        ask: () => ui.ask(),
+        saveCopy: async () => !!(await saveCopy()),
+        reload,
+      })
+      session.watch()
+      return { resource: context.resource, bytes: session.bytes }
+    }
     let resource = selectedResource
     if (resource.size === undefined) {
       const metadata = await context.resources.readBytes(resource, { offset: 0, length: 1 })
@@ -175,7 +212,8 @@ export function createOfficeBridge(context, ui) {
     ui.busy(true)
     try {
       const bytes = validateDocx(data)
-      const saved = await context.resources.saveFile({ name: current.resource.name, data: bytes, ...(resource ? { resource } : {}) })
+      // The selected file is written through its working copy, which refuses to replace a file that changed; a copy is exported.
+      const saved = resource && session ? (await session.save(bytes), true) : await context.resources.saveFile({ name: current.resource.name, data: bytes })
       assertActive()
       if (!saved)
         return { ok: false }
@@ -319,6 +357,7 @@ export function createOfficeBridge(context, ui) {
     saveWaiter?.(false)
     for (const subscription of subscriptions) subscription.dispose()
     current = null
+    session = null
     handoff.clear()
     openHandler = null
     closeCheck = null

@@ -3,11 +3,12 @@ import type { LocalEndpoint } from '../../../platform/ipc/localTransport'
 import type { BrowserPreferences } from '../../../shared/browser/browserPreferences'
 import type { ApplicationDiagnosticReporter } from '../../../shared/diagnostics/applicationDiagnostic'
 import { join } from 'node:path'
-import { dialog, shell } from 'electron'
+import { dialog, net, shell } from 'electron'
 import { DESKTOP_IPC_CHANNELS } from '../../shared/desktopApi'
 import { BrowserAdapterServer } from './BrowserAdapterServer'
 import { BrowserAdapterTestLeasePublisher } from './BrowserAdapterTestLeasePublisher'
 import { BrowserDataService } from './BrowserDataService'
+import { fetchBrowserFavicon } from './browserFavicon'
 import { BrowserHost } from './BrowserHost'
 import { BrowserOperationGuard } from './BrowserOperationGuard'
 import { BrowserScreenshotService } from './BrowserScreenshotService'
@@ -83,6 +84,7 @@ export class BrowserIntegration {
           ? preferences.freezeDelaySeconds * 1000
           : null
       },
+      fetchFavicon: (url, signal) => fetchBrowserFavicon(url, (target, init) => net.fetch(target, init), signal),
       onActivityError: this.#options.onActivityError,
       window,
       operations: this.#operations,

@@ -5,14 +5,14 @@
   "name": "Office XLSX",
   "author": "XTLaw官方",
   "description": "用 Sheets 编辑器打开、编辑并保存 XLSX，可引用到聊天。",
-  "version": "0.3.16",
+  "version": "0.3.18",
   "icon": "icon.svg",
   "categories": ["办公"],
   "tags": ["XLSX", "Excel", "电子表格"],
   "apiVersion": 4,
-  "engines": { "lexora": ">=0.1.0 <1.0.0" },
+  "engines": { "lexora": ">=0.4.9 <1.0.0" },
   "entry": "extension.js",
-  "permissions": { "selectedResource": "read", "selectedResourceWrite": true, "composerReference": true, "resourceExport": true, "webAssembly": true },
+  "permissions": { "selectedResource": "read", "fileEditing": true, "composerReference": true, "resourceExport": true, "webAssembly": true },
   "contributes": {
     "views": [
       { "id": "pd2ec0b9018e6402d8ada6873f7fa8721.office-xlsx.viewer", "title": "Office XLSX", "entry": "view.js", "resource": "none", "location": "context" },

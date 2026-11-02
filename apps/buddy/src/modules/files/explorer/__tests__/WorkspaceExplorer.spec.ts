@@ -4,18 +4,17 @@ import { describe, expect, it, vi } from 'vitest'
 import { createApp, defineComponent, h, nextTick } from 'vue'
 import WorkspaceExplorer from '../WorkspaceExplorer.vue'
 
-const { command, state } = vi.hoisted(() => ({ command: vi.fn(), state: {} as { busy: { value: unknown }, error: { value: unknown } } }))
+const { command, state } = vi.hoisted(() => ({ command: vi.fn(), state: {} as { busy: { value: unknown } } }))
 const node: ExplorerNode = { key: 'note.md', label: 'note.md', kind: 'file' }
 
 vi.mock('../useExplorerCommands', async () => {
   const { shallowRef } = await import('vue')
   state.busy = shallowRef(null)
-  state.error = shallowRef(null)
   return {
     useExplorerCommands: () => ({
-      labels: shallowRef({ busy: 'busy', close: 'close' }),
+      labels: shallowRef({ busy: 'busy', close: 'close', failure: 'failed' }),
       busy: state.busy,
-      error: state.error,
+      nameError: shallowRef(null),
       nameRequest: shallowRef(null),
       clipboard: shallowRef(null),
       command,
@@ -58,7 +57,7 @@ vi.mock('naive-ui', () => ({
 vi.mock('../ExplorerNameDialog.vue', () => ({ default: defineComponent({ render: () => null }) }))
 vi.mock('../ExplorerRecovery.vue', () => ({ default: defineComponent({ render: () => null }) }))
 
-function mountExplorer() {
+function mountExplorer(fileHistory = vi.fn().mockResolvedValue([])) {
   const root = document.createElement('div')
   const app = createApp({
     render: () => h(WorkspaceExplorer, {
@@ -69,7 +68,7 @@ function mountExplorer() {
       language: 'zh-CN',
       api: {
         revealFile: vi.fn(),
-        fileHistory: vi.fn().mockResolvedValue([]),
+        fileHistory,
         acknowledgeFileOperation: vi.fn(),
         cancelFileOperation: vi.fn(),
         onFilesChanged: () => () => {},
@@ -83,27 +82,38 @@ function mountExplorer() {
 }
 
 describe('workspace explorer notices', () => {
-  it('shows the busy notice only for slow operations and dismisses errors on a timer', async () => {
+  it('shows the busy status in the toolbar only for slow operations', async () => {
     vi.useFakeTimers()
     const { root, app } = mountExplorer()
     try {
       state.busy.value = { operation: 'trash' }
       await nextTick()
-      vi.advanceTimersByTime(300)
-      await nextTick()
-      expect(root.querySelector('[role="status"]')).toBeNull()
       vi.advanceTimersByTime(150)
       await nextTick()
-      expect(root.querySelector('[role="status"]')).not.toBeNull()
+      expect(root.querySelector('[role="status"]')).toBeNull()
+      vi.advanceTimersByTime(100)
+      await nextTick()
+      expect(root.querySelector('[role="status"]')?.textContent).toBe('busy')
       state.busy.value = null
       await nextTick()
+      expect(root.querySelector('[role="status"]')).toBeNull()
+    }
+    finally {
+      app.unmount()
+      vi.useRealTimers()
+    }
+  })
 
-      state.error.value = 'failed'
-      await nextTick()
-      expect(root.querySelector('[role="alert"]')).not.toBeNull()
-      vi.advanceTimersByTime(6000)
-      await nextTick()
-      expect(state.error.value).toBe('')
+  it('dismisses explorer errors on a timer', async () => {
+    vi.useFakeTimers()
+    const { root, app } = mountExplorer(vi.fn().mockRejectedValue(new Error('history unavailable')))
+    try {
+      await vi.advanceTimersByTimeAsync(0)
+      expect(root.querySelector('[role="alert"]')?.textContent).toContain('failed')
+      await vi.advanceTimersByTimeAsync(6000)
+      // The notice stays mounted until its leave transition ends.
+      await vi.advanceTimersByTimeAsync(100)
+      expect(root.querySelector('[role="alert"]')).toBeNull()
     }
     finally {
       app.unmount()

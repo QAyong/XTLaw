@@ -1,8 +1,9 @@
+import { documentMessages, openDocumentSession, showChoice } from './document-kit/document-session.js'
 import { registerReveal } from './document-kit/reveal.js'
 import { installOfficeToolbarNavigation } from './office-toolbar-navigation.js'
 import { createQuoteReveal } from './reveal-quote.js'
 import { installSelectionMenu } from './selection-menu.js'
-import { readXlsx, validateXlsx } from './xlsx.js'
+import { validateXlsx } from './xlsx.js'
 
 const messages = {
   zh: { loading: '正在加载表格编辑器…', error: '操作失败，修改尚未保存。请重试。', invalid: '文件不是受支持的 XLSX，或超出安全限制', changed: '文件已被其他程序修改，尚未保存。请重新打开文件。', empty: '请从文件管理器选择一个 XLSX 文件。', cancelled: '保存已取消。', exportUnavailable: '暂不支持导出为 CSV。', preferences: '自动保存开关的设置未能记住。重新打开后请检查开关。', ok: '确定' },
@@ -38,6 +39,12 @@ function memoryStorage(onAutoSaveChange = () => {}) {
   }
 }
 
+// A cell or text box the reader is typing in holds edits the editor has not counted yet.
+function typing() {
+  const element = document.activeElement
+  return !!element && (element.isContentEditable || /^(?:INPUT|TEXTAREA)$/.test(element.tagName))
+}
+
 export async function render(context, container) {
   let copy = messages[context.environment.language.startsWith('zh') ? 'zh' : 'en']
   container.className = 'sheets-shell'
@@ -71,7 +78,8 @@ export async function render(context, container) {
     for (const link of links) link.remove()
     for (const finish of [...dialogs]) finish()
   }, { once: true })
-  const describe = error => /^OFFICE_(?:INVALID|UNSUPPORTED)_XLSX$/.test(error?.message) ? copy.invalid : /RESOURCE_CHANGED|RESOURCE_UNAVAILABLE/.test(error?.message) ? copy.changed : copy.error
+  const kit = () => documentMessages(context.environment.language)
+  const describe = error => /^OFFICE_(?:INVALID|UNSUPPORTED)_XLSX$/.test(error?.message) ? copy.invalid : /RESOURCE_CHANGED|RESOURCE_UNAVAILABLE/.test(error?.message) ? copy.changed : error?.message === 'DOCUMENT_CONFLICT' ? kit().conflict : error?.message === 'DOCUMENT_READ_ONLY' ? kit().readOnly : copy.error
   // "Locate source" on a quote card: requests wait until the editor is up.
   const reveal = registerReveal(context, createQuoteReveal())
   if (!context.resource) {
@@ -79,11 +87,42 @@ export async function render(context, container) {
     show(copy.empty)
     return
   }
+  // Fetch the editor code while the working copy is prepared. modulepreload only downloads: the module runs after the host globals below are set.
+  const preload = document.createElement('link')
+  preload.rel = 'modulepreload'
+  preload.href = new URL('./xlsx/sheets.js', import.meta.url).href
+  document.head.append(preload)
+  links.push(preload)
   try {
-    const resource = context.resource.size === undefined
-      ? { ...context.resource, size: (await context.resources.readBytes(context.resource, { offset: 0, length: 1 })).size }
-      : context.resource
-    const bytes = await readXlsx(context.resources, resource, context.signal)
+    const { resource } = context
+    let pendingEdits = null
+    // Set while saveCopy waits for the editor to hand over a copy.
+    let copyRequest = null
+    // The file is edited through the host's working copy: it refuses to replace a file that changed since it was read.
+    const session = await openDocumentSession(context, {
+      validate: validateXlsx,
+      recover: async () => (await showChoice(container, context.signal, { message: kit().recover, buttons: [kit().recoverCopy, kit().recoverDiscard], cancelId: 0 })) === 0 ? 'copy' : 'discard',
+      // The editor reports how many edits are pending; until that is hooked up nothing is known.
+      isDirty: () => pendingEdits === null ? undefined : pendingEdits > 0 || typing(),
+      ask: async () => (await showChoice(container, context.signal, { message: kit().changedAsk, buttons: [kit().reload, kit().copy], cancelId: 1 })) === 0 ? 'reload' : 'copy',
+      // The editor's own Save As (its keyboard shortcut) exports the current content through exportCopy below.
+      saveCopy: () => new Promise((resolve) => {
+        const timer = setTimeout(finish, 130000, false)
+        function finish(exported) {
+          clearTimeout(timer)
+          copyRequest = null
+          resolve(exported)
+        }
+        copyRequest = finish
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true }))
+      }),
+      // The engine opens one workbook per page load: give the file back and start the page again to see the new content.
+      reload: async () => {
+        await session.discard()
+        globalThis.location.reload()
+      },
+    })
+    const bytes = session.bytes
     context.signal.throwIfAborted()
     // AutoSave is on unless the user turned it off in this file's view; the choice is kept with the view state, like the PPTX plugin.
     const viewState = context.state && typeof context.state === 'object' && !Array.isArray(context.state) ? { ...context.state } : {}
@@ -107,25 +146,26 @@ export async function render(context, container) {
       language: context.environment.language,
       theme: context.environment.colorScheme === 'dark' ? 'dark' : 'light',
       autoSave: viewState.autoSave !== false,
-      // The host checks the file version, directory grant and content hash before writing; a conflict rejects here.
+      // The working copy checks the file version and identity before writing; a file changed on disk rejects here and the reader chooses.
       async save(data) {
         context.signal.throwIfAborted()
         try {
-          const saved = await context.resources.saveFile({ name: resource.name, data: validateXlsx(data), resource: context.resource })
-          if (!saved)
-            throw new Error('OFFICE_SAVE_CANCELLED')
+          await session.save(validateXlsx(data))
         }
         catch (error) {
-          throw new Error(error?.message === 'OFFICE_SAVE_CANCELLED' ? copy.cancelled : describe(error))
+          throw new Error(describe(error))
         }
       },
       // Save As leaves the open document untouched and exports a copy through the system dialog.
       async exportCopy(name, data) {
         context.signal.throwIfAborted()
         try {
-          return !!(await context.resources.saveFile({ name: /\.xlsx$/i.test(name) ? name : resource.name, data: validateXlsx(data) }))
+          const exported = !!(await context.resources.saveFile({ name: /\.xlsx$/i.test(name) ? name : resource.name, data: validateXlsx(data) }))
+          copyRequest?.(exported)
+          return exported
         }
         catch (error) {
+          copyRequest?.(false)
           throw new Error(describe(error))
         }
       },
@@ -162,9 +202,20 @@ export async function render(context, container) {
       notify: (text, alert) => show(text === 'SHEETS_EXPORT_UNAVAILABLE' ? copy.exportUnavailable : text, alert),
     }
     const editor = await import('./xlsx/sheets.js')
+    // The editor tells its host how many edits are not saved yet (it drives the close prompt); follow that to know when nothing would be lost.
+    const desktopApi = window.desktopApi
+    if (typeof desktopApi?.notifyPendingEdits === 'function') {
+      const notify = desktopApi.notifyPendingEdits.bind(desktopApi)
+      pendingEdits = 0
+      desktopApi.notifyPendingEdits = (count) => {
+        pendingEdits = Number.isFinite(count) ? Math.floor(count) : 0
+        notify(count)
+      }
+    }
     await editor.ready
     context.signal.throwIfAborted()
     installSelectionMenu(context)
+    session.watch()
     reveal.ready(true)
     const appearance = context.onEnvironmentChange((environment) => {
       copy = messages[environment.language.startsWith('zh') ? 'zh' : 'en']

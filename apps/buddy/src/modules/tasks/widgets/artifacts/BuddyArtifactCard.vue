@@ -146,7 +146,7 @@ function handleKeydown(event: KeyboardEvent) {
   <div
     ref="card"
     class="buddy-artifact-collection__item relative grid overflow-hidden min-w-0 border-1 border-solid border-border rounded-micro bg-raised text-inherit text-left hover:border-accent hover:bg-accent-subtle focus-within:border-accent"
-    :class="[compact ? 'is-compact' : 'h-[88px] grid-cols-[40px_minmax(0,1fr)] items-center gap-2 p-3', { 'is-directory': artifact.kind === 'directory' }]"
+    :class="[compact ? 'is-compact' : 'h-[60px] grid-cols-[40px_minmax(0,1fr)] items-center gap-2 p-2', { 'is-directory': artifact.kind === 'directory' }]"
     @contextmenu.stop.prevent="openContextMenu"
     @keydown="handleKeydown"
   >
@@ -177,8 +177,8 @@ function handleKeydown(event: KeyboardEvent) {
       <FileIcon v-else :name="artifact.name" size="medium" />
     </div>
     <div
-      class="buddy-artifact-collection__actions pointer-events-none absolute z-2 flex items-center border-1 border-solid border-border rounded-micro bg-[rgb(from_var(--buddy-surface-raised)_r_g_b_/_0.96)] p-[1px] text-muted opacity-0 transition-opacity duration-120 motion-reduce:transition-none"
-      :class="[compact ? 'top-1 right-1' : 'top-2 right-2', { 'is-open': menuOpen || contextMenuOpen }]"
+      class="buddy-artifact-collection__actions pointer-events-none absolute z-2 flex items-center border-1 border-solid border-border rounded-micro bg-[rgb(from_var(--buddy-surface-raised)_r_g_b_/_0.96)] p-[1px] text-muted opacity-0 transition-opacity duration-120 motion-reduce:transition-none top-1 right-1"
+      :class="[{ 'is-open': menuOpen || contextMenuOpen }]"
     >
       <NButton
         class="buddy-icon-button buddy-artifact-collection__open focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-focus"
@@ -204,7 +204,7 @@ function handleKeydown(event: KeyboardEvent) {
         </NButton>
       </NDropdown>
     </div>
-    <div class="buddy-artifact-collection__meta pointer-events-none grid min-w-0 gap-2">
+    <div class="buddy-artifact-collection__meta pointer-events-none grid min-w-0" :class="compact ? 'gap-2' : 'gap-1'">
       <span :id="nameId" class="buddy-artifact-collection__name overflow-hidden text-strong text-[length:var(--buddy-chat-meta-font-size)] leading-[18px] text-ellipsis whitespace-nowrap">{{ artifact.name }}</span>
       <span class="buddy-artifact-collection__detail overflow-hidden text-muted text-[length:var(--buddy-chat-caption-font-size)] leading-[16px] text-ellipsis whitespace-nowrap">{{ detail }}</span>
     </div>

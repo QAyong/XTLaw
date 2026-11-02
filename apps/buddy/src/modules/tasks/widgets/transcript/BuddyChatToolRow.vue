@@ -4,10 +4,11 @@ import type { BuddyLocale } from '@/i18n/buddyI18n'
 import { ChevronRight20Regular } from '@vicons/fluent'
 import { computed } from 'vue'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
-import { canExpandChatTool, describeChatTool, isChatToolActive, isChatToolIssue } from '../../model/transcript/chatToolDisplay'
+import { canExpandChatTool, describeChatTool, getChatToolWaitPhase, isChatToolActive, isChatToolIssue } from '../../model/transcript/chatToolDisplay'
 import BuddyChatActivitySpinner from './BuddyChatActivitySpinner.vue'
 import BuddyChatShimmerText from './BuddyChatShimmerText.vue'
 import BuddyChatToolIcon from './BuddyChatToolIcon.vue'
+import BuddyChatToolResourceWait from './BuddyChatToolResourceWait.vue'
 import { useChatContent } from './chatContentContext'
 
 const props = defineProps<{
@@ -25,7 +26,8 @@ const actions = useChatContent()
 const display = computed(() => describeChatTool(props.node, props.language))
 const canExpand = computed(() => canExpandChatTool(props.node, actions.canPreviewFile))
 const active = computed(() => isChatToolActive(props.node))
-const processing = computed(() => props.node.status === 'running' || props.node.status === 'preparing')
+const waiting = computed(() => getChatToolWaitPhase(props.node))
+const processing = computed(() => !waiting.value && (props.node.status === 'running' || props.node.status === 'preparing'))
 const issue = computed(() => isChatToolIssue(props.node))
 </script>
 
@@ -46,7 +48,8 @@ const issue = computed(() => isChatToolIssue(props.node))
       <span v-if="display.target" class="buddy-chat-tool__summary">{{ compactTarget ?? display.target }}<span v-if="hasNext" class="buddy-chat-tool__separator" aria-hidden="true">,</span></span>
       <span v-if="display.context && !compact" class="buddy-chat-tool__context">{{ display.context }}</span>
       <span v-if="issue || active || node.status === 'cancelled' || node.status === 'skipped' || node.presentation.card === 'directory-authorization' || node.presentation.card === 'system'" class="buddy-chat-tool__status" :class="{ 'is-issue': issue }">
-        <span class="buddy-chat-tool__status-label">{{ display.status }}</span>
+        <BuddyChatToolResourceWait v-if="waiting === 'resource'" :language="language" :run-id="node.runId" :blocker="node.resourceWait" />
+        <span v-else class="buddy-chat-tool__status-label">{{ display.status }}</span>
         <BuddyChatActivitySpinner v-if="processing" />
       </span>
       <DesktopIcon v-if="!compact" :component="ChevronRight20Regular" class="buddy-chat-activity-row__chevron" :class="{ 'is-open': open, 'is-hidden': !canExpand }" aria-hidden="true" />

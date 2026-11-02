@@ -3,7 +3,8 @@ import type { DropdownOption } from 'naive-ui'
 import type { Component } from 'vue'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import type { ThemeAppearanceMode } from '@/theme/themeAppearanceSwitch'
-import { ArrowSync16Regular, ChevronDown16Regular, Desktop16Regular, Settings20Regular, WeatherMoon16Regular, WeatherSunny16Regular } from '@vicons/fluent'
+import { HELP_URL } from '@buddy-electron/shared/productLinks'
+import { ArrowSync20Regular, ChevronDown16Regular, Desktop20Regular, QuestionCircle20Regular, Settings20Regular, WeatherMoon20Regular, WeatherSunny20Regular } from '@vicons/fluent'
 import { NDropdown, useMessage } from 'naive-ui'
 import { computed, h, shallowRef } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
@@ -27,10 +28,11 @@ const dialogOpen = shallowRef(false)
 const menuOpen = shallowRef(false)
 const appearancePending = shallowRef(false)
 const resolvedProfile = computed(() => resolveUserProfile(profile.config.value, appInfo.value))
+// 菜单里的图标统一用 20px 字形，再缩到同一尺寸。混用 16/20 时留白不同，看起来大小不一。
 const appearanceOptions = computed<{ label: string, value: ThemeAppearanceMode, icon: Component }[]>(() => [
-  { label: t('desktop.settings.themeSystem'), value: 'system', icon: Desktop16Regular },
-  { label: t('desktop.settings.themeLight'), value: 'light', icon: WeatherSunny16Regular },
-  { label: t('desktop.settings.themeDark'), value: 'dark', icon: WeatherMoon16Regular },
+  { label: t('desktop.settings.themeSystem'), value: 'system', icon: Desktop20Regular },
+  { label: t('desktop.settings.themeLight'), value: 'light', icon: WeatherSunny20Regular },
+  { label: t('desktop.settings.themeDark'), value: 'dark', icon: WeatherMoon20Regular },
 ])
 
 function openProfileDialog() {
@@ -100,9 +102,14 @@ const menuOptions = computed<DropdownOption[]>(() => [
     key: 'settings',
     label: t('desktop.navigation.settings'),
   },
+  {
+    icon: () => h(DesktopIcon, { component: QuestionCircle20Regular, size: 16 }),
+    key: 'get-help',
+    label: t('desktop.account.getHelp'),
+  },
   { key: 'divider-app', type: 'divider' },
   {
-    icon: () => h(DesktopIcon, { component: ArrowSync16Regular, size: 16 }),
+    icon: () => h(DesktopIcon, { component: ArrowSync20Regular, size: 16 }),
     key: 'check-updates',
     label: renderCheckUpdatesLabel,
     disabled: !!updates.state.value?.checking,
@@ -112,6 +119,7 @@ const menuThemeOverrides = {
   fontSizeSmall: '13px',
   optionHeightSmall: '30px',
   optionIconPrefixWidthSmall: '26px',
+  optionIconSizeSmall: '16px',
   optionSuffixWidthSmall: '10px',
 }
 
@@ -129,6 +137,8 @@ function handleMenuAction(action: string | number) {
   menuOpen.value = false
   if (action === 'settings')
     emit('openSettings')
+  else if (action === 'get-help')
+    window.open(HELP_URL, '_blank', 'noopener,noreferrer')
   else if (action === 'check-updates')
     void checkForUpdates()
 }
@@ -238,6 +248,19 @@ function handleMenuAction(action: string | number) {
 
 .desktop-sidebar-account-menu.n-dropdown-menu .n-dropdown-option-body__prefix {
   color: var(--buddy-text-secondary);
+}
+
+.desktop-sidebar-account-menu .n-dropdown-option-body__prefix .n-icon,
+.desktop-sidebar-account-menu .desktop-segmented-control__icon {
+  width: var(--buddy-menu-icon-size);
+  height: var(--buddy-menu-icon-size);
+  font-size: var(--buddy-menu-icon-size);
+}
+
+.desktop-sidebar-account-menu .n-dropdown-option-body__prefix .n-icon svg,
+.desktop-sidebar-account-menu .desktop-segmented-control__icon svg {
+  width: 100%;
+  height: 100%;
 }
 
 .desktop-sidebar-account-menu.n-dropdown-menu .n-dropdown-divider {

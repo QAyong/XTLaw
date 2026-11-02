@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import type { SettingsContext } from '@/modules/settings/settingsContext'
 import type { DesktopUpdates } from '@/modules/updates/contracts'
+import { HELP_URL } from '@buddy-electron/shared/productLinks'
 import { NMessageProvider } from 'naive-ui'
 import { describe, expect, it, vi } from 'vitest'
 import { createApp, defineComponent, h, nextTick, ref } from 'vue'
@@ -74,9 +75,13 @@ describe('desktopSidebarAccount', () => {
     root.querySelector<HTMLButtonElement>('.desktop-sidebar-account')?.click()
     await settle()
     expect(menuOption('设置')).toBeDefined()
+    expect(menuOption('获取帮助')).toBeDefined()
     expect(menuOption('检查更新')?.textContent).toContain('0.3.2')
     expect(document.body.querySelector('.desktop-sidebar-account-menu__device')?.textContent).toBe('Desktop')
     expect(segmentTab('跟随系统')).toBeDefined()
+    const menuIcons = [...document.body.querySelectorAll<SVGElement>('.desktop-sidebar-account-menu svg')]
+    expect(menuIcons.length).toBe(6)
+    expect(menuIcons.every(icon => icon.getAttribute('viewBox') === '0 0 20 20')).toBe(true)
 
     menuOption('设置')?.click()
     await settle()
@@ -97,6 +102,22 @@ describe('desktopSidebarAccount', () => {
     expect(themeRequest).toHaveBeenCalledWith({ action: 'preference', preference: { id: 'xtlaw.themes.paper-dark' } })
     expect(root.querySelector('.desktop-sidebar-account')?.getAttribute('aria-expanded')).toBe('true')
 
+    app.unmount()
+    root.remove()
+  })
+
+  it('opens the help page from the menu', async () => {
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null)
+    const { app, root } = mountAccount({ avatar: '', deviceName: '', userName: '周晓晓' })
+    await nextTick()
+
+    root.querySelector<HTMLButtonElement>('.desktop-sidebar-account')?.click()
+    await settle()
+    menuOption('获取帮助')?.click()
+    await settle()
+    expect(open).toHaveBeenCalledWith(HELP_URL, '_blank', 'noopener,noreferrer')
+
+    open.mockRestore()
     app.unmount()
     root.remove()
   })

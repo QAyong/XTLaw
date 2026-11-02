@@ -52,6 +52,7 @@ import { PiEventBridge } from './agent/events/PiEventBridge'
 import { BuddyAgentRunner } from './agent/execution/BuddyAgentRunner'
 import { BuddyRunExecutionPlanner } from './agent/execution/BuddyRunExecutionPlanner'
 import { BuddyTurnLauncher } from './agent/execution/BuddyTurnLauncher'
+import { CodemodeWorkerPool } from './agent/execution/CodemodeWorkerPool'
 import { ExecutionComposerInputService } from './agent/execution/ExecutionComposerInputService'
 import { ExecutionCoordinator } from './agent/execution/ExecutionCoordinator'
 import { ExecutionDelegationService } from './agent/execution/ExecutionDelegationService'
@@ -236,6 +237,7 @@ import { registerWebSettingsRpc, WebSettingsService } from './web/WebSettingsSer
 import { normalizeComposerWorkspace } from './workspace/normalizeComposerWorkspace'
 import { registerWorkspaceStateRpc } from './workspace/registerWorkspaceStateRpc'
 import { WorkspaceStateService } from './workspace/WorkspaceStateService'
+import { sharedWslHosts } from './wsl/sharedWslHosts'
 
 export interface StartBuddyServiceOptions {
   record?: ApplicationDiagnosticReporter
@@ -251,6 +253,7 @@ export interface StartBuddyServiceOptions {
 
 export interface BuddyServiceHandle {
   dispose: () => Promise<void>
+  prepareIdleShutdown: () => boolean
   runtime: BuddyRuntime
 }
 
@@ -386,6 +389,10 @@ export async function startBuddyService(
       await engine.ready()
       return engine
     })
+    // The WSL search helpers are started on first use; this only closes them with the service.
+    await host.start('runtime.wsl_hosts', ({ defer }) => {
+      defer(() => sharedWslHosts.dispose())
+    })
     const fileResources = new FileResourceCoordinator(fileEngine)
     const spaceFiles = await host.start('runtime.space_files', ({ defer }) => {
       const service = new SpaceFileService(spacesRepository, fileEngine, spaceWorkspaces, new ConversationFileRoots({ conversations, conversationGrants: conversationDirectoryGrants, spaces: spacesRepository, paths, artifacts: createArtifactRepository(options.database) }))
@@ -476,7 +483,10 @@ export async function startBuddyService(
         options.rpc.notify(changesChanged.method, { sourceId: recoverySourceId, revision: ++recoveryRevision, conversationId: run.conversationId, runId })
     }
     const mutations = await host.start('runtime.mutations', async ({ defer }) => {
-      const service = new MutationCoordinator({ repository: createMutationRepository(options.database), evidence: mutationEvidence, resources: fileResources })
+      const service = new MutationCoordinator({ repository: createMutationRepository(options.database), evidence: mutationEvidence, resources: fileResources, getRunTitle: (runId) => {
+        const run = runs.findById(runId)
+        return run ? conversations.findById(run.conversationId)?.title ?? undefined : undefined
+      } })
       const notices = service.onDidChange(event => notifyRecovery(event.runId))
       defer(() => notices.dispose())
       defer(() => service.dispose())
@@ -967,6 +977,13 @@ export async function startBuddyService(
       return service
     })
     const sessionExtensionServices: BuddySessionExtensionServices = {
+      codemodeWorkers: await host.start('runtime.codemode_workers', async ({ defer }) => {
+        const pool = new CodemodeWorkerPool()
+        defer(() => pool.dispose())
+        const unsubscribe = await bindRuntimePreferences(options.rpc, preferences => pool.configure(preferences))
+        defer(unsubscribe)
+        return pool
+      }),
       shells: new ExtensionShellRegistry(options.rpc),
       networkPermissions: new NetworkPermissionsClient(options.rpc),
       imageReading,
@@ -1524,6 +1541,19 @@ export async function startBuddyService(
     })
     automationScheduler = scheduler
 
+    const isBusy = () => runner.hasActiveExecutions
+      || composerDraftService.hasPendingOperations
+      || chatTurnService.hasPendingOperations
+      || chatCommandService.hasPendingOperations
+      || chatQueueService!.hasPendingOperations
+      || dispatcher.hasPendingOperations
+      || runs.hasIncomplete()
+      || chatQueue.hasWaiting()
+      || approvalsRepository.listPending().some((approval) => {
+        const run = runs.findById(approval.runId)
+        return run?.status === 'queued' || run?.status === 'running'
+      })
+
     await host.step('runtime.recovery', async () => {
       await automationOccurrenceLifecycle.recoverPendingDeletions()
       await conversationLifecycle.recoverPendingDeletions()
@@ -1567,15 +1597,7 @@ export async function startBuddyService(
       )
       register(
         registerRunRpc({
-          isBusy: () => {
-            if (runner.hasActiveExecutions)
-              return true
-            return runs.hasIncomplete()
-              || approvalsRepository.listPending().some((approval) => {
-                const run = runs.findById(approval.runId)
-                return run?.status === 'queued' || run?.status === 'running'
-              })
-          },
+          isBusy,
           getCacheWarmingStatus: (conversationId) => {
             const conversation = conversations.findById(conversationId)
             const branchId = conversation?.activeBranchId
@@ -1619,6 +1641,8 @@ export async function startBuddyService(
       )
       register(
         registerChatRpc({
+          attachments: attachmentService,
+          conversations,
           drafts: composerDraftService,
           commands: chatCommandService,
           rpc: options.rpc,
@@ -1729,7 +1753,21 @@ export async function startBuddyService(
       })
       return scheduler.start()
     }, ['runtime.rpc', 'runtime.execution'])
-    return { dispose: () => host.stop().finally(stopLifecycleDiagnostics), runtime }
+    return {
+      dispose: () => host.stop().finally(stopLifecycleDiagnostics),
+      prepareIdleShutdown() {
+        if (isBusy())
+          return false
+        void composerDraftService.dispose()
+        void chatTurnService.dispose()
+        void chatCommandService.dispose()
+        chatQueueService!.dispose()
+        void scheduler.dispose()
+        dispatcher.stop()
+        return true
+      },
+      runtime,
+    }
   }
   catch (error) {
     try {

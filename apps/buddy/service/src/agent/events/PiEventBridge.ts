@@ -178,12 +178,14 @@ class ActivePiEventChannel implements PiCompactionEventChannel, PiTurnEventChann
   projectToolExecutionPhase(event: ToolExecutionPhaseChange): void {
     const now = performance.now()
     const previous = event.phase === 'authorizing' ? undefined : this.#toolPhases.get(event.toolCallId)
-    if (previous?.phase === event.phase || previous?.phase === 'finished')
+    if (previous?.phase === 'finished' && (event.phase !== 'finished' || previous.outcome || !event.outcome))
+      return
+    if (previous?.phase === event.phase && previous.outcome === event.outcome && JSON.stringify(previous.waitingFor) === JSON.stringify(event.waitingFor))
       return
     const durations = { ...previous?.durations }
-    if (previous)
+    if (previous && previous.phase !== 'finished')
       durations[previous.phase] = (durations[previous.phase] ?? 0) + Math.max(0, now - previous.since)
-    const timing: ToolExecutionTiming = { phase: event.phase, durations, executionBasis: event.executionBasis ?? previous?.executionBasis }
+    const timing: ToolExecutionTiming = { phase: event.phase, durations, executionBasis: event.executionBasis ?? previous?.executionBasis, ...(event.waitingFor ? { waitingFor: event.waitingFor } : {}), ...(event.outcome ? { outcome: event.outcome } : {}) }
     this.#toolPhases.set(event.toolCallId, { ...timing, since: now })
     this.#eventWriter.append({ type: 'tool.phase', payload: { toolCallId: event.toolCallId, toolName: event.toolName, timing } })
   }
@@ -412,7 +414,7 @@ class ActivePiEventChannel implements PiCompactionEventChannel, PiTurnEventChann
 function isTerminalToolExecutionUpdate(
   event: AgentSessionEvent,
 ): event is PiToolExecutionUpdateEvent {
-  return event.type === 'tool_execution_update' && (isShellToolName(event.toolName) || event.toolName === 'lexora_host_shell')
+  return event.type === 'tool_execution_update' && (isShellToolName(event.toolName) || event.toolName === 'lexora_host_shell' || event.toolName === 'lexora_wsl_shell')
 }
 
 async function settledError(promise: Promise<unknown>): Promise<unknown> {

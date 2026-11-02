@@ -9,18 +9,20 @@ import { BUDDY_LOCALES, useBuddyI18n } from '@/i18n/buddyI18n'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import OnboardingBuddyStep from './OnboardingBuddyStep.vue'
 import OnboardingModelStep from './OnboardingModelStep.vue'
+import OnboardingPermissionStep from './OnboardingPermissionStep.vue'
 import OnboardingPreferencesStep from './OnboardingPreferencesStep.vue'
 import OnboardingPreview from './OnboardingPreview.vue'
 
 const props = defineProps<{ controller: DesktopOnboarding, appInfo: DesktopAppInfo | null }>()
 const state = props.controller
-const { step, name, avatar, customAvatar, preferences, disabled, busy, error, buddyReady, canContinue, replaying } = state
+const { step, name, avatar, customAvatar, preferences, permissionMode, disabled, busy, error, buddyReady, canContinue, replaying } = state
 const language = state.settings.language
 const { t, languageOptions } = useBuddyI18n(language)
 const heading = useTemplateRef<HTMLElement>('heading')
 const steps: Array<{ label: BuddyI18nKey, title: BuddyI18nKey, description: BuddyI18nKey }> = [
   { label: 'onboarding.buddyStep', title: 'onboarding.buddyTitle', description: 'onboarding.buddyDescription' },
   { label: 'onboarding.modelStep', title: 'onboarding.modelTitle', description: 'onboarding.modelDescription' },
+  { label: 'onboarding.permissionStep', title: 'onboarding.permissionTitle', description: 'onboarding.permissionDescription' },
   { label: 'onboarding.preferencesStep', title: 'onboarding.preferencesTitle', description: 'onboarding.preferencesDescription' },
 ]
 const current = computed(() => steps[step.value]!)
@@ -37,8 +39,8 @@ function changeLanguage(value: string) {
 function next() {
   if (step.value === 0)
     void state.continueFromBuddy()
-  else if (step.value === 1)
-    step.value = 2
+  else if (step.value < steps.length - 1)
+    step.value += 1
   else
     void state.complete()
 }
@@ -102,6 +104,7 @@ watch(step, focusHeading)
               </NButton>
             </div>
             <OnboardingModelStep v-else-if="step === 1" :providers="state.providers" />
+            <OnboardingPermissionStep v-else-if="step === 2" v-model="permissionMode" :language="language" :disabled="disabled" />
             <OnboardingPreferencesStep v-else v-model="preferences" :language="language" :capabilities="appInfo?.updateCapabilities" :disabled="disabled" />
           </div>
           <NAlert v-if="error" class="mt-3 flex-none" type="error" :show-icon="false" role="alert">
@@ -116,7 +119,7 @@ watch(step, focusHeading)
             </NButton>
             <span v-else class="text-[12px] text-muted">{{ t('onboarding.localProfile') }}</span>
             <NButton type="primary" size="large" :loading="busy" :disabled="disabled || (step === 0 && !canContinue)" @click="next">
-              {{ t(step === 2 ? replaying ? 'onboarding.save' : 'onboarding.finish' : step === 1 && !state.providers.models.value.length ? 'onboarding.skipModel' : 'onboarding.next') }}
+              {{ t(step === steps.length - 1 ? replaying ? 'onboarding.save' : 'onboarding.finish' : step === 1 && !state.providers.models.value.length ? 'onboarding.skipModel' : 'onboarding.next') }}
             </NButton>
           </footer>
         </div>

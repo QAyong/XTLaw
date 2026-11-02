@@ -288,7 +288,7 @@ const lifecycle = useDesktopLifecycle({
 })
 const shortcuts = useDesktopKeybindings(workbench.controller.registry, stores.applicationSettings, () => shell.appInfo.value?.platform ?? 'linux')
 const { ready } = lifecycle
-provide(runtimeAvailabilityKey, { loading: lifecycle.loading, failed: lifecycle.failed, language: stores.applicationSettings.language, retry: lifecycle.retry })
+provide(runtimeAvailabilityKey, { loading: lifecycle.loading, maintenance: lifecycle.maintenance, failed: lifecycle.failed, language: stores.applicationSettings.language, retry: lifecycle.retry })
 const navigation = useDesktopNavigation({
   router,
   ready,
@@ -354,6 +354,9 @@ const featureDiscovery = useFeatureDiscovery({
       'additional-directories': desktopRouteLocations.tasks(),
       'network-permissions': desktopRouteLocations.settings('browser'),
       'follow-up-behavior': desktopRouteLocations.settings('runtime'),
+      'codemode-concurrency': desktopRouteLocations.settings('runtime'),
+      'speech-settings': desktopRouteLocations.settings('speech'),
+      'image-settings': desktopRouteLocations.settings('models'),
     }[id]
     await navigation.navigate(location)
     if (router.currentRoute.value.path !== router.resolve(location).path)

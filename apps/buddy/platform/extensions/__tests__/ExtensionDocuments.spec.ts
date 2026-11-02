@@ -2,7 +2,9 @@ import type { ExtensionWorkbenchEvent } from '../../../shared/extensions/extensi
 import type { ExtensionServicePorts } from '../ExtensionService'
 import { Buffer } from 'node:buffer'
 import { randomUUID } from 'node:crypto'
-import { rm } from 'node:fs/promises'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { afterEach, expect, it } from 'vitest'
 import { ExtensionService } from '../ExtensionService'
 import { createStore, manifest, reviewPackage } from './fixtures'
@@ -28,7 +30,7 @@ function documentManifest(slug: string, extensions: string[], permissions: Recor
   })
 }
 
-async function fixture(plugins: ReturnType<typeof documentManifest>[]) {
+async function fixture(plugins: ReturnType<typeof documentManifest>[], extra: Partial<ExtensionServicePorts> = {}) {
   const { root, store } = await createStore()
   cleanup.push(() => rm(root, { recursive: true, force: true }))
   for (const plugin of plugins)
@@ -46,6 +48,7 @@ async function fixture(plugins: ReturnType<typeof documentManifest>[]) {
     readText: async () => '',
     readBytes: async request => ({ base64: content.subarray(request.offset, request.offset + request.length).toString('base64'), size: content.length, eof: request.offset + request.length >= content.length, etag }),
     get: async () => new Response(''),
+    ...extra,
   }
   const service = new ExtensionService(store, ports)
   cleanup.push(() => service.dispose())
@@ -132,4 +135,38 @@ it('keeps the earlier DOCX, PPTX and XLSX quote shapes working for matching file
     await expect(sheet.request('composer.captureQuote', { resourceId: sheet.resource.id, text: 'x', ...input })).rejects.toThrow('EXTENSION_REFERENCE_DENIED')
   const book = await openView(f, 'tests.docs', { ...csv, path: 'b.docx' })
   await expect(book.request('composer.captureQuote', { resourceId: book.resource.id, text: 'x', ...cells })).rejects.toThrow('EXTENSION_REFERENCE_DENIED')
+})
+
+it('quotes against the working copy of a file the view edits, and refuses once the file changed on disk', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'lexora-quote-'))
+  cleanup.push(() => rm(directory, { recursive: true, force: true }))
+  const file = join(directory, 'book.xlsx')
+  await writeFile(file, 'first version')
+  const f = await fixture([documentManifest('book', ['xlsx'], { fileEditing: true })], {
+    documents: {
+      commit: async () => {
+        throw new Error('unused')
+      },
+      query: async () => {
+        throw new Error('unused')
+      },
+      resolve: async () => file,
+      reveal: async () => {},
+    },
+  })
+  const resource = await f.store.grant('tests.book', { ...csv, path: 'book.xlsx' }, () => {})
+  const session = await f.service.openView({ viewId: randomUUID(), extensionId: 'tests.book', viewType: 'tests.book.document', resource, state: {}, stateVersion: 1 })
+  const request = (method: string, params: unknown) => f.service.viewRequest(session.id, session.generation, session.token, method, params as never)
+  const quote = { resourceId: resource.id, text: 'x', cells: { sheetIndex: 0, sheet: 'S', range: 'A1:B2' } }
+  // Nothing proves which version the view holds until it opens the working copy.
+  await expect(request('composer.captureQuote', quote)).rejects.toThrow('EXTENSION_REFERENCE_DENIED')
+  const document = await request('documents.open', { resourceId: resource.id }) as { id: string, version: string }
+  await request('composer.captureQuote', quote)
+  const event = f.events.find(item => item.kind === 'quote-capture')
+  expect(event && event.kind === 'quote-capture' && event.quote.source.kind === 'file' && event.quote.source.format === 'xlsx' && event.quote.source.xlsx?.hash).toBe(document.version)
+  await writeFile(file, 'edited by the agent')
+  await expect(request('composer.captureQuote', quote)).rejects.toThrow('EXTENSION_RESOURCE_CHANGED')
+  // Releasing the working copy takes the proof away again.
+  await request('documents.close', { id: document.id })
+  await expect(request('composer.captureQuote', quote)).rejects.toThrow('EXTENSION_REFERENCE_DENIED')
 })

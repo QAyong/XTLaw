@@ -1,6 +1,6 @@
 # Office PDF 插件：GenOffice PDF 编辑器移植
 
-**版本：** 0.1.7（XTLaw 官方插件，打开、批注、填写表单、编辑文字、页面操作、保存、引用到聊天）。0.1.7：图标改用 Fluent UI System Icons 的 `DocumentPdf24Regular`（MIT，微软开源；`icon.svg`，按 Notion 色板上色，图形没有改动，许可文本见 `LICENSE-fluent-icons.txt`），不再使用 Office 或 Adobe 的标志。0.1.5：聊天引用卡片的“定位来源”会翻到引用所在页并高亮引用的文字（`references.onReveal`，见 Feature-043）；文字不在那一页时返回未找到，页面仍会翻到。0.1.4：图标里的“PDF”字母加宽色块、拉开间距，不再挤在一起。0.1.3：图标改为与 DOCX、PPTX、XLSX 一致的彩色样式（原来的线框图标用 `currentColor`，作为图片显示时是黑色，深色主题下几乎看不见）。0.1.2：工具栏加入与其他 Office 插件一致的“自动保存”开关；收起工具栏时翻页箭头不再残留成空按钮，收起后点分类标签能一次展开。只做了构建、包校验和无头浏览器里的模拟宿主冒烟，没有在桌面实机验收。
+**版本：** 0.1.8（XTLaw 官方插件，打开、批注、填写表单、编辑文字、页面操作、保存、引用到聊天）。0.1.8：保存改经宿主的工作副本（`fileEditing`，取代 `selectedResourceWrite`）；文件在磁盘上被 AI 等外部修改后，没有未保存修改时直接刷新成新内容；有未保存修改时让你选“丢弃我的修改，重新加载”或“先把我的修改另存为副本，再重新加载”，两种结果都是显示磁盘上的最新文件，不会停在冲突状态反复报错；保存被拒绝而没来得及处理的内容，下次打开时可选择另存为副本或放弃。要求 XTLaw 0.4.9 或更新版本；PDF 编辑器能报告未保存状态，没有未保存修改时直接重新加载（整页重新打开）。0.1.7：图标改用 Fluent UI System Icons 的 `DocumentPdf24Regular`（MIT，微软开源；`icon.svg`，按 Notion 色板上色，图形没有改动，许可文本见 `LICENSE-fluent-icons.txt`），不再使用 Office 或 Adobe 的标志。0.1.5：聊天引用卡片的“定位来源”会翻到引用所在页并高亮引用的文字（`references.onReveal`，见 Feature-043）；文字不在那一页时返回未找到，页面仍会翻到。0.1.4：图标里的“PDF”字母加宽色块、拉开间距，不再挤在一起。0.1.3：图标改为与 DOCX、PPTX、XLSX 一致的彩色样式（原来的线框图标用 `currentColor`，作为图片显示时是黑色，深色主题下几乎看不见）。0.1.2：工具栏加入与其他 Office 插件一致的“自动保存”开关；收起工具栏时翻页箭头不再残留成空按钮，收起后点分类标签能一次展开。只做了构建、包校验和无头浏览器里的模拟宿主冒烟，没有在桌面实机验收。
 
 ## 当前状态
 
@@ -9,7 +9,7 @@
 - 编辑：编辑已有文字、插入文字（含中文，用 PDFium 与随包字体写入）、插入图片、编辑图片、水印。
 - 表单：填写、保存表单值；表单设计（文本框、日期、复选框、单选、下拉、签名域、自动识别）。
 - 页面：旋转、删除、插入空白页、导入页面、替换页面、裁剪、页面大小、倒序、拆分、合并、抽取本页、合并页面、拆分页面。
-- 保存：Ctrl+S 或编辑器的保存按钮经 `selectedResourceWrite` 写回当前 PDF，宿主检查文件版本、目录授权和内容哈希；外部修改会拒绝覆盖，编辑器保留未保存状态。自动保存沿用上游每 30 秒及失去焦点的机制（有未保存修改时才写回），并在撤销、重做按钮右侧提供与 DOCX、PPTX、XLSX 一致的“自动保存”开关：默认开启，选择随页状态保存；关闭后只在手动保存时写回。上游编辑器自己没有这个开关，插件页发布 `window.__lexoraPdfAutoSave`，构建时由 `gateAutoSave`（`apps/buddy/extensions/office-pdf/build.mjs`）让上游的自动保存逻辑读取它。
+- 保存：Ctrl+S 或编辑器的保存按钮经宿主工作副本（`fileEditing`）写回当前 PDF，宿主检查文件版本和文件身份；外部修改会拒绝覆盖，编辑器保留未保存状态，并让你选择重新加载或先另存为副本。自动保存沿用上游每 30 秒及失去焦点的机制（有未保存修改时才写回），并在撤销、重做按钮右侧提供与 DOCX、PPTX、XLSX 一致的“自动保存”开关：默认开启，选择随页状态保存；关闭后只在手动保存时写回。上游编辑器自己没有这个开关，插件页发布 `window.__lexoraPdfAutoSave`，构建时由 `gateAutoSave`（`apps/buddy/extensions/office-pdf/build.mjs`）让上游的自动保存逻辑读取它。
 - **页面操作立即写回**：插入、删除、替换、裁剪等和上游单机版一样直接改文件，不进入“未保存”状态。写回失败时文档保持原样。
 - 另存为（Ctrl+Shift+S）：导出一份副本，当前文档仍绑定原文件。拆分、抽取、合并页面、导出图片同样走系统保存窗口（`resourceExport`），多文件结果打包成 ZIP。
 - 引用到聊天：用鼠标选中文字后，编辑器自带的选区弹窗（高亮、下划线、删除线那一排）里有“引用”按钮，在原“问 AI”的位置；只有一个聊天输入框时直接加入，多个时展开目标菜单。键盘选区不会出现弹窗，也就没有引用入口。引用加入、重复或超限的结果由 Lexora 主程序提示，与其他 Office 插件一致，插件自己不弹提示，只在按钮的悬停提示里说明无法引用的原因。引用记录页码，不触发保存、不替换输入框正文、不发送消息。页码是文件原页序，删除或插入页面后重新选中文字再引用。
@@ -51,12 +51,12 @@
 - `fs`、`electron`、`node:crypto` 等换成 `shims/` 里的垫片：PDFium 与 HarfBuzz 的 wasm、Liberation 字体和 Noto Sans CJK SC 子集在启动时从包里取出放进内存，`readFileSync` 从内存读。
 - pdf.js 的 worker 由宿主的 `context.workers.create` 启动，设为 `GlobalWorkerOptions.workerPort`。
 - Electron 的 `nativeImage` 同步解码在页内没有对应物：保存前先把请求里要插入的图片解码并缓存（`prepareImage`）。
-- 保存、另存为和页面操作都回到 `view.js`：写回走 `saveFile({ resource })`，另存走 `saveFile` 的导出。
+- 保存、另存为和页面操作都回到 `view.js`：写回走 `context.documents`（`document-kit/document-session.js`），另存走 `saveFile` 的导出。
 - 源码改动都在 `apps/buddy/extensions/office-pdf/lexora-build/vite.config.mjs`，每处带断言并固定到上游提交；上游文本找不到时构建失败，必须重新审核。
 
 ## 权限
 
-`selectedResource: read`（读取）、`selectedResourceWrite`（写回当前文件）、`composerReference`（引用到聊天）、`localResources`（选择要插入、替换或合并的 PDF）、`resourceExport`（另存为、导出）、`webAssembly`（PDFium 与 HarfBuzz）。
+`selectedResource: read`（读取）、`fileEditing`（经工作副本写回当前文件）、`composerReference`（引用到聊天）、`localResources`（选择要插入、替换或合并的 PDF）、`resourceExport`（另存为、导出）、`webAssembly`（PDFium 与 HarfBuzz）。
 
 ## 来源与可重现构建
 

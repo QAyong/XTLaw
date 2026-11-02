@@ -3,17 +3,22 @@ import { Buffer } from 'node:buffer'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { resolveBuddyImageTransformer } from '../../../../../platform/native/nativeHost'
 import { ImageReadingError, ImageReadingService } from '../../../images/ImageReadingService'
 import { createBuddyReadTool } from '../readFileExtension'
 
 let directory: string
-const image = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a1ioAAAAASUVORK5CYII=', 'base64')
+// The native validator rejects malformed PNGs, so this must be a real image.
+const image = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAAFElEQVR4AQEJAPb/AAD/AP//AAD/EPgD/UE7EkoAAAAASUVORK5CYII=', 'base64')
 beforeEach(async () => {
+  // Images are validated by the native transformer before they are read.
+  vi.stubEnv('LEXORA_BUDDY_IMAGE_TRANSFORMER', resolveBuddyImageTransformer({ appPath: join(import.meta.dirname, '../../../../..'), isPackaged: false, resourcesPath: '' }))
   directory = await mkdtemp(join(tmpdir(), 'image-unavailable-'))
   await writeFile(join(directory, 'input.png'), image)
 })
 afterEach(async () => {
+  vi.unstubAllEnvs()
   await rm(directory, { recursive: true, force: true })
 })
 function context(input: Array<'text' | 'image'>) {

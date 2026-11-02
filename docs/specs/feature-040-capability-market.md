@@ -6,6 +6,8 @@
 **范围：** XTLaw 桌面端（`apps/buddy`）与 `QAyong/xtlaw-market` 市场仓库
 **承接：** [Feature-032 插件市场](feature-032-xtlaw-plugin-market.md)、[Feature-030 内置北大法宝 MCP](feature-030-pkulaw-legal-retrieval.md)、[Feature-031 搜狗微信搜索](feature-031-sogou-weixin-search.md)
 
+> **后续需求（2026-10-28）**：自动化也可上架市场，见 [Spec-041：自动化上架市场](feature-041-automation-market.md)。该项为需求草案，尚未实现；下文原有范围与实施记录不代表已支持自动化。
+
 ## 1. 背景与目标
 
 侧栏第一项现在叫“插件”，页面里只能管理和安装插件（扩展）。但用户真正想要的是“一项能力”，而不是某个技术载体：

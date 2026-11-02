@@ -116,8 +116,14 @@ const desktopBrowserSecurityStateSchema: z.ZodType<DesktopBrowserSecurityState>
     }).strict(),
   ])
 
+const browserFaviconSchema = z.string().max(48_000).regex(/^data:image\/(?:png|x-icon|vnd\.microsoft\.icon|jpeg|gif|webp);base64,[a-z0-9+/]+=*$/i)
+
+export function isBrowserFaviconDataUrl(value: string): boolean {
+  return browserFaviconSchema.safeParse(value).success
+}
+
 export const desktopBrowserStateSchema: z.ZodType<DesktopBrowserState> = z.object({
-  favicon: browserUrlSchema.nullable().optional(),
+  favicon: browserFaviconSchema.nullable().optional(),
   viewport: browserViewportSchema.nullable().optional(),
   openedFrom: z.object({ sessionId: z.uuid(), tabId: z.uuid() }).strict().optional(),
   documentVersion: z.number().int().nonnegative().optional(),

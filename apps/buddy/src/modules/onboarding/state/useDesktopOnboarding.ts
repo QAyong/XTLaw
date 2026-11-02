@@ -1,11 +1,13 @@
 import type { LexoraConfigPatch } from '@buddy-electron/shared/desktopApi'
 import type { LocalChatApi } from '@buddy-electron/shared/localChatApi'
 import type { BuddyCatalog, LocalBuddy } from '@buddy-shared/buddies/buddyApi'
+import type { BuddyPermissionMode } from '@buddy-shared/permissions/permissionMode'
 import type { Ref } from 'vue'
 import type { BuddyI18nKey } from '@/i18n/buddyI18n'
 import type { ModelProvidersStore } from '@/modules/models'
 import type { ApplicationSettings } from '@/modules/settings/contracts'
 import { BUDDY_AVATAR_MAX_BYTES } from '@buddy-shared/buddies/buddyApi'
+import { BUDDY_DEFAULT_PERMISSION_MODE } from '@buddy-shared/permissions/permissionMode'
 import { parseLocalChatPublicError } from '@buddy-shared/runtime/localChatError'
 import { computed, onScopeDispose, shallowRef, watch } from 'vue'
 import { readBuddyAvatar } from '@/modules/buddies'
@@ -16,7 +18,6 @@ export const ONBOARDING_DEFAULT_AVATAR = 'preset:actor-xiaoxiao'
 export interface OnboardingPreferences {
   updateNotificationsEnabled: boolean
   autoDownloadUpdates: boolean
-  petEnabled: boolean
 }
 
 export function useDesktopOnboarding(options: {
@@ -36,7 +37,8 @@ export function useDesktopOnboarding(options: {
   const busy = shallowRef(false)
   const reading = shallowRef(false)
   const error = shallowRef<BuddyI18nKey | null>(null)
-  const preferences = shallowRef<OnboardingPreferences>({ updateNotificationsEnabled: true, autoDownloadUpdates: true, petEnabled: true })
+  const preferences = shallowRef<OnboardingPreferences>({ updateNotificationsEnabled: true, autoDownloadUpdates: true })
+  const permissionMode = shallowRef<BuddyPermissionMode>(BUDDY_DEFAULT_PERMISSION_MODE)
   const disabled = computed(() => busy.value || reading.value)
   const canContinue = computed(() => !disabled.value && !!original.value && !!name.value.trim() && error.value !== 'onboarding.buddyConflict')
   let initializedPreferences = false
@@ -61,7 +63,8 @@ export function useDesktopOnboarding(options: {
     if (!config)
       return
     initializedPreferences = true
-    preferences.value = { updateNotificationsEnabled: config.desktop.updateNotificationsEnabled, autoDownloadUpdates: config.desktop.autoDownloadUpdates, petEnabled: config.pet.enabled }
+    preferences.value = { updateNotificationsEnabled: config.desktop.updateNotificationsEnabled, autoDownloadUpdates: config.desktop.autoDownloadUpdates }
+    permissionMode.value = config.desktop.chat.permissionMode
   }
   watch(settings.config, () => {
     if (!initializedPreferences)
@@ -161,8 +164,7 @@ export function useDesktopOnboarding(options: {
     busy.value = true
     error.value = null
     try {
-      const { petEnabled, ...desktop } = preferences.value
-      if (!await settings.updateSettings({ desktop: { ...desktop, onboardingCompleted: true }, pet: { enabled: petEnabled } })) {
+      if (!await settings.updateSettings({ desktop: { ...preferences.value, chat: { permissionMode: permissionMode.value }, onboardingCompleted: true } })) {
         error.value = 'onboarding.saveFailed'
         return
       }
@@ -175,7 +177,7 @@ export function useDesktopOnboarding(options: {
   }
 
   onScopeDispose(() => disposed = true)
-  return { pending, replaying, step, name, avatar, customAvatar, preferences, busy, reading, disabled, canContinue, error, buddyReady: computed(() => !!original.value), settings, providers, open, close, reloadBuddy, uploadAvatar, continueFromBuddy, updateAppearance, complete }
+  return { pending, replaying, step, name, avatar, customAvatar, preferences, permissionMode, busy, reading, disabled, canContinue, error, buddyReady: computed(() => !!original.value), settings, providers, open, close, reloadBuddy, uploadAvatar, continueFromBuddy, updateAppearance, complete }
 }
 
 export type DesktopOnboarding = ReturnType<typeof useDesktopOnboarding>

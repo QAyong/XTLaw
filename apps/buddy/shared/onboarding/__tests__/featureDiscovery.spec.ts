@@ -15,6 +15,13 @@ describe('feature discovery across releases', () => {
     expect(advanceFeatureDiscovery({ version: '0.4.0', pending: [], notified: [] }, '0.4.1', false).pending).toEqual(['follow-up-behavior'])
   })
 
+  it('introduces speech, image and CodeMode concurrency settings when upgrading to 0.4.9', () => {
+    const ids = ['speech-settings', 'image-settings', 'codemode-concurrency']
+    expect(availableFeatureGuides('0.4.8').filter(feature => ids.includes(feature.id))).toEqual([])
+    expect(availableFeatureGuides('0.4.9').filter(feature => feature.version === '0.4.9').map(feature => feature.id)).toEqual(ids)
+    expect(advanceFeatureDiscovery({ version: '0.4.8', pending: [], notified: [] }, '0.4.9', false).pending).toEqual(ids)
+  })
+
   it('combines skipped releases without dropping unseen or dismissed items', () => {
     const previous = { version: '0.12.0', pending: ['older'], notified: ['older'] }
     expect(advanceFeatureDiscovery(previous, '0.13.1', false, features)).toEqual({ version: '0.13.1', pending: ['older', 'layout', 'npc'], notified: ['older'] })

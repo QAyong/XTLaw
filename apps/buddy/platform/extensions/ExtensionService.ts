@@ -131,6 +131,8 @@ interface RunningView {
   quotes?: Map<string, { hash: string, expires: number, targets: string[] }>
   readVersion?: string
   readHash?: string
+  /** The working copy this view opened for its own selected file; its version stands in for the read version and hash. */
+  document?: string
   reading?: { offset: number, size: number, hash: ReturnType<typeof createHash> }
   referenceCapture?: string
   input: ExtensionViewInput
@@ -1227,6 +1229,48 @@ export class ExtensionService {
     return pending
   }
 
+  #documentView(view: RunningView, id: string, token: string, signal: AbortSignal): Parameters<ExtensionDocuments['request']>[0] {
+    return {
+      extensionId: view.running.package.manifest.id,
+      name: view.running.package.manifest.name,
+      viewId: id,
+      token,
+      signal,
+      current: () => {
+        this.#assertCurrent(view.running)
+        signal.throwIfAborted()
+        if (this.#views.get(id) !== view)
+          throw new Error('EXTENSION_VIEW_EXPIRED')
+      },
+      source: async (resourceId) => {
+        if (resourceId !== view.input.resource?.id || this.#fileSnapshots.has(resourceId))
+          throw new Error('EXTENSION_DOCUMENT_DENIED')
+        return this.#resource(view.running, resourceId)
+      },
+    }
+  }
+
+  // A file view that edits its own file through a working copy quotes against that copy's version instead of a byte read.
+  #followDocument(view: RunningView, own: boolean, method: string, params: JsonValue, result: JsonValue): void {
+    if (!own || !view.input.resource)
+      return
+    const document = result && typeof result === 'object' && !Array.isArray(result) ? result : null
+    const target = params && typeof params === 'object' && !Array.isArray(params) ? params : null
+    if (method === 'documents.open' && target?.resourceId === view.input.resource.id && document?.kind === 'file' && typeof document.id === 'string' && typeof document.version === 'string') {
+      view.document = document.id
+      view.readHash = document.version
+      view.readVersion = undefined
+      view.reading = undefined
+    }
+    else if (view.document && ['documents.commitWrite', 'documents.resume'].includes(method) && document?.id === view.document && typeof document.version === 'string') {
+      view.readHash = document.version
+    }
+    else if (view.document && ['documents.close', 'documents.forget'].includes(method) && target?.id === view.document) {
+      view.document = undefined
+      view.readHash = undefined
+    }
+  }
+
   async #viewRequest(id: string, generation: string, token: string, method: string, params: JsonValue): Promise<JsonValue> {
     const view = this.#views.get(id)
     if (!view || view.session.generation !== generation || view.session.token !== token)
@@ -1280,13 +1324,21 @@ export class ExtensionService {
       }, view.abort.signal, view.input.resource?.id ?? null)
     }
     else if (method === 'composer.captureQuote' || method === 'composer.addQuote') {
-      if (view.running.package.manifest.apiVersion < 4 || !extensionMayReference(view.running.package.manifest.permissions) || contribution.resource !== 'selected-file' || contribution.location !== 'context' || placement || !view.input.resource || !this.#acceptsFile(contribution, view.input.resource.name) || !view.readVersion || !view.readHash || !this.#ports.readBytes)
+      if (view.running.package.manifest.apiVersion < 4 || !extensionMayReference(view.running.package.manifest.permissions) || contribution.resource !== 'selected-file' || contribution.location !== 'context' || placement || !view.input.resource || !this.#acceptsFile(contribution, view.input.resource.name) || (!view.readVersion && !view.document) || !view.readHash || !this.#ports.readBytes)
         throw new Error('EXTENSION_REFERENCE_DENIED')
       const target = await this.#spaceResource(view.running, view.input.resource.id)
       const hash = view.readHash
       const etag = view.readVersion
       const signal = AbortSignal.any([view.abort.signal, view.running.abort.signal])
-      await this.#ports.readBytes({ ...target, offset: 0, length: 1, etag }, signal)
+      if (view.document) {
+        // A working copy proves currency by comparing the file on disk with the version it holds.
+        const status = await this.#documents?.request(this.#documentView(view, id, token, signal), 'documents.status', { id: view.document }) as { changed?: boolean } | null | undefined
+        if (!status || status.changed !== false)
+          throw new Error('EXTENSION_RESOURCE_CHANGED')
+      }
+      else {
+        await this.#ports.readBytes({ ...target, offset: 0, length: 1, etag }, signal)
+      }
       const assertQuoteCurrent = () => {
         this.#assertCurrent(view.running)
         signal.throwIfAborted()
@@ -1413,29 +1465,11 @@ export class ExtensionService {
     }
     else if (method.startsWith('documents.')) {
       const documents = this.#documents
-      const extensionId = view.running.package.manifest.id
       if (!documents || !view.running.package.manifest.permissions.fileEditing || placement?.kind === 'decoration' || contribution.location === 'window-overlay')
         throw new Error('EXTENSION_DOCUMENT_DENIED')
       const signal = AbortSignal.any([view.abort.signal, view.running.abort.signal])
-      const current = () => {
-        this.#assertCurrent(view.running)
-        signal.throwIfAborted()
-        if (this.#views.get(id) !== view)
-          throw new Error('EXTENSION_VIEW_EXPIRED')
-      }
-      result = await documents.request({
-        extensionId,
-        name: view.running.package.manifest.name,
-        viewId: id,
-        token,
-        signal,
-        current,
-        source: async (resourceId) => {
-          if (resourceId !== view.input.resource?.id || this.#fileSnapshots.has(resourceId))
-            throw new Error('EXTENSION_DOCUMENT_DENIED')
-          return this.#resource(view.running, resourceId)
-        },
-      }, method, params)
+      result = await documents.request(this.#documentView(view, id, token, signal), method, params)
+      this.#followDocument(view, contribution.resource === 'selected-file' && !placement, method, params, result)
     }
     else if (method === 'resources.beginCreate' || (['resources.writeChunk', 'resources.commitSave', 'resources.cancelSave'].includes(method) && params && typeof params === 'object' && !Array.isArray(params) && typeof params.id === 'string' && this.#uploads.has(params.id))) {
       result = await this.#broker(view.running, method, params, view.abort.signal, view.session.id)

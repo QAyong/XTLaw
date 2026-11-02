@@ -11,6 +11,8 @@ import { fileURLToPath } from 'node:url'
 
 const kit = fileURLToPath(new URL('.', import.meta.url))
 export const documentKitFiles = ['read-file.js', 'zip-validate.js', 'quote.js', 'reveal.js']
+// Taken on request with --only: only plugins that edit the file through the host's working copy need it.
+export const documentKitOptionalFiles = ['document-session.js']
 
 // Returns the kit files whose copy in the plugin is missing or different.
 export async function documentKitDrift(plugin, files = documentKitFiles) {
@@ -35,7 +37,7 @@ async function main() {
   const only = args.find(arg => arg.startsWith('--only='))?.slice('--only='.length).split(',').filter(Boolean)
   const [folder, ...flags] = args.filter(arg => !arg.startsWith('--only='))
   assert(folder && flags.every(flag => flag === '--check') && flags.length < 2, 'Usage: node extensions/document-kit/sync.mjs <plugin folder> [--check] [--only=a.js,b.js]')
-  assert(!only || (only.length && only.every(name => documentKitFiles.includes(name))), `--only takes kit files: ${documentKitFiles.join(', ')}`)
+  assert(!only || (only.length && only.every(name => [...documentKitFiles, ...documentKitOptionalFiles].includes(name))), `--only takes kit files: ${[...documentKitFiles, ...documentKitOptionalFiles].join(', ')}`)
   const files = only ?? documentKitFiles
   const plugin = path.resolve(folder)
   assert((await fs.stat(path.join(plugin, 'extension.json'))).isFile(), 'Not a plugin folder: extension.json is missing')

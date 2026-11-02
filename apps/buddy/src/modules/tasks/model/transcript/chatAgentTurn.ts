@@ -4,6 +4,7 @@ import type { LocalRun, LocalRunEvent } from '@buddy-shared/runs/runApi'
 import type { BuddyToolPresentation } from '@buddy-shared/runs/runEventPresentation'
 
 import type { BuddyRunProgress } from '@buddy-shared/runs/runProgress'
+import type { ToolExecutionPhase, ToolExecutionTiming, ToolResourceBlocker } from '@buddy-shared/runs/toolExecutionPhase'
 import type { ToolFailureCode } from '@buddy-shared/runs/toolFailure'
 import type { LocalRunTokenUsage } from '@buddy-shared/usage/runTokenUsage'
 import type { ChatAgentCompactionNode } from './chatRunCompaction'
@@ -11,6 +12,7 @@ import type { ChatProjectionReducer } from './chatRunEventProjection'
 import { contextPanelOperationSchema } from '@buddy-shared/context-panel/contextPanel'
 import { approvalReviewPayloadSchema } from '@buddy-shared/permissions/approvalReviewPayload'
 import { buddyRunProgressSchema } from '@buddy-shared/runs/runProgress'
+import { toolExecutionTimingSchema } from '@buddy-shared/runs/toolExecutionPhase'
 import { isToolFailureCode } from '@buddy-shared/runs/toolFailure'
 import { createChatRunCompactionReducer } from './chatRunCompaction'
 import { readAssistantTextPhase, readNonnegativeInteger, readPayload, readString } from './chatRunEventProjection'
@@ -41,6 +43,9 @@ export interface ChatAgentToolNode {
   approvalId?: string
   denialCode?: string
   errorCode?: ToolFailureCode
+  executionPhase?: ToolExecutionPhase
+  resourceWait?: ToolResourceBlocker
+  runId?: string
   description: string | null
   id: string
   isError: boolean
@@ -117,6 +122,7 @@ export function createChatAgentTurnReducer(
   const usage = createChatRunTokenUsageReducer(run.id)
   const reasoning = new Map<string, ChatAgentReasoningNode>()
   const tools = new Map<string, ChatAgentToolNode & { toolCallId: string }>()
+  const toolPhases = new Map<string, ToolExecutionTiming>()
   const previousTools: ChatAgentToolNode[] = []
   const approvalTools = new Map<string, string>()
   const text = new Map<string, ChatAgentNarrationNode>()
@@ -391,6 +397,17 @@ export function createChatAgentTurnReducer(
       }
       return
     }
+    if (event.type === 'tool.phase') {
+      const toolCallId = readString(payload.toolCallId)
+      const timing = toolExecutionTimingSchema.safeParse(payload.timing)
+      if (toolCallId && timing.success) {
+        toolPhases.set(toolCallId, timing.data)
+        const current = tools.get(toolCallId)
+        if (current && (timing.data.phase === 'finished' || ['preparing', 'running', 'awaiting_approval'].includes(current.status)))
+          tools.set(toolCallId, { ...current, executionPhase: timing.data.phase, resourceWait: timing.data.waitingFor, ...(timing.data.outcome === 'cancelled' ? { status: 'cancelled', isError: false } : {}) })
+      }
+      return
+    }
     if (event.type === 'tool.denied' || event.type === 'tool.failed') {
       const toolCallId = readString(payload.toolCallId)
       const current = toolCallId ? tools.get(toolCallId) : undefined
@@ -417,7 +434,9 @@ export function createChatAgentTurnReducer(
       if (!toolCallId || !toolName)
         return
       let current = tools.get(toolCallId)
-      if (current && (event.type === 'tool.preparing' || (event.type === 'tool.started' && ['completed', 'failed', 'denied', 'interrupted'].includes(current.status)))) {
+      if (current && (event.type === 'tool.preparing' || (event.type === 'tool.started' && ['completed', 'failed', 'denied', 'interrupted', 'cancelled'].includes(current.status)))) {
+        if (toolPhases.get(toolCallId)?.phase === 'finished')
+          toolPhases.delete(toolCallId)
         previousTools.push(current)
         tools.delete(toolCallId)
         current = undefined
@@ -426,7 +445,8 @@ export function createChatAgentTurnReducer(
       if (!presentation)
         return
       const toolLabel = readString(payload.toolLabel) || current?.toolLabel
-      const isError = event.type === 'tool.completed' && payload.isError === true
+      const cancelled = toolPhases.get(toolCallId)?.outcome === 'cancelled'
+      const isError = !cancelled && event.type === 'tool.completed' && payload.isError === true
       const narration = current ? null : [...text.values()].at(-1)
       const toolNarration = narration?.phase === 'commentary' ? null : narration
       const isStructuredTool = presentation.card === 'automation'
@@ -449,23 +469,27 @@ export function createChatAgentTurnReducer(
         ...(current?.approvalId ? { approvalId: current.approvalId } : {}),
         ...(current?.denialCode ? { denialCode: current.denialCode } : {}),
         ...(current?.errorCode ? { errorCode: current.errorCode } : {}),
+        runId: run.id,
+        ...(toolPhases.has(toolCallId) ? { executionPhase: toolPhases.get(toolCallId)!.phase, resourceWait: toolPhases.get(toolCallId)!.waitingFor } : {}),
         description,
         ...(toolLabel ? { toolLabel } : {}),
         id,
-        isError: isError || Boolean(current?.denialCode || current?.errorCode),
+        isError: !cancelled && (isError || Boolean(current?.denialCode || current?.errorCode)),
         kind: 'tool',
         presentation,
-        status: current?.status === 'denied' || current?.status === 'interrupted'
-          ? current.status
-          : current?.errorCode
-            ? 'failed'
-            : event.type === 'tool.completed'
-              ? isError ? 'failed' : 'completed'
-              : current?.status === 'awaiting_approval'
-                ? 'awaiting_approval'
-                : event.type === 'tool.preparing'
-                  ? 'preparing'
-                  : 'running',
+        status: cancelled
+          ? 'cancelled'
+          : current?.status === 'denied' || current?.status === 'interrupted'
+            ? current.status
+            : current?.errorCode
+              ? 'failed'
+              : event.type === 'tool.completed'
+                ? isError ? 'failed' : 'completed'
+                : current?.status === 'awaiting_approval'
+                  ? 'awaiting_approval'
+                  : event.type === 'tool.preparing'
+                    ? 'preparing'
+                    : 'running',
         toolCallId,
         toolName,
       })

@@ -150,10 +150,16 @@ function createWslNotes(directories: readonly (string | undefined)[]): string[] 
   const command = `wsl.exe -d ${first.distribution} --cd ${first.linuxPath}`
   return [
     'WSL directories (reached from Windows through \\\\wsl.localhost):',
-    ...entries.map(entry => `- ${entry.path} = ${entry.distribution}:${entry.linuxPath}`),
-    'The shell tool runs on Windows, not in WSL. Run commands for these directories inside WSL, with Linux paths:',
-    `  ${command} --exec <program> <args>`,
-    `For pipes, variables or multi-line logic, use the write tool to save a bash script with LF line endings at \\\\wsl.localhost\\${first.distribution}\\tmp\\<unique-name>.sh, run it with ${command} --exec bash /tmp/<unique-name>.sh, then delete it.`,
+    ...entries.map(entry => `- ${entry.path} (distribution ${entry.distribution}, Linux path ${entry.linuxPath})`),
+    'The file tools and the shell run on Windows and use two different path forms. They are not interchangeable.',
+    'File tools (read, write, edit, grep, find, ls):',
+    '- Use paths relative to the working directory, or the \\\\wsl.localhost\\<distribution>\\... path above (//wsl.localhost/... is the same).',
+    '- Never pass a Linux path such as /home/... to a file tool. It is not a Windows path and fails with INVALID_PATH, not PATH_NOT_FOUND. Do not retry the same Linux path.',
+    'Shell: when a lexora_wsl_shell tool is available, run commands for the working directory with it: write them for bash with Linux paths; no wsl.exe, no script file. The rest of this section applies when it is not available and to other WSL directories.',
+    'Otherwise the shell is PowerShell by default, with no WSL shell. Run commands for these directories inside WSL, with Linux paths.',
+    `- One command whose arguments contain no $, quotes or pipes: ${command} --exec <program> <args>`,
+    `- Anything with $, |, quotes, bash -c or several statements: use the write tool to save a bash script with LF line endings at \\\\wsl.localhost\\${first.distribution}\\tmp\\<unique-name>.sh, run it with ${command} --exec bash /tmp/<unique-name>.sh, then delete it. Never inline such a script in PowerShell; it expands $ before bash sees it.`,
+    '- To search, use grep, find and ls rather than a shell script: they run inside WSL with ripgrep, so they stay fast on the whole repository and skip .git. They need ripgrep in the distribution (sudo apt install ripgrep); find lists files, not directories.',
     'Use read/write/edit for file changes. These commands run on the host outside the shell sandbox and need host approval.',
   ]
 }

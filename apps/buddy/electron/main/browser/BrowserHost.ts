@@ -30,6 +30,7 @@ import { randomUUID } from 'node:crypto'
 import { BROWSER_WAIT_DEFAULT_QUIET_MS } from '../../../shared/browser'
 import { Emitter } from '../../../shared/events/Emitter'
 import { copyEventSnapshot } from '../../../shared/events/eventSnapshot'
+import { BrowserFaviconCache } from './browserFaviconCache'
 import { BrowserHostError } from './BrowserHostError'
 import { BrowserOperationGuard } from './BrowserOperationGuard'
 import { BrowserPageSession, snapshot } from './BrowserPageSession'
@@ -58,6 +59,7 @@ interface BrowserHostOptions {
   openExternal?: (url: string) => Promise<void>
   selectFiles?: (input: import('./browserHumanActions').BrowserFileSelectionOptions) => Promise<string[] | null>
   getFreezeDelay?: (visible: boolean) => number | null
+  fetchFavicon?: (url: string, signal: AbortSignal) => Promise<string | null>
   onActivityError?: () => void
   getDefaultZoomFactor?: () => number
   operations?: BrowserOperationGuard
@@ -101,6 +103,8 @@ export class BrowserHost {
   readonly #showDialog: BrowserHostOptions['showDialog']
   readonly #selectFiles: BrowserHostOptions['selectFiles']
   readonly #getFreezeDelay: (visible: boolean) => number | null
+  readonly #faviconCache = new BrowserFaviconCache()
+  readonly #fetchFavicon: BrowserHostOptions['fetchFavicon']
   readonly #onActivityError: () => void
   readonly #getDefaultZoomFactor: () => number
   readonly #operations: BrowserOperationGuard
@@ -127,6 +131,7 @@ export class BrowserHost {
     this.#openExternal = options.openExternal
     this.#selectFiles = options.selectFiles
     this.#getFreezeDelay = options.getFreezeDelay ?? (() => null)
+    this.#fetchFavicon = options.fetchFavicon
     this.#onActivityError = options.onActivityError ?? (() => {})
     this.#operations = options.operations ?? new BrowserOperationGuard()
     this.#getDefaultZoomFactor = options.getDefaultZoomFactor ?? (() => 1)
@@ -671,6 +676,7 @@ export class BrowserHost {
     url: string,
   ): Promise<DesktopBrowserState> {
     const startedAt = performance.now()
+    session.prepareFaviconForNavigation(url)
     session.state.url = url
     this.#publish(session)
     try {
@@ -1136,6 +1142,9 @@ export class BrowserHost {
     }
     const session: BrowserPageSession = new BrowserPageSession({
       getFreezeDelay: this.#getFreezeDelay,
+      fetchFavicon: this.#fetchFavicon,
+      recallFavicon: (partition, origin) => this.#faviconCache.recall(partition, origin),
+      rememberFavicon: (partition, origin, dataUrl) => this.#faviconCache.remember(partition, origin, dataUrl),
       onActivityError: this.#onActivityError,
       descriptor,
       createId: this.#createId,

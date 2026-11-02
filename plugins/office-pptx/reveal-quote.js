@@ -1,8 +1,8 @@
-import { nodeText } from './selection-menu.js'
+import { nodeQuote } from './selection-menu.js'
 
 // "Locate source" for a quote made in this viewer. A quote keeps the slide it came from and the text, not which element held it,
-// so: go to the slide, find the one element whose text contains the quoted text, and select it. The text decides: when no single
-// element holds it (the slide was edited, or the quote spanned several elements) the answer is false and the slide stays shown,
+// so: go to the slide, find the one element whose quote text (its text, or the description of a picture or chart) contains the
+// quoted text, and select it. The text decides: when no single element holds it (the slide was edited, or the quote spanned several elements) the answer is false and the slide stays shown,
 // which is where the host's "opened the file but could not find the place" message points the user.
 const READY_WAIT_MS = 8000
 
@@ -52,8 +52,10 @@ export function createQuoteReveal() {
       return false
     // The smallest element that holds all the text: a group's text is its children's, which would hide the child.
     // On a tie the one listed later is the one inside the other.
-    const holders = elements(slides[slide]?.nodes ?? [])
-      .map((node, index) => ({ node, index, text: compact(nodeText(node)) }))
+    const { nodes = [], widthPx, heightPx } = slides[slide] ?? {}
+    const info = { number: slide + 1, widthPx, heightPx }
+    const holders = elements(nodes)
+      .map((node, index) => ({ node, index, text: compact(nodeQuote(node, info, nodes.includes(node))) }))
       .filter(item => item.text.includes(wanted))
       .sort((a, b) => a.text.length - b.text.length || b.index - a.index)
     const target = holders[0]?.node

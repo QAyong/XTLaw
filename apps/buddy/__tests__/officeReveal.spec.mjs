@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createQuoteReveal as pdfReveal } from '../../../plugins/office-pdf/reveal-quote.js'
 import { createQuoteReveal as pptxReveal } from '../../../plugins/office-pptx/reveal-quote.js'
+import { nodeQuote } from '../../../plugins/office-pptx/selection-menu.js'
 import { createQuoteReveal as xlsxReveal } from '../../../plugins/office-xlsx/reveal-quote.js'
 import { createQuoteReveal as docxReveal } from '../../../plugins/office/reveal-quote.js'
 import { findTextRange, registerReveal } from '../extensions/document-kit/reveal.js'
@@ -135,11 +136,42 @@ describe('locating a quote in a DOCX', () => {
   })
 })
 
+describe('quoting a PPTX element', () => {
+  const slide = { number: 3, widthPx: 1000, heightPx: 500 }
+  const picture = (extra = {}) => ({ type: 'picture', name: 'Picture 5', descr: 'Org chart', box: { x: 100, y: 50, cx: 500, cy: 200 }, ...extra })
+
+  it('describes a picture with its slide, name, alt text, place and size, and says the image is not included', () => {
+    expect(nodeQuote(picture(), slide)).toBe('[Slide 3 picture "Picture 5", alt text: "Org chart", at 10%,10% of the slide, size 50%x40%, the image itself is not included]')
+  })
+
+  it('describes charts and media, and leaves out what is missing', () => {
+    expect(nodeQuote({ type: 'chart', box: { x: 0, y: 0, cx: 1000, cy: 500 } }, slide)).toBe('[Slide 3 chart, at 0%,0% of the slide, size 100%x100%, the chart itself is not included]')
+    expect(nodeQuote(picture({ media: 'video', descr: undefined, box: undefined }), slide)).toBe('[Slide 3 video "Picture 5", the video itself is not included]')
+  })
+
+  it('keeps text as text, joins a group in order and omits the position of an element inside a group', () => {
+    const text = { type: 'text', text: { lines: [{ runs: [{ text: 'Revenue' }] }] } }
+    expect(nodeQuote(text, slide)).toBe('Revenue')
+    expect(nodeQuote({ type: 'group', children: [text, picture()] }, slide)).toBe('Revenue\n[Slide 3 picture "Picture 5", alt text: "Org chart", the image itself is not included]')
+  })
+
+  it('has nothing to say about a shape without text', () => {
+    expect(nodeQuote({ type: 'shape', box: { x: 0, y: 0, cx: 1, cy: 1 } }, slide)).toBe('')
+  })
+
+  it('flattens whitespace in names and bounds the alt text', () => {
+    const quote = nodeQuote(picture({ name: 'a\nb', descr: 'x'.repeat(500) }), slide)
+    expect(quote).toContain('"a b"')
+    expect(quote).toContain(`"${'x'.repeat(200)}"`)
+  })
+})
+
 describe('locating a quote in a PPTX', () => {
   const textNode = (sourceId, text, extra = {}) => ({ type: 'text', sourceId, text: { lines: [{ runs: [{ text }] }] }, ...extra })
+  const picture = (sourceId, extra = {}) => ({ type: 'picture', sourceId, name: 'Picture 5', descr: 'Org chart', box: { x: 100, y: 50, cx: 500, cy: 200 }, ...extra })
   function deck() {
     const slides = [
-      { nodes: [textNode('e_2', 'Quarterly review'), textNode('e_3', 'Revenue grew twelve percent.')] },
+      { widthPx: 1000, heightPx: 500, nodes: [textNode('e_2', 'Quarterly review'), textNode('e_3', 'Revenue grew twelve percent.'), picture('e_7')] },
       { nodes: [{ type: 'group', sourceId: 'g_1', children: [textNode('e_5', 'The audit finishes in November.')] }, textNode('e_6', 'Footer', { decoration: true })] },
     ]
     const control = vi.fn((message) => {
@@ -162,6 +194,14 @@ describe('locating a quote in a PPTX', () => {
     expect(control).toHaveBeenLastCalledWith({ cmd: 'select', target: { slide: 0, el: 'e_3' } })
     expect(await pptxReveal()(request('The audit finishes in November.', data(1)))).toBe(true)
     expect(control).toHaveBeenLastCalledWith({ cmd: 'select', target: { slide: 1, el: 'e_5' } })
+  })
+
+  it('selects a picture by the description that was quoted for it', async () => {
+    const control = deck()
+    const text = nodeQuote(picture('e_7'), { number: 1, widthPx: 1000, heightPx: 500 })
+    expect(await pptxReveal()(request(text, data(0)))).toBe(true)
+    expect(control).toHaveBeenLastCalledWith({ cmd: 'select', target: { slide: 0, el: 'e_7' } })
+    expect(await pptxReveal()(request(text.replace('Picture 5', 'Picture 9'), data(0)))).toBe(false)
   })
 
   it('shows the slide but answers false when no single element holds the text', async () => {

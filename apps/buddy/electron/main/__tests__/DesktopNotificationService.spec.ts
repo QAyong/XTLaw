@@ -17,6 +17,7 @@ function fixture(kind: LocalExecution['kind'] = 'root') {
   const settings = { notificationsEnabled: true, subtaskNotificationsEnabled: true, notifyWhenFocused: false }
   const execution: LocalExecution = {
     runId: 'run-1',
+    threadId: 'thread',
     rootRunId: kind === 'root' ? 'run-1' : 'root',
     parentRunId: kind === 'root' ? null : 'root',
     buddyId: 'default',

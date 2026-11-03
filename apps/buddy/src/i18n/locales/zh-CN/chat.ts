@@ -125,6 +125,7 @@ export default {
   'chat.startNewConversation': '开始新的对话',
   'desktop.chat.addAttachment': '添加附件',
   'desktop.chat.addLocalFile': '从本机添加',
+  'desktop.chat.copySelection': '复制',
   'desktop.chat.quoteSelection': '引用',
   'desktop.chat.quoteFromAssistant': '引用 · 助手的回答',
   'desktop.chat.quoteFromUser': '引用 · 你的消息',

@@ -24,6 +24,10 @@
   box-shadow: var(--buddy-shadow-overlay);
 }
 
+.buddy-selection-menu.chat-selection-menu.n-dropdown-menu {
+  width: 8rem;
+}
+
 .buddy-selection-menu.n-dropdown-menu .n-dropdown-option-body {
   font-size: 0.75rem;
   transition-duration: 80ms;

@@ -501,7 +501,7 @@ test('global model retry settings preserve finite, unlimited and disabled values
   await expect.poll(limit).toBe('unlimited')
   await desktop.page.getByTestId('cache-warming-setting').locator('.n-select').click()
   await desktop.page.locator('.n-base-select-menu').getByText('任务执行期间', { exact: true }).click()
-  await expect.poll(() => desktop.page.evaluate(async () => (await window.lexoraDesktop.settings.get()).runtime)).toEqual({ cacheWarming: 'streaming', codemode: false, modelRetryLimit: 'unlimited' })
+  await expect.poll(() => desktop.page.evaluate(async () => (await window.lexoraDesktop.settings.get()).runtime)).toEqual({ cacheWarming: 'streaming', codemode: 'off', modelRetryLimit: 'unlimited' })
   await instance.stop()
   desktop = await instance.launch()
   await openSettings(desktop.page)
@@ -549,7 +549,7 @@ test('global model retry settings preserve finite, unlimited and disabled values
 test('MCP quick controls require execution confirmation, read caches offline and preserve credentials and policy', async ({ buddy }) => {
   const instance = await buddy.createInstance('mcp-quick-controls')
   const desktop = await instance.launch()
-  await desktop.page.evaluate(() => window.lexoraDesktop.settings.update({ runtime: { codemode: false } }))
+  await desktop.page.evaluate(() => window.lexoraDesktop.settings.update({ runtime: { codemode: 'off' } }))
   await useSyntheticCredentialStorage(desktop)
   const { page } = desktop
   const fixtureServer = fileURLToPath(new URL('../../../apps/buddy/service/src/connectors/mcp/__tests__/fixtures/process-contract-server.mjs', import.meta.url))
@@ -635,7 +635,7 @@ test('MCP quick controls require execution confirmation, read caches offline and
     'bare-fixture': 'codemode',
     'legacy-hidden': 'hidden',
   })
-  expect(await page.evaluate(async () => (await window.lexoraDesktop.settings.get()).runtime.codemode)).toBe(false)
+  expect(await page.evaluate(async () => (await window.lexoraDesktop.settings.get()).runtime.codemode)).toBe('off')
   expect(await savedCredentials()).toEqual(originalCredentials)
   expect(await page.evaluate(() => window.lexoraDesktop.localChat.conversations.list(100))).toEqual([])
   expect(desktop.diagnostics.console.filter(item => item.type === 'pageerror')).toEqual([])

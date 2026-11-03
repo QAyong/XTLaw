@@ -22,6 +22,16 @@ MCP connects external tools and services. Add a connection in settings, check it
 
 External tools may read data, run programs, or send content to third parties. Review their source and permissions, and keep unnecessary sensitive information out of task context.
 
+## Tool calling mode
+
+Open **Settings → Runtime → Tool calling mode** to choose a mode:
+
+- **Mixed**: call tools directly for simple actions, or use code to batch queries and filter results.
+- **Code orchestration**: ordinary tools must be called through scripts, requiring a model that reliably generates valid code.
+- **Off**: disable code orchestration and call available tools directly.
+
+Mode changes apply from the next run, and all calls follow task permissions. After upgrading, previously enabled configurations use Mixed mode; previously disabled configurations remain off. Select Code orchestration to keep calling ordinary tools exclusively through scripts.
+
 ## Data and permissions
 
 A local workspace does not mean every piece of data stays on your computer. Content sent to online models, tool results, and data submitted to external services are handled by those services.

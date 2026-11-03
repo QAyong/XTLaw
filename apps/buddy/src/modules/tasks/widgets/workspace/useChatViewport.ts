@@ -107,26 +107,9 @@ export function useChatViewport(options: UseChatViewportOptions) {
     if (!loading)
       resumePendingReveal()
   })
-  watch(() => options.timelineItems.value, (items, previous) => {
-    if (pendingRevealMessageId && resumePendingReveal())
-      return
-    if (isPositioning.value || options.isLoading.value || scrollState.value.ownership !== 'detached')
-      return
-    const first = previous[0]
-    if (!first || items[0]?.id === first.id
-      || !items.some(item => item.id === first.id && item.kind === first.kind)) {
-      return
-    }
-    const anchor = options.list.value?.captureScrollAnchor()
-    if (!anchor)
-      return
-    const operation = { generation: operationGeneration, list: options.list.value }
-    void nextTick(() => {
-      if (!isCurrent(operation))
-        return
-      readingAnchor = anchor
-      restoreReadingPosition()
-    })
+  watch(() => options.timelineItems.value, () => {
+    if (pendingRevealMessageId)
+      resumePendingReveal()
   }, { flush: 'pre' })
   onScopeDispose(() => {
     if (!isPositioning.value && !isRestoringPosition.value)
@@ -241,9 +224,6 @@ export function useChatViewport(options: UseChatViewportOptions) {
     if (disposed || options.isLoading.value || isPositioning.value)
       return
     scrollState.value = reconcileChatScrollOwnership(scrollState.value, metrics)
-    if (scrollState.value.ownership === 'detached')
-      restoreReadingPosition()
-    else writeTailPosition()
   }
 
   function restoreReadingPosition() {

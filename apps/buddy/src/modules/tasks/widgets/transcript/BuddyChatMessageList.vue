@@ -32,6 +32,7 @@ import BuddyChatOutline from './BuddyChatOutline.vue'
 import BuddyChatRunActivity from './BuddyChatRunActivity.vue'
 import BuddyChatTranscriptViewport from './BuddyChatTranscriptViewport.vue'
 import BuddyChatTurnResult from './BuddyChatTurnResult.vue'
+import { provideChatTranscriptPresentation } from './chatTranscriptPresentation'
 
 const props = defineProps<{
   activeBranchId: string
@@ -73,6 +74,7 @@ const emit = defineEmits<{
 defineSlots<{ tail?: () => unknown }>()
 
 const { t } = useBuddyI18n(() => props.language)
+provideChatTranscriptPresentation(() => `${props.conversationId}:${props.activeBranchId}`, () => props.displayRows.map(row => row.key))
 const transcriptViewport = useTemplateRef<BuddyChatTranscriptViewportHandle>('transcriptViewport')
 const OUTLINE_HIGHLIGHT_DURATION_MS = 1_200
 const activeOutlineMessageId = shallowRef<string | null>(null)
@@ -206,7 +208,10 @@ onBeforeUnmount(clearOutlineHighlight)
       @scroll-transcript="scrollTranscript"
     />
     <BuddyChatTranscriptViewport
+      :key="`${conversationId}:${activeBranchId}`"
       ref="transcriptViewport"
+      :rows="displayRows"
+      :editing-message-id="editingMessageId"
       :has-older-messages="hasOlderMessages ?? false"
       :has-tail="!!$slots.tail"
       :return-to-latest-label="t('desktop.chat.returnToLatest')"
@@ -217,7 +222,7 @@ onBeforeUnmount(clearOutlineHighlight)
       @return-to-latest="emit('returnToLatest')"
       @scroll="(metrics, options) => emit('scroll', metrics, options)"
     >
-      <template v-for="item in displayRows" :key="item.key">
+      <template #default="{ item }">
         <div
           v-if="item.kind === 'day-divider'"
           class="buddy-chat-day-divider buddy-chat-transcript-row"
@@ -381,9 +386,11 @@ onBeforeUnmount(clearOutlineHighlight)
           :language="language"
         />
       </template>
-      <div v-if="$slots.tail" class="buddy-chat-transcript-row" data-chat-row-key="pending-user-questions">
-        <slot name="tail" />
-      </div>
+      <template v-if="$slots.tail" #tail>
+        <div class="buddy-chat-transcript-row" data-chat-row-key="pending-user-questions">
+          <slot name="tail" />
+        </div>
+      </template>
     </BuddyChatTranscriptViewport>
   </div>
 </template>

@@ -364,20 +364,20 @@ button:has(.ai-feature-icon) { display: none !important; }
 
 /* Keep paging controls outside the command row. They stay fixed while one full
    toolbar page at a time moves horizontally inside .ribbon-body. */
-.ribbon.pi-office-toolbar-host {
+.ribbon:has(> .pi-office-toolbar-nav) {
   display: grid;
   grid-template-columns: 32px minmax(0, 1fr) 32px;
   grid-template-rows: auto 44px;
   align-items: stretch;
 }
 
-.ribbon.pi-office-toolbar-host > .ribbon-tabs {
+.ribbon:has(> .pi-office-toolbar-nav) > .ribbon-tabs {
   grid-column: 1 / -1;
   grid-row: 1;
   min-width: 0;
 }
 
-.ribbon.pi-office-toolbar-host > .ribbon-body {
+.ribbon:has(> .pi-office-toolbar-nav) > .ribbon-body {
   grid-column: 2;
   grid-row: 2;
   min-width: 0;
@@ -387,7 +387,7 @@ button:has(.ai-feature-icon) { display: none !important; }
   scroll-padding-inline: 8px;
 }
 
-.ribbon.pi-office-toolbar-host > .pi-office-toolbar-nav {
+.ribbon:has(> .pi-office-toolbar-nav) > .pi-office-toolbar-nav {
   position: static;
   grid-row: 2;
   align-self: stretch;
@@ -407,42 +407,47 @@ button:has(.ai-feature-icon) { display: none !important; }
   box-shadow: none;
 }
 
-.ribbon.pi-office-toolbar-host > .pi-office-toolbar-nav svg {
+.ribbon:has(> .pi-office-toolbar-nav) > .pi-office-toolbar-nav svg {
   width: 15px;
   height: 15px;
 }
 
-.ribbon.pi-office-toolbar-host > .pi-office-toolbar-nav:hover:not(:disabled) {
+.ribbon:has(> .pi-office-toolbar-nav) > .pi-office-toolbar-nav:hover:not(:disabled) {
   background: var(--hover);
   color: var(--text-primary);
 }
 
-.ribbon.pi-office-toolbar-host > .pi-office-toolbar-nav:disabled {
+.ribbon:has(> .pi-office-toolbar-nav) > .pi-office-toolbar-nav:disabled {
   opacity: 0.35;
   cursor: default;
 }
 
-.ribbon.pi-office-toolbar-host > .pi-office-toolbar-nav-previous {
+.ribbon:has(> .pi-office-toolbar-nav) > .pi-office-toolbar-nav-previous {
   grid-column: 1;
 }
 
-.ribbon.pi-office-toolbar-host > .pi-office-toolbar-nav-next {
+.ribbon:has(> .pi-office-toolbar-nav) > .pi-office-toolbar-nav-next {
   grid-column: 3;
 }
 
-.ribbon.pi-office-toolbar-host .pi-office-original-collapse-control {
+.ribbon:has(> .pi-office-toolbar-nav) .pi-office-original-collapse-control {
   display: none !important;
 }
 
-.ribbon.pi-office-toolbar-host > .pi-office-toolbar-nav[hidden] {
+.ribbon:has(> .pi-office-toolbar-nav) > .pi-office-toolbar-nav[hidden] {
   display: inline-flex !important;
 }
 
-.ribbon.pi-office-toolbar-host.pi-office-ribbon-collapsed {
+/* The editor re-renders the ribbon root's whole `class` attribute when it collapses or expands, which drops the classes the paging
+   script added (`pi-office-toolbar-host`, `pi-office-ribbon-collapsed`) until the script's next refresh, and a collapse adds no child
+   for the script to notice. Everything here is therefore keyed on what survives: the arrows the script appended to the ribbon, and
+   the editor's own `ribbon-collapsed` class. With the host class it used before, collapsing left the unstyled arrows on screen as two
+   empty buttons. */
+.ribbon.ribbon-collapsed:has(> .pi-office-toolbar-nav) {
   grid-template-rows: auto;
 }
 
-.ribbon.pi-office-toolbar-host.pi-office-ribbon-collapsed > .ribbon-body,
-.ribbon.pi-office-toolbar-host.pi-office-ribbon-collapsed > .pi-office-toolbar-nav {
+.ribbon.ribbon-collapsed:has(> .pi-office-toolbar-nav) > .ribbon-body,
+.ribbon.ribbon-collapsed:has(> .pi-office-toolbar-nav) > .pi-office-toolbar-nav {
   display: none !important;
 }

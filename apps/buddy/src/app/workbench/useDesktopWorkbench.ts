@@ -35,6 +35,7 @@ import { WorkingCopyService } from '@/workbench/services/WorkingCopyService'
 import { ActiveTaskProjection } from './ActiveTaskProjection'
 import { ContextTabProjection } from './ContextTabProjection'
 import { createDesktopSelectionReferences } from './createDesktopSelectionReferences'
+import { DocumentSelections } from './DocumentSelections'
 import { ExtensionDocumentRouter } from './extensionDocuments'
 import { absolute, contains, FileOperationService } from './FileOperationService'
 import { createQuoteSourceOpener } from './openQuoteSourceFile'
@@ -95,6 +96,7 @@ export function useDesktopWorkbench(options: { beforeExtensionClose?: (viewId: s
   const confirmedDraftCloses = new Set<string>()
   const deletedTasks = new Set<string>()
   const initialized = shallowRef(false)
+  const documentSelections = new DocumentSelections()
   const activity = new ActiveTaskProjection(controller, pool)
   const activeTask = activity.current
   const activeTaskId = activity.taskId
@@ -590,6 +592,8 @@ export function useDesktopWorkbench(options: { beforeExtensionClose?: (viewId: s
     if (Array.isArray(legacy))
       legacy.forEach(resources.restoreTab)
     controller.removeAuxiliary('legacyResources')
+    // Seed before the first await so the file-manager watcher sees the restored targets as already handled.
+    documentSelections.seed(resources.allTabs.value)
     await discardUnavailableTaskViews()
     if (!restored && !panes(controller.layout.root).some(pane => pane.view)) {
       const previous = await api.localChat.workspaceState.read()
@@ -782,7 +786,7 @@ export function useDesktopWorkbench(options: { beforeExtensionClose?: (viewId: s
     return saved
   }
   const selectionReferences = createDesktopSelectionReferences({ controller, pool, documents, language, openFile: createQuoteSourceOpener({ resources: options.resources, openInTab: openFile, openStandalone: (target, current) => createFile(target, undefined, current) }), browser: api.browser, resources: options.resources, ready: () => initialized.value, independent: () => stores.applicationSettings.config.value?.desktop.contextPanelMode === 'independent', locateFile: target => api.localChat.spaces.readFile(target), navigationVersion: () => navigationVersion })
-  return { revealOpenOfficeDocument: (target: FileTarget) => revealOpenOfficeDocument(controller, options.resources(), target), selectionReferences, documents, api, renderers, autoSave, fileOperations, fileToolbarTargets, fileView, closeContextFiles, readingPositions, discardTask, prepareTaskDeletion, activeTask, activeTaskId, activeResource: activity.resource, backupError, controller, copies, models, pool, persistence, initialize, flush, dispose, openTask, newTask, prepareNewTaskInput, showTaskInput, showReferencePage, startTaskWithSkill, openFile, dropResource, language, get initialized() {
+  return { revealOpenOfficeDocument: (target: FileTarget) => revealOpenOfficeDocument(controller, options.resources(), target), selectionReferences, documents, api, renderers, autoSave, fileOperations, fileToolbarTargets, fileView, documentSelections, closeContextFiles, readingPositions, discardTask, prepareTaskDeletion, activeTask, activeTaskId, activeResource: activity.resource, backupError, controller, copies, models, pool, persistence, initialize, flush, dispose, openTask, newTask, prepareNewTaskInput, showTaskInput, showReferencePage, startTaskWithSkill, openFile, dropResource, language, get initialized() {
     return initialized.value
   }, get navigationVersion() {
     return navigationVersion

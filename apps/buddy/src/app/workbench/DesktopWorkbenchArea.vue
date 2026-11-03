@@ -37,7 +37,7 @@ const selectedFile = computed(() => {
   void revision.value
   return fileTab.value ? props.bindings.workbench.fileView(fileTab.value.target, fileTab.value.id) : null
 })
-const documentSelections = new Map<string, unknown>()
+const documentSelections = props.bindings.workbench.documentSelections
 watch(() => fileTab.value?.target, async (target) => {
   const documents = props.bindings.workbench.documents
   if (!documents.loaded) {
@@ -48,10 +48,9 @@ watch(() => fileTab.value?.target, async (target) => {
   }
   if (target?.path && fileTab.value) {
     if (documents.isDocument(target.path)) {
-      // Returning to the file-manager tab must not jump back to the editor.
-      if (documentSelections.get(fileTab.value.id) === target)
+      // Returning to the file-manager tab, or restoring it at startup, must not jump to the editor.
+      if (!documentSelections.claim(fileTab.value.id, target))
         return
-      documentSelections.set(fileTab.value.id, target)
     }
     void props.bindings.workbench.openFile({ ...target }, fileTab.value.id)
   }

@@ -88,10 +88,62 @@ function passLazyStateToControl() {
   }
 }
 
+// The grid grows (grid-growth.ts) from every scroll command, and a scrollbar drag sends one per pointer move. Univer drags the thumb by
+// pointer deltas, so extending the grid under a dragged thumb resizes it and the pointer loses it: the thumb jumps away and shrinks.
+// Growth waits until the drag ends (the backstop poll then extends the grid once). The source is patched at the two guards that
+// every growth passes through; the anchors are pinned by the upstream commit check in build.mjs.
+const growthGuards = [
+  [
+    '  const growIfNearEdge = (startColumn: number, startRow: number): void => {\n    if (disposed) return\n',
+    `  // A scrollbar thumb being dragged (Univer's private drag flags; any other Univer build reads as "not dragging").
+  const scrollbarDragging = (): boolean => {
+    try {
+      const workbook = runtime.univerAPI.getActiveWorkbook()
+      if (!workbook)
+        return false
+      const injector = (runtime.univer as unknown as { __getInjector(): InjectorLike }).__getInjector()
+      const render = injector
+        .get<{ getRenderById(id: string): { scene?: { getViewport(key: string): { getScrollBar(): unknown } | null } } | null }>(IRenderManagerService)
+        .getRenderById(workbook.getId())
+      const bar = render?.scene?.getViewport('viewMain')?.getScrollBar() as { _isHorizonMove?: boolean, _isVerticalMove?: boolean } | null | undefined
+      return Boolean(bar?._isHorizonMove || bar?._isVerticalMove)
+    }
+    catch {
+      return false
+    }
+  }
+
+  const growIfNearEdge = (startColumn: number, startRow: number): void => {
+    if (disposed || scrollbarDragging()) return
+`,
+  ],
+  [
+    '  const timer = window.setInterval(() => {\n    if (disposed) return\n',
+    '  const timer = window.setInterval(() => {\n    if (disposed || scrollbarDragging()) return\n',
+  ],
+]
+function deferGridGrowthWhileDragging() {
+  return {
+    name: 'lexora-grid-growth-drag',
+    enforce: 'pre',
+    transform(code, id) {
+      if (!id.replaceAll('\\', '/').endsWith('/apps/sheets/src/renderer/grid-growth.ts'))
+        return null
+      let result = code
+      for (const [from, to] of growthGuards) {
+        if (result.split(from).length !== 2)
+          throw new Error('grid-growth.ts no longer has the guards vite.config.mjs patches (see deferGridGrowthWhileDragging)')
+        result = result.replace(from, () => to)
+      }
+      return result
+    },
+  }
+}
+
 export default defineConfig({
   root: here,
   base: './',
-  plugins: [pruneUniverLocales(), stubMainModules(), fixRendererModules(), passLazyStateToControl(), react()],
+  plugins: [pruneUniverLocales(), stubMainModules(), fixRendererModules(), passLazyStateToControl(), deferGridGrowthWhileDragging(), react()],
   resolve: {
     alias: [
       { find: exact('electron'), replacement: shim('electron.ts') },

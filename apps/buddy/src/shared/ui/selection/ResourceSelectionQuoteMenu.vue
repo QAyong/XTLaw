@@ -11,21 +11,26 @@ import { computed, h, onBeforeUnmount, shallowRef, watch } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import { showSelectionReferenceResult, useSelectionReferences } from './workbenchSelectionReferences'
 
-const props = defineProps<{ viewId: string, ownerKey: string, language: BuddyLocale, visible: boolean }>()
+// `writeClipboardText` adds Copy for selected text (the markdown preview replaces the native menu, which would have offered it); without it only quote actions show.
+const props = defineProps<{ viewId: string, ownerKey: string, language: BuddyLocale, visible: boolean, writeClipboardText?: (text: string) => Promise<void> }>()
+const copyKey = 'copy-selection'
 const references = useSelectionReferences()
 const { t } = useBuddyI18n(() => props.language)
 const message = useMessage()
 let mounted = true
 const pending = shallowRef<SelectionReferenceRequest | null>(null)
+const copyText = shallowRef<string | null>(null)
 const position = shallowRef({ x: 0, y: 0 })
 const options = computed<DropdownOption[]>(() => {
   const request = pending.value
+  const copy: DropdownOption[] = copyText.value === null ? [] : [{ key: copyKey, label: t('desktop.chat.copySelection') }, { key: 'copy-divider', type: 'divider' }]
   if (!request?.targets.length)
-    return [{ key: 'unavailable', label: t('desktop.chat.quoteNoTarget'), disabled: true }]
+    return [...copy, { key: 'unavailable', label: t('desktop.chat.quoteNoTarget'), disabled: true }]
   const preferred = request.targets.find(target => target.id === request.defaultId)
   const others = request.targets.filter(target => target.id !== preferred?.id)
   const children = others.map(target => ({ key: target.id, label: target.label }))
   return [
+    ...copy,
     ...(preferred ? [{ key: preferred.id, label: !request.isSplit && request.targets.length === 1 ? t('desktop.chat.quoteToCurrent') : t('desktop.chat.quoteToTarget', { title: preferred.label }) }] : []),
     ...(children.length ? [{ key: 'targets', label: t(preferred ? 'desktop.chat.quoteOtherTarget' : 'desktop.chat.quoteChooseTarget'), children }] : []),
   ]
@@ -46,6 +51,7 @@ function menuProps() {
 }
 function close() {
   pending.value = null
+  copyText.value = null
 }
 onBeforeUnmount(() => {
   mounted = false
@@ -74,6 +80,7 @@ function prepare(quote: BuddyResourceQuote, x: number, y: number): (() => void) 
       return
     }
     position.value = { x, y }
+    copyText.value = props.writeClipboardText ? quote.text : null
     pending.value = request
   }
 }
@@ -82,9 +89,24 @@ function open(quote: BuddyResourceQuote, x: number, y: number): boolean {
   show?.()
   return Boolean(show)
 }
+async function copySelection(text: string) {
+  try {
+    await props.writeClipboardText?.(text)
+    message.success(t('desktop.chat.copied'))
+  }
+  catch {
+    message.error(t('desktop.chat.copyFailed'))
+  }
+}
 function select(targetId: string) {
   const request = pending.value
+  const text = copyText.value
   close()
+  if (targetId === copyKey) {
+    if (text !== null)
+      void copySelection(text)
+    return
+  }
   if (!request || !references || !props.visible)
     return
   const result = references.add(request, targetId)

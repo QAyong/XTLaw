@@ -127,6 +127,7 @@ export default {
   'chat.startNewConversation': 'Start a new chat',
   'desktop.chat.addAttachment': 'Add attachment',
   'desktop.chat.addLocalFile': 'Add from device',
+  'desktop.chat.copySelection': 'Copy',
   'desktop.chat.quoteSelection': 'Quote',
   'desktop.chat.quoteFromAssistant': 'Quote · Assistant’s answer',
   'desktop.chat.quoteFromUser': 'Quote · Your message',

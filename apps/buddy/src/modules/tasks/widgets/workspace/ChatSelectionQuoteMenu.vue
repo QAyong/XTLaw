@@ -2,11 +2,12 @@
 import type { BuddyMessageQuote } from '@buddy-shared/conversation/buddyUserContent'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import type { ChatQuoteResult } from '@/modules/prompt-input/ui'
-import { TextQuote20Regular } from '@vicons/fluent'
+import { Copy20Regular, TextQuote20Regular } from '@vicons/fluent'
 import { useEventListener } from '@vueuse/core'
 import { NDropdown, useMessage } from 'naive-ui'
 import { computed, h, shallowRef, watch } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
+import { useTaskEnvironment } from '@/modules/tasks/taskContext'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import { readChatQuoteSelection } from '../quotes/chatQuoteSelection'
 
@@ -20,9 +21,13 @@ const props = defineProps<{
 const emit = defineEmits<{ accepted: [] }>()
 const { t } = useBuddyI18n(() => props.language)
 const message = useMessage()
+const { clipboard } = useTaskEnvironment()
 const pending = shallowRef<{ quote: BuddyMessageQuote, ownerKey: string } | null>(null)
 const position = shallowRef({ x: 0, y: 0 })
-const options = computed(() => [{ key: 'quote', label: t('desktop.chat.quoteSelection'), icon: () => h(DesktopIcon, { component: TextQuote20Regular }) }])
+const options = computed(() => [
+  { key: 'copy', label: t('desktop.chat.copySelection'), icon: () => h(DesktopIcon, { component: Copy20Regular }) },
+  { key: 'quote', label: t('desktop.chat.quoteSelection'), icon: () => h(DesktopIcon, { component: TextQuote20Regular }) },
+])
 function close() {
   pending.value = null
 }
@@ -47,6 +52,26 @@ useEventListener(document, 'keydown', (event) => {
     close()
 })
 
+async function copySelection(request: { quote: BuddyMessageQuote }) {
+  try {
+    await clipboard.writeText(request.quote.text)
+    message.success(t('desktop.chat.copied'))
+  }
+  catch {
+    message.error(t('desktop.chat.copyFailed'))
+  }
+}
+
+function selectOption(key: string | number) {
+  const request = pending.value
+  if (key === 'copy' && request) {
+    close()
+    void copySelection(request)
+    return
+  }
+  selectQuote()
+}
+
 function selectQuote() {
   const request = pending.value
   close()
@@ -69,7 +94,7 @@ function selectQuote() {
   <NDropdown
     class="chat-selection-quote-menu" trigger="manual" placement="bottom-start" size="small"
     :show="pending !== null" :x="position.x" :y="position.y" :options="options"
-    :menu-props="() => ({ 'class': 'buddy-selection-menu', 'role': 'menu', 'aria-label': t('desktop.chat.quoteSelection') })" :node-props="() => ({ role: 'menuitem' })"
-    @select="selectQuote" @clickoutside="close" @update:show="show => !show && close()"
+    :menu-props="() => ({ 'class': 'buddy-selection-menu chat-selection-menu', 'role': 'menu', 'aria-label': t('desktop.chat.quoteSelection') })" :node-props="() => ({ role: 'menuitem' })"
+    @select="selectOption" @clickoutside="close" @update:show="show => !show && close()"
   />
 </template>

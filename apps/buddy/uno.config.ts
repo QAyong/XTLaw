@@ -88,7 +88,7 @@ export default defineConfig({
   theme: {
     colors: themeColors,
     boxShadow: { overlay: 'var(--buddy-shadow-overlay)', soft: 'var(--buddy-shadow-soft)' },
-    borderRadius: { 'micro': 'var(--buddy-radius-micro, 6px)', 'menu-item': 'var(--buddy-menu-item-radius, 3px)' },
+    borderRadius: { 'micro': 'var(--buddy-radius-micro, 6px)', 'menu-item': 'var(--buddy-menu-item-radius, 3px)', 'icon': 'var(--buddy-icon-button-radius)', 'control': 'var(--buddy-composer-control-radius)' },
     width: { 'workspace-sidebar': 'var(--buddy-workspace-sidebar-width, 15.5rem)' },
     height: { 'region-header': 'var(--buddy-region-header-height, 2.75rem)' },
     minHeight: { 'menu-row': 'var(--buddy-menu-row-height, 32px)' },

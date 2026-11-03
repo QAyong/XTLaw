@@ -133,7 +133,7 @@ function captureResource() {
         <component :is="previewRenderer.component" v-bind="previewRenderer.props" @error="failed = true" />
       </template>
     </DesktopDocumentContent>
-    <ResourceSelectionQuoteMenu v-if="references" ref="quoteMenu" :view-id="view.id" :owner-key="`${view.id}:${identity}:${mode}`" :language="language" :visible="visible && target !== null" />
+    <ResourceSelectionQuoteMenu v-if="references" ref="quoteMenu" :view-id="view.id" :owner-key="`${view.id}:${identity}:${mode}`" :language="language" :visible="visible && target !== null" :write-clipboard-text="writeClipboardText" />
   </div>
 </template>
 

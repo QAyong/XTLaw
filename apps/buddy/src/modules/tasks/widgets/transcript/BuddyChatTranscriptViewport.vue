@@ -12,6 +12,7 @@ import { createChatTranscriptDomIndex } from './chatTranscriptDomIndex'
 
 const props = defineProps<{
   hasOlderMessages: boolean
+  hasTail?: boolean
   returnToLatestLabel: string
   showReturnToLatest: boolean
 }>()
@@ -287,7 +288,7 @@ function toScrollMetrics(element: HTMLElement): ChatMessageScrollMetrics {
       <div
         ref="content"
         class="buddy-chat-transcript-viewport__content"
-        :class="{ 'has-older-messages': props.hasOlderMessages }"
+        :class="{ 'has-older-messages': props.hasOlderMessages, 'has-tail': hasTail }"
       >
         <slot />
       </div>
@@ -344,6 +345,19 @@ function toScrollMetrics(element: HTMLElement): ChatMessageScrollMetrics {
 
   &.has-older-messages {
     padding-top: 2rem;
+  }
+
+  &.has-tail {
+    display: flex;
+    flex-direction: column;
+
+    :deep(> *) {
+      flex-shrink: 0;
+    }
+
+    :deep(> :last-child) {
+      margin-top: auto;
+    }
   }
 }
 

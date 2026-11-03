@@ -40,6 +40,7 @@ import { BUDDY_V37_MODEL_TYPES_SCHEMA_SQL } from './migrations/v37ModelTypes'
 import { BUDDY_V38_IMAGE_MODELS_SCHEMA_SQL } from './migrations/v38ImageModels'
 import { BUDDY_V39_PROVIDER_RESOLUTION_SCHEMA_SQL } from './migrations/v39ProviderResolution'
 import { BUDDY_V40_EVENT_MAINTENANCE_SCHEMA_SQL } from './migrations/v40EventMaintenance'
+import { BUDDY_V41_USER_QUESTIONS_SCHEMA_SQL } from './migrations/v41UserQuestions'
 
 export interface BuddySchemaMigration {
   foreignKeys?: 'off'
@@ -47,7 +48,7 @@ export interface BuddySchemaMigration {
   version: number
 }
 
-export const BUDDY_SCHEMA_VERSION = 42 as const
+export const BUDDY_SCHEMA_VERSION = 43 as const
 
 export const BUDDY_SCHEMA_MIGRATIONS: readonly BuddySchemaMigration[] = [
   { sql: BUDDY_V1_INITIAL_SCHEMA_SQL, version: 1 },
@@ -98,4 +99,6 @@ export const BUDDY_SCHEMA_MIGRATIONS: readonly BuddySchemaMigration[] = [
   { sql: BUDDY_V39_PROVIDER_RESOLUTION_SCHEMA_SQL, version: 41 },
   // Upstream numbers this migration v40; it follows the provider-resolution migration and lands on local v42 (table layout unchanged).
   { sql: BUDDY_V40_EVENT_MAINTENANCE_SCHEMA_SQL, version: 42 },
+  // Upstream numbers this migration v41; it follows the event-maintenance migration (upstream v40, local v42) and lands on local v43 (table layout unchanged).
+  { sql: BUDDY_V41_USER_QUESTIONS_SCHEMA_SQL, version: 43 },
 ]

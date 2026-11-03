@@ -117,4 +117,16 @@ describe('chat composer prop updates', () => {
     expect(flow.root.textContent).not.toContain('old-resource.txt')
     expect(flow.root.textContent).toContain('new-resource.txt')
   })
+
+  it('keeps attachments inline instead of floating when inlineMaterials is set', async () => {
+    const flow = await mountComposer()
+    flow.dropFile()
+    await nextTick()
+    const strip = () => flow.root.querySelector('.desktop-chat-composer__materials')
+    expect(strip()?.classList.contains('is-floating')).toBe(true)
+
+    flow.props.inlineMaterials = true
+    await nextTick()
+    expect(strip()?.classList.contains('is-floating')).toBe(false)
+  })
 })

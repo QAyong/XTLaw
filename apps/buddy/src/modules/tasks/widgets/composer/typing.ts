@@ -72,6 +72,7 @@ export interface DesktopChatComposerProps {
   pasteTextAsAttachment: boolean
   manageSkills?: () => void
   hasQueuedMessages?: boolean
+  inlineMaterials?: boolean
   canUpdatePermissionSettings: boolean
   canSend: boolean
   composerContent: JSONContent

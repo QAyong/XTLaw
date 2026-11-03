@@ -262,7 +262,7 @@ onScopeDispose(controller.configuration.subscribe(() => editor?.updateOptions({ 
         {{ labels.retry }}
       </button>
     </div>
-    <ResourceSelectionQuoteMenu v-if="references" ref="quoteMenu" :view-id="view.id" :owner-key="`${view.id}:${identity}:${mode}`" :language="language" :visible="visible" />
+    <ResourceSelectionQuoteMenu v-if="references" ref="quoteMenu" :view-id="view.id" :owner-key="`${view.id}:${identity}:${mode}`" :language="language" :visible="visible" :write-clipboard-text="writeClipboardText" />
     <DesktopDocumentContent
       ref="document" :source-ready="editorReady" :reveal-source="revealSource"
       :mode="mode" :name="view.title" :text="copy?.text ?? ''" :resolve-image="imageResolver" :language="language" :write-clipboard-text="writeClipboardText"

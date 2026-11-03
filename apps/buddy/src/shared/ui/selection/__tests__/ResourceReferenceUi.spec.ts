@@ -7,7 +7,7 @@ import ChatInputMaterialStrip from '@/modules/tasks/widgets/materials/ChatInputM
 import ResourceSelectionQuoteMenu from '../ResourceSelectionQuoteMenu.vue'
 import { WorkbenchSelectionReferences, workbenchSelectionReferencesKey } from '../workbenchSelectionReferences'
 
-const feedback = vi.hoisted(() => ({ success: vi.fn(), warning: vi.fn(), info: vi.fn() }))
+const feedback = vi.hoisted(() => ({ success: vi.fn(), warning: vi.fn(), info: vi.fn(), error: vi.fn() }))
 vi.mock('naive-ui', async () => {
   const { defineComponent, h } = await import('vue')
   return {
@@ -32,7 +32,7 @@ const cleanups: (() => void)[] = []
 afterEach(() => {
   cleanups.splice(0).forEach(cleanup => cleanup())
 })
-async function mount(kind: 'menu' | 'strip', removable = true, multiple = false) {
+async function mount(kind: 'menu' | 'strip', removable = true, multiple = false, writeClipboardText?: (text: string) => Promise<void>) {
   const root = document.createElement('div')
   document.body.append(root)
   let menu!: InstanceType<typeof ResourceSelectionQuoteMenu>
@@ -46,7 +46,7 @@ async function mount(kind: 'menu' | 'strip', removable = true, multiple = false)
   const app = createApp(defineComponent({ setup() {
     provide(workbenchSelectionReferencesKey, host)
     return () => kind === 'menu'
-      ? h(ResourceSelectionQuoteMenu, { ref: value => menu = value as InstanceType<typeof ResourceSelectionQuoteMenu>, viewId: 'file', ownerKey: ownerKey.value, language: 'zh-CN', visible: true })
+      ? h(ResourceSelectionQuoteMenu, { ref: value => menu = value as InstanceType<typeof ResourceSelectionQuoteMenu>, viewId: 'file', ownerKey: ownerKey.value, language: 'zh-CN', visible: true, writeClipboardText })
       : h(ChatInputMaterialStrip, { materials: [{ kind: 'resource_quote', id: quote.id, quote }], language: 'zh-CN', removable, onRemove: material => remove(material.id) })
   } }))
   app.mount(root)
@@ -71,6 +71,41 @@ describe('resource reference UI', () => {
     f.root.querySelector('button')!.click()
     await nextTick()
     expect(f.content.value.resourceQuotes).toEqual([quote])
+  })
+
+  it('offers Copy above the quote actions when it can write the clipboard, and quotes nothing', async () => {
+    const writeClipboardText = vi.fn(async (_text: string) => {})
+    const f = await mount('menu', true, false, writeClipboardText)
+    f.menu.open(quote, 10, 20)
+    await nextTick()
+    const buttons = Array.from(f.root.querySelectorAll('button'))
+    expect(buttons.map(button => button.textContent)).toEqual(['复制', '引用到对话'])
+    buttons[0]!.click()
+    await nextTick()
+    expect(writeClipboardText).toHaveBeenCalledWith(quote.text)
+    expect(feedback.success).toHaveBeenCalled()
+    expect(f.content.value.resourceQuotes).toBeUndefined()
+    expect(f.root.querySelector('[role="menu"]')).toBeNull()
+  })
+
+  it('reports a failed copy and still closes the menu', async () => {
+    feedback.error.mockClear()
+    const f = await mount('menu', true, false, async () => {
+      throw new Error('denied')
+    })
+    f.menu.open(quote, 10, 20)
+    await nextTick()
+    f.root.querySelector('button')!.click()
+    await new Promise(resolve => setTimeout(resolve))
+    expect(feedback.error).toHaveBeenCalledTimes(1)
+    expect(f.root.querySelector('[role="menu"]')).toBeNull()
+  })
+
+  it('shows no Copy without a clipboard writer', async () => {
+    const f = await mount('menu')
+    f.menu.open(quote, 10, 20)
+    await nextTick()
+    expect(Array.from(f.root.querySelectorAll('button')).some(button => button.textContent === '复制')).toBe(false)
   })
 
   it('adds a Monaco quote directly without displaying the dropdown', async () => {

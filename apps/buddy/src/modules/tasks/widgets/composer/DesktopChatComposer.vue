@@ -17,7 +17,7 @@ import { DesktopModelSelector } from '@/modules/models/ui'
 import { chatComposerDocumentToUserContent, createChatComposerContentFromText } from '@/modules/prompt-input'
 import { DesktopChatComposerFrame, DesktopPermissionModeSelector } from '@/modules/prompt-input/ui'
 import { speechErrorKey, useSpeechRecorder } from '@/modules/speech'
-import { SpeechPlaybackStatus, SpeechRecorderButton, SpeechRecordingToolbar } from '@/modules/speech/ui'
+import { SpeechRecorderButton, SpeechRecordingToolbar } from '@/modules/speech/ui'
 import ChatContextUsage from '@/modules/tasks/widgets/composer/ChatContextUsage.vue'
 import DesktopChatComposerInteractionHost from '@/modules/tasks/widgets/composer/DesktopChatComposerInteractionHost.vue'
 import { useChatComposer } from '@/modules/tasks/widgets/composer/useChatComposer'
@@ -323,7 +323,6 @@ function captureDraft(): WorkbenchMenuSelection {
     </template>
 
     <template #editor>
-      <SpeechPlaybackStatus :language="language" />
       <EditorContent v-if="editor" :editor="editor" />
       <p v-if="speechError" role="alert" class="m-0 py-1 text-xs text-danger">
         {{ speechError }}

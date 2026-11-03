@@ -63,6 +63,8 @@ export function useChatViewport(options: UseChatViewportOptions) {
   let revealOperation: ScrollOperation | null = null
   let reportedRevealMessageId: string | null = null
   let disposed = false
+  let replacementScopeKey: string | null = null
+  let replacementList: BuddyChatMessageListHandle | null = null
 
   watch(
     [
@@ -78,6 +80,28 @@ export function useChatViewport(options: UseChatViewportOptions) {
       isRestoringPosition.value = false
       pendingHistory = null
       pendingPage = null
+      if (contextChanged && replacementScopeKey === scopeKey() && replacementList === options.list.value) {
+        replacementScopeKey = null
+        pendingRevealMessageId = null
+        finishPositioning()
+        const operation = { generation: operationGeneration, list: options.list.value }
+        void nextTick(() => {
+          if (!isCurrent(operation))
+            return
+          if (readingAnchor && operation.list?.hasScrollAnchor(readingAnchor)) {
+            restoreReadingPosition()
+          }
+          else {
+            if (readingAnchor)
+              clearTurnReplacement()
+            readingAnchor = null
+            scrollState.value = createChatScrollState()
+            writeTailPosition()
+          }
+        })
+        return
+      }
+      clearTurnReplacement()
       if (contextChanged)
         cancelPendingReveal()
       readingAnchor = null
@@ -114,6 +138,7 @@ export function useChatViewport(options: UseChatViewportOptions) {
   onScopeDispose(() => {
     if (!isPositioning.value && !isRestoringPosition.value)
       rememberPosition(options.list.value)
+    clearTurnReplacement()
     disposed = true
     operationGeneration += 1
     pendingHistory = null
@@ -122,6 +147,40 @@ export function useChatViewport(options: UseChatViewportOptions) {
     if (!options.readingPositions)
       readingPositions.clear()
   })
+
+  function prepareTurnReplacement(messageId: string, branchId: string) {
+    if (disposed)
+      return
+    finishTurnReplacement()
+    readingAnchor = scrollState.value.ownership === 'detached'
+      ? options.list.value?.captureScrollAnchor() ?? null
+      : null
+    replacementList = options.list.value
+    replacementScopeKey = `${options.activeConversationId.value}:${branchId}`
+    replacementList?.prepareTurnReplacement(messageId, !readingAnchor)
+  }
+
+  function clearTurnReplacement() {
+    replacementScopeKey = null
+    replacementList?.finishTurnReplacement()
+    replacementList = null
+  }
+
+  function finishTurnReplacement() {
+    if (!replacementList)
+      return
+    const anchor = scrollState.value.ownership === 'detached'
+      ? replacementList.captureScrollAnchor()
+      : null
+    clearTurnReplacement()
+    if (anchor) {
+      readingAnchor = anchor
+      restoreReadingPosition()
+    }
+    else {
+      writeTailPosition()
+    }
+  }
 
   function rememberPosition(list: BuddyChatMessageListHandle | null) {
     const anchor = scrollState.value.ownership === 'detached'
@@ -223,7 +282,8 @@ export function useChatViewport(options: UseChatViewportOptions) {
   function handleContentResize(metrics: ChatMessageScrollMetrics) {
     if (disposed || options.isLoading.value || isPositioning.value)
       return
-    scrollState.value = reconcileChatScrollOwnership(scrollState.value, metrics)
+    if (!replacementList)
+      scrollState.value = reconcileChatScrollOwnership(scrollState.value, metrics)
   }
 
   function restoreReadingPosition() {
@@ -233,7 +293,8 @@ export function useChatViewport(options: UseChatViewportOptions) {
   }
 
   function handleReaderScrollIntent() {
-    if (disposed || (!isPositioning.value && !isRestoringPosition.value && !pendingRevealMessageId))
+    const replacing = replacementList !== null
+    if (disposed || (!replacing && !isPositioning.value && !isRestoringPosition.value && !pendingRevealMessageId))
       return
     cancelPositioning()
     readingAnchor = options.list.value?.captureScrollAnchor() ?? null
@@ -243,6 +304,7 @@ export function useChatViewport(options: UseChatViewportOptions) {
   function handleReaderLayoutIntent() {
     if (disposed)
       return
+    finishTurnReplacement()
     const metrics = options.list.value?.readScrollMetrics()
     if (!isRestoringPosition.value && metrics && metrics.scrollHeight <= metrics.clientHeight)
       return
@@ -254,6 +316,7 @@ export function useChatViewport(options: UseChatViewportOptions) {
   function resetToTail() {
     if (disposed)
       return
+    clearTurnReplacement()
     operationGeneration += 1
     cancelPendingReveal()
     readingAnchor = null
@@ -416,6 +479,8 @@ export function useChatViewport(options: UseChatViewportOptions) {
   }
 
   return {
+    prepareTurnReplacement,
+    finishTurnReplacement,
     handleContentResize,
     handleReaderLayoutIntent,
     handleReaderScrollIntent,

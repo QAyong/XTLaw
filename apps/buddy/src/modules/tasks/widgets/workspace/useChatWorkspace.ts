@@ -36,6 +36,17 @@ export function useChatWorkspace(
     timelineItems: computed(() => transcript.value.timelineItems.value),
   })
 
+  function regenerateAssistant(sourceRunId: string) {
+    return execution.value.regenerateAssistant(sourceRunId, (turn) => {
+      viewport.prepareTurnReplacement(turn.run.triggeringMessageId, turn.branchId)
+    })
+  }
+
+  watch(() => execution.value.canMutateBranch.value, (canMutate) => {
+    if (canMutate)
+      viewport.finishTurnReplacement()
+  }, { flush: 'post' })
+
   watch(() => [execution.value, execution.value.submissionRevision.value] as const, ([current, revision], [previous, previousRevision]) => {
     if (current === previous && revision !== previousRevision)
       viewport.resetToTail()
@@ -83,5 +94,5 @@ export function useChatWorkspace(
     }
   })
 
-  return { isEmpty, isLoading, language, transcriptBindings, viewport, welcomeVariant }
+  return { isEmpty, isLoading, language, regenerateAssistant, transcriptBindings, viewport, welcomeVariant }
 }

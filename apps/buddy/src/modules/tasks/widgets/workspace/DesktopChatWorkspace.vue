@@ -100,7 +100,7 @@ watch(() => props.viewMode, (value) => {
 const messageList = useTemplateRef<BuddyChatMessageListHandle>('messageList')
 const message = useMessage()
 const environment = useTaskEnvironment()
-const { isEmpty, isLoading, language, transcriptBindings, viewport, welcomeVariant } = useChatWorkspace(
+const { isEmpty, isLoading, language, regenerateAssistant, transcriptBindings, viewport, welcomeVariant } = useChatWorkspace(
   props,
   messageList,
   {
@@ -295,7 +295,7 @@ function openDetailChanges(id: string) {
           @open-changes="emit('openChanges', $event)"
           @reader-layout-intent="viewport.handleReaderLayoutIntent"
           @reader-scroll-intent="viewport.handleReaderScrollIntent"
-          @regenerate-assistant="workspace.execution.regenerateAssistant"
+          @regenerate-assistant="regenerateAssistant"
           @followup-assistant="beginFollowup"
           @return-to-latest="viewport.returnToLatest"
           @select-outline-message="viewport.revealOutlineMessage"

@@ -33,13 +33,7 @@ export async function checkForDesktopUpdate(
 ): Promise<DesktopUpdateCheckResult> {
   try {
     const timeout = AbortSignal.timeout(15_000)
-    const response = await (options.fetchRelease ?? fetch)(RELEASES_API_URL, {
-      signal: options.signal ? AbortSignal.any([options.signal, timeout]) : timeout,
-      headers: {
-        'accept': 'application/vnd.github+json',
-        'user-agent': 'XTLaw',
-      },
-    })
+    const response = await fetchReleases(options.fetchRelease ?? fetch, options.signal ? AbortSignal.any([options.signal, timeout]) : timeout)
     if (!response.ok)
       throw new Error(`GitHub release request failed with ${response.status}`)
 
@@ -60,6 +54,32 @@ export async function checkForDesktopUpdate(
   catch (error) {
     throw new DesktopUpdateCheckError({ cause: error })
   }
+}
+
+const MAX_RELEASE_REDIRECTS = 2
+
+// Chromium keeps a 301 without an expiry in its disk cache forever, and the host request layer does not follow
+// redirects, so one stale 301 would fail every later check. Always revalidate and follow permanent redirects on the API origin.
+async function fetchReleases(fetchRelease: NonNullable<CheckForDesktopUpdateOptions['fetchRelease']>, signal: AbortSignal): Promise<Response> {
+  const origin = new URL(RELEASES_API_URL).origin
+  let url = RELEASES_API_URL
+  for (let redirects = 0; redirects <= MAX_RELEASE_REDIRECTS; redirects++) {
+    const response = await fetchRelease(url, {
+      signal,
+      headers: {
+        'accept': 'application/vnd.github+json',
+        'cache-control': 'no-cache',
+        'user-agent': 'XTLaw',
+      },
+    })
+    const location = response.headers.get('location')
+    if (!location || (response.status !== 301 && response.status !== 308))
+      return response
+    url = new URL(location, url).href
+    if (new URL(url).origin !== origin)
+      throw new Error('GitHub release request was redirected off the API origin')
+  }
+  throw new Error('GitHub release request was redirected too many times')
 }
 
 function parseLatestBuddyRelease(value: unknown): {

@@ -77,6 +77,56 @@ describe('checkForDesktopUpdate', () => {
     })).rejects.toMatchObject({ code: 'UPDATE_CHECK_FAILED' })
   })
 
+  it('revalidates instead of trusting a cached response', async () => {
+    const requests: { url: string, headers: unknown }[] = []
+    await checkForDesktopUpdate({
+      currentVersion: '0.1.0',
+      fetchRelease: async (url, init) => {
+        requests.push({ url, headers: init?.headers })
+        return new Response(JSON.stringify([release('0.1.0')]))
+      },
+    })
+    expect(requests).toHaveLength(1)
+    expect(requests[0]?.headers).toMatchObject({ 'cache-control': 'no-cache' })
+  })
+
+  it('follows a permanent redirect on the GitHub API origin', async () => {
+    const urls: string[] = []
+    const result = await checkForDesktopUpdate({
+      currentVersion: '0.1.0',
+      fetchRelease: async (url) => {
+        urls.push(url)
+        return urls.length === 1
+          ? new Response(null, { status: 301, headers: { location: 'https://api.github.com/repositories/1389466826/releases?per_page=100' } })
+          : new Response(JSON.stringify([release('0.2.0')]))
+      },
+    })
+    expect(urls).toEqual([expect.stringContaining('/repos/QAyong/XTLaw/releases'), 'https://api.github.com/repositories/1389466826/releases?per_page=100'])
+    expect(result).toMatchObject({ latestVersion: '0.2.0', status: 'update_available' })
+  })
+
+  it('refuses redirects that leave the API origin or never end', async () => {
+    let calls = 0
+    await expect(checkForDesktopUpdate({
+      currentVersion: '0.1.0',
+      fetchRelease: async () => {
+        calls++
+        return new Response(null, { status: 301, headers: { location: 'https://example.invalid/releases' } })
+      },
+    })).rejects.toMatchObject({ code: 'UPDATE_CHECK_FAILED' })
+    expect(calls).toBe(1)
+
+    calls = 0
+    await expect(checkForDesktopUpdate({
+      currentVersion: '0.1.0',
+      fetchRelease: async () => {
+        calls++
+        return new Response(null, { status: 308, headers: { location: 'https://api.github.com/repositories/1/releases' } })
+      },
+    })).rejects.toMatchObject({ code: 'UPDATE_CHECK_FAILED' })
+    expect(calls).toBe(3)
+  })
+
   it('returns a stable failure for unavailable or invalid release data', async () => {
     await expect(checkForDesktopUpdate({
       currentVersion: '0.1.0',

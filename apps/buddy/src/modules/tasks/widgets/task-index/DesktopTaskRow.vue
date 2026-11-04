@@ -483,7 +483,28 @@ button {
   pointer-events: auto;
 }
 
+// 图标默认贴文字基线，旋转中心会偏，转圈时笔画会绕着盒子中心起伏。
+.desktop-task-row__opening .n-icon,
+.desktop-task-row__activity.is-running .n-icon {
+  display: flex;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  transform-origin: center;
+  line-height: 0;
+
+  :deep(svg) {
+    display: block;
+  }
+}
+
 @keyframes desktop-task-row-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
   to {
     transform: rotate(360deg);
   }

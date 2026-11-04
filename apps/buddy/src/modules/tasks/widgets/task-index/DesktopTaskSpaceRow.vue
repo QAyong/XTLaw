@@ -364,7 +364,18 @@ button {
   pointer-events: none;
 
   &.is-running .n-icon {
+    display: flex;
+    width: 16px;
+    height: 16px;
+    align-items: center;
+    justify-content: center;
+    transform-origin: center;
+    line-height: 0;
     animation: desktop-task-space-row-spin 1s linear infinite;
+
+    :deep(svg) {
+      display: block;
+    }
   }
 
   &.is-awaiting-approval {
@@ -378,6 +389,10 @@ button {
 }
 
 @keyframes desktop-task-space-row-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
   to {
     transform: rotate(360deg);
   }

@@ -86,6 +86,10 @@ export class PermissionEngine {
     const access = request.access ?? BUILTIN_TOOL_ACCESS[request.toolName] ?? null
     if (request.networkPermission === 'deny')
       return deny('NETWORK_PERMISSION_DENIED', 'profile')
+    if (request.fileAccessLimit === 'read_only' && (!access || access === 'write' || access === 'delete'
+      || (access === 'execute' && request.shellBoundary !== 'sandbox'))) {
+      return deny('READ_ONLY_PROFILE', 'profile')
+    }
     if (request.shellBoundary === 'sandbox' && request.toolName === 'lexora_authorize_directory')
       return this.#decideSandboxDirectory(request)
     // Both run outside the sandbox: a host command, and a Linux process in WSL that a Windows sandbox cannot confine.
@@ -147,6 +151,8 @@ export class PermissionEngine {
   }
 
   async #decideSandboxDirectory(request: PermissionRequest): Promise<PermissionDecision> {
+    if (request.fileAccessLimit === 'read_only')
+      request = { ...request, profile: 'read_only' }
     const parsed = sandboxDirectoryRequestSchema.safeParse(request.arguments)
     if (!parsed.success)
       return deny('VALIDATION_FAILED', 'invalid')

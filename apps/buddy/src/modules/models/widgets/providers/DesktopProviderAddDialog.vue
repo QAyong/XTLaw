@@ -27,6 +27,8 @@ const {
   builtinHeaders,
   canComplete,
   canLogin,
+  canClearVisibleModels,
+  canSelectVisibleModels,
   closeDialog,
   continueFromModels,
   createCustom,
@@ -42,6 +44,7 @@ const {
   login,
   manualFormKey,
   modelQuery,
+  modelSelectionBusy,
   navigateToReachedStep,
   openManualModelDialog,
   providerModels,
@@ -54,6 +57,7 @@ const {
   step,
   stepCount,
   toggleModel,
+  setVisibleModelsEnabled,
 } = useProviderSetupWizard({
   providerSettings: () => props.providerSettings,
   resumeProviderId: toRef(props, 'resumeProviderId'),
@@ -243,7 +247,23 @@ async function connect(authType: 'api_key' | 'oauth') {
           <div class="desktop-provider-add-dialog__models">
             <div class="desktop-provider-add-dialog__model-header">
               <span>{{ t('desktop.providers.modelColumn') }}</span>
-              <span>{{ t('desktop.providers.enabledColumn') }}</span>
+              <div class="flex flex-wrap items-center justify-end gap-2">
+                <span>{{ t('desktop.providers.enabledColumn') }}</span>
+                <NButton
+                  size="tiny"
+                  :disabled="!canSelectVisibleModels"
+                  @click="setVisibleModelsEnabled(true)"
+                >
+                  {{ t('desktop.providers.selectAllModels') }}
+                </NButton>
+                <NButton
+                  size="tiny"
+                  :disabled="!canClearVisibleModels"
+                  @click="setVisibleModelsEnabled(false)"
+                >
+                  {{ t('desktop.providers.clearModelSelection') }}
+                </NButton>
+              </div>
             </div>
             <div v-for="model in filteredProviderModels" :key="model.modelId" class="desktop-provider-add-dialog__model-row">
               <div>
@@ -254,7 +274,7 @@ async function connect(authType: 'api_key' | 'oauth') {
               <NSwitch
                 :round="false"
                 :value="model.enabled"
-                :disabled="!model.available"
+                :disabled="!model.available || modelSelectionBusy"
                 @update:value="toggleModel(model.modelId, $event)"
               />
             </div>
@@ -387,6 +407,7 @@ async function connect(authType: 'api_key' | 'oauth') {
 .desktop-provider-add-dialog__model-toolbar {
   display: flex;
   align-items: center;
+  gap: 0.5rem;
 }
 
 .desktop-provider-add-dialog__model-search {

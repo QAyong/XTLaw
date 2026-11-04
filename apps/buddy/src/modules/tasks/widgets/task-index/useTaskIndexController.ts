@@ -15,6 +15,7 @@ import {
   removeDesktopTaskPinnedItem,
   reorderDesktopTaskPinnedItems,
   resolveSpaceActivities,
+  resolveTasksSectionActivity,
   resolveTaskIndexProjection,
   spaceConversationGroupKey,
 } from '@/modules/tasks/widgets/task-index/taskPinnedItems'
@@ -60,6 +61,12 @@ export function useTaskIndexController(options: UseTaskIndexControllerOptions) {
   const spaceRows = computed(() => projection.value.spaceRows)
   const taskRows = computed(() => projection.value.taskRows)
   const spaceActivities = computed(() => resolveSpaceActivities(options.tasks.value))
+  const tasksSectionActivity = computed(() => resolveTasksSectionActivity(
+    options.tasks.value,
+    new Set(pinnedItems.value
+      .filter(item => item.kind === 'conversation')
+      .map(item => item.id)),
+  ))
 
   useIntervalFn(() => {
     relativeTimeNow.value = Date.now()
@@ -181,6 +188,7 @@ export function useTaskIndexController(options: UseTaskIndexControllerOptions) {
     pinnedRows,
     recordScrollAnchor,
     spaceActivities,
+    tasksSectionActivity,
     scrollAnchors,
     setSectionExpanded,
     spaceRows,

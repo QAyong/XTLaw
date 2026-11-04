@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { Add16Regular, ChevronDown20Regular, ChevronRight20Regular } from '@vicons/fluent'
+import { Add16Regular, ApprovalsApp20Regular, ChevronDown20Regular, ChevronRight20Regular, SpinnerIos20Regular } from '@vicons/fluent'
+import { computed } from 'vue'
 
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 
-defineProps<{
+const props = defineProps<{
+  activity?: 'idle' | 'running' | 'awaiting_approval'
+  activityLabel?: string
   expanded: boolean
   label: string
   showAdd?: boolean
@@ -12,6 +15,11 @@ const emit = defineEmits<{
   add: []
   toggle: []
 }>()
+const showActivity = computed(() => !props.expanded
+  && (props.activity === 'running' || props.activity === 'awaiting_approval'))
+const activityIcon = computed(() => props.activity === 'awaiting_approval'
+  ? ApprovalsApp20Regular
+  : SpinnerIos20Regular)
 </script>
 
 <template>
@@ -35,11 +43,24 @@ const emit = defineEmits<{
         <DesktopIcon :component="Add16Regular" />
       </button>
     </div>
+    <span
+      v-if="showActivity"
+      class="desktop-task-sidebar__section-activity"
+      :class="{
+        'is-awaiting-approval': activity === 'awaiting_approval',
+        'is-running': activity === 'running',
+      }"
+      role="status"
+      :aria-label="activityLabel"
+    >
+      <DesktopIcon :component="activityIcon" :size="16" />
+    </span>
   </div>
 </template>
 
 <style scoped lang="scss">
 .desktop-task-sidebar__section-heading {
+  position: relative;
   display: flex;
   height: var(--buddy-task-sidebar-section-header-size, 2rem);
   min-width: 0;
@@ -112,6 +133,59 @@ button {
 .desktop-task-sidebar__section-heading:has(:focus-visible) .desktop-task-sidebar__section-actions {
   opacity: 1;
   pointer-events: auto;
+}
+
+.desktop-task-sidebar__section-activity {
+  position: absolute;
+  top: 50%;
+  right: 0.125rem;
+  display: grid;
+  width: var(--buddy-task-sidebar-action-size, 1.75rem);
+  height: var(--buddy-task-sidebar-action-size, 1.75rem);
+  place-items: center;
+  transform: translateY(-50%);
+  color: var(--buddy-text-muted);
+  pointer-events: none;
+
+  &.is-running .n-icon {
+    display: flex;
+    width: 16px;
+    height: 16px;
+    align-items: center;
+    justify-content: center;
+    transform-origin: center;
+    line-height: 0;
+    animation: desktop-task-section-spin 1s linear infinite;
+
+    :deep(svg) {
+      display: block;
+    }
+  }
+
+  &.is-awaiting-approval {
+    color: var(--buddy-status-warning-text);
+  }
+}
+
+.desktop-task-sidebar__section-heading:hover .desktop-task-sidebar__section-activity,
+.desktop-task-sidebar__section-heading:has(:focus-visible) .desktop-task-sidebar__section-activity {
+  opacity: 0;
+}
+
+@keyframes desktop-task-section-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .desktop-task-sidebar__section-activity.is-running .n-icon {
+    animation: none;
+  }
 }
 
 .desktop-task-sidebar__section-add {

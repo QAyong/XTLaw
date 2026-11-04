@@ -58,6 +58,22 @@ export function resolveSpaceActivities(
   return activities
 }
 
+export function resolveTasksSectionActivity(
+  tasks: ReadonlyArray<LocalConversationSummary>,
+  pinnedConversationIds: ReadonlySet<string> = new Set(),
+): LocalConversationSummary['activity'] | undefined {
+  let activity: LocalConversationSummary['activity'] | undefined
+  for (const task of tasks) {
+    if (task.spaceId !== null || pinnedConversationIds.has(task.id) || task.activity === 'idle')
+      continue
+    if (activity === 'awaiting_approval')
+      continue
+    if (activity === undefined || task.activity === 'awaiting_approval')
+      activity = task.activity
+  }
+  return activity
+}
+
 export function resolveTaskIndexProjection(input: {
   conversationLimit?: number
   expandedConversationGroups?: ReadonlySet<string>

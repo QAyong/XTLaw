@@ -5,6 +5,7 @@ import {
   DESKTOP_TASK_SIDEBAR_CONVERSATION_LIMIT,
   DESKTOP_TASK_SIDEBAR_TASKS_GROUP_KEY,
   resolveSpaceActivities,
+  resolveTasksSectionActivity,
   resolveTaskIndexProjection,
   spaceConversationGroupKey,
 } from '../taskPinnedItems'
@@ -160,5 +161,39 @@ describe('resolveSpaceActivities', () => {
       'space-b': 'running',
       'space-c': 'awaiting_approval',
     })
+  })
+})
+
+describe('resolveTasksSectionActivity', () => {
+  it('summarizes ungrouped tasks and prefers approval over running', () => {
+    const tasks = [
+      { ...createTask('running-first', null), activity: 'running' },
+      { ...createTask('approval', null), activity: 'awaiting_approval' },
+      { ...createTask('running-after', null), activity: 'running' },
+      { ...createTask('space-task', 'space-a'), activity: 'running' },
+      { ...createTask('pinned', null), activity: 'awaiting_approval' },
+      createTask('idle', null),
+    ] as LocalConversationSummary[]
+
+    expect(resolveTasksSectionActivity(tasks, new Set(['pinned']))).toBe('awaiting_approval')
+  })
+
+  it('returns running when nothing is waiting for approval', () => {
+    const tasks = [
+      { ...createTask('running', null), activity: 'running' },
+      { ...createTask('approval-first', null), activity: 'idle' },
+    ] as LocalConversationSummary[]
+
+    expect(resolveTasksSectionActivity(tasks)).toBe('running')
+  })
+
+  it('ignores idle, spaced, and pinned tasks', () => {
+    const tasks = [
+      createTask('idle', null),
+      { ...createTask('space-task', 'space-a'), activity: 'running' },
+      { ...createTask('pinned', null), activity: 'awaiting_approval' },
+    ] as LocalConversationSummary[]
+
+    expect(resolveTasksSectionActivity(tasks, new Set(['pinned']))).toBeUndefined()
   })
 })

@@ -9,6 +9,8 @@ import {
 } from '@/modules/tasks/widgets/task-index/taskSidebarLayout'
 
 const props = defineProps<{
+  activity?: 'idle' | 'running' | 'awaiting_approval'
+  activityLabel?: string
   items: ReadonlyArray<T>
   keyField: string
   label: string
@@ -71,6 +73,8 @@ const sectionStyle = computed(() => ({
     :style="sectionStyle"
   >
     <DesktopTaskSidebarSectionHeader
+      :activity="activity"
+      :activity-label="activityLabel"
       :expanded="expanded"
       :label="label"
       :show-add="showAdd"

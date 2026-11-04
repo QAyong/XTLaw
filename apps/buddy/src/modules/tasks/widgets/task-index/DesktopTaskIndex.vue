@@ -133,6 +133,7 @@ const {
   requestTaskDelete,
   requestTaskRename,
   spaceActivities,
+  tasksSectionActivity,
   saveSpace,
   selectSpaceMenuAction,
   taskRows,
@@ -317,6 +318,8 @@ function openSearchSpace(spaceId: string) {
         </DesktopTaskSidebarSection>
 
         <DesktopTaskSidebarSection
+          :activity="tasksSectionActivity"
+          :activity-label="tasksSectionActivity === 'awaiting_approval' ? t('activity.approval') : t('run.status.running')"
           :expanded="isSectionExpanded('tasks')"
           :items="taskRows"
           key-field="key"

@@ -4,6 +4,7 @@
 
 - [架构概览](architecture/overview.md)：了解桌面界面、主进程、本地服务及数据存储。
 - [上游集成记录](upstream/README.md)：查阅各轮移植、跳过及验证范围。
+- [上游集成流程](upstream/WORKFLOW.md)：手动集成一轮的步骤、自动预备规则、样式与品牌检查。
 - [已知测试失败](known-test-failures.md)：Windows 本机的已知失败基线，不作为其他环境失败的免责依据。
 - [桌面构建说明](../packaging/buddy/README.md)：查看开发依赖、构建与打包方式。
 
@@ -25,7 +26,7 @@
 
 - `specs/`：状态明确为已验收（或被上游取代）、且没有遗留待办的移入 `archive/specs/`；仍待验收的留在原处。
 - `bugs/`：已修复并验收的移入 `archive/bugs/`；未修复、已缓解或待验收的留在原处。
-- `upstream/`：只保留最近约一周的集成记录，其余移入 `archive/upstream/`。
+- `upstream/`：只保留最近约一周的集成记录，其余移入 `archive/upstream/`；`WORKFLOW.md` 是长期有效的流程文档，不归档。
 - `drafts/`：已发布的发布说明移入 `archive/drafts/`。
 - 移动用 `git mv`，不改文件名和编号；用 `git log --follow -- <路径>` 追溯历史。
 

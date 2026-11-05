@@ -6,7 +6,7 @@ import type { ChatAgentTurn } from '../../model/transcript/chatStreamingMessage'
 import type { ChatTranscriptExecutionStatus } from '../../model/transcript/chatTranscriptTypes'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import { ChevronRight20Regular } from '@vicons/fluent'
-import { computed, shallowRef, useId, useTemplateRef, watch } from 'vue'
+import { computed, useId, useTemplateRef, watch } from 'vue'
 
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
@@ -19,6 +19,7 @@ import { formatChatRunDuration } from '../../model/transcript/chatRunDuration'
 import BuddyChatActionToolbar from './BuddyChatActionToolbar.vue'
 import BuddyChatAgentIdentity from './BuddyChatAgentIdentity.vue'
 import BuddyChatAgentTurnFlow from './BuddyChatAgentTurnFlow.vue'
+import { useChatTranscriptValue } from './chatTranscriptPresentation'
 
 const props = defineProps<{
   actionsDisabled?: boolean
@@ -46,8 +47,9 @@ defineExpose({ revealActivity: (nodeId: string) => flow.value?.revealActivity(no
 // An execution status handed in by the transcript is drawn by the identity header instead of the turn heading.
 const ownsStatus = computed(() => !props.executionStatus)
 const isActive = computed(() => props.turn.status === 'queued' || props.turn.status === 'running')
-const collapsed = shallowRef(props.turn.status === 'completed')
-const manuallyChanged = shallowRef(false)
+// The folding choice lives in the transcript row store so it survives the row being virtualized away and back.
+const collapsed = useChatTranscriptValue('agent-turn:collapsed', props.turn.status === 'completed')
+const manuallyChanged = useChatTranscriptValue('agent-turn:manually-changed', false)
 const disclosureId = useId()
 watch(() => [isActive.value, props.turn.status === 'completed'] as const, ([active, completed]) => {
   if (manuallyChanged.value)

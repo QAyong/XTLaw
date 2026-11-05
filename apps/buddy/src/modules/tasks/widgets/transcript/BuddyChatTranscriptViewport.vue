@@ -1,16 +1,18 @@
 <script setup lang="ts">
+import type { ChatTranscriptDisplayRow } from '../../model/transcript/chatMessageTime'
 import type {
   BuddyChatTranscriptViewportHandle,
-  ChatMessageScrollAnchor,
   ChatMessageScrollMetrics,
 } from './chatMessageViewport'
 import { NScrollbar } from 'naive-ui'
-import { computed, onBeforeUnmount, onMounted, useTemplateRef } from 'vue'
+import { useTemplateRef } from 'vue'
 import BuddyChatReturnToLatest from './BuddyChatReturnToLatest.vue'
-import { createChatFrameTask, resolvePrependedChatScrollTop } from './chatMessageViewport'
-import { createChatTranscriptDomIndex } from './chatTranscriptDomIndex'
+import BuddyChatVirtualRow from './BuddyChatVirtualRow.vue'
+import { useChatTranscriptViewport } from './useChatTranscriptViewport'
 
 const props = defineProps<{
+  rows: readonly ChatTranscriptDisplayRow[]
+  editingMessageId?: string | null
   hasOlderMessages: boolean
   hasTail?: boolean
   returnToLatestLabel: string
@@ -27,257 +29,23 @@ const emit = defineEmits<{
 
 const root = useTemplateRef<HTMLElement>('root')
 const content = useTemplateRef<HTMLElement>('content')
-const viewport = computed(() => content.value?.closest<HTMLElement>('.buddy-chat-transcript-viewport__scrollport') ?? null)
-let resizeObserver: ResizeObserver | null = null
-let viewportFrameTask: ReturnType<typeof createChatFrameTask> | null = null
-let domIndex: ReturnType<typeof createChatTranscriptDomIndex> | null = null
-
-let isUserInteracting = false
-let userInteractionTimer: number | null = null
-let isPointerDragging = false
-
-function markUserInteraction() {
-  isUserInteracting = true
-  if (userInteractionTimer !== null)
-    window.clearTimeout(userInteractionTimer)
-  userInteractionTimer = window.setTimeout(() => {
-    isUserInteracting = false
-    userInteractionTimer = null
-  }, 160)
-}
-
-function handleWheel() {
-  emit('readerScrollIntent')
-  markUserInteraction()
-}
-
-function handleTouchMove() {
-  emit('readerScrollIntent')
-  markUserInteraction()
-}
-
-function handleKeyDown(event: KeyboardEvent) {
-  const scrollKeys = ['PageUp', 'PageDown', 'Home', 'End', 'ArrowUp', 'ArrowDown', ' ']
-  if (scrollKeys.includes(event.key)) {
-    emit('readerScrollIntent')
-    markUserInteraction()
-  }
-}
-
-function handlePointerDown() {
-  emit('readerScrollIntent')
-  isPointerDragging = true
-  markUserInteraction()
-}
-
-function handlePointerUp() {
-  isPointerDragging = false
-  markUserInteraction()
-}
-
-function readScrollMetrics(): ChatMessageScrollMetrics | null {
-  return viewport.value ? toScrollMetrics(viewport.value) : null
-}
-
-function captureScrollAnchor(): ChatMessageScrollAnchor | null {
-  const scrollport = viewport.value
-  const metrics = readScrollMetrics()
-  if (!scrollport || !metrics)
-    return null
-  const viewportTop = scrollport.getBoundingClientRect().top
-  const message = domIndex?.firstRowBelow(viewportTop)
-  if (!message?.dataset.chatRowKey)
-    return null
-  return {
-    messageId: message.dataset.messageId ?? '',
-    rowKey: message.dataset.chatRowKey,
-    messageOffsetTop: message.getBoundingClientRect().top - viewportTop,
-    metrics,
-  }
-}
-
-function findScrollAnchor(anchor: ChatMessageScrollAnchor): HTMLElement | null {
-  return (anchor.rowKey ? domIndex?.findRow(anchor.rowKey) : null)
-    ?? findMessage(anchor.messageId)
-}
-
-function hasScrollAnchor(anchor: ChatMessageScrollAnchor): boolean {
-  return findScrollAnchor(anchor) !== null
-}
-
-function restoreScrollAnchor(anchor: ChatMessageScrollAnchor): ChatMessageScrollMetrics | null {
-  const scrollport = viewport.value
-  if (!scrollport)
-    return null
-  const anchorMessage = findScrollAnchor(anchor)
-  if (anchorMessage) {
-    const currentOffset = anchorMessage.getBoundingClientRect().top
-      - scrollport.getBoundingClientRect().top
-    scrollport.scrollTop += currentOffset - anchor.messageOffsetTop
-  }
-  else {
-    scrollport.scrollTop = resolvePrependedChatScrollTop(
-      anchor.metrics,
-      toScrollMetrics(scrollport),
-    )
-  }
-  return toScrollMetrics(scrollport)
-}
-
-function scrollToMessage(
-  messageId: string,
-  behavior: ScrollBehavior = 'auto',
-): ChatMessageScrollMetrics | null {
-  const scrollport = viewport.value
-  const message = findMessage(messageId)
-  if (!scrollport || !message)
-    return null
-  const metrics = toScrollMetrics(scrollport)
-  const nextTop = Math.min(
-    Math.max(
-      0,
-      scrollport.scrollTop
-      + message.getBoundingClientRect().top
-      - scrollport.getBoundingClientRect().top,
-    ),
-    Math.max(0, scrollport.scrollHeight - scrollport.clientHeight),
-  )
-  const animate = behavior === 'smooth'
-    && Math.abs(nextTop - scrollport.scrollTop) <= scrollport.clientHeight * 2
-    && !window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  scrollport.scrollTo({
-    behavior: animate ? 'smooth' : 'auto',
-    top: nextTop,
-  })
-  return {
-    ...metrics,
-    scrollTop: nextTop,
-  }
-}
-
-function scrollToTail(): ChatMessageScrollMetrics | null {
-  const scrollport = viewport.value
-  if (!scrollport)
-    return null
-  scrollport.scrollTop = scrollport.scrollHeight
-  return toScrollMetrics(scrollport)
-}
-
-function scrollBy(deltaY: number) {
-  if (viewport.value)
-    viewport.value.scrollTop += deltaY
-}
-
-function findMessage(messageId: string): HTMLElement | null {
-  return domIndex?.findMessage(messageId) ?? null
-}
-
-function readActiveMessageId(): string | null {
-  const scrollport = viewport.value
-  if (!scrollport)
-    return null
-  const bounds = scrollport.getBoundingClientRect()
-  const message = domIndex?.firstMessageBelow(bounds.top)
-  return message && message.getBoundingClientRect().top < bounds.bottom
-    ? message.dataset.messageId ?? null
-    : null
-}
-
-function scheduleActiveMessageChange() {
-  viewportFrameTask?.schedule()
-}
-
-function handleScroll() {
-  const metrics = readScrollMetrics()
-  if (metrics) {
-    const userInitiated = isUserInteracting || isPointerDragging
-    emit('scroll', metrics, { userInitiated })
-  }
-  scheduleActiveMessageChange()
-}
-
-onMounted(() => {
-  if (content.value)
-    domIndex = createChatTranscriptDomIndex(content.value)
-  const scrollport = viewport.value
-  const rootEl = root.value
-  if (scrollport) {
-    scrollport.tabIndex = 0
-    scrollport.dataset.chatScrollViewport = ''
-    scrollport.addEventListener('wheel', handleWheel, { passive: true })
-    scrollport.addEventListener('touchmove', handleTouchMove, { passive: true })
-    scrollport.addEventListener('keydown', handleKeyDown)
-  }
-  if (rootEl) {
-    rootEl.addEventListener('pointerdown', handlePointerDown)
-    window.addEventListener('pointerup', handlePointerUp)
-    window.addEventListener('pointercancel', handlePointerUp)
-  }
-  viewportFrameTask = createChatFrameTask(
-    () => {
-      emit('activeMessageChange', readActiveMessageId())
-    },
-    requestAnimationFrame,
-    cancelAnimationFrame,
-  )
-  if (typeof ResizeObserver === 'undefined')
-    return
-  resizeObserver = new ResizeObserver(() => {
-    const metrics = readScrollMetrics()
-    if (metrics)
-      emit('contentResize', metrics)
-    scheduleActiveMessageChange()
-  })
-  if (content.value)
-    resizeObserver.observe(content.value)
-  if (scrollport)
-    resizeObserver.observe(scrollport)
-  scheduleActiveMessageChange()
+const { handle, handleScroll, measureRow, virtualRows, totalHeight, tailOffset } = useChatTranscriptViewport(root, content, {
+  rows: () => props.rows,
+  editingMessageId: () => props.editingMessageId ?? null,
+  hasTail: () => props.hasTail ?? false,
+  hasOlderMessages: () => props.hasOlderMessages,
+  following: () => !props.showReturnToLatest,
+}, {
+  onActiveMessageChange: messageId => emit('activeMessageChange', messageId),
+  onContentResize: metrics => emit('contentResize', metrics),
+  onReaderScrollIntent: () => emit('readerScrollIntent'),
+  onScroll: (metrics, options) => emit('scroll', metrics, options),
 })
-
-onBeforeUnmount(() => {
-  domIndex?.dispose()
-  resizeObserver?.disconnect()
-  viewportFrameTask?.cancel()
-  const scrollport = viewport.value
-  const rootEl = root.value
-  if (scrollport) {
-    scrollport.removeEventListener('wheel', handleWheel)
-    scrollport.removeEventListener('touchmove', handleTouchMove)
-    scrollport.removeEventListener('keydown', handleKeyDown)
-  }
-  if (rootEl) {
-    rootEl.removeEventListener('pointerdown', handlePointerDown)
-  }
-  window.removeEventListener('pointerup', handlePointerUp)
-  window.removeEventListener('pointercancel', handlePointerUp)
-  if (userInteractionTimer !== null) {
-    window.clearTimeout(userInteractionTimer)
-    userInteractionTimer = null
-  }
-})
-
-defineExpose<BuddyChatTranscriptViewportHandle>({
-  captureScrollAnchor,
-  hasScrollAnchor,
-  readScrollMetrics,
-  restoreScrollAnchor,
-  scrollBy,
-  scrollToMessage,
-  scrollToTail,
-})
-
-function toScrollMetrics(element: HTMLElement): ChatMessageScrollMetrics {
-  return {
-    clientHeight: element.clientHeight,
-    scrollHeight: element.scrollHeight,
-    scrollTop: element.scrollTop,
-  }
-}
+defineExpose<BuddyChatTranscriptViewportHandle>(handle)
 </script>
 
 <template>
-  <div ref="root" class="buddy-chat-transcript-viewport">
+  <div ref="root" class="buddy-chat-transcript-viewport relative h-full min-h-0">
     <NScrollbar
       class="buddy-chat-transcript-viewport__scrollbar"
       container-class="buddy-chat-transcript-viewport__scrollport"
@@ -287,16 +55,29 @@ function toScrollMetrics(element: HTMLElement): ChatMessageScrollMetrics {
     >
       <div
         ref="content"
-        class="buddy-chat-transcript-viewport__content"
-        :class="{ 'has-older-messages': props.hasOlderMessages, 'has-tail': hasTail }"
+        class="buddy-chat-transcript-viewport__content relative min-h-full"
+        :style="{ height: `${totalHeight}px` }"
+        :data-transcript-row-count="rows.length"
       >
-        <slot />
+        <BuddyChatVirtualRow
+          v-for="row in virtualRows"
+          :key="String(row.key)"
+          :ref="measureRow"
+          :row-key="String(row.key)"
+          :data-index="row.index"
+          :style="{ transform: `translateY(${row.start + (row.items.length || row.spacer ? 0 : tailOffset)}px)`, height: row.spacer ? `${row.size}px` : undefined }"
+        >
+          <template v-for="item in row.items" :key="item.key">
+            <slot :item="item" />
+          </template>
+          <slot v-if="!row.items.length && !row.spacer" name="tail" />
+        </BuddyChatVirtualRow>
       </div>
     </NScrollbar>
     <Transition name="buddy-chat-return-to-latest">
       <div
         v-if="showReturnToLatest"
-        class="buddy-chat-transcript-viewport__return"
+        class="buddy-chat-transcript-viewport__return absolute z-3 bottom-[0.85rem] left-[50%]"
       >
         <BuddyChatReturnToLatest
           :label="returnToLatestLabel"
@@ -309,9 +90,6 @@ function toScrollMetrics(element: HTMLElement): ChatMessageScrollMetrics {
 
 <style scoped lang="scss">
 .buddy-chat-transcript-viewport {
-  position: relative;
-  height: 100%;
-  min-height: 0;
   container-type: inline-size;
 }
 
@@ -340,32 +118,9 @@ function toScrollMetrics(element: HTMLElement): ChatMessageScrollMetrics {
 
 .buddy-chat-transcript-viewport__content {
   width: 100cqw;
-  min-height: 100%;
-  padding-block: 1.5rem 1rem;
-
-  &.has-older-messages {
-    padding-top: 2rem;
-  }
-
-  &.has-tail {
-    display: flex;
-    flex-direction: column;
-
-    :deep(> *) {
-      flex-shrink: 0;
-    }
-
-    :deep(> :last-child) {
-      margin-top: auto;
-    }
-  }
 }
 
 .buddy-chat-transcript-viewport__return {
-  position: absolute;
-  z-index: 3;
-  bottom: 0.85rem;
-  left: 50%;
   transform: translateX(-50%);
 }
 

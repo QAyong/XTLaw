@@ -2,7 +2,7 @@
 import type { ChatAgentTurnNode } from '../../model/transcript/chatStreamingMessage'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import { ChevronRight20Regular, Thinking20Regular } from '@vicons/fluent'
-import { computed, shallowReactive, shallowRef, useId } from 'vue'
+import { computed, useId } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import { createChatAgentActivityProjector } from '../../model/transcript/chatAgentActivities'
@@ -10,6 +10,7 @@ import BuddyChatActivityGroup from './BuddyChatActivityGroup.vue'
 import BuddyChatCompactionRow from './BuddyChatCompactionRow.vue'
 import BuddyChatNarrationBody from './BuddyChatNarrationBody.vue'
 import BuddyChatPanelGroup from './BuddyChatPanelGroup.vue'
+import { useChatTranscriptValue } from './chatTranscriptPresentation'
 import { useChatActivityNavigation } from './useChatActivityNavigation'
 
 const props = defineProps<{
@@ -28,13 +29,16 @@ const emit = defineEmits<{ toggle: [] }>()
 
 const { t } = useBuddyI18n(() => props.language)
 const rowProjector = createChatAgentActivityProjector()
-const openEntries = shallowReactive(new Map<string, boolean>())
-const standaloneCollapsed = shallowRef(false)
+const openEntries = useChatTranscriptValue('agent-turn:open-entries', new Map<string, boolean>())
+function setEntry(id: string, open: boolean) {
+  openEntries.value = new Map(openEntries.value).set(id, open)
+}
+const standaloneCollapsed = useChatTranscriptValue('agent-turn:standalone-collapsed', false)
 const standaloneDisclosureId = useId()
 const effectiveCollapsed = computed(() => props.collapsed ?? standaloneCollapsed.value)
 const disclosureId = computed(() => props.disclosureId ?? standaloneDisclosureId)
 function toggleEntry(id: string) {
-  openEntries.set(id, !openEntries.get(id))
+  setEntry(id, !openEntries.value.get(id))
 }
 function toggleDisclosure() {
   if (props.collapsed !== undefined)
@@ -80,7 +84,7 @@ defineExpose({ revealActivity })
           :language="language"
           :open-entries="openEntries"
           @toggle-entry="toggleEntry"
-          @open-entry="openEntries.set($event, true)"
+          @open-entry="setEntry($event, true)"
         />
         <BuddyChatCompactionRow
           v-else-if="row.kind === 'compaction' && row.status !== 'running'"

@@ -10,6 +10,7 @@ import { NButton, NPopover, NProgress } from 'naive-ui'
 import { computed, shallowRef } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
+import { notionPalette } from '@/theme/notionPalette'
 
 const props = defineProps<{
   isRunning: boolean
@@ -47,8 +48,14 @@ const segmentLabels: Record<ChatContextUsageSegmentKind, BuddyI18nKey> = {
   systemPrompt: 'desktop.chat.contextUsageSystemPrompt',
   tools: 'desktop.chat.contextUsageTools',
 }
+// One distinct Notion hue per segment: gray for the fixed system prompt, blue for the conversation that grows.
+const segmentColors = computed<Record<ChatContextUsageSegmentKind, string>>(() => {
+  const { blue, gray, green, orange, purple } = notionPalette.value
+  return { systemPrompt: gray, tools: orange, skills: purple, mcp: green, messages: blue }
+})
 const segmentRows = computed(() => (props.usage?.segments ?? []).map(segment => ({
   ...segment,
+  color: segmentColors.value[segment.kind],
   label: t(segmentLabels[segment.kind]),
   percent: props.usage ? segment.tokens / props.usage.contextWindow * 100 : 0,
 })))
@@ -143,7 +150,7 @@ function formatTokens(value: number): string {
             v-for="segment in trackSegments"
             :key="segment.kind"
             :class="`is-${segment.kind}`"
-            :style="{ flexGrow: segment.tokens }"
+            :style="{ background: segment.color, flexGrow: segment.tokens }"
           />
         </div>
       </div>
@@ -151,7 +158,7 @@ function formatTokens(value: number): string {
       <dl v-if="usage.status === 'ready'" class="desktop-context-usage__breakdown">
         <div v-for="segment in segmentRows" :key="segment.kind">
           <dt>
-            <span :class="`is-${segment.kind}`" />
+            <span :class="`is-${segment.kind}`" :style="{ background: segment.color }" />
             {{ segment.label }}
           </dt>
           <dd>
@@ -318,25 +325,5 @@ function formatTokens(value: number): string {
     font-size: 0.75rem;
     font-variant-numeric: tabular-nums;
   }
-}
-
-.is-systemPrompt {
-  background: var(--buddy-accent-solid);
-}
-
-.is-tools {
-  background: var(--buddy-brand-gold);
-}
-
-.is-skills {
-  background: var(--buddy-data-violet);
-}
-
-.is-mcp {
-  background: var(--buddy-data-cyan);
-}
-
-.is-messages {
-  background: var(--buddy-data-blue);
 }
 </style>

@@ -6,6 +6,7 @@ import type { BuddyLocale } from '@/i18n/buddyI18n'
 import { useThemeVars } from 'naive-ui'
 import { computed, shallowRef, useId, useTemplateRef, watch } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
+import { notionPalette } from '@/theme/notionPalette'
 import { createUsageModelDistribution, usageModelKey } from '../../model/usageAnalytics'
 import { createUsagePieChart } from '../../model/usageCharts'
 import { useUsageChart } from './useUsageChart'
@@ -22,7 +23,11 @@ const helpId = useId()
 const chart = useTemplateRef<HTMLDivElement>('chart')
 const theme = useThemeVars()
 const activeIndex = shallowRef<number | null>(null)
-const modelColors = ['#5479B5', '#D69B4C', '#439B8C', '#9472B7', '#CE788C', '#889CA6']
+// "Other models" is always the last group, so gray goes last.
+const modelColors = computed(() => {
+  const { blue, orange, green, purple, pink, gray } = notionPalette.value
+  return [blue, orange, green, purple, pink, gray]
+})
 const rows = computed(() => {
   const providers = new Map(props.providers.map(provider => [provider.id, provider.displayName]))
   const catalog = new Map(props.catalog.map(model => [usageModelKey(model), model.displayName]))
@@ -64,11 +69,10 @@ const option = computed<UsageChartOption>(() => {
       label: { ...series.label, color: colors.textColor2 },
       labelLine: { ...series.labelLine, lineStyle: { color: colors.textColorDisabled, width: 1 } },
       emptyCircleStyle: { color: colors.actionColor },
-      data: series.data.map((item, index) => ({
-        ...item,
-        itemStyle: { color: modelColors[index % modelColors.length] },
-        labelLine: { lineStyle: { color: modelColors[index % modelColors.length] } },
-      })),
+      data: series.data.map((item, index) => {
+        const color = modelColors.value[index % modelColors.value.length]
+        return { ...item, itemStyle: { color }, labelLine: { lineStyle: { color } } }
+      }),
     })),
   }
 })

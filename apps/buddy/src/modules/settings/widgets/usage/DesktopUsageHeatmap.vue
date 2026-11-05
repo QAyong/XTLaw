@@ -81,9 +81,10 @@ function inspect(cell: UsageCalendarCell | null, x: number, y: number) {
 .usage-heatmap {
   --usage-level--1: var(--buddy-surface-subtle);
   --usage-level-0: var(--buddy-border-subtle);
-  --usage-level-1: color-mix(in srgb, var(--buddy-accent-solid) 24%, var(--buddy-surface-base));
-  --usage-level-2: color-mix(in srgb, var(--buddy-accent-solid) 45%, var(--buddy-surface-base));
-  --usage-level-3: color-mix(in srgb, var(--buddy-accent-solid) 70%, var(--buddy-surface-base));
+  /* Mix in oklab so the middle steps keep their chroma; on a dark surface the steps start higher, otherwise levels 1-2 read as near-black navy. */
+  --usage-level-1: color-mix(in oklab, var(--buddy-accent-solid) 30%, var(--buddy-surface-base));
+  --usage-level-2: color-mix(in oklab, var(--buddy-accent-solid) 55%, var(--buddy-surface-base));
+  --usage-level-3: color-mix(in oklab, var(--buddy-accent-solid) 78%, var(--buddy-surface-base));
   --usage-level-4: var(--buddy-accent-solid);
   position: relative;
   display: grid;
@@ -92,6 +93,11 @@ function inspect(cell: UsageCalendarCell | null, x: number, y: number) {
   border: 1px solid var(--buddy-border-subtle);
   border-radius: 8px;
   padding: 18px;
+}
+:global(:root[data-buddy-theme='dark']) .usage-heatmap {
+  --usage-level-1: color-mix(in oklab, var(--buddy-accent-solid) 40%, var(--buddy-surface-base));
+  --usage-level-2: color-mix(in oklab, var(--buddy-accent-solid) 65%, var(--buddy-surface-base));
+  --usage-level-3: color-mix(in oklab, var(--buddy-accent-solid) 85%, var(--buddy-surface-base));
 }
 .usage-heatmap__heading, .usage-heatmap__footer, .usage-heatmap__legend { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
 .usage-heatmap__heading h2 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; margin: 0; color: var(--buddy-text-primary); font-size: 13px; font-weight: 400; }

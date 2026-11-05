@@ -82,7 +82,7 @@ export function useChatViewport(options: UseChatViewportOptions) {
       pendingPage = null
       if (contextChanged && replacementScopeKey === scopeKey() && replacementList === options.list.value) {
         replacementScopeKey = null
-        pendingRevealMessageId = null
+        cancelPendingReveal()
         finishPositioning()
         const operation = { generation: operationGeneration, list: options.list.value }
         void nextTick(() => {

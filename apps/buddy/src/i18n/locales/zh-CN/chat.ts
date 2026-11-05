@@ -441,7 +441,6 @@ export default {
   'desktop.chat.processToolSkipped': '已跳过',
   'desktop.chat.processToolInterrupted': '已中断',
   'desktop.chat.processToolNoOutput': '命令未产生输出',
-  'desktop.chat.processToolPet': '桌宠动作',
   'desktop.chat.processToolPreparing': '准备中',
   'desktop.chat.processToolOutput': '输出',
   'desktop.chat.processToolRead': '读取文件',

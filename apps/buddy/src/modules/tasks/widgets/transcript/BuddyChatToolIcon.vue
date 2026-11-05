@@ -2,7 +2,7 @@
 import type { Component } from 'vue'
 import type { ChatToolIcon } from '../../model/transcript/chatToolRegistry'
 import type { DesktopIconName } from '@/shared/ui/icon/desktopIcons'
-import { AnimalCat20Regular, Box20Regular, CalendarClock20Regular, Camera20Regular, Cursor20Regular, DocumentText20Regular, Folder20Regular, Globe20Regular, Image20Regular, ImageEdit20Regular, PlugConnected20Regular, ShieldKeyhole20Regular, Stack20Regular, Window20Regular, WindowConsole20Regular, Wrench20Regular } from '@vicons/fluent'
+import { Box20Regular, CalendarClock20Regular, Camera20Regular, Cursor20Regular, DocumentText20Regular, Folder20Regular, Globe20Regular, Image20Regular, ImageEdit20Regular, PlugConnected20Regular, ShieldKeyhole20Regular, Stack20Regular, Window20Regular, WindowConsole20Regular, Wrench20Regular } from '@vicons/fluent'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import SkillIcon from '@/shared/ui/icon/SkillIcon.vue'
 
@@ -23,7 +23,6 @@ const icons = {
   'file': { component: DocumentText20Regular },
   'image': { component: Image20Regular },
   'image-edit': { component: ImageEdit20Regular },
-  'pet': { component: AnimalCat20Regular },
   'search': { name: 'toolSearch' },
   'skill': { component: SkillIcon },
   'system': { component: Wrench20Regular },

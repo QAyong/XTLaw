@@ -91,12 +91,6 @@ export const buddyToolPresentationSchema = z.discriminatedUnion('card', [
     request: imageRequestRefSchema.optional(),
   }).strict(),
   z.object({
-    card: z.literal('pet'),
-    description: z.string().min(1).max(4 * 1024).nullable(),
-    macro: z.string().min(1).max(256),
-    status: z.string().min(1).max(256),
-  }).strict(),
-  z.object({
     automationId: z.string().min(1).max(256).nullable(),
     card: z.literal('automation'),
     itemCount: z.number().int().nonnegative().nullable(),

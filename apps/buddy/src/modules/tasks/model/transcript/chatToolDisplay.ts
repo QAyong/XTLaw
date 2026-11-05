@@ -84,7 +84,6 @@ function toolTarget(node: ChatAgentToolNode, t: BuddyTranslate): string {
     case 'web': return p.target
     case 'connector': return p.connector
     case 'browser': return p.origin ?? ''
-    case 'pet': return p.macro
     case 'image': return p.status !== 'completed' || p.generatedCount === null ? '' : t('desktop.chat.processToolImageCount', { count: p.generatedCount })
     case 'automation': return p.name ?? (p.itemCount === null ? '' : t('desktop.chat.processToolAutomationCount', { count: p.itemCount }))
     case 'system': return ['action-expired', 'target-ambiguous', 'target-changed', 'target-not-found'].includes(p.status ?? '')

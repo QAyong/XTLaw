@@ -24,8 +24,8 @@
 
 **工具范围（选定模式）：**
 
-- 法宝：`search_case`、`get_case_list`、`search_enforcement`、`search_procuratorate`
-- 法宝（可选）：`anhao_recognition`
+- 法宝：`search_cases`、`search_cases_by_keyword`、`search_enforcement`、`search_procuratorate`
+- 法宝（可选）：`recognize_case_numbers`
 - 内置网页：`lexora_web_search`、`lexora_web_fetch`
 - 不选：`write`、`edit`、shell 类工具。文件访问虽然是"继承"，不选这些工具就写不了文件。
 

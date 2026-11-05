@@ -14,11 +14,11 @@ console.log('backup:', backupDir)
 
 const id = (kind, source, tool) => JSON.stringify([kind, source, tool])
 const tools = [
-  id('mcp', 'pkulaw', 'search_case'),
-  id('mcp', 'pkulaw', 'get_case_list'),
+  id('mcp', 'pkulaw', 'search_cases'),
+  id('mcp', 'pkulaw', 'search_cases_by_keyword'),
   id('mcp', 'pkulaw', 'search_enforcement'),
   id('mcp', 'pkulaw', 'search_procuratorate'),
-  id('mcp', 'pkulaw', 'anhao_recognition'),
+  id('mcp', 'pkulaw', 'recognize_case_numbers'),
   id('builtin', 'web', 'lexora_web_search'),
   id('builtin', 'web', 'lexora_web_fetch'),
 ]

@@ -15,36 +15,43 @@
 
 ## 法宝工具一览
 
-工具是延迟加载的，用 `lexora_tool_search` 一次只搜一个确切的英文工具名（如 `get_law_item_content`），`limit` 设为 1；用中文描述搜不到，批量搜会带回每个工具的完整类型声明，很长。共 18 个，检索用到的如下：
+工具是延迟加载的，用 `lexora_tool_search` 一次只搜一个确切的英文工具名（如 `get_law_article`），`limit` 设为 1；用中文描述搜不到，批量搜会带回每个工具的完整类型声明，很长。共 22 个，检索用到的如下：
 
 | 工具 | 作用 |
 |---|---|
-| `get_law_item_content` / `get_article` | 读某一条的原文 |
-| `get_law_list` | 按标题、关键词、效力位阶、时效、施行日期找法规 |
-| `search_article` | 语义检索法条。只作兜底，不是首选：一次返回大量文本，先用关键词、搜狗微信和网页找线索 |
-| `list_related_statutes` | 一部法的上位法、下位法、司法解释、被谁修改或废止 |
-| `list_law_versions` / `get_article_history` / `diff_article_versions` | 版本、某一条的历次文本、两版差异 |
-| `get_case_list` | 关键词检索案例（前 20 条），可按参照级别、文书类型、法院、审结日期筛选 |
-| `search_case` | 语义检索案例，可按案件类型、文书类型、参照级别、法院、省份、审结日期筛选。只作兜底：先用 `get_case_list` 关键词查两轮，没有合适案例才用 |
-| `anhao_recognition` | 识别并核验案号，返回标准案号、标题、法院、审结日期、链接 |
-| `law_recognition` | 从文字中识别法规名称和条文 |
+| `get_law_article` | 读某一条的原文（`law_title`、`article_number`）。现行版没有这一条时报查无，不拿旧版顶替 |
+| `get_law_articles_by_range` | 读连续几条的原文，含两端，一次最多跨 10 个条号 |
+| `search_laws_by_keyword` | 按标题、关键词、效力位阶、时效、施行日期找法规 |
+| `search_laws` | 语义检索法规（标题级），不返回条文正文。只作兜底 |
+| `search_law_articles` | 语义检索法条（条文级）。只作兜底，不是首选：一次返回大量文本，先用关键词、搜狗微信和网页找线索 |
+| `search_law_articles_by_keyword` | 按条文用词关键词检索法条，返回条号、完整条文和命中片段 |
+| `list_related_legal_materials` | 一部法的上位法、下位法、司法解释、被谁修改或废止 |
+| `list_law_versions` / `get_law_article_history` / `diff_law_article_versions` | 版本、某一条的历次文本、两版差异 |
+| `search_cases_by_keyword` | 关键词检索案例，可按案号、参照级别、文书类型、法院、审结日期筛选；返回本院查明、本院认为、裁判依据、裁判结果等拆分字段 |
+| `search_cases` | 语义检索案例，可按案件类型、文书类型、参照级别、法院、省份、审结日期筛选。只作兜底：先用 `search_cases_by_keyword` 关键词查两轮，没有合适案例才用 |
+| `recognize_case_numbers` | 识别并核验案号，返回标准案号、标题、法院、审结日期、链接 |
+| `recognize_law_citations` | 从文字中识别法规名称和条文 |
 | `search_enforcement` | 行政执法库 |
 | `search_procuratorate` | 检察文书库 |
-| `get_points_balance` / `list_entitlements` | 余额、各服务单价（0 分） |
+| `get_points_balance` / `get_points_usage` / `list_entitlements` | 余额、近 30 天各服务用量、各服务单价（0 分） |
+| `submit_feedback` | 把数据错误、工具报错提交给北大法宝。用户没要求、也没同意时不主动提交 |
 
-不用于检索：`get_linked_content`（加超链接，编辑辅助）、`adjust_provisions`（复杂的条文校正，暂不使用）。
+不用于检索：`add_law_links`（加超链接，编辑辅助）、`verify_law_citations`（核验草稿里引用的条号和文本是否与原文一致，暂不使用）。
+
+- 原文链接在返回的 `url` 或 `citation.url` 里，只用返回的链接，不自己拼。文献类结果还带加密的 `gid`，是该篇文献的标识，不是链接。
+- `search_cases_by_keyword` 的说明里提到「获取案例正文」（`get_case_content`），这个连接器目前没有该工具；案例以关键词检索返回的拆分字段为准，不据此另找整篇正文。
 
 ## 返回大小与计费
 
 - 法宝按底层服务计费：法条读取、案例列表约 25 分一次；语义检索约 125 分一次；账户类 0 分。
-- `get_case_list` 一次返回约 20 条、数据量很大且没有条数参数；`search_case` 有 `size`，每条约 1500 字。
+- `search_cases_by_keyword` 每条记录很长（带本院查明、本院认为等拆分字段）；用 `page_size` 控制（默认 10，最大 50，一次检索最多翻到 50 条、5 页）。`search_cases` 用 `size`（默认 10，最大 20，权威案例另旁路返回最多 10 条），每条约 1500 字。
 - 超过 64KB 的返回会被转成文件，模型只看到前 32KB 预览。所以批量阅读交给子代理，见 [委派读取](delegation.md)。
 - 代码模式下，脚本之间不保留变量。同一个检索不要重复调用：在同一次脚本里把需要的字段一次取全（案号、法院、日期、"本院认为"的摘录），不要整条打印，也不要为了换个打印格式再调一次。
 
 ## 参照级别
 
-- `search_case` 的 `case_grade`：指导性案例、公报案例、典型案例、参考案例、权威案例（前四类的合集）、普通案例。
-- `get_case_list` 的 `caseGrade`：指导性案例、参考案例、公报案例、典型案例、参阅案例、评析案例、优秀案例、经典案例、应用案例、法宝推荐、普通案例。
+- `search_cases` 的 `case_grade`：指导性案例、公报案例、典型案例、参考案例、权威案例（前四类的合集）、普通案例。
+- `search_cases_by_keyword` 的 `case_grade`：指导性案例、参考案例、公报案例、典型案例、参阅案例、评析案例、优秀案例、经典案例、应用案例、法宝推荐、普通案例。
 - 人民法院案例库入库案例归在哪一档，待用真实案例确认。
 
 ## 公众号与网页

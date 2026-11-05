@@ -13,26 +13,26 @@
 
 ## 工具
 
-工具是延迟加载的，用 `lexora_tool_search` 一次只搜一个确切的英文工具名（如 `get_law_item_content`），`limit` 设为 1；用中文描述搜不到，批量搜会带回每个工具的完整类型声明，很长。法宝没配置或不可用时，明说未能核验，提示去"设置 → 网络 → 服务配置"；因额度失败时，把返回的网址原样给用户。
+工具是延迟加载的，用 `lexora_tool_search` 一次只搜一个确切的英文工具名（如 `get_law_article`），`limit` 设为 1；用中文描述搜不到，批量搜会带回每个工具的完整类型声明，很长。法宝没配置或不可用时，明说未能核验，提示去"设置 → 网络 → 服务配置"；因额度失败时，把返回的网址原样给用户。
 
 | 要查 | 工具 |
 |---|---|
-| 条文原文 | `get_law_item_content`（`title`、`tiao_num`）；`get_article`（`title`、`number` 写"第四十八条"）也可 |
-| 法名不全或不确定 | `get_law_list`（`title` 或 `fulltext`），看候选的效力位阶和时效 |
+| 条文原文 | `get_law_article`（`law_title`、`article_number`，可传 232 或"第二百三十二条"）；连续几条用 `get_law_articles_by_range` |
+| 法名不全或不确定 | `search_laws_by_keyword`（`title` 或 `fulltext`），看候选的效力位阶和时效 |
 | 只知道事项，不知道法名 | 搜狗微信（`lexora_web_search`，`provider` 为 `sogou-weixin`）找线索，再回法宝核对，见"按事项找法律" |
-| 以上都找不到时的兜底 | `search_article`（语义），只用一次，`size` 不超过 5，并在末尾写明用了语义检索 |
+| 以上都找不到时的兜底 | `search_law_articles`（语义），只用一次，`size` 取最小值 5，并在末尾写明用了语义检索 |
 | 这部法有哪些版本 | `list_law_versions` |
-| 某一条的历次文本、事实发生时适用哪一版 | `get_article_history`（`asOf` 传时点） |
-| 两个版本差异 | `diff_article_versions` |
-| 上下位法、司法解释、被谁修改或废止 | `list_related_statutes` |
-| 案号是否真实 | `anhao_recognition`，返回标准案号、标题、法院、审结日期、链接 |
-| 案例（案名、关键词） | `get_case_list` |
-| 一段文字里的法条引用，批量识别并标准化 | `law_recognition` |
+| 某一条的历次文本、事实发生时适用哪一版 | `get_law_article_history`（`as_of` 传时点） |
+| 两个版本差异 | `diff_law_article_versions` |
+| 上下位法、司法解释、被谁修改或废止 | `list_related_legal_materials` |
+| 案号是否真实 | `recognize_case_numbers`，返回标准案号、标题、法院、审结日期、链接 |
+| 案例（案名、关键词） | `search_cases_by_keyword` |
+| 一段文字里的法条引用，批量识别并标准化 | `recognize_law_citations` |
 | 行政处罚决定 | `search_enforcement` |
 | 检察文书 | `search_procuratorate`（关键词模式） |
 | 法宝查不到的官方发布 | `lexora_web_search`（`site:gov.cn`、`site:court.gov.cn`），再用 `lexora_web_fetch` 读原文 |
 
-`get_linked_content`（给文字加法规超链接）不用于核验，只是编辑辅助，不要用它判断有效性。
+`add_law_links`（给文字加法规超链接）不用于核验，只是编辑辅助，不要用它判断有效性。
 
 ## 做法
 
@@ -42,29 +42,29 @@
 
 1. 把事项关键词化（见 [关键词](keywords.md)），如"未告知尸检 法律后果"。
 2. **先用搜狗微信，这一步不能跳过**：`lexora_web_search`，`provider` 为 `sogou-weixin`。公众号文章常直接列出法律依据，陌生领域尤其管用。只取文章里引用的法律名称和条号作线索，不通读，不采信文章对条文的转述。
-3. 再用网页搜索补充（可加 `site:gov.cn`）；法名清楚后，用 `get_law_list`（关键词）看效力位阶和时效。不要用 `search_article`（语义）代替线索检索：它一次返回大量文本，只作兜底。
+3. 再用网页搜索补充（可加 `site:gov.cn`）；法名清楚后，用 `search_laws_by_keyword`（关键词）看效力位阶和时效。不要用 `search_law_articles`（语义）代替线索检索：它一次返回大量文本，只作兜底。
 4. 把线索里的法名、条号回法宝读原文，逐条核对（见下面的"法条"）。核对不到的，不放进清单。
 5. 需要全面时（陌生领域，或条文有"依照有关规定"这类兜底表述），按 [法条检索](law-search.md) 的体系检索，沿位阶逐层补查。
 6. 搜狗微信遇到 `WEB_CHALLENGE` 立即停，不重试；末尾写明"微信渠道未能检索"，改用网页和法宝。公众号链接是临时的，失效就重新搜。
 
 ### 法条
 
-1. 读原文，核对标题和条号。`title` 用 `get_law_list` 返回的完整标题，含"(2020修正)"这类后缀；标题不精确会返回空，不要逐条试条号。
+1. 读原文，核对标题和条号。`law_title` 可用简称，要指定版本时写成"刑法(2011修正)"这类带后缀的完整标题；标题对不上时会报错并给出候选名称，按候选重试，不要逐条试条号。
 2. 记录效力状态和施行日期。
-3. 事实时点早于现行版本的，用 `get_article_history`（`asOf`）查当时适用哪一版，必要时用 `diff_article_versions` 对比。
+3. 事实时点早于现行版本的，用 `get_law_article_history`（`as_of`）查当时适用哪一版，必要时用 `diff_law_article_versions` 对比。
 4. 条文被修订过的，核对用户引用的是否为现行文本。
 5. 沿革图谱未覆盖时，如实写，不代表没有修订。
 
 ### 案例
 
-1. 案号：用 `anhao_recognition` 核对，确认标准案号、法院、审结日期。
-2. 案名或关键词：用 `get_case_list`，确认案号、法院、日期、案由和文书类型。
+1. 案号：用 `recognize_case_numbers` 核对，确认标准案号、法院、审结日期。
+2. 案名或关键词：用 `search_cases_by_keyword`，确认案号、法院、日期、案由和文书类型。
 3. 查不到时换检索词再查一次，仍查不到就写"未检得"，不判断真假，不用相近案例顶替。
 4. 案例可能被二审、再审改判；返回里没有后续审理信息的，提示用户自行核对。
 
 ### 引用核对
 
-1. 先用 `law_recognition` 把文书里的法条引用识别出来，案号用 `anhao_recognition` 逐个核。
+1. 先用 `recognize_law_citations` 把文书里的法条引用识别出来，案号用 `recognize_case_numbers` 逐个核。
 2. 逐条核对：是否存在、内容是否如引用所述、是否现行有效、条号和案号是否准确。
 3. 引用的要旨与原文不符时，指出差异，附原文。
 

@@ -2,9 +2,10 @@
 import type { DropdownOption } from 'naive-ui'
 import type { Component } from 'vue'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
+import type { DesktopSettingsCategory } from '@/shared/navigation/desktopRoutes'
 import type { ThemeAppearanceMode } from '@/theme/themeAppearanceSwitch'
 import { HELP_URL } from '@buddy-electron/shared/productLinks'
-import { ArrowSync20Regular, ChevronDown16Regular, Desktop20Regular, QuestionCircle20Regular, Settings20Regular, WeatherMoon20Regular, WeatherSunny20Regular } from '@vicons/fluent'
+import { ArrowSync20Regular, ChevronDown16Regular, DataUsage20Regular, Desktop20Regular, QuestionCircle20Regular, Settings20Regular, WeatherMoon20Regular, WeatherSunny20Regular } from '@vicons/fluent'
 import { NDropdown, useMessage } from 'naive-ui'
 import { computed, h, shallowRef } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
@@ -18,7 +19,7 @@ import { desktopThemeSnapshot } from '@/theme/desktopThemeState'
 import { themeAppearanceMode, themeIdForAppearance } from '@/theme/themeAppearanceSwitch'
 
 const props = defineProps<{ language: BuddyLocale }>()
-const emit = defineEmits<{ openSettings: [] }>()
+const emit = defineEmits<{ openSettings: [category?: DesktopSettingsCategory] }>()
 
 const { t } = useBuddyI18n(() => props.language)
 const { appInfo, profile } = useSettingsContext()
@@ -103,6 +104,11 @@ const menuOptions = computed<DropdownOption[]>(() => [
     label: t('desktop.navigation.settings'),
   },
   {
+    icon: () => h(DesktopIcon, { component: DataUsage20Regular, size: 16 }),
+    key: 'usage',
+    label: t('desktop.settings.category.usage'),
+  },
+  {
     icon: () => h(DesktopIcon, { component: QuestionCircle20Regular, size: 16 }),
     key: 'get-help',
     label: t('desktop.account.getHelp'),
@@ -137,6 +143,8 @@ function handleMenuAction(action: string | number) {
   menuOpen.value = false
   if (action === 'settings')
     emit('openSettings')
+  else if (action === 'usage')
+    emit('openSettings', 'usage')
   else if (action === 'get-help')
     window.open(HELP_URL, '_blank', 'noopener,noreferrer')
   else if (action === 'check-updates')

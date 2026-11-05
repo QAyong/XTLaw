@@ -75,12 +75,13 @@ describe('desktopSidebarAccount', () => {
     root.querySelector<HTMLButtonElement>('.desktop-sidebar-account')?.click()
     await settle()
     expect(menuOption('设置')).toBeDefined()
+    expect(menuOption('使用情况')).toBeDefined()
     expect(menuOption('获取帮助')).toBeDefined()
     expect(menuOption('检查更新')?.textContent).toContain('0.3.2')
     expect(document.body.querySelector('.desktop-sidebar-account-menu__device')?.textContent).toBe('Desktop')
     expect(segmentTab('跟随系统')).toBeDefined()
     const menuIcons = [...document.body.querySelectorAll<SVGElement>('.desktop-sidebar-account-menu svg')]
-    expect(menuIcons.length).toBe(6)
+    expect(menuIcons.length).toBe(7)
     expect(menuIcons.every(icon => icon.getAttribute('viewBox') === '0 0 20 20')).toBe(true)
 
     menuOption('设置')?.click()
@@ -101,6 +102,23 @@ describe('desktopSidebarAccount', () => {
     await settle()
     expect(themeRequest).toHaveBeenCalledWith({ action: 'preference', preference: { id: 'xtlaw.themes.paper-dark' } })
     expect(root.querySelector('.desktop-sidebar-account')?.getAttribute('aria-expanded')).toBe('true')
+
+    app.unmount()
+    root.remove()
+  })
+
+  it('lists usage right above get help and opens the usage settings', async () => {
+    const { app, onOpenSettings, root } = mountAccount({ avatar: '', deviceName: '', userName: '周晓晓' })
+    await nextTick()
+
+    root.querySelector<HTMLButtonElement>('.desktop-sidebar-account')?.click()
+    await settle()
+    const usage = menuOption('使用情况')
+    expect(usage?.closest('.n-dropdown-option')?.nextElementSibling?.textContent).toContain('获取帮助')
+
+    usage?.click()
+    await settle()
+    expect(onOpenSettings).toHaveBeenCalledExactlyOnceWith('usage')
 
     app.unmount()
     root.remove()

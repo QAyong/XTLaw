@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import type { ComponentPublicInstance } from 'vue'
 import type { DesktopShellBindings } from '../shell/desktopShellBindings'
+import type { DesktopSettingsCategory } from '@/shared/navigation/desktopRoutes'
 import { computed, watch } from 'vue'
 import { RouterView } from 'vue-router'
 import { DesktopTaskIndexView, DesktopTaskResourcePanel } from '@/modules/tasks/ui'
+import { desktopRouteLocations } from '@/shared/navigation/desktopRoutes'
 import { useDesktopUi } from '@/shared/ui/desktopUiContext'
 import DesktopFileLoading from '@/shared/ui/loading/DesktopFileLoading.vue'
 import WorkbenchLayout from '@/workbench/browser/layout/WorkbenchLayout.vue'
@@ -74,6 +76,12 @@ function navigate(id: string) {
   if (entry)
     void props.bindings.navigation.navigate(entry.location)
 }
+function openSettings(category?: DesktopSettingsCategory) {
+  if (category)
+    void props.bindings.navigation.navigate(desktopRouteLocations.settings(category))
+  else
+    navigate('lexora.settings')
+}
 </script>
 
 <template>
@@ -95,7 +103,7 @@ function navigate(id: string) {
               @refresh-notifications="bindings.notifications.load"
             >
               <template #account>
-                <DesktopSidebarAccount :language="language" @open-settings="navigate('lexora.settings')" />
+                <DesktopSidebarAccount :language="language" @open-settings="openSettings" />
               </template>
             </DesktopSidebarFooter>
           </template>

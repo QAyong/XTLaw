@@ -9,7 +9,6 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { resolveBuddyPlatform } from '../../../../../shared/platform'
 import { createBuddyCapabilityFactory } from '../../../createBuddyCapabilityFactory'
-import { PetActionService } from '../../../pet/PetActionService'
 import { CodemodeWorkerPool } from '../../execution/CodemodeWorkerPool'
 import { createBuddySessionExtensions } from '../createBuddySessionExtensions'
 
@@ -238,9 +237,7 @@ function createCompositionServices(
           return { classifications: new Map(), diagnostics: [], tools: [], disclosure: [], available: () => false }
         },
       },
-    } as unknown as BuddyCapabilityServices, new PetActionService({
-      peer: { request: async () => { throw new Error('No host action is expected during extensions') } },
-    })),
+    } as unknown as BuddyCapabilityServices),
     directoryGrants: {
       assertCurrent: () => {},
       grant: async (input: { owner: { id: string, kind: string }, root: string }) => ({

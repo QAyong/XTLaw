@@ -155,8 +155,6 @@ import { AttentionNotificationService } from './notifications/AttentionNotificat
 import { NotificationProjection } from './notifications/NotificationProjection'
 import { registerNotificationRpc } from './notifications/registerNotificationRpc'
 import { NetworkPermissionsClient } from './permissions/NetworkPermissionsClient'
-import { observePetActionDiagnostics } from './pet/observePetActionDiagnostics'
-import { PetActionService } from './pet/PetActionService'
 import { bindExtensionActions } from './plugins/bindExtensionActions'
 import { createCapabilityLedgerFile } from './plugins/capabilityLedgerFile'
 import { ExtensionActionService } from './plugins/ExtensionActionService'
@@ -973,19 +971,6 @@ export async function startBuddyService(
       return consumer
     }, ['runtime.spaces', 'runtime.directory_grants', 'runtime.sessions'])
     let chatQueueService: ChatQueueService | undefined
-    const petActions = await host.start('runtime.pet_actions', ({ defer }) => {
-      const service = new PetActionService({ eventSink: event => options.eventLog.append(event), peer: options.rpc })
-      const diagnostics = observePetActionDiagnostics(service, record)
-      defer(async () => {
-        try {
-          await service.dispose()
-        }
-        finally {
-          diagnostics.dispose()
-        }
-      })
-      return service
-    })
     const sessionExtensionServices: BuddySessionExtensionServices = {
       codemodeWorkers: await host.start('runtime.codemode_workers', async ({ defer }) => {
         const pool = new CodemodeWorkerPool()
@@ -1072,7 +1057,7 @@ export async function startBuddyService(
         publications: treeRepository,
         references: sessionReferences,
         referenceSnapshots: extensionReferences,
-      }, petActions),
+      }),
     }
     const conversationMembers = createConversationMemberRepository(options.database)
     const buddyDefinitions = new BuddyDefinitionResolver({ buddies, members: conversationMembers, providers: providerService })

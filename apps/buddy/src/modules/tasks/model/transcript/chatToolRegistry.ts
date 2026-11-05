@@ -67,7 +67,6 @@ const builtins: Readonly<Record<string, ChatToolRegistration>> = {
   lexora_browser_read: browserOperations.read,
   lexora_browser_snapshot: browserOperations.snapshot,
   lexora_browser_act: browserOperations.act,
-  lexora_buddy_pet: cards.pet,
   lexora_buddy_automation: cards.automation,
   lexora_system_action: cards.system,
   lexora_image_generate: cards.image,

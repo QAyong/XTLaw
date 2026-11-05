@@ -5,15 +5,6 @@ description: Use when the user asks XTLaw to move, emote, celebrate, rest, or pe
 
 # XTLaw Animation
 
-Use the `lexora_buddy_pet` tool for visible desktop-pet actions. Choose exactly one of these semantic macros:
+XTLaw currently exposes no tool for controlling the desktop pet. Tell the user the action is unavailable, then continue helping with their main task.
 
-- `thinking`: show focused reasoning.
-- `working`: show active work.
-- `awaitApproval`: wait attentively for the user.
-- `celebrate`: react to a successful outcome.
-- `sad`: react softly to a failure or blocker.
-- `curious`: react to ambiguity or exploration.
-- `explain`: accompany a concise explanation.
-- `returnHome`: return to the normal resting position.
-
-Do not execute shell commands for pet actions. Do not invent macros, parameters, sequences, durations, positions, or coordinates. If the tool reports that the pet is unavailable, continue helping with the user's main task without attempting an alternate control path.
+Do not execute shell commands for pet actions. Do not invent tools, macros, parameters, sequences, durations, positions, or coordinates, and do not attempt an alternate control path.

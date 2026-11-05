@@ -26,7 +26,6 @@ import {
   createImageTransformRunOutput,
   createImageTransformToolPresentation,
 } from '../../images/imageTransformToolContract'
-import { createPetToolPresentation } from '../../pet/petToolContract'
 import { createSystemToolPresentation } from '../../system/systemToolContract'
 import { createWebToolPresentation } from '../../web/webToolPresentation'
 import { TOOL_SEARCH_NAME } from '../extensions/discovery/toolDiscoveryContract'
@@ -59,7 +58,6 @@ export function createBuddyToolPresentation(
   return createPiToolPresentation(input)
     ?? createSessionReferenceToolPresentation(input)
     ?? createWebToolPresentation(input)
-    ?? createPetToolPresentation(input)
     ?? createImageGenerationToolPresentation(input)
     ?? createImageTransformToolPresentation(input)
     ?? createAutomationToolPresentation(input)

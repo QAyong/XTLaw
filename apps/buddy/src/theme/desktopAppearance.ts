@@ -1,12 +1,8 @@
-import { shallowReadonly, shallowRef } from 'vue'
+import { computed } from 'vue'
+import { desktopThemeSnapshot } from './desktopThemeState'
 
 export type DesktopAppearance = 'light' | 'dark'
 
-const current = shallowRef<DesktopAppearance>('light')
-
-// Icon themes can ship separate light variants, so icon resolution reads the colour scheme the shell applied.
-export const desktopAppearance = shallowReadonly(current)
-
-export function setDesktopAppearance(appearance: DesktopAppearance): void {
-  current.value = appearance
-}
+// Icon themes can ship separate light variants, so icon resolution follows the appearance of the applied theme.
+// Derived from the theme snapshot rather than stored separately, so it cannot drift from `data-buddy-theme`.
+export const desktopAppearance = computed<DesktopAppearance>(() => desktopThemeSnapshot.value.active.descriptor.appearance)

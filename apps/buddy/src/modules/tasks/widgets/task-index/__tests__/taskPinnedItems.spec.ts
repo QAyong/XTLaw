@@ -5,8 +5,8 @@ import {
   DESKTOP_TASK_SIDEBAR_CONVERSATION_LIMIT,
   DESKTOP_TASK_SIDEBAR_TASKS_GROUP_KEY,
   resolveSpaceActivities,
-  resolveTasksSectionActivity,
   resolveTaskIndexProjection,
+  resolveTasksSectionActivity,
   spaceConversationGroupKey,
 } from '../taskPinnedItems'
 

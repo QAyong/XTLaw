@@ -15,8 +15,8 @@ import {
   removeDesktopTaskPinnedItem,
   reorderDesktopTaskPinnedItems,
   resolveSpaceActivities,
-  resolveTasksSectionActivity,
   resolveTaskIndexProjection,
+  resolveTasksSectionActivity,
   spaceConversationGroupKey,
 } from '@/modules/tasks/widgets/task-index/taskPinnedItems'
 import { useTaskIndexManagement } from './useTaskIndexManagement'

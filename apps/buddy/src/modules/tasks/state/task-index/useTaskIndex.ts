@@ -56,6 +56,9 @@ export function useTaskIndex(options: TaskIndexOptions) {
     }
   }
   const index: TaskIndex = {
+    history: {
+      search: (query, cursor) => api.conversations.listHistory({ kind: 'search', query, limit: 50, ...(cursor ? { cursor } : {}) }),
+    },
     marks,
     pinnedItems: pins.pinnedItems,
     setPinnedItems: pins.setPinnedItems,

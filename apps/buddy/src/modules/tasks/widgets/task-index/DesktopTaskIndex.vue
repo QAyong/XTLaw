@@ -33,6 +33,7 @@ const props = defineProps<{
   activeConversationId: string | null
   pendingConversationIds?: readonly string[]
   marks: TaskMarks
+  search: TaskIndex['history']['search']
   language: BuddyLocale
   pinnedItems: ReadonlyArray<DesktopTaskPinnedItem>
   sidebar: TaskIndex['sidebar']
@@ -159,9 +160,9 @@ const {
   tasks: toRef(props, 'tasks'),
 })
 
-function openSearchTask(conversationId: string) {
+function openSearchTask(conversation: LocalConversationSummary) {
   searchOpen.value = false
-  emit('openTask', conversationId)
+  emit('openTask', conversation.id)
 }
 
 function openSearchSpace(spaceId: string) {
@@ -361,7 +362,7 @@ function openSearchSpace(spaceId: string) {
 
     <DesktopTaskSearchDialog
       v-model:show="searchOpen"
-      :conversations="tasks"
+      :search="(query, cursor) => search(query, cursor)"
       :language="language"
       :spaces="spaces"
       @open-task="openSearchTask"

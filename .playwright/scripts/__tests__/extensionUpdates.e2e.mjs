@@ -23,15 +23,41 @@ async function writePackage(directory, version) {
   const file = path.join(directory, `plugin-${version}.lexora-extension`)
   await fs.mkdir(directory, { recursive: true })
   await fs.writeFile(file, zipSync({ 'extension.json': strToU8(JSON.stringify(manifest)) }))
-  return file
+  return { file, manifest }
+}
+
+// The market page reads this cache file, so a seeded newer version shows up as an update on the installed card.
+async function seedCatalog(instance, manifest) {
+  const file = path.join(instance.home, 'buddy', 'extensions', 'catalog.json')
+  await fs.mkdir(path.dirname(file), { recursive: true })
+  await fs.writeFile(file, JSON.stringify({
+    cachedAt: new Date().toISOString(),
+    catalog: { schemaVersion: 1, plugins: [{ manifest, repository: 'https://example.test/plugins', artifact: { url: 'https://example.test/plugin.zip', sha256: '1'.repeat(64), size: 1 } }] },
+  }))
 }
 
 test('plugin updates apply separately from restart and preserve preferences and disabled state', async ({ buddy }) => {
   const instance = await buddy.createInstance('plugin-updates')
-  let { app, page, diagnostics } = await instance.launch()
   const directory = path.join(instance.home, 'fixtures')
+  const latest = await writePackage(directory, '1.0.4')
+  await seedCatalog(instance, latest.manifest)
+  let { app, page, diagnostics } = await instance.launch()
+  // The catalog artifact URL is fake, so reviewing the catalog entry opens the local 1.0.4 package instead.
+  await app.evaluate(({ ipcMain, dialog }, { id, file }) => {
+    const original = ipcMain._invokeHandlers.get('lexora:extensions:request')
+    ipcMain.removeHandler('lexora:extensions:request')
+    ipcMain.handle('lexora:extensions:request', async (event, request) => {
+      if (request.action !== 'reviewCatalog')
+        return original(event, request)
+      if (request.id !== id || request.version !== '1.0.4')
+        throw new Error('Unexpected catalog review target')
+      dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] })
+      return original(event, { action: 'selectPackage', development: false })
+    })
+  }, { id, file: latest.file })
   const status = () => page.evaluate(async id => (await window.lexoraDesktop.extensions.list()).find(item => item.manifest.id === id), id)
   const card = () => page.locator(`[data-extension-id="${id}"]`)
+  const updateBadge = () => card().getByRole('button', { name: '存在更新', exact: true })
   const openPlugins = async () => {
     const back = page.locator('.desktop-back-to-tasks')
     if (await back.count())
@@ -39,7 +65,7 @@ test('plugin updates apply separately from restart and preserve preferences and 
     await page.locator('#desktop-task-sidebar').getByRole('button', { name: '插件', exact: true }).click()
   }
   async function install(version, apply = true) {
-    const file = await writePackage(directory, version)
+    const { file } = await writePackage(directory, version)
     await openPlugins()
     await app.evaluate(({ dialog }, file) => {
       dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] })
@@ -58,6 +84,13 @@ test('plugin updates apply separately from restart and preserve preferences and 
   await install('1.0.0')
   await expect(card().getByTestId('extension-tags')).toContainText('主题')
   await expect(card().getByTestId('extension-tags')).toContainText('效率')
+  await expect(updateBadge()).toBeEnabled()
+  await updateBadge().focus()
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('extension-install-review')).toContainText('1.0.4')
+  await expect(page.getByTestId('extension-confirm-install')).toHaveText('安装并切换版本')
+  await page.getByTestId('extension-install-review').getByRole('button', { name: '取消', exact: true }).click()
+  expect(await status()).toMatchObject({ manifest: { version: '1.0.0' }, pending: null })
   await page.evaluate(async (id) => {
     await window.lexoraDesktop.extensions.configure(id, { preference: 'retain-this-value' })
   }, id)
@@ -80,9 +113,11 @@ test('plugin updates apply separately from restart and preserve preferences and 
   expect(await status()).toMatchObject({ enabled: false, state: 'disabled' })
   expect(await page.evaluate(id => window.lexoraDesktop.extensions.configuration(id), id)).toEqual({ preference: 'retain-this-value' })
   await install('1.0.4', false)
-  // XTLaw does not use a remote plugin catalog, so the pending update is applied from the plugin card.
+  // The staged 1.0.4 is the same version the catalog offers, so the badge now applies it instead of reviewing it again.
+  await expect(updateBadge()).toBeEnabled()
   await card().getByTestId('extension-apply-update').click()
   await expect.poll(status).toMatchObject({ manifest: { version: '1.0.4' }, pending: null, enabled: false })
+  await expect(updateBadge()).toHaveCount(0)
   expect(diagnostics.console.filter(item => item.type === 'pageerror')).toEqual([])
   await instance.stop()
   ;({ app, page, diagnostics } = await instance.launch())

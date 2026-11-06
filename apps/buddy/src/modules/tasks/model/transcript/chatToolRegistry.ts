@@ -2,7 +2,7 @@ import type { BuddyToolPresentation } from '@buddy-shared/runs/runEventPresentat
 import type { ChatAgentToolNode } from './chatAgentTurn'
 import type { BuddyI18nKey } from '@/i18n/buddyI18n'
 
-export type ChatToolIcon = 'activity' | 'artifact' | 'authorization' | 'automation' | 'browser' | 'browser-act' | 'browser-open' | 'browser-snapshot' | 'connector' | 'create' | 'directory' | 'edit' | 'file' | 'image' | 'image-edit' | 'pet' | 'search' | 'skill' | 'system' | 'terminal' | 'tool'
+export type ChatToolIcon = 'activity' | 'artifact' | 'authorization' | 'automation' | 'browser' | 'browser-act' | 'browser-open' | 'browser-snapshot' | 'connector' | 'create' | 'directory' | 'edit' | 'file' | 'image' | 'image-edit' | 'search' | 'skill' | 'system' | 'terminal' | 'tool'
 export type ChatToolCategory = 'read' | 'search' | 'command' | 'create' | 'edit' | 'web' | 'other'
 
 interface ChatToolRegistration {
@@ -21,7 +21,6 @@ const cards = {
   'browser': { category: 'web', icon: 'browser-act', label: 'desktop.chat.processToolBrowserAct' },
   'connector': { category: 'other', icon: 'connector', label: 'desktop.chat.processToolConnector' },
   'image': { category: 'other', icon: 'image', label: 'desktop.chat.processToolImage' },
-  'pet': { category: 'other', icon: 'pet', label: 'desktop.chat.processToolPet' },
   'automation': { category: 'other', icon: 'automation', label: 'desktop.chat.processToolAutomation' },
   'system': { category: 'other', icon: 'system', label: 'desktop.chat.processToolSystemAction' },
   'directory-authorization': { category: 'other', icon: 'authorization', label: 'desktop.chat.processToolDirectoryAuthorization' },
@@ -67,7 +66,6 @@ const builtins: Readonly<Record<string, ChatToolRegistration>> = {
   lexora_browser_read: browserOperations.read,
   lexora_browser_snapshot: browserOperations.snapshot,
   lexora_browser_act: browserOperations.act,
-  lexora_buddy_pet: cards.pet,
   lexora_buddy_automation: cards.automation,
   lexora_system_action: cards.system,
   lexora_image_generate: cards.image,

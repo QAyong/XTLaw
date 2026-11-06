@@ -443,7 +443,6 @@ export default {
   'desktop.chat.processToolSkipped': 'Skipped',
   'desktop.chat.processToolInterrupted': 'Interrupted',
   'desktop.chat.processToolNoOutput': 'Command produced no output',
-  'desktop.chat.processToolPet': 'Pet action',
   'desktop.chat.processToolPreparing': 'Preparing',
   'desktop.chat.processToolOutput': 'Output',
   'desktop.chat.processToolRead': 'Read file',

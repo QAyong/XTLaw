@@ -7,6 +7,7 @@ import type { BuddyComposerDraftScope } from '@buddy-shared/conversation/compose
 import type { BuddyComposerSource } from '@buddy-shared/conversation/composerResource'
 import type { LocalContextUsageSnapshotRequest } from '@buddy-shared/conversation/contextApi'
 import type { LocalConversation, LocalConversationBranch, LocalConversationSummary, LocalConversationTimelineItem, LocalMessage } from '@buddy-shared/conversation/conversationApi'
+import type { LocalConversationHistoryPage } from '@buddy-shared/conversation/conversationHistoryApi'
 import type { LocalConversationTree } from '@buddy-shared/conversation/conversationTree'
 import type { BuddyServiceTier, BuddyThinkingLevel } from '@buddy-shared/conversation/modelSelection'
 import type { LocalTaskMark, LocalTaskMarkState, TaskMarkInput } from '@buddy-shared/conversation/taskMarkApi'
@@ -48,7 +49,12 @@ export interface TaskMarks {
   beginVisit: (conversationId: string) => void
 }
 
+export interface TaskHistory {
+  search: (query: string, cursor?: string) => Promise<LocalConversationHistoryPage>
+}
+
 export interface TaskIndex {
+  history: TaskHistory
   marks: TaskMarks
   pinnedItems: State<readonly DesktopTaskPinnedItem[]>
   setPinnedItems: (items: DesktopTaskPinnedItem[]) => Promise<boolean>

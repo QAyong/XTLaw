@@ -2,12 +2,23 @@
 import type { ExtensionStatus } from '@buddy-shared/extensions/extensionApi'
 import { extensionManifestSchema } from '@buddy-shared/extensions/extensionManifest'
 import { afterEach, expect, it, vi } from 'vitest'
-import { createApp, h, nextTick, shallowRef } from 'vue'
+import { createApp, defineComponent, h, nextTick, shallowRef } from 'vue'
+import { useExtensionCatalog } from '../../state/useExtensionCatalog'
 import DesktopExtensionCatalog from '../DesktopExtensionCatalog.vue'
 
 const context = vi.hoisted(() => ({ read: () => ({}) }))
 vi.mock('../../extensionContext', () => ({ useExtensionContext: () => context.read() }))
 const cleanup: Array<() => void> = []
+
+// The manager owns the catalog snapshot and hands it down, so the host reads it the same way before rendering the market page.
+function catalogHost(props: Record<string, unknown> = {}) {
+  return defineComponent({
+    setup() {
+      const { snapshot, loading, error, refresh } = useExtensionCatalog((context.read() as { state: { api: Parameters<typeof useExtensionCatalog>[0] } }).state.api)
+      return () => h(DesktopExtensionCatalog, { busy: false, snapshot: snapshot.value, loading: loading.value, error: error.value, onRefresh: () => void refresh(true), ...props })
+    },
+  })
+}
 afterEach(() => {
   for (const action of cleanup.splice(0).reverse()) action()
 })
@@ -26,7 +37,7 @@ it('shows type and source tags on cards and filters by them', async () => {
   context.read = () => ({ state: { installed: shallowRef([]), unavailable: shallowRef([]), api: { catalog } }, language: shallowRef('zh-CN') })
   const element = document.createElement('div')
   document.body.append(element)
-  const app = createApp({ render: () => h(DesktopExtensionCatalog, { busy: false }) })
+  const app = createApp(catalogHost())
   cleanup.push(() => {
     app.unmount()
     element.remove()
@@ -52,7 +63,7 @@ it('shows a bundled Office card as installed, and allows reinstall after it is r
   const install = vi.fn()
   const element = document.createElement('div')
   document.body.append(element)
-  const app = createApp({ render: () => h(DesktopExtensionCatalog, { busy: false, onInstall: install }) })
+  const app = createApp(catalogHost({ onInstall: install }))
   cleanup.push(() => {
     app.unmount()
     element.remove()
@@ -86,7 +97,7 @@ it('shows a built-in capability as built in without an install button', async ()
   context.read = () => ({ state: { installed: shallowRef([]), unavailable: shallowRef([]), api: { catalog } }, language: shallowRef('zh-CN') })
   const element = document.createElement('div')
   document.body.append(element)
-  const app = createApp({ render: () => h(DesktopExtensionCatalog, { busy: false }) })
+  const app = createApp(catalogHost())
   cleanup.push(() => {
     app.unmount()
     element.remove()
@@ -111,7 +122,7 @@ it('sends an installed MCP entry that still lacks its token to settings instead 
   const configure = vi.fn()
   const element = document.createElement('div')
   document.body.append(element)
-  const app = createApp({ render: () => h(DesktopExtensionCatalog, { busy: false, onConfigure: configure }) })
+  const app = createApp(catalogHost({ onConfigure: configure }))
   cleanup.push(() => {
     app.unmount()
     element.remove()
@@ -154,7 +165,7 @@ it('shows packs as a shelf whose state follows their members, and hands the miss
   const installPack = vi.fn()
   const element = document.createElement('div')
   document.body.append(element)
-  const app = createApp({ render: () => h(DesktopExtensionCatalog, { busy: false, onInstallPack: installPack }) })
+  const app = createApp(catalogHost({ onInstallPack: installPack }))
   cleanup.push(() => {
     app.unmount()
     element.remove()
@@ -182,7 +193,7 @@ it('shows no shelf for catalogs that carry no packs', async () => {
   context.read = () => ({ state: { installed: shallowRef([]), unavailable: shallowRef([]), api: { catalog } }, language: shallowRef('zh-CN') })
   const element = document.createElement('div')
   document.body.append(element)
-  const app = createApp({ render: () => h(DesktopExtensionCatalog, { busy: false }) })
+  const app = createApp(catalogHost())
   cleanup.push(() => {
     app.unmount()
     element.remove()
@@ -214,7 +225,7 @@ it('keeps built-in members in the pack card, listed as built in, while the grid 
   context.read = () => ({ state: { installed: shallowRef([]), unavailable: shallowRef([]), api: { catalog } }, language: shallowRef('zh-CN') })
   const element = document.createElement('div')
   document.body.append(element)
-  const app = createApp({ render: () => h(DesktopExtensionCatalog, { busy: false }) })
+  const app = createApp(catalogHost())
   cleanup.push(() => {
     app.unmount()
     element.remove()

@@ -14,7 +14,6 @@ import type { ImageGenerationGateway } from './images/ImageGenerationGateway'
 import type { ImageGenerationServiceOptions } from './images/ImageGenerationService'
 import type { ImageRequestStore } from './images/ImageRequestStore'
 import type { ImageTransformService } from './images/ImageTransformService'
-import type { PetActionService } from './pet/PetActionService'
 import type { PluginAuthoringService } from './plugins/PluginAuthoringService'
 import type { SkillAuthoringServices } from './skills/skillAuthoringCapability'
 import type { ExtensionReferenceRepository } from './storage/extensionReferenceRepository'
@@ -32,7 +31,6 @@ import { createImageGenerationCapability } from './images/imageGenerationExtensi
 import { ImageGenerationService } from './images/ImageGenerationService'
 import { observeImageDiagnostics } from './images/ImageOperationLifecycle'
 import { createImageTransformCapability } from './images/imageTransformExtension'
-import { createPetCapability } from './pet/petExtension'
 import { createPluginAuthoringCapability } from './plugins/pluginAuthoringCapability'
 import { createSkillAuthoringCapability } from './skills/skillAuthoringCapability'
 import { createSystemHost } from './system/createSystemHost'
@@ -66,18 +64,17 @@ export interface BuddyCapabilityServices {
 export function createBuddyCapabilityFactory(
   platform: BuddyPlatform,
   services: BuddyCapabilityServices,
-  pet: PetActionService,
 ): BuddyCapabilityFactory {
-  const platformFactories: Record<BuddyFeatureId, () => (context: BuddyCapabilityContext) => BuddyCapability> = {
-    nativePet() {
-      return context => createPetCapability({ getRunId: context.getRunId, service: pet })
-    },
+  const platformFactories: Partial<Record<BuddyFeatureId, () => (context: BuddyCapabilityContext) => BuddyCapability>> = {
     systemActions() {
       const host = createSystemHost(platform.id)
       return () => createSystemCapability(host, services.record)
     },
   }
-  const supported = platform.features.map(id => platformFactories[id]())
+  const supported = platform.features.flatMap((id) => {
+    const factory = platformFactories[id]
+    return factory ? [factory()] : []
+  })
   return async (context) => {
     context.signal.throwIfAborted()
     const writeMcpResult = createMcpResultWriter({

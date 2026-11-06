@@ -4,9 +4,10 @@ import type { ExtensionCapabilityImpact, InstalledExtensionKind } from '@buddy-s
 import type { ExtensionCatalogListing } from '@buddy-shared/extensions/extensionCatalog'
 import type { ExtensionIncompatibleReview } from '@buddy-shared/extensions/extensionCompatibility'
 import type { FileOpeningChoice } from '@buddy-shared/files/fileOpening'
-import { installedExtensionKinds } from '@buddy-shared/extensions/extensionCapabilities'
+import { installedExtensionKinds, isBuiltinCapability } from '@buddy-shared/extensions/extensionCapabilities'
 import { Add16Regular, ChevronDown16Regular, MoreHorizontal20Regular } from '@vicons/fluent'
 import { NAlert, NButton, NDropdown, NEmpty, NModal, NSelect, useMessage } from 'naive-ui'
+import { gt } from 'semver'
 import { computed, onScopeDispose, shallowRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { desktopRouteLocations } from '@/shared/navigation/desktopRoutes'
@@ -14,6 +15,7 @@ import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import { useExtensionContext } from '../extensionContext'
 import { extensionLabels } from '../extensionLabels'
 import DesktopExtensionWorkbench from '../layouts/DesktopExtensionWorkbench.vue'
+import { useExtensionCatalog } from '../state/useExtensionCatalog'
 import { extensionErrorCode } from '../state/useExtensionState'
 import DesktopExtensionAuthoringSettings from './DesktopExtensionAuthoringSettings.vue'
 import DesktopExtensionCard from './DesktopExtensionCard.vue'
@@ -26,11 +28,21 @@ import DesktopExtensionUninstallDialog from './DesktopExtensionUninstallDialog.v
 
 const { state, language, startCreation, startSkillCreation, authoring, settingsLocation } = useExtensionContext()
 const { installed, unavailable } = state
+// The market snapshot is read here so installed cards can say a newer version exists; the market page reads the same snapshot.
+const { snapshot: catalog, loading: catalogLoading, error: catalogError, refresh: refreshCatalog } = useExtensionCatalog(state.api)
+const catalogUpdates = computed(() => {
+  const entries = new Map(catalog.value?.plugins.filter(entry => !isBuiltinCapability(entry)).map(entry => [entry.manifest.id, entry]))
+  return new Map(installed.value.flatMap((item) => {
+    const entry = entries.get(item.manifest.id)
+    return entry && gt(entry.manifest.version, item.pending?.manifest.version ?? item.manifest.version) ? [[item.manifest.id, entry]] : []
+  }))
+})
 const unavailableCurrent = computed(() => unavailable.value.filter(item => !item.pending))
 const unavailablePending = computed(() => new Map(unavailable.value.filter(item => item.pending).map(item => [item.manifest.id, item])))
 const labels = computed(() => extensionLabels(language.value))
 const en = computed(() => language.value === 'en-US')
 const section = shallowRef<'marketplace' | 'installed'>('marketplace')
+watch(section, () => void refreshCatalog())
 const installedKind = shallowRef<InstalledExtensionKind | null>(null)
 const installedKindOptions = computed(() => (['plugin', 'skill', 'mcp', 'agent'] as const).map(value => ({ label: labels.value.kinds[value], value })))
 const visibleInstalled = computed(() => installedKind.value ? installed.value.filter(item => installedExtensionKinds(item.manifest).includes(installedKind.value!)) : installed.value)
@@ -211,7 +223,7 @@ onScopeDispose(cancel)
         {{ language === 'en-US' ? 'View progress' : '查看进度' }}
       </NButton>
     </NAlert>
-    <DesktopExtensionCatalog v-if="section === 'marketplace'" :busy="busy" @configure="router.push(desktopRouteLocations.mcp())" @install="reviewEntry" @install-pack="installPack" @apply-update="applyUpdate" />
+    <DesktopExtensionCatalog v-if="section === 'marketplace'" :busy="busy" :snapshot="catalog" :loading="catalogLoading" :error="catalogError" @refresh="refreshCatalog(true)" @configure="router.push(desktopRouteLocations.mcp())" @install="reviewEntry" @install-pack="installPack" @apply-update="applyUpdate" />
     <NEmpty v-else-if="!installed.length && !unavailable.length && !state.error.value" class="extension-manager__empty">
       <template #default>
         <strong>{{ labels.empty }}</strong>
@@ -231,12 +243,14 @@ onScopeDispose(cancel)
           :key="item.manifest.id"
           :item="item"
           :unavailable-pending="unavailablePending.get(item.manifest.id)"
+          :catalog-update="catalogUpdates.get(item.manifest.id)"
           :language="language"
           :busy="busy"
           :can-open="!!openLocation(item)"
           @toggle="run(() => state.api.enable(item.manifest.id, !item.enabled))"
           @restart="run(() => state.api.restart(item.manifest.id))"
           @apply-update="applyUpdate(item.manifest.id)"
+          @review-update="reviewEntry"
           @diagnostics="diagnostics = item.manifest.id"
           @remove="askRemove(item)"
           @open="open(item)"

@@ -56,12 +56,13 @@ const skillOnly = status('tests.skills', { skills: [{ id: 'tests.skills.law', pa
 
 const connector = (patch: Record<string, unknown> = {}) => ({ id: 'legal-search', credentialConfigured: false, enabled: false, ...patch })
 
-async function mountInstalled(options: { connectors?: unknown[], buddies?: unknown[] } = {}) {
+async function mountInstalled(options: { connectors?: unknown[], buddies?: unknown[], installed?: ExtensionStatus[], catalog?: unknown[], reviewCatalog?: () => Promise<null>, applyUpdate?: () => Promise<void> } = {}) {
   const connectors = shallowRef(options.connectors ?? [])
   const buddies = shallowRef(options.buddies ?? [])
   const loadConnectors = vi.fn()
+  const catalog = vi.fn(async () => ({ plugins: options.catalog ?? [], packs: [], invalidEntries: 0, error: null, stale: false, cachedAt: null }))
   context.read = () => ({
-    state: { installed: shallowRef([legal, plain, skillOnly]), unavailable: shallowRef([]), installations: shallowRef([]), error: shallowRef(null), refresh: vi.fn(async () => {}), api: { capabilityImpact: vi.fn(async () => ({ modified: [] })) } },
+    state: { installed: shallowRef(options.installed ?? [legal, plain, skillOnly]), unavailable: shallowRef([]), installations: shallowRef([]), error: shallowRef(null), refresh: vi.fn(async () => {}), api: { capabilityImpact: vi.fn(async () => ({ modified: [] })), catalog, reviewCatalog: options.reviewCatalog ?? vi.fn(async () => null), applyUpdate: options.applyUpdate ?? vi.fn(async () => {}) } },
     language: shallowRef('zh-CN'),
     authoring: { author: shallowRef(''), save: vi.fn() },
     settingsLocation: () => null,
@@ -88,7 +89,7 @@ async function mountInstalled(options: { connectors?: unknown[], buddies?: unkno
   })
   app.mount(element)
   await vi.waitFor(() => expect(element.querySelector('[data-extension-id]')).not.toBeNull())
-  return { element, router, connectors, buddies, loadConnectors }
+  return { element, router, connectors, buddies, loadConnectors, catalog }
 }
 const card = (element: HTMLElement, id: string) => element.querySelector<HTMLElement>(`[data-extension-id="${id}"]`)!
 const kinds = (element: HTMLElement, id: string) => [...card(element, id).querySelectorAll('[data-kind]')].map(tag => tag.getAttribute('data-kind'))
@@ -151,4 +152,54 @@ it('lists packaged skills with a way to the skills page and leaves plain plugins
   skills.querySelector<HTMLElement>('button')!.click()
   await vi.waitFor(() => expect(router.currentRoute.value.name).toBe(DESKTOP_ROUTE_NAMES.settingsSkills))
   expect(card(element, 'tests.plain').querySelector('[data-testid="extension-capabilities"]')).toBeNull()
+})
+
+function listing(item: ExtensionStatus, version: string, patch: Record<string, unknown> = {}) {
+  return {
+    kind: 'plugin',
+    source: 'official',
+    manifest: extensionManifestSchema.parse({ ...item.manifest, version }),
+    repository: 'https://github.com/QAyong/XTLaw',
+    artifact: { url: 'https://example.com/a.lexora-extension', sha256: 'a'.repeat(64), size: 100 },
+    compatible: true,
+    incompatibility: null,
+    ...patch,
+  }
+}
+const updateButton = (element: HTMLElement, id: string) => card(element, id).querySelector<HTMLButtonElement>('[data-testid="extension-update-available"]')
+
+it('offers an update on the installed card when the market has a newer version, and reviews it on click', async () => {
+  const reviewCatalog = vi.fn(async () => null)
+  const { element } = await mountInstalled({ installed: [plain, skillOnly], catalog: [listing(plain, '1.0.4'), listing(skillOnly, '1.0.0')], reviewCatalog })
+  await vi.waitFor(() => expect(updateButton(element, 'tests.plain')).not.toBeNull())
+  expect(updateButton(element, 'tests.plain')!.textContent?.trim()).toBe('存在更新')
+  expect(updateButton(element, 'tests.skills')).toBeNull()
+  updateButton(element, 'tests.plain')!.click()
+  await vi.waitFor(() => expect(reviewCatalog).toHaveBeenCalledWith('tests.plain', '1.0.4'))
+})
+
+it('offers no update when the market version is not newer or the market entry is not installed', async () => {
+  const other = status('tests.other', {})
+  const { element, catalog } = await mountInstalled({ installed: [plain], catalog: [listing(plain, '1.0.0'), listing(other, '2.0.0')] })
+  await vi.waitFor(() => expect(catalog).toHaveBeenCalled())
+  await catalog.mock.results[0]!.value
+  await nextTick()
+  expect(updateButton(element, 'tests.plain')).toBeNull()
+  expect(element.querySelector('[data-testid="extension-update-available"]')).toBeNull()
+})
+
+it('lets the same button apply an update that is already staged', async () => {
+  const applyUpdate = vi.fn(async () => {})
+  const staged = status('tests.staged', {}, { entry: 'extension.js' })
+  staged.pending = { manifest: extensionManifestSchema.parse({ ...staged.manifest, version: '1.0.1' }), revision: 'next', incompatibility: null }
+  const { element } = await mountInstalled({ installed: [staged], applyUpdate })
+  await vi.waitFor(() => expect(updateButton(element, 'tests.staged')).not.toBeNull())
+  updateButton(element, 'tests.staged')!.click()
+  await vi.waitFor(() => expect(applyUpdate).toHaveBeenCalledWith('tests.staged'))
+})
+
+it('shows the update disabled when the newer market version cannot run here', async () => {
+  const { element } = await mountInstalled({ installed: [plain], catalog: [listing(plain, '1.0.4', { compatible: false })] })
+  await vi.waitFor(() => expect(updateButton(element, 'tests.plain')).not.toBeNull())
+  expect(updateButton(element, 'tests.plain')!.disabled).toBe(true)
 })

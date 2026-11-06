@@ -6,7 +6,7 @@ import { EXTENSION_CATALOG_KINDS, EXTENSION_CATALOG_SOURCES } from '@buddy-share
 import { resolvePack } from '@buddy-shared/extensions/extensionPacks'
 import { NAlert, NButton, NEmpty, NInput, NSelect, NSpin, NTag } from 'naive-ui'
 import { gt } from 'semver'
-import { computed, onMounted, onScopeDispose, shallowRef } from 'vue'
+import { computed, onMounted, shallowRef } from 'vue'
 import { useExtensionContext } from '../extensionContext'
 import { extensionLabels } from '../extensionLabels'
 import DesktopExtensionCatalogCard from './DesktopExtensionCatalogCard.vue'
@@ -14,30 +14,25 @@ import DesktopExtensionCompatibilityHint from './DesktopExtensionCompatibilityHi
 import DesktopExtensionPackCard from './DesktopExtensionPackCard.vue'
 import DesktopExtensionPackDetail from './DesktopExtensionPackDetail.vue'
 
-defineProps<{ busy: boolean }>()
-const emit = defineEmits<{ install: [entry: ExtensionCatalogListing], installPack: [entries: ExtensionCatalogListing[]], applyUpdate: [id: string], configure: [id: string] }>()
+const props = defineProps<{ busy: boolean, snapshot: ExtensionCatalogSnapshot | null, loading: boolean, error: boolean }>()
+const emit = defineEmits<{ install: [entry: ExtensionCatalogListing], installPack: [entries: ExtensionCatalogListing[]], applyUpdate: [id: string], configure: [id: string], refresh: [] }>()
 const { state, language, capabilityStatus } = useExtensionContext()
-const snapshot = shallowRef<ExtensionCatalogSnapshot | null>(null)
-const loading = shallowRef(false)
 const query = shallowRef('')
 const category = shallowRef<string | null>(null)
 const kind = shallowRef<ExtensionCatalogKind | null>(null)
 const source = shallowRef<ExtensionCatalogSource | null>(null)
-const error = shallowRef(false)
 const en = computed(() => language.value === 'en-US')
 const labels = computed(() => extensionLabels(language.value))
 const kindOptions = computed(() => EXTENSION_CATALOG_KINDS.map(value => ({ label: labels.value.kinds[value], value })))
 const sourceOptions = computed(() => EXTENSION_CATALOG_SOURCES.map(value => ({ label: labels.value.sources[value], value })))
 const detailPackId = shallowRef<string | null>(null)
-let disposed = false
-let revision = 0
-const categories = computed(() => [...new Set(snapshot.value?.plugins.flatMap(item => item.manifest.categories) ?? [])].map(value => ({ label: value, value })))
+const categories = computed(() => [...new Set(props.snapshot?.plugins.flatMap(item => item.manifest.categories) ?? [])].map(value => ({ label: value, value })))
 // A pack keeps no record of its own, so where it stands is read off its members and the installed list on every change.
 const installedIds = computed(() => new Set([...state.installed.value, ...state.unavailable.value.filter(item => !item.pending)].map(item => item.manifest.id)))
-const packs = computed(() => (snapshot.value?.packs ?? []).filter((pack) => {
+const packs = computed(() => (props.snapshot?.packs ?? []).filter((pack) => {
   const text = [pack.id, pack.name, pack.description, ...pack.tags].join(' ').toLocaleLowerCase()
   return !category.value && (!kind.value || kind.value === 'pack') && (!source.value || pack.source === source.value) && text.includes(query.value.trim().toLocaleLowerCase())
-}).map(pack => resolvePack(pack, snapshot.value?.plugins ?? [], installedIds.value)))
+}).map(pack => resolvePack(pack, props.snapshot?.plugins ?? [], installedIds.value)))
 const detailPack = computed(() => packs.value.find(resolved => resolved.pack.id === detailPackId.value) ?? null)
 function installPack(entries: ExtensionCatalogListing[]) {
   detailPackId.value = null
@@ -48,7 +43,7 @@ function installMember(member: PackMember) {
   if (member.listing)
     emit('install', member.listing)
 }
-const plugins = computed(() => (snapshot.value?.plugins ?? []).filter((item) => {
+const plugins = computed(() => (props.snapshot?.plugins ?? []).filter((item) => {
   const { manifest } = item
   const text = [manifest.id, manifest.author, manifest.name, manifest.description, ...manifest.tags].join(' ').toLocaleLowerCase()
   return (!category.value || manifest.categories.includes(category.value)) && (!kind.value || item.kind === kind.value) && (!source.value || item.source === source.value) && text.includes(query.value.trim().toLocaleLowerCase())
@@ -60,32 +55,7 @@ const plugins = computed(() => (snapshot.value?.plugins ?? []).filter((item) => 
   const needsSetup = !!installed?.manifest.contributes.mcpConnectors.some(connector => connectorSetupState(connector, capabilityStatus?.connectors.value.find(record => record.id === connector.id)) === 'needs-setup')
   return { ...item, installed, installedVersion: version, needsSetup, available: !version || gt(item.manifest.version, version) }
 }))
-async function refresh(force = false) {
-  const current = ++revision
-  loading.value = true
-  error.value = false
-  try {
-    const next = await state.api.catalog(force)
-    if (!disposed && revision === current) {
-      snapshot.value = next
-      error.value = !!next.error
-    }
-  }
-  catch {
-    if (!disposed && revision === current)
-      error.value = true
-  }
-  finally {
-    if (!disposed && revision === current)
-      loading.value = false
-  }
-}
-void refresh()
 onMounted(() => void capabilityStatus?.loadConnectors())
-onScopeDispose(() => {
-  disposed = true
-  revision++
-})
 </script>
 
 <template>
@@ -95,7 +65,7 @@ onScopeDispose(() => {
       <NSelect v-model:value="kind" clearable :options="kindOptions" :placeholder="labels.kindFilter" :aria-label="labels.kindFilter" data-testid="catalog-kind-filter" />
       <NSelect v-model:value="source" clearable :options="sourceOptions" :placeholder="labels.sourceFilter" :aria-label="labels.sourceFilter" data-testid="catalog-source-filter" />
       <NSelect v-if="categories.length" v-model:value="category" clearable :options="categories" :placeholder="en ? 'Category' : '分类'" :aria-label="en ? 'Category' : '分类'" />
-      <NButton :loading="loading" @click="refresh(true)">
+      <NButton :loading="loading" @click="emit('refresh')">
         {{ en ? 'Refresh' : '刷新' }}
       </NButton>
     </div>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ExtensionStatus, ExtensionUnavailableInstallation } from '@buddy-shared/extensions/extensionApi'
+import type { ExtensionCatalogListing } from '@buddy-shared/extensions/extensionCatalog'
 import type { DropdownOption } from 'naive-ui'
 import { installedExtensionKinds } from '@buddy-shared/extensions/extensionCapabilities'
 import { MoreHorizontal20Regular } from '@vicons/fluent'
@@ -12,11 +13,12 @@ import DesktopExtensionCapabilities from './DesktopExtensionCapabilities.vue'
 import DesktopExtensionCompatibilityHint from './DesktopExtensionCompatibilityHint.vue'
 import DesktopExtensionTags from './DesktopExtensionTags.vue'
 
-const props = defineProps<{ item: ExtensionStatus, unavailablePending?: ExtensionUnavailableInstallation, language: string, busy: boolean, canOpen: boolean }>()
+const props = defineProps<{ item: ExtensionStatus, unavailablePending?: ExtensionUnavailableInstallation, catalogUpdate?: ExtensionCatalogListing, language: string, busy: boolean, canOpen: boolean }>()
 const emit = defineEmits<{
   toggle: []
   restart: []
   applyUpdate: []
+  reviewUpdate: [entry: ExtensionCatalogListing]
   diagnostics: []
   remove: []
   open: []
@@ -34,9 +36,12 @@ const tags = computed(() => {
   return props.item.manifest.tags.filter(tag => !kindLabels.has(tag.toLowerCase()))
 })
 const pending = computed(() => props.item.pending ?? props.unavailablePending)
+// A newer version in the catalog wins over one already staged locally; either way the card offers one update entry.
+const update = computed(() => props.catalogUpdate ?? pending.value)
+const updateUnavailable = computed(() => !!update.value?.incompatibility || (props.catalogUpdate ? !props.catalogUpdate.compatible : false))
 const warning = computed(() => {
-  const issue = props.item.incompatibility ?? pending.value?.incompatibility
-  return issue ? { issue, version: props.item.incompatibility ? undefined : pending.value?.manifest.version } : null
+  const issue = props.item.incompatibility ?? update.value?.incompatibility
+  return issue ? { issue, version: props.item.incompatibility ? undefined : update.value?.manifest.version } : null
 })
 const status = computed(() => {
   if (props.item.incompatibility)
@@ -63,6 +68,12 @@ const actions = computed<DropdownOption[]>(() => {
     { key: 'remove', label: labels.value.remove, props: { 'role': 'menuitem', 'data-testid': 'extension-uninstall' } },
   ]
 })
+function requestUpdate() {
+  if (props.catalogUpdate)
+    emit('reviewUpdate', props.catalogUpdate)
+  else
+    emit('applyUpdate')
+}
 function handleAction(key: string | number) {
   if (key === 'restart')
     emit('restart')
@@ -95,7 +106,19 @@ function handleAction(key: string | number) {
         </p>
       </div>
       <div class="extension-card__status">
-        <NTag size="small" :bordered="false" :type="item.incompatibility || item.state === 'failed' || item.state === 'blocked' ? 'warning' : 'default'">
+        <NTooltip v-if="update">
+          <template #trigger>
+            <NButton size="tiny" type="primary" :disabled="busy || updateUnavailable" data-testid="extension-update-available" @click="requestUpdate">
+              {{ labels.updateAvailable }}
+            </NButton>
+          </template>
+          <div class="extension-card__pending-tooltip">
+            <span>{{ status }}</span>
+            <span>{{ language === 'en-US' ? 'New version' : '新版本' }} {{ update.manifest.version }}</span>
+            <span v-if="!updateUnavailable">{{ catalogUpdate ? labels.reviewUpdateHint : labels.applyUpdateHint }}</span>
+          </div>
+        </NTooltip>
+        <NTag v-else size="small" :bordered="false" :type="item.incompatibility || item.state === 'failed' || item.state === 'blocked' ? 'warning' : 'default'">
           {{ status }}
         </NTag>
         <DesktopExtensionCompatibilityHint v-if="warning" :issue="warning.issue" :version="warning.version" :language="language" placement="bottom-end" />

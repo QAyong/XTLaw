@@ -54,7 +54,6 @@ export interface SetConversationModelSelectionInput {
   id: string
   actorId?: string
   modelSelection: ConversationModelSelection | null
-  updatedAt: string
 }
 
 export interface ConversationRepository
@@ -189,6 +188,8 @@ export function createConversationRepository(database: DatabaseSync): Conversati
     listMessagePage: history.repository.listMessagePage,
     listMessages: history.repository.listMessages,
     listRecent: index.listRecent,
+    listHistory: index.listHistory,
+    getHistoryEntries: index.getHistoryEntries,
     listTimelinePage: timeline.listTimelinePage,
     markDeleted(id, deletedAt) {
       return Number(markDeleted.run(deletedAt, deletedAt, id).changes) === 1
@@ -270,7 +271,6 @@ export function createConversationRepository(database: DatabaseSync): Conversati
         conversationId: input.id,
         actorId: input.actorId ?? current.buddy_id,
         modelSelection: input.modelSelection,
-        updatedAt: input.updatedAt,
       })
       return requireConversationRecord(findConversation.get(input.id), input.id)
     },

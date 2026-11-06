@@ -129,6 +129,7 @@ export default {
   'desktop.chat.addLocalFile': 'Add from device',
   'desktop.chat.copySelection': 'Copy',
   'desktop.chat.quoteSelection': 'Quote',
+  'desktop.chat.quoteFromActor': 'Quote · {name}',
   'desktop.chat.quoteFromAssistant': 'Quote · Assistant’s answer',
   'desktop.chat.quoteFromUser': 'Quote · Your message',
   'desktop.chat.removeQuote': 'Remove quote',

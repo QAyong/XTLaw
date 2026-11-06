@@ -1,13 +1,19 @@
 import type { LocalMessage } from '@buddy-shared/conversation/conversationApi'
-import { DEFAULT_DESKTOP_CHAT_PREFERENCES } from '@buddy-electron/shared/desktopApi'
+import type { MaybeRefOrGetter } from 'vue'
 // @vitest-environment jsdom
 
+import { DEFAULT_DESKTOP_CHAT_PREFERENCES } from '@buddy-electron/shared/desktopApi'
 import { describe, expect, it, vi } from 'vitest'
-import { createApp, createSSRApp, h, nextTick, shallowRef } from 'vue'
+import { computed, createApp, createSSRApp, h, nextTick, shallowRef, toValue } from 'vue'
 import { renderToString } from 'vue/server-renderer'
 import { useProvideDesktopUi } from '@/shared/ui/desktopUiContext'
 import BuddyChatMessageContent from '../BuddyChatMessageContent.vue'
+import { provideChatBuddyIdentity } from '../chatBuddyIdentity'
 import { useProvideChatContent } from '../chatContentContext'
+
+vi.mock('@/modules/buddies', () => ({
+  useBuddyIdentity: (id: MaybeRefOrGetter<string>) => computed(() => toValue(id) === 'actor-1' ? { id: 'actor-1', name: '审查员' } : null),
+}))
 
 describe('buddyChatMessageContent', () => {
   it('renders user messages as literal plain text', async () => {
@@ -53,6 +59,16 @@ describe('buddyChatMessageContent', () => {
     expect(retired?.getAttribute('class')).toBeNull()
     expect(retired?.textContent).toBe('/plan')
     expect(directives.map(element => element.textContent)).toEqual(['/review'])
+  })
+
+  it.each([
+    ['assistant', 'run-1', { buddyId: 'actor-1', name: '审查员' }],
+    ['assistant', 'unknown-run', undefined],
+    ['user', 'run-1', undefined],
+  ] as const)('attributes quote sources to the original author for %s / %s', async (role, runId, author) => {
+    const document = parseHtml(await renderMessage(role, 'Quoted text', false, runId))
+    const source = JSON.parse(document.querySelector('[data-quote-source]')!.getAttribute('data-quote-source')!)
+    expect(source).toEqual({ conversationId: 'conversation-1', branchId: 'branch-1', messageId: `${role}-message`, role, runId, ...(author ? { author } : {}) })
   })
 
   it.each([false, true])('renders inline-only snapshots once above the body and keeps named references readable (independent attachment: %s)', async (panel) => {
@@ -142,7 +158,7 @@ function parseHtml(html: string): Document {
   return new DOMParser().parseFromString(html, 'text/html')
 }
 
-async function renderMessage(role: LocalMessage['role'], text: string, isDark = false): Promise<string> {
+async function renderMessage(role: LocalMessage['role'], text: string, isDark = false, runId: string | null = null): Promise<string> {
   const message = {
     attachments: [],
     branchId: 'branch-1',
@@ -151,7 +167,7 @@ async function renderMessage(role: LocalMessage['role'], text: string, isDark = 
     createdAt: '2026-08-28T00:00:00.000Z',
     id: `${role}-message`,
     role,
-    runId: null,
+    runId,
   } as LocalMessage
 
   return renderContent(message, isDark)
@@ -226,6 +242,7 @@ async function renderDirectiveMessage(): Promise<string> {
 function renderContent(message: LocalMessage, isDark = false) {
   return renderToString(createSSRApp({
     setup() {
+      provideChatBuddyIdentity(() => [{ id: 'run-1', buddyId: 'actor-1' }])
       useProvideDesktopUi({
         language: shallowRef('zh-CN'),
         isDark: shallowRef(isDark),

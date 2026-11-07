@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ContextPanePlacementState } from './contextPanePlacement'
 import type { DesktopShellBindings } from './desktopShellBindings'
-import { computed, shallowRef, watch } from 'vue'
+import { computed, onScopeDispose, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import DesktopStartupScreen from '@/app/bootstrap/DesktopStartupScreen.vue'
 import DesktopTitleBar from '@/app/shell/window/DesktopTitleBar.vue'
@@ -12,7 +12,7 @@ import WorkbenchMountPoint from '@/workbench/browser/mounts/WorkbenchMountPoint.
 import WorkbenchHost from '@/workbench/browser/WorkbenchHost.vue'
 import DesktopWorkbenchArea from '../workbench/DesktopWorkbenchArea.vue'
 import DesktopWorkbenchView from '../workbench/DesktopWorkbenchView.vue'
-import { readContextPanePlacements, resolveContextPanePlacementOnChange, serializeContextPanePlacements } from './contextPanePlacement'
+import { adoptContextPanePlacement, isDraftPlacementAdoption, readContextPanePlacements, resolveContextPanePlacementOnChange, serializeContextPanePlacements } from './contextPanePlacement'
 import { useContextPanePresentation } from './useContextPanePresentation'
 
 const { bindings } = defineProps<{ bindings: DesktopShellBindings }>()
@@ -48,9 +48,31 @@ const rightRegionOpen = computed(() => rightRegionIsChat.value ? presentation.wo
 
 function rememberTaskPaneState(scope: string, state: ContextPanePlacementState) {
   taskPaneStates.set(scope, state)
+  persistPlacements()
+}
+
+function persistPlacements() {
   if (bindings.workbench.initialized)
     bindings.workbench.controller.setAuxiliary(placementAuxiliaryKey, serializeContextPanePlacements(taskPaneStates))
 }
+
+let pendingAdoption: { draftId: string, conversationId: string } | null = null
+onScopeDispose(bindings.workbench.pool.onWillAdoptDraft(({ draftId, conversationId }) => {
+  const from = `draft:${draftId}`
+  const adoptingActiveDraft = bindings.contextPanelMode.value === 'task' && activeTaskScope.value === from
+  pendingAdoption = { draftId, conversationId }
+  adoptContextPanePlacement(
+    taskPaneStates,
+    draftId,
+    conversationId,
+    adoptingActiveDraft ? { contextOnLeft: contextOnLeft.value, chatPaneHidden: chatPaneHidden.value } : undefined,
+  )
+  persistPlacements()
+  queueMicrotask(() => {
+    if (pendingAdoption?.draftId === draftId && pendingAdoption.conversationId === conversationId)
+      pendingAdoption = null
+  })
+}).dispose)
 
 // The workbench restores the active task before it is initialized, so the saved placements are applied once it is ready.
 watch(() => bindings.workbench.initialized, (ready) => {
@@ -83,8 +105,16 @@ watch(bindings.resources.isOpen, (resourcePanelOpen) => {
 watch(
   [bindings.contextPanelMode, activeTaskScope],
   ([mode, taskScope], [previousMode, previousTaskScope]) => {
+    const adopting = pendingAdoption && isDraftPlacementAdoption({
+      previousScope: previousTaskScope,
+      nextScope: taskScope,
+      draftId: pendingAdoption.draftId,
+      conversationId: pendingAdoption.conversationId,
+    })
+    if (adopting)
+      pendingAdoption = null
     const taskChanged = Boolean(taskScope && taskScope !== previousTaskScope)
-    if (previousMode === 'task' && previousTaskScope && (taskScope !== previousTaskScope || mode !== previousMode)) {
+    if (!adopting && previousMode === 'task' && previousTaskScope && (taskScope !== previousTaskScope || mode !== previousMode)) {
       rememberTaskPaneState(previousTaskScope, {
         contextOnLeft: contextOnLeft.value,
         chatPaneHidden: chatPaneHidden.value,

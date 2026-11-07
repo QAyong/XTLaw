@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { readContextPanePlacements, resolveContextPanePlacementOnChange, serializeContextPanePlacements } from '../contextPanePlacement'
+import { adoptContextPanePlacement, isDraftPlacementAdoption, readContextPanePlacements, resolveContextPanePlacementOnChange, serializeContextPanePlacements } from '../contextPanePlacement'
 
 describe('context pane placement persistence', () => {
   it('stores only the tasks whose panel was swapped to the left', () => {
@@ -49,6 +49,49 @@ describe('context pane placement state', () => {
       taskChanged: true,
       current: { contextOnLeft: true, chatPaneHidden: true },
     })).toEqual({ contextOnLeft: true, chatPaneHidden: true })
+  })
+
+  it('carries a draft placement onto the conversation created by the first send', () => {
+    const states = new Map<string, { contextOnLeft: boolean, chatPaneHidden: boolean }>([
+      ['draft:empty', { contextOnLeft: true, chatPaneHidden: true }],
+    ])
+    adoptContextPanePlacement(states, 'empty', 'created', { contextOnLeft: true, chatPaneHidden: true })
+    expect(states).toEqual(new Map([
+      ['task:created', { contextOnLeft: true, chatPaneHidden: true }],
+    ]))
+    expect(isDraftPlacementAdoption({
+      previousScope: 'draft:empty',
+      nextScope: 'task:created',
+      draftId: 'empty',
+      conversationId: 'created',
+    })).toBe(true)
+    expect(resolveContextPanePlacementOnChange({
+      mode: 'task',
+      previousMode: 'task',
+      taskChanged: true,
+      current: { contextOnLeft: true, chatPaneHidden: true },
+      savedTaskState: states.get('task:created'),
+    })).toEqual({ contextOnLeft: true, chatPaneHidden: true })
+  })
+
+  it('does not treat a switch from another draft as the same adoption', () => {
+    expect(isDraftPlacementAdoption({
+      previousScope: 'draft:other',
+      nextScope: 'task:created',
+      draftId: 'empty',
+      conversationId: 'created',
+    })).toBe(false)
+  })
+
+  it('keeps an existing conversation placement when a draft is adopted', () => {
+    const states = new Map<string, { contextOnLeft: boolean, chatPaneHidden: boolean }>([
+      ['draft:empty', { contextOnLeft: true, chatPaneHidden: true }],
+      ['task:created', { contextOnLeft: false, chatPaneHidden: false }],
+    ])
+    adoptContextPanePlacement(states, 'empty', 'created', { contextOnLeft: true, chatPaneHidden: true })
+    expect(states).toEqual(new Map([
+      ['task:created', { contextOnLeft: false, chatPaneHidden: false }],
+    ]))
   })
 
   it('restores the current task state when switching into task-linked mode', () => {

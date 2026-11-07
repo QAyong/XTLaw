@@ -28,3 +28,32 @@ export function resolveContextPanePlacementOnChange(input: {
   }
   return input.current
 }
+
+export function isDraftPlacementAdoption(input: {
+  previousScope: string | null | undefined
+  nextScope: string | null | undefined
+  draftId: string
+  conversationId: string
+}): boolean {
+  return input.previousScope === `draft:${input.draftId}` && input.nextScope === `task:${input.conversationId}`
+}
+
+// First send changes the scope key, not the task the user laid out. Carry the draft placement forward before that key change is observed.
+export function adoptContextPanePlacement(
+  states: Map<string, ContextPanePlacementState>,
+  draftId: string,
+  conversationId: string,
+  current?: ContextPanePlacementState,
+): void {
+  const from = `draft:${draftId}`
+  const to = `task:${conversationId}`
+  if (states.has(to)) {
+    states.delete(from)
+    return
+  }
+  const source = current ?? states.get(from)
+  if (!source)
+    return
+  states.set(to, { ...source })
+  states.delete(from)
+}

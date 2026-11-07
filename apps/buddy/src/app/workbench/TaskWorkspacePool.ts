@@ -17,6 +17,9 @@ export class TaskWorkspacePool {
   readonly #questionInteraction = createUserQuestionInteractionState()
   readonly #changes = new Emitter<TaskWorkspaceChange>(() => console.error('TASK_WORKSPACE_OBSERVER_FAILED'))
   readonly onDidChange = this.#changes.event
+  readonly #draftAdoptions = new Emitter<{ draftId: string, conversationId: string }>(() => console.error('TASK_WORKSPACE_OBSERVER_FAILED'))
+  // Fires before the draft view resource is replaced, so listeners can move scope-keyed state first.
+  readonly onWillAdoptDraft = this.#draftAdoptions.event
   readonly #options: Omit<UseTaskCapabilityOptions, 'initialTarget'>
   readonly #entries = new Map<string, { task: TaskCapability, scope: EffectScope, ready: boolean }>()
   readonly #leases = new Map<TaskCapability, number>()
@@ -81,6 +84,7 @@ export class TaskWorkspacePool {
         currentResource = { scheme: 'task', id, data: {} }
         this.#entries.delete(resourceKey(previous))
         this.#entries.set(resourceKey(currentResource), { task, scope, ready: true })
+        this.#draftAdoptions.fire(Object.freeze({ draftId, conversationId: id }))
         this.#options.onDraftCommitted?.(draftId, id)
         this.#adopt(previous, task, id)
         this.#changes.fire(Object.freeze({ kind: 'adopted', resource: currentResource, previous }))
@@ -170,6 +174,9 @@ export class TaskWorkspacePool {
     try {
       this.retain([])
     }
-    finally { this.#changes.dispose() }
+    finally {
+      this.#draftAdoptions.dispose()
+      this.#changes.dispose()
+    }
   }
 }

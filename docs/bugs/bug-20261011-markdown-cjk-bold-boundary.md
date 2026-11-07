@@ -2,7 +2,7 @@
 
 **日期：** 2026-10-11<br>
 **优先级：** 中（不丢数据、不阻断功能；影响 AI 产出与仓库文档在应用内的可读性，失败时没有任何提示，且应用内两条渲染链路对同类写法结论不一致）<br>
-**状态：** 已缓解（2026-10-12：内置系统提示词加一条写作约定；渲染层未改，根治依赖上游，见第 13 节）<br>
+**状态：** 提示词约定已撤回（渲染已由程序处理，不再用系统提示词约束写法；2026-10-12 的缓解见第 13.3 节，撤回见第 13.5 节）<br>
 **代码基准：** `master` @ `dac111dc`（工作区另有与本问题无关的未跟踪文件 `docs/archive/bugs/bug-20261010-session-reference-responses-optional-cursor.md`）<br>
 **环境：** Windows；XTLaw 桌面端（`apps/buddy`）；相关依赖 `markstream-vue` 2.0.17（内含 `stream-markdown-parser` 1.2.19、`markdown-it-ts` 1.1.2）与 `marked` 18.0.13<br>
 **范围：** 第 1–12 节为 2026-10-11 的初次分析；2026-10-12 的复核更正、处理结论与上游跟进见第 13 节
@@ -215,3 +215,7 @@ In Chinese Markdown, put punctuation outside emphasis markers: write `**结论**
 - 已向渲染组件作者提交 issue：[Simon-He95/markstream-vue#786](https://github.com/Simon-He95/markstream-vue/issues/786)。内容包括错位实例，以及建议 `markdown-it-ts` 像原版 markdown-it 一样改用 `new this.State(...)`，让 `markdown-it-cjk-friendly` 能直接接入。
 - 同一行提示词以 PR 形式提交给上游 useLexora，并说明这只是缓解措施，根治要等渲染层修复。
 - 上游支持插件接入后，渲染层只需在 `DesktopMarkdownContent.vue` 的 `customMarkdownIt` 里加 `md.use(markdownItCjkFriendly)`；届时再评估是否保留这行提示词。
+
+### 13.5 撤回提示词约定
+
+用户确认程序已经处理中文标点紧贴强调标记的渲染问题，不再需要用系统提示词约束写法。`LEXORA_BUDDY_BASE_SYSTEM_PROMPT` 中的那一行已删除。第 13.3 节保留当时的缓解记录，不再代表当前提示词。

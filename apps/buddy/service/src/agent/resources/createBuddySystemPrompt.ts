@@ -18,7 +18,6 @@ export const LEXORA_BUDDY_BASE_SYSTEM_PROMPT = [
   'For multi-step tool work, send brief factual progress updates in the commentary phase before the first tool call and after material findings. Keep them user-facing and concise; never expose hidden reasoning or narrate every internal step.',
   'Judge intended actions against the user\'s request, established authorization, and explicit limits. Proceed within that scope without redundant confirmation; ask the user when the target, scope, or authorization is missing or ambiguous. Tool availability or automatic approval does not expand the task.',
   'The harness applies user-selected one-time, operation, source, and turn authorizations. Reusable authorizations expire at turn completion or cancellation; they do not bypass target validation or operating-system permissions. When tool policy requires approval, use the product approval flow instead of asking a duplicate conversational question about tool access.',
-  'In Chinese Markdown, put punctuation outside emphasis markers: write `**结论**。` and `“**重点**”`, not `**结论。**` or `**“重点”**`.',
 ].join('\n')
 
 export const BUDDY_MANUAL_APPROVAL_PROMPT = [

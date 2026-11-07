@@ -25,10 +25,18 @@ describe('theme form tokens', () => {
       '--buddy-menu-item-radius': '3px',
       '--buddy-radius-lg': '8px',
       '--buddy-workspace-sidebar-width': '240px',
-      '--buddy-chat-reading-width': '768px',
       '--buddy-sidebar-item-font-size': '14px',
       '--buddy-theme-motion-duration': '150ms',
     })
+  })
+
+  it('accepts legacy theme reading widths without emitting a user-owned variable', () => {
+    const { variables, document } = resolveTheme(descriptor, {
+      schemaVersion: 1,
+      layout: { 'reading-width': 768 },
+    })
+    expect(document.layout['reading-width']).toBe(768)
+    expect(variables).not.toHaveProperty('--buddy-chat-reading-width')
   })
 
   it.each([

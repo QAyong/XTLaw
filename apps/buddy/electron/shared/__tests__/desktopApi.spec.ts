@@ -1,8 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { DESKTOP_PROFILE_AVATAR_MAX_DATA_URL_LENGTH } from '../desktopApi'
+import { DESKTOP_CHAT_READING_WIDTHS, DESKTOP_PROFILE_AVATAR_MAX_DATA_URL_LENGTH } from '../desktopApi'
 import { feedbackIssueInputSchema, lexoraConfigPatchSchema, releasePageInputSchema } from '../desktopApiSchemas'
 
 describe('desktop Preload API contract', () => {
+  it('accepts reading width presets and rejects arbitrary dimensions at the bridge', () => {
+    for (const readingWidth of DESKTOP_CHAT_READING_WIDTHS) {
+      const patch = { desktop: { chat: { readingWidth } } }
+      expect(lexoraConfigPatchSchema.parse(patch)).toEqual(patch)
+    }
+    for (const readingWidth of ['50rem', 'full', '', null, 800, true])
+      expect(() => lexoraConfigPatchSchema.parse({ desktop: { chat: { readingWidth } } })).toThrow()
+  })
+
   it('accepts welcome patches and rejects ambiguous identities or invalid text at the bridge', () => {
     const patch = {
       desktop: {

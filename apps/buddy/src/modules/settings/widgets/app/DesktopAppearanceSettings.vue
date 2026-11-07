@@ -3,7 +3,7 @@ import type {
   LexoraConfigPatch,
 } from '@buddy-electron/shared/desktopApi'
 import type { ApplicationSettingsProps } from './typing'
-import { DESKTOP_CHAT_OUTLINE_POSITIONS } from '@buddy-electron/shared/desktopApi'
+import { DESKTOP_CHAT_OUTLINE_POSITIONS, DESKTOP_CHAT_READING_WIDTHS } from '@buddy-electron/shared/desktopApi'
 import { NSelect, useMessage } from 'naive-ui'
 import { computed, shallowRef } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
@@ -12,7 +12,7 @@ import DesktopThemeSettings from './DesktopThemeSettings.vue'
 import DesktopTypographySettings from './DesktopTypographySettings.vue'
 import DesktopWelcomeSettings from './DesktopWelcomeSettings.vue'
 
-type AppearanceSettingField = 'outlinePosition'
+type AppearanceSettingField = 'outlinePosition' | 'readingWidth'
 
 const props = defineProps<ApplicationSettingsProps>()
 
@@ -22,6 +22,11 @@ const pendingFields = shallowRef<ReadonlySet<AppearanceSettingField>>(new Set())
 const outlinePositionOptions = computed(() => DESKTOP_CHAT_OUTLINE_POSITIONS.map(position => ({
   label: t(`desktop.settings.outlinePosition.${position}`),
   value: position,
+})))
+
+const readingWidthOptions = computed(() => DESKTOP_CHAT_READING_WIDTHS.map(width => ({
+  label: t(`desktop.settings.readingWidth.${width}`),
+  value: width,
 })))
 
 async function updateSetting(field: AppearanceSettingField, patch: LexoraConfigPatch) {
@@ -49,6 +54,23 @@ async function updateSetting(field: AppearanceSettingField, patch: LexoraConfigP
     <section class="desktop-appearance-settings__section">
       <h2>{{ t('desktop.settings.conversationAppearance') }}</h2>
       <div class="desktop-appearance-settings__group">
+        <div class="desktop-settings-row" data-testid="chat-reading-width">
+          <div>
+            <strong id="chat-reading-width-label">{{ t('desktop.settings.readingWidth') }}</strong>
+            <small id="chat-reading-width-description">{{ t('desktop.settings.readingWidthDescription') }}</small>
+          </div>
+          <div class="desktop-settings-row__control">
+            <NSelect
+              aria-labelledby="chat-reading-width-label"
+              aria-describedby="chat-reading-width-description"
+              :options="readingWidthOptions"
+              :value="config.desktop.chat.readingWidth"
+              :disabled="pendingFields.has('readingWidth')"
+              :loading="pendingFields.has('readingWidth')"
+              @update:value="updateSetting('readingWidth', { desktop: { chat: { readingWidth: $event } } })"
+            />
+          </div>
+        </div>
         <div class="desktop-settings-row">
           <div>
             <strong>{{ t('desktop.settings.outlinePosition') }}</strong>

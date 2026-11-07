@@ -25,7 +25,6 @@ export const themeLayoutFields = {
   'region-header-height': { variable: '--buddy-region-header-height', min: 32, max: 72, unit: 'px' },
   'menu-row-height': { variable: '--buddy-menu-row-height', min: 24, max: 48, unit: 'px' },
   'composer-control-height': { variable: '--buddy-composer-control-height', min: 24, max: 48, unit: 'px' },
-  'reading-width': { variable: '--buddy-chat-reading-width', min: 560, max: 1200, unit: 'px' },
   'sidebar-item-font-size': { variable: '--buddy-sidebar-item-font-size', min: 11, max: 18, unit: 'px' },
   'sidebar-section-font-size': { variable: '--buddy-sidebar-section-font-size', min: 10, max: 16, unit: 'px' },
 } as const satisfies Record<string, FormField>
@@ -40,7 +39,10 @@ function fieldsSchema(fields: Record<string, FormField>) {
 }
 
 export const themeShapeSchema = z.object({ radius: fieldsSchema(themeRadiusFields).default({}) }).strict()
-export const themeLayoutSchema = fieldsSchema(themeLayoutFields)
+// Accept legacy themes without letting them override the user's reading preference.
+export const themeLayoutSchema = fieldsSchema(themeLayoutFields).extend({
+  'reading-width': z.number().min(560).max(1200).optional(),
+})
 export const themeMotionSchema = fieldsSchema(themeMotionFields)
 
 export interface ThemeFormInput {

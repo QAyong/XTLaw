@@ -546,6 +546,7 @@ export interface ThemeDocument {
   colors?: Partial<Record<ThemeColor, string>>
   shadows?: Partial<Record<'soft' | 'raised' | 'overlay' | 'window' | 'illustration', { x: number, y: number, blur: number, spread?: number, color: string }[]>>
   shape?: { radius?: Partial<Record<'micro' | 'icon' | 'control' | 'menu' | 'menu-item' | 'xs' | 'sm' | 'md' | 'lg' | 'xl', number>> }
+  /** Legacy reading-width is accepted but ignored; users control reading width in appearance settings. */
   layout?: Partial<Record<'app-sidebar-width' | 'workspace-sidebar-width' | 'titlebar-height' | 'region-header-height' | 'menu-row-height' | 'composer-control-height' | 'reading-width' | 'sidebar-item-font-size' | 'sidebar-section-font-size', number>>
   motion?: { 'state-duration'?: number }
   materials?: ThemeMaterial[]

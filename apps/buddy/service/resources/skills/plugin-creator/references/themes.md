@@ -45,7 +45,7 @@
 ```json
 {
   "shape": { "radius": { "micro": 4, "menu": 6, "menu-item": 4, "sm": 4, "md": 6, "lg": 8 } },
-  "layout": { "workspace-sidebar-width": 240, "reading-width": 768, "menu-row-height": 28 },
+  "layout": { "workspace-sidebar-width": 240, "menu-row-height": 28 },
   "motion": { "state-duration": 150 }
 }
 ```
@@ -53,10 +53,10 @@
 | 分组 | 字段与范围 |
 | --- | --- |
 | `shape.radius` | `micro`（按钮、输入等通用小圆角）、`icon`（图标按钮）、`control`（输入框内控件）、`menu`、`menu-item`，以及按原圆角大小归档的 `xs`（约 3–5px）、`sm`（6–7px）、`md`（8–9px）、`lg`（10–13px，常见于卡片）、`xl`（14–20px），均为 0–24。把某一档设成新值，应用里原本属于这一档的圆角会一起变化；2px 以下的细线和大于 20px 的圆形、胶囊形不受影响 |
-| `layout` | `app-sidebar-width` 120–360、`workspace-sidebar-width` 200–420、`titlebar-height` 24–56、`region-header-height` 32–72、`menu-row-height` 24–48、`composer-control-height` 24–48、`reading-width` 560–1200、`sidebar-item-font-size` 11–18、`sidebar-section-font-size` 10–16 |
+| `layout` | `app-sidebar-width` 120–360、`workspace-sidebar-width` 200–420、`titlebar-height` 24–56、`region-header-height` 32–72、`menu-row-height` 24–48、`composer-control-height` 24–48、`sidebar-item-font-size` 11–18、`sidebar-section-font-size` 10–16 |
 | `motion` | `state-duration` 0–400；系统开启“减少动态效果”时仍然为 0，不受主题影响 |
 
-不属于上表的字段会被拒绝。
+阅读宽度由用户在外观设置中独立选择（窄 / 标准 / 宽），不随主题切换。旧主题的 `layout.reading-width`（560–1200）仍可读取，但不再生效。不属于上表及此兼容字段的其他字段会被拒绝。
 
 图片使用 PNG/JPEG/WebP/SVG 资产名，通过包内文件或 `ThemeArchive.assets` 的受控资源提供；不得使用绝对路径、远端 URL、CSS 或脚本。每个材质锚点最多一层：
 

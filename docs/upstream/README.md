@@ -11,6 +11,7 @@
 
 ## 当前记录
 
+- [上游集成记录：2026-11-07](upstream-20261107-integration.md)：引用作者、画布定位、独立阅读宽度；`b495b856f` 推理资源校验修复已确认暂缓，依赖前序插件推理功能。
 - [上游集成记录：2026-11-02](upstream-20261102-integration.md)（另有 [第二轮](upstream-20261102-2-integration.md)、[第三轮](upstream-20261102-3-integration.md)、[第四轮](upstream-20261102-4-integration.md)）
 - [上游集成记录：2026-10-27](upstream-20261027-integration.md)
 - [上游集成记录：2026-10-26](upstream-20261026-integration.md)

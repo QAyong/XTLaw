@@ -42,7 +42,10 @@ async function mount(updateSettings: (patch: LexoraConfigPatch) => Promise<boole
   const update = vi.fn(updateSettings)
   const app = createApp(() => h(DesktopAppearanceSettings, { config, language: 'zh-CN', error: null, updateSettings: update }))
   app.mount(root)
-  cleanups.push(() => { app.unmount(); root.remove() })
+  cleanups.push(() => {
+    app.unmount()
+    root.remove()
+  })
   const select = root.querySelector<HTMLSelectElement>('[data-testid="chat-reading-width"] select')!
   return { root, select, update }
 }
@@ -57,7 +60,9 @@ describe('appearance reading width setting', () => {
     const { select, update } = await mount()
     expect(select.value).toBe('standard')
     expect([...select.options].map(option => [option.value, option.textContent])).toEqual([
-      ['narrow', '窄'], ['standard', '标准'], ['wide', '宽'],
+      ['narrow', '窄'],
+      ['standard', '标准'],
+      ['wide', '宽'],
     ])
     expect(select.getAttribute('aria-labelledby')).toBe('chat-reading-width-label')
     choose(select, 'wide')
@@ -68,7 +73,9 @@ describe('appearance reading width setting', () => {
 
   it('disables the control while saving and allows another attempt after a failed save', async () => {
     let finish!: (saved: boolean) => void
-    const { select, update } = await mount(() => new Promise(resolve => { finish = resolve }))
+    const { select, update } = await mount(() => new Promise((resolve) => {
+      finish = resolve
+    }))
     choose(select, 'narrow')
     await nextTick()
     expect(select.disabled).toBe(true)

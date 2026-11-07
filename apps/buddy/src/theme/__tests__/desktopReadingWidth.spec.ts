@@ -18,7 +18,9 @@ vi.mock('@/platform/desktop/desktopApi', () => ({
       get initial() { return desktop.initial },
       onDidChange: (listener: (snapshot: ThemeSnapshot) => void) => {
         desktop.listener = listener
-        return () => { desktop.listener = null }
+        return () => {
+          desktop.listener = null
+        }
       },
       request: async () => desktop.initial,
     },
@@ -53,10 +55,12 @@ describe('desktop reading width', () => {
     const snapshot = (revision: number, legacyWidth?: number): ThemeSnapshot => ({
       revision,
       preference: DEFAULT_THEME_PREFERENCE,
-      active: legacyWidth === undefined ? fallbackTheme('light') : resolveTheme({
-        ...fallbackTheme('light').descriptor,
-        id: 'tests.reading-width',
-      }, { schemaVersion: 1, layout: { 'reading-width': legacyWidth, 'workspace-sidebar-width': 240 } }),
+      active: legacyWidth === undefined
+        ? fallbackTheme('light')
+        : resolveTheme({
+            ...fallbackTheme('light').descriptor,
+            id: 'tests.reading-width',
+          }, { schemaVersion: 1, layout: { 'reading-width': legacyWidth, 'workspace-sidebar-width': 240 } }),
       themes: [],
       unavailable: null,
       preview: false,

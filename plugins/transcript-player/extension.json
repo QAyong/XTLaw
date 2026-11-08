@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "format": "compiled",
+  "id": "pcbed1a21022e43b388ccce09fd4647b5.transcript-player",
+  "name": "文字稿",
+  "description": "播放音视频、手动加载字幕，点击文字稿跳转播放。",
+  "version": "0.1.0",
+  "apiVersion": 4,
+  "engines": {
+    "lexora": ">=0.5.4"
+  },
+  "permissions": {
+    "selectedResource": "read",
+    "localResources": true
+  },
+  "contributes": {
+    "views": [
+      {
+        "id": "pcbed1a21022e43b388ccce09fd4647b5.transcript-player.reader",
+        "title": "文字稿",
+        "entry": "view.js",
+        "resource": "selected-file",
+        "location": "context"
+      }
+    ],
+    "fileHandlers": [
+      {
+        "id": "pcbed1a21022e43b388ccce09fd4647b5.transcript-player.media",
+        "title": "文字稿",
+        "extensions": [
+          ".mp4",
+          ".m4v",
+          ".webm",
+          ".mov",
+          ".ogv",
+          ".mp3",
+          ".wav",
+          ".ogg",
+          ".oga",
+          ".opus",
+          ".m4a",
+          ".aac",
+          ".flac"
+        ],
+        "preview": {
+          "view": "pcbed1a21022e43b388ccce09fd4647b5.transcript-player.reader",
+          "requestDefault": false
+        },
+        "open": {
+          "view": "pcbed1a21022e43b388ccce09fd4647b5.transcript-player.reader",
+          "requestDefault": false
+        }
+      }
+    ]
+  }
+}

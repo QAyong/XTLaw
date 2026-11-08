@@ -1,0 +1,37 @@
+/* ChatSelectionQuoteMenu.vue + theme/_selection-menu.scss and buddyTheme.ts.
+   Mirror the chat menu's 128px width (8rem in the host's 16px root), two icon rows, 6px/3px radii, 12px
+   labels, NDropdown small rows/icons and overlay shadow inside the plugin iframe; no Office theme. */
+.transcript-reference-menu {
+  --menu-background: var(--lexora-raised, var(--lexora-background, #fff));
+  --menu-border: var(--lexora-border-strong, var(--lexora-border, #dedfe3));
+  --menu-text: var(--lexora-text, #202124);
+  --menu-muted: var(--lexora-muted, #686b73);
+  --menu-hover: var(--lexora-accent-solid, #365edc);
+  --menu-on-hover: var(--lexora-on-accent, #fff);
+  --menu-shadow: 0 1px 2px rgb(31 37 33 / 8%), 0 8px 18px rgb(31 37 33 / 12%);
+  position: fixed;
+  z-index: 200;
+  width: 128px;
+  max-width: calc(100vw - 16px);
+  padding: 4px;
+  border: 1px solid var(--menu-border);
+  border-radius: 6px;
+  background: var(--menu-background);
+  color: var(--menu-text);
+  box-shadow: var(--menu-shadow);
+  font-size: 12px;
+}
+.transcript-reference-menu[data-color-scheme="dark"] { --menu-shadow: 0 1px 2px rgb(0 0 0 / 22%), 0 8px 18px rgb(0 0 0 / 30%); }
+.transcript-reference-menu .ctx-item { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 28px; padding: 0 8px; border: 0; border-radius: 3px; background: transparent; color: inherit; font-size: 12px; line-height: 1.5; text-align: left; cursor: pointer; transition: background-color 80ms, color 80ms; }
+.transcript-reference-menu .ctx-item:hover:not(:disabled), .transcript-reference-menu .ctx-item:focus-visible { background: var(--menu-hover); color: var(--menu-on-hover); }
+.transcript-reference-menu .ctx-item:disabled { color: var(--menu-muted); opacity: .55; cursor: default; }
+.transcript-reference-menu .chat-menu-icon { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 14px; width: 14px; height: 14px; }
+.transcript-reference-menu .chat-menu-icon svg { width: 14px; height: 14px; pointer-events: none; }
+.transcript-reference-menu .ctx-label { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.transcript-reference-menu .ctx-arrow { display: flex; flex: 0 0 12px; width: 12px; height: 12px; color: inherit; }
+.transcript-reference-menu .ctx-arrow svg { width: 12px; height: 12px; pointer-events: none; }
+.transcript-reference-menu .ctx-item-wrap { position: relative; }
+.transcript-reference-menu .ctx-submenu { position: fixed; z-index: 201; width: 200px; max-width: min(280px, calc(100vw - 16px)); max-height: min(320px, calc(100vh - 16px)); overflow-y: auto; padding: 4px; border: 1px solid var(--menu-border); border-radius: 6px; background: var(--menu-background); color: var(--menu-text); box-shadow: var(--menu-shadow); }
+@media (prefers-reduced-motion: reduce) {
+  .transcript-reference-menu .ctx-item { transition-duration: 0ms; }
+}

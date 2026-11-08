@@ -4,7 +4,8 @@ import type { TranscriptSelection } from './reference'
 import { SELECTION_LIMIT } from './reference'
 import { orderedTargets, QuoteSession } from './quote-session'
 import type { QuoteApi } from './quote-session'
-import officeMenuCss from './office-menu.css'
+import chatMenuCss from './chat-menu.css'
+import { COPY_ICON, QUOTE_ICON } from './menu-icons'
 
 type Actions = {
   copy: (text: string) => Promise<void>
@@ -14,17 +15,18 @@ type Actions = {
   notice: (text: string) => void
 }
 
-// Adapter for the Office ctx-menu presentation and capture/choose/commit flow.
+// Mirror ChatSelectionQuoteMenu's compact icon rows; keep the existing
+// capture/choose/commit flow for file-backed plugin references.
 // Selection and paragraph entry points deliberately share this single menu.
 export function createSelectionToolbar(root: HTMLElement, reader: ReturnType<typeof createReader>, signal: AbortSignal, actions: Actions) {
   const style = document.createElement('style')
-  style.textContent = officeMenuCss
+  style.textContent = chatMenuCss
   const menu = document.createElement('div')
-  menu.className = 'ctx-menu transcript-reference-menu'
+  menu.className = 'transcript-reference-menu chat-selection-menu'
   menu.setAttribute('role', 'menu')
   menu.setAttribute('aria-label', '文字引用菜单')
   menu.hidden = true
-  const item = (text: string) => {
+  const item = (text: string, svg?: string) => {
     const result = document.createElement('button')
     result.type = 'button'
     result.className = 'ctx-item'
@@ -32,23 +34,28 @@ export function createSelectionToolbar(root: HTMLElement, reader: ReturnType<typ
     const label = document.createElement('span')
     label.className = 'ctx-label'
     label.textContent = text
+    if (svg) {
+      const icon = document.createElement('span')
+      icon.className = 'chat-menu-icon'
+      icon.setAttribute('aria-hidden', 'true')
+      icon.innerHTML = svg
+      result.append(icon)
+    }
     result.append(label)
     return result
   }
-  const copy = item('复制')
-  const separator = document.createElement('div')
-  separator.className = 'ctx-sep'
-  separator.setAttribute('role', 'separator')
+  const copy = item('复制', COPY_ICON)
   const wrapper = document.createElement('div')
-  wrapper.className = 'ctx-item-wrap office-quote-entry'
-  const quote = item('引用到聊天')
+  wrapper.className = 'ctx-item-wrap'
+  const quote = item('引用', QUOTE_ICON)
   const arrow = document.createElement('span')
   arrow.className = 'ctx-arrow'
-  arrow.textContent = '›'
+  arrow.setAttribute('aria-hidden', 'true')
+  arrow.innerHTML = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 4 4 4-4 4"/></svg>'
   arrow.hidden = true
   quote.append(arrow)
   const submenu = document.createElement('div')
-  submenu.className = 'ctx-submenu office-quote-submenu'
+  submenu.className = 'ctx-submenu'
   submenu.setAttribute('role', 'menu')
   submenu.setAttribute('aria-label', '选择目标聊天')
   submenu.hidden = true
@@ -56,7 +63,7 @@ export function createSelectionToolbar(root: HTMLElement, reader: ReturnType<typ
   status.className = 'transcript-selection-status'
   status.setAttribute('role', 'status')
   wrapper.append(quote, submenu)
-  menu.append(copy, separator, wrapper)
+  menu.append(copy, wrapper)
   root.append(style, menu, status)
   const session = new QuoteSession(actions.references)
   let snapshot: TranscriptSelection | null = null

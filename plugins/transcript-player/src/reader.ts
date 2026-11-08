@@ -2,6 +2,7 @@ import { activeCueIndex, findHits, formatTime, groupCues, normalizeCues } from '
 import type { SearchHit, TranscriptCue } from './transcript'
 import { locateTranscriptSelection, selectionFromBounds, SELECTION_LIMIT } from './reference'
 import type { TranscriptSelection } from './reference'
+import { QUOTE_ICON } from './menu-icons'
 
 function node<K extends keyof HTMLElementTagNameMap>(tag: K, className = '', text = '') {
   const result = document.createElement(tag)
@@ -315,7 +316,7 @@ export function createReader(signal: AbortSignal, seek: (time: number) => void, 
         timestamp.dataset.time = String(paragraph.start)
         const header = node('div', 'transcript-paragraph-header')
         const quote = button('', 'transcript-paragraph-quote')
-        quote.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21c3 0 7-1 7-8V5H2v8h4c0 4-1 4-3 4zm12 0c3 0 7-1 7-8V5h-8v8h4c0 4-1 4-3 4z"/></svg>'
+        quote.innerHTML = QUOTE_ICON
         const from = paragraph.indexes[0]
         const to = paragraph.indexes[paragraph.indexes.length - 1]
         const whole = selectionFromBounds(cues, from, to, 0, cues[to].text.length)

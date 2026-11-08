@@ -8,6 +8,7 @@ await build({ ...shared, entryPoints: [new URL('src/host.ts', root).pathname], o
 await copyFile(new URL('extension.json', root), new URL('dist/extension.json', root))
 await copyFile(new URL('README.md', root), new URL('dist/README.md', root))
 await copyFile(new URL('third-party/ArtPlayer.LICENSE', root), new URL('dist/LICENSE-ArtPlayer', root))
+await copyFile(new URL('third-party/Fluent-icons.LICENSE', root), new URL('dist/LICENSE-Fluent-icons', root))
 await copyFile(new URL('node_modules/.pnpm/option-validator@2.0.6/node_modules/option-validator/LICENSE', root), new URL('dist/LICENSE-option-validator', root))
 await copyFile(new URL('node_modules/.pnpm/kind-of@6.0.3/node_modules/kind-of/LICENSE', root), new URL('dist/LICENSE-kind-of', root))
 const manifest = JSON.parse(await readFile(new URL('dist/extension.json', root), 'utf8'))

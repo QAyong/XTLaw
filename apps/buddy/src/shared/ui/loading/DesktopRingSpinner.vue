@@ -5,8 +5,8 @@
 <style scoped>
 .desktop-ring-spinner {
   display: block;
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   flex: none;
   border: 1.5px solid var(--buddy-border-strong);
   border-top-color: var(--buddy-text-secondary);

@@ -51,7 +51,6 @@ export async function render(context: ViewContext, container: HTMLElement) {
       url,
       playbackRate: true,
       aspectRatio: true,
-      screenshot: true,
       setting: true,
       pip: true,
       subtitleOffset: true,

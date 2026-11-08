@@ -2,11 +2,56 @@ import Artplayer from 'artplayer'
 import type { ViewContext } from '../lexora'
 import css from './style.css'
 
+const MAX_SUBTITLE_BYTES = 8 * 1024 * 1024
+type SubtitleType = 'srt' | 'vtt' | 'ass'
+
 function element<K extends keyof HTMLElementTagNameMap>(tag: K, className = '', text = '') {
   const node = document.createElement(tag)
   node.className = className
   node.textContent = text
   return node
+}
+
+function subtitleType(name: string): SubtitleType | null {
+  const extension = name.split('.').pop()?.toLowerCase()
+  return extension === 'srt' || extension === 'vtt' || extension === 'ass' ? extension : null
+}
+
+function decodeSubtitle(bytes: Uint8Array, encoding: string) {
+  return new TextDecoder(encoding, { fatal: true }).decode(bytes)
+}
+
+async function readSubtitle(url: string, signal: AbortSignal) {
+  const response = await fetch(url, { signal })
+  if (!response.ok) throw new Error('无法读取字幕文件，请重新选择。')
+  const bytes = new Uint8Array(await response.arrayBuffer())
+  signal.throwIfAborted()
+  if (!bytes.byteLength) throw new Error('字幕文件为空。')
+  if (bytes.byteLength > MAX_SUBTITLE_BYTES) throw new Error('字幕文件超过 8 MiB，请拆分后加载。')
+  for (const encoding of ['utf-8', 'gbk']) {
+    try {
+      if (decodeSubtitle(bytes, encoding).trim()) return encoding
+    }
+    catch { /* 试下一种编码。 */ }
+  }
+  throw new Error('字幕编码不匹配，请改用 UTF-8 或 GBK。')
+}
+
+function waitForCues(art: Artplayer, signal: AbortSignal) {
+  return new Promise<VTTCue[]>((resolve, reject) => {
+    const timer = window.setTimeout(() => finish(new Error('字幕加载超时，请重试或重新选择。')), 15000)
+    const onLoad = (cues: VTTCue[]) => finish(null, cues)
+    const onAbort = () => finish(new DOMException('已取消', 'AbortError'))
+    function finish(error: Error | null, cues: VTTCue[] = []) {
+      window.clearTimeout(timer)
+      art.off('subtitleLoad', onLoad)
+      signal.removeEventListener('abort', onAbort)
+      if (error) reject(error)
+      else resolve(cues)
+    }
+    signal.addEventListener('abort', onAbort, { once: true })
+    art.on('subtitleLoad', onLoad)
+  })
 }
 
 export async function render(context: ViewContext, container: HTMLElement) {
@@ -16,6 +61,10 @@ export async function render(context: ViewContext, container: HTMLElement) {
   const stop = () => life.abort()
   context.signal.addEventListener('abort', stop, { once: true })
   let art: Artplayer | undefined
+  let loadButton: HTMLElement | undefined
+  let toggleButton: HTMLElement | undefined
+  let loading = false
+  let loadedName = ''
 
   const style = element('style')
   style.textContent = css
@@ -36,6 +85,75 @@ export async function render(context: ViewContext, container: HTMLElement) {
   }, { once: true })
   const visibility = context.onVisibilityChange(visible => { if (!visible) art?.pause() })
   signal.addEventListener('abort', () => visibility.dispose(), { once: true })
+
+  function notice(message: string) {
+    if (art) art.notice.show = message
+  }
+
+  function setLoadLabel(text: string, title = text) {
+    if (!loadButton) return
+    loadButton.textContent = text
+    loadButton.title = title
+    loadButton.setAttribute('aria-label', title)
+  }
+
+  function setToggle(state: 'empty' | 'on' | 'off') {
+    if (!toggleButton) return
+    toggleButton.dataset.state = state
+    const label = state === 'on' ? '字幕已打开' : state === 'off' ? '字幕已关闭' : '字幕'
+    toggleButton.title = label
+    toggleButton.setAttribute('aria-label', label)
+    toggleButton.setAttribute('aria-disabled', state === 'empty' ? 'true' : 'false')
+  }
+
+  async function loadSubtitle() {
+    if (!art || loading || signal.aborted) return
+    loading = true
+    setLoadLabel('正在选择…')
+    try {
+      const [file] = await context.resources.pickFiles({ filters: [{ name: '字幕', extensions: ['srt', 'vtt', 'ass'] }], multiple: false })
+      signal.throwIfAborted()
+      if (!file) {
+        setLoadLabel(loadedName || '加载字幕', loadedName || '加载字幕')
+        return
+      }
+      const type = subtitleType(file.name)
+      if (!type) throw new Error('请选择 SRT、VTT 或 ASS 字幕。')
+      if (file.size > MAX_SUBTITLE_BYTES) throw new Error('字幕文件超过 8 MiB，请拆分后加载。')
+      setLoadLabel('正在加载…', file.name)
+      const url = await context.resources.getUrl(file)
+      signal.throwIfAborted()
+      const encoding = await readSubtitle(url, signal)
+      if (!art.subtitle.textTrack) throw new Error('播放器还没准备好，请稍后再加载字幕。')
+      const cuesPromise = waitForCues(art, signal)
+      const switched = await art.subtitle.switch(url, { type, encoding, escape: true })
+      if (!switched) throw new Error('播放器还没准备好，请稍后再加载字幕。')
+      const cues = await cuesPromise
+      if (!cues.length) throw new Error('没有读到有效字幕，请检查内容后重试。')
+      loadedName = file.name
+      art.subtitle.show = true
+      setLoadLabel(file.name, file.name)
+      setToggle('on')
+    }
+    catch (caught) {
+      if (signal.aborted || (caught instanceof DOMException && caught.name === 'AbortError')) return
+      const message = caught instanceof Error ? caught.message : '字幕加载失败，请重新选择。'
+      notice(message)
+      setLoadLabel(loadedName || '加载字幕', loadedName ? `${loadedName} · ${message}` : message)
+    }
+    finally {
+      loading = false
+    }
+  }
+
+  function toggleSubtitle() {
+    if (!art || !loadedName) {
+      notice('请先加载字幕。')
+      return
+    }
+    art.subtitle.show = !art.subtitle.show
+    setToggle(art.subtitle.show ? 'on' : 'off')
+  }
 
   const resource = context.resource
   if (!resource) {
@@ -59,7 +177,32 @@ export async function render(context: ViewContext, container: HTMLElement) {
       fastForward: true,
       lock: true,
       airplay: true,
+      controls: [
+        {
+          name: 'load-subtitle',
+          position: 'left',
+          index: 40,
+          html: '<span class="art-subtitle-load">加载字幕</span>',
+          mounted(control) {
+            loadButton = control.querySelector('.art-subtitle-load') ?? control
+            setLoadLabel('加载字幕')
+          },
+          click() { void loadSubtitle() },
+        },
+        {
+          name: 'subtitle-toggle',
+          position: 'right',
+          index: 15,
+          html: '<span class="art-subtitle-toggle">CC</span>',
+          mounted(control) {
+            toggleButton = control.querySelector('.art-subtitle-toggle') ?? control
+            setToggle('empty')
+          },
+          click() { toggleSubtitle() },
+        },
+      ],
     })
+    art.on('subtitle', shown => { if (loadedName) setToggle(shown ? 'on' : 'off') })
     art.on('video:error', () => {
       const code = art?.video.error?.code
       error.hidden = false

@@ -156,4 +156,5 @@ ArtPlayer 底层是 `<video>`。音频文件照常播，视觉上盖住黑画面
 - 2026-11-08 起播放器改为原样启用 ArtPlayer 5.4.0 的公开控制项，不再隐藏它的底栏、设置和字幕相关按钮，也不再另做一套控制条。没有改 ArtPlayer 源码，也没有改内置播放器。
 - 全屏和网页全屏不打开。视图 iframe 的 sandbox 只有 `allow-scripts allow-forms`，并且 `allow` 里把 fullscreen 设成了 `none`，按钮只会提示不支持。
 - 截图不打开。当前帧画进 canvas 后不能导出，视图也不能把文件存到当前目录。
+- 底栏左侧提供“加载字幕”，用 `localResources` 和 `pickFiles` 选择 SRT、VTT 或 ASS。插件先用 UTF-8、再试 GBK 校验，通过后把资源地址交给 ArtPlayer。右侧 CC 只开关画面字幕。
 - 同日按用户要求去掉自写的文字稿、字幕加载和编码选择。当前只移植播放器。

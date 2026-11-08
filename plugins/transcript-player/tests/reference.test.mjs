@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { createTranscriptReference, locateTranscriptSelection, readTranscriptReference, selectionFromBounds } from '../src/reference.ts'
+import { groupCues } from '../src/transcript.ts'
 
 const cues = [
   { start: 10, end: 12, text: '第一句话，讨论方案。' },
@@ -11,6 +12,30 @@ const subtitle = { id: '12345678-1234-1234-1234-123456789abc', name: '会议.srt
 const media = { name: '会议.mp4' }
 const pick = () => selectionFromBounds(cues, 0, 1, 3, 5)
 const reference = () => createTranscriptReference(pick(), subtitle, media)
+
+test('whole-paragraph quoting includes every sentence but excludes neighboring paragraphs', () => {
+  const paragraphs = groupCues(cues)
+  const indexes = paragraphs[0].indexes
+  const first = indexes[0]
+  const last = indexes.at(-1)
+  const selected = selectionFromBounds(cues, first, last, 0, cues[last].text.length)
+  assert.equal(selected.text, `${cues[0].text} ${cues[1].text}`)
+  assert.equal(selected.text.includes(cues[2].text), false)
+  assert.equal(selected.start, 10)
+  assert.equal(selected.end, 16)
+  const quote = createTranscriptReference(selected, subtitle, media)
+  assert.deepEqual(locateTranscriptSelection(cues, { ...quote.locator.data, text: readTranscriptReference(quote.locator, quote.text).text }), selected)
+})
+
+test('the final single-sentence paragraph quotes to the exact sentence end', () => {
+  const indexes = groupCues(cues).at(-1).indexes
+  const first = indexes[0]
+  const last = indexes.at(-1)
+  const selected = selectionFromBounds(cues, first, last, 0, cues[last].text.length)
+  assert.equal(selected.text, cues[2].text)
+  assert.equal(selected.start, 18)
+  assert.equal(selected.end, 20)
+})
 
 test('partial sentence selection stays exact rather than expanding to its paragraph', () => {
   const selected = selectionFromBounds(cues, 0, 0, 2, 6)

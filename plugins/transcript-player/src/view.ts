@@ -5,7 +5,7 @@ import { createReader } from './reader'
 import { isAudioFile } from './media'
 import { createSelectionToolbar } from './selection-toolbar'
 import { createTranscriptReference, readTranscriptReference } from './reference'
-import type { SourceFile, SubtitleSource } from './reference'
+import type { SourceFile, SubtitleSource, TranscriptSelection } from './reference'
 
 const MAX_SUBTITLE_BYTES = 8 * 1024 * 1024
 const SUBTITLE_COMMAND = 'pcbed1a21022e43b388ccce09fd4647b5.transcript-player.subtitle'
@@ -103,6 +103,7 @@ export async function render(context: ViewContext, container: HTMLElement) {
   let subtitleTask: Promise<void> = Promise.resolve()
   let locating = false
   let revealSequence = 0
+  let quoting = false
   const mediaKey = context.resource?.sourceId
   const audio = isAudioFile(context.resource?.name ?? '')
 
@@ -127,7 +128,7 @@ export async function render(context: ViewContext, container: HTMLElement) {
     art.seek = time
     void art.play().catch(() => notice('无法开始播放，请点击播放器的播放按钮。'))
     reader.update(time, art.playing)
-  })
+  }, { quote: quoteSelection, notice })
   const separator = element('div', 'player-separator')
   separator.hidden = audio
   separator.tabIndex = 0
@@ -148,16 +149,22 @@ export async function render(context: ViewContext, container: HTMLElement) {
       if (typeof context.clipboard?.write !== 'function') throw new Error('当前应用版本不支持插件复制，请升级应用。')
       await context.clipboard.write({ text })
     },
-    async quote(selection) {
-      if (loading || locating || !saved || !loadedName || !context.resource) throw new Error('请等待字幕加载完成后重新选择。')
-      if (typeof context.references?.add !== 'function') throw new Error('当前应用版本不支持内容引用，请升级应用。')
-      const mediaSource: SourceFile = { name: context.resource.name }
-      if ('relativePath' in context.resource && typeof context.resource.relativePath === 'string') mediaSource.relativePath = context.resource.relativePath
-      const reference = createTranscriptReference(selection, { ...saved }, mediaSource)
-      return context.references.add(reference)
-    },
+    quote: quoteSelection,
     notice,
   })
+
+  async function quoteSelection(selection: TranscriptSelection) {
+    if (quoting) throw new Error('正在添加引用，请完成当前操作后再试。')
+    if (loading || locating || !saved || !loadedName || !context.resource) throw new Error('请等待字幕加载完成后重新选择。')
+    if (typeof context.references?.add !== 'function') throw new Error('当前应用版本不支持内容引用，请升级应用。')
+    const mediaSource: SourceFile = { name: context.resource.name }
+    if ('relativePath' in context.resource && typeof context.resource.relativePath === 'string') mediaSource.relativePath = context.resource.relativePath
+    const reference = createTranscriptReference(selection, { ...saved }, mediaSource)
+    selectionToolbar.dismiss()
+    quoting = true
+    try { return await context.references.add(reference) }
+    finally { quoting = false }
+  }
 
   function setSplit(value: number) {
     split = Math.min(75, Math.max(30, value))

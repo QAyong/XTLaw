@@ -138,6 +138,17 @@
 }
 .transcript-scroll { padding: 0 20px 72px; }
 .transcript-paragraph { margin: 8px 0 16px; }
+.transcript-paragraph-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.transcript-paragraph-header .transcript-time { margin: 0; }
+.transcript-paragraph-quote { min-height: 22px; padding: 0 6px; border: 0; border-radius: 3px; background: transparent; color: var(--lexora-accent, #365edc); font-size: 12px !important; opacity: 0; pointer-events: none; }
+.transcript-paragraph:hover .transcript-paragraph-quote,
+.transcript-paragraph:focus-within .transcript-paragraph-quote,
+.transcript-paragraph-quote[aria-busy="true"] { opacity: 1; pointer-events: auto; }
+.transcript-paragraph-quote:hover:not(:disabled) { background: var(--lexora-hover, #f0f2f5); }
+.transcript-paragraph-quote:disabled { cursor: default; color: var(--lexora-muted, #686b73); }
+@media (hover: none) {
+  .transcript-paragraph-quote { opacity: 1; pointer-events: auto; }
+}
 .transcript-time { display: inline-block; margin: 0 0 4px; padding: 0; border: 0; background: transparent; color: var(--lexora-muted, #686b73); font-size: 12px !important; font-variant-numeric: tabular-nums; }
 .transcript-time:hover { color: var(--lexora-accent, #365edc); text-decoration: underline; text-underline-offset: 3px; }
 .transcript-text { margin: 0; font-size: 15px; line-height: 1.75; overflow-wrap: anywhere; }

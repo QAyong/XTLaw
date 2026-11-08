@@ -1,6 +1,6 @@
 import { activeCueIndex, findHits, formatTime, groupCues, normalizeCues } from './transcript'
 import type { SearchHit, TranscriptCue } from './transcript'
-import { locateTranscriptSelection, selectionFromBounds } from './reference'
+import { locateTranscriptSelection, selectionFromBounds, SELECTION_LIMIT } from './reference'
 import type { TranscriptSelection } from './reference'
 
 function node<K extends keyof HTMLElementTagNameMap>(tag: K, className = '', text = '') {
@@ -16,7 +16,10 @@ function button(label: string, className = '') {
   return result
 }
 
-export function createReader(signal: AbortSignal, seek: (time: number) => void) {
+export function createReader(signal: AbortSignal, seek: (time: number) => void, actions: {
+  quote: (selection: TranscriptSelection) => Promise<boolean>
+  notice: (text: string) => void
+}) {
   const panel = node('aside', 'transcript-panel')
   panel.setAttribute('aria-label', '文字记录与智能纪要')
   const tabs = node('div', 'transcript-tabs')
@@ -63,8 +66,12 @@ export function createReader(signal: AbortSignal, seek: (time: number) => void) 
   follow.hidden = true
   followBar.append(follow)
   transcript.append(searchBar, scroll, followBar)
-  panel.append(tabs, transcript, summary)
+  const quoteStatus = node('span', 'transcript-selection-status')
+  quoteStatus.setAttribute('role', 'status')
+  quoteStatus.setAttribute('aria-live', 'polite')
+  panel.append(tabs, transcript, summary, quoteStatus)
 
+  let paragraphQuoting = false
   let cues: TranscriptCue[] = []
   let cueNodes: HTMLElement[] = []
   let hits: SearchHit[] = []
@@ -221,8 +228,51 @@ export function createReader(signal: AbortSignal, seek: (time: number) => void) 
     follow.hidden = true
     seek(start)
   }
+  async function quoteParagraph(control: HTMLButtonElement) {
+    if (paragraphQuoting || control.disabled || signal.aborted) return
+    const from = Number(control.dataset.fromCue)
+    const to = Number(control.dataset.toCue)
+    const selection = selectionFromBounds(cues, from, to, 0, cues[to]?.text.length ?? 0)
+    if (!selection) return
+    if (selection.text.length > SELECTION_LIMIT) {
+      actions.notice('整段内容超过 32768 个字符，请拖选较小范围后引用。')
+      return
+    }
+    paragraphQuoting = true
+    control.disabled = true
+    control.setAttribute('aria-busy', 'true')
+    control.textContent = '引用中…'
+    try {
+      if (await actions.quote({ ...selection })) {
+        if (!signal.aborted) {
+          quoteStatus.textContent = '整段已加入聊天草稿，尚未发送。'
+          actions.notice(quoteStatus.textContent)
+        }
+      }
+    }
+    catch (error) {
+      if (!signal.aborted) {
+        quoteStatus.textContent = error instanceof Error ? error.message : '引用失败，请重试。'
+        actions.notice(quoteStatus.textContent)
+      }
+    }
+    finally {
+      paragraphQuoting = false
+      if (!signal.aborted && control.isConnected) {
+        control.disabled = false
+        control.removeAttribute('aria-busy')
+        control.textContent = '引用整段'
+      }
+    }
+  }
   // Delegate to the stable list: replacing subtitles must not retain old cue listeners.
   list.addEventListener('click', event => {
+    const quote = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('.transcript-paragraph-quote') : null
+    if (quote) {
+      event.preventDefault()
+      void quoteParagraph(quote)
+      return
+    }
     if (window.getSelection()?.isCollapsed === false) return
     playTarget(event.target)
   }, { signal })
@@ -292,6 +342,17 @@ export function createReader(signal: AbortSignal, seek: (time: number) => void) 
         const timestamp = button(formatTime(paragraph.start), 'transcript-time')
         timestamp.setAttribute('aria-label', `从 ${formatTime(paragraph.start)} 播放`)
         timestamp.dataset.time = String(paragraph.start)
+        const header = node('div', 'transcript-paragraph-header')
+        const quote = button('引用整段', 'transcript-paragraph-quote')
+        const from = paragraph.indexes[0]
+        const to = paragraph.indexes[paragraph.indexes.length - 1]
+        const whole = selectionFromBounds(cues, from, to, 0, cues[to].text.length)
+        quote.dataset.fromCue = String(from)
+        quote.dataset.toCue = String(to)
+        quote.disabled = !whole || whole.text.length > SELECTION_LIMIT
+        quote.title = quote.disabled ? '整段内容过长，请拖选较小范围后引用' : '将整段内容加入聊天草稿，不会直接发送消息'
+        quote.setAttribute('aria-label', `引用 ${formatTime(paragraph.start)} 开始的整段内容到 AI`)
+        header.append(timestamp, quote)
         const body = node('p', 'transcript-text')
         for (const index of paragraph.indexes) {
           const cue = cues[index]
@@ -303,7 +364,7 @@ export function createReader(signal: AbortSignal, seek: (time: number) => void) 
           cueNodes.push(sentence)
           body.append(sentence, document.createTextNode(' '))
         }
-        section.append(timestamp, body)
+        section.append(header, body)
         fragment.append(section)
       }
       list.replaceChildren(fragment)

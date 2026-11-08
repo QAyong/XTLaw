@@ -1,5 +1,7 @@
 import { activeCueIndex, findHits, formatTime, groupCues, normalizeCues } from './transcript'
 import type { SearchHit, TranscriptCue } from './transcript'
+import { locateTranscriptSelection, selectionFromBounds } from './reference'
+import type { TranscriptSelection } from './reference'
 
 function node<K extends keyof HTMLElementTagNameMap>(tag: K, className = '', text = '') {
   const result = document.createElement(tag)
@@ -74,6 +76,7 @@ export function createReader(signal: AbortSignal, seek: (time: number) => void) 
   let selectedTab: 'transcript' | 'summary' = 'transcript'
   let searchTimer = 0
   let appliedQuery = ''
+  let referenceSelection: TranscriptSelection | null = null
 
   function scrollToCue(index: number) {
     const target = cueNodes[index]
@@ -137,14 +140,23 @@ export function createReader(signal: AbortSignal, seek: (time: number) => void) 
     cues.forEach((cue, index) => {
       const target = cueNodes[index]
       target.replaceChildren()
-      let cursor = 0
-      for (const { hit, index: searchIndex } of byCue.get(index) ?? []) {
-        target.append(document.createTextNode(cue.text.slice(cursor, hit.start)))
-        const mark = node('mark', searchIndex === hitIndex ? 'is-search-current' : '', cue.text.slice(hit.start, hit.end))
-        target.append(mark)
-        cursor = hit.end
+      const matches = byCue.get(index) ?? []
+      const reference = referenceSelection && index >= referenceSelection.fromCue && index <= referenceSelection.toCue
+        ? { start: index === referenceSelection.fromCue ? referenceSelection.fromOffset : 0, end: index === referenceSelection.toCue ? referenceSelection.toOffset : cue.text.length }
+        : null
+      const cuts = [...new Set([0, cue.text.length, ...matches.flatMap(({ hit }) => [hit.start, hit.end]), ...(reference ? [reference.start, reference.end] : [])])].sort((a, b) => a - b)
+      for (let part = 0; part < cuts.length - 1; part++) {
+        const start = cuts[part]
+        const end = cuts[part + 1]
+        const match = matches.find(({ hit }) => start >= hit.start && end <= hit.end)
+        const referenced = reference && start >= reference.start && end <= reference.end
+        const text = cue.text.slice(start, end)
+        if (match || referenced) {
+          const classes = [match?.index === hitIndex ? 'is-search-current' : '', referenced ? 'is-reference' : ''].filter(Boolean).join(' ')
+          target.append(node('mark', classes, text))
+        }
+        else target.append(document.createTextNode(text))
       }
-      target.append(document.createTextNode(cue.text.slice(cursor)))
     })
     count.textContent = hits.length ? `${hitIndex + 1}/${hits.length}` : '0/0'
     previous.disabled = next.disabled = !hits.length
@@ -226,12 +238,51 @@ export function createReader(signal: AbortSignal, seek: (time: number) => void) 
   search.disabled = previous.disabled = next.disabled = true
   return {
     element: panel,
+    readSelection(): { selection: TranscriptSelection, rect: DOMRect } | null {
+      const selected = window.getSelection()
+      if (!selected || selected.isCollapsed || selected.rangeCount !== 1 || panel.hidden || transcript.hidden) return null
+      const range = selected.getRangeAt(0)
+      if (!list.contains(range.startContainer) || !list.contains(range.endContainer)) return null
+      let first: { cue: number, offset: number } | null = null
+      let last: { cue: number, offset: number } | null = null
+      cueNodes.forEach((sentence, index) => {
+        if (!range.intersectsNode(sentence)) return
+        const intersection = document.createRange()
+        intersection.selectNodeContents(sentence)
+        if (range.compareBoundaryPoints(Range.START_TO_START, intersection) > 0) intersection.setStart(range.startContainer, range.startOffset)
+        if (range.compareBoundaryPoints(Range.END_TO_END, intersection) < 0) intersection.setEnd(range.endContainer, range.endOffset)
+        if (!intersection.toString().trim()) return
+        const before = document.createRange()
+        before.selectNodeContents(sentence)
+        before.setEnd(intersection.startContainer, intersection.startOffset)
+        const offset = before.toString().length
+        first ??= { cue: index, offset }
+        last = { cue: index, offset: offset + intersection.toString().length }
+      })
+      if (!first || !last) return null
+      const from = first as { cue: number, offset: number }
+      const to = last as { cue: number, offset: number }
+      const selection = selectionFromBounds(cues, from.cue, to.cue, from.offset, to.offset)
+      return selection ? { selection, rect: range.getBoundingClientRect() } : null
+    },
+    locate(saved: Pick<TranscriptSelection, 'fromCue' | 'toCue' | 'fromOffset' | 'toOffset' | 'start' | 'text'>) {
+      return locateTranscriptSelection(cues, saved)
+    },
+    reveal(selection: TranscriptSelection) {
+      referenceSelection = selection
+      selectTab('transcript')
+      following = false
+      follow.hidden = false
+      paintSearch()
+      scrollToCue(selection.fromCue)
+    },
     setCues(loaded: VTTCue[]) {
       window.clearTimeout(searchTimer)
       cues = normalizeCues(loaded.map(cue => ({
         start: cue.startTime, end: cue.endTime, text: cue.getCueAsHTML().textContent ?? '',
       })))
       cueNodes = []
+      referenceSelection = null
       active = -1
       following = true
       follow.hidden = true

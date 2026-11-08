@@ -24,11 +24,11 @@ test('classification uses the last complete extension, never a name fragment', (
   assert.equal(isAudioFile('会议.第 1 次.MP3'), true)
 })
 
-test('manifest keeps all audio/video handlers without changing default ownership or permissions', () => {
+test('manifest keeps all audio/video handlers and only adds reference/copy permissions', () => {
   const manifest = JSON.parse(readFileSync(new URL('../extension.json', import.meta.url), 'utf8'))
   const handler = manifest.contributes.fileHandlers[0]
   assert.deepEqual([...handler.extensions].sort(), [...audioExtensions, ...videoExtensions].map(extension => `.${extension}`).sort())
   assert.equal(handler.preview.requestDefault, false)
   assert.equal(handler.open.requestDefault, false)
-  assert.deepEqual(manifest.permissions, { selectedResource: 'read', localResources: true })
+  assert.deepEqual(manifest.permissions, { selectedResource: 'read', localResources: true, references: true, clipboardWrite: true })
 })

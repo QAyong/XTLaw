@@ -3,11 +3,14 @@ import type { ViewContext } from '../lexora'
 import css from './style.css'
 import { createReader } from './reader'
 import { isAudioFile } from './media'
+import { createSelectionToolbar } from './selection-toolbar'
+import { createTranscriptReference, readTranscriptReference } from './reference'
+import type { SourceFile, SubtitleSource } from './reference'
 
 const MAX_SUBTITLE_BYTES = 8 * 1024 * 1024
 const SUBTITLE_COMMAND = 'pcbed1a21022e43b388ccce09fd4647b5.transcript-player.subtitle'
 type SubtitleType = 'srt' | 'vtt' | 'ass'
-type SavedSubtitle = { id: string, name: string, type: SubtitleType, encoding: string, show: boolean }
+type SavedSubtitle = SubtitleSource
 
 function element<K extends keyof HTMLElementTagNameMap>(tag: K, className = '', text = '') {
   const node = document.createElement(tag)
@@ -28,6 +31,10 @@ function decodeSubtitle(bytes: Uint8Array, encoding: string) {
 async function readSubtitle(url: string, signal: AbortSignal) {
   const response = await fetch(url, { signal })
   if (!response.ok) throw new Error('无法读取字幕文件，请重新选择。')
+  if (Number(response.headers.get('content-length')) > MAX_SUBTITLE_BYTES) {
+    await response.body?.cancel()
+    throw new Error('字幕文件超过 8 MiB，请拆分后加载。')
+  }
   const bytes = new Uint8Array(await response.arrayBuffer())
   signal.throwIfAborted()
   if (!bytes.byteLength) throw new Error('字幕文件为空。')
@@ -47,10 +54,11 @@ function savedSubtitle(value: unknown): SavedSubtitle | null {
   const type = record.type
   if (typeof record.id !== 'string' || typeof record.name !== 'string' || typeof record.encoding !== 'string' || typeof record.show !== 'boolean') return null
   if (type !== 'srt' && type !== 'vtt' && type !== 'ass') return null
-  return { id: record.id, name: record.name, type, encoding: record.encoding, show: record.show }
+  return { id: record.id, name: record.name, type, encoding: record.encoding, show: record.show, ...(typeof record.relativePath === 'string' ? { relativePath: record.relativePath } : {}) }
 }
 
 function waitForCues(art: Artplayer, signal: AbortSignal) {
+  signal.throwIfAborted()
   return new Promise<VTTCue[]>((resolve, reject) => {
     const timer = window.setTimeout(() => finish(new Error('字幕加载超时，请重试或重新选择。')), 15000)
     const onLoad = (cues: VTTCue[]) => finish(null, cues)
@@ -64,6 +72,16 @@ function waitForCues(art: Artplayer, signal: AbortSignal) {
     }
     signal.addEventListener('abort', onAbort, { once: true })
     art.on('subtitleLoad', onLoad)
+  })
+}
+
+function waitWithSignal<T>(task: Promise<T>, signal: AbortSignal): Promise<T> {
+  signal.throwIfAborted()
+  return new Promise((resolve, reject) => {
+    const abort = () => { cleanup(); reject(new DOMException('已取消', 'AbortError')) }
+    const cleanup = () => signal.removeEventListener('abort', abort)
+    signal.addEventListener('abort', abort, { once: true })
+    task.then(value => { cleanup(); resolve(value) }, error => { cleanup(); reject(error) })
   })
 }
 
@@ -82,6 +100,9 @@ export async function render(context: ViewContext, container: HTMLElement) {
   let loading = false
   let loadedName = ''
   let saved: SavedSubtitle | null = null
+  let subtitleTask: Promise<void> = Promise.resolve()
+  let locating = false
+  let revealSequence = 0
   const mediaKey = context.resource?.sourceId
   const audio = isAudioFile(context.resource?.name ?? '')
 
@@ -122,6 +143,21 @@ export async function render(context: ViewContext, container: HTMLElement) {
   media.append(canvas, error)
   root.append(media, separator, reader.element)
   container.append(style, root)
+  const selectionToolbar = createSelectionToolbar(root, reader, signal, {
+    async copy(text) {
+      if (typeof context.clipboard?.write !== 'function') throw new Error('当前应用版本不支持插件复制，请升级应用。')
+      await context.clipboard.write({ text })
+    },
+    async quote(selection) {
+      if (loading || locating || !saved || !loadedName || !context.resource) throw new Error('请等待字幕加载完成后重新选择。')
+      if (typeof context.references?.add !== 'function') throw new Error('当前应用版本不支持内容引用，请升级应用。')
+      const mediaSource: SourceFile = { name: context.resource.name }
+      if ('relativePath' in context.resource && typeof context.resource.relativePath === 'string') mediaSource.relativePath = context.resource.relativePath
+      const reference = createTranscriptReference(selection, { ...saved }, mediaSource)
+      return context.references.add(reference)
+    },
+    notice,
+  })
 
   function setSplit(value: number) {
     split = Math.min(75, Math.max(30, value))
@@ -155,6 +191,7 @@ export async function render(context: ViewContext, container: HTMLElement) {
   function setExpanded(value: boolean) {
     expanded = value
     root.classList.toggle('is-expanded', value)
+    selectionToolbar.dismiss()
     reader.element.hidden = value
     separator.hidden = value || audio
     if (expandButton) {
@@ -187,7 +224,10 @@ export async function render(context: ViewContext, container: HTMLElement) {
   const visibility = context.onVisibilityChange((visible) => {
     window.clearTimeout(hideTimer)
     // 发消息会触发布局重测，文件页可能被判成不可见一瞬。只有持续藏起才暂停。
-    if (!visible) hideTimer = window.setTimeout(() => art?.pause(), 800)
+    if (!visible) {
+      selectionToolbar.dismiss()
+      hideTimer = window.setTimeout(() => art?.pause(), 800)
+    }
   })
   signal.addEventListener('abort', () => {
     window.clearTimeout(hideTimer)
@@ -220,38 +260,68 @@ export async function render(context: ViewContext, container: HTMLElement) {
     await context.commands.execute(SUBTITLE_COMMAND, next ? { op: 'put', key: mediaKey, value: next } : { op: 'delete', key: mediaKey })
   }
 
-  async function applySubtitle(file: { id: string, name: string }, type: SubtitleType, show: boolean) {
+  function applySubtitle(file: { id: string, name: string, relativePath?: string }, type: SubtitleType, show: boolean, requestSignal = signal, persist = true) {
+    const task = subtitleTask.catch(() => {}).then(() => applySubtitleNow(file, type, show, requestSignal, persist))
+    subtitleTask = task
+    return task
+  }
+
+  async function applySubtitleNow(file: { id: string, name: string, relativePath?: string }, type: SubtitleType, show: boolean, requestSignal: AbortSignal, persist: boolean) {
+    const operation = new AbortController()
+    const activeSignal = AbortSignal.any([signal, requestSignal, operation.signal])
+    activeSignal.throwIfAborted()
     if (!art) throw new Error('播放器还没准备好，请稍后再加载字幕。')
+    const player = art
     const url = await context.resources.getUrl(file)
-    signal.throwIfAborted()
-    const encoding = await readSubtitle(url, signal)
-    if (!art.subtitle.textTrack) throw new Error('播放器还没准备好，请稍后再加载字幕。')
-    const cuesPromise = waitForCues(art, signal)
-    const switched = await art.subtitle.switch(url, { type, encoding, escape: true })
-    if (!switched) throw new Error('播放器还没准备好，请稍后再加载字幕。')
-    const cues = await cuesPromise
-    signal.throwIfAborted()
-    if (!cues.length || cues.length > 20000) {
-      // The text track has already switched. Do not leave the previous transcript
-      // visible against a new, invalid subtitle track.
-      reader.setCues([])
-      loadedName = ''
-      art.subtitle.show = false
-      setToggle('empty')
-      await remember(null).catch(() => {})
-      throw new Error(cues.length ? '字幕超过 20,000 句，请拆分后加载。' : '没有读到有效字幕，请检查内容后重试。')
+    activeSignal.throwIfAborted()
+    const encoding = await readSubtitle(url, activeSignal)
+    activeSignal.throwIfAborted()
+    if (!player.subtitle.textTrack) throw new Error('播放器还没准备好，请稍后再加载字幕。')
+    selectionToolbar.dismiss()
+    const cuesPromise = waitForCues(player, activeSignal)
+    void cuesPromise.catch(() => {}) // switch() may fail before the cue event arrives.
+    try {
+      const switched = await player.subtitle.switch(url, { type, encoding, escape: true })
+      if (!switched) throw new Error('播放器还没准备好，请稍后再加载字幕。')
+      const cues = await cuesPromise
+      activeSignal.throwIfAborted()
+      if (!cues.length || cues.length > 20000) {
+        reader.setCues([])
+        loadedName = ''
+        player.subtitle.show = false
+        setToggle('empty')
+        if (persist) await remember(null).catch(() => {})
+        else saved = null
+        throw new Error(cues.length ? '字幕超过 20,000 句，请拆分后加载。' : '没有读到有效字幕，请检查内容后重试。')
+      }
+      reader.setCues(cues)
+      reader.update(player.currentTime, player.playing)
+      loadedName = file.name
+      player.subtitle.show = show
+      setLoadLabel(file.name, file.name)
+      setToggle(show ? 'on' : 'off')
+      const next: SavedSubtitle = { id: file.id, name: file.name, type, encoding, show, ...(file.relativePath ? { relativePath: file.relativePath } : {}) }
+      if (persist) await remember(next).catch(() => {})
+      else saved = next // Revealing an old quote must not overwrite the remembered subtitle.
     }
-    reader.setCues(cues)
-    reader.update(art.currentTime, art.playing)
-    loadedName = file.name
-    art.subtitle.show = show
-    setLoadLabel(file.name, file.name)
-    setToggle(show ? 'on' : 'off')
-    await remember({ id: file.id, name: file.name, type, encoding, show }).catch(() => {})
+    catch (error) {
+      if (!signal.aborted) {
+        // switch() may already have replaced the track before it fails or is
+        // cancelled. Never keep the previous text against that different track.
+        reader.setCues([])
+        loadedName = ''
+        saved = null
+        player.subtitle.show = false
+        setLoadLabel('加载字幕')
+        setToggle('empty')
+      }
+      throw error
+    }
+    finally { operation.abort() }
   }
 
   async function loadSubtitle() {
-    if (!art || loading || signal.aborted) return
+    if (!art || loading || locating || signal.aborted) return
     loading = true
     setLoadLabel('正在选择…')
     try {
@@ -379,7 +449,43 @@ export async function render(context: ViewContext, container: HTMLElement) {
     art.on('video:pause', syncReader)
     art.on('video:ended', syncReader)
     art.on('subtitle', shown => { if (loadedName) setToggle(shown ? 'on' : 'off') })
-    void restoreSubtitle()
+    const restored = restoreSubtitle().catch(() => {})
+    if (typeof context.references?.onReveal === 'function') {
+      const registration = context.references.onReveal(async (input, requestSignal) => {
+        const reference = readTranscriptReference(input.locator, input.text)
+        if (!reference) return false
+        const sequence = ++revealSequence
+        locating = true
+        const activeSignal = AbortSignal.any([signal, requestSignal])
+        try {
+          await waitWithSignal(restored, activeSignal)
+          if (loading) return false
+          const { data, text } = reference
+          // Reload the referenced authorized subtitle, not a file guessed from its name.
+          await applySubtitle(data.subtitle, data.subtitle.type, data.subtitle.show, activeSignal, false)
+          activeSignal.throwIfAborted()
+          if (sequence !== revealSequence || !art) return false
+          const selection = reader.locate({ ...data, text })
+          if (!selection) {
+            notice('引用原文与当前字幕不匹配，无法定位。')
+            return false
+          }
+          art.pause()
+          setExpanded(false)
+          art.seek = selection.start
+          reader.update(selection.start, false)
+          reader.reveal(selection)
+          selectionToolbar.dismiss()
+          return true
+        }
+        catch {
+          if (!activeSignal.aborted) notice('无法读取引用所用字幕，请重新加载对应字幕后重试。')
+          return false
+        }
+        finally { if (sequence === revealSequence) locating = false }
+      })
+      signal.addEventListener('abort', () => registration.dispose(), { once: true })
+    }
     art.on('video:error', () => {
       const code = art?.video.error?.code
       error.hidden = false

@@ -15,7 +15,7 @@ function subtitle(value: Json) {
   const show = value.show
   if (typeof id !== 'string' || typeof name !== 'string' || typeof encoding !== 'string' || typeof show !== 'boolean') return null
   if (type !== 'srt' && type !== 'vtt' && type !== 'ass') return null
-  return { id, name, type, encoding, show }
+  return { id, name, type, encoding, show, ...(typeof value.relativePath === 'string' && value.relativePath.length <= 32768 ? { relativePath: value.relativePath } : {}) }
 }
 
 export function activate(context: ExtensionContext) {

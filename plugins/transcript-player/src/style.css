@@ -146,6 +146,12 @@
 .transcript-cue.is-current { background: var(--lexora-selected, #e7edfc); box-shadow: -2px 0 0 var(--lexora-accent-solid, #365edc); }
 .transcript-cue mark { border-radius: 2px; background: var(--lexora-accent-surface, #e7edfc); color: inherit; }
 .transcript-cue mark.is-search-current { outline: 1px solid var(--lexora-accent, #365edc); outline-offset: 1px; }
+.transcript-cue mark.is-reference { background: var(--lexora-selected, #dfe8ff); text-decoration: underline; text-decoration-color: var(--lexora-accent, #365edc); text-underline-offset: 3px; }
+.transcript-selection-toolbar { position: absolute; z-index: 200; display: flex; gap: 2px; max-width: calc(100% - 16px); padding: 4px; border: 1px solid var(--lexora-border, #dedfe3); border-radius: 6px; background: var(--lexora-background, #fff); }
+.transcript-selection-toolbar button { min-height: 32px; padding: 4px 10px; border: 0; border-radius: 3px; background: transparent; color: inherit; white-space: nowrap; font-size: 13px; }
+.transcript-selection-toolbar button:hover:not(:disabled) { background: var(--lexora-hover, #f0f2f5); }
+.transcript-selection-toolbar button:disabled { cursor: default; opacity: 0.45; }
+.transcript-selection-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .transcript-follow-bar { position: absolute; z-index: 1; inset-inline: 16px; bottom: 16px; display: flex; justify-content: center; pointer-events: none; }
 .transcript-follow { max-width: 100%; margin: 0; padding: 6px 12px; border: 1px solid var(--lexora-border, #dedfe3); border-radius: 6px; background: var(--lexora-background, #fff); color: var(--lexora-accent, #365edc); font-size: 12px !important; pointer-events: auto; }
 .transcript-follow:hover { background: var(--lexora-hover, #f0f2f5); }

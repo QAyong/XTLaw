@@ -1,80 +1,20 @@
-/* Uses host semantic tokens; no parent-window styles or remote assets. */
-.transcript-player {
-  --surface: var(--lexora-background);
-  --ink: var(--lexora-text);
-  --muted: var(--lexora-muted);
-  --border: var(--lexora-border);
-  --accent: var(--lexora-accent-solid);
-  display: grid;
-  grid-template-columns: minmax(240px, 38fr) minmax(0, 62fr);
+.player-root {
+  width: 100%;
   height: 100%;
+  min-width: 0;
   min-height: 0;
-  overflow: hidden;
-  background: var(--surface);
-  color: var(--ink);
-  font: 14px/1.5 system-ui, sans-serif;
-  container-type: inline-size;
+  background: #000;
 }
-.transcript-player *, .transcript-player *::before, .transcript-player *::after { box-sizing: border-box; }
-.transcript-player [hidden] { display: none !important; }
-.transcript-player button, .transcript-player select, .transcript-player input { font: inherit; color: inherit; accent-color: var(--accent); }
-.transcript-player button, .transcript-player select {
-  min-height: 32px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-  padding: 4px 10px;
+.player-root *, .player-root *::before, .player-root *::after { box-sizing: border-box; }
+.player-root [hidden] { display: none !important; }
+.player-canvas, .player-canvas .art-video-player { width: 100%; height: 100%; }
+.player-error {
+  position: absolute;
+  z-index: 2;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  margin: 0;
+  color: #fff;
+  font: 13px/1.5 system-ui, sans-serif;
 }
-.transcript-player button { cursor: pointer; }
-.transcript-player button:hover:not(:disabled) { background: var(--lexora-hover, color-mix(in srgb, var(--ink) 7%, var(--surface))); }
-.transcript-player button:disabled, .transcript-player select:disabled { cursor: default; opacity: 0.55; }
-.transcript-player :focus-visible { outline: 2px solid var(--lexora-focus, var(--accent)); outline-offset: 2px; }
-.transcript-player ::selection { background: var(--lexora-accent-surface, color-mix(in srgb, var(--accent) 22%, var(--surface))); color: var(--ink); }
-.transcript-player .primary, .transcript-player .play-button { color: var(--lexora-on-accent, #fff); background: var(--accent); border-color: transparent; }
-.transcript-player .primary:hover:not(:disabled), .transcript-player .play-button:hover:not(:disabled) { background: var(--lexora-accent-hover, var(--accent)); }
-.media-pane { min-width: 0; padding: 20px 16px; background: color-mix(in srgb, var(--ink) 3%, var(--surface)); border-right: 1px solid var(--border); overflow: auto; }
-.media-stage { position: relative; aspect-ratio: 16 / 9; width: 100%; min-height: 120px; overflow: hidden; border-radius: 8px; background: #000; }
-.player-canvas { position: relative; z-index: 1; width: 100%; height: 100%; }
-.audio-cover { display: none; position: absolute; z-index: 2; inset: 0; align-items: center; justify-content: center; flex-direction: column; padding: 24px; text-align: center; background: var(--surface); }
-.is-audio .audio-cover { display: flex; }
-.audio-title { margin: 0; font-size: 17px; line-height: 1.6; overflow-wrap: anywhere; }
-.audio-duration { color: var(--muted); margin: 12px 0 0; font-variant-numeric: tabular-nums; }
-.media-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 12px 0 8px; color: var(--muted); font-size: 12px; }
-.seek { display: block; width: 100%; margin: 8px 0; cursor: pointer; }
-.playback-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.clock { font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.volume-control { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
-.volume { width: 64px; }
-.transcript-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
-.transcript-toolbar { padding: 16px 24px 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.transcript-toolbar h2 { flex: 1; font-size: 16px; font-weight: 600; margin: 0; }
-.subtitle-name { margin: 0; padding: 0 24px 8px; color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.subtitle-status { margin: 0; padding: 0 24px; color: var(--muted); font-size: 13px; }
-.subtitle-status:not(:empty) { padding-bottom: 8px; }
-.transcript-pane > .secondary { align-self: flex-start; margin: 0 24px 12px; }
-.error { font-size: 13px; color: var(--lexora-danger, var(--ink)); overflow-wrap: anywhere; }
-.transcript-scroll { position: relative; flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 16px 24px 48px; scrollbar-color: var(--border) transparent; scrollbar-width: thin; }
-.empty { display: flex; flex-direction: column; justify-content: center; min-height: 180px; color: var(--muted); }
-.empty h3 { margin: 0 0 8px; color: var(--ink); font-weight: 500; font-size: 18px; }
-.empty p { margin: 0; line-height: 1.75; }
-.paragraph { margin-bottom: 24px; max-width: 72ch; }
-.speaker { margin: 0 0 8px; color: var(--muted); font-size: 12px; }
-.cue { position: relative; display: grid; grid-template-columns: 54px minmax(0, 1fr); column-gap: 8px; padding: 5px 8px; margin: 0 -8px; cursor: pointer; }
-.transcript-player .cue-time { border: 0; padding: 2px 0; min-height: 28px; background: transparent; color: var(--muted); font-size: 11px; align-self: start; font-variant-numeric: tabular-nums; }
-.cue-text { font-size: 15px; line-height: 1.75; white-space: pre-wrap; overflow-wrap: anywhere; cursor: text; }
-.cue:hover { background: var(--lexora-hover, color-mix(in srgb, var(--ink) 4%, var(--surface))); }
-.cue.is-current { background: var(--lexora-selected, color-mix(in srgb, var(--accent) 10%, var(--surface))); }
-.cue.is-current::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: var(--accent); }
-.follow-bar { min-height: 44px; padding: 6px 24px; display: flex; align-items: center; justify-content: space-between; gap: 8px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; }
-/* ArtPlayer only supplies decoding, the picture, and subtitle conversion. */
-.player-canvas .art-video-player { width: 100%; height: 100%; }
-@media (max-width: 719px) {
-  .transcript-player { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
-  .media-pane { border-right: 0; border-bottom: 1px solid var(--border); }
-  .media-stage { max-height: 42vh; }
-  .transcript-toolbar { padding: 12px 16px 8px; }
-  .subtitle-name, .subtitle-status { padding-left: 16px; padding-right: 16px; }
-  .transcript-scroll { padding: 12px 16px 32px; }
-  .follow-bar { padding-left: 16px; padding-right: 16px; }
-}
-@media (prefers-reduced-motion: reduce) { .transcript-player * { scroll-behavior: auto !important; } }

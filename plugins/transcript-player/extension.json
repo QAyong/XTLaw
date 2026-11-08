@@ -2,22 +2,21 @@
   "schemaVersion": 1,
   "format": "compiled",
   "id": "pcbed1a21022e43b388ccce09fd4647b5.transcript-player",
-  "name": "文字稿",
-  "description": "播放音视频、手动加载字幕，点击文字稿跳转播放。",
+  "name": "ArtPlayer",
+  "description": "用 ArtPlayer 播放音视频，不替换内置播放器的默认打开方式。",
   "version": "0.1.0",
   "apiVersion": 4,
   "engines": {
     "lexora": ">=0.5.4"
   },
   "permissions": {
-    "selectedResource": "read",
-    "localResources": true
+    "selectedResource": "read"
   },
   "contributes": {
     "views": [
       {
         "id": "pcbed1a21022e43b388ccce09fd4647b5.transcript-player.reader",
-        "title": "文字稿",
+        "title": "ArtPlayer",
         "entry": "view.js",
         "resource": "selected-file",
         "location": "context"
@@ -26,7 +25,7 @@
     "fileHandlers": [
       {
         "id": "pcbed1a21022e43b388ccce09fd4647b5.transcript-player.media",
-        "title": "文字稿",
+        "title": "ArtPlayer",
         "extensions": [
           ".mp4",
           ".m4v",

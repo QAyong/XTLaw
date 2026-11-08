@@ -1,9 +1,21 @@
 import type { ComputedRef, InjectionKey } from 'vue'
+import type { BuddyLocale } from '@/i18n/buddyI18n'
 
-// Maps an image address as the Markdown parser reports it (percent-encoded) to a URL the app can load, or null to keep it as written.
-export type MarkdownImageResolver = (src: string) => string | null
+export type MarkdownImageResolution
+  = | { kind: 'default' }
+    | { kind: 'local', src: string }
+    | { kind: 'unavailable' }
 
-export const markdownImageResolverKey: InjectionKey<ComputedRef<MarkdownImageResolver | undefined>> = Symbol('markdownImageResolver')
+// String and null keep compatibility with XTLaw's existing synchronous file-preview resolvers.
+export type MarkdownImageResolverResult = MarkdownImageResolution | string | null
+export type MarkdownImageResolver = (src: string) => MarkdownImageResolverResult | Promise<MarkdownImageResolverResult>
+
+interface MarkdownImageContext {
+  resolve: ComputedRef<MarkdownImageResolver | undefined>
+  language: ComputedRef<BuddyLocale>
+}
+
+export const markdownImageContextKey: InjectionKey<MarkdownImageContext> = Symbol('markdownImageContext')
 
 const URL_SCHEME = /^[a-z][a-z\d+.-]*:/i
 const DRIVE_PREFIX = /^[a-z]:[\\/]/i

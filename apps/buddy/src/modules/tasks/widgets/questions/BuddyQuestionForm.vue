@@ -65,7 +65,7 @@ function choose(optionId: string, checked: boolean) {
           :is="question.kind === 'multiple' ? NCheckbox : NRadio"
           v-for="option in question.options"
           :key="option.id"
-          class="question-option relative isolate m-0 min-h-9 min-w-0 w-full border-1 border-solid border-transparent rounded-control px-2.5 py-1.5"
+          class="question-option m-0 min-h-9 min-w-0 w-full rounded-control px-3 py-1.5"
           size="small"
           :class="{ selected: answer.selectedOptionIds.includes(option.id) }"
           :name="id"
@@ -82,7 +82,7 @@ function choose(optionId: string, checked: boolean) {
           </span>
           <span v-if="option.description" class="mt-0.5 block text-muted text-[length:var(--buddy-chat-meta-font-size)] leading-[var(--buddy-chat-meta-line-height)]">{{ option.description }}</span>
         </component>
-        <div v-if="question.kind === 'single'" class="question-option relative isolate min-h-9 flex items-start gap-2 border-1 border-solid border-transparent rounded-control px-2.5 py-1.5" :class="{ selected: isCustom }">
+        <div v-if="question.kind === 'single'" class="question-option min-h-9 flex items-start gap-2 rounded-control px-3 py-1.5" :class="{ selected: isCustom }">
           <NRadio class="shrink-0" size="small" :name="id" :checked="isCustom" :disabled="disabled" :theme-overrides="{ ...choiceTheme, labelPadding: '0' }" @update:checked="chooseCustom()">
             <span class="sr-only">{{ t('questions.custom') }}</span>
           </NRadio>
@@ -123,55 +123,30 @@ function choose(optionId: string, checked: boolean) {
 
 <style scoped lang="scss">
 .question-option {
-  --question-paper-border: color-mix(in srgb, var(--buddy-text-secondary) 32%, var(--buddy-surface-raised));
-  --question-paper-surface: var(--buddy-surface-raised);
-
-  &::before,
-  &::after {
-    content: '';
-    position: absolute;
-    pointer-events: none;
-    z-index: -1;
-  }
-
-  &::before {
-    inset: 0;
-    border: 1px solid var(--question-paper-border);
-    border-radius: 180px 6px 160px 5px / 6px 120px 5px 130px;
-    background: var(--question-paper-surface);
-    transition: background-color 120ms, border-color 120ms;
-  }
-
-  &::after {
-    inset: 2px 2px 1px 3px;
-    border: 1px solid var(--question-paper-border);
-    border-radius: 160px 5px 190px 6px / 5px 110px 7px 120px;
-    opacity: 0.2;
-    transform: rotate(-0.2deg);
-  }
-
-  &:nth-child(even)::before {
-    border-radius: 6px 180px 5px 160px / 120px 6px 130px 5px;
-  }
+  border: 1px solid var(--buddy-border-subtle);
+  border-radius: var(--buddy-composer-control-radius);
+  background: var(--buddy-surface-raised);
+  transition: border-color 120ms, background-color 120ms, box-shadow 120ms;
 
   &.selected {
-    --question-paper-border: var(--buddy-accent-border);
-    --question-paper-surface: var(--buddy-accent-surface-subtle);
+    border-color: var(--buddy-accent-border);
+    background: var(--buddy-accent-surface-subtle);
   }
 
   &:has(textarea:focus-visible) {
-    outline: 2px solid var(--buddy-focus-ring);
-    outline-offset: -2px;
+    border-color: var(--buddy-focus-ring);
+    box-shadow: 0 0 0 2px var(--buddy-state-selected);
+    outline: none;
   }
 }
 
 .question-form {
   &:not(:disabled) .question-option:hover {
-    --question-paper-surface: var(--buddy-state-hover);
+    border-color: var(--buddy-accent-border-hover);
   }
 
   &:not(:disabled) .question-option.selected:hover {
-    --question-paper-surface: var(--buddy-accent-surface-hover);
+    background: var(--buddy-accent-surface-hover);
   }
 
   :deep(.n-radio__label),
@@ -187,7 +162,7 @@ function choose(optionId: string, checked: boolean) {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .question-option::before {
+  .question-option {
     transition: none;
   }
 }

@@ -69,9 +69,7 @@ export function createSelectionToolbar(root: HTMLElement, reader: ReturnType<typ
   let snapshot: TranscriptSelection | null = null
   let capture: ReferenceCapture | null = null
   let sequence = 0
-  let dragging = false
   let committing = false
-  let frame = 0
   let selectionMenu = false
 
   function hideSubmenu() {
@@ -80,8 +78,6 @@ export function createSelectionToolbar(root: HTMLElement, reader: ReturnType<typ
   }
   function dismiss() {
     sequence++
-    window.cancelAnimationFrame(frame)
-    frame = 0
     menu.hidden = true
     hideSubmenu()
     submenu.replaceChildren()
@@ -188,9 +184,8 @@ export function createSelectionToolbar(root: HTMLElement, reader: ReturnType<typ
     }
     if (!textSurface(event.target)) return
     event.preventDefault()
-    dragging = false
     const selected = reader.readSelection()
-    if (selected) void open(selected.selection, event.clientX || selected.rect.right, event.clientY || selected.rect.bottom, true)
+    if (selected) void open(selected.selection, event.clientX || selected.rect.left, event.clientY || selected.rect.bottom, true)
     else dismiss()
   }, { capture: true, signal })
   menu.addEventListener('mousedown', event => event.preventDefault(), { signal })
@@ -241,29 +236,15 @@ export function createSelectionToolbar(root: HTMLElement, reader: ReturnType<typ
   document.addEventListener('pointerdown', event => {
     if (event.target instanceof Node && menu.contains(event.target)) return
     dismiss()
-    dragging = event.button === 0 && textSurface(event.target)
   }, { signal, capture: true })
-  document.addEventListener('pointerup', event => {
-    if (!dragging) return
-    dragging = false
-    frame = window.requestAnimationFrame(() => {
-      frame = 0
-      const selected = reader.readSelection()
-      if (selected) void open(selected.selection, event.clientX, event.clientY, true)
-    })
-  }, { signal })
-  document.addEventListener('pointercancel', () => { dragging = false; dismiss() }, { signal })
+  document.addEventListener('pointercancel', dismiss, { signal })
   document.addEventListener('selectionchange', () => {
-    if (dragging || menu.hidden || !selectionMenu || committing) return
+    if (menu.hidden || !selectionMenu || committing) return
     const selected = reader.readSelection()
     if (!selected || JSON.stringify(selected.selection) !== JSON.stringify(snapshot)) dismiss()
   }, { signal })
-  document.addEventListener('keyup', event => {
-    if (event.key === 'Escape') dismiss()
-    else if (event.shiftKey && (event.key.startsWith('Arrow') || ['Home', 'End'].includes(event.key))) {
-      const selected = reader.readSelection()
-      if (selected) void open(selected.selection, selected.rect.right, selected.rect.bottom, true)
-    }
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' || event.key === 'Tab') dismiss()
   }, { signal })
   root.addEventListener('scroll', event => {
     if (!(event.target instanceof Node) || !menu.contains(event.target)) dismiss()

@@ -1,0 +1,22 @@
+/* Office editor's ctx-menu / ctx-item / ctx-submenu rules, scoped to this
+   plugin's menu. Only the theme-token adapter and viewport clamping are local. */
+.transcript-reference-menu {
+  --surface: var(--lexora-background, #fff);
+  --border-strong: var(--lexora-border, #dedfe3);
+  --border: var(--lexora-border, #dedfe3);
+  --text: var(--lexora-text, #202124);
+  --text-dim: var(--lexora-muted, #686b73);
+  --word-blue: var(--lexora-accent-solid, #365edc);
+  --docs-on-accent: var(--lexora-on-accent, #fff);
+  --docs-shadow-ctx: 0 8px 28px rgb(0 0 0 / 22%);
+}
+.transcript-reference-menu[data-color-scheme="dark"] { --docs-shadow-ctx: 0 8px 28px rgb(0 0 0 / 60%); }
+.transcript-reference-menu.ctx-menu { position: fixed; z-index: 200; padding: 5px 0; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 8px; box-shadow: var(--docs-shadow-ctx); font-size: 13px; max-width: calc(100vw - 16px); }
+.transcript-reference-menu .ctx-item { display: flex; align-items: center; width: 100%; border: none; background: none; padding: 6px 14px; font-size: 13px; color: var(--text); cursor: pointer; text-align: left; white-space: nowrap; }
+.transcript-reference-menu .ctx-item:hover:not(:disabled), .transcript-reference-menu .ctx-item:focus-visible { background: var(--word-blue); color: var(--docs-on-accent); }
+.transcript-reference-menu .ctx-item:disabled { color: var(--text-dim); opacity: .55; cursor: default; }
+.transcript-reference-menu .ctx-label { flex: 1; margin-right: 28px; overflow: hidden; text-overflow: ellipsis; }
+.transcript-reference-menu .ctx-arrow { margin-left: 6px; color: var(--text-dim); }
+.transcript-reference-menu .ctx-sep { height: 1px; margin: 4px 10px; background: var(--border); }
+.transcript-reference-menu .ctx-item-wrap { position: relative; }
+.transcript-reference-menu .ctx-submenu { position: fixed; z-index: 201; min-width: 150px; max-width: calc(100vw - 16px); max-height: min(320px, calc(100vh - 16px)); overflow-y: auto; padding: 5px 0; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 8px; box-shadow: var(--docs-shadow-ctx); }

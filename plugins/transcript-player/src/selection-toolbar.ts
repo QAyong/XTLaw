@@ -1,120 +1,268 @@
+import type { ReferenceCapture, ReferenceInput } from '../lexora'
 import type { createReader } from './reader'
 import type { TranscriptSelection } from './reference'
 import { SELECTION_LIMIT } from './reference'
+import { orderedTargets, QuoteSession } from './quote-session'
+import type { QuoteApi } from './quote-session'
+import officeMenuCss from './office-menu.css'
 
 type Actions = {
   copy: (text: string) => Promise<void>
-  quote: (selection: TranscriptSelection) => Promise<boolean>
+  reference: (selection: TranscriptSelection) => ReferenceInput
+  references: QuoteApi
+  colorScheme: () => string
   notice: (text: string) => void
 }
 
+// Adapter for the Office ctx-menu presentation and capture/choose/commit flow.
+// Selection and paragraph entry points deliberately share this single menu.
 export function createSelectionToolbar(root: HTMLElement, reader: ReturnType<typeof createReader>, signal: AbortSignal, actions: Actions) {
-  const toolbar = document.createElement('div')
-  toolbar.className = 'transcript-selection-toolbar'
-  toolbar.setAttribute('role', 'toolbar')
-  toolbar.setAttribute('aria-label', '文字选区操作')
-  toolbar.hidden = true
-  const makeButton = (text: string) => {
+  const style = document.createElement('style')
+  style.textContent = officeMenuCss
+  const menu = document.createElement('div')
+  menu.className = 'ctx-menu transcript-reference-menu'
+  menu.setAttribute('role', 'menu')
+  menu.setAttribute('aria-label', '文字引用菜单')
+  menu.hidden = true
+  const item = (text: string) => {
     const result = document.createElement('button')
     result.type = 'button'
-    result.textContent = text
+    result.className = 'ctx-item'
+    result.setAttribute('role', 'menuitem')
+    const label = document.createElement('span')
+    label.className = 'ctx-label'
+    label.textContent = text
+    result.append(label)
     return result
   }
-  const copy = makeButton('复制')
-  const quote = makeButton('引用到 AI')
+  const copy = item('复制')
+  const separator = document.createElement('div')
+  separator.className = 'ctx-sep'
+  separator.setAttribute('role', 'separator')
+  const wrapper = document.createElement('div')
+  wrapper.className = 'ctx-item-wrap office-quote-entry'
+  const quote = item('引用到聊天')
+  const arrow = document.createElement('span')
+  arrow.className = 'ctx-arrow'
+  arrow.textContent = '›'
+  arrow.hidden = true
+  quote.append(arrow)
+  const submenu = document.createElement('div')
+  submenu.className = 'ctx-submenu office-quote-submenu'
+  submenu.setAttribute('role', 'menu')
+  submenu.setAttribute('aria-label', '选择目标聊天')
+  submenu.hidden = true
   const status = document.createElement('span')
   status.className = 'transcript-selection-status'
   status.setAttribute('role', 'status')
-  status.setAttribute('aria-live', 'polite')
-  toolbar.append(copy, quote)
-  root.append(toolbar, status)
-  let snapshot: ReturnType<typeof reader.readSelection> = null
-  let busy = false
+  wrapper.append(quote, submenu)
+  menu.append(copy, separator, wrapper)
+  root.append(style, menu, status)
+  const session = new QuoteSession(actions.references)
+  let snapshot: TranscriptSelection | null = null
+  let capture: ReferenceCapture | null = null
+  let sequence = 0
   let dragging = false
+  let committing = false
   let frame = 0
+  let selectionMenu = false
 
+  function hideSubmenu() {
+    submenu.hidden = true
+    quote.setAttribute('aria-expanded', 'false')
+  }
   function dismiss() {
+    sequence++
     window.cancelAnimationFrame(frame)
     frame = 0
-    toolbar.hidden = true
+    menu.hidden = true
+    hideSubmenu()
+    submenu.replaceChildren()
+    capture = null
     snapshot = null
+    session.close()
   }
   function notice(text: string) {
     status.textContent = text
     actions.notice(text)
   }
-  function refresh() {
-    frame = 0
-    if (signal.aborted || busy || dragging) return
-    snapshot = reader.readSelection()
-    if (!snapshot) return dismiss()
-    const bounds = root.getBoundingClientRect()
-    const rect = snapshot.rect
-    if (rect.bottom < bounds.top || rect.top > bounds.bottom) return dismiss()
-    toolbar.hidden = false
-    const width = toolbar.offsetWidth
-    const height = toolbar.offsetHeight
-    const left = Math.max(8, Math.min(bounds.width - width - 8, (rect.left + rect.right) / 2 - bounds.left - width / 2))
-    let top = rect.top - bounds.top - height - 8
-    if (top < 8) top = rect.bottom - bounds.top + 8
-    top = Math.max(8, Math.min(bounds.height - height - 8, top))
-    toolbar.style.left = `${left}px`
-    toolbar.style.top = `${top}px`
-    quote.disabled = snapshot.selection.text.length > SELECTION_LIMIT
-    quote.title = quote.disabled ? '最多引用 32768 个字符，请缩小选区' : '加入聊天草稿，不会直接发送消息'
+  function errorText(error: unknown) {
+    return error instanceof Error ? error.message : '无法加入引用，请重新选择后重试。'
   }
-  function schedule() {
-    if (!frame && !signal.aborted) frame = window.requestAnimationFrame(refresh)
+  function place(element: HTMLElement, x: number, y: number) {
+    const bounds = element.getBoundingClientRect()
+    element.style.left = `${Math.max(8, Math.min(x, window.innerWidth - bounds.width - 8))}px`
+    element.style.top = `${Math.max(8, Math.min(y, window.innerHeight - bounds.height - 8))}px`
   }
-  toolbar.addEventListener('pointerdown', event => {
-    if (event.pointerType === 'mouse') event.preventDefault() // Keep the selection while clicking an action.
-  }, { signal })
-  document.addEventListener('selectionchange', schedule, { signal })
-  document.addEventListener('pointerdown', event => {
-    if (event.target instanceof Node && toolbar.contains(event.target)) return
-    dragging = true
-    dismiss()
-  }, { signal })
-  document.addEventListener('pointerup', () => {
-    if (!dragging) return
-    dragging = false
-    schedule()
-  }, { signal })
-  document.addEventListener('pointercancel', () => { dragging = false; dismiss() }, { signal })
-  document.addEventListener('keyup', event => {
-    if (event.key === 'Escape') dismiss()
-    else if (event.shiftKey || event.key.startsWith('Arrow')) schedule()
-  }, { signal })
-  root.addEventListener('scroll', dismiss, { signal, capture: true, passive: true })
-  window.addEventListener('resize', dismiss, { signal })
-
-  async function run(kind: 'copy' | 'quote') {
-    if (busy || !snapshot || signal.aborted) return
-    const selection = { ...snapshot.selection } // Freeze before any asynchronous target selection.
-    busy = true
-    copy.disabled = quote.disabled = true
+  function showSubmenu() {
+    if (quote.disabled || !capture || capture.targets.length < 2) return
+    submenu.hidden = false
+    quote.setAttribute('aria-expanded', 'true')
+    const anchor = quote.getBoundingClientRect()
+    const bounds = submenu.getBoundingClientRect()
+    place(submenu, anchor.right + bounds.width <= window.innerWidth - 8 ? anchor.right - 4 : anchor.left - bounds.width + 4, anchor.top - 5)
+  }
+  async function commit(targetId: string, row: HTMLButtonElement) {
+    if (committing || menu.hidden || !capture) return
+    const request = sequence
+    committing = true
+    row.disabled = quote.disabled = true
+    quote.title = '正在加入引用…'
     try {
-      if (kind === 'copy') {
-        await actions.copy(selection.text)
-        if (!signal.aborted) notice('已复制选中文字。')
+      const accepted = await session.commit(targetId)
+      if (signal.aborted || request !== sequence) return
+      if (accepted) dismiss()
+      else quote.title = '对话或选区已变化，请重新选择后引用。'
+    }
+    catch (error) {
+      if (!signal.aborted && request === sequence) {
+        quote.title = errorText(error)
+        notice(quote.title)
       }
-      else if (await actions.quote(selection)) {
-        if (!signal.aborted) notice('已加入聊天草稿，尚未发送。')
+    }
+    finally { committing = false }
+  }
+  async function open(selected: TranscriptSelection, x: number, y: number, fromSelection: boolean) {
+    if (signal.aborted || committing) return
+    dismiss()
+    const request = sequence
+    snapshot = { ...selected }
+    selectionMenu = fromSelection
+    copy.disabled = false
+    quote.disabled = true
+    quote.title = selected.text.length > SELECTION_LIMIT ? '选中的文字过长，请缩小范围。' : '正在读取目标聊天…'
+    quote.removeAttribute('aria-haspopup')
+    quote.setAttribute('aria-expanded', 'false')
+    arrow.hidden = true
+    menu.dataset.colorScheme = actions.colorScheme()
+    menu.hidden = false
+    place(menu, x, y)
+    if (selected.text.length > SELECTION_LIMIT) return
+    try {
+      const input = actions.reference({ ...selected })
+      const frozen = await session.capture(input)
+      if (signal.aborted || request !== sequence || menu.hidden) return
+      if (!frozen) {
+        quote.title = '对话或选区已变化，请重新选择后引用。'
+        return
+      }
+      capture = frozen
+      if (!frozen.targets.length) {
+        quote.title = '请先打开一个聊天输入框。'
+        return
+      }
+      quote.disabled = false
+      quote.title = '引用到聊天'
+      if (frozen.targets.length > 1) {
+        arrow.hidden = false
+        quote.setAttribute('aria-haspopup', 'menu')
+        for (const target of orderedTargets(frozen)) {
+          const row = item(target.label)
+          row.title = target.label
+          row.dataset.targetId = target.id
+          submenu.append(row)
+        }
       }
     }
     catch (error) {
-      if (!signal.aborted) notice(error instanceof Error ? error.message : '操作失败，请重新选择后重试。')
-    }
-    finally {
-      busy = false
-      if (!signal.aborted) {
-        copy.disabled = quote.disabled = false
-        dismiss()
-      }
+      if (!signal.aborted && request === sequence) quote.title = errorText(error)
     }
   }
-  copy.addEventListener('click', () => { void run('copy') }, { signal })
-  quote.addEventListener('click', () => { void run('quote') }, { signal })
-  signal.addEventListener('abort', () => window.cancelAnimationFrame(frame), { once: true })
-  return { dismiss }
+
+  // Like Office's native-context-menu adapter: cancel only the document surface,
+  // leaving the browser/Electron native menu untouched for search and media UI.
+  function textSurface(target: EventTarget | null) {
+    return target instanceof Element && reader.element.contains(target) && !!target.closest('.transcript-scroll')
+  }
+  document.addEventListener('contextmenu', event => {
+    if (event.target instanceof Node && menu.contains(event.target)) {
+      event.preventDefault()
+      return
+    }
+    if (!textSurface(event.target)) return
+    event.preventDefault()
+    dragging = false
+    const selected = reader.readSelection()
+    if (selected) void open(selected.selection, event.clientX || selected.rect.right, event.clientY || selected.rect.bottom, true)
+    else dismiss()
+  }, { capture: true, signal })
+  menu.addEventListener('mousedown', event => event.preventDefault(), { signal })
+  copy.addEventListener('click', () => {
+    if (!snapshot) return
+    const text = snapshot.text
+    dismiss()
+    void actions.copy(text).catch(error => { if (!signal.aborted) notice(errorText(error)) })
+  }, { signal })
+  submenu.addEventListener('click', event => {
+    const row = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('button[data-target-id]') : null
+    if (row?.dataset.targetId && !row.disabled) void commit(row.dataset.targetId, row)
+  }, { signal })
+  quote.addEventListener('click', () => {
+    if (!capture || quote.disabled) return
+    if (capture.targets.length === 1) void commit(capture.targets[0].id, quote)
+    else showSubmenu()
+  }, { signal })
+  wrapper.addEventListener('mouseenter', showSubmenu, { signal })
+  wrapper.addEventListener('mouseleave', () => { if (!wrapper.contains(document.activeElement)) hideSubmenu() }, { signal })
+  wrapper.addEventListener('focusout', () => queueMicrotask(() => { if (!wrapper.contains(document.activeElement)) hideSubmenu() }), { signal })
+  function focusNext(container: HTMLElement, event: KeyboardEvent) {
+    const buttons = [...container.querySelectorAll<HTMLButtonElement>(':scope > button:not(:disabled), :scope > .ctx-item-wrap > button:not(:disabled)')]
+    if (!buttons.length) return
+    const index = buttons.indexOf(document.activeElement as HTMLButtonElement)
+    buttons[event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length].focus()
+  }
+  menu.addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      dismiss()
+    }
+    else if (event.key === 'ArrowRight' && document.activeElement === quote) {
+      event.preventDefault()
+      showSubmenu()
+      if (!submenu.hidden) submenu.querySelector<HTMLButtonElement>('button')?.focus()
+    }
+    else if (event.key === 'ArrowLeft' && !submenu.hidden) {
+      event.preventDefault()
+      hideSubmenu()
+      quote.focus()
+    }
+    else if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+      event.preventDefault()
+      focusNext(!submenu.hidden && submenu.contains(document.activeElement) ? submenu : menu, event)
+    }
+  }, { signal })
+  document.addEventListener('pointerdown', event => {
+    if (event.target instanceof Node && menu.contains(event.target)) return
+    dismiss()
+    dragging = event.button === 0 && textSurface(event.target)
+  }, { signal, capture: true })
+  document.addEventListener('pointerup', event => {
+    if (!dragging) return
+    dragging = false
+    frame = window.requestAnimationFrame(() => {
+      frame = 0
+      const selected = reader.readSelection()
+      if (selected) void open(selected.selection, event.clientX, event.clientY, true)
+    })
+  }, { signal })
+  document.addEventListener('pointercancel', () => { dragging = false; dismiss() }, { signal })
+  document.addEventListener('selectionchange', () => {
+    if (dragging || menu.hidden || !selectionMenu || committing) return
+    const selected = reader.readSelection()
+    if (!selected || JSON.stringify(selected.selection) !== JSON.stringify(snapshot)) dismiss()
+  }, { signal })
+  document.addEventListener('keyup', event => {
+    if (event.key === 'Escape') dismiss()
+    else if (event.shiftKey && (event.key.startsWith('Arrow') || ['Home', 'End'].includes(event.key))) {
+      const selected = reader.readSelection()
+      if (selected) void open(selected.selection, selected.rect.right, selected.rect.bottom, true)
+    }
+  }, { signal })
+  root.addEventListener('scroll', event => {
+    if (!(event.target instanceof Node) || !menu.contains(event.target)) dismiss()
+  }, { signal, capture: true, passive: true })
+  window.addEventListener('resize', dismiss, { signal })
+  window.addEventListener('blur', dismiss, { signal })
+  signal.addEventListener('abort', () => { dismiss(); style.remove(); menu.remove(); status.remove() }, { once: true })
+  return { dismiss, openParagraph: (selection: TranscriptSelection, anchor: DOMRect) => { void open(selection, anchor.left, anchor.bottom, false) } }
 }

@@ -4,7 +4,7 @@
   "id": "pcbed1a21022e43b388ccce09fd4647b5.transcript-player",
   "name": "ArtPlayer",
   "description": "用 ArtPlayer 播放音视频，不替换内置播放器的默认打开方式。",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "entry": "host.js",
   "apiVersion": 4,
   "engines": {

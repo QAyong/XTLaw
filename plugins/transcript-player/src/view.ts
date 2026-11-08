@@ -103,7 +103,6 @@ export async function render(context: ViewContext, container: HTMLElement) {
   let subtitleTask: Promise<void> = Promise.resolve()
   let locating = false
   let revealSequence = 0
-  let quoting = false
   const mediaKey = context.resource?.sourceId
   const audio = isAudioFile(context.resource?.name ?? '')
 
@@ -128,7 +127,7 @@ export async function render(context: ViewContext, container: HTMLElement) {
     art.seek = time
     void art.play().catch(() => notice('无法开始播放，请点击播放器的播放按钮。'))
     reader.update(time, art.playing)
-  }, { quote: quoteSelection, notice })
+  }, { quote: (selection, anchor) => selectionToolbar.openParagraph(selection, anchor), notice })
   const separator = element('div', 'player-separator')
   separator.hidden = audio
   separator.tabIndex = 0
@@ -149,21 +148,20 @@ export async function render(context: ViewContext, container: HTMLElement) {
       if (typeof context.clipboard?.write !== 'function') throw new Error('当前应用版本不支持插件复制，请升级应用。')
       await context.clipboard.write({ text })
     },
-    quote: quoteSelection,
+    reference: referenceForSelection,
+    references: context.references,
+    colorScheme: () => context.environment.colorScheme,
     notice,
   })
+  const menuAppearance = context.onEnvironmentChange(selectionToolbar.dismiss)
+  signal.addEventListener('abort', () => menuAppearance.dispose(), { once: true })
 
-  async function quoteSelection(selection: TranscriptSelection) {
-    if (quoting) throw new Error('正在添加引用，请完成当前操作后再试。')
+  function referenceForSelection(selection: TranscriptSelection) {
     if (loading || locating || !saved || !loadedName || !context.resource) throw new Error('请等待字幕加载完成后重新选择。')
-    if (typeof context.references?.add !== 'function') throw new Error('当前应用版本不支持内容引用，请升级应用。')
+    if (typeof context.references?.capture !== 'function' || typeof context.references?.commit !== 'function' || typeof context.references?.release !== 'function') throw new Error('当前应用版本不支持引用菜单，请升级应用。')
     const mediaSource: SourceFile = { name: context.resource.name }
     if ('relativePath' in context.resource && typeof context.resource.relativePath === 'string') mediaSource.relativePath = context.resource.relativePath
-    const reference = createTranscriptReference(selection, { ...saved }, mediaSource)
-    selectionToolbar.dismiss()
-    quoting = true
-    try { return await context.references.add(reference) }
-    finally { quoting = false }
+    return createTranscriptReference(selection, { ...saved }, mediaSource)
   }
 
   function setSplit(value: number) {

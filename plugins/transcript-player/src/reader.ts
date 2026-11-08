@@ -17,7 +17,7 @@ function button(label: string, className = '') {
 }
 
 export function createReader(signal: AbortSignal, seek: (time: number) => void, actions: {
-  quote: (selection: TranscriptSelection) => Promise<boolean>
+  quote: (selection: TranscriptSelection, anchor: DOMRect) => void
   notice: (text: string) => void
 }) {
   const panel = node('aside', 'transcript-panel')
@@ -66,12 +66,8 @@ export function createReader(signal: AbortSignal, seek: (time: number) => void, 
   follow.hidden = true
   followBar.append(follow)
   transcript.append(searchBar, scroll, followBar)
-  const quoteStatus = node('span', 'transcript-selection-status')
-  quoteStatus.setAttribute('role', 'status')
-  quoteStatus.setAttribute('aria-live', 'polite')
-  panel.append(tabs, transcript, summary, quoteStatus)
+  panel.append(tabs, transcript, summary)
 
-  let paragraphQuoting = false
   let cues: TranscriptCue[] = []
   let cueNodes: HTMLElement[] = []
   let hits: SearchHit[] = []
@@ -228,8 +224,8 @@ export function createReader(signal: AbortSignal, seek: (time: number) => void, 
     follow.hidden = true
     seek(start)
   }
-  async function quoteParagraph(control: HTMLButtonElement) {
-    if (paragraphQuoting || control.disabled || signal.aborted) return
+  function quoteParagraph(control: HTMLButtonElement) {
+    if (control.disabled || signal.aborted) return
     const from = Number(control.dataset.fromCue)
     const to = Number(control.dataset.toCue)
     const selection = selectionFromBounds(cues, from, to, 0, cues[to]?.text.length ?? 0)
@@ -238,39 +234,14 @@ export function createReader(signal: AbortSignal, seek: (time: number) => void, 
       actions.notice('整段内容超过 32768 个字符，请拖选较小范围后引用。')
       return
     }
-    paragraphQuoting = true
-    control.disabled = true
-    control.setAttribute('aria-busy', 'true')
-    control.setAttribute('aria-description', '正在添加整段引用，请稍候')
-    try {
-      if (await actions.quote({ ...selection })) {
-        if (!signal.aborted) {
-          quoteStatus.textContent = '整段已加入聊天草稿，尚未发送。'
-          actions.notice(quoteStatus.textContent)
-        }
-      }
-    }
-    catch (error) {
-      if (!signal.aborted) {
-        quoteStatus.textContent = error instanceof Error ? error.message : '引用失败，请重试。'
-        actions.notice(quoteStatus.textContent)
-      }
-    }
-    finally {
-      paragraphQuoting = false
-      if (!signal.aborted && control.isConnected) {
-        control.disabled = false
-        control.removeAttribute('aria-busy')
-        control.removeAttribute('aria-description')
-      }
-    }
+    actions.quote({ ...selection }, control.getBoundingClientRect())
   }
   // Delegate to the stable list: replacing subtitles must not retain old cue listeners.
   list.addEventListener('click', event => {
     const quote = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('.transcript-paragraph-quote') : null
     if (quote) {
       event.preventDefault()
-      void quoteParagraph(quote)
+      quoteParagraph(quote)
       return
     }
     if (window.getSelection()?.isCollapsed === false) return

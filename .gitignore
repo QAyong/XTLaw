@@ -161,6 +161,7 @@ AGENTS.md
 CLAUDE.md
 skills-lock.json
 todos/
+/tmp/
 !/apps/buddy/**/__tests__/
 !/apps/buddy/**/__tests__/**
 !/apps/buddy/native/**

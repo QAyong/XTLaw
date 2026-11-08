@@ -241,7 +241,7 @@ export function createReader(signal: AbortSignal, seek: (time: number) => void, 
     paragraphQuoting = true
     control.disabled = true
     control.setAttribute('aria-busy', 'true')
-    control.textContent = '引用中…'
+    control.setAttribute('aria-description', '正在添加整段引用，请稍候')
     try {
       if (await actions.quote({ ...selection })) {
         if (!signal.aborted) {
@@ -261,7 +261,7 @@ export function createReader(signal: AbortSignal, seek: (time: number) => void, 
       if (!signal.aborted && control.isConnected) {
         control.disabled = false
         control.removeAttribute('aria-busy')
-        control.textContent = '引用整段'
+        control.removeAttribute('aria-description')
       }
     }
   }
@@ -343,14 +343,15 @@ export function createReader(signal: AbortSignal, seek: (time: number) => void, 
         timestamp.setAttribute('aria-label', `从 ${formatTime(paragraph.start)} 播放`)
         timestamp.dataset.time = String(paragraph.start)
         const header = node('div', 'transcript-paragraph-header')
-        const quote = button('引用整段', 'transcript-paragraph-quote')
+        const quote = button('', 'transcript-paragraph-quote')
+        quote.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21c3 0 7-1 7-8V5H2v8h4c0 4-1 4-3 4zm12 0c3 0 7-1 7-8V5h-8v8h4c0 4-1 4-3 4z"/></svg>'
         const from = paragraph.indexes[0]
         const to = paragraph.indexes[paragraph.indexes.length - 1]
         const whole = selectionFromBounds(cues, from, to, 0, cues[to].text.length)
         quote.dataset.fromCue = String(from)
         quote.dataset.toCue = String(to)
         quote.disabled = !whole || whole.text.length > SELECTION_LIMIT
-        quote.title = quote.disabled ? '整段内容过长，请拖选较小范围后引用' : '将整段内容加入聊天草稿，不会直接发送消息'
+        quote.title = quote.disabled ? '整段内容过长，请拖选较小范围后引用' : '引用整段到 AI（加入聊天草稿，不会直接发送）'
         quote.setAttribute('aria-label', `引用 ${formatTime(paragraph.start)} 开始的整段内容到 AI`)
         header.append(timestamp, quote)
         const body = node('p', 'transcript-text')

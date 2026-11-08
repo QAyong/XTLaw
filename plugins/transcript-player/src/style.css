@@ -123,10 +123,10 @@
   scrollbar-color: var(--lexora-border, #c9ccd3) transparent;
 }
 .transcript-scroll { padding: 0 20px 72px; }
-.transcript-paragraph { margin: 8px 0 26px; }
-.transcript-time { display: inline-block; margin: 0 0 8px; padding: 0; border: 0; background: transparent; color: var(--lexora-muted, #686b73); font-size: 12px !important; font-variant-numeric: tabular-nums; }
+.transcript-paragraph { margin: 8px 0 16px; }
+.transcript-time { display: inline-block; margin: 0 0 4px; padding: 0; border: 0; background: transparent; color: var(--lexora-muted, #686b73); font-size: 12px !important; font-variant-numeric: tabular-nums; }
 .transcript-time:hover { color: var(--lexora-accent, #365edc); text-decoration: underline; text-underline-offset: 3px; }
-.transcript-text { margin: 0; font-size: 15px; line-height: 1.85; overflow-wrap: anywhere; }
+.transcript-text { margin: 0; font-size: 15px; line-height: 1.75; overflow-wrap: anywhere; }
 .transcript-cue { position: relative; padding-block: 2px; border-radius: 2px; cursor: pointer; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
 .transcript-cue:hover { background: var(--lexora-hover, #f0f2f5); }
 .transcript-cue.is-current { background: var(--lexora-selected, #e7edfc); box-shadow: -2px 0 0 var(--lexora-accent-solid, #365edc); }

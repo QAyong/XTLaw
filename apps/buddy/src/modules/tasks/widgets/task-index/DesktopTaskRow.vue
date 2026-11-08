@@ -8,13 +8,13 @@ import type { DesktopTaskPinnedDropPosition } from '@/modules/tasks/widgets/task
 import {
   ApprovalsApp20Regular,
   MoreHorizontal20Regular,
-  SpinnerIos20Regular,
 } from '@vicons/fluent'
 import { NDropdown, NTooltip } from 'naive-ui'
 import { computed, h, shallowRef, useId, useTemplateRef, watch } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import DesktopOverflowingLabel from '@/modules/tasks/widgets/task-index/DesktopOverflowingLabel.vue'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
+import DesktopRingSpinner from '@/shared/ui/loading/DesktopRingSpinner.vue'
 import DesktopTaskMarkSwatch from './DesktopTaskMarkSwatch.vue'
 import { formatTaskRelativeTime } from './taskRelativeTime'
 import { useTaskHistoryDrag } from './useTaskHistoryDrag'
@@ -71,9 +71,6 @@ watch(() => props.loading, (loading, _, cleanup) => {
 const relativeTimeLabel = computed(() => (
   formatTaskRelativeTime(props.occurredAt, props.now, props.language)
 ))
-const activityIcon = computed(() => props.activity === 'awaiting_approval'
-  ? ApprovalsApp20Regular
-  : SpinnerIos20Regular)
 const activityLabel = computed(() => props.activity === 'awaiting_approval'
   ? t('activity.approval')
   : t('run.status.running'))
@@ -203,7 +200,7 @@ useTaskHistoryDrag({
         :aria-busy="loading || undefined"
         @click="emit('open')"
       >
-        <span v-if="opening" class="desktop-task-row__opening" aria-hidden="true"><DesktopIcon :component="SpinnerIos20Regular" /></span>
+        <span v-if="opening" class="desktop-task-row__opening" aria-hidden="true"><DesktopRingSpinner /></span>
         <DesktopOverflowingLabel :paused="dragging" :text="title" />
       </button>
       <div class="desktop-task-row__trailing">
@@ -222,7 +219,8 @@ useTaskHistoryDrag({
           role="status"
           :aria-label="activityLabel"
         >
-          <DesktopIcon :component="activityIcon" />
+          <DesktopRingSpinner v-if="activity === 'running'" />
+          <DesktopIcon v-else :component="ApprovalsApp20Regular" />
         </span>
         <div class="desktop-task-row__actions">
           <NDropdown class="buddy-spaced-submenus" trigger="click" placement="bottom-start" :options="actions" @select="handleAction">
@@ -422,9 +420,8 @@ button {
 .desktop-task-row__opening {
   display: flex;
   flex: none;
+  align-items: center;
   margin-right: 6px;
-  color: var(--buddy-text-muted);
-  .n-icon { font-size: 16px; animation: desktop-task-row-spin 1s linear infinite; }
 }
 
 .desktop-task-row__activity {
@@ -440,10 +437,6 @@ button {
 
   &.is-running {
     color: var(--buddy-text-muted);
-
-    .n-icon {
-      animation: desktop-task-row-spin 1s linear infinite;
-    }
   }
 
   &.is-awaiting-approval {
@@ -483,37 +476,4 @@ button {
   pointer-events: auto;
 }
 
-// 图标默认贴文字基线，旋转中心会偏，转圈时笔画会绕着盒子中心起伏。
-.desktop-task-row__opening .n-icon,
-.desktop-task-row__activity.is-running .n-icon {
-  display: flex;
-  width: 16px;
-  height: 16px;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  transform-origin: center;
-  line-height: 0;
-
-  :deep(svg) {
-    display: block;
-  }
-}
-
-@keyframes desktop-task-row-spin {
-  from {
-    transform: rotate(0deg);
-  }
-
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .desktop-task-row__activity.is-running .n-icon,
-  .desktop-task-row__opening .n-icon {
-    animation: none;
-  }
-}
 </style>

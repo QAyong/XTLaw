@@ -14,7 +14,6 @@ import {
   ChevronRight16Regular,
   FolderOpen20Regular,
   MoreHorizontal20Regular,
-  SpinnerIos20Regular,
 } from '@vicons/fluent'
 import { NDropdown } from 'naive-ui'
 import { computed, h, shallowRef, useId, useTemplateRef } from 'vue'
@@ -23,6 +22,7 @@ import { useBuddyI18n } from '@/i18n/buddyI18n'
 import DesktopOverflowingLabel from '@/modules/tasks/widgets/task-index/DesktopOverflowingLabel.vue'
 import { desktopRouteLocations } from '@/shared/navigation/desktopRoutes'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
+import DesktopRingSpinner from '@/shared/ui/loading/DesktopRingSpinner.vue'
 import SkillIcon from '@/shared/ui/icon/SkillIcon.vue'
 import DesktopSpaceIcon from '../space/DesktopSpaceIcon.vue'
 import { useTaskHistoryDrag } from './useTaskHistoryDrag'
@@ -52,9 +52,6 @@ const { t } = useBuddyI18n(() => props.language)
 const router = useRouter()
 const showActivity = computed(() => !props.expanded
   && (props.activity === 'running' || props.activity === 'awaiting_approval'))
-const activityIcon = computed(() => props.activity === 'awaiting_approval'
-  ? ApprovalsApp20Regular
-  : SpinnerIos20Regular)
 const activityLabel = computed(() => props.activity === 'awaiting_approval'
   ? t('activity.approval')
   : t('run.status.running'))
@@ -236,7 +233,8 @@ useDragDropMonitor({
       role="status"
       :aria-label="activityLabel"
     >
-      <DesktopIcon :component="activityIcon" :size="16" />
+      <DesktopRingSpinner v-if="activity === 'running'" />
+      <DesktopIcon v-else :component="ApprovalsApp20Regular" :size="16" />
     </span>
   </div>
 </template>
@@ -363,21 +361,6 @@ button {
   color: var(--buddy-text-muted);
   pointer-events: none;
 
-  &.is-running .n-icon {
-    display: flex;
-    width: 16px;
-    height: 16px;
-    align-items: center;
-    justify-content: center;
-    transform-origin: center;
-    line-height: 0;
-    animation: desktop-task-space-row-spin 1s linear infinite;
-
-    :deep(svg) {
-      display: block;
-    }
-  }
-
   &.is-awaiting-approval {
     color: var(--buddy-status-warning-text);
   }
@@ -386,22 +369,6 @@ button {
 .desktop-task-space-row:hover .desktop-task-space-row__activity,
 .desktop-task-space-row:has(:focus-visible) .desktop-task-space-row__activity {
   opacity: 0;
-}
-
-@keyframes desktop-task-space-row-spin {
-  from {
-    transform: rotate(0deg);
-  }
-
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .desktop-task-space-row__activity.is-running .n-icon {
-    animation: none;
-  }
 }
 
 .desktop-task-space-row__action {

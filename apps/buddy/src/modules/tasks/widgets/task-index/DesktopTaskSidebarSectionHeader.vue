@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { Add16Regular, ApprovalsApp20Regular, ChevronDown20Regular, ChevronRight20Regular, SpinnerIos20Regular } from '@vicons/fluent'
+import { Add16Regular, ApprovalsApp20Regular, ChevronDown20Regular, ChevronRight20Regular } from '@vicons/fluent'
 import { computed } from 'vue'
 
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
+import DesktopRingSpinner from '@/shared/ui/loading/DesktopRingSpinner.vue'
 
 const props = defineProps<{
   activity?: 'idle' | 'running' | 'awaiting_approval'
@@ -17,9 +18,6 @@ const emit = defineEmits<{
 }>()
 const showActivity = computed(() => !props.expanded
   && (props.activity === 'running' || props.activity === 'awaiting_approval'))
-const activityIcon = computed(() => props.activity === 'awaiting_approval'
-  ? ApprovalsApp20Regular
-  : SpinnerIos20Regular)
 </script>
 
 <template>
@@ -53,7 +51,8 @@ const activityIcon = computed(() => props.activity === 'awaiting_approval'
       role="status"
       :aria-label="activityLabel"
     >
-      <DesktopIcon :component="activityIcon" :size="16" />
+      <DesktopRingSpinner v-if="activity === 'running'" />
+      <DesktopIcon v-else :component="ApprovalsApp20Regular" :size="16" />
     </span>
   </div>
 </template>
@@ -147,21 +146,6 @@ button {
   color: var(--buddy-text-muted);
   pointer-events: none;
 
-  &.is-running .n-icon {
-    display: flex;
-    width: 16px;
-    height: 16px;
-    align-items: center;
-    justify-content: center;
-    transform-origin: center;
-    line-height: 0;
-    animation: desktop-task-section-spin 1s linear infinite;
-
-    :deep(svg) {
-      display: block;
-    }
-  }
-
   &.is-awaiting-approval {
     color: var(--buddy-status-warning-text);
   }
@@ -170,22 +154,6 @@ button {
 .desktop-task-sidebar__section-heading:hover .desktop-task-sidebar__section-activity,
 .desktop-task-sidebar__section-heading:has(:focus-visible) .desktop-task-sidebar__section-activity {
   opacity: 0;
-}
-
-@keyframes desktop-task-section-spin {
-  from {
-    transform: rotate(0deg);
-  }
-
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .desktop-task-sidebar__section-activity.is-running .n-icon {
-    animation: none;
-  }
 }
 
 .desktop-task-sidebar__section-add {

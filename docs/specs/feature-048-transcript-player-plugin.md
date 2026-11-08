@@ -156,6 +156,6 @@ ArtPlayer 底层是 `<video>`。音频文件照常播，视觉上盖住黑画面
 - 2026-11-08 起播放器改为原样启用 ArtPlayer 5.4.0 的公开控制项，不再隐藏它的底栏、设置和字幕相关按钮，也不再另做一套控制条。没有改 ArtPlayer 源码，也没有改内置播放器。
 - 全屏和网页全屏不打开。视图 iframe 的 sandbox 只有 `allow-scripts allow-forms`，并且 `allow` 里把 fullscreen 设成了 `none`，按钮只会提示不支持。
 - 截图不打开。当前帧画进 canvas 后不能导出，视图也不能把文件存到当前目录。
-- 底栏左侧提供“加载字幕”，用 `localResources` 和 `pickFiles` 选择 SRT、VTT 或 ASS。插件先用 UTF-8、再试 GBK 校验，通过后把资源地址交给 ArtPlayer。右侧 CC 只开关画面字幕，尺寸对齐 ArtPlayer 底栏图标。
+- 底栏左侧提供“加载字幕”，用 `localResources` 和 `pickFiles` 选择 SRT、VTT 或 ASS。插件先用 UTF-8、再试 GBK 校验，通过后把资源地址交给 ArtPlayer。右侧 CC 只开关画面字幕，尺寸对齐 ArtPlayer 底栏图标。选中的字幕按视频 `sourceId` 记在插件存储里，只存资源 ID，不存临时地址；下次打开再取地址。读失败就清掉记录并提示重选。
 - 文件页被宿主标成不可见时才暂停。聊天发消息会触发布局重测，可能把文件页判成不可见一瞬，因此要持续约 0.8 秒才暂停，避免发一条消息就停播。
 - 同日按用户要求去掉自写的文字稿、字幕加载和编码选择。当前只移植播放器。

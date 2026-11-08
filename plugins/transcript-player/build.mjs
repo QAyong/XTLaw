@@ -2,13 +2,9 @@ import { build } from 'esbuild'
 import { copyFile, mkdir, readFile } from 'node:fs/promises'
 const root = new URL('./', import.meta.url)
 await mkdir(new URL('dist/', root), { recursive: true })
-await build({
-  absWorkingDir: root.pathname,
-  entryPoints: [new URL('src/view.ts', root).pathname],
-  outfile: new URL('dist/view.js', root).pathname,
-  bundle: true, format: 'esm', platform: 'browser', target: 'chrome120',
-  minify: true, legalComments: 'eof', loader: { '.css': 'text' },
-})
+const shared = { absWorkingDir: root.pathname, bundle: true, format: 'esm', platform: 'browser', target: 'chrome120', minify: true, legalComments: 'eof' }
+await build({ ...shared, entryPoints: [new URL('src/view.ts', root).pathname], outfile: new URL('dist/view.js', root).pathname, loader: { '.css': 'text' } })
+await build({ ...shared, entryPoints: [new URL('src/host.ts', root).pathname], outfile: new URL('dist/host.js', root).pathname })
 await copyFile(new URL('extension.json', root), new URL('dist/extension.json', root))
 await copyFile(new URL('README.md', root), new URL('dist/README.md', root))
 await copyFile(new URL('third-party/ArtPlayer.LICENSE', root), new URL('dist/LICENSE-ArtPlayer', root))

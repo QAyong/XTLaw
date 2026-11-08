@@ -7,6 +7,7 @@ await build({ ...shared, entryPoints: [new URL('src/view.ts', root).pathname], o
 await build({ ...shared, entryPoints: [new URL('src/host.ts', root).pathname], outfile: new URL('dist/host.js', root).pathname })
 await copyFile(new URL('extension.json', root), new URL('dist/extension.json', root))
 await copyFile(new URL('README.md', root), new URL('dist/README.md', root))
+await copyFile(new URL('icon.svg', root), new URL('dist/icon.svg', root))
 await copyFile(new URL('third-party/ArtPlayer.LICENSE', root), new URL('dist/LICENSE-ArtPlayer', root))
 await copyFile(new URL('third-party/Fluent-icons.LICENSE', root), new URL('dist/LICENSE-Fluent-icons', root))
 await copyFile(new URL('node_modules/.pnpm/option-validator@2.0.6/node_modules/option-validator/LICENSE', root), new URL('dist/LICENSE-option-validator', root))

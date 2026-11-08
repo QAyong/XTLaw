@@ -387,7 +387,7 @@ export async function render(context: ViewContext, container: HTMLElement) {
   const resource = context.resource
   if (!resource) {
     error.hidden = false
-    error.textContent = '没有收到媒体文件。请从文件的“打开方式”里用 ArtPlayer 打开。'
+    error.textContent = '没有收到媒体文件。请从文件的“打开方式”里用 XTLaw播放器打开。'
     return
   }
   try {

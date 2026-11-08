@@ -3,8 +3,8 @@
   "format": "compiled",
   "id": "pcbed1a21022e43b388ccce09fd4647b5.transcript-player",
   "name": "ArtPlayer",
-  "description": "用 ArtPlayer 在工作台单独打开音视频，不嵌进文件管理器。",
-  "version": "0.1.3",
+  "description": "用 ArtPlayer 播放音视频，不替换内置播放器的默认打开方式。",
+  "version": "0.1.4",
   "apiVersion": 4,
   "engines": {
     "lexora": ">=0.5.4"
@@ -20,9 +20,35 @@
         "title": "ArtPlayer",
         "entry": "view.js",
         "resource": "selected-file",
-        "location": "context",
-        "accepts": {
-          "extensions": ["mp4", "m4v", "webm", "mov", "ogv", "mp3", "wav", "ogg", "oga", "opus", "m4a", "aac", "flac"]
+        "location": "context"
+      }
+    ],
+    "fileHandlers": [
+      {
+        "id": "pcbed1a21022e43b388ccce09fd4647b5.transcript-player.media",
+        "title": "ArtPlayer",
+        "extensions": [
+          ".mp4",
+          ".m4v",
+          ".webm",
+          ".mov",
+          ".ogv",
+          ".mp3",
+          ".wav",
+          ".ogg",
+          ".oga",
+          ".opus",
+          ".m4a",
+          ".aac",
+          ".flac"
+        ],
+        "preview": {
+          "view": "pcbed1a21022e43b388ccce09fd4647b5.transcript-player.reader",
+          "requestDefault": false
+        },
+        "open": {
+          "view": "pcbed1a21022e43b388ccce09fd4647b5.transcript-player.reader",
+          "requestDefault": false
         }
       }
     ]

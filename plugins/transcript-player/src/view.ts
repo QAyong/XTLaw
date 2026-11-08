@@ -5,12 +5,6 @@ import type { Cue } from './transcript.ts'
 import { readSubtitle } from './subtitle-loader.ts'
 import css from './style.css'
 
-// All styling and controls are ours; ArtPlayer remains an unmodified, bundled dependency.
-Artplayer.LOG_VERSION = false
-Artplayer.CONTEXTMENU = false
-Artplayer.DBCLICK_FULLSCREEN = false
-Artplayer.RECONNECT_TIME_MAX = 0
-
 function element<K extends keyof HTMLElementTagNameMap>(tag: K, className = '', text = '') {
   const node = document.createElement(tag)
   node.className = className
@@ -46,51 +40,13 @@ export async function render(context: ViewContext, container: HTMLElement) {
   mediaPane.setAttribute('aria-label', '播放器')
   const stage = element('div', 'media-stage')
   const canvas = element('div', 'player-canvas')
-  const audioCover = element('div', 'audio-cover')
-  const audioTitle = element('p', 'audio-title', context.resource?.name ?? '')
-  const audioDuration = element('p', 'audio-duration', '音频')
-  audioCover.append(audioTitle, audioDuration)
-  stage.append(canvas, audioCover)
-  const mediaName = element('p', 'media-name', context.resource?.name ?? '')
-  mediaName.title = context.resource?.name ?? ''
-  const controls = element('div', 'playback-controls')
-  const play = button('播放', 'play-button')
-  play.disabled = true
-  const clock = element('output', 'clock', '00:00 / 00:00')
-  const speed = element('select')
-  speed.setAttribute('aria-label', '播放速度')
-  for (const rate of [0.5, 0.75, 1, 1.25, 1.5, 2]) {
-    const option = element('option', '', rate + '×')
-    option.value = String(rate)
-    option.selected = rate === 1
-    speed.append(option)
-  }
-  speed.disabled = true
-  const seek = element('input', 'seek')
-  seek.type = 'range'
-  seek.min = '0'
-  seek.max = '0'
-  seek.step = '0.1'
-  seek.value = '0'
-  seek.disabled = true
-  seek.setAttribute('aria-label', '播放进度')
-  const volume = element('input', 'volume')
-  volume.type = 'range'
-  volume.min = '0'
-  volume.max = '1'
-  volume.step = '0.05'
-  volume.value = '0.7'
-  volume.setAttribute('aria-label', '音量')
-  volume.disabled = true
-  const volumeLabel = element('label', 'volume-control', '音量')
-  volumeLabel.append(volume)
-  controls.append(play, clock, speed, volumeLabel)
+  stage.append(canvas)
   const mediaError = element('p', 'error media-error')
   mediaError.setAttribute('role', 'alert')
   mediaError.hidden = true
   const retryMedia = button('重试播放', 'secondary')
   retryMedia.hidden = true
-  mediaPane.append(stage, mediaName, seek, controls, mediaError, retryMedia)
+  mediaPane.append(stage, mediaError, retryMedia)
 
   const transcriptPane = element('section', 'transcript-pane')
   transcriptPane.setAttribute('aria-label', '文字稿')
@@ -149,15 +105,7 @@ export async function render(context: ViewContext, container: HTMLElement) {
   }
   function update() {
     if (!art || signal.aborted) return
-    const duration = Number.isFinite(art.duration) ? art.duration : 0
     const time = art.currentTime || 0
-    clock.textContent = formatTime(time) + ' / ' + formatTime(duration)
-    seek.max = String(duration)
-    seek.value = String(time)
-    seek.disabled = duration <= 0
-    seek.setAttribute('aria-valuetext', formatTime(time) + '，共 ' + formatTime(duration))
-    play.textContent = art.playing ? '暂停' : '播放'
-    play.setAttribute('aria-label', art.playing ? '暂停播放' : '开始播放')
     const next = activeCueIndexes(cues, time)
     const changed = next.join(',') !== active.join(',')
     if (changed) {
@@ -316,10 +264,6 @@ export async function render(context: ViewContext, container: HTMLElement) {
   listen(load, 'click', () => { void chooseSubtitle() })
   listen(retrySubtitle, 'click', () => { if (loadedFile) void loadSubtitle(loadedFile) })
   listen(encoding, 'change', () => { if (loadedFile) void loadSubtitle(loadedFile) })
-  listen(play, 'click', () => { if (art?.playing) art.pause(); else void startPlayback() })
-  listen(seek, 'input', () => { if (art) { art.seek = Number(seek.value); update() } })
-  listen(speed, 'change', () => { if (art) art.playbackRate = Number(speed.value) })
-  listen(volume, 'input', () => { if (art) art.volume = Number(volume.value) })
   listen(retryMedia, 'click', () => { clearMediaError(); art?.video.load() })
   listen(scroll, 'click', (event) => {
     const target = event.target
@@ -356,38 +300,34 @@ export async function render(context: ViewContext, container: HTMLElement) {
 
   const resource = context.resource
   if (!resource) { showMediaError('没有收到媒体文件。请从文件管理器用“文字稿”打开音视频。'); return }
-  root.classList.toggle('is-audio', /\.(mp3|wav|ogg|oga|opus|m4a|aac|flac)$/i.test(resource.name))
   try {
     const url = await context.resources.getUrl(resource)
     signal.throwIfAborted()
+    // Public options only. ArtPlayer's own defaults leave most controls off, so the full built-in set is enabled here.
     art = new Artplayer({
-      container: canvas, url, autoplay: false, volume: 0.7, hotkey: false,
-      setting: false, screenshot: false, pip: false, fullscreen: false, fullscreenWeb: false,
-      miniProgressBar: false, autoPlayback: false, autoSize: false, autoMini: false,
-      mutex: false, playsInline: true, theme: 'var(--lexora-accent-solid)',
-      subtitle: { escape: true },
-    })
-    art.subtitle.show = false
-    art.video.controls = false
-    art.video.preload = 'metadata'
-    art.on('video:loadedmetadata', () => {
-      if (signal.aborted || !art) return
-      // A real audio track in a video container also gets an audio cover.
-      if (art.video.videoWidth === 0) root.classList.add('is-audio')
-      audioDuration.textContent = '音频 · ' + formatTime(art.duration)
-      play.disabled = false
-      update()
+      container: canvas,
+      url,
+      playbackRate: true,
+      aspectRatio: true,
+      screenshot: true,
+      setting: true,
+      pip: true,
+      fullscreen: true,
+      fullscreenWeb: true,
+      subtitleOffset: true,
+      miniProgressBar: true,
+      flip: true,
+      fastForward: true,
+      lock: true,
+      airplay: true,
     })
     for (const event of ['video:timeupdate', 'video:play', 'video:pause', 'video:ended', 'video:seeked', 'video:durationchange'])
       art.on(event, update)
     art.on('video:error', () => {
       const code = art?.video.error?.code
       showMediaError(code === 3 || code === 4 ? '当前环境不能播放这个编码，请换用兼容的音视频文件。' : '媒体读取失败，请检查文件是否仍可访问，然后重试。')
-      play.disabled = true
     })
     load.disabled = false
-    speed.disabled = false
-    volume.disabled = false
   }
   catch { showMediaError('无法打开媒体，请检查文件是否被移动、替换或撤销了授权。') }
 }

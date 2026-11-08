@@ -1,6 +1,7 @@
 import Artplayer from 'artplayer'
 import type { ViewContext } from '../lexora'
 import css from './style.css'
+import { createReader } from './reader'
 
 const MAX_SUBTITLE_BYTES = 8 * 1024 * 1024
 const SUBTITLE_COMMAND = 'pcbed1a21022e43b388ccce09fd4647b5.transcript-player.subtitle'
@@ -74,6 +75,9 @@ export async function render(context: ViewContext, container: HTMLElement) {
   let art: Artplayer | undefined
   let loadButton: HTMLElement | undefined
   let toggleButton: HTMLElement | undefined
+  let expandButton: HTMLButtonElement | undefined
+  let expanded = false
+  let split = 60
   let loading = false
   let loadedName = ''
   let saved: SavedSubtitle | null = null
@@ -82,12 +86,81 @@ export async function render(context: ViewContext, container: HTMLElement) {
   const style = element('style')
   style.textContent = css
   const root = element('main', 'player-root')
+  const media = element('section', 'player-media')
+  media.setAttribute('aria-label', '播放器')
   const canvas = element('div', 'player-canvas')
+  const reader = createReader(signal, (time) => {
+    if (!art) return
+    art.seek = time
+    void art.play().catch(() => notice('无法开始播放，请点击播放器的播放按钮。'))
+    reader.update(time, art.playing)
+  })
+  const separator = element('div', 'player-separator')
+  separator.tabIndex = 0
+  separator.setAttribute('role', 'separator')
+  separator.setAttribute('aria-label', '调整播放器和文字记录宽度')
+  separator.setAttribute('aria-orientation', 'vertical')
+  separator.setAttribute('aria-valuemin', '30')
+  separator.setAttribute('aria-valuemax', '75')
+  separator.setAttribute('aria-valuenow', String(split))
   const error = element('p', 'player-error')
   error.setAttribute('role', 'alert')
   error.hidden = true
-  root.append(canvas, error)
+  media.append(canvas, error)
+  root.append(media, separator, reader.element)
   container.append(style, root)
+
+  function setSplit(value: number) {
+    split = Math.min(75, Math.max(30, value))
+    root.style.setProperty('--player-split', `${split}%`)
+    separator.setAttribute('aria-valuenow', String(Math.round(split)))
+    art?.emit('resize')
+  }
+  separator.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) return
+    event.preventDefault()
+    separator.setPointerCapture(event.pointerId)
+    root.classList.add('is-resizing')
+  }, { signal })
+  separator.addEventListener('pointermove', (event) => {
+    if (!separator.hasPointerCapture(event.pointerId)) return
+    const bounds = root.getBoundingClientRect()
+    if (bounds.width) setSplit((event.clientX - bounds.left) / bounds.width * 100)
+  }, { signal })
+  const endResize = () => root.classList.remove('is-resizing')
+  separator.addEventListener('lostpointercapture', endResize, { signal })
+  separator.addEventListener('pointerup', (event) => {
+    if (separator.hasPointerCapture(event.pointerId)) separator.releasePointerCapture(event.pointerId)
+  }, { signal })
+  separator.addEventListener('keydown', (event) => {
+    const value = event.key === 'ArrowLeft' ? split - 2 : event.key === 'ArrowRight' ? split + 2 : event.key === 'Home' ? 30 : event.key === 'End' ? 75 : null
+    if (value === null) return
+    event.preventDefault()
+    setSplit(value)
+  }, { signal })
+
+  function setExpanded(value: boolean) {
+    expanded = value
+    root.classList.toggle('is-expanded', value)
+    reader.element.hidden = separator.hidden = value
+    if (expandButton) {
+      const label = value ? '退出全屏播放' : '全屏播放'
+      expandButton.title = value ? `${label}（Esc）` : `${label}（当前页签）`
+      expandButton.setAttribute('aria-label', label)
+      expandButton.setAttribute('aria-pressed', String(value))
+      expandButton.dataset.expanded = String(value)
+    }
+    // The media instance, subtitle switch and reader tab/scroll state stay intact.
+    art?.emit('resize')
+    if (!value) reader.refresh()
+  }
+  root.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && expanded) {
+      event.preventDefault()
+      setExpanded(false)
+      expandButton?.focus()
+    }
+  }, { signal })
 
   signal.addEventListener('abort', () => {
     context.signal.removeEventListener('abort', stop)
@@ -143,7 +216,19 @@ export async function render(context: ViewContext, container: HTMLElement) {
     const switched = await art.subtitle.switch(url, { type, encoding, escape: true })
     if (!switched) throw new Error('播放器还没准备好，请稍后再加载字幕。')
     const cues = await cuesPromise
-    if (!cues.length) throw new Error('没有读到有效字幕，请检查内容后重试。')
+    signal.throwIfAborted()
+    if (!cues.length || cues.length > 20000) {
+      // The text track has already switched. Do not leave the previous transcript
+      // visible against a new, invalid subtitle track.
+      reader.setCues([])
+      loadedName = ''
+      art.subtitle.show = false
+      setToggle('empty')
+      await remember(null).catch(() => {})
+      throw new Error(cues.length ? '字幕超过 20,000 句，请拆分后加载。' : '没有读到有效字幕，请检查内容后重试。')
+    }
+    reader.setCues(cues)
+    reader.update(art.currentTime, art.playing)
     loadedName = file.name
     art.subtitle.show = show
     setLoadLabel(file.name, file.name)
@@ -255,8 +340,25 @@ export async function render(context: ViewContext, container: HTMLElement) {
           },
           click() { toggleSubtitle() },
         },
+        {
+          name: 'page-expand',
+          position: 'right',
+          index: 100,
+          html: '<button type="button" class="player-expand" aria-label="全屏播放" aria-pressed="false"><svg class="player-expand-enter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/></svg><svg class="player-expand-exit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h5V3m13 5h-5V3M8 21v-5H3m13 5v-5h5"/></svg></button>',
+          mounted(control) {
+            expandButton = control.querySelector<HTMLButtonElement>('.player-expand') ?? undefined
+            setExpanded(false)
+          },
+          click() { setExpanded(!expanded) },
+        },
       ],
     })
+    const syncReader = () => { if (art) reader.update(art.currentTime, art.playing) }
+    art.on('video:timeupdate', syncReader)
+    art.on('video:seeked', syncReader)
+    art.on('video:play', syncReader)
+    art.on('video:pause', syncReader)
+    art.on('video:ended', syncReader)
     art.on('subtitle', shown => { if (loadedName) setToggle(shown ? 'on' : 'off') })
     void restoreSubtitle()
     art.on('video:error', () => {

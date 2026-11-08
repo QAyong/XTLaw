@@ -54,8 +54,6 @@ export async function render(context: ViewContext, container: HTMLElement) {
       screenshot: true,
       setting: true,
       pip: true,
-      fullscreen: true,
-      fullscreenWeb: true,
       subtitleOffset: true,
       miniProgressBar: true,
       flip: true,

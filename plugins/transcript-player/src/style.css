@@ -19,7 +19,19 @@
   line-height: 1;
 }
 .player-canvas .art-subtitle-load { padding: 0 8px; }
-.player-canvas .art-subtitle-toggle { font-weight: 700; letter-spacing: 0.02em; opacity: 0.4; }
+.player-canvas .art-subtitle-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--art-control-icon-size);
+  height: var(--art-control-icon-size);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  opacity: 0.4;
+  transform: scale(var(--art-control-icon-scale));
+}
 .player-canvas .art-subtitle-toggle[data-state="on"] { opacity: 1; }
 .player-canvas .art-subtitle-toggle[data-state="off"] { opacity: 0.75; text-decoration: line-through; }
 .player-error {

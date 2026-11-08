@@ -83,8 +83,16 @@ export async function render(context: ViewContext, container: HTMLElement) {
     root.remove()
     style.remove()
   }, { once: true })
-  const visibility = context.onVisibilityChange(visible => { if (!visible) art?.pause() })
-  signal.addEventListener('abort', () => visibility.dispose(), { once: true })
+  let hideTimer = 0
+  const visibility = context.onVisibilityChange((visible) => {
+    window.clearTimeout(hideTimer)
+    // 发消息会触发布局重测，文件页可能被判成不可见一瞬。只有持续藏起才暂停。
+    if (!visible) hideTimer = window.setTimeout(() => art?.pause(), 800)
+  })
+  signal.addEventListener('abort', () => {
+    window.clearTimeout(hideTimer)
+    visibility.dispose()
+  }, { once: true })
 
   function notice(message: string) {
     if (art) art.notice.show = message

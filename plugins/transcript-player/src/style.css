@@ -1,3 +1,13 @@
+/* 宿主只下发 background / text / muted / border / accent / accent-solid 六个主题色。
+   hover、选中、搜索命中、拖选这四层高亮没有对应变量，改用半透明叠加从已有颜色派生：
+   同一组值在浅色和深色主题下都成立，也能跟着自定义主题走。
+   用法保留 `var(--lexora-x, var(--player-x))`，宿主以后补上同名变量会自动优先。 */
+:root {
+  --player-hover: color-mix(in srgb, var(--lexora-text, #414844) 6%, transparent);
+  --player-selected: color-mix(in srgb, var(--lexora-accent, #40597b) 15%, transparent);
+  --player-mark: color-mix(in srgb, var(--lexora-accent, #40597b) 26%, transparent);
+  --player-selection: color-mix(in srgb, var(--lexora-accent, #40597b) 30%, transparent);
+}
 .player-root {
   position: relative;
   display: grid;
@@ -16,7 +26,7 @@
 .player-root button, .player-root input { font: inherit; }
 .player-root button { cursor: pointer; }
 .player-root :focus-visible { outline: 2px solid var(--lexora-focus, var(--lexora-accent-solid, #365edc)); outline-offset: 2px; }
-.player-root ::selection { background: var(--lexora-selected, #dfe8ff); color: var(--lexora-text, #202124); }
+.player-root ::selection { background: var(--lexora-selected, var(--player-selection)); color: var(--lexora-text, #202124); }
 .player-media { position: relative; min-width: 0; min-height: 0; background: #000; }
 .player-canvas, .player-canvas .art-video-player { width: 100%; height: 100%; }
 .player-separator {
@@ -126,7 +136,7 @@
 .transcript-search-input::placeholder { color: var(--lexora-muted, #686b73); opacity: 1; }
 .transcript-search-count { min-width: 3ch; color: var(--lexora-muted, #686b73); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .transcript-search-nav { flex: 0 0 auto; min-height: 32px; padding: 0 4px; border: 0; border-radius: 4px; background: transparent; color: var(--lexora-text, #202124); font-size: 12px !important; }
-.transcript-search-nav:hover:not(:disabled) { background: var(--lexora-hover, #f0f2f5); }
+.transcript-search-nav:hover:not(:disabled) { background: var(--lexora-hover, var(--player-hover)); }
 .transcript-search-nav:disabled { opacity: 0.4; cursor: default; }
 .transcript-scroll, .transcript-summary {
   flex: 1;
@@ -144,7 +154,7 @@
 .transcript-paragraph-quote svg { width: 16px; height: 16px; pointer-events: none; }
 .transcript-paragraph:hover .transcript-paragraph-quote,
 .transcript-paragraph:focus-within .transcript-paragraph-quote { opacity: 1; pointer-events: auto; }
-.transcript-paragraph-quote:hover:not(:disabled) { background: var(--lexora-hover, #f0f2f5); }
+.transcript-paragraph-quote:hover:not(:disabled) { background: var(--lexora-hover, var(--player-hover)); }
 .transcript-paragraph-quote:disabled { cursor: default; color: var(--lexora-muted, #686b73); }
 @media (hover: none) {
   .transcript-paragraph-quote { opacity: 1; pointer-events: auto; }
@@ -153,15 +163,15 @@
 .transcript-time:hover { color: var(--lexora-accent, #365edc); text-decoration: underline; text-underline-offset: 3px; }
 .transcript-text { margin: 0; font-size: 15px; line-height: 1.75; overflow-wrap: anywhere; }
 .transcript-cue { position: relative; padding-block: 2px; border-radius: 2px; cursor: pointer; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
-.transcript-cue:hover { background: var(--lexora-hover, #f0f2f5); }
-.transcript-cue.is-current { background: var(--lexora-selected, #e7edfc); box-shadow: -2px 0 0 var(--lexora-accent-solid, #365edc); }
-.transcript-cue mark { border-radius: 2px; background: var(--lexora-accent-surface, #e7edfc); color: inherit; }
+.transcript-cue:hover { background: var(--lexora-hover, var(--player-hover)); }
+.transcript-cue.is-current { background: var(--lexora-selected, var(--player-selected)); box-shadow: -2px 0 0 var(--lexora-accent-solid, #365edc); }
+.transcript-cue mark { border-radius: 2px; background: var(--lexora-accent-surface, var(--player-mark)); color: inherit; }
 .transcript-cue mark.is-search-current { outline: 1px solid var(--lexora-accent, #365edc); outline-offset: 1px; }
-.transcript-cue mark.is-reference { background: var(--lexora-selected, #dfe8ff); text-decoration: underline; text-decoration-color: var(--lexora-accent, #365edc); text-underline-offset: 3px; }
+.transcript-cue mark.is-reference { background: var(--lexora-selected, var(--player-selected)); text-decoration: underline; text-decoration-color: var(--lexora-accent, #365edc); text-underline-offset: 3px; }
 .transcript-selection-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .transcript-follow-bar { position: absolute; z-index: 1; inset-inline: 16px; bottom: 16px; display: flex; justify-content: center; pointer-events: none; }
 .transcript-follow { max-width: 100%; margin: 0; padding: 6px 12px; border: 1px solid var(--lexora-border, #dedfe3); border-radius: 6px; background: var(--lexora-background, #fff); color: var(--lexora-accent, #365edc); font-size: 12px !important; pointer-events: auto; }
-.transcript-follow:hover { background: var(--lexora-hover, #f0f2f5); }
+.transcript-follow:hover { background: var(--lexora-hover, var(--player-hover)); }
 .transcript-empty { max-width: 34ch; margin: 56px auto; color: var(--lexora-muted, #686b73); text-align: center; font-size: 13px; overflow-wrap: anywhere; }
 .transcript-empty p { margin: 6px 0; }
 .transcript-empty .transcript-empty-title { color: var(--lexora-text, #202124); font-size: 15px; font-weight: 500; }

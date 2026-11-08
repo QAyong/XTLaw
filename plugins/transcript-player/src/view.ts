@@ -2,6 +2,7 @@ import Artplayer from 'artplayer'
 import type { ViewContext } from '../lexora'
 import css from './style.css'
 import { createReader } from './reader'
+import { isAudioFile } from './media'
 
 const MAX_SUBTITLE_BYTES = 8 * 1024 * 1024
 const SUBTITLE_COMMAND = 'pcbed1a21022e43b388ccce09fd4647b5.transcript-player.subtitle'
@@ -82,12 +83,23 @@ export async function render(context: ViewContext, container: HTMLElement) {
   let loadedName = ''
   let saved: SavedSubtitle | null = null
   const mediaKey = context.resource?.sourceId
+  const audio = isAudioFile(context.resource?.name ?? '')
 
   const style = element('style')
   style.textContent = css
-  const root = element('main', 'player-root')
+  const root = element('main', audio ? 'player-root is-audio' : 'player-root')
   const media = element('section', 'player-media')
-  media.setAttribute('aria-label', '播放器')
+  media.setAttribute('aria-label', audio ? '音频播放器' : '播放器')
+  if (audio) {
+    const cover = element('div', 'player-audio-cover')
+    const icon = element('div', 'player-audio-icon')
+    icon.setAttribute('aria-hidden', 'true')
+    icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13M9 9l12-2"/><ellipse cx="6" cy="18" rx="3" ry="3"/><ellipse cx="18" cy="16" rx="3" ry="3"/></svg>'
+    const name = element('p', 'player-audio-name', context.resource?.name ?? '')
+    name.title = name.textContent ?? ''
+    cover.append(icon, name)
+    media.append(cover)
+  }
   const canvas = element('div', 'player-canvas')
   const reader = createReader(signal, (time) => {
     if (!art) return
@@ -96,6 +108,7 @@ export async function render(context: ViewContext, container: HTMLElement) {
     reader.update(time, art.playing)
   })
   const separator = element('div', 'player-separator')
+  separator.hidden = audio
   separator.tabIndex = 0
   separator.setAttribute('role', 'separator')
   separator.setAttribute('aria-label', '调整播放器和文字记录宽度')
@@ -142,7 +155,8 @@ export async function render(context: ViewContext, container: HTMLElement) {
   function setExpanded(value: boolean) {
     expanded = value
     root.classList.toggle('is-expanded', value)
-    reader.element.hidden = separator.hidden = value
+    reader.element.hidden = value
+    separator.hidden = value || audio
     if (expandButton) {
       const label = value ? '退出全屏播放' : '全屏播放'
       expandButton.title = value ? `${label}（Esc）` : `${label}（当前页签）`
@@ -308,14 +322,14 @@ export async function render(context: ViewContext, container: HTMLElement) {
       container: canvas,
       url,
       playbackRate: true,
-      aspectRatio: true,
+      aspectRatio: !audio,
       setting: true,
-      pip: true,
+      pip: !audio,
       subtitleOffset: true,
-      miniProgressBar: true,
-      flip: true,
+      miniProgressBar: !audio,
+      flip: !audio,
       fastForward: true,
-      lock: true,
+      lock: !audio,
       airplay: true,
       controls: [
         {
@@ -353,6 +367,11 @@ export async function render(context: ViewContext, container: HTMLElement) {
         },
       ],
     })
+    if (audio) {
+      // Audio has no picture to hover: keep its existing transport discoverable.
+      art.on('control', shown => { if (!shown && art) art.controls.show = true })
+      art.controls.show = true
+    }
     const syncReader = () => { if (art) reader.update(art.currentTime, art.playing) }
     art.on('video:timeupdate', syncReader)
     art.on('video:seeked', syncReader)

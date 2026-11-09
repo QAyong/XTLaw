@@ -1,20 +1,18 @@
 <script setup lang="ts">
-import type { LocalConversationSummary } from '@buddy-shared/conversation/conversationApi'
 import type { LocalTaskMark, LocalTaskMarkState } from '@buddy-shared/conversation/taskMarkApi'
 import type { DropdownOption } from 'naive-ui'
+import type { TaskSidebarActivity } from '../../contracts'
 
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import type { DesktopTaskPinnedDropPosition } from '@/modules/tasks/widgets/task-index/taskPinnedItems'
-import {
-  ApprovalsApp20Regular,
-  MoreHorizontal20Regular,
-} from '@vicons/fluent'
+import { MoreHorizontal20Regular } from '@vicons/fluent'
 import { NDropdown, NTooltip } from 'naive-ui'
 import { computed, h, shallowRef, useId, useTemplateRef, watch } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import DesktopOverflowingLabel from '@/modules/tasks/widgets/task-index/DesktopOverflowingLabel.vue'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import DesktopRingSpinner from '@/shared/ui/loading/DesktopRingSpinner.vue'
+import DesktopTaskActivityIcon from './DesktopTaskActivityIcon.vue'
 import DesktopTaskMarkSwatch from './DesktopTaskMarkSwatch.vue'
 import { formatTaskRelativeTime } from './taskRelativeTime'
 import { useTaskHistoryDrag } from './useTaskHistoryDrag'
@@ -27,7 +25,7 @@ const props = withDefaults(defineProps<{
   marks: readonly LocalTaskMark[]
   markState?: LocalTaskMarkState
   marksBusy: boolean
-  activity: LocalConversationSummary['activity']
+  activity: TaskSidebarActivity
   moveToSpaceAvailable?: boolean
   dragging?: boolean
   dropPosition?: DesktopTaskPinnedDropPosition
@@ -71,9 +69,11 @@ watch(() => props.loading, (loading, _, cleanup) => {
 const relativeTimeLabel = computed(() => (
   formatTaskRelativeTime(props.occurredAt, props.now, props.language)
 ))
-const activityLabel = computed(() => props.activity === 'awaiting_approval'
-  ? t('activity.approval')
-  : t('run.status.running'))
+const activityLabel = computed(() => props.activity === 'awaiting_answer'
+  ? t('activity.awaitingAnswer')
+  : props.activity === 'awaiting_approval'
+    ? t('activity.approval')
+    : t('run.status.running'))
 const pinLabel = computed(() => props.pinMode === 'pin'
   ? t('desktop.tasks.pin')
   : t('desktop.tasks.unpin'))
@@ -213,14 +213,14 @@ useTaskHistoryDrag({
           v-else
           class="desktop-task-row__activity"
           :class="{
+            'is-awaiting-answer': activity === 'awaiting_answer',
             'is-awaiting-approval': activity === 'awaiting_approval',
             'is-running': activity === 'running',
           }"
           role="status"
           :aria-label="activityLabel"
         >
-          <DesktopRingSpinner v-if="activity === 'running'" />
-          <DesktopIcon v-else :component="ApprovalsApp20Regular" />
+          <DesktopTaskActivityIcon :activity="activity" />
         </span>
         <div class="desktop-task-row__actions">
           <NDropdown class="buddy-spaced-submenus" trigger="click" placement="bottom-start" :options="actions" @select="handleAction">
@@ -439,6 +439,7 @@ button {
     color: var(--buddy-text-muted);
   }
 
+  &.is-awaiting-answer,
   &.is-awaiting-approval {
     color: var(--buddy-status-warning-text);
   }

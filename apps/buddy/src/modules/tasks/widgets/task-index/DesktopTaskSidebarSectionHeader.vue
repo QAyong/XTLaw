@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { Add16Regular, ApprovalsApp20Regular, ChevronDown20Regular, ChevronRight20Regular } from '@vicons/fluent'
+import type { TaskSidebarActivity } from '../../contracts'
+import { Add16Regular, ChevronDown20Regular, ChevronRight20Regular } from '@vicons/fluent'
 import { computed } from 'vue'
 
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
-import DesktopRingSpinner from '@/shared/ui/loading/DesktopRingSpinner.vue'
+import DesktopTaskActivityIcon from './DesktopTaskActivityIcon.vue'
 
 const props = defineProps<{
-  activity?: 'idle' | 'running' | 'awaiting_approval'
+  activity?: TaskSidebarActivity
   activityLabel?: string
   expanded: boolean
   label: string
@@ -16,8 +17,7 @@ const emit = defineEmits<{
   add: []
   toggle: []
 }>()
-const showActivity = computed(() => !props.expanded
-  && (props.activity === 'running' || props.activity === 'awaiting_approval'))
+const showActivity = computed(() => !props.expanded && !!props.activity && props.activity !== 'idle')
 </script>
 
 <template>
@@ -45,14 +45,14 @@ const showActivity = computed(() => !props.expanded
       v-if="showActivity"
       class="desktop-task-sidebar__section-activity"
       :class="{
+        'is-awaiting-answer': activity === 'awaiting_answer',
         'is-awaiting-approval': activity === 'awaiting_approval',
         'is-running': activity === 'running',
       }"
       role="status"
       :aria-label="activityLabel"
     >
-      <DesktopRingSpinner v-if="activity === 'running'" />
-      <DesktopIcon v-else :component="ApprovalsApp20Regular" :size="16" />
+      <DesktopTaskActivityIcon v-if="activity && activity !== 'idle'" :activity="activity" />
     </span>
   </div>
 </template>
@@ -146,6 +146,7 @@ button {
   color: var(--buddy-text-muted);
   pointer-events: none;
 
+  &.is-awaiting-answer,
   &.is-awaiting-approval {
     color: var(--buddy-status-warning-text);
   }

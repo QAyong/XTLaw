@@ -49,6 +49,8 @@ export interface TaskMarks {
   beginVisit: (conversationId: string) => void
 }
 
+export type TaskSidebarActivity = LocalConversationSummary['activity'] | 'awaiting_answer'
+
 export interface TaskHistory {
   search: (query: string, cursor?: string) => Promise<LocalConversationHistoryPage>
 }
@@ -71,6 +73,7 @@ export interface TaskIndex {
     setSpaceExpanded: (spaceId: string, expanded: boolean) => Promise<boolean>
     setWidth: (width: number | null) => Promise<boolean>
   }
+  activities: State<ReadonlyMap<string, TaskSidebarActivity>>
   spaces: State<readonly LocalSpace[]>
   tasks: State<readonly LocalConversationSummary[]>
   createSpace: (input: TaskSpaceInput) => Promise<boolean>

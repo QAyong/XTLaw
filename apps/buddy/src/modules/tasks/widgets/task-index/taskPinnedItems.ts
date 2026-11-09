@@ -1,6 +1,7 @@
 import type { DesktopTaskPinnedItem } from '@buddy-electron/shared/desktopApi'
 import type { LocalConversationSummary } from '@buddy-shared/conversation/conversationApi'
 import type { LocalSpace } from '@buddy-shared/spaces/spaceApi'
+import type { TaskSidebarActivity } from '../../contracts'
 
 export type TaskIndexRow
   = | {
@@ -41,35 +42,48 @@ export function spaceConversationGroupKey(spaceId: string): string {
   return `space:${spaceId}`
 }
 
+const activityPriority: Record<TaskSidebarActivity, number> = {
+  idle: 0,
+  running: 1,
+  awaiting_answer: 2,
+  awaiting_approval: 3,
+}
+
+export function resolveSidebarActivity(
+  task: LocalConversationSummary,
+  activities: ReadonlyMap<string, TaskSidebarActivity> = new Map(),
+): TaskSidebarActivity {
+  return activities.get(task.id) ?? task.activity
+}
+
 export function resolveSpaceActivities(
   tasks: ReadonlyArray<LocalConversationSummary>,
-): ReadonlyMap<string, LocalConversationSummary['activity']> {
-  const activities = new Map<string, LocalConversationSummary['activity']>()
+  activities: ReadonlyMap<string, TaskSidebarActivity> = new Map(),
+): ReadonlyMap<string, TaskSidebarActivity> {
+  const resolved = new Map<string, TaskSidebarActivity>()
   for (const task of tasks) {
-    if (!task.spaceId || task.activity === 'idle')
+    const activity = resolveSidebarActivity(task, activities)
+    if (!task.spaceId || activity === 'idle')
       continue
-    const current = activities.get(task.spaceId)
-    // Waiting for approval needs the user, so it outranks running.
-    if (current === 'awaiting_approval')
-      continue
-    if (current === undefined || task.activity === 'awaiting_approval')
-      activities.set(task.spaceId, task.activity)
+    const current = resolved.get(task.spaceId) ?? 'idle'
+    if (activityPriority[activity] > activityPriority[current])
+      resolved.set(task.spaceId, activity)
   }
-  return activities
+  return resolved
 }
 
 export function resolveTasksSectionActivity(
   tasks: ReadonlyArray<LocalConversationSummary>,
   pinnedConversationIds: ReadonlySet<string> = new Set(),
-): LocalConversationSummary['activity'] | undefined {
-  let activity: LocalConversationSummary['activity'] | undefined
+  activities: ReadonlyMap<string, TaskSidebarActivity> = new Map(),
+): TaskSidebarActivity | undefined {
+  let activity: TaskSidebarActivity | undefined
   for (const task of tasks) {
-    if (task.spaceId !== null || pinnedConversationIds.has(task.id) || task.activity === 'idle')
+    const resolved = resolveSidebarActivity(task, activities)
+    if (task.spaceId !== null || pinnedConversationIds.has(task.id) || resolved === 'idle')
       continue
-    if (activity === 'awaiting_approval')
-      continue
-    if (activity === undefined || task.activity === 'awaiting_approval')
-      activity = task.activity
+    if (activity === undefined || activityPriority[resolved] > activityPriority[activity])
+      activity = resolved
   }
   return activity
 }

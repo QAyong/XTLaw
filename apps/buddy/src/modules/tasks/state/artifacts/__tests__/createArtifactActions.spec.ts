@@ -1,8 +1,8 @@
 import type { LocalArtifact } from '@buddy-shared/artifacts/artifactApi'
+import type { LocalSpace } from '@buddy-shared/spaces/spaceApi'
 import type { JSONContent } from '@tiptap/core'
 import type { TaskCapability } from '../../../contracts'
-import type { TaskContextTab } from '../../../model/context-panel/taskContextPanel'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { shallowRef } from 'vue'
 import { createArtifactActions } from '../createArtifactActions'
 
@@ -31,25 +31,21 @@ function fixture() {
       session: {
         activeConversationId: shallowRef('conversation'),
         activeBranchId: branchId,
-        activeSpace: shallowRef({ id: 'space', revokedAt: null, primaryDirectory: { id: 'directory', revision: 2, root: '/workspace', canonicalRoot: '/workspace', revokedAt: null }, additionalDirectories: [] }),
+        activeSpace: shallowRef<LocalSpace | null>(null),
       },
       restoration: { state: shallowRef('ready') },
       status: { isClosing: shallowRef(false) },
       execution: { isSending: shallowRef(false), isMutatingBranch: shallowRef(false) },
     },
   }
-  const activeTab = shallowRef<TaskContextTab | null>(null)
+  const locateArtifact = vi.fn(async (_artifact: LocalArtifact) => {})
   const actions = createArtifactActions({
     task: () => task as unknown as TaskCapability,
-    resources: {
-      locateFile: (target, kind) => {
-        activeTab.value = { id: 'files-tab', kind: 'files', scope: 'task:conversation', rootName: 'workspace', target: { ...target, path: kind === 'file' ? target.path : '' }, treeTarget: { path: target.path, kind } }
-      },
-    },
+    resources: { locateArtifact },
     revealFile: async () => {},
     writeClipboardText: async () => {},
   })
-  return { actions, content, draftId, editorKey, branchId, activeTab, selected, pending: (promise: Promise<string>) => resolve = () => promise }
+  return { actions, content, draftId, editorKey, branchId, locateArtifact, selected, pending: (promise: Promise<string>) => resolve = () => promise }
 }
 
 describe('artifact card actions', () => {
@@ -80,13 +76,18 @@ describe('artifact card actions', () => {
     expect(f.content.value.attrs?.panelResourceIds).toEqual(['existing'])
   })
 
-  it('locates only the bound target without changing selection on failure', async () => {
+  it('allows locating an output without a space through the shared artifact resolver', async () => {
     const f = fixture()
-    await f.actions.execute('locate', artifact)
-    expect(f.activeTab.value).toMatchObject({ kind: 'files', target: { spaceId: 'space', directoryId: 'directory', revision: 2, path: 'report.md' } })
-    expect(f.actions.canLocate({ ...artifact, path: '/elsewhere/report.md' })).toBe(false)
-    await expect(f.actions.execute('locate', { ...artifact, path: '/elsewhere/report.md' })).rejects.toThrow('ARTIFACT_FILE_TARGET_UNAVAILABLE')
-    expect(f.activeTab.value).toMatchObject({ target: { path: 'report.md' } })
+    const desktop = { ...artifact, path: '/desktop/report.md' }
+    expect(f.actions.canLocate(desktop)).toBe(true)
+    await f.actions.execute('locate', desktop)
+    expect(f.locateArtifact).toHaveBeenCalledExactlyOnceWith(desktop)
+  })
+
+  it('propagates a failed artifact location instead of guessing a directory', async () => {
+    const f = fixture()
+    f.locateArtifact.mockRejectedValueOnce(new Error('DIRECTORY_NOT_AUTHORIZED'))
+    await expect(f.actions.execute('locate', artifact)).rejects.toThrow('DIRECTORY_NOT_AUTHORIZED')
   })
 
   it('does not reference or locate an artifact in a different conversation', async () => {
@@ -94,6 +95,8 @@ describe('artifact card actions', () => {
     const other = { ...artifact, conversationId: 'other' }
     expect(f.actions.canReference(other)).toBe(false)
     expect(f.actions.canLocate(other)).toBe(false)
+    await expect(f.actions.execute('locate', other)).rejects.toThrow('ARTIFACT_FILE_TARGET_UNAVAILABLE')
+    expect(f.locateArtifact).not.toHaveBeenCalled()
     await expect(f.actions.execute('reference', other)).rejects.toThrow('ARTIFACT_REFERENCE_UNAVAILABLE')
     expect(f.content.value.attrs?.panelResourceIds).toEqual(['existing'])
   })

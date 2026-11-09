@@ -15,6 +15,7 @@ import { getActiveSpaceDirectories } from '@buddy-shared/spaces/spaceApi'
 import { isGrantFileTarget } from '@buddy-shared/spaces/spaceFileApi'
 import { computed, onScopeDispose, readonly, shallowRef, watch, watchEffect } from 'vue'
 import { fileOpeningHandler } from '@/modules/files'
+import { artifactFileTarget } from '../../model/artifacts/artifactFileTarget'
 import { browserTabId, contextTabSource, isAgentBrowserTab } from '../../model/context-panel/taskContextPanel'
 import { resolveChatArtifactTarget, resolveChatToolFileTarget } from '../../model/transcript/chatToolFileTarget'
 import { useTaskContextPanel } from './useTaskContextPanel'
@@ -364,6 +365,24 @@ export function useTaskResourcePanel(options: TaskResourcePanelOptions) {
     return options.runOutputs.value.flatMap(output => output.artifacts).find(item => item.artifactId === id)
   }
 
+  async function locateArtifact(artifact: LocalArtifact): Promise<void> {
+    operation.value += 1
+    const isCurrent = currentOperation()
+    const source = { conversationId: artifact.conversationId, runId: artifact.runId }
+    const target = artifact.conversationId === options.activeConversationId.value
+      ? artifactFileTarget(options.activeSpace?.value ?? null, artifact.path)
+      : null
+    if (target) {
+      act(() => taskContext.locateFile(target, artifact.kind, source))
+      return
+    }
+    if (!options.artifactFileRoot)
+      throw new Error('ARTIFACT_FILE_TARGET_UNAVAILABLE')
+    const located = await options.artifactFileRoot(artifact.artifactId)
+    if (isCurrent())
+      act(() => taskContext.locateFile({ conversationId: located.conversationId, root: located.root, path: located.path }, located.kind, source))
+  }
+
   // An output inside the task's space is just a space file: open it in the file manager so it gets the file preview, editing and document plugins.
   function openInTaskSpace(artifact: LocalArtifact): boolean {
     const source = { conversationId: artifact.conversationId, runId: artifact.runId }
@@ -639,6 +658,7 @@ export function useTaskResourcePanel(options: TaskResourcePanelOptions) {
       }))
     }),
     findArtifact,
+    locateArtifact,
     fileArtifact,
     onFileError: options.onError,
     openArtifact,

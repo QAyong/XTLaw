@@ -162,20 +162,28 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
   }
 
   // Shows where a file or folder sits in the tree. A folder clears the file open in the tab; a file replaces it.
-  function locateFile(target: SpaceFileTarget, kind: 'file' | 'directory', source?: ContextPanelSource) {
-    const space = fileSpaces.value.find(space => space.id === target.spaceId)
-    const directory = getActiveSpaceDirectories(space).find(directory => directory.id === target.directoryId && directory.revision === target.revision)
-    if (!directory)
-      throw new Error('FILE_DIRECTORY_UNAVAILABLE')
+  function locateFile(target: FileTarget, kind: 'file' | 'directory', source?: ContextPanelSource) {
+    let root: string
+    if (isGrantFileTarget(target)) {
+      root = target.root
+    }
+    else {
+      const space = fileSpaces.value.find(space => space.id === target.spaceId)
+      const directory = getActiveSpaceDirectories(space).find(directory => directory.id === target.directoryId && directory.revision === target.revision)
+      if (!directory)
+        throw new Error('FILE_DIRECTORY_UNAVAILABLE')
+      root = directory.root
+    }
     const candidates = store.tabs.value.filter(tab => tab.kind === 'files' && sameFileRoot(tab.target, target))
     const previous = candidates.find(tab => tab.id === store.activeTab.value?.id) ?? candidates[0]
     openTab({
       id: previous?.id ?? `files:${crypto.randomUUID()}`,
       scope: source ? taskContextPanelScope(source.conversationId) : previous?.scope ?? store.scope.value,
       kind: 'files',
-      rootName: rootNameOf(directory.root),
+      rootName: rootNameOf(root),
       target: { ...target, path: kind === 'file' ? target.path : '' },
       treeTarget: { path: target.path, kind },
+      tree: { visible: true, token: crypto.randomUUID() },
       source: source ?? previous?.source ?? currentSource(),
     })
   }

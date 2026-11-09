@@ -64,7 +64,8 @@ function fixture(activeSpace: LocalSpace | null = space(), extra: { providers?: 
     openArtifact: async () => { throw new Error('unexpected browser artifact') },
     openFile: async () => { throw new Error('unexpected browser file link') },
   }
-  const { scope, options } = contextPanelFixture({ activeConversationId: shallowRef<string | null>('conversation'), activeSpace: shallowRef(activeSpace), spaces: shallowRef(activeSpace ? [activeSpace] : []), runOutputs: shallowRef(extra.outputs ? [{ runId: 'run', createdAt: now, sourceToolCallId: 'tool', artifacts: extra.outputs }] : []) })
+  const activeConversationId = shallowRef<string | null>('conversation')
+  const { scope, options } = contextPanelFixture({ activeConversationId, activeSpace: shallowRef(activeSpace), spaces: shallowRef(activeSpace ? [activeSpace] : []), runOutputs: shallowRef(extra.outputs ? [{ runId: 'run', createdAt: now, sourceToolCallId: 'tool', artifacts: extra.outputs }] : []) })
   const open = vi.fn(async () => {})
   const openFile = vi.fn(async (_file: { name: string, kind: string }) => {})
   const files = { resolve: async ({ conversationId, href }: { conversationId: string, href: string }) => ({ target: { conversationId, path: href }, name: href.split('/').at(-1)!, kind: 'file' as const, mimeType: 'application/octet-stream', sizeBytes: 10, updatedAt: now }) }
@@ -72,8 +73,63 @@ function fixture(activeSpace: LocalSpace | null = space(), extra: { providers?: 
     ? { ensureReady: async () => {}, resolve: (name: string, location: 'standalone') => resolveFileOpening({ providers: [...builtinFileOpeningProviders, ...extra.providers!], defaults: extra.defaults ?? {} }, name, location), open }
     : undefined
   const panel = scope.run(() => useTaskResourcePanel({ ...options, artifactFileRoot: extra.artifactFileRoot ?? outputFileRoot, ...(fileOpening ? { fileOpening } : {}), ...(extra.revealOpenOfficeDocument ? { revealOpenOfficeDocument: extra.revealOpenOfficeDocument } : {}), autoCollapse: shallowRef(false), linkOpening: shallowRef('in-app'), files, openFile, browser }))!
-  return { panel, open, openFile, onError: options.onError as unknown as ReturnType<typeof vi.fn> }
+  return { panel, open, openFile, activeConversationId, onError: options.onError as unknown as ReturnType<typeof vi.fn> }
 }
+
+describe('locating task outputs', () => {
+  it('locates an output inside the space and shows its tree after a card folded it', async () => {
+    const artifactFileRoot = vi.fn(outputFileRoot)
+    const { panel } = fixture(space(), { artifactFileRoot })
+    const card = artifact()
+    await panel.openArtifact(card)
+    await panel.locateArtifact(card)
+    expect(panel.allTabs.value).toHaveLength(1)
+    expect(panel.activeTab.value).toMatchObject({ kind: 'files', target: { spaceId: 'space', directoryId: 'directory', path: 'docs/report.md' }, treeTarget: { path: 'docs/report.md', kind: 'file' }, tree: { visible: true } })
+    expect(artifactFileRoot).not.toHaveBeenCalled()
+    await panel.locateArtifact(folder({ path: '/workspace' }))
+    expect(panel.activeTab.value).toMatchObject({ target: { path: '' }, treeTarget: { path: '', kind: 'directory' } })
+  })
+
+  it.each([null, space()])('locates a desktop file using its registered root, with active space %j', async (activeSpace) => {
+    const artifactFileRoot = vi.fn(async () => ({ conversationId: 'conversation', root: '/desktop', path: 'reports/note.md', kind: 'file' as const }))
+    const { panel } = fixture(activeSpace, { artifactFileRoot })
+    const card = artifact({ path: '/desktop/reports/note.md' })
+    await panel.openArtifact(card)
+    const tabId = panel.activeTab.value!.id
+    await panel.locateArtifact(card)
+    expect(panel.allTabs.value).toHaveLength(1)
+    expect(panel.activeTab.value).toMatchObject({ id: tabId, kind: 'files', rootName: 'desktop', target: { conversationId: 'conversation', root: '/desktop', path: 'reports/note.md' }, treeTarget: { path: 'reports/note.md', kind: 'file' }, tree: { visible: true }, source: { conversationId: 'conversation', runId: 'run' } })
+    expect(artifactFileRoot).toHaveBeenLastCalledWith('artifact')
+  })
+
+  it.each(['reports', ''])('locates an external folder %s without opening it as a file', async (path) => {
+    const { panel } = fixture(null, { artifactFileRoot: async () => ({ conversationId: 'conversation', root: '/desktop', path, kind: 'directory' }) })
+    await panel.locateArtifact(folder({ path: `/desktop/${path}` }))
+    expect(panel.activeTab.value).toMatchObject({ kind: 'files', target: { conversationId: 'conversation', root: '/desktop', path: '' }, treeTarget: { path, kind: 'directory' }, tree: { visible: true } })
+  })
+
+  it('keeps the current tab when the registered directory is no longer authorized', async () => {
+    const denied = new Error('DIRECTORY_NOT_AUTHORIZED')
+    const { panel } = fixture(space(), { artifactFileRoot: async () => {
+      throw denied
+    } })
+    await panel.openArtifact(artifact())
+    const tab = panel.activeTab.value
+    await expect(panel.locateArtifact(artifact({ path: '/desktop/report.md' }))).rejects.toBe(denied)
+    expect(panel.activeTab.value).toEqual(tab)
+    expect(panel.allTabs.value).toHaveLength(1)
+  })
+
+  it('does not open a late location after switching conversations', async () => {
+    const pending = Promise.withResolvers<ArtifactFileRoot>()
+    const { panel, activeConversationId } = fixture(null, { artifactFileRoot: () => pending.promise })
+    const request = panel.locateArtifact(artifact({ path: '/desktop/note.md' }))
+    activeConversationId.value = 'other'
+    pending.resolve({ conversationId: 'conversation', root: '/desktop', path: 'note.md', kind: 'file' })
+    await request
+    expect(panel.allTabs.value).toEqual([])
+  })
+})
 
 describe('opening task outputs', () => {
   it('opens an output inside the task space as a space file', async () => {

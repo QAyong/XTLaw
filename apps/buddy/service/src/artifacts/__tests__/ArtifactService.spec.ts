@@ -175,19 +175,28 @@ describe('artifactService', () => {
     const [written] = await service.presentOutputs({ conversationId: 'conversation-1', cwd: fixture.workspace, grants: runGrants, paths: [path] })
     expect(written!.directoryGrantId).toBe('run:run-1:call-1:0')
     expect(await service.resolveFileRoot(written!.id)).toEqual({ conversationId: 'conversation-1', root: fixture.workspace, path: 'note.md', kind: 'file' })
-    // The rest of the artifact API still needs a live grant.
-    await expect(service.locate(written!.id)).rejects.toMatchObject({ code: 'DIRECTORY_NOT_AUTHORIZED' })
+    // The card's containing-folder action uses the same recorded root as opening the card.
+    await expect(service.locate(written!.id)).resolves.toEqual({ path, kind: 'file' })
+    const folder = join(fixture.workspace, 'reports')
+    await mkdir(folder)
+    const [directory] = await service.presentOutputs({ conversationId: 'conversation-1', cwd: fixture.workspace, grants: runGrants, paths: [folder] })
+    await expect(service.locate(directory!.id)).resolves.toEqual({ path: folder, kind: 'directory' })
     // A replaced file is no longer the recorded one.
     const outside = join(fixture.root, 'private.md')
     await writeFile(outside, 'private')
     await rm(path)
     await symlink(outside, path)
     await expect(service.resolveFileRoot(written!.id)).rejects.toThrow()
+    await expect(service.locate(written!.id)).rejects.toMatchObject({ code: 'DIRECTORY_NOT_AUTHORIZED' })
     // An output of a stored grant that was revoked is not covered by this.
     await rm(path)
     await writeFile(path, 'hello')
     fixture.repository.save({ ...written!, directoryGrantId: 'revoked-grant' })
     await expect(service.resolveFileRoot(written!.id)).rejects.toMatchObject({ code: 'DIRECTORY_NOT_AUTHORIZED' })
+    await expect(service.locate(written!.id)).rejects.toMatchObject({ code: 'DIRECTORY_NOT_AUTHORIZED' })
+    fixture.repository.save(written!)
+    fixture.database.prepare('UPDATE conversations SET deleted_at = ? WHERE id = ?').run('2026-08-28T00:00:00.000Z', 'conversation-1')
+    await expect(service.locate(written!.id)).rejects.toMatchObject({ code: 'ARTIFACT_NOT_FOUND' })
   })
 
   it('supports owned task workspaces without a Space, rejecting replaced paths and deleted owners', async () => {

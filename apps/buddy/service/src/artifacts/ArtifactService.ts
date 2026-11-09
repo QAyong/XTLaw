@@ -415,17 +415,8 @@ export class ArtifactService {
 
   // Where an artifact lives on disk for a reader that only holds its ID, such as a plugin opening an output card.
   async locate(id: string): Promise<{ path: string, kind: 'file' | 'directory' }> {
-    const artifact = this.#requireVisibleArtifact(id)
-    if (!this.#fileAccess)
-      throw new ArtifactError('DIRECTORY_NOT_AUTHORIZED')
-    const target = await this.#fileAccess.resolve(artifact)
-    const metadata = await stat(target.path)
-    if (!metadata.isFile() && !metadata.isDirectory())
-      throw new ArtifactError('VALIDATION_FAILED')
-    const current = await this.#fileAccess.resolve(this.#requireVisibleArtifact(id))
-    if (current.root !== target.root || current.path !== target.path)
-      throw new ArtifactError('DIRECTORY_NOT_AUTHORIZED')
-    return { path: target.path, kind: metadata.isDirectory() ? 'directory' : 'file' }
+    const target = await this.resolveFileRoot(id)
+    return { path: resolve(target.root, target.path), kind: target.kind }
   }
 
   // The directory an output was written into and its path inside it, so the file manager can open that directory as a root (Spec-044).

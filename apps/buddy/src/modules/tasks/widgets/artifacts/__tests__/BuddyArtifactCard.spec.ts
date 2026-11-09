@@ -32,7 +32,7 @@ function mountCard() {
       useProvideArtifactActions({
         language: () => 'zh-CN',
         task: () => null,
-        resources: { locateFile: () => {} },
+        resources: { locateArtifact: async () => {} },
         revealFile: async () => { throw new Error('private path') },
         writeClipboardText: async () => {},
       })

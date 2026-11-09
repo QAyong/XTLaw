@@ -2,11 +2,10 @@ import type { LocalChatApi } from '@buddy-electron/shared/localChatApi'
 import type { LocalArtifact } from '@buddy-shared/artifacts/artifactApi'
 import type { BuddyComposerSource } from '@buddy-shared/conversation/composerResource'
 import type { TaskCapability, TaskResourcePanel } from '../../contracts'
-import { artifactFileTarget } from '../../model/artifacts/artifactFileTarget'
 
 export interface ArtifactActionsOptions {
   task: () => TaskCapability | null
-  resources: Pick<TaskResourcePanel, 'locateFile'>
+  resources: Pick<TaskResourcePanel, 'locateArtifact'>
   revealFile: LocalChatApi['artifacts']['revealFile']
   writeClipboardText: (text: string) => Promise<void>
 }
@@ -24,11 +23,8 @@ export function createArtifactActions(options: ArtifactActionsOptions) {
       ? task
       : null
   }
-  function fileTarget(artifact: LocalArtifact) {
-    const task = options.task()
-    return task?.workspace.session.activeConversationId.value === artifact.conversationId
-      ? artifactFileTarget(task.workspace.session.activeSpace.value, artifact.path)
-      : null
+  function canLocate(artifact: LocalArtifact) {
+    return options.task()?.workspace.session.activeConversationId.value === artifact.conversationId
   }
   async function reference(conversationId: string, source: BuddyComposerSource) {
     const task = referenceTask(conversationId)
@@ -53,7 +49,7 @@ export function createArtifactActions(options: ArtifactActionsOptions) {
     canReference: (artifact: LocalArtifact) => !!referenceTask(artifact.conversationId),
     canReferenceFile: (conversationId: string) => !!referenceTask(conversationId),
     referenceFile: (conversationId: string, path: string) => reference(conversationId, { localPath: path }),
-    canLocate: (artifact: LocalArtifact) => !!fileTarget(artifact),
+    canLocate,
     async execute(action: ArtifactAction, artifact: LocalArtifact): Promise<void> {
       if (action === 'copyPath')
         return options.writeClipboardText(artifact.path)
@@ -62,10 +58,9 @@ export function createArtifactActions(options: ArtifactActionsOptions) {
         return
       }
       if (action === 'locate') {
-        const target = fileTarget(artifact)
-        if (!target)
+        if (!canLocate(artifact))
           throw new Error('ARTIFACT_FILE_TARGET_UNAVAILABLE')
-        options.resources.locateFile(target, artifact.kind, { conversationId: artifact.conversationId, runId: artifact.runId })
+        await options.resources.locateArtifact(artifact)
         return
       }
       const task = referenceTask(artifact.conversationId)

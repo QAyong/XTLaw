@@ -69,7 +69,7 @@ export function createPluginAuthoringCapability(context: BuddyCapabilityContext,
           ...PLUGIN_TOOLS.capabilities,
           label: 'Discover plugin capabilities',
           parameters: capabilitiesParameters,
-          description: 'Query the actual Lexora host for contribution targets and runtime capabilities. No filters returns a compact index; filter by kind or exact target for sizing, selection, scope and interaction rules. Read-only.',
+          description: 'Query the actual XTLaw host for contribution targets and runtime capabilities. No filters returns a compact index; filter by kind or exact target for sizing, selection, scope and interaction rules. Read-only.',
           async execute(_toolCallId, input, signal) {
             try {
               const abort = signal ? AbortSignal.any([signal, context.signal]) : context.signal
@@ -83,7 +83,7 @@ export function createPluginAuthoringCapability(context: BuddyCapabilityContext,
           ...PLUGIN_TOOLS.inspect,
           label: 'Inspect plugin',
           parameters: inspectParameters,
-          description: 'Read a Lexora plugin installation, pending update, runtime views, errors and available entry commands from the actual desktop host. Does not install, activate, execute commands, read private plugin data or prove visual and media behavior.',
+          description: 'Read an XTLaw plugin installation, pending update, runtime views, errors and available entry commands from the actual desktop host. Does not install, activate, execute commands, read private plugin data or prove visual and media behavior.',
           async execute(_toolCallId, input, signal) {
             try {
               const abort = signal ? AbortSignal.any([signal, context.signal]) : context.signal
@@ -97,7 +97,7 @@ export function createPluginAuthoringCapability(context: BuddyCapabilityContext,
           ...PLUGIN_TOOLS.build,
           label: 'Build plugin',
           parameters,
-          description: 'Validate and compile a self-contained Lexora TS/JS plugin using the isolated built-in compiler, and write an installable package. Returns the actual id, name, author (empty means unsigned), version and diagnostics. Author signature is the manifest author field, independent of the ID prefix; changing an author must not regenerate or rename the ID. Does not run plugin code, install dependencies or install plugins. Optionally opens the user installation review.',
+          description: 'Validate and compile a self-contained XTLaw TS/JS plugin using the isolated built-in compiler, and write an installable package. Returns the actual id, name, author (empty means unsigned), version and diagnostics. Author signature is the manifest author field, independent of the ID prefix; changing an author must not regenerate or rename the ID. Does not run plugin code, install dependencies or install plugins. Optionally opens the user installation review.',
           async execute(toolCallId, input, signal) {
             if (!Check(parameters, input))
               return response({ ok: false, code: 'VALIDATION_FAILED', diagnostics: [] })

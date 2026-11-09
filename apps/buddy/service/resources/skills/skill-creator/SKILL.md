@@ -1,6 +1,6 @@
 ---
 name: skill-creator
-description: Create, update, and improve reusable Agent Skills, including turning workflows from the current conversation into skills, writing SKILL.md and supporting resources, validating existing skills, and previewing installation in Lexora. Also responds to $skill-creator. Excludes ordinary task execution, merely using or installing an existing skill, and Lexora desktop plugin development.
+description: Create, update, and improve reusable Agent Skills, including turning workflows from the current conversation into skills, writing SKILL.md and supporting resources, validating existing skills, and previewing installation in XTLaw. Also responds to $skill-creator. Excludes ordinary task execution, merely using or installing an existing skill, and XTLaw desktop plugin development.
 ---
 
 # Create a reusable skill
@@ -43,7 +43,7 @@ Try the workflow on a representative task and inspect the actual output against 
 
 ## Preview installation and deliver
 
-Before delivery or an installation preview, review the actual source for the authoring language and output requirements above; fix known mismatches instead of offering to repair them after delivery. When the skill is intended for use in Lexora, request an installation preview for the validated source with the same tool:
+Before delivery or an installation preview, review the actual source for the authoring language and output requirements above; fix known mismatches instead of offering to repair them after delivery. When the skill is intended for use in XTLaw, request an installation preview for the validated source with the same tool:
 
 ```json
 { "source": "skills/meeting-summary", "review": true }
@@ -55,4 +55,4 @@ The preview shows the name, purpose, scope, and whether an existing installation
 
 A preview captures a snapshot at the time of the call. Later edits are not included in an earlier preview. After editing, prepare a new preview and have the user cancel the old one and confirm the new version. A user-installed skill with the same name in the same scope updates the existing installation and preserves its enabled state. To change a built-in skill, copy its directory from the path shown in the skill list into the workspace, keep the same name, edit the copy, and prepare it as usual; the installed copy takes precedence over the built-in one and the built-in files stay untouched. A Space-scoped copy applies only in that Space. A global copy replaces the built-in skill everywhere, but only when the user has enabled developer tools; otherwise the tool returns `SKILL_NAME_COLLISION`, so tell the user to enable developer tools or use the Space scope instead of renaming the skill. Removing the installed copy restores the built-in version. If related tasks are running or installation state has changed, follow the error and prepare again; do not rename the skill to bypass update checks.
 
-Present the source directory through `lexora_output_present`. Lexora currently installs from folders or public GitHub sources, so no `.skill` archive is needed. Briefly explain the purpose, a trigger example, source location, completed checks, and remaining validation. Installed skills take effect in subsequent task runs. After user feedback, edit the same source and verify the affected scenario instead of creating unrelated copies.
+Present the source directory through `lexora_output_present`. XTLaw currently installs from folders or public GitHub sources, so no `.skill` archive is needed. Briefly explain the purpose, a trigger example, source location, completed checks, and remaining validation. Installed skills take effect in subsequent task runs. After user feedback, edit the same source and verify the affected scenario instead of creating unrelated copies.

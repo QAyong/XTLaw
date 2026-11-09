@@ -42,7 +42,7 @@ export function createSkillAuthoringCapability(context: BuddyCapabilityContext, 
           ...SKILL_TOOLS.prepare,
           label: 'Prepare skill',
           parameters,
-          description: 'Validate a reusable skill directory and its resource package using Lexora’s installer. Returns metadata, diagnostics and same-scope replacement information. Optionally requests user installation review of the validated snapshot. Does not execute scripts, evaluate skill behavior, install dependencies or install skills. Preserve existing skill names when updating; installation takes effect for subsequent runs.',
+          description: 'Validate a reusable skill directory and its resource package using XTLaw’s installer. Returns metadata, diagnostics and same-scope replacement information. Optionally requests user installation review of the validated snapshot. Does not execute scripts, evaluate skill behavior, install dependencies or install skills. Preserve existing skill names when updating; installation takes effect for subsequent runs.',
           async execute(toolCallId, input, signal) {
             const abort = signal ?? context.signal
             let preview: SkillInstallPreview | undefined

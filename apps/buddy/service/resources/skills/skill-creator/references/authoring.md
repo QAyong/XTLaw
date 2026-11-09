@@ -23,7 +23,7 @@ Before replying, check that every action item includes those fields, every unkno
 - Keep `description` within 1024 characters. Explain what the skill handles and when to use it, including easily confused neighboring tasks where useful. Use natural task language instead of broad claims such as "use for everything" or keyword stuffing. Trigger guidance in the body does not replace the description.
 - Quote YAML strings containing special syntax, such as colons, or use block scalars. Ensure they parse as strings.
 - Use `license`, `compatibility`, and a string-to-string `metadata` map when needed. State required tools, environments, or file formats without adding nonexistent dependencies.
-- Lexora supports `disable-model-invocation: true` for manual invocation only. Set it only when the user wants that behavior. Declarations such as `allowed-tools` do not grant permissions or bypass host authorization.
+- XTLaw supports `disable-model-invocation: true` for manual invocation only. Set it only when the user wants that behavior. Declarations such as `allowed-tools` do not grant permissions or bypass host authorization.
 
 ## Instructions and resources
 

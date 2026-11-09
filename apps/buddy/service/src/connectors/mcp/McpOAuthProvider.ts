@@ -116,7 +116,7 @@ export async function loginMcpOAuth(options: {
       response.writeHead(400).end('Invalid authorization callback')
       return
     }
-    response.end('授权回调已收到，可以关闭此页面并返回 Lexora。')
+    response.end('授权回调已收到，可以关闭此页面并返回 XTLaw。')
     if (url.searchParams.has('error') || !url.searchParams.get('code'))
       callback.reject(new McpClientError('MCP_AUTHENTICATION_FAILED'))
     else

@@ -1,15 +1,13 @@
 <script setup lang="ts">
-import type { LocalConversationSummary } from '@buddy-shared/conversation/conversationApi'
 import type { LocalSpace } from '@buddy-shared/spaces/spaceApi'
-
 import type { DropdownOption } from 'naive-ui'
+import type { TaskSidebarActivity } from '../../contracts'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import type { DesktopTaskPinnedDropPosition } from '@/modules/tasks/widgets/task-index/taskPinnedItems'
 import type { TaskSpaceMenuAction } from '@/modules/tasks/widgets/task-index/useTaskIndexManagement'
 import { useDragDropMonitor, useDroppable } from '@dnd-kit/vue'
 import {
   Add16Regular,
-  ApprovalsApp20Regular,
   ChevronDown16Regular,
   ChevronRight16Regular,
   FolderOpen20Regular,
@@ -23,8 +21,8 @@ import DesktopOverflowingLabel from '@/modules/tasks/widgets/task-index/DesktopO
 import { desktopRouteLocations } from '@/shared/navigation/desktopRoutes'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import SkillIcon from '@/shared/ui/icon/SkillIcon.vue'
-import DesktopRingSpinner from '@/shared/ui/loading/DesktopRingSpinner.vue'
 import DesktopSpaceIcon from '../space/DesktopSpaceIcon.vue'
+import DesktopTaskActivityIcon from './DesktopTaskActivityIcon.vue'
 import { useTaskHistoryDrag } from './useTaskHistoryDrag'
 
 const props = defineProps<{
@@ -36,7 +34,7 @@ const props = defineProps<{
   space: LocalSpace
   reorderable?: boolean
   reorderTarget?: boolean
-  activity?: LocalConversationSummary['activity']
+  activity?: TaskSidebarActivity
 }>()
 const emit = defineEmits<{
   dragEnd: []
@@ -50,11 +48,12 @@ const emit = defineEmits<{
 }>()
 const { t } = useBuddyI18n(() => props.language)
 const router = useRouter()
-const showActivity = computed(() => !props.expanded
-  && (props.activity === 'running' || props.activity === 'awaiting_approval'))
-const activityLabel = computed(() => props.activity === 'awaiting_approval'
-  ? t('activity.approval')
-  : t('run.status.running'))
+const showActivity = computed(() => !props.expanded && !!props.activity && props.activity !== 'idle')
+const activityLabel = computed(() => props.activity === 'awaiting_answer'
+  ? t('activity.awaitingAnswer')
+  : props.activity === 'awaiting_approval'
+    ? t('activity.approval')
+    : t('run.status.running'))
 const pinLabel = computed(() => props.pinMode === 'pin'
   ? t('desktop.tasks.pin')
   : t('desktop.tasks.unpin'))
@@ -227,14 +226,14 @@ useDragDropMonitor({
       v-if="showActivity"
       class="desktop-task-space-row__activity"
       :class="{
+        'is-awaiting-answer': activity === 'awaiting_answer',
         'is-awaiting-approval': activity === 'awaiting_approval',
         'is-running': activity === 'running',
       }"
       role="status"
       :aria-label="activityLabel"
     >
-      <DesktopRingSpinner v-if="activity === 'running'" />
-      <DesktopIcon v-else :component="ApprovalsApp20Regular" :size="16" />
+      <DesktopTaskActivityIcon v-if="activity && activity !== 'idle'" :activity="activity" />
     </span>
   </div>
 </template>
@@ -361,6 +360,7 @@ button {
   color: var(--buddy-text-muted);
   pointer-events: none;
 
+  &.is-awaiting-answer,
   &.is-awaiting-approval {
     color: var(--buddy-status-warning-text);
   }

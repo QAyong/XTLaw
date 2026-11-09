@@ -4,7 +4,7 @@ import type { LocalConversationSummary } from '@buddy-shared/conversation/conver
 
 import type { LocalSpace } from '@buddy-shared/spaces/spaceApi'
 
-import type { TaskIndex, TaskMarks } from '../../contracts'
+import type { TaskIndex, TaskMarks, TaskSidebarActivity } from '../../contracts'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import type { SpaceDirectorySource, TaskSpaceInput } from '@/modules/tasks/state/task-index/typing'
 import { Tag20Regular } from '@vicons/fluent'
@@ -43,6 +43,7 @@ const props = defineProps<{
   moveTaskToSpace: (taskId: string, spaceId: string) => Promise<boolean>
   updateSpace: (input: TaskSpaceInput & { spaceId: string }) => Promise<boolean>
   tasks: ReadonlyArray<LocalConversationSummary>
+  activities: ReadonlyMap<string, TaskSidebarActivity>
 }>()
 const emit = defineEmits<{
   deleteSpace: [spaceId: string]
@@ -134,6 +135,7 @@ const {
   requestTaskDelete,
   requestTaskRename,
   spaceActivities,
+  taskActivities,
   tasksSectionActivity,
   saveSpace,
   selectSpaceMenuAction,
@@ -154,12 +156,23 @@ const {
   onRenameTask: (conversationId, title) => emit('renameTask', conversationId, title),
   onUpdatePinnedItems: items => emit('updatePinnedItems', items),
   onUpdateSpace: input => props.updateSpace(input),
+  activities: () => props.activities,
   pinnedItems: toRef(props, 'pinnedItems'),
   sidebar: () => props.sidebar,
   spaces: toRef(props, 'spaces'),
   tasks: toRef(props, 'tasks'),
 })
 
+function taskActivity(task: LocalConversationSummary) {
+  return taskActivities.value.get(task.id) ?? task.activity
+}
+function sectionActivityLabel(activity: TaskSidebarActivity | undefined) {
+  if (activity === 'awaiting_answer')
+    return t('activity.awaitingAnswer')
+  if (activity === 'awaiting_approval')
+    return t('activity.approval')
+  return t('run.status.running')
+}
 function openSearchTask(conversation: LocalConversationSummary) {
   searchOpen.value = false
   emit('openTask', conversation.id)
@@ -241,7 +254,7 @@ function openSearchSpace(spaceId: string) {
               v-else
               :task-id="item.task.id"
               :active="item.task.id === activeConversationId"
-              :activity="item.task.activity"
+              :activity="taskActivity(item.task)"
               v-bind="{ ...markBindings(item.task.id), ...taskMenuBindings(item.task) }"
               :dragging="item.pinnedTopLevel && draggedPinnedItemKey === item.pinKey"
               :drop-position="item.pinnedTopLevel ? getPinnedDropPosition(item.pinKey) : undefined"
@@ -302,7 +315,7 @@ function openSearchSpace(spaceId: string) {
               v-else
               :task-id="item.task.id"
               :active="item.task.id === activeConversationId"
-              :activity="item.task.activity"
+              :activity="taskActivity(item.task)"
               :language="language"
               :now="relativeTimeNow"
               :occurred-at="item.task.automationOccurrence?.scheduledFor ?? item.task.updatedAt"
@@ -320,7 +333,7 @@ function openSearchSpace(spaceId: string) {
 
         <DesktopTaskSidebarSection
           :activity="tasksSectionActivity"
-          :activity-label="tasksSectionActivity === 'awaiting_approval' ? t('activity.approval') : t('run.status.running')"
+          :activity-label="sectionActivityLabel(tasksSectionActivity)"
           :expanded="isSectionExpanded('tasks')"
           :items="taskRows"
           key-field="key"
@@ -343,7 +356,7 @@ function openSearchSpace(spaceId: string) {
               v-else-if="item.kind === 'task'"
               :task-id="item.task.id"
               :active="item.task.id === activeConversationId"
-              :activity="item.task.activity"
+              :activity="taskActivity(item.task)"
               v-bind="{ ...markBindings(item.task.id), ...taskMenuBindings(item.task) }"
               :language="language"
               :now="relativeTimeNow"

@@ -4,7 +4,7 @@ import type { LocalTaskMarkState } from '@buddy-shared/conversation/taskMarkApi'
 import type { LocalSpace } from '@buddy-shared/spaces/spaceApi'
 
 import type { Ref } from 'vue'
-import type { TaskIndex } from '../../contracts'
+import type { TaskIndex, TaskSidebarActivity } from '../../contracts'
 import type { TaskIndexManagementOptions } from './useTaskIndexManagement'
 import type { DesktopTaskPinnedDropPosition } from '@/modules/tasks/widgets/task-index/taskPinnedItems'
 import { useIntervalFn } from '@vueuse/core'
@@ -22,6 +22,7 @@ import {
 import { useTaskIndexManagement } from './useTaskIndexManagement'
 
 interface UseTaskIndexControllerOptions extends TaskIndexManagementOptions {
+  activities?: () => ReadonlyMap<string, TaskSidebarActivity>
   markStates: () => ReadonlyMap<string, LocalTaskMarkState>
   onUpdatePinnedItems: (items: DesktopTaskPinnedItem[]) => void
   pinnedItems: Readonly<Ref<ReadonlyArray<DesktopTaskPinnedItem>>>
@@ -60,12 +61,14 @@ export function useTaskIndexController(options: UseTaskIndexControllerOptions) {
   const pinnedRows = computed(() => projection.value.pinnedRows)
   const spaceRows = computed(() => projection.value.spaceRows)
   const taskRows = computed(() => projection.value.taskRows)
-  const spaceActivities = computed(() => resolveSpaceActivities(options.tasks.value))
+  const taskActivities = computed(() => options.activities?.() ?? new Map())
+  const spaceActivities = computed(() => resolveSpaceActivities(options.tasks.value, taskActivities.value))
   const tasksSectionActivity = computed(() => resolveTasksSectionActivity(
     options.tasks.value,
     new Set(pinnedItems.value
       .filter(item => item.kind === 'conversation')
       .map(item => item.id)),
+    taskActivities.value,
   ))
 
   useIntervalFn(() => {
@@ -188,6 +191,7 @@ export function useTaskIndexController(options: UseTaskIndexControllerOptions) {
     pinnedRows,
     recordScrollAnchor,
     spaceActivities,
+    taskActivities,
     tasksSectionActivity,
     scrollAnchors,
     setSectionExpanded,

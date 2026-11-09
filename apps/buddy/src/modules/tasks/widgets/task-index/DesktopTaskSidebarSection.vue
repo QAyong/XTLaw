@@ -1,4 +1,5 @@
 <script setup lang="ts" generic="T extends Record<string, unknown>">
+import type { TaskSidebarActivity } from '../../contracts'
 import { NVirtualList } from 'naive-ui'
 import { computed, nextTick, onMounted, useTemplateRef } from 'vue'
 import DesktopTaskSidebarSectionHeader from '@/modules/tasks/widgets/task-index/DesktopTaskSidebarSectionHeader.vue'
@@ -9,7 +10,7 @@ import {
 } from '@/modules/tasks/widgets/task-index/taskSidebarLayout'
 
 const props = defineProps<{
-  activity?: 'idle' | 'running' | 'awaiting_approval'
+  activity?: TaskSidebarActivity
   activityLabel?: string
   items: ReadonlyArray<T>
   keyField: string

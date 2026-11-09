@@ -1,7 +1,12 @@
+// View-side RPC completion policy only. Host responsiveness is monitored by
+// an independent heartbeat, never by pausing deadlines for this method list.
 const ioMethods = new Set([
   'network.get',
   'network.download',
   'resources.importFile',
+  'resources.readBytes',
+  'resources.scanDirectory',
+  'resources.hash',
   'resources.beginCreate',
   'resources.writeChunk',
   'resources.commitSave',

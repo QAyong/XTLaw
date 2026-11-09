@@ -178,6 +178,25 @@ describe('resolveTasksSectionActivity', () => {
     expect(resolveTasksSectionActivity(tasks, new Set(['pinned']))).toBe('awaiting_approval')
   })
 
+  it('lets a waiting answer outrank running but not approval', () => {
+    const tasks = [
+      { ...createTask('running', null), activity: 'running' as const },
+      { ...createTask('waiting', null), activity: 'running' as const },
+      { ...createTask('approval', 'space-a'), activity: 'running' as const },
+    ]
+    const activities = new Map<string, 'awaiting_answer' | 'awaiting_approval'>([
+      ['waiting', 'awaiting_answer'],
+      ['running', 'awaiting_answer'],
+      ['approval', 'awaiting_approval'],
+    ])
+
+    expect(resolveTasksSectionActivity(tasks, new Set(), activities)).toBe('awaiting_answer')
+    expect(resolveSpaceActivities([
+      { ...createTask('running', 'space-a'), activity: 'running' },
+      { ...createTask('approval', 'space-a'), activity: 'awaiting_approval' },
+    ], activities).get('space-a')).toBe('awaiting_approval')
+  })
+
   it('returns running when nothing is waiting for approval', () => {
     const tasks = [
       { ...createTask('running', null), activity: 'running' },

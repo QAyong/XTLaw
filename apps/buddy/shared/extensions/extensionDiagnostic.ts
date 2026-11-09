@@ -3,6 +3,7 @@ import { z } from 'zod'
 const methods = new Set([
   'activate',
   'ready',
+  'ping',
   'deactivate',
   'command',
   'agent.invoke',

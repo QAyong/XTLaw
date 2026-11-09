@@ -56,6 +56,8 @@ export function useChatViewport(options: UseChatViewportOptions) {
   let positionedScopeKey = scopeKey()
   let readingAnchor: ChatMessageScrollAnchor | null = null
   let pendingPosition: ChatMessageScrollAnchor | null = readingPositions.get(scopeKey()) ?? null
+  if (pendingPosition)
+    scrollState.value = detachChatScroll(scrollState.value)
   let operationGeneration = 0
   let pendingHistory: ScrollOperation | null = null
   let pendingPage: Promise<boolean> | null = null
@@ -74,8 +76,11 @@ export function useChatViewport(options: UseChatViewportOptions) {
     ],
     ([conversationId, branchId], [previousConversationId, previousBranchId, previousList]) => {
       const contextChanged = conversationId !== previousConversationId || branchId !== previousBranchId
-      if (!isPositioning.value && !isRestoringPosition.value && (contextChanged || previousList))
+      if (!isPositioning.value && !isRestoringPosition.value && (contextChanged || previousList)) {
         rememberPosition(previousList)
+        if (!contextChanged)
+          pendingPosition = readingPositions.get(positionedScopeKey) ?? null
+      }
       operationGeneration += 1
       isRestoringPosition.value = false
       pendingHistory = null
@@ -107,7 +112,7 @@ export function useChatViewport(options: UseChatViewportOptions) {
       readingAnchor = null
       if (contextChanged)
         pendingPosition = readingPositions.get(scopeKey()) ?? null
-      scrollState.value = !contextChanged && scrollState.value.ownership === 'detached'
+      scrollState.value = pendingPosition || (!contextChanged && scrollState.value.ownership === 'detached')
         ? detachChatScroll(createChatScrollState())
         : createChatScrollState()
       isPositioning.value = Boolean(conversationId && branchId)
@@ -289,7 +294,7 @@ export function useChatViewport(options: UseChatViewportOptions) {
   function restoreReadingPosition() {
     const metrics = readingAnchor && options.list.value?.restoreScrollAnchor(readingAnchor)
     if (metrics)
-      scrollState.value = recordProgrammaticChatScroll(scrollState.value, metrics)
+      scrollState.value = { observedTop: metrics.scrollTop, ownership: 'detached' }
   }
 
   function handleReaderScrollIntent() {
@@ -366,7 +371,7 @@ export function useChatViewport(options: UseChatViewportOptions) {
       }
       isPositioning.value = false
       isRestoringPosition.value = true
-      if (scrollState.value.ownership !== 'detached')
+      if (pendingPosition || scrollState.value.ownership !== 'detached')
         writeTailPosition()
       try {
         if (!await loadOlderPage())
@@ -384,7 +389,7 @@ export function useChatViewport(options: UseChatViewportOptions) {
       readingAnchor = pendingPosition
       restoreReadingPosition()
     }
-    else if (scrollState.value.ownership !== 'detached') {
+    else if (pendingPosition || scrollState.value.ownership !== 'detached') {
       writeTailPosition()
     }
     finishPositioning()

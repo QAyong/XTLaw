@@ -21,8 +21,8 @@
    - 故意排除 `.playwright/scripts/__tests__/transcript-history.e2e.mjs`，未恢复或新增该文件；新增测试夹具中的 `buddyName` 使用“晓晓”。
 6. `ba96f1979c9fedac6a29d6578ef525a556dfbc58` → **待办，下一轮必须重新评估**
    - 侧栏等待/执行状态。本地已删除 `DesktopTaskHistoryList.vue`，任务列表为本地定制，不在本轮移植。
-7. `8d7411447892fd61764f9566f66c7ef8d9d980ba` → **待办，下一轮必须重新评估**
-   - Pi 1.4.0 升至 1.5.0，涉及 lockfile 与 patch 改名；本轮未改依赖、未移植 Pi 升级。
+7. `8d7411447892fd61764f9566f66c7ef8d9d980ba` → `fa3ee9f0154edd35e8f2bf8ef71efe695b7bbec9`（后续分支移植，不在本分支）
+   - Pi 1.4.0 升至 1.5.0 已在 `codex/upstream-pi-1.5.0` 移植。详见 `docs/upstream/upstream-20261109-pi-integration.md`。不要因为本记录原来写了待办而再移植一次。
 8. `eb2d36d5091f70e367d80440f6be9bab3416ed04` → `4a6ff639b45bd5e64ffa8119346263323fd68910`（按本地代码适配移植）
    - 将宿主响应能力改为独立 heartbeat 探测，不用请求耗时判断插件故障；在冲突文件中保留本地已有方法，并补入响应/生命周期相关测试。仅带入 `plugin-creator/references/lifecycle.md` 对应说明。
 9. `c38297f99a1a600d6de56bbf2b7da452bf9936ac` → **跳过**

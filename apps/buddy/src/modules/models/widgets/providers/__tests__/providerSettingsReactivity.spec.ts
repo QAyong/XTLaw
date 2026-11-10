@@ -718,7 +718,7 @@ function createStore(name: string, locale: BuddyLocale = 'zh-CN') {
     isLoadingModelCatalog: shallowRef(false),
     isRefreshingModelSnapshot: shallowRef(false),
     language: shallowRef(locale),
-    modelProviderError: shallowRef(null),
+    modelProviderError: shallowRef<string | null>(null),
     models: registeredModels,
     modelSnapshot: shallowRef(null),
     mutatingProviderId: shallowRef(null),

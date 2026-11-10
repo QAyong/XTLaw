@@ -32,18 +32,24 @@ const commandsByName: Readonly<Record<BuddyChatCommandName, BuddyChatCommandDefi
     descriptionKey: 'desktop.chat.command.compact',
     name: 'compact',
   },
+  review: {
+    kind: 'prompt',
+    argumentHint: 'focus',
+    descriptionKey: 'desktop.chat.command.review',
+    name: 'review',
+  },
+  update: {
+    kind: 'prompt',
+    argumentHint: 'focus',
+    descriptionKey: 'desktop.chat.command.update',
+    name: 'update',
+  },
   mcp: {
     kind: 'action',
     action: 'view',
     argumentHint: null,
     descriptionKey: 'desktop.chat.command.mcp',
     name: 'mcp',
-  },
-  review: {
-    kind: 'prompt',
-    argumentHint: 'focus',
-    descriptionKey: 'desktop.chat.command.review',
-    name: 'review',
   },
   skills: {
     kind: 'action',
@@ -58,12 +64,6 @@ const commandsByName: Readonly<Record<BuddyChatCommandName, BuddyChatCommandDefi
     argumentHint: null,
     descriptionKey: 'desktop.chat.command.status',
     name: 'status',
-  },
-  update: {
-    kind: 'prompt',
-    argumentHint: 'focus',
-    descriptionKey: 'desktop.chat.command.update',
-    name: 'update',
   },
 }
 

@@ -149,11 +149,7 @@ const contextPaneStyle = computed(() => {
   flex: none;
   overflow: hidden;
   opacity: 1;
-  transition:
-    width 240ms cubic-bezier(0.4, 0, 0.2, 1),
-    opacity 100ms ease,
-    visibility 0s linear;
-  will-change: width, opacity;
+  transition: opacity 100ms ease;
 }
 
 .desktop-workbench-layout__sidebar.is-collapsed {
@@ -161,7 +157,6 @@ const contextPaneStyle = computed(() => {
   opacity: 0;
   pointer-events: none;
   visibility: hidden;
-  transition-delay: 0ms, 0ms, 240ms;
 }
 
 .desktop-workbench-layout__workspace {

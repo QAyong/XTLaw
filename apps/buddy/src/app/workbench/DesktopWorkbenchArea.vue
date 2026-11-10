@@ -4,6 +4,7 @@ import type { DesktopShellBindings } from '../shell/desktopShellBindings'
 import type { DesktopSettingsCategory } from '@/shared/navigation/desktopRoutes'
 import { computed, watch } from 'vue'
 import { RouterView } from 'vue-router'
+import { useProvideArtifactActions } from '@/modules/tasks'
 import { DesktopTaskIndexView, DesktopTaskResourcePanel } from '@/modules/tasks/ui'
 import { desktopRouteLocations } from '@/shared/navigation/desktopRoutes'
 import { useDesktopUi } from '@/shared/ui/desktopUiContext'
@@ -27,6 +28,13 @@ const pendingTaskIds = computed(() => {
   return [...controller.navigation.entries.values()].filter(entry => entry.status === 'loading' && entry.view.resource.scheme === 'task').map(entry => entry.view.resource.id)
 })
 const { language } = useDesktopUi()
+useProvideArtifactActions({
+  task: () => props.tasksVisible ? props.bindings.workbench.activeTask.value : null,
+  resources: props.bindings.resources,
+  revealFile: input => props.bindings.workbench.api.localChat.artifacts.revealFile(input),
+  writeClipboardText: text => props.bindings.workbench.api.clipboard.writeText(text),
+  language: () => language.value,
+})
 const sidebar = props.bindings.taskIndex.sidebar
 const collapsed = computed({ get: () => sidebar.collapsed.value, set: value => void sidebar.setCollapsed(value) })
 const width = computed({ get: () => sidebar.width.value, set: value => void sidebar.setWidth(value) })

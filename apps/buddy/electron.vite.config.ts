@@ -8,9 +8,9 @@ import UnoCSS from 'unocss/vite'
 import { extensionRuntimePlugin } from './electron/extensionRuntimePlugin.ts'
 import { radiusTokensPlugin } from './electron/radiusTokensPlugin.ts'
 
-const PRODUCTION_CONNECT_SRC = 'connect-src \'self\';'
+const PRODUCTION_CONNECT_SRC = 'connect-src \'self\' lexora-attachment://preview lexora-attachment://local-preview lexora-artifact://preview lexora-artifact://media;'
 const DEVELOPMENT_CONNECT_SRC
-  = 'connect-src \'self\' ws://localhost:* ws://127.0.0.1:*;'
+  = 'connect-src \'self\' lexora-attachment://preview lexora-attachment://local-preview lexora-artifact://preview lexora-artifact://media ws://localhost:* ws://127.0.0.1:*;'
 
 function allowDevelopmentWebSockets(): Plugin {
   return {

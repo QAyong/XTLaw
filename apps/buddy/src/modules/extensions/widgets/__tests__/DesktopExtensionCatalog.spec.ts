@@ -237,3 +237,65 @@ it('keeps built-in members in the pack card, listed as built in, while the grid 
   expect(members).toEqual([['installable', '法律检索', '未安装'], ['builtin', '北大法宝', '内置'], ['installable', '法律检索员', '未安装']])
   expect(element.querySelector('[data-testid="pack-status"]')?.textContent?.trim()).toBe('还差 2 项')
 })
+
+it('shows only the loading spinner without an empty placeholder while loading the catalog', async () => {
+  let resolveFirst!: (value: { plugins: unknown[], invalidEntries: number, error: string | null, stale: boolean, cachedAt: string | null }) => void
+  let resolveSecond!: (value: { plugins: unknown[], invalidEntries: number, error: string | null, stale: boolean, cachedAt: string | null }) => void
+  let resolveThird!: (value: { plugins: unknown[], invalidEntries: number, error: string | null, stale: boolean, cachedAt: string | null }) => void
+  const catalog = vi.fn()
+    .mockImplementationOnce(() => new Promise((resolve) => { resolveFirst = resolve }))
+    .mockImplementationOnce(() => new Promise((resolve) => { resolveSecond = resolve }))
+    .mockImplementationOnce(() => new Promise((resolve) => { resolveThird = resolve }))
+  context.read = () => ({ state: { installed: shallowRef([]), unavailable: shallowRef([]), api: { catalog } }, language: shallowRef('zh-CN') })
+  const element = document.createElement('div')
+  document.body.append(element)
+  const app = createApp(catalogHost())
+  cleanup.push(() => {
+    app.unmount()
+    element.remove()
+  })
+  app.mount(element)
+  await nextTick()
+  expect(element.querySelector('[data-testid="catalog-loading"]')).not.toBeNull()
+  expect(element.querySelector('.n-spin-body')).not.toBeNull()
+  expect(element.querySelector('.n-empty')).toBeNull()
+
+  resolveFirst({ plugins: [], invalidEntries: 0, error: 'EXTENSION_CATALOG_UNAVAILABLE', stale: true, cachedAt: null })
+  await vi.waitFor(() => expect(element.querySelector('.n-empty')).not.toBeNull())
+  expect(element.querySelector('[data-testid="catalog-loading"]')).toBeNull()
+
+  // Retrying from an empty snapshot replaces the empty placeholder with the spinner again.
+  const refreshButton = () => Array.from(element.querySelectorAll('button')).find(button => button.textContent?.includes('刷新'))!
+  refreshButton().click()
+  await nextTick()
+  expect(element.querySelector('[data-testid="catalog-loading"]')).not.toBeNull()
+  expect(element.querySelector('.n-empty')).toBeNull()
+
+  const loadedSnapshot = {
+    plugins: [{
+      kind: 'plugin',
+      source: 'official',
+      manifest: extensionManifestSchema.parse({ schemaVersion: 1, id: 'tests.loaded', name: 'Loaded Plugin', version: '1.0.0', apiVersion: 4, engines: { lexora: '>=0.9.0' }, permissions: {}, contributes: {} }),
+      repository: 'https://github.com/QAyong/XTLaw',
+      artifact: { url: 'https://example.com/a.lexora-extension', sha256: 'a'.repeat(64), size: 100 },
+      compatible: true,
+      incompatibility: null,
+    }],
+    invalidEntries: 0,
+    error: null,
+    stale: false,
+    cachedAt: null,
+  }
+  resolveSecond(loadedSnapshot)
+  await vi.waitFor(() => expect(element.querySelector('[data-catalog-id="tests.loaded"]')).not.toBeNull())
+  expect(element.querySelector('[data-testid="catalog-loading"]')).toBeNull()
+  expect(element.querySelector('.n-empty')).toBeNull()
+
+  // Refreshing a non-empty catalog keeps existing cards visible instead of reverting to the full-area spinner.
+  refreshButton().click()
+  await nextTick()
+  expect(element.querySelector('[data-catalog-id="tests.loaded"]')).not.toBeNull()
+  expect(element.querySelector('[data-testid="catalog-loading"]')).toBeNull()
+  resolveThird(loadedSnapshot)
+  await vi.waitFor(() => expect(refreshButton().classList.contains('n-button--loading')).toBe(false))
+})

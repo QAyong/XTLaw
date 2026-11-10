@@ -177,8 +177,10 @@ const { labels } = useWorkbench()
 }
 
 .desktop-task-loading__spinner {
-  width: 0.8rem;
-  height: 0.8rem;
+  display: block;
+  width: 12px;
+  height: 12px;
+  flex: none;
   border: 1.5px solid var(--buddy-border-subtle);
   border-top-color: var(--buddy-accent-solid);
   border-radius: 50%;

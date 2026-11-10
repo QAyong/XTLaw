@@ -65,8 +65,10 @@ defineSlots<{ default: () => unknown }>()
   text-align: center;
 }
 .desktop-pane-boundary__spinner {
-  width: 1.1rem;
-  height: 1.1rem;
+  display: block;
+  width: 18px;
+  height: 18px;
+  flex: none;
   border: 1.5px solid var(--buddy-border-subtle);
   border-top-color: var(--buddy-text-muted);
   border-radius: 50%;

@@ -71,7 +71,7 @@ export interface ChatComposerSubmitPayload {
   userContent?: BuddyUserContentV1
 }
 
-const TRIGGER_BOUNDARY_PATTERN = /[\s([{，。！？；：、"'`]$/u
+const TRIGGER_BOUNDARY_PATTERN = /[\s([{，。！？；：、"'“”‘’（）【】`]$/u
 const CHAT_COMPOSER_SUGGESTION_LIMIT = 8
 
 export function createEmptyChatComposerContent(): JSONContent {
@@ -102,7 +102,10 @@ export function findChatComposerTrigger(textBeforeCursor: string): ChatComposerT
     && textBeforeCursor.slice(0, candidateSlashIndex).trim().length === 0
     ? candidateSlashIndex
     : -1
-  const skillIndex = findTriggerStart(textBeforeCursor, '$')
+  const skillIndex = Math.max(
+    findTriggerStart(textBeforeCursor, '$'),
+    findTriggerStart(textBeforeCursor, '￥'),
+  )
   const mentionIndex = findTriggerStart(textBeforeCursor, '@')
   const triggerIndex = Math.max(slashIndex, skillIndex, mentionIndex)
   if (triggerIndex < 0)
@@ -122,7 +125,7 @@ export function findChatComposerTrigger(textBeforeCursor: string): ChatComposerT
   if (/\s/u.test(query))
     return null
   return {
-    kind: trigger === '/' || trigger === '、' ? 'slash' : trigger === '$' ? 'skill' : 'mention',
+    kind: trigger === '/' || trigger === '、' ? 'slash' : trigger === '$' || trigger === '￥' ? 'skill' : 'mention',
     query,
   }
 }
@@ -174,7 +177,7 @@ export function shouldSubmitChatComposerKey(
     && !event.metaKey
 }
 
-function findTriggerStart(value: string, trigger: '/' | '、' | '$' | '@'): number {
+function findTriggerStart(value: string, trigger: '/' | '、' | '$' | '￥' | '@'): number {
   const index = value.lastIndexOf(trigger)
   if (index < 0 || (index > 0 && !TRIGGER_BOUNDARY_PATTERN.test(value[index - 1] ?? '')))
     return -1

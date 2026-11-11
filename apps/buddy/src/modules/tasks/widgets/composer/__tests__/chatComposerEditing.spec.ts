@@ -488,6 +488,21 @@ describe('chat composer editing', () => {
     expect(content.body[0]?.content[0]).toMatchObject({ type: 'prompt_directive', directive: 'slash_command', commandMode: 'prompt', value: '/review' })
     expect(JSON.stringify(content)).not.toContain('、')
   })
+  it('opens skill suggestions with the fullwidth yuan sign and replaces the trigger on selection', async () => {
+    const skill = skillOption('writer', 'writes prose')
+    const flow = await mountComposer({ loadContextOptions: async () => ({ files: [], skills: [skill] }) })
+    flow.editor.view.dom.focus()
+    flow.editor.commands.insertContent('￥wri')
+
+    await expect.poll(() => flow.composer.activeTrigger.value).toEqual({ kind: 'skill', query: 'wri' })
+    const writer = flow.composer.suggestions.value.find(({ option }) => option.value === 'writer')?.option
+    expect(writer).toBeDefined()
+    flow.composer.selectSuggestion(writer)
+
+    const content = chatComposerDocumentToUserContent(flow.editor.getJSON())
+    expect(content.body[0]?.content[0]).toMatchObject({ type: 'prompt_directive', directive: 'skill', value: 'writer' })
+    expect(JSON.stringify(content)).not.toContain('￥')
+  })
   it.each(['select', 'submit'] as const)('submits a run action with its arguments through %s', async (source) => {
     const flow = await mountComposer()
     const prefix = source === 'select' ? '/com' : '/compact'

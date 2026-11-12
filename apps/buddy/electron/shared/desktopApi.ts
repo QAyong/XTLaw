@@ -187,6 +187,7 @@ export interface DesktopChatPreferences {
   outlinePosition: DesktopChatOutlinePosition
   readingWidth: DesktopChatReadingWidth
   pasteTextAsAttachment: boolean
+  chineseInputTriggers: boolean
   permissionMode: import('../../shared/permissions/permissionMode').BuddyPermissionMode
   welcome: DesktopChatWelcomePreference
   welcomeEnabled: boolean
@@ -200,6 +201,7 @@ export const DEFAULT_DESKTOP_CHAT_PREFERENCES: Readonly<DesktopChatPreferences> 
   outlinePosition: 'top-right',
   readingWidth: 'standard',
   pasteTextAsAttachment: true,
+  chineseInputTriggers: true,
   permissionMode: BUDDY_DEFAULT_PERMISSION_MODE,
   welcome: 'random',
   welcomeEnabled: true,

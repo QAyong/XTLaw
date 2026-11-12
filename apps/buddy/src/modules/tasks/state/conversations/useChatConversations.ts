@@ -4,9 +4,10 @@ import type { LocalConversation, LocalMessage } from '@buddy-shared/conversation
 import type { ChatSession } from '@/modules/tasks/state/conversations/useChatSession'
 import type { ChatRunSync } from '@/modules/tasks/state/runs/typing'
 import type { TaskIndexData } from '@/modules/tasks/state/task-index/useTaskIndexData'
-import { computed, onScopeDispose, readonly, shallowRef } from 'vue'
+import { computed, onScopeDispose, readonly, shallowRef, watch } from 'vue'
 
 interface UseChatConversationsOptions {
+  initialConversation?: LocalConversation | null
   api: { conversations: Pick<LocalChatApi['conversations'], 'get' | 'listBranches' | 'listMessages'> }
   taskIndexData: Pick<TaskIndexData, 'applyConversation' | 'conversations' | 'refreshIndex'>
   clearError: () => void
@@ -32,13 +33,18 @@ export function useChatConversations(options: UseChatConversationsOptions) {
   onScopeDispose(() => {
     disposed = true
   })
-  const directlyOpenedConversation = shallowRef<LocalConversation | null>(null)
+  const directlyOpenedConversation = shallowRef<LocalConversation | null>(options.initialConversation ?? null)
+  const indexedConversation = computed(() => options.taskIndexData.conversations.value.find(
+    conversation => conversation.id === options.session.activeConversationId.value,
+  ) ?? null)
+  watch(indexedConversation, (conversation) => {
+    if (conversation)
+      directlyOpenedConversation.value = conversation
+  }, { immediate: true, flush: 'sync' })
   const activeConversation = computed(() => (
     directlyOpenedConversation.value?.id === options.session.activeConversationId.value
       ? directlyOpenedConversation.value
-      : options.taskIndexData.conversations.value.find(
-        conversation => conversation.id === options.session.activeConversationId.value,
-      ) ?? null
+      : indexedConversation.value
   ))
 
   async function refreshBranches() {

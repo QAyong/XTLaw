@@ -48,6 +48,25 @@ async function mount(value: ExtensionReview = review, language: 'en-US' | 'zh-CN
   return { content, submissions, submit, dialog, current }
 }
 
+it.each(['zh-CN', 'en-US'] as const)('explains the narrow legacy cleanup permission in %s', async (language) => {
+  await mount({
+    ...review,
+    currentVersion: '1.0.0',
+    addedPermissions: ['legacyTaskCleanup'],
+    manifest: extensionManifestSchema.parse({
+      ...review.manifest,
+      apiVersion: 4,
+      permissions: { legacyTaskCleanup: true },
+      contributes: { views: [{ id: 'test.panel.cleanup', title: 'Cleanup', entry: 'view.js', resource: 'none', location: 'page' }] },
+    }),
+  }, language)
+  const permission = document.querySelector('[data-permission="legacyTaskCleanup"]')!
+  expect(permission.textContent).toContain(language === 'zh-CN' ? '元数据' : 'metadata')
+  expect(permission.textContent).toContain(language === 'zh-CN' ? '不允许删除活动任务或任意文件' : 'Cannot delete active tasks or arbitrary files')
+  expect(permission.textContent).toContain(language === 'zh-CN' ? '不可恢复' : 'cannot be undone')
+  expect(permission.querySelector('[data-testid="extension-new-permission"]')).not.toBeNull()
+})
+
 it.each(['en-US', 'zh-CN'] as const)('reviews each requested data source separately from message access in %s', async (language) => {
   const { current } = await mount({
     ...review,

@@ -120,6 +120,7 @@ async function initialize() {
     const api = Object.freeze({
       workers,
       clipboard: Object.freeze({ read: () => request('clipboard.read'), write: data => request('clipboard.write', data) }),
+      taskCleanup: Object.freeze({ list: (input = {}) => request('taskCleanup.list', input), delete: input => request('taskCleanup.delete', input) }),
       setDocumentInfo: info => request('view.setDocumentInfo', info),
       apiVersion: initial.apiVersion,
       onBeforeClose: handler => closeGuard.register(handler),

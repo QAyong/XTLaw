@@ -55,7 +55,20 @@ export interface TaskHistory {
   search: (query: string, cursor?: string) => Promise<LocalConversationHistoryPage>
 }
 
+export interface TaskArchiveActions {
+  ready: State<boolean>
+  onChanged: (listener: () => void) => () => void
+  archive: (id: string, expectedRevision?: number) => Promise<boolean>
+  restore: (id: string, expectedRevision?: number) => Promise<boolean>
+  delete: (id: string, expectedRevision?: number) => Promise<boolean>
+  list: LocalChatApi['conversations']['listArchived']
+  get: LocalChatApi['conversations']['get']
+  getPolicy: LocalChatApi['conversations']['getArchivePolicy']
+  setPolicy: LocalChatApi['conversations']['setArchivePolicy']
+}
+
 export interface TaskIndex {
+  archive: TaskArchiveActions
   history: TaskHistory
   marks: TaskMarks
   pinnedItems: State<readonly DesktopTaskPinnedItem[]>
@@ -79,7 +92,7 @@ export interface TaskIndex {
   createSpace: (input: TaskSpaceInput) => Promise<boolean>
   updateSpace: (input: TaskSpaceInput & { spaceId: string }) => Promise<boolean>
   deleteSpace: (spaceId: string) => Promise<boolean>
-  deleteTask: (taskId: string) => Promise<void>
+  deleteTask: (taskId: string, expectedRevision: number) => Promise<void>
   renameTask: (taskId: string, title: string) => Promise<boolean>
   moveTaskToSpace: (taskId: string, spaceId: string) => Promise<boolean>
   selectSpaceDirectory: (source?: SpaceDirectorySource) => Promise<string | null>

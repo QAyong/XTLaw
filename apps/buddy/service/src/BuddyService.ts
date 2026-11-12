@@ -124,12 +124,17 @@ import { registerMcpConnectorRpc } from './connectors/mcp/registerMcpConnectorRp
 import { registerContextPanelRpc } from './context-panel/registerContextPanelRpc'
 import { ContextUsageSnapshotService } from './context/ContextUsageSnapshotService'
 import { registerContextRpc } from './context/registerContextRpc'
+import { ConversationArchiveService } from './conversations/ConversationArchiveService'
+import { ConversationCleanupService } from './conversations/ConversationCleanupService'
 import { ConversationLifecycleService } from './conversations/ConversationLifecycleService'
 import { ConversationMetadataService } from './conversations/ConversationMetadataService'
 import { ConversationMutationGuard } from './conversations/ConversationMutationGuard'
+import { ConversationPurgeService } from './conversations/ConversationPurgeService'
 import { createExtensionReferenceCapabilities } from './conversations/extensionReferenceCapabilities'
 import { createExtensionTaskCapabilities } from './conversations/extensionTaskCapabilities'
 import { ExtensionTaskContext } from './conversations/ExtensionTaskContext'
+import { registerConversationArchiveRpc } from './conversations/registerConversationArchiveRpc'
+import { registerConversationCleanupRpc } from './conversations/registerConversationCleanupRpc'
 import { registerConversationRpc } from './conversations/registerConversationRpc'
 import { registerConversationTreeRpc } from './conversations/registerConversationTreeRpc'
 import { registerTaskMarkRpc } from './conversations/registerTaskMarkRpc'
@@ -139,6 +144,7 @@ import { createBuddyCapabilityFactory } from './createBuddyCapabilityFactory'
 import { DirectoryGrantService } from './directories/DirectoryGrantService'
 import { observeRunDiagnostics } from './events/observeRunDiagnostics'
 import { RunEventCorruptionError } from './events/RunEventFailure'
+import { RunEventLog } from './events/RunEventLog'
 import { FileResourceCoordinator } from './files/FileResourceCoordinator'
 import { LocalDocumentFileService, registerLocalDocumentRpc } from './files/LocalDocumentFileService'
 import { NativeFileEngine } from './files/NativeFileEngine'
@@ -208,6 +214,7 @@ import { createCommandRequestRepository } from './storage/commandRequestReposito
 import { createComposerDraftRepository } from './storage/composerDraftRepository'
 import { createComposerResourceRepository } from './storage/composerResourceRepository'
 import { createConnectorRepository } from './storage/connectorRepository'
+import { createConversationArchiveRepository } from './storage/conversationArchiveRepository'
 import { createConversationDeletionRepository } from './storage/conversationDeletionRepository'
 import { createConversationDirectoryGrantRepository } from './storage/conversationDirectoryGrantRepository'
 import { createConversationHistoryStore } from './storage/conversationHistoryRepository'
@@ -294,12 +301,19 @@ export async function startBuddyService(
     const conversationAvailability = {
       assertConversationWritable: (id: string) => {
         conversationMutations.assertWritable(id)
+        const conversation = conversations.findById(id)
+        if (conversation?.archivedAt || conversation?.deletedAt)
+          throw new BuddyServiceError('CONVERSATION_BUSY')
         options.eventLog.assertConversationWritable(id)
       },
       assertRunExecutable: (id: string) => {
         const run = runs.findById(id)
-        if (run)
+        if (run) {
           conversationMutations.assertWritable(run.conversationId)
+          const conversation = conversations.findById(run.conversationId)
+          if (conversation?.archivedAt || conversation?.deletedAt)
+            throw new BuddyServiceError('CONVERSATION_BUSY')
+        }
         options.eventLog.assertRunExecutable(id)
       },
     }
@@ -545,7 +559,7 @@ export async function startBuddyService(
       usage: usageService,
     })
     const attachmentService = await host.start('runtime.attachment_storage', ({ defer }) => {
-      const service = new AttachmentService({ paths, repository: createAttachmentRepository(options.database) })
+      const service = new AttachmentService({ paths, repository: createAttachmentRepository(options.database), assertConversationWritable: conversationAvailability.assertConversationWritable })
       service.onDidChange(event => record({ event: `attachment.${event.kind.replaceAll('-', '_')}`, level: event.kind === 'cleanup-failed' ? 'warn' : 'info', operationId: event.operationId, revision: event.revision, count: event.count }))
       defer(() => service.dispose())
       return service
@@ -629,6 +643,7 @@ export async function startBuddyService(
     const sessionReferences = createSessionReferenceRepository(options.database)
     const conversationMetadata = await host.start('runtime.task_metadata', ({ defer }) => {
       const service = new ConversationMetadataService({
+        assertWritable: id => conversationMutations.assertWritable(id),
         buddies,
         runInputs,
         runs,
@@ -664,7 +679,7 @@ export async function startBuddyService(
     })
     const extensionHistory = createExtensionTaskContextRepository(options.database, conversationHistory.lineage)
     const extensionReferences = createExtensionReferenceRepository(options.database, conversationHistory.lineage)
-    const extensionTaskContext = new ExtensionTaskContext(conversations, extensionHistory, runs, runInputs)
+    const extensionTaskContext = new ExtensionTaskContext(conversations, extensionHistory, runs, runInputs, conversationAvailability.assertConversationWritable)
     const extensionAgent = await host.start('runtime.plugins', ({ defer }) => {
       const service = new ExtensionAgentRuntime({
         rpc: options.rpc,
@@ -1138,7 +1153,8 @@ export async function startBuddyService(
     }
     const executionCoordinator = await host.start('runtime.execution_tree', ({ defer }) => {
       const service = new ExecutionCoordinator({
-        availability: conversationAvailability,
+        availability: options.eventLog,
+        assertRunAdmission: conversationAvailability.assertRunExecutable,
         hostShellSupervision: currentPlatform.hostShellSupervision,
         executions: executionRecords,
         mailbox: createMailboxRepository(options.database),
@@ -1294,6 +1310,8 @@ export async function startBuddyService(
       })
       return service
     })
+    let extensionActions: ExtensionActionService
+    const conversationPurge = new ConversationPurgeService({ database: options.database, home: paths.root })
     const conversationLifecycle = await host.start('runtime.task_deletion', ({ defer }) => {
       const service = new ConversationLifecycleService({
         conversations,
@@ -1313,6 +1331,16 @@ export async function startBuddyService(
           }
         },
         sessions: { invalidateConversation: id => sessions.invalidateConversationWithResult(id) },
+        stopWriters: async (id) => {
+          chatQueue.pause(id)
+          await extensionActions.cancelAndWait(id)
+        },
+        purge: (id) => {
+          const events = options.eventLog
+          if (!(events instanceof RunEventLog))
+            throw new BuddyServiceError('CONVERSATION_BUSY')
+          return attachmentService.withStorageScope(() => events.withConversationPurge(id, () => conversationPurge.purge(id)))
+        },
         onObserverError: () => record({ event: 'task.deletion_observer_failed', level: 'warn' }),
       })
       const notification = service.onDidCommit((event) => {
@@ -1335,7 +1363,7 @@ export async function startBuddyService(
       })
       return service
     })
-    const extensionActions = await host.start('runtime.plugin_actions', ({ defer }) => {
+    extensionActions = await host.start('runtime.plugin_actions', ({ defer }) => {
       const service = new ExtensionActionService({
         runtime: extensionAgent,
         repository: createExtensionInvocationRepository(options.database),
@@ -1512,6 +1540,27 @@ export async function startBuddyService(
       await continuation.start()
       return service
     })
+    const conversationArchive = await host.start('runtime.task_archive', ({ defer }) => {
+      const service = new ConversationArchiveService({
+        database: options.database,
+        repository: createConversationArchiveRepository(options.database),
+        conversations,
+        mutations: conversationMutations,
+        lifecycle: conversationLifecycle,
+        onError: () => record({ event: 'task.archive_failed', level: 'warn' }),
+      })
+      const subscription = service.onDidChange((id) => {
+        const conversation = conversations.findById(id)
+        if (conversation)
+          options.rpc.notify(CONVERSATION_CHANGED, conversation)
+      })
+      defer(async () => {
+        await service.dispose()
+        subscription.dispose()
+      })
+      return service
+    })
+    const conversationCleanup = new ConversationCleanupService({ database: options.database, archive: conversationArchive, lifecycle: conversationLifecycle })
     const runtime: BuddyRuntime = {
       startTurn: input => chatTurnService.start(input),
     }
@@ -1603,6 +1652,8 @@ export async function startBuddyService(
     automationScheduler = scheduler
 
     const isBusy = () => runner.hasActiveExecutions
+      || conversationLifecycle.hasPendingOperations
+      || conversationMutations.hasPendingOperations
       || composerDraftService.hasPendingOperations
       || chatTurnService.hasPendingOperations
       || chatCommandService.hasPendingOperations
@@ -1625,6 +1676,8 @@ export async function startBuddyService(
     await host.start('runtime.rpc', ({ defer }) => {
       const register = (dispose: () => void) => defer(dispose)
       register(registerExtensionConditionRpc({ rpc: options.rpc, tasks: conversations, history: extensionHistory, runs, inputs: runInputs, providers: providerService }))
+      register(registerConversationCleanupRpc({ rpc: options.rpc, cleanup: conversationCleanup }))
+      register(registerConversationArchiveRpc({ rpc: options.rpc, archive: conversationArchive }))
       register(
         registerWebSettingsRpc(options.rpc, webSettings),
       )
@@ -1797,6 +1850,7 @@ export async function startBuddyService(
         registerSkillServiceRpc(options.rpc, skillService),
       )
     })
+    conversationArchive.start()
     await host.start('runtime.scheduler', ({ defer }) => {
       const diagnostics = scheduler.onDidChange(event => record({ event: `automation.scheduler.${event.state}`, level: event.state === 'degraded' ? 'warn' : 'info', count: event.activeCount, errorCode: event.errorCode }))
       defer(async () => {

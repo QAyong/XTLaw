@@ -54,3 +54,35 @@ it('does not let stale or disposed refreshes overwrite current contributions', a
   await state.refresh()
   expect(state.installed.value).toEqual([extension])
 })
+
+it('deduplicates the same plugin action while allowing another action to run', async () => {
+  let finishWork!: () => void
+  const work = new Promise<null>((resolve) => { finishWork = () => resolve(null) })
+  const executions: string[] = []
+  const scope = effectScope()
+  const api = {
+    onChanged: () => () => {},
+    executeMenu: async (_id: string, menu: string) => {
+      executions.push(menu)
+      if (menu === 'work')
+        await work
+      return null
+    },
+  } as unknown as ExtensionApi
+  const state = scope.run(() => useExtensionState(api))!
+  try {
+    const pending = state.executeAction('test.panel', 'work')
+    expect(state.pendingActions.get('test.panel')).toEqual(['work'])
+    expect(await state.executeAction('test.panel', 'work')).toBe(false)
+    expect(await state.executeAction('test.panel', 'show-result')).toBe(true)
+    expect(state.pendingActions.get('test.panel')).toEqual(['work'])
+    finishWork()
+    expect(await pending).toBe(true)
+    expect(executions).toEqual(['work', 'show-result'])
+    expect(state.pendingActions.size).toBe(0)
+  }
+  finally {
+    finishWork()
+    scope.stop()
+  }
+})

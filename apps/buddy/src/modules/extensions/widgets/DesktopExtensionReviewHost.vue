@@ -9,6 +9,7 @@ import { extensionLabels } from '../extensionLabels'
 import { extensionErrorCode } from '../state/useExtensionState'
 import DesktopExtensionIncompatibleReview from './DesktopExtensionIncompatibleReview.vue'
 import DesktopExtensionInstallReview from './DesktopExtensionInstallReview.vue'
+import DesktopExtensionTaskCleanupHost from './DesktopExtensionTaskCleanupHost.vue'
 
 const { state, language } = useExtensionContext()
 const message = useMessage()
@@ -48,6 +49,7 @@ async function install(applyUpdate: boolean, choices: FileOpeningChoice[]) {
 </script>
 
 <template>
+  <DesktopExtensionTaskCleanupHost />
   <DesktopExtensionInstallReview v-if="review" :key="review.token" :review="review" :language="language" :busy="busy" @cancel="cancel" @install="install" />
   <DesktopExtensionIncompatibleReview v-if="incompatibleReview" :review="incompatibleReview" :language="language" @close="incompatibleReview = null" />
 </template>

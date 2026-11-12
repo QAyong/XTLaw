@@ -62,8 +62,9 @@ async function mountInstalled(options: { connectors?: unknown[], buddies?: unkno
   const loadConnectors = vi.fn()
   const catalog = vi.fn(async () => ({ plugins: options.catalog ?? [], packs: [], invalidEntries: 0, error: null, stale: false, cachedAt: null }))
   context.read = () => ({
-    state: { installed: shallowRef(options.installed ?? [legal, plain, skillOnly]), unavailable: shallowRef([]), installations: shallowRef([]), error: shallowRef(null), refresh: vi.fn(async () => {}), api: { capabilityImpact: vi.fn(async () => ({ modified: [] })), catalog, reviewCatalog: options.reviewCatalog ?? vi.fn(async () => null), applyUpdate: options.applyUpdate ?? vi.fn(async () => {}) } },
+    state: { installed: shallowRef(options.installed ?? [legal, plain, skillOnly]), unavailable: shallowRef([]), installations: shallowRef([]), pendingActions: new Map(), error: shallowRef(null), refresh: vi.fn(async () => {}), api: { capabilityImpact: vi.fn(async () => ({ modified: [] })), catalog, reviewCatalog: options.reviewCatalog ?? vi.fn(async () => null), applyUpdate: options.applyUpdate ?? vi.fn(async () => {}) } },
     language: shallowRef('zh-CN'),
+    workbench: shallowRef({ values: {}, pages: [] }),
     authoring: { author: shallowRef(''), save: vi.fn() },
     settingsLocation: () => null,
     capabilityStatus: { connectors, buddies, defaultBuddyId: shallowRef('default'), loadConnectors },

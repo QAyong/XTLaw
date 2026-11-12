@@ -435,6 +435,8 @@ useProvideSettingsContext({
   mcpSettings: capabilities.mcpSettings,
   prompts: api.localChat.prompts,
   writeClipboardText: text => api.clipboard.writeText(text),
+  taskArchive: taskIndex.index.archive,
+  taskArchiveSpaces: taskIndex.index.spaces,
   openTask: navigation.openTask,
 })
 useProvideSkillsContext({

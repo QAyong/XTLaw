@@ -2,11 +2,12 @@ import type { ExtensionTaskAction } from '@buddy-shared/extensions/extensionActi
 import type { ExtensionApi, ExtensionReview, ExtensionStatus, ExtensionUnavailableInstallation } from '@buddy-shared/extensions/extensionApi'
 import type { ExtensionInstallation } from '@buddy-shared/extensions/extensionInstallation'
 import type { FileOpeningChoice } from '@buddy-shared/files/fileOpening'
-import { computed, onScopeDispose, shallowRef } from 'vue'
+import { computed, onScopeDispose, shallowReactive, shallowRef } from 'vue'
 
 export function useExtensionState(api: ExtensionApi) {
   const taskActions = shallowRef<ExtensionTaskAction[]>([])
   const installed = shallowRef<ExtensionStatus[]>([])
+  const pendingActions = shallowReactive(new Map<string, readonly string[]>())
   const unavailable = shallowRef<ExtensionUnavailableInstallation[]>([])
   const unavailableError = shallowRef('')
   const installedError = shallowRef('')
@@ -65,7 +66,27 @@ export function useExtensionState(api: ExtensionApi) {
     if (review.currentVersion && applyUpdate)
       await api.applyUpdate(review.manifest.id)
   }
-  return { api, taskActions, installed, unavailable, installations, error, refresh, install }
+  async function executeAction(id: string, menu: string) {
+    if (disposed || pendingActions.get(id)?.includes(menu))
+      return false
+    pendingActions.set(id, [...pendingActions.get(id) ?? [], menu])
+    try {
+      await api.executeMenu(id, menu, { target: 'extension.actions', resource: null })
+      return !disposed
+    }
+    catch (reason) {
+      if (!disposed)
+        throw reason
+      return false
+    }
+    finally {
+      const remaining = pendingActions.get(id)?.filter(value => value !== menu) ?? []
+      if (remaining.length)
+        pendingActions.set(id, remaining)
+      else pendingActions.delete(id)
+    }
+  }
+  return { api, taskActions, installed, unavailable, installations, error, refresh, install, pendingActions, executeAction }
 }
 
 export function extensionErrorCode(reason: unknown): string {

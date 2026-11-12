@@ -26,10 +26,12 @@ import {
 import { useTaskIndexController } from '@/modules/tasks/widgets/task-index/useTaskIndexController'
 import { resolveLocalChatErrorMessage } from '@/shared/lib/localChatError'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
+import DesktopTaskArchiveAction from './DesktopTaskArchiveAction.vue'
 import DesktopTaskMarkManager from './DesktopTaskMarkManager.vue'
 import DesktopTaskMoveToSpaceDialog from './DesktopTaskMoveToSpaceDialog.vue'
 
 const props = defineProps<{
+  archive: TaskIndex['archive']
   activeConversationId: string | null
   pendingConversationIds?: readonly string[]
   marks: TaskMarks
@@ -47,7 +49,7 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{
   deleteSpace: [spaceId: string]
-  deleteTask: [conversationId: string]
+  deleteTask: [conversationId: string, expectedRevision: number]
   newTask: [spaceId: string | null]
   openSpaceDirectory: [spaceId: string]
   openTask: [conversationId: string]
@@ -59,6 +61,13 @@ defineSlots<{ footer?: () => unknown, navigation?: () => unknown }>()
 const { t } = useBuddyI18n(() => props.language)
 const marksOpen = shallowRef(false)
 const searchOpen = shallowRef(false)
+const archiveTarget = shallowRef<LocalConversationSummary | null>(null)
+const archiveBusy = shallowRef(false)
+function requestTaskArchive(task: LocalConversationSummary) {
+  if (archiveBusy.value || !props.archive.ready.value)
+    return
+  archiveTarget.value = task
+}
 function markBindings(conversationId: string) {
   return {
     loading: props.pendingConversationIds?.includes(conversationId),
@@ -78,12 +87,17 @@ const moveTargets = computed(() => props.spaces
   .filter(space => space.revokedAt === null)
   .map(space => ({ id: space.id, name: space.name })))
 function taskMenuBindings(task: LocalConversationSummary) {
+  const archiveBindings = {
+    archiveBusy: archiveBusy.value || !props.archive.ready.value,
+    onArchive: () => requestTaskArchive(task),
+  }
   return task.spaceId === null
     ? {
+        ...archiveBindings,
         moveToSpaceAvailable: moveTargets.value.length > 0 && task.activity === 'idle' && !props.pendingConversationIds?.includes(task.id),
         onMoveToSpace: () => taskMoveTargetId.value = task.id,
       }
-    : {}
+    : archiveBindings
 }
 function revealMovedTask(spaceId: string) {
   void props.sidebar.setSectionExpanded('spaces', true)
@@ -149,7 +163,7 @@ const {
   getUntitledLabel: () => t('desktop.tasks.untitled'),
   markStates: () => props.marks.states.value,
   onCreateSpace: input => props.createSpace(input),
-  onDeleteTask: conversationId => emit('deleteTask', conversationId),
+  onDeleteTask: (conversationId, expectedRevision) => emit('deleteTask', conversationId, expectedRevision),
   onDeleteSpace: spaceId => emit('deleteSpace', spaceId),
   onNewTask: spaceId => emit('newTask', spaceId),
   onOpenSpaceDirectory: spaceId => emit('openSpaceDirectory', spaceId),
@@ -373,6 +387,8 @@ function openSearchSpace(spaceId: string) {
       </nav>
     </div>
 
+    <DesktopTaskArchiveAction v-model:target="archiveTarget" v-model:busy="archiveBusy" :actions="archive" :language="language" />
+
     <DesktopTaskSearchDialog
       v-model:show="searchOpen"
       :search="(query, cursor) => search(query, cursor)"
@@ -470,6 +486,7 @@ function openSearchSpace(spaceId: string) {
 
     <NModal
       :show="taskDeleteTarget !== null"
+      data-testid="task-permanent-delete-confirm"
       preset="dialog"
       type="warning"
       :title="t('desktop.tasks.deleteTaskConfirmTitle')"
@@ -480,7 +497,7 @@ function openSearchSpace(spaceId: string) {
         <NButton @click="taskDeleteTarget = null">
           {{ t('common.cancel') }}
         </NButton>
-        <NButton type="error" @click="confirmTaskDelete">
+        <NButton type="error" :disabled="!archive.ready.value || taskDeleteTarget?.metadataRevision === undefined" @click="confirmTaskDelete">
           {{ t('common.delete') }}
         </NButton>
       </template>

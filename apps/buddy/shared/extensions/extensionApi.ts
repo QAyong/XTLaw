@@ -15,7 +15,6 @@ import type { ExtensionInstallation } from './extensionInstallation'
 import type { ExtensionManifest } from './extensionManifest'
 import type { ExtensionReferenceCapture, ExtensionReferenceChoice, ExtensionReferenceMaterial, ExtensionReferenceOpening } from './extensionReferences'
 import type { ExtensionConfiguration, ExtensionConfigurationSnapshot } from './extensionSettings'
-import type { ExtensionTaskCleanupConfirmation } from './extensionTaskCleanup'
 import type { ExtensionWindowStyle } from './extensionWindowStyles'
 import { z } from 'zod'
 import { BUDDY_QUOTE_TEXT_LIMIT, xlsxQuoteCellsSchema } from '../conversation/buddyUserContent'
@@ -185,8 +184,6 @@ export type ExtensionWorkbenchEvent
 export const extensionManagementSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('openFile'), resource: fileTargetSchema, providerId: z.string().min(1).max(180).optional() }).strict(),
   z.object({ action: z.literal('list') }).strict(),
-  z.object({ action: z.literal('taskCleanupConfirmations') }).strict(),
-  z.object({ action: z.literal('confirmTaskCleanup'), id: extensionIdSchema, operationId: z.string().uuid(), confirmed: z.boolean() }).strict(),
   z.object({ action: z.literal('fileOpeners') }).strict(),
   z.object({ action: z.literal('setFileOpener'), choice: fileOpeningChoiceSchema }).strict(),
   z.object({ action: z.literal('prepareFileOpening'), input: extensionFileOpeningInputSchema }).strict(),
@@ -237,8 +234,6 @@ export interface ExtensionApi {
   taskActions: () => Promise<ExtensionTaskAction[]>
   invokeTaskAction: (input: ExtensionTaskActionInput) => Promise<ExtensionTaskActionResult>
   list: () => Promise<ExtensionStatus[]>
-  taskCleanupConfirmations: () => Promise<ExtensionTaskCleanupConfirmation[]>
-  confirmTaskCleanup: (id: string, operationId: string, confirmed: boolean) => Promise<void>
   unavailable: () => Promise<ExtensionUnavailableInstallation[]>
   configuration: (id: string) => Promise<ExtensionConfiguration>
   configurationSnapshot: (id: string) => Promise<ExtensionConfigurationSnapshot>

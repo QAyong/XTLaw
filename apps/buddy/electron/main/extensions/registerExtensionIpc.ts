@@ -33,7 +33,6 @@ import { assertTrustedSender } from '../ipc'
 import { compileExtension } from './compileExtension'
 import { createExtensionClipboard } from './ExtensionClipboard'
 import { ExtensionProtocol } from './ExtensionProtocol'
-import { assertTaskCleanupConfirmationSender, createExtensionTaskCleanupConfirmation } from './ExtensionTaskCleanup'
 import { SandboxedExtensionHost } from './SandboxedExtensionHost'
 
 export function registerExtensionIpc(options: {
@@ -89,7 +88,7 @@ export function registerExtensionIpc(options: {
   const service = new ExtensionService(store, {
     documents: options.documents,
     clipboard: createExtensionClipboard(options.getWindow),
-    taskCleanup: options.conversationCleanup ? { ...createExtensionTaskCleanup(options.conversationCleanup), confirmDelete: createExtensionTaskCleanupConfirmation(options.getWindow) } : undefined,
+    taskCleanup: options.conversationCleanup ? createExtensionTaskCleanup(options.conversationCleanup) : undefined,
     shellsChanged: options.shellsChanged,
     skillsChanged: options.skillsChanged,
     capabilitiesChanged: options.capabilitiesChanged,
@@ -279,11 +278,6 @@ export function registerExtensionIpc(options: {
         case 'taskActions': return await options.taskActions()
         case 'invokeTaskAction': return await options.invokeTaskAction(input.input)
         case 'list': return await service.list()
-        case 'taskCleanupConfirmations': return service.taskCleanupConfirmations()
-        case 'confirmTaskCleanup': {
-          assertTaskCleanupConfirmationSender(event, window())
-          return await service.confirmTaskCleanup(input.id, input.operationId, input.confirmed)
-        }
         case 'fileOpeners': return await service.fileOpeners()
         case 'setFileOpener': return await service.setFileOpener(input.choice)
         case 'prepareFileOpening': return await service.prepareFileOpening(input.input)

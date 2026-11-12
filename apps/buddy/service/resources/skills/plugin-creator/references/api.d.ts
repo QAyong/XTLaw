@@ -249,7 +249,15 @@ export interface ExtensionContext {
     registerAction: (id: string, execute: (context: AgentActionContext) => AgentActionResult | Promise<AgentActionResult>) => Disposable
   }
   readonly subscriptions: { add: <T extends Disposable>(disposable: T) => T }
-  readonly commands: { register: (id: string, execute: (context: { resource: Resource | null, arguments: Json, invocation: CommandInvocation | null, taskCleanup?: LegacyTaskCleanupCommandApi }) => Json | void | Promise<Json | void>) => Disposable }
+  readonly commands: {
+    register: (id: string, execute: (context: {
+      resource: Resource | null
+      arguments: Json
+      invocation: CommandInvocation | null
+      /** Available only for this plugin's trusted user extension.actions invocation with legacyTaskCleanup permission. */
+      taskCleanup?: LegacyTaskCleanupCommandApi
+    }) => Json | void | Promise<Json | void>) => Disposable
+  }
   readonly placements: { show: (id: string, options?: string | PlacementOptions) => Promise<string>, hide: (id: string, options?: string | PlacementOptions) => Promise<string | null> }
   readonly window: { readonly styles: { set: (id: string, css: string) => Promise<void>, remove: (id: string) => Promise<void> } }
   readonly workbench: { readonly panes: readonly PaneSnapshot[], onPanesChange: (listener: (panes: readonly PaneSnapshot[]) => void) => Disposable }
@@ -399,14 +407,11 @@ export interface ExtensionDataApi {
   observe: <Source extends ExtensionDataSource>(query: ExtensionDataQuery<Source>, listener: (snapshot: ExtensionDataSnapshot<Source>) => unknown) => Disposable
 }
 
-export interface LegacyTaskCleanupItem {
-  readonly conversationId: string
-  readonly title: string | null
-  readonly removedAt: string
-  readonly expectedRevision: number
-  readonly estimatedBytes: number | null
-  readonly canDelete: boolean
-  readonly blockedReason: string | null
+export interface LegacyTaskCleanupPreview {
+  /** Eligible legacy-removed tasks found by Core's complete, frozen scan. */
+  readonly total: number
+  /** Legacy-removed tasks Core found but cannot currently delete; excluded from total. */
+  readonly skipped: number
 }
 export interface LegacyTaskCleanupProgress {
   readonly phase: 'scanning' | 'confirming' | 'running' | 'completed' | 'cancelled' | 'failed'
@@ -421,7 +426,11 @@ export interface LegacyTaskCleanupProgress {
   readonly errorCode: string | null
 }
 export interface LegacyTaskCleanupCommandApi {
-  run: (options?: { onProgress?: (progress: LegacyTaskCleanupProgress) => void }) => Promise<{
+  /** Single-use maintenance capability. The Core owns the target list and accepts deletion only when confirm returns true. */
+  run: (options: {
+    confirm: (preview: LegacyTaskCleanupPreview, signal: AbortSignal) => boolean | Promise<boolean>
+    onProgress?: (progress: LegacyTaskCleanupProgress) => void
+  }) => Promise<{
     /** @description completed 表示调用结束；成功与否以 summary.phase 为准。进入批次前的授权或不可用错误仍 reject。 */
     status: 'cancelled' | 'completed'
     results: { conversationId: string, expectedRevision: number, status: 'deleted' | 'pending' | 'failed', errorCode?: string }[]
@@ -429,12 +438,7 @@ export interface LegacyTaskCleanupCommandApi {
     summary: LegacyTaskCleanupProgress
   }>
 }
-export interface LegacyTaskCleanupApi {
-  list: (input?: { cursor?: string, limit?: number }) => Promise<{ items: LegacyTaskCleanupItem[], nextCursor: string | null }>
-  delete: (input: { conversationId: string, expectedRevision: number }) => Promise<{ status: 'deleted' | 'pending' | 'failed', errorCode?: string }>
-}
 export interface ViewContext {
-  readonly taskCleanup: LegacyTaskCleanupApi
   readonly documents: DocumentApi
   readonly clipboard: {
     read: () => Promise<{ text?: string, html?: string }>

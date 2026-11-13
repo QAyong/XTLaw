@@ -1,0 +1,21 @@
+XTLaw
+
+XTLaw is a modified version of Lexora (https://github.com/useLexora/Lexora).
+Modifications began on 2026-09-27 and are maintained by the XTLaw project
+(https://github.com/QAyong/XTLaw). XTLaw is not an official release of the
+Lexora project.
+
+This work is released under the GNU Affero General Public License, version 3
+only (AGPL-3.0-only), with no additional terms under section 7 of that
+license. The full license text is in the LICENSE file distributed next to
+this notice. The complete corresponding source code for the version shipped
+with this package is available at https://github.com/QAyong/XTLaw under the
+matching release tag (xtlaw-v<version>).
+
+XTLaw 是 Lexora 的修改版本，自 2026 年 9 月 27 日起由 XTLaw 项目维护者修改。
+本项目按 GNU Affero General Public License 第 3 版（AGPL-3.0-only）发布，
+未附加该许可第 7 条允许的额外条款。完整许可条款见与本文件一同分发的
+LICENSE 文件；与本安装包版本对应的完整源码，在
+https://github.com/QAyong/XTLaw 的对应发布标签（xtlaw-v<版本>）处提供。
+
+XTLaw 不是 Lexora 项目的官方发布版本。

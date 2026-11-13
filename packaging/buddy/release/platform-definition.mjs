@@ -13,12 +13,15 @@ const featureResources = {
   systemActions: [],
 }
 
-// 安装包随附一份 AGPL-3.0 许可证副本，取自仓库根目录 LICENSE。
-const licenseResource = { from: '../../LICENSE', to: 'LICENSE' }
+// 安装包随附仓库根目录的许可证副本与修改声明，对应 AGPL-3.0 的随附义务。
+const noticeResources = [
+  { from: '../../LICENSE', to: 'LICENSE' },
+  { from: '../../NOTICE', to: 'NOTICE' },
+]
 
 export function platformResources(target) {
   return [
-    licenseResource,
+    ...noticeResources,
     ...definitions.skills.map(name => ({ from: `service/resources/skills/${name}`, to: `service/resources/skills/${name}` })),
     ...nativeHostResources(target).map(({ from, to }) => ({ from, to })),
     { from: '.output/resources/bundled-extensions/catalog.json', to: 'bundled-extensions/catalog.json' },

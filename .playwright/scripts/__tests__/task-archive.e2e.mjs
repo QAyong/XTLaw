@@ -164,12 +164,18 @@ test('official legacy cleanup plugin owns confirmation and preserves external fi
   const fixture = await prepareTaskArchiveProfile(instance.home, testInfo.outputPath('profile-preparation'), 'legacy_jsonl', { legacyTasks: 32, legacyFiles: 64 })
   const { app, page } = await launchArchiveInstance(instance)
   await expectStorage(app, fixture.databasePath)
-  await page.locator('.desktop-app-sidebar').getByRole('button', { name: '插件', exact: true }).click()
+  const openMarket = async () => {
+    await page.evaluate(() => {
+      window.location.hash = '#/tasks'
+    })
+    await page.locator('.desktop-sidebar-navigation').getByRole('button', { name: '市场', exact: true }).click()
+  }
+  await openMarket()
   await app.evaluate(({ dialog }, archive) => {
     dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [archive] })
   }, process.env.LEXORA_TEST_LEGACY_CLEANUP_ARCHIVE)
-  await page.getByTestId('extension-install-options').click()
-  await page.getByTestId('extension-install').click()
+  await page.getByTestId('extension-add').click()
+  await page.locator('.n-dropdown-menu:visible').getByText('安装插件包', { exact: true }).click()
   const review = page.getByTestId('extension-install-review')
   await expect(review).toBeVisible()
   await expect(review.locator('[data-permission="legacyTaskCleanup"]')).toContainText('不允许删除活动任务或任意文件')
@@ -178,11 +184,11 @@ test('official legacy cleanup plugin owns confirmation and preserves external fi
   await expect.poll(() => page.evaluate(async id => (await window.lexoraDesktop.extensions.list()).find(item => item.manifest.id === id)?.enabled, pluginId)).toBe(true)
   const card = page.locator(`article[data-extension-id="${pluginId}"]`)
   await expect(card.getByRole('button', { name: '打开', exact: true })).toHaveCount(0)
-  await expect(page.locator('.desktop-app-sidebar').getByRole('button', { name: '旧版任务清理', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '旧版任务清理', exact: true })).toHaveCount(0)
   const runCleanup = async () => {
     await card.getByTestId('extension-card-more').click()
-    await page.getByTestId('extension-actions').hover()
-    const action = page.locator(`[data-extension-action="${pluginId}.action"]`)
+    await page.locator('.n-dropdown-menu:visible').getByText('插件操作', { exact: true }).hover()
+    const action = page.locator('.n-dropdown-menu:visible').getByText('清理任务残留…', { exact: true })
     await expect(action).toHaveText('清理任务残留…')
     await action.click()
   }
@@ -201,8 +207,8 @@ test('official legacy cleanup plugin owns confirmation and preserves external fi
   }
   const showResult = async () => {
     await card.getByTestId('extension-card-more').click()
-    await page.getByTestId('extension-actions').hover()
-    await page.locator(`[data-extension-action="${pluginId}.result-action"]`).click()
+    await page.locator('.n-dropdown-menu:visible').getByText('插件操作', { exact: true }).hover()
+    await page.locator('.n-dropdown-menu:visible').getByText('查看进度与结果', { exact: true }).click()
     return pluginFrame()
   }
   const lifecycleWindow = await app.browserWindow(page)
@@ -267,9 +273,12 @@ test('official legacy cleanup plugin owns confirmation and preserves external fi
   await capture(page, testInfo, 'legacy-cleanup-plugin-progress')
   await frame.getByRole('button', { name: /^(后台继续|关闭)$/ }).click()
   await expect(card.getByTestId('extension-card-more')).toBeEnabled()
-  await page.locator('.desktop-app-sidebar').getByRole('button', { name: '设置', exact: true }).click()
+  await page.evaluate(() => {
+    window.location.hash = '#/tasks'
+  })
+  await expect(page.locator('.desktop-sidebar-navigation')).toBeVisible()
   await expect.poll(() => taskExists(app, fixture.databasePath, 'archive-legacy-31')).toBe(false)
-  await page.locator('.desktop-app-sidebar').getByRole('button', { name: '插件', exact: true }).click()
+  await openMarket()
   frame = await showResult()
   await expect(frame.getByTestId('legacy-task-cleanup-panel')).toHaveAttribute('data-phase', 'completed')
   await expect(frame.getByTestId('cleanup-deleted')).toHaveText('32')
@@ -304,11 +313,11 @@ test('official legacy cleanup plugin owns confirmation and preserves external fi
   await frame.getByRole('button', { name: '关闭', exact: true }).click()
   await expect(page.locator('.n-message')).toHaveCount(0, { timeout: 15000 })
   await card.getByTestId('extension-card-more').click()
-  await page.getByTestId('extension-actions').hover()
+  await page.locator('.n-dropdown-menu:visible').getByText('插件操作', { exact: true }).hover()
   await capture(page, testInfo, 'legacy-cleanup-plugin-menu')
   await page.keyboard.press('Escape')
   await card.getByTestId('extension-disable').click()
   await expect(card.getByTestId('extension-enable')).toBeVisible()
   await card.getByTestId('extension-card-more').click()
-  await expect(page.getByTestId('extension-actions')).toHaveCount(0)
+  await expect(page.locator('.n-dropdown-menu:visible').getByText('插件操作', { exact: true })).toHaveCount(0)
 })

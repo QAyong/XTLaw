@@ -14,7 +14,8 @@ export async function prepareTaskArchiveProfile(home, output, authority = 'legac
   const legacyTaskIds = Array.from({ length: legacyTasks }, (_, index) => index ? `archive-legacy-${index}` : 'archive-legacy')
   const requireBuddy = createRequire(path.join(root, 'apps/buddy/package.json'))
   const { build } = await import(pathToFileURL(requireBuddy.resolve('vite')).href)
-  await build({ configFile: false, logLevel: 'error', build: {
+  // The fixture bundle is imported from an artifact directory outside Buddy's dependencies.
+  await build({ configFile: false, logLevel: 'error', ssr: { noExternal: true }, build: {
     ssr: path.join(root, '.playwright/scripts/__tests__/task-archive-profile.ts'),
     outDir: output,
     target: 'node26',

@@ -1,3 +1,4 @@
+import type { Model } from '@earendil-works/pi-ai'
 import type { DatabaseSync } from 'node:sqlite'
 import type { CapturedFileWriter } from '../../changes/CapturedFileWriter'
 import type { DirectoryGrant } from '../../directories/resolveGrantedPath'
@@ -14,6 +15,8 @@ import { FileResourceCoordinator } from '../../files/FileResourceCoordinator'
 import { NativeFileEngine } from '../../files/NativeFileEngine'
 import { TaskFileAccess } from '../../files/TaskFileAccess'
 import { TaskFileService } from '../../files/TaskFileService'
+import { ImageGenerationMaterialStore } from '../../images/ImageGenerationMaterialStore'
+import { ImageGenerationService } from '../../images/ImageGenerationService'
 import { createArtifactRepository } from '../../storage/artifactRepository'
 import { BuddyDataPaths } from '../../storage/BuddyDataPaths'
 import { createConversationDirectoryGrantRepository } from '../../storage/conversationDirectoryGrantRepository'
@@ -36,6 +39,65 @@ afterEach(async () => {
 })
 
 describe('artifactService', () => {
+  it('generates into missing parents without creating them before submission and preserves numbered PNG outputs', async () => {
+    const f = await createFixture()
+    const bytes = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAAFElEQVR4AQEJAPb/AAD/AP//AAD/EPgD/UE7EkoAAAAASUVORK5CYII=', 'base64')
+    let submissions = 0
+    const materials = new ImageGenerationMaterialStore(f.workspace, 'conversation-1')
+    const service = new ImageGenerationService({
+      writeGeneratedImageMaterial: (image, grants, writeFiles, signal) => materials.write(image, grants, writeFiles, signal),
+      conversationId: 'conversation-1',
+      cwd: f.workspace,
+      grants: f.grants,
+      artifactService: f.service,
+      attachmentService: { materializeConversationImages: async () => ({ images: [], records: [] }) },
+      referenceAccess: { authorize: () => {} },
+      imageGenerationGateway: { supports: () => true, generate: async (input) => {
+        await expect(readFile(join(f.workspace, 'output'))).rejects.toMatchObject({ code: 'ENOENT' })
+        await input.onSubmitting?.()
+        submissions++
+        return { images: [{ bytes, mimeType: 'image/png' }, { bytes, mimeType: 'image/png' }], responseId: 'response-1' }
+      } },
+    })
+    try {
+      const result = await service.generate({ outputPath: 'output/nested/heart', prompt: 'Create' }, { provider: 'fixture', id: 'fixture' } as Model<'openai-responses'>, new AbortController().signal, f.grants, f.writeFiles)
+      const paths = ['heart.png', 'heart-2.png'].map(name => join(f.workspace, 'output', 'nested', name))
+      expect(submissions).toBe(1)
+      expect(result.outputs.map(output => output.path)).toEqual(paths)
+      expect(result.artifactIds).toHaveLength(2)
+      expect(f.repository.listForConversation('conversation-1').map(record => record.currentPath).sort()).toEqual([...paths].sort())
+      for (const path of paths)
+        expect(await readFile(path)).toEqual(bytes)
+    }
+    finally {
+      await service.dispose()
+    }
+  })
+
+  it('refuses to resolve a delivered file after its directory grant is revoked', async () => {
+    const f = await createFixture()
+    const conversationGrants = createConversationDirectoryGrantRepository(f.database)
+    conversationGrants.grant({ conversationId: 'conversation-1', id: 'workspace-1', root: f.workspace, canonicalRoot: f.workspace, createdAt: '2026-08-27T00:00:00.000Z' })
+    const path = join(f.workspace, 'preview.png')
+    await writeFile(path, 'synthetic image bytes')
+    const [record] = await f.service.presentOutputs({ conversationId: 'conversation-1', cwd: f.workspace, grants: f.grants, paths: [path] })
+    conversationGrants.revokeAll('conversation-1', '2026-08-28T00:00:00.000Z')
+    const service = new ArtifactService({ repository: f.repository, fileAccess: new ArtifactFileAccess({ conversations: createConversationRepository(f.database), conversationGrants, spaces: createSpaceRepository(f.database), paths: new BuddyDataPaths(f.root) }) })
+    await expect(service.resolveMedia(record!.id)).rejects.toMatchObject({ code: 'DIRECTORY_NOT_AUTHORIZED' })
+    await expect(service.locate(record!.id)).rejects.toMatchObject({ code: 'DIRECTORY_NOT_AUTHORIZED' })
+    await expect(service.materializeConversationImages('conversation-1', [record!.id], { cwd: f.workspace, grants: f.grants })).rejects.toMatchObject({ code: 'DIRECTORY_NOT_AUTHORIZED' })
+    await service.dispose()
+  })
+
+  it.each(['.env', 'secrets/private.pem'])('refuses to publish outputs under locally blocked path names: %s', async (name) => {
+    const f = await createFixture()
+    const path = join(f.workspace, name)
+    await mkdir(join(path, '..'), { recursive: true })
+    await writeFile(path, 'synthetic private fixture')
+    await expect(f.service.presentOutputs({ conversationId: 'conversation-1', cwd: f.workspace, grants: f.grants, paths: [path] })).rejects.toMatchObject({ cause: { code: 'ARTIFACT_SENSITIVE_PATH' } })
+    expect(f.repository.listForConversation('conversation-1')).toEqual([])
+  })
+
   it('refuses generated publication without a controlled file writer', async () => {
     const f = await createFixture()
     const image = join(f.workspace, 'unsafe.png')

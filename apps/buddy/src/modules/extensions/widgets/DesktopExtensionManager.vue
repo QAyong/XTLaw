@@ -26,7 +26,7 @@ import DesktopExtensionInstallReview from './DesktopExtensionInstallReview.vue'
 import DesktopExtensionUnavailableCard from './DesktopExtensionUnavailableCard.vue'
 import DesktopExtensionUninstallDialog from './DesktopExtensionUninstallDialog.vue'
 
-const { state, language, startCreation, startSkillCreation, authoring, settingsLocation } = useExtensionContext()
+const { state, language, startCreation, startSkillCreation, authoring, settingsLocation, workbench } = useExtensionContext()
 const { installed, unavailable } = state
 // The market snapshot is read here so installed cards can say a newer version exists; the market page reads the same snapshot.
 const { snapshot: catalog, loading: catalogLoading, error: catalogError, refresh: refreshCatalog } = useExtensionCatalog(state.api)
@@ -93,6 +93,14 @@ async function run(action: () => Promise<unknown>, creatorUnavailable = labels.v
   }
   finally {
     busy.value = false
+  }
+}
+async function executeAction(item: ExtensionStatus, menu: string) {
+  try {
+    await state.executeAction(item.manifest.id, menu)
+  }
+  catch (reason) {
+    showError(extensionErrorCode(reason))
   }
 }
 function select(development = false) {
@@ -242,6 +250,8 @@ onScopeDispose(cancel)
           v-for="item in visibleInstalled"
           :key="item.manifest.id"
           :item="item"
+          :context-values="workbench.values"
+          :pending-actions="state.pendingActions.get(item.manifest.id)"
           :unavailable-pending="unavailablePending.get(item.manifest.id)"
           :catalog-update="catalogUpdates.get(item.manifest.id)"
           :language="language"
@@ -251,6 +261,7 @@ onScopeDispose(cancel)
           @restart="run(() => state.api.restart(item.manifest.id))"
           @apply-update="applyUpdate(item.manifest.id)"
           @review-update="reviewEntry"
+          @execute-action="executeAction(item, $event)"
           @diagnostics="diagnostics = item.manifest.id"
           @remove="askRemove(item)"
           @open="open(item)"

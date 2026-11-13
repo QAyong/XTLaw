@@ -117,7 +117,7 @@ export interface ScheduleApi {
   remove: (id: string) => Promise<void>
 }
 export interface CommandInvocation {
-  readonly target: 'composer.actions' | 'task.actions' | 'resource.actions' | 'message.actions' | 'view' | 'slash'
+  readonly target: 'extension.actions' | 'composer.actions' | 'task.actions' | 'resource.actions' | 'message.actions' | 'view' | 'slash'
   readonly instanceId: string | null
   readonly content?: string
 }
@@ -249,7 +249,15 @@ export interface ExtensionContext {
     registerAction: (id: string, execute: (context: AgentActionContext) => AgentActionResult | Promise<AgentActionResult>) => Disposable
   }
   readonly subscriptions: { add: <T extends Disposable>(disposable: T) => T }
-  readonly commands: { register: (id: string, execute: (context: { resource: Resource | null, arguments: Json, invocation: CommandInvocation | null }) => Json | void | Promise<Json | void>) => Disposable }
+  readonly commands: {
+    register: (id: string, execute: (context: {
+      resource: Resource | null
+      arguments: Json
+      invocation: CommandInvocation | null
+      /** Available only for this plugin's trusted user extension.actions invocation with legacyTaskCleanup permission. */
+      taskCleanup?: LegacyTaskCleanupCommandApi
+    }) => Json | void | Promise<Json | void>) => Disposable
+  }
   readonly placements: { show: (id: string, options?: string | PlacementOptions) => Promise<string>, hide: (id: string, options?: string | PlacementOptions) => Promise<string | null> }
   readonly window: { readonly styles: { set: (id: string, css: string) => Promise<void>, remove: (id: string) => Promise<void> } }
   readonly workbench: { readonly panes: readonly PaneSnapshot[], onPanesChange: (listener: (panes: readonly PaneSnapshot[]) => void) => Disposable }
@@ -399,6 +407,37 @@ export interface ExtensionDataApi {
   observe: <Source extends ExtensionDataSource>(query: ExtensionDataQuery<Source>, listener: (snapshot: ExtensionDataSnapshot<Source>) => unknown) => Disposable
 }
 
+export interface LegacyTaskCleanupPreview {
+  /** Eligible legacy-removed tasks found by Core's complete, frozen scan. */
+  readonly total: number
+  /** Legacy-removed tasks Core found but cannot currently delete; excluded from total. */
+  readonly skipped: number
+}
+export interface LegacyTaskCleanupProgress {
+  readonly phase: 'scanning' | 'confirming' | 'running' | 'completed' | 'cancelled' | 'failed'
+  /** @description 完整扫描前为 null；不包含 skipped。 */
+  readonly total: number | null
+  readonly processed: number
+  readonly deleted: number
+  /** @description 已受理但尚未完成，不代表已删除。 */
+  readonly pending: number
+  readonly failed: number
+  readonly skipped: number
+  readonly errorCode: string | null
+}
+export interface LegacyTaskCleanupCommandApi {
+  /** Single-use maintenance capability. The Core owns the target list and accepts deletion only when confirm returns true. */
+  run: (options: {
+    confirm: (preview: LegacyTaskCleanupPreview, signal: AbortSignal) => boolean | Promise<boolean>
+    onProgress?: (progress: LegacyTaskCleanupProgress) => void
+  }) => Promise<{
+    /** @description completed 表示调用结束；成功与否以 summary.phase 为准。进入批次前的授权或不可用错误仍 reject。 */
+    status: 'cancelled' | 'completed'
+    results: { conversationId: string, expectedRevision: number, status: 'deleted' | 'pending' | 'failed', errorCode?: string }[]
+    /** @description 最终快照，包含失败或中断前的真实部分计数；应覆盖进度回调的状态。 */
+    summary: LegacyTaskCleanupProgress
+  }>
+}
 export interface ViewContext {
   readonly documents: DocumentApi
   readonly clipboard: {

@@ -78,6 +78,7 @@ export default {
   'desktop.settings.runtime.cacheWarmingOff': '关闭',
   'desktop.settings.runtime.cacheWarmingStreaming': '任务执行期间',
 
+  'desktop.settings.category.task-archive': '任务归档',
   'desktop.settings.category.shortcuts': '快捷键',
   'desktop.settings.categoryDescription.shortcuts': '查看和修改快捷键，设置立即生效。',
   'desktop.shortcuts.resetAll': '恢复默认',
@@ -423,6 +424,8 @@ export default {
   'desktop.settings.themeSystem': '跟随系统',
   'desktop.settings.themeSystemDescription': '随系统自动切换浅色与深色',
   'desktop.settings.conversationInput': '对话输入',
+  'desktop.settings.chineseInputTriggers': '中文输入法触发符',
+  'desktop.settings.chineseInputTriggersDescription': '使用「、」触发斜杠命令，使用「￥」触发技能建议；未选择建议时保留原文。',
   'desktop.settings.pasteTextAsAttachment': '长文本粘贴转为附件',
   'desktop.settings.pasteTextAsAttachmentDescription': '将超过 1500 字符或 20 行的粘贴文本转为文本附件。关闭后直接粘贴到正文。',
   'desktop.settings.readingWidth': '阅读宽度',

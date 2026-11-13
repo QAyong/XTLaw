@@ -14,6 +14,7 @@ function conversation(id: string): LocalConversation {
     activeBranchId: `branch-${id}`,
     createdAt: '2026-09-08T00:00:00.000Z',
     deletedAt: null,
+    archivedAt: null,
     approvalPolicy: 'policy',
     executionProfile: 'workspace_write',
     modelSelection: null,
@@ -22,17 +23,21 @@ function conversation(id: string): LocalConversation {
     updatedAt: '2026-09-08T00:00:00.000Z',
   }
 }
-function fixture() {
+function fixture(initialConversation?: LocalConversation) {
   const scope = effectScope()
   scopes.push(scope)
   const session = useChatSession()
+  if (initialConversation)
+    session.activateConversation(initialConversation)
   const lookup = deferred<LocalConversation>()
   const errors: unknown[] = []
   const persisted: (string | null)[] = []
+  const conversations = shallowRef([{ ...conversation('indexed'), activity: 'idle' as const, automationOccurrence: null }])
   const owner = scope.run(() => useChatConversations({
+    initialConversation,
     api: { conversations: { get: () => lookup.promise, listBranches: async () => [], listMessages: async () => ({ items: [], nextCursor: null }) } },
     session,
-    taskIndexData: { conversations: shallowRef([{ ...conversation('indexed'), activity: 'idle' as const, automationOccurrence: null }]), applyConversation() {}, refreshIndex: async () => {} },
+    taskIndexData: { conversations, applyConversation() {}, refreshIndex: async () => {} },
     clearError() {},
     onError: error => errors.push(error),
     persistWorkspaceState: async () => {
@@ -43,10 +48,29 @@ function fixture() {
     restoreConversationModelSelection() {},
     selectDefaultModel() {},
   }))!
-  return { errors, lookup, owner, persisted, scope, session }
+  return { conversations, errors, lookup, owner, persisted, scope, session }
 }
 
 describe('task selection ownership', () => {
+  it('retains an explicitly opened archived task without adding it to ordinary history', () => {
+    const archived = { ...conversation('archived'), archivedAt: '2026-11-01T00:00:00.000Z' }
+    const f = fixture(archived)
+    expect(f.owner.activeConversation.value).toEqual(archived)
+    expect(f.conversations.value.map(item => item.id)).toEqual(['indexed'])
+    f.owner.applyConversation({ ...archived, archivedAt: null })
+    expect(f.owner.activeConversation.value?.archivedAt).toBeNull()
+  })
+
+  it('keeps an archived open task available after normal history drops it from the index', async () => {
+    const f = fixture()
+    await f.owner.openConversation('indexed')
+    const archived = { ...conversation('indexed'), archivedAt: '2026-11-01T00:00:00.000Z' }
+    f.owner.applyConversation(archived)
+    expect(f.owner.activeConversation.value?.archivedAt).toBe(archived.archivedAt)
+    f.conversations.value = []
+    expect(f.owner.activeConversation.value?.archivedAt).toBe(archived.archivedAt)
+  })
+
   it('does not activate a looked-up task after a later indexed selection', async () => {
     const f = fixture()
     const old = f.owner.openConversation('old')

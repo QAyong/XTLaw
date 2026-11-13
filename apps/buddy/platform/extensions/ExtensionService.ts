@@ -12,6 +12,7 @@ import type { ExtensionFileSource, ExtensionResourceSelection } from '../../shar
 import type { ExtensionConfiguration, ExtensionConfigurationSnapshot } from '../../shared/extensions/extensionSettings'
 import type { ExtensionShellDescriptor } from '../../shared/extensions/extensionShell'
 import type { ExtensionSkillDescriptor } from '../../shared/extensions/extensionSkills'
+import type { ExtensionTaskCleanup } from '../../shared/extensions/extensionTaskCleanup'
 import type { FileOpeningChoice, FileOpeningSnapshot } from '../../shared/files/fileOpening'
 import type { TaskFileTarget } from '../../shared/files/taskFileApi'
 import type { ShellCandidate, ShellCandidateId } from '../../shared/shell/shellProgram'
@@ -24,6 +25,7 @@ import type { ExtensionCompiler } from './compileExtensionSource'
 import type { ExtensionPackage, ExtensionPackageStore } from './ExtensionPackageStore'
 import type { ExtensionResourceUpload } from './ExtensionResourceUpload'
 import type { ExtensionConfigurationApplication, ExtensionServiceChange, ExtensionServiceFact, ExtensionServiceSnapshot } from './ExtensionServiceEvents'
+import type { ExtensionTaskCleanupBatchResult } from './ExtensionTaskCleanupBatch'
 import type { ExtensionDocumentPorts } from './ExtensionWorkingCopyStore'
 import { Buffer } from 'node:buffer'
 import { createHash, randomUUID } from 'node:crypto'
@@ -74,6 +76,7 @@ import { ExtensionResourceWriter } from './ExtensionResourceWriter'
 import { ExtensionScheduler } from './ExtensionScheduler'
 import { ExtensionSelectedFileWriter } from './ExtensionSelectedFileWriter'
 import { legacyOfficeQuoteLocation } from './legacyOfficeQuote'
+import { ExtensionTaskCleanupController } from './ExtensionTaskCleanupController'
 
 export interface ExtensionHost {
   call: (method: string, params: JsonValue, signal?: AbortSignal) => Promise<JsonValue>
@@ -86,6 +89,7 @@ export interface ExtensionServicePorts {
     read: (session: ExtensionViewSession, assertCurrent: () => void) => Promise<ExtensionClipboardData>
     write: (session: ExtensionViewSession, data: ExtensionClipboardData, assertCurrent: () => void) => Promise<void>
   }
+  taskCleanup?: ExtensionTaskCleanup
   themes?: ThemeService
   createHost: (pkg: ExtensionPackage, broker: (method: string, params: unknown) => Promise<JsonValue>, failed: (failure?: ExtensionHostFailure) => void) => ExtensionHost
   createView: (pkg: ExtensionPackage, readSelected?: (id: string, request: Request, signal: AbortSignal) => Promise<Response>) => { token: string, url: string, dispose: () => void }
@@ -115,6 +119,7 @@ export interface ExtensionServicePorts {
   selectShellExecutable?: (name: string) => Promise<string | null>
 }
 interface RunningExtension {
+  registeredCommands?: string[]
   package: ExtensionPackage
   generation: string
   abort: AbortController
@@ -160,6 +165,9 @@ export class ExtensionService {
   readonly #documents?: ExtensionDocuments
   readonly #ports: ExtensionServicePorts
   readonly #running = new Map<string, RunningExtension>()
+  #taskCleanupVisibilityGeneration = 0
+  readonly #taskCleanup = new ExtensionTaskCleanupController()
+  readonly #cleanupInvocations = new Map<string, { running: RunningExtension, menuId: string, abort: AbortController, used: boolean, result?: ExtensionTaskCleanupBatchResult }>()
   readonly #viewOpenings = new Map<string, symbol>()
   readonly #views = new Map<string, RunningView>()
   readonly #diagnostics = new Map<string, Pick<ExtensionStatus, 'error' | 'activationMs' | 'logs'>>()
@@ -283,6 +291,8 @@ export class ExtensionService {
   async list(): Promise<ExtensionStatus[]> {
     await this.initialize()
     return Promise.all(Object.entries(this.store.installed).map(async ([id, record]): Promise<ExtensionStatus> => {
+      if (record.enabled && record.current.manifest.contributes.menus.some(menu => menu.target === 'extension.actions') && !this.#running.has(id) && !this.#diagnostics.get(id)?.error)
+        void this.#activate(id).catch(() => {})
       const diagnostics = this.#diagnostics.get(id) ?? { error: null, activationMs: null, logs: [] }
       const running = this.#running.get(id)
       let blocked: string | null = null
@@ -297,7 +307,7 @@ export class ExtensionService {
             incompatibility = error.review.incompatibility
         }
       }
-      return { windowStyles: [...running?.windowStyles ?? []].map(([id, css]) => ({ id, css })), source: record.current.source ?? undefined, manifest: record.current.manifest, iconUrl: await this.store.icon(record.current), revision: record.current.revision, enabled: record.enabled, development: record.development, compatible: extensionCompatible(record.current.manifest, this.store.appVersion), incompatibility, pending: record.pending ? { manifest: record.pending.manifest, revision: record.pending.revision, incompatibility: extensionCompatibilityIssue(record.pending.manifest, this.store.appVersion) } : null, ...diagnostics, error: blocked ?? diagnostics.error, generation: running?.generation ?? null, state: !record.enabled ? 'disabled' : blocked ? 'blocked' : running ? running.active ? 'active' : 'activating' : diagnostics.error ? 'failed' : 'inactive' }
+      return { registeredCommands: running?.active ? [...running.registeredCommands ?? []] : [], windowStyles: [...running?.windowStyles ?? []].map(([id, css]) => ({ id, css })), source: record.current.source ?? undefined, manifest: record.current.manifest, iconUrl: await this.store.icon(record.current), revision: record.current.revision, enabled: record.enabled, development: record.development, compatible: extensionCompatible(record.current.manifest, this.store.appVersion), incompatibility, pending: record.pending ? { manifest: record.pending.manifest, revision: record.pending.revision, incompatibility: extensionCompatibilityIssue(record.pending.manifest, this.store.appVersion) } : null, ...diagnostics, error: blocked ?? diagnostics.error, generation: running?.generation ?? null, state: !record.enabled ? 'disabled' : blocked ? 'blocked' : running ? running.active ? 'active' : 'activating' : diagnostics.error ? 'failed' : 'inactive' }
     }))
   }
 
@@ -1108,16 +1118,46 @@ export class ExtensionService {
     await removing
   }
 
-  async executeMenu(id: string, menuId: string, input: ExtensionMenuInvocation): Promise<JsonValue> {
+  async executeMenu(id: string, menuId: string, input: ExtensionMenuInvocation, userInitiated = false): Promise<JsonValue> {
+    const cleanupVisibilityGeneration = this.#taskCleanupVisibilityGeneration
     const running = await this.#activate(id)
     const menu = running.package.manifest.contributes.menus.find(menu => menu.id === menuId && menu.target === input.target)
-    if (!menu)
+    if (!menu || (input.target === 'extension.actions' && !running.registeredCommands?.includes(menu.command)))
       throw new Error('EXTENSION_COMMAND_UNAVAILABLE')
     const invocation = { target: input.target, instanceId: input.instanceId ?? null, ...(running.package.manifest.permissions.selectedContent && ['composer.actions', 'message.actions'].includes(input.target) && input.content !== undefined ? { content: input.content } : {}) }
-    return this.#executeCommand(running, menu.command, input.target === 'resource.actions' ? input.resource : null, invocation)
+    const cleanupToken = input.target === 'extension.actions' && userInitiated && cleanupVisibilityGeneration === this.#taskCleanupVisibilityGeneration && running.package.manifest.permissions.legacyTaskCleanup ? randomUUID() : null
+    const cleanupAbort = new AbortController()
+    if (cleanupToken)
+      this.#cleanupInvocations.set(cleanupToken, { running, menuId: menu.id, abort: cleanupAbort, used: false })
+    try {
+      const result = await this.#executeCommand(running, menu.command, input.target === 'resource.actions' ? input.resource : null, invocation, null, cleanupToken)
+      const cleanupResult = cleanupToken ? this.#cleanupInvocations.get(cleanupToken)?.result : undefined
+      return cleanupResult ? { taskCleanup: { ...cleanupResult, summary: { ...cleanupResult.summary } } } : input.target === 'extension.actions' ? null : result
+    }
+    finally {
+      if (cleanupToken) {
+        this.#cleanupInvocations.delete(cleanupToken)
+        cleanupAbort.abort()
+      }
+    }
   }
 
-  async #executeCommand(running: RunningExtension, command: string, target: FileTarget | null, invocation: JsonValue = null, argumentsValue: JsonValue = null): Promise<JsonValue> {
+  cancelUnconfirmedTaskCleanup(): void {
+    this.#taskCleanupVisibilityGeneration++
+    this.#cancelUnconfirmedTaskCleanup()
+  }
+
+  #cancelUnconfirmedTaskCleanup(running?: RunningExtension): void {
+    this.#taskCleanup.cancelUnconfirmed(running?.package.manifest.id)
+    for (const [token, invocation] of this.#cleanupInvocations) {
+      if (!invocation.used && (!running || invocation.running === running)) {
+        this.#cleanupInvocations.delete(token)
+        invocation.abort.abort()
+      }
+    }
+  }
+
+  async #executeCommand(running: RunningExtension, command: string, target: FileTarget | null, invocation: JsonValue = null, argumentsValue: JsonValue = null, cleanupToken: string | null = null): Promise<JsonValue> {
     if (!running.package.manifest.contributes.commands.some(item => item.id === command))
       throw new Error('EXTENSION_COMMAND_UNAVAILABLE')
     let resource: ExtensionResource | null = null
@@ -1132,7 +1172,7 @@ export class ExtensionService {
     }
     this.#assertCurrent(running)
     try {
-      const result = await this.#callCommand(running, { command, resource, arguments: argumentsValue, invocation })
+      const result = await this.#callCommand(running, { command, resource, arguments: argumentsValue, invocation, ...(cleanupToken ? { cleanupToken } : {}) })
       this.#assertCurrent(running)
       return result
     }
@@ -1807,8 +1847,9 @@ export class ExtensionService {
         const start = performance.now()
         const instance = running
         this.#clearError(dependency)
-        running.ready = host.call('activate', { manifest: pkg.manifest, panes: pkg.manifest.apiVersion >= 3 ? this.#panes : [] }).then(() => {
+        running.ready = host.call('activate', { manifest: pkg.manifest, panes: pkg.manifest.apiVersion >= 3 ? this.#panes : [] }).then((result) => {
           this.#assertCurrent(instance)
+          instance.registeredCommands = result && typeof result === 'object' && !Array.isArray(result) && Array.isArray(result.commands) ? z.array(z.string()).parse(result.commands).filter(id => pkg.manifest.contributes.commands.some(command => command.id === id)) : []
           instance.active = true
           this.#publish({ kind: 'host', extensionId: dependency, generation, status: 'active', durationMs: Math.round(performance.now() - start) })
           this.#publishPanes(instance)
@@ -1887,7 +1928,65 @@ export class ExtensionService {
     const { id, dataVersion } = running.package.manifest
     try {
       let result: JsonValue
-      if (method === 'window.styles.set' || method === 'window.styles.remove') {
+      if (method === 'commands.changed') {
+        const input = z.object({ commands: z.array(z.string()).max(64) }).strict().parse(params)
+        if (input.commands.some(command => !running.package.manifest.contributes.commands.some(item => item.id === command)))
+          throw new Error('EXTENSION_COMMAND_UNAVAILABLE')
+        running.registeredCommands = input.commands
+        this.#publish({ kind: 'host', extensionId: id, generation: running.generation, status: 'active' })
+        result = null
+      }
+      else if (method === 'taskCleanup.run') {
+        const input = z.object({ token: z.string().uuid() }).strict().parse(params)
+        const invocation = this.#cleanupInvocations.get(input.token)
+        const cleanup = this.#ports.taskCleanup
+        if (!invocation || invocation.running !== running || invocation.used || !running.package.manifest.permissions.legacyTaskCleanup || owner !== running.generation)
+          throw new Error('EXTENSION_METHOD_DENIED')
+        invocation.used = true
+        if (!cleanup)
+          throw new Error('EXTENSION_TASK_CLEANUP_UNAVAILABLE')
+        let progressUnavailable = false
+        const cleanupResult = await this.#taskCleanup.run({
+          extensionId: id,
+          signal: AbortSignal.any([running.abort.signal, invocation.abort.signal]),
+          cleanup,
+          confirm: async (preview, signal) => {
+            const cancel = () => {
+              void running.host.call('taskCleanup.cancel', { token: input.token }, AbortSignal.timeout(5000)).catch(() => {})
+            }
+            signal.addEventListener('abort', cancel, { once: true })
+            try {
+              if (signal.aborted)
+                throw new Error('EXTENSION_TASK_CLEANUP_EXPIRED')
+              const confirmed = await running.host.call('taskCleanup.confirm', { token: input.token, preview: { ...preview } }, signal)
+              if (typeof confirmed !== 'boolean')
+                throw new Error('EXTENSION_INVALID_ARGUMENT')
+              return confirmed
+            }
+            finally {
+              signal.removeEventListener('abort', cancel)
+            }
+          },
+          progress: async (progress) => {
+            if (progressUnavailable || running.abort.signal.aborted || invocation.abort.signal.aborted || this.#cleanupInvocations.get(input.token) !== invocation)
+              return
+            try {
+              await running.host.call('taskCleanup.progress', { token: input.token, progress: { ...progress } }, AbortSignal.any([running.abort.signal, invocation.abort.signal, AbortSignal.timeout(5000)]))
+            }
+            catch { progressUnavailable = true }
+          },
+          assertCurrent: () => {
+            this.#assertCurrent(running)
+            if (this.#cleanupInvocations.get(input.token) !== invocation)
+              throw new Error('EXTENSION_TASK_CLEANUP_EXPIRED')
+            if (progressUnavailable)
+              throw new Error('EXTENSION_TASK_CLEANUP_UNAVAILABLE')
+          },
+        })
+        invocation.result = cleanupResult
+        result = { ...cleanupResult, summary: { ...cleanupResult.summary } }
+      }
+      else if (method === 'window.styles.set' || method === 'window.styles.remove') {
         if (running.package.manifest.apiVersion < 3 || !running.package.manifest.permissions.windowEffects)
           throw new Error('EXTENSION_PERMISSION_DENIED')
         running.windowStyles ??= new Map()
@@ -2507,6 +2606,7 @@ export class ExtensionService {
     if (resourceId && resourceId !== retainResource && ![...this.#views.values()].some(current => current.input.resource?.id === resourceId))
       this.#fileSnapshots.delete(resourceId)
     this.#ports.themes?.releaseOwner(`${view.running.package.manifest.id}:${view.running.generation}:${view.input.viewId}`)
+    this.#cancelUnconfirmedTaskCleanup(view.running)
     view.abort.abort()
     const cleanups: Promise<void>[] = [this.#cancelUploads(view.running, view.session.id)]
     if (this.#documents)

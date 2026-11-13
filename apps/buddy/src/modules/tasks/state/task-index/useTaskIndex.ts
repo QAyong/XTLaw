@@ -5,9 +5,10 @@ import type { TaskIndex } from '../../contracts'
 import type { TaskSpaceInput } from './typing'
 import type { ApplicationSettings } from '@/modules/settings'
 import { useDebounceFn } from '@vueuse/core'
-import { onScopeDispose, readonly, shallowRef } from 'vue'
+import { computed, onScopeDispose, readonly, shallowRef } from 'vue'
 import { resolveLocalChatErrorMessage } from '@/shared/lib/localChatError'
 import { migrateLegacyTaskDrafts } from '../drafts/migrateLegacyTaskDrafts'
+import { createTaskArchiveActions } from './createTaskArchiveActions'
 import { useTaskActivities } from './useTaskActivities'
 import { useTaskIndexData } from './useTaskIndexData'
 import { useTaskMarks } from './useTaskMarks'
@@ -29,17 +30,18 @@ const activityEvents = new Set(['approval.requested', 'approval.resolved', 'run.
 export function useTaskIndex(options: TaskIndexOptions) {
   const { api, applicationSettings } = options
   const data = useTaskIndexData({ api })
+  const visibleConversations = computed(() => data.conversations.value.filter(conversation => !conversation.archivedAt && !conversation.deletedAt))
   const errorMessage = shallowRef<string | null>(null)
   let disposed = false
   function setError(error: unknown) {
     if (!disposed)
       errorMessage.value = resolveLocalChatErrorMessage(error, applicationSettings.language.value)
   }
-  const activity = useTaskActivities({ api: api.executions, tasks: data.conversations, onError: setError })
+  const activity = useTaskActivities({ api: api.executions, tasks: visibleConversations, onError: setError })
   const stopConversationChanges = api.conversations.onChanged(conversation => data.applyConversation(conversation))
   const pins = useTaskPinnedItems(applicationSettings)
   const sidebar = useTaskSidebarPreferences(applicationSettings)
-  const marks = useTaskMarks({ api: api.taskMarks, conversations: data.conversations, language: applicationSettings.language, ready: options.ready })
+  const marks = useTaskMarks({ api: api.taskMarks, conversations: visibleConversations, language: applicationSettings.language, ready: options.ready })
   async function refreshAfterMutation() {
     await data.refreshIndex().catch(setError)
   }
@@ -58,6 +60,13 @@ export function useTaskIndex(options: TaskIndexOptions) {
     }
   }
   const index: TaskIndex = {
+    archive: createTaskArchiveActions({
+      api: api.conversations,
+      ready: options.ready,
+      beforeClose: options.beforeTaskDelete,
+      onClosed: id => !disposed && options.onTaskDeleted?.(id),
+      refresh: refreshAfterMutation,
+    }),
     activities: activity.activities,
     history: {
       search: (query, cursor) => api.conversations.listHistory({ kind: 'search', query, limit: 50, ...(cursor ? { cursor } : {}) }),
@@ -67,7 +76,7 @@ export function useTaskIndex(options: TaskIndexOptions) {
     setPinnedItems: pins.setPinnedItems,
     sidebar,
     spaces: data.spaces,
-    tasks: data.conversations,
+    tasks: visibleConversations,
     refresh: data.refreshIndex,
     async createSpace(input) {
       const space = await createSpace(input)
@@ -100,11 +109,14 @@ export function useTaskIndex(options: TaskIndexOptions) {
         return false
       }
     },
-    async deleteTask(id) {
+    async deleteTask(id, expectedRevision) {
+      if (!options.ready.value || expectedRevision === undefined)
+        return
       try {
         if (options.beforeTaskDelete && !await options.beforeTaskDelete(id))
           return
-        await api.conversations.delete(id)
+        if (!options.ready.value || !await api.conversations.deletePermanently(id, expectedRevision))
+          return
         if (!disposed)
           await options.onTaskDeleted?.(id)
         await refreshAfterMutation()

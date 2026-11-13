@@ -127,6 +127,7 @@ export interface ExtensionLog {
   diagnostic?: ExtensionDiagnostic
 }
 export interface ExtensionStatus {
+  registeredCommands?: string[]
   windowStyles?: ExtensionWindowStyle[]
   source?: ExtensionReview['source']
   manifest: ExtensionManifest

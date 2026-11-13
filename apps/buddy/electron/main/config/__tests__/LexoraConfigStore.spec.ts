@@ -27,6 +27,25 @@ async function createConfigStore(content?: string) {
 }
 
 describe('lexoraConfigStore', () => {
+  it('defaults Chinese input triggers on and preserves an explicit opt-out across updates and restarts', async () => {
+    expect(DEFAULT_DESKTOP_CHAT_PREFERENCES.chineseInputTriggers).toBe(true)
+    const { store, configPath } = await createConfigStore()
+    expect((await store.read()).desktop.chat.chineseInputTriggers).toBe(true)
+
+    const legacyContent = '[desktop.chat]\npaste_text_as_attachment=false\nfuture=true\n'
+    await mkdir(dirname(configPath), { recursive: true })
+    await writeFile(configPath, legacyContent)
+    expect((await store.read()).desktop.chat.chineseInputTriggers).toBe(true)
+    expect(await readFile(configPath, 'utf8')).toBe(legacyContent)
+
+    await store.update({ desktop: { chat: { chineseInputTriggers: false } } })
+    await store.update({ desktop: { language: 'en-US' } })
+    expect((await new LexoraConfigStore({ configPath }).read()).desktop.chat.chineseInputTriggers).toBe(false)
+    expect(parse(await readFile(configPath, 'utf8'))).toMatchObject({
+      desktop: { chat: { chinese_input_triggers: false, paste_text_as_attachment: false, future: true } },
+    })
+  })
+
   it.each(['', '[desktop]\nlanguage="en-US"\n', '[desktop.chat]\noutline_position="bottom-left"\n'])('defaults missing reading width without rewriting existing configuration: %s', async (content) => {
     const { store, configPath } = await createConfigStore(content)
     expect((await store.read()).desktop.chat.readingWidth).toBe('standard')

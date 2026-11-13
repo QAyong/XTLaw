@@ -14,9 +14,11 @@ export const builtinSettings = {
     order,
     fill: category === 'logs' || category === 'prompts',
     title: category === 'file-opening' ? language => language === 'en-US' ? 'Open with' : '打开方式' : text(`desktop.settings.category.${category}`),
-    description: category === 'file-opening'
-      ? language => language === 'en-US' ? 'Choose how each file type is previewed and opened separately.' : '按文件类型分别设置文件内预览和独立打开方式。'
-      : text(category === 'logs' ? 'applicationLogs.description' : category === 'usage' ? 'usageAnalytics.description' : category === 'skills' ? 'desktop.skills.description' : `desktop.settings.categoryDescription.${category}`),
+    description: category === 'task-archive'
+      ? undefined
+      : category === 'file-opening'
+        ? language => language === 'en-US' ? 'Choose how each file type is previewed and opened separately.' : '按文件类型分别设置文件内预览和独立打开方式。'
+        : text(category === 'logs' ? 'applicationLogs.description' : category === 'usage' ? 'usageAnalytics.description' : category === 'skills' ? 'desktop.skills.description' : `desktop.settings.categoryDescription.${category}`),
   })),
   groups: [
     { id: 'settings.general.account', module: 'settings.general', order: -10, unframed: true },
@@ -34,6 +36,7 @@ export const builtinSettings = {
   items: [
     { id: 'settings.general.profile', group: 'settings.general.account', order: 0, kind: 'content' as const },
     { id: 'settings.general.pasteTextAsAttachment', group: 'settings.general.composer', order: 0, kind: 'general' as const, field: 'pasteTextAsAttachment' },
+    { id: 'settings.general.chineseInputTriggers', group: 'settings.general.composer', order: 10, kind: 'general' as const, field: 'chineseInputTriggers' },
     ...(['language', 'minimizeToTrayOnClose', 'contextPanelMode', 'contextPanelGlobal', 'contextPanelAutoCollapse'] as GeneralSettingField[]).map((field, order) => ({
       id: `settings.general.${field}`,
       group: field === 'language'

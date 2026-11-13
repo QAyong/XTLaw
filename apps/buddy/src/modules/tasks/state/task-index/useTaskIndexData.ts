@@ -80,7 +80,8 @@ export function useTaskIndexData(options: UseTaskIndexDataOptions) {
   function applyConversation(conversation: LocalConversation) {
     const existing = conversations.value.find(item => item.id === conversation.id)
     if (!existing) {
-      void refreshConversations().catch(() => {})
+      if (!conversation.archivedAt && !conversation.deletedAt)
+        void refreshConversations().catch(() => {})
       return
     }
     conversationListGeneration += 1

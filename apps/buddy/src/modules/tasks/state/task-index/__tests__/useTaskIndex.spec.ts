@@ -1,5 +1,5 @@
 import type { LexoraDesktopApi } from '@buddy-electron/shared/desktopApi'
-import type { LocalConversationSummary } from '@buddy-shared/conversation/conversationApi'
+import type { LocalConversation, LocalConversationSummary } from '@buddy-shared/conversation/conversationApi'
 import type { LocalRunEvent } from '@buddy-shared/runs/runApi'
 import type { LocalSpace, SpaceChangeNotice } from '@buddy-shared/spaces/spaceApi'
 import type { ApplicationSettings } from '@/modules/settings'
@@ -32,7 +32,9 @@ function fixture() {
     activity: 'idle',
     activeBranchId: 'branch',
     spaceId: null,
+    archivedAt: null,
     deletedAt: null,
+    metadataRevision: 4,
     createdAt: '2026-09-18T00:00:00Z',
     updatedAt: '2026-09-18T00:00:00Z',
     approvalPolicy: 'policy',
@@ -41,9 +43,14 @@ function fixture() {
     automationOccurrence: null,
   }]
   const spaceListeners = new Set<(event: SpaceChangeNotice) => void>()
+  const conversationListeners = new Set<(conversation: LocalConversation) => void>()
   const listeners = new Set<(event: LocalRunEvent) => void>()
   const beforeDelete = vi.fn(async () => true)
   const deleted: string[] = []
+  const archive = vi.fn(async (id: string) => {
+    savedTasks = savedTasks.filter(task => task.id !== id)
+    return true
+  })
   const listSpaces = vi.fn(async () => savedSpaces)
   const persistWorkspaceState = vi.fn<() => Promise<boolean>>().mockResolvedValue(true)
   const errors: unknown[] = []
@@ -59,10 +66,29 @@ function fixture() {
       savedSpaces = [space()]
       return savedSpaces[0]
     }, delete: async () => ({ ok: true }), selectDirectory: async () => null, revealFile: async () => {} },
-    conversations: { onChanged: () => () => {}, list: async () => savedTasks, delete: async (id: string) => {
-      savedTasks = savedTasks.filter(task => task.id !== id)
-      return true
-    } },
+    conversations: {
+      onChanged: (listener: (conversation: LocalConversation) => void) => {
+        conversationListeners.add(listener)
+        return () => conversationListeners.delete(listener)
+      },
+      list: async () => savedTasks,
+      listHistory: async () => ({ items: [], nextCursor: null }),
+      listArchived: async () => ({ items: [], nextCursor: null }),
+      get: async (id: string) => ({ ...savedTasks.find(task => task.id === id)!, archivedAt: null } as unknown as LocalConversation),
+      archive,
+      restoreArchive: async () => true,
+      deleteArchived: async () => true,
+      getArchivePolicy: async () => ({ days: 0 }),
+      setArchivePolicy: async (days: 0 | 3 | 7 | 30) => ({ days }),
+      deletePermanently: async (id: string, expectedRevision: number) => {
+        if (savedTasks.find(task => task.id === id)?.metadataRevision !== expectedRevision)
+          throw new Error('CONVERSATION_REVISION_CONFLICT')
+        savedTasks = savedTasks.filter(task => task.id !== id)
+        return true
+      },
+      rename: async () => savedTasks[0],
+      moveToSpace: async () => savedTasks[0],
+    },
     chat: { onRunEvent: (listener: (event: LocalRunEvent) => void) => {
       listeners.add(listener)
       return () => listeners.delete(listener)
@@ -92,7 +118,11 @@ function fixture() {
     selectDefaultModel() {},
     spaceId,
   }))!
-  return { index, changeSpace(value: LocalSpace, revision: number) {
+  return { index, archive, notifyConversation(conversation: LocalConversation) {
+    conversationListeners.forEach(listener => listener(conversation))
+  }, reviseTask() {
+    savedTasks = savedTasks.map(task => ({ ...task, metadataRevision: 5 }))
+  }, changeSpace(value: LocalSpace, revision: number) {
     savedSpaces = [value]
     for (const listener of spaceListeners) listener({ sourceId: 'source', spaceId: value.id, kind: 'updated', revision })
   }, creation, draftId, errors, owner, persistWorkspaceState, listSpaces, scope, paneScope, spaceId, beforeDelete, deleted, activity(value: LocalConversationSummary['activity']) {
@@ -103,6 +133,23 @@ function fixture() {
 const input = { icon: 'folder' as const, iconColor: 'default' as const, name: 'Created', memoryScope: 'space_only' as const, primaryDirectory: null }
 
 describe('shared task index ownership', () => {
+  it('archives directly without the permanent-delete close flow and removes the task from normal history', async () => {
+    const f = fixture()
+    await f.index.initialize()
+    expect(await f.index.index.archive.archive('task', 4)).toBe(true)
+    expect(f.archive).toHaveBeenCalledWith('task', 4)
+    expect(f.beforeDelete).not.toHaveBeenCalled()
+    expect(f.deleted).toEqual([])
+    expect(f.index.index.tasks.value).toEqual([])
+  })
+
+  it('hides an indexed task immediately when a change marks it archived', async () => {
+    const f = fixture()
+    await f.index.initialize()
+    f.notifyConversation({ ...f.index.index.tasks.value[0]!, archivedAt: '2026-11-01T00:00:00.000Z' } as LocalConversation)
+    expect(f.index.index.tasks.value).toEqual([])
+  })
+
   it('refreshes internal Space commits, drops replayed notices and detaches at scope disposal', async () => {
     vi.useFakeTimers()
     const f = fixture()
@@ -133,12 +180,24 @@ describe('shared task index ownership', () => {
     const f = fixture()
     await f.index.initialize()
     f.beforeDelete.mockResolvedValueOnce(false)
-    await f.index.index.deleteTask('task')
+    await f.index.index.deleteTask('task', 4)
     expect(f.index.index.tasks.value.map(task => task.id)).toEqual(['task'])
     expect(f.deleted).toEqual([])
-    await f.index.index.deleteTask('task')
+    await f.index.index.deleteTask('task', 4)
     expect(f.index.index.tasks.value).toEqual([])
     expect(f.deleted).toEqual(['task'])
+  })
+  it('keeps the confirmed revision when closing working copies changes the task', async () => {
+    const f = fixture()
+    await f.index.initialize()
+    f.beforeDelete.mockImplementationOnce(async () => {
+      f.reviseTask()
+      return true
+    })
+    await f.index.index.deleteTask('task', 4)
+    expect(f.index.index.tasks.value.map(task => task.id)).toEqual(['task'])
+    expect(f.deleted).toEqual([])
+    expect(f.index.errorMessage.value).not.toBeNull()
   })
   it('retains a successful update when the subsequent index refresh fails', async () => {
     const f = fixture()

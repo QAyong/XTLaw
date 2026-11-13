@@ -25,8 +25,9 @@ export function activate(context: ExtensionContext) {
 
 每个声明必须在 `activate` 完成前注册一次。未知 ID、重复注册、非函数处理器或缺少注册都会使该插件启动失败；捕获注册错误也不能使错误插件启动。修正后显式重启。
 
-插件管理卡片只提供管理和独立页面入口，不提供通用命令按钮。依赖分屏、文件或输入内容的命令应在声明中用 `when` 限定对应场景，并在处理函数中校验需要的上下文。候选按前缀显示；选中只插入命令，确认发送才执行。执行严格匹配完整名称和大小写，参数保持为字符串，不自动解析引号、JSON 或自然语言。插件本地命令不依赖模型配置，可以在任务流式输出时执行。只传命令参数与发起分屏，不传输入框附件、引用、会话身份或历史；带这些内容时拒绝执行并保留草稿。命令不可用或失败时也保留草稿，不降级为模型提示。
+API 4 插件可通过 `contributes.menus` 的 `extension.actions` 在自身卡片的「插件操作」二级菜单提供命令，无需视图或导航。仅启用、激活成功且仍注册的本插件命令显示；空菜单不显示。点击直接调用，不自动打开页面；不扩大命令的数据或操作权限。依赖分屏、文件或输入内容的命令应在声明中用 `when` 限定对应场景，并在处理函数中校验需要的上下文。候选按前缀显示；选中只插入命令，确认发送才执行。执行严格匹配完整名称和大小写，参数保持为字符串，不自动解析引号、JSON 或自然语言。插件本地命令不依赖模型配置，可以在任务流式输出时执行。只传命令参数与发起分屏，不传输入框附件、引用、会话身份或历史；带这些内容时拒绝执行并保留草稿。命令不可用或失败时也保留草稿，不降级为模型提示。
 
+XTLaw 0.5.6 起，获 `legacyTaskCleanup` 权限的插件只有在用户从该插件卡片的 `extension.actions` 菜单启动命令时，才会在该次命令上下文收到 `taskCleanup`。插件可调用一次 `taskCleanup.run({ confirm, onProgress })`；Core 完整扫描并冻结 `legacy_removed` 目标，只把 `{ total, skipped }` 交给插件确认回调。只有回调严格返回 `true` 才会按冻结的任务 ID 与 revision 逐项执行 compare-and-swap 删除；返回 `false`、抛错、非布尔值或确认前取消都不会创建删除作业。插件负责预览、确认、进度和结果界面；ViewContext 不提供任务列表或删除 API。普通命令、slash、视图自调用、定时任务及后台执行都不会获得该能力。
 `invocation.target` 为 `slash`，`resource` 为 null，`arguments` 为最多 8192 字符的参数字符串。命令面板调用仍提供既有资源语义且参数为空；视图调用的参数仍为 JSON。插件应按实际调用入口验证自己的参数。
 
 停止覆盖交互不能只依赖 Slash；参见 [交互会话](interactions.md) 的宿主退出机制。
@@ -37,8 +38,19 @@ API 3 的 `contributes.menus` 将已有命令放进业务区域的「更多操�
 
 命令参数中的 `invocation` 包含 `target`、`instanceId`，仅在声明 `selectedContent` 且用户点击对应操作后附带 `content`。文件菜单通过原有 `selectedResource` 权限提供 `resource` 句柄。视图调用自己的命令时 `invocation.target` 为 `view`，只附带该视图的实例标识；命令面板和定时调用的 `invocation` 为空。
 
-输入操作可返回 `{insertText:string}`。宿主在原草稿仍可编辑且内容未改变时，将结果作为纯文本插入原选择位置；更换草稿、编辑内容或关闭视图后忽略迟到结果，不自动发送。其他菜单忽略命令返回值。`when` 支持宿主公开上下文，消息菜单额外提供 `message.role`，文件菜单提供当前 `resource.scheme`；不能用条件读取未公开的数据。
+输入操作可返回 `{insertText:string}`。宿主在原草稿仍可编辑且内容未改变时，将结果作为纯文本插入原选择位置；更换草稿、编辑内容或关闭视图后忽略迟到结果，不自动发送。其他菜单忽略普通命令返回值；业务进度与结果由插件自己的视图呈现，宿主只提示调用失败，不根据命令结束推断业务成功，也不重复插件已有的结果展示。`when` 支持宿主公开上下文，消息菜单额外提供 `message.role`，文件菜单提供当前 `resource.scheme`；不能用条件读取未公开的数据。
 
+
+插件卡片声明示例（后台 `entry` 必需）：
+
+```json
+{
+  "commands": [{ "id": "<plugin-id>.run", "title": "执行操作" }],
+  "menus": [{ "id": "<plugin-id>.action", "command": "<plugin-id>.run", "target": "extension.actions" }]
+}
+```
+
+此入口 `invocation.target` 为 `extension.actions`，`instanceId`、资源与参数为空。不聚合其他插件的动作。卸载、停用、启动失败或注销命令会撤销对应入口。
 
 ## 通知与定时命令
 

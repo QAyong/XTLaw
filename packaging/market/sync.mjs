@@ -39,7 +39,7 @@ async function sameDirectory(source, target) {
   return true
 }
 
-export async function syncMarketPlugins({ marketRoot, check = false }) {
+export async function syncMarketPlugins({ marketRoot, check = false, plugin }) {
   const targetRoot = join(marketRoot, 'plugins')
   if (!await exists(targetRoot))
     throw new Error(`Market repository not found: ${marketRoot} (set XTLAW_MARKET_DIR)`)
@@ -48,8 +48,11 @@ export async function syncMarketPlugins({ marketRoot, check = false }) {
     if (entry.isDirectory() && await exists(join(sourceRoot, entry.name, 'extension.json')))
       names.push(entry.name)
   }
+  if (plugin !== undefined && !names.includes(plugin))
+    throw new Error(`Unknown source plugin: ${plugin || '(empty name)'}`)
+  const selectedNames = (plugin === undefined ? names : [plugin]).sort()
   const changed = []
-  for (const name of names.sort()) {
+  for (const name of selectedNames) {
     const source = join(sourceRoot, name)
     const target = join(targetRoot, name)
     if (await sameDirectory(source, target))
@@ -61,13 +64,21 @@ export async function syncMarketPlugins({ marketRoot, check = false }) {
     await mkdir(target, { recursive: true })
     await cp(source, target, { recursive: true })
   }
-  return { names, changed }
+  return { names: selectedNames, changed }
 }
 
 async function main() {
-  const check = process.argv.includes('--check')
+  const args = process.argv.slice(2)
+  const unknown = args.find(arg => arg !== '--check' && !arg.startsWith('--plugin='))
+  if (unknown)
+    throw new Error(`Unknown option: ${unknown}; use --plugin=<name> to sync one plugin`)
+  const filters = args.filter(arg => arg.startsWith('--plugin='))
+  if (filters.length > 1)
+    throw new Error('Specify --plugin=<name> only once')
+  const plugin = filters[0]?.slice('--plugin='.length)
+  const check = args.includes('--check')
   const marketRoot = resolve(process.env.XTLAW_MARKET_DIR ?? join(repoRoot, '..', 'xtlaw-market'))
-  const { names, changed } = await syncMarketPlugins({ marketRoot, check })
+  const { names, changed } = await syncMarketPlugins({ marketRoot, check, plugin })
   if (!changed.length) {
     writeOutput(`市场仓库已与 plugins/ 一致（${names.length} 个插件）`)
     return

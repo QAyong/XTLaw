@@ -3,6 +3,7 @@ import type { ExtensionDocumentPorts } from '../../../platform/extensions/Extens
 import type { FileIconThemeService } from '../../../platform/icons/FileIconThemeService'
 import type { SpeechBackend } from '../../../platform/speech/SpeechBackend'
 import type { ThemeService } from '../../../platform/themes/ThemeService'
+import type { ConversationCleanup } from '../../../shared/conversation/conversationCleanupApi'
 import type { ApplicationDiagnosticReporter } from '../../../shared/diagnostics/applicationDiagnostic'
 import type { ExtensionTaskAction, ExtensionTaskActionInput, ExtensionTaskActionResult } from '../../../shared/extensions/extensionActionApi'
 import type { ExtensionAgentCatalog, ExtensionAgentDescriptor, ExtensionAgentInvocation } from '../../../shared/extensions/extensionAgent'
@@ -18,6 +19,7 @@ import process from 'node:process'
 import { app, dialog, ipcMain, Notification, powerMonitor, session, shell } from 'electron'
 import { z } from 'zod'
 import { BundledExtensionCatalog } from '../../../platform/extensions/BundledExtensionCatalog'
+import { createExtensionTaskCleanup } from '../../../platform/extensions/createExtensionTaskCleanup'
 import { ExtensionPackageStore } from '../../../platform/extensions/ExtensionPackageStore'
 import { ExtensionService } from '../../../platform/extensions/ExtensionService'
 import { observeExtensionDiagnostics } from '../../../platform/extensions/observeExtensionDiagnostics'
@@ -35,6 +37,7 @@ import { SandboxedExtensionHost } from './SandboxedExtensionHost'
 
 export function registerExtensionIpc(options: {
   documents: ExtensionDocumentPorts
+  conversationCleanup?: ConversationCleanup
   home: string
   fileIcons: FileIconThemeService
   themes: ThemeService
@@ -85,6 +88,7 @@ export function registerExtensionIpc(options: {
   const service = new ExtensionService(store, {
     documents: options.documents,
     clipboard: createExtensionClipboard(options.getWindow),
+    taskCleanup: options.conversationCleanup ? createExtensionTaskCleanup(options.conversationCleanup) : undefined,
     shellsChanged: options.shellsChanged,
     skillsChanged: options.skillsChanged,
     capabilitiesChanged: options.capabilitiesChanged,
@@ -217,6 +221,7 @@ export function registerExtensionIpc(options: {
     options.themes.releaseOwner('desktop')
     void service.resetHosts().catch(() => {})
   }
+  const cancelUnconfirmedTaskCleanup = () => service.cancelUnconfirmedTaskCleanup()
   const resetOnNavigation = (event: Electron.Event<Electron.WebContentsDidStartNavigationEventParams>) => {
     if (event.isMainFrame && !event.isSameDocument)
       resetHosts()
@@ -225,6 +230,7 @@ export function registerExtensionIpc(options: {
     const current = options.getWindow()
     if (current && !current.isDestroyed() && !bound.has(current)) {
       bound.add(current)
+      current.on('hide', cancelUnconfirmedTaskCleanup)
       current.webContents.on('will-frame-navigate', guardNavigation)
       current.webContents.on('did-start-navigation', resetOnNavigation)
       current.webContents.on('render-process-gone', resetHosts)
@@ -304,7 +310,11 @@ export function registerExtensionIpc(options: {
         case 'devtools': return await service.devtools(input.id)
         case 'revokeResources': return await service.revokeResources(input.id)
         case 'execute': return await service.execute(input.id, input.command, input.resource)
-        case 'executeMenu': return await service.executeMenu(input.id, input.menu, input.invocation)
+        case 'executeMenu': {
+          const owner = window()
+          const userInitiated = !!owner && !owner.isDestroyed() && owner.isVisible() && !owner.isMinimized() && owner.isFocused() && event.senderFrame === owner.webContents.mainFrame && owner.webContents.focusedFrame === owner.webContents.mainFrame
+          return await service.executeMenu(input.id, input.menu, input.invocation, userInitiated)
+        }
         case 'executeSlash': return await service.executeSlash(input.id, input.command, input.arguments, input.instanceId)
         case 'updatePanes': return service.updatePanes(input.panes)
         case 'endInteraction': return service.endInteraction(input.id)
@@ -357,6 +367,7 @@ export function registerExtensionIpc(options: {
       for (const current of bound) {
         if (current.isDestroyed())
           continue
+        current.off('hide', cancelUnconfirmedTaskCleanup)
         current.webContents.off('will-frame-navigate', guardNavigation)
         current.webContents.off('did-start-navigation', resetOnNavigation)
         current.webContents.off('render-process-gone', resetHosts)

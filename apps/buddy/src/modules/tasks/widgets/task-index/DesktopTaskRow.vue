@@ -5,7 +5,7 @@ import type { TaskSidebarActivity } from '../../contracts'
 
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import type { DesktopTaskPinnedDropPosition } from '@/modules/tasks/widgets/task-index/taskPinnedItems'
-import { MoreHorizontal20Regular } from '@vicons/fluent'
+import { Archive20Regular, MoreHorizontal20Regular } from '@vicons/fluent'
 import { NDropdown, NTooltip } from 'naive-ui'
 import { computed, h, shallowRef, useId, useTemplateRef, watch } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
@@ -22,6 +22,7 @@ const props = withDefaults(defineProps<{
   taskId: string
   active: boolean
   loading?: boolean
+  archiveBusy?: boolean
   marks: readonly LocalTaskMark[]
   markState?: LocalTaskMarkState
   marksBusy: boolean
@@ -43,6 +44,7 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   delete: []
+  archive: []
   assignMark: [markId: string]
   clearMarks: []
   setRead: [read: boolean]
@@ -98,6 +100,9 @@ const actions = computed<DropdownOption[]>(() => [
     show: props.pinMode !== undefined,
   },
   { icon: () => h(DesktopIcon, { name: 'edit' }), key: 'rename', label: t('desktop.tasks.renameTask') },
+  { icon: () => h(DesktopIcon, { component: Archive20Regular }), key: 'archive', label: t('desktop.archive.archive'), disabled: props.archiveBusy },
+  { type: 'divider', key: 'delete-divider' },
+  { icon: () => h(DesktopIcon, { name: 'delete', class: 'text-danger' }), key: 'delete', label: () => h('span', { class: 'text-danger' }, t('desktop.archive.permanentDelete')) },
 ])
 
 function handleAction(action: string | number) {
@@ -108,6 +113,8 @@ function handleAction(action: string | number) {
     emit('pin')
   if (action === 'delete')
     emit('delete')
+  if (action === 'archive')
+    emit('archive')
 }
 
 // 右键行弹出与“更多”相同的菜单，位置跟随鼠标。
@@ -233,12 +240,15 @@ useTaskHistoryDrag({
             </button>
           </NDropdown>
           <button
-            class="desktop-task-sidebar__more desktop-task-sidebar__delete"
+            class="desktop-task-sidebar__more desktop-task-sidebar__archive"
             type="button"
-            :aria-label="t('desktop.tasks.deleteTask')"
-            @click="emit('delete')"
+            :aria-label="t('desktop.archive.archive')"
+            :aria-busy="archiveBusy || undefined"
+            :disabled="archiveBusy"
+            @click="emit('archive')"
           >
-            <DesktopIcon name="delete" :size="16" />
+            <DesktopRingSpinner v-if="archiveBusy" />
+            <DesktopIcon v-else :component="Archive20Regular" :size="16" />
           </button>
         </div>
       </div>
@@ -409,11 +419,16 @@ button {
   justify-self: end;
 }
 
-.desktop-task-sidebar__delete {
+.desktop-task-sidebar__archive {
   color: var(--buddy-text-muted);
 
   &:hover {
-    color: var(--buddy-status-danger-text);
+    color: var(--buddy-text-strong);
+  }
+
+  &:disabled {
+    cursor: progress;
+    opacity: 0.65;
   }
 }
 

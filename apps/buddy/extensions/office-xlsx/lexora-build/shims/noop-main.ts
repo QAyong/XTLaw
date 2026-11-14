@@ -4,3 +4,8 @@ async function unavailable(): Promise<never> {
 }
 export const exportPdf = unavailable
 export const printWorkbook = unavailable
+
+// Windows-only clipboard enhancement is deliberately absent in the browser plugin.
+export async function runCopyEmfHelper(_helper: string, _payload: string): Promise<{ ok: boolean }> {
+  return { ok: false }
+}

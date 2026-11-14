@@ -25,7 +25,9 @@ export const lookup = unavailable('dns.lookup')
 export const isIP = (value: string) => (/^\d+\.\d+\.\d+\.\d+$/.test(value) ? 4 : value.includes(':') ? 6 : 0)
 export const fileURLToPath = (url: string | URL) => decodeURIComponent(new URL(url).pathname)
 export const pathToFileURL = (path: string) => new URL(`file://${path}`)
-export default { createServer, createInterface, execFile, spawn, Worker, isMainThread, homedir, tmpdir, platform, cpus, hostname, lookup, isIP, fileURLToPath, pathToFileURL }
+// csv-import-xlsx is a desktop-only conversion path; the plugin does not expose CSV workbook creation.
+export const Readable = { from: unavailable('stream.Readable.from') }
+export default { createServer, createInterface, execFile, spawn, Worker, isMainThread, homedir, tmpdir, platform, cpus, hostname, lookup, isIP, fileURLToPath, pathToFileURL, Readable }
 export const Agent = class {}
 export const fetch = unavailable('undici.fetch')
 export const getGlobalDispatcher = unavailable('undici.getGlobalDispatcher')

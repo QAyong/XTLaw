@@ -45,5 +45,9 @@ export function setRescueFetch() {}
 export const resolveProfileCredential = () => null
 export async function shutdownCodexAppServers() {}
 export const isAiRegionBlockedError = () => false
+// @genoffice/electron-utils/remote-table (network query refresh is not available in the plugin)
+export async function fetchRemoteTable(_source: unknown): Promise<null> {
+  return null
+}
 // @genoffice/electron-utils/main-proxy (the plugin never opens a network connection of its own)
 export const createMainProcessProxyDispatcher = async () => undefined

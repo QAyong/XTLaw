@@ -1,6 +1,6 @@
 {
   "upstream": "https://github.com/genspark-ai/genoffice/",
-  "commit": "58dfd0b5b5eb3710efac0029b0452c61dba69035",
+  "commit": "19a389b39be75f611ec21dcda4a7b91a658239d2",
   "bundledWith": "vite build via apps/buddy/extensions/office-pptx/build.mjs",
   "resources": [
     {
@@ -145,13 +145,13 @@
     },
     {
       "name": "slides.css",
-      "size": 153174,
-      "sha256": "c449e83df22432ea444f42d1e9e5613fe4dbec1378e8a9822a03bf489879b20d"
+      "size": 155703,
+      "sha256": "4278fbc9d11427486b200d3ff7b6bbd051757eb117ae479fd23bc4a94982047d"
     },
     {
       "name": "slides.js",
-      "size": 5358159,
-      "sha256": "82b098d29b22bc2b320927371c1104adb97754ad2914737428283da6ad672cd1"
+      "size": 5606140,
+      "sha256": "1e5aec170d06dfd3cba09e18919f00cf62331310f27bb2f1e6ee2d6ebec791c9"
     }
   ]
 }

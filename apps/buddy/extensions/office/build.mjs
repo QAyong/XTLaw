@@ -6,7 +6,7 @@ import path from 'node:path'
 import process from 'node:process'
 
 // The upstream commit the source edits in lexora-build/vite.config.mjs were written against. A different commit must be reviewed first.
-export const upstream = { repository: 'https://github.com/genspark-ai/genoffice/', commit: '58dfd0b5b5eb3710efac0029b0452c61dba69035' }
+export const upstream = { repository: 'https://github.com/genspark-ai/genoffice/', commit: '19a389b39be75f611ec21dcda4a7b91a658239d2' }
 
 const here = import.meta.dirname
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex')

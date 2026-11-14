@@ -13,7 +13,7 @@ const edits = {
   'main.tsx': [
     // `ready` settles once the first render is queued (what view.js awaits), and the view can unmount the tree.
     ['void bootstrap()', 'export const ready = bootstrap()'],
-    ['createRoot(document.getElementById(\'root\')!).render(', 'const root = createRoot(document.getElementById(\'root\')!)\n  ;(window as unknown as { __lexoraOfficeUnmount?: () => void }).__lexoraOfficeUnmount = () => root.unmount()\n  root.render('],
+    ['const root = createRoot(document.getElementById(\'root\')!)\n  flushSync(() =>\n    root.render(', 'const root = createRoot(document.getElementById(\'root\')!)\n  ;(window as unknown as { __lexoraOfficeUnmount?: () => void }).__lexoraOfficeUnmount = () => root.unmount()\n  flushSync(() =>\n    root.render('],
   ],
   // The plugin has no PDF export: no Export PDF / Export as images entries, no keyboard or menu route to them, and no print dialog.
   'components/Ribbon.tsx': [

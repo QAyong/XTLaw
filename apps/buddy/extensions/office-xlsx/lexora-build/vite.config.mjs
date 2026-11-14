@@ -11,6 +11,7 @@ const exact = name => new RegExp(`^${name.replaceAll('/', '\\/')}$`)
 // Main-process siblings replaced by browser versions or no-ops (upstream files stay untouched).
 const mainStubs = {
   'pdf-export': 'noop-main.ts',
+  'copy-emf-helper': 'noop-main.ts',
   'xlsx-sidecar-client': 'wasm-client.ts',
 }
 function stubMainModules() {
@@ -153,6 +154,7 @@ export default defineConfig({
       { find: exact('@genoffice/electron-utils/drop-open'), replacement: shim('stubs.ts') },
       { find: exact('@genoffice/ai-search'), replacement: shim('stubs.ts') },
       { find: exact('@genoffice/electron-utils/main-proxy'), replacement: shim('stubs.ts') },
+      { find: exact('@genoffice/electron-utils/remote-table'), replacement: shim('stubs.ts') },
       { find: exact('@genoffice/project-store'), replacement: shim('stubs.ts') },
       { find: exact('@genoffice/file-parse'), replacement: shim('stubs.ts') },
       { find: exact('@genoffice/ai-provider'), replacement: shim('stubs.ts') },
@@ -163,7 +165,7 @@ export default defineConfig({
       { find: node('path'), replacement: 'path-browserify' },
       { find: node('crypto'), replacement: shim('crypto.ts') },
       { find: node('zlib'), replacement: shim('zlib.ts') },
-      { find: node('child_process|worker_threads|os|dns|dns/promises|net|url|stream/promises|http|https|readline'), replacement: shim('node-misc.ts') },
+      { find: node('child_process|worker_threads|os|dns|dns/promises|net|url|stream|stream/promises|http|https|readline'), replacement: shim('node-misc.ts') },
       { find: exact('undici'), replacement: shim('node-misc.ts') },
     ],
   },

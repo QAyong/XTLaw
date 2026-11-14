@@ -6,10 +6,36 @@ import path from 'node:path'
 import process from 'node:process'
 
 // The upstream commit every shim and stub was written against. A different commit must be reviewed first.
-export const upstream = { repository: 'https://github.com/genspark-ai/genoffice/', commit: '58dfd0b5b5eb3710efac0029b0452c61dba69035' }
+export const upstream = { repository: 'https://github.com/genspark-ai/genoffice/', commit: '19a389b39be75f611ec21dcda4a7b91a658239d2' }
 
 const here = import.meta.dirname
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex')
+
+async function readGitHead(checkout) {
+  const dotGit = path.join(checkout, '.git')
+  const dotGitStat = await fs.stat(dotGit)
+  let gitDir = dotGit
+  if (dotGitStat.isFile()) {
+    const gitFile = await fs.readFile(dotGit, 'utf8')
+    const match = /^gitdir:\s*(.+)\s*$/m.exec(gitFile)
+    assert(match, 'Invalid .git file in GenOffice checkout')
+    gitDir = path.resolve(checkout, match[1])
+  }
+
+  const head = (await fs.readFile(path.join(gitDir, 'HEAD'), 'utf8')).trim()
+  if (/^[a-f0-9]{40}$/i.test(head)) return head
+  const ref = /^ref:\s*(\S+)$/.exec(head)?.[1]
+  assert(ref, 'Invalid HEAD in GenOffice checkout')
+  try {
+    return (await fs.readFile(path.join(gitDir, ref), 'utf8')).trim()
+  }
+  catch {
+    const packed = await fs.readFile(path.join(gitDir, 'packed-refs'), 'utf8')
+    const line = packed.split(/\r?\n/).find(item => !item.startsWith('^') && item.endsWith(` ${ref}`))
+    assert(line, `Missing GenOffice ref ${ref}`)
+    return line.split(' ')[0]
+  }
+}
 
 async function listFiles(directory, base = directory) {
   const files = []
@@ -27,7 +53,7 @@ async function listFiles(directory, base = directory) {
  * The checkout needs `npm ci --ignore-scripts` plus `npm i --no-save --ignore-scripts path-browserify buffer`.
  */
 export async function build(checkout, destination) {
-  const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: checkout, encoding: 'utf8' }).trim()
+  const head = await readGitHead(checkout)
   assert.equal(head, upstream.commit, 'Unexpected GenOffice commit: review the shims before building a new version')
   for (const dependency of ['path-browserify', 'buffer', 'vite'])
     await fs.access(path.join(checkout, 'node_modules', dependency)).catch(() => assert.fail(`Missing ${dependency} in the checkout (see build.mjs header)`))

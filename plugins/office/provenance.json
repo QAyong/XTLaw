@@ -1,8 +1,68 @@
 {
   "upstream": "https://github.com/genspark-ai/genoffice/",
-  "commit": "58dfd0b5b5eb3710efac0029b0452c61dba69035",
+  "commit": "19a389b39be75f611ec21dcda4a7b91a658239d2",
   "bundledWith": "vite build via apps/buddy/extensions/office/build.mjs",
   "resources": [
+    {
+      "name": "assets/AptosGO-Bold-5d2fkukq.ttf",
+      "size": 80172,
+      "sha256": "5b4a666c9df686840ced68062df3c8cf8b8e490a778732e89b4dc9e3fbcbea9d"
+    },
+    {
+      "name": "assets/AptosGO-BoldItalic-BpfZ6-9j.ttf",
+      "size": 76104,
+      "sha256": "bff8e28e70713f1bd1559c9f3b4951c84523ba6c7ccbf9fb2fabccb76ad8056b"
+    },
+    {
+      "name": "assets/AptosGO-Italic-C2h1gUgz.ttf",
+      "size": 80204,
+      "sha256": "c6ae569c47cf9c7da760097c0791d8d2d6904dfa6cb36d492a0071d6a2284ea3"
+    },
+    {
+      "name": "assets/AptosGO-Regular-TCWFdmuV.ttf",
+      "size": 79212,
+      "sha256": "01bd71b913a07ce4ab94745a56c6498eedd579e88eb747af654c624c7f3248a4"
+    },
+    {
+      "name": "assets/AptosNarrowGO-Bold-B_iZzeGk.ttf",
+      "size": 79796,
+      "sha256": "a2f8584adb15fb1c8422ba91b08c2404d9703defb0e2245ee5af8d3c9330a02a"
+    },
+    {
+      "name": "assets/AptosNarrowGO-BoldItalic-cm-M69it.ttf",
+      "size": 75836,
+      "sha256": "6265d496b5c65589f12df01494b1e104b35c02c5ce1c7db7a66ff85f6f072f08"
+    },
+    {
+      "name": "assets/AptosNarrowGO-Italic-D-F6fdtD.ttf",
+      "size": 80184,
+      "sha256": "b724b77f72709f43b1fd62d7c01f3dd094fdc3c983f4deb1e24e10db90f5e26d"
+    },
+    {
+      "name": "assets/AptosNarrowGO-Regular-DFxrH8xY.ttf",
+      "size": 79192,
+      "sha256": "5c41ab90a7777910b9b79f45a8215eeeb193d9dbddd73db17b56ddff32707629"
+    },
+    {
+      "name": "assets/BookmanOldStyleGO-Bold-d9GalGN5.ttf",
+      "size": 41772,
+      "sha256": "630237df475d8f88ded563e90dad4024b9a3af4514a0422f47b68a1c63243208"
+    },
+    {
+      "name": "assets/BookmanOldStyleGO-BoldItalic-D8qZk1oq.ttf",
+      "size": 43824,
+      "sha256": "e59e9e958710314d54c8530180c7d589afb2edd8420417dc01295dc0bfa83146"
+    },
+    {
+      "name": "assets/BookmanOldStyleGO-Italic-CSiN_J3E.ttf",
+      "size": 44156,
+      "sha256": "1483b5a0fa2d6d3b4fc778670156d5826d3dbdc0a073c24d1b5cf4b4cdf3555e"
+    },
+    {
+      "name": "assets/BookmanOldStyleGO-Regular-CEwq2QFh.ttf",
+      "size": 42236,
+      "sha256": "bc8d1f42d7bb29e7c7c37eff6f4c18f2fd65999d7466ad455b948e66da5939ab"
+    },
     {
       "name": "assets/Caladea-Bold-D8qQyaGr.ttf",
       "size": 58892,
@@ -22,6 +82,26 @@
       "name": "assets/Caladea-Regular-BTbwo_Qo.ttf",
       "size": 58964,
       "sha256": "d2f6cad33f191e65b68bd74e6d4f7708080a41b32db635866109df3090265d91"
+    },
+    {
+      "name": "assets/CambriaCyrillicGO-Bold-TrYru0p1.ttf",
+      "size": 37608,
+      "sha256": "1e0df04900187dd7468f47aab3a869c4eb813bccaf74997aa3b455a1744d844a"
+    },
+    {
+      "name": "assets/CambriaCyrillicGO-BoldItalic-BaKTgiQI.ttf",
+      "size": 40576,
+      "sha256": "bd881315fc28ff6590ab105814ed01b0512e596e216c4840216cf0278310a74a"
+    },
+    {
+      "name": "assets/CambriaCyrillicGO-Italic-CLMS64xb.ttf",
+      "size": 40520,
+      "sha256": "4eb095cbbbc73ace67c207ab1a66f342666a5082c9268feda02901d4eb5de0fa"
+    },
+    {
+      "name": "assets/CambriaCyrillicGO-Regular-BjPxJX7U.ttf",
+      "size": 37560,
+      "sha256": "b92ca217748f3b6871dbf2b3bde392874b60d90b3a0d6116b3730772ace12f54"
     },
     {
       "name": "assets/Carlito-Bold-BhbXr__n.ttf",
@@ -44,6 +124,41 @@
       "sha256": "cca497a63f1cf8111d2189424ec38b95002e43799efe4f1486ec7f8063bb93c1"
     },
     {
+      "name": "assets/CenturyGothicGO-Bold-B8WUk2KQ.ttf",
+      "size": 38268,
+      "sha256": "969ee748d20e6c4d77fb189f6c70ac1ad8e9b9fdac5c2beee9dd7ec46fea151f"
+    },
+    {
+      "name": "assets/CenturyGothicGO-BoldItalic-CKg7mUev.ttf",
+      "size": 40772,
+      "sha256": "52a3741bc259624793ea202a77dbebe1e1cb9045c14ec517f0b476af24d59410"
+    },
+    {
+      "name": "assets/CenturyGothicGO-Italic-DtrvyNTr.ttf",
+      "size": 40440,
+      "sha256": "5c8cee83ff13b4fdc4125480d9830506614523ceb6548675f5e8e2db6d9cb4fe"
+    },
+    {
+      "name": "assets/CenturyGothicGO-Regular-BHO_ELFb.ttf",
+      "size": 38296,
+      "sha256": "d371161bf24039b4245c17e1f7965011946d66bb1bce267e7ae1530b31a6617f"
+    },
+    {
+      "name": "assets/DavidGO-Bold-BJFMXG1-.ttf",
+      "size": 40408,
+      "sha256": "ffa2f8fca40364bdaceb7e2eafeadedf96fa5f8b1f7a2660c642ed0758d5ab5c"
+    },
+    {
+      "name": "assets/DavidGO-Regular-NxcCiPgr.ttf",
+      "size": 40252,
+      "sha256": "ab7d336b92b5209d5b48f63d0e90f05b30a5d83833478630f9ef67d75ac81eb5"
+    },
+    {
+      "name": "assets/GenOfficeBalancedSpace-Ch4sxDpD.woff2",
+      "size": 284,
+      "sha256": "ae071f467dbf2fa6bf92cfc94c4e98becf93947df05e63dde11b11f70a8aa24f"
+    },
+    {
       "name": "assets/GenOfficeBengali-Bold-C1wtHFaL.woff2",
       "size": 64616,
       "sha256": "ace0aa228915eca922faec43312a9ee0a4c3424efb1135f1a5b69830eaceaa83"
@@ -54,9 +169,19 @@
       "sha256": "75edd63c608052e1583900537053a839c685e8fa8e0bbb0ac0ed9582c3c0e75e"
     },
     {
-      "name": "assets/GenOfficeCheLatinKR-CFVfemg_.woff2",
-      "size": 8296,
-      "sha256": "06d44399fdb8a13855414d64e92f404d941fb453fe4f333a704ca1e4e5128610"
+      "name": "assets/GenOfficeCheLatinKR-Dxa8BmkD.woff2",
+      "size": 8720,
+      "sha256": "b7513082199d4adf3d690349dfcb0809f7c24322b478a2e8b6944c96b4b0bdd6"
+    },
+    {
+      "name": "assets/GenOfficeCordia-Bold-B4Rm5jPh.woff2",
+      "size": 10284,
+      "sha256": "a6791e13ed0cfcca2915e47bce8e5911b42aa069eff25a1199179660709a6425"
+    },
+    {
+      "name": "assets/GenOfficeCordia-Regular-MHxV1bKY.woff2",
+      "size": 10292,
+      "sha256": "c874dfd0f4da925632d50aeb6e40a30a317cc2aae39ce417f8386383cebd543f"
     },
     {
       "name": "assets/GenOfficeDMSans-Bold-subset-DVFBF4J5.woff2",
@@ -89,14 +214,24 @@
       "sha256": "a43b5060988c6400673f99ce795ea6814ecc86dcb9adb33a5b78f9308708344b"
     },
     {
-      "name": "assets/GenOfficeSansKR-Regular-subset-Cq8p8gsc.woff2",
-      "size": 267024,
-      "sha256": "72b5466d8e07a3234607c973c8ac3aee879b895bc71b6a0e07acefe7819784cb"
+      "name": "assets/GenOfficeSansKR-Regular-subset-B22c6P7v.woff2",
+      "size": 298464,
+      "sha256": "c87a603e5a7149c7b510df6c1cb50482db23aed13ddc172e5eb8e5f7992891ce"
     },
     {
-      "name": "assets/GenOfficeSerifKR-Regular-subset-BkQyd75u.woff2",
-      "size": 512436,
-      "sha256": "ef34d00ded53b3ca655cf6faeaa554c76715b0ee19421c06e12949e5e7d57d8f"
+      "name": "assets/GenOfficeSarabun-Bold-BBMTyiQy.woff2",
+      "size": 10108,
+      "sha256": "dbcd6187fe29cc91eb283d612ebe7480d27259313e05b37dbb1d7164db6188ff"
+    },
+    {
+      "name": "assets/GenOfficeSarabun-Regular-CtUqyXGw.woff2",
+      "size": 10164,
+      "sha256": "2317ffd941d706e78dd4c21bc2ff0516728fe6f7fd4637f329ac3a922379b55a"
+    },
+    {
+      "name": "assets/GenOfficeSerifKR-Regular-subset-nbiiZ_31.woff2",
+      "size": 591860,
+      "sha256": "c32385f2503d99e33433e3c8557079efc6f05561c3f7dc23faa27b850168ef38"
     },
     {
       "name": "assets/GenOfficeTamil-Regular-DLISHPmH.woff2",
@@ -112,6 +247,11 @@
       "name": "assets/GenOfficeUIKanaJP-Regular-Bj_7JzTT.woff2",
       "size": 25288,
       "sha256": "3910237ea1074a33fb3b16a18f9df166573895e3a3f9914e837ab9215226ee05"
+    },
+    {
+      "name": "assets/KristenITCGO-Regular-Dt-8GXMp.ttf",
+      "size": 22848,
+      "sha256": "29afbdc9efe73dfa66e6a724113a41dbdd29eade8ffee95f5866c33beec7380b"
     },
     {
       "name": "assets/LiberationMono-Bold-JpIqZVyK.ttf",
@@ -184,14 +324,14 @@
       "sha256": "3ae72fd620251f4c1da3f295ea49a4d949eadc08c16fc83b36d0959f09c72ed3"
     },
     {
-      "name": "assets/NotoSansCJKsc-Regular-subset-BuHGXxnc.woff2",
-      "size": 2533160,
-      "sha256": "e527a37d1025cd0e03dc42667582cbfdfc8ea35699dae51b722de5f91e58b0d8"
+      "name": "assets/NotoSansCJKsc-Regular-subset-CI7WjJWU.woff2",
+      "size": 2102776,
+      "sha256": "c3ed44a467b3a42ad06bd1d95147f169753b6675d244a63c1f1101899de48c42"
     },
     {
-      "name": "assets/NotoSerifCJKsc-Regular-subset-CLPB6QGT.woff2",
-      "size": 3495928,
-      "sha256": "1b60526f07128255e4a3bfe315b7764a6c89612154bb40804b0d480a374cae43"
+      "name": "assets/NotoSerifCJKsc-Regular-subset-DE8BO6ke.woff2",
+      "size": 2809656,
+      "sha256": "8805e730c330fd4940eefa8618b57abc196a0bd1dfe393b7492b88aad0130f37"
     },
     {
       "name": "assets/file-document-B2j6-IGZ.png",
@@ -270,13 +410,13 @@
     },
     {
       "name": "editor.css",
-      "size": 350032,
-      "sha256": "d1a9e066e9355bbc29c06b62e21e6eb75a368513a5ecdc1b4805d24245d0cb1c"
+      "size": 431599,
+      "sha256": "97f8799b0a30e1b4d0014d6eccb3884da18d0a32ccba2cb6a415b27e620efc22"
     },
     {
       "name": "editor.js",
-      "size": 5183478,
-      "sha256": "52a6e765332ffdf352d1c5a787779458648862de940818632ffea5aa902a261e"
+      "size": 5900527,
+      "sha256": "96a0d12c081c1e063f11d173cc9669bc274a0000a825fe1a89ee1160211ca44a"
     }
   ]
 }

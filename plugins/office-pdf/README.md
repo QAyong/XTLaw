@@ -1,6 +1,6 @@
 # Office PDF 插件：GenOffice PDF 编辑器移植
 
-**版本：** 0.1.8（XTLaw 官方插件，打开、批注、填写表单、编辑文字、页面操作、保存、引用到聊天）。0.1.8：保存改经宿主的工作副本（`fileEditing`，取代 `selectedResourceWrite`）；文件在磁盘上被 AI 等外部修改后，没有未保存修改时直接刷新成新内容；有未保存修改时让你选“丢弃我的修改，重新加载”或“先把我的修改另存为副本，再重新加载”，两种结果都是显示磁盘上的最新文件，不会停在冲突状态反复报错；保存被拒绝而没来得及处理的内容，下次打开时可选择另存为副本或放弃。要求 XTLaw 0.4.9 或更新版本；PDF 编辑器能报告未保存状态，没有未保存修改时直接重新加载（整页重新打开）。0.1.7：图标改用 Fluent UI System Icons 的 `DocumentPdf24Regular`（MIT，微软开源；`icon.svg`，按 Notion 色板上色，图形没有改动，许可文本见 `LICENSE-fluent-icons.txt`），不再使用 Office 或 Adobe 的标志。0.1.5：聊天引用卡片的“定位来源”会翻到引用所在页并高亮引用的文字（`references.onReveal`，见 Feature-043）；文字不在那一页时返回未找到，页面仍会翻到。0.1.4：图标里的“PDF”字母加宽色块、拉开间距，不再挤在一起。0.1.3：图标改为与 DOCX、PPTX、XLSX 一致的彩色样式（原来的线框图标用 `currentColor`，作为图片显示时是黑色，深色主题下几乎看不见）。0.1.2：工具栏加入与其他 Office 插件一致的“自动保存”开关；收起工具栏时翻页箭头不再残留成空按钮，收起后点分类标签能一次展开。只做了构建、包校验和无头浏览器里的模拟宿主冒烟，没有在桌面实机验收。
+**版本：** 0.1.10（XTLaw 官方插件，打开、批注、填写表单、编辑文字、页面操作、保存、引用到聊天）。0.1.10：GenOffice 锁定至 `19a389b39be75f611ec21dcda4a7b91a658239d2`；继续隐藏打印、转换、涂黑、证书签名和 Ask AI，并隐藏新增的附件面板、测量、压缩体积、文档对比、Bates 编号及 OCR 状态与控制入口。本版完成构建和插件 check，没有桌面实机验收。0.1.8：保存改经宿主的工作副本（`fileEditing`，取代 `selectedResourceWrite`）；文件在磁盘上被 AI 等外部修改后，没有未保存修改时直接刷新成新内容；有未保存修改时让你选“丢弃我的修改，重新加载”或“先把我的修改另存为副本，再重新加载”，两种结果都是显示磁盘上的最新文件，不会停在冲突状态反复报错；保存被拒绝而没来得及处理的内容，下次打开时可选择另存为副本或放弃。要求 XTLaw 0.4.9 或更新版本；PDF 编辑器能报告未保存状态，没有未保存修改时直接重新加载（整页重新打开）。0.1.7：图标改用 Fluent UI System Icons 的 `DocumentPdf24Regular`（MIT，微软开源；`icon.svg`，按 Notion 色板上色，图形没有改动，许可文本见 `LICENSE-fluent-icons.txt`），不再使用 Office 或 Adobe 的标志。0.1.5：聊天引用卡片的“定位来源”会翻到引用所在页并高亮引用的文字（`references.onReveal`，见 Feature-043）；文字不在那一页时返回未找到，页面仍会翻到。0.1.4：图标里的“PDF”字母加宽色块、拉开间距，不再挤在一起。0.1.3：图标改为与 DOCX、PPTX、XLSX 一致的彩色样式（原来的线框图标用 `currentColor`，作为图片显示时是黑色，深色主题下几乎看不见）。0.1.2：工具栏加入与其他 Office 插件一致的“自动保存”开关；收起工具栏时翻页箭头不再残留成空按钮，收起后点分类标签能一次展开。只做了构建、包校验和无头浏览器里的模拟宿主冒烟，没有在桌面实机验收。
 
 ## 当前状态
 
@@ -40,7 +40,7 @@
 - AI 助手、AI 总结、AI 要点、AI 填表、选中文字后的“问 AI”。插件没有 AI、账号和云服务。
 - 打印（含 Ctrl+P）和 “PDF 转换”（转 Office）。两者需要主进程。
 - 涂黑区域（永久涂黑）和证书签名。前者需要写出涂黑副本，后者需要系统证书库。
-- 新建空白 PDF、OCR、图片搜索与生成。
+- 新建空白 PDF、OCR、图片搜索与生成。附件面板、测量、压缩体积、文档对比、Bates 编号入口，以及 OCR 的状态、取消和继续控件，均按插件的隐藏规则处理。
 
 保存的手写签名只在当前页保留，关闭后不保存。
 
@@ -60,12 +60,12 @@
 
 ## 来源与可重现构建
 
-本插件维护于本仓库 `plugins/office-pdf`。GenOffice 上游采用 Apache-2.0，锁定提交 `58dfd0b5b5eb3710efac0029b0452c61dba69035`（与 Office DOCX 相同），资源哈希记录在 `provenance.json`。
+本插件维护于本仓库 `plugins/office-pdf`。GenOffice 上游采用 Apache-2.0，锁定提交 `19a389b39be75f611ec21dcda4a7b91a658239d2`（与 Office DOCX 相同），资源哈希记录在 `provenance.json`。
 
 随包的 Noto Sans CJK SC 子集（SIL OFL）不在 GenOffice 里，取自 `useLexora/plugins` 的 Office 插件（`plugins/office/src/pdf-assets/`），哈希记在 `provenance.json` 的 `cjkFont`。
 
 ```sh
-git clone https://github.com/genspark-ai/genoffice.git; cd genoffice; git checkout 58dfd0b5b5eb3710efac0029b0452c61dba69035
+git clone https://github.com/genspark-ai/genoffice.git; cd genoffice; git checkout 19a389b39be75f611ec21dcda4a7b91a658239d2
 npm ci --ignore-scripts
 cd <XTLaw>; node apps/buddy/extensions/office-pdf/build.mjs <genoffice 路径> plugins/office-pdf <NotoSansCJKsc-Regular-subset.otf 路径>
 ```

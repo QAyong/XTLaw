@@ -8,11 +8,11 @@ export * from '@genoffice/pptx-engine'
 const hostPath = () => (globalThis as { __lexoraSlidesHost?: { path: string } }).__lexoraSlidesHost?.path
 
 /**
- * Same package bytes as the upstream streaming writer. Only the deck itself is written:
- * the crash-recovery timer's copies would just fill memory, so they are skipped.
+ * Same package bytes as the upstream streaming writer. The deck and atomic-save
+ * staging paths are written to the virtual store; crash-recovery copies stay skipped.
  */
 export async function savePptxToFile(opened: OpenedPptx, filePath: string): Promise<void> {
-  if (filePath !== hostPath())
+  if (filePath !== hostPath() && !/\.lexora-tmp-\d+$/.test(filePath))
     return
   await vfs.write(filePath, await savePptx(opened))
 }

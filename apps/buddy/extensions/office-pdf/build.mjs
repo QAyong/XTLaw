@@ -6,7 +6,7 @@ import path from 'node:path'
 import process from 'node:process'
 
 // The upstream commit the source edits in lexora-build/vite.config.mjs were written against. A different commit must be reviewed first.
-export const upstream = { repository: 'https://github.com/genspark-ai/genoffice/', commit: '58dfd0b5b5eb3710efac0029b0452c61dba69035' }
+export const upstream = { repository: 'https://github.com/genspark-ai/genoffice/', commit: '19a389b39be75f611ec21dcda4a7b91a658239d2' }
 
 const here = import.meta.dirname
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex')
@@ -26,8 +26,8 @@ async function listFiles(directory, base = directory) {
 // other Office plugins do and publishes it as `window.__lexoraPdfAutoSave`; this makes the helper honour it. The anchor is the helper's
 // minified body in the pinned commit's output, so a different commit that moves it fails here instead of silently shipping autosave
 // that cannot be turned off.
-const autoSaveHelper = 'const n=()=>{i()&&e()},a=window.setInterval(n,t)'
-const autoSaveGated = 'const n=()=>{window.__lexoraPdfAutoSave!==!1&&i()&&e()},a=window.setInterval(n,t)'
+const autoSaveHelper = 'const n=()=>{a()&&e()},i=window.setInterval(n,t)'
+const autoSaveGated = 'const n=()=>{window.__lexoraPdfAutoSave!==!1&&a()&&e()},i=window.setInterval(n,t)'
 
 async function gateAutoSave(directory) {
   const matches = []

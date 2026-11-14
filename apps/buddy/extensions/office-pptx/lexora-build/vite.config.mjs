@@ -15,6 +15,9 @@ const mainStubs = {
   'attachments-ipc': 'noop-main.ts',
   'pdf-export': 'noop-main.ts',
   'print-window': 'noop-main.ts',
+  'export-images': 'noop-main.ts',
+  'video-export': 'noop-main.ts',
+  '../../../../packages/ppt2pptx/src': 'legacy-ppt.ts',
   'generated-page-temp': 'noop-main.ts',
   'font-store': 'noop-main.ts',
   'shaped-metrics': 'noop-main.ts',
@@ -30,9 +33,10 @@ function stubMainModules() {
         return null
       if (source === '@genoffice/pptx-engine')
         return shim('pptx-engine.ts')
-      if (!source.startsWith('./'))
+      if (!source.startsWith('.'))
         return null
-      const stub = mainStubs[source.slice(2)]
+      const key = source.startsWith('./') ? source.slice(2) : source
+      const stub = mainStubs[key]
       return stub ? shim(stub) : null
     },
   }
@@ -46,6 +50,10 @@ export default defineConfig({
     alias: [
       { find: exact('electron'), replacement: shim('electron.ts') },
       { find: exact('@genoffice/electron-utils'), replacement: shim('electron-utils.ts') },
+      { find: exact('@genoffice/electron-utils/print-window'), replacement: shim('print-stubs.ts') },
+      { find: exact('@genoffice/electron-utils/print-job'), replacement: shim('print-stubs.ts') },
+      { find: exact('@genoffice/electron-utils/print-cups'), replacement: shim('print-stubs.ts') },
+      { find: exact('@genoffice/electron-utils/printer-options'), replacement: shim('print-stubs.ts') },
       { find: exact('@genoffice/electron-utils/atomic-write'), replacement: shim('stubs.ts') },
       { find: exact('@genoffice/ai-search'), replacement: shim('stubs.ts') },
       { find: exact('@genoffice/electron-utils/main-proxy'), replacement: shim('stubs.ts') },

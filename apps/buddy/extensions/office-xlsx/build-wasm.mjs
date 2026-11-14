@@ -21,6 +21,11 @@ async function edit(file, replacements) {
   await fs.writeFile(file, text)
 }
 
+async function assertText(file, anchor, label) {
+  const text = await fs.readFile(file, 'utf8')
+  assert(text.includes(anchor), `Expected ${label} not found in ${path.basename(file)}: ${anchor.slice(0, 80)}`)
+}
+
 /**
  * Compile the upstream Rust xlsx engine to wasm32-wasip1 with the small changes the browser needs.
  * Prerequisites: a Rust toolchain with the wasm32-wasip1 target (`rustup target add wasm32-wasip1`), network access for
@@ -30,7 +35,7 @@ async function edit(file, replacements) {
  * - src/wasm_api.rs: reactor entry points calling the engine's own `Engine::handle_line` (this directory's wasm/wasm_api.rs).
  * - Cargo.toml: also build a cdylib; use local copies of ironcalc and ironcalc_base.
  * - ironcalc: zip without its bzip2/zstd features (C code that needs a wasm C toolchain); deflate is all the engine uses.
- * - ironcalc_base: NOW()/RAND() use std::time and getrandom on WASI instead of js-sys, which only exists on wasm32-unknown-unknown.
+ * - ironcalc_base 0.9.1 already gates js-sys to wasm32-unknown-unknown; assert NOW()/RAND() use std::time and rand/getrandom on WASI.
  */
 export async function buildWasm(checkout, output, { wasmOpt } = {}) {
   const head = capture('git', ['rev-parse', 'HEAD'], { cwd: checkout })
@@ -48,13 +53,28 @@ export async function buildWasm(checkout, output, { wasmOpt } = {}) {
     versions[name] = crate.version
     await fs.cp(path.dirname(crate.manifest_path), path.join(work, 'patched', name), { recursive: true })
   }
-  assert.equal(versions.ironcalc, '0.7.1')
-  assert.equal(versions.ironcalc_base, '0.7.1')
-  await edit(path.join(work, 'patched/ironcalc/Cargo.toml'), [['[dependencies.zip]\nversion = "0.6"\n', '[dependencies.zip]\nversion = "0.6"\ndefault-features = false\nfeatures = ["deflate"]\n']])
+  for (const name of ['calamine', 'zip']) {
+    const crate = metadata.packages.find(item => item.name === name)
+    assert(crate, `Missing crate ${name}`)
+    versions[name] = crate.version
+  }
+  assert.equal(versions.ironcalc, '0.9.1')
+  assert.equal(versions.ironcalc_base, '0.9.1')
+  assert.equal(versions.calamine, '0.37.0')
+  assert.equal(versions.zip, '9.1.0')
+  await edit(path.join(work, 'patched/ironcalc/Cargo.toml'), [[
+    '[dependencies.zip]\nversion = "9.0.5"\nfeatures = ["deflate"]\ndefault-features = false\n',
+    '[dependencies.zip]\nversion = "9.0.5"\ndefault-features = false\nfeatures = ["deflate"]\n',
+  ]])
   const unknownOs = 'all(target_arch = "wasm32", target_os = "unknown")'
-  await edit(path.join(work, 'patched/ironcalc_base/Cargo.toml'), [['cfg(not(target_arch = "wasm32"))', `cfg(not(${unknownOs}))`], ['cfg(target_arch = "wasm32")', `cfg(${unknownOs})`]])
-  for (const file of ['src/model.rs', 'src/functions/mathematical.rs'])
-    await edit(path.join(work, 'patched/ironcalc_base', file), [['#[cfg(not(target_arch = "wasm32"))]', `#[cfg(not(${unknownOs}))]`], ['#[cfg(target_arch = "wasm32")]', `#[cfg(${unknownOs})]`]])
+  const ironcalcBase = path.join(work, 'patched/ironcalc_base')
+  await assertText(path.join(ironcalcBase, 'Cargo.toml'), `[target.'cfg(${unknownOs})'.dependencies.js-sys]`, 'js-sys wasm32-unknown target dependency')
+  await assertText(path.join(ironcalcBase, 'Cargo.toml'), `[target.'cfg(not(${unknownOs}))'.dependencies.rand]`, 'rand dependency outside wasm32-unknown')
+  await assertText(path.join(ironcalcBase, 'src/model.rs'), `#[cfg(not(any(test, feature = "mock_time")))]\n#[cfg(not(${unknownOs}))]\n#[allow(clippy::expect_used)]\npub fn get_milliseconds_since_epoch() -> i64 {\n    use std::time::{SystemTime, UNIX_EPOCH};`, 'NOW std::time branch for non-browser targets')
+  await assertText(path.join(ironcalcBase, 'src/model.rs'), `#[cfg(not(any(test, feature = "mock_time")))]\n#[cfg(${unknownOs})]\npub fn get_milliseconds_since_epoch() -> i64 {\n    use js_sys::Date;`, 'NOW js-sys branch limited to wasm32-unknown')
+  const randomSource = path.join(ironcalcBase, 'src/functions/math_and_trigonometry/random.rs')
+  await assertText(randomSource, `#[cfg(not(${unknownOs}))]\nfn random() -> f64 {\n    rand::random()\n}`, 'RAND rand/getrandom branch for non-browser targets')
+  await assertText(randomSource, `#[cfg(${unknownOs})]\nfn random() -> f64 {\n    use js_sys::Math;`, 'RAND js-sys branch limited to wasm32-unknown')
   await fs.copyFile(path.join(here, 'wasm/wasm_api.rs'), path.join(engine, 'src/wasm_api.rs'))
   await edit(path.join(engine, 'src/lib.rs'), [['pub mod protocol;\n', 'pub mod protocol;\n#[cfg(target_family = "wasm")]\npub mod wasm_api;\n']])
   await fs.appendFile(path.join(engine, 'Cargo.toml'), '\n[lib]\ncrate-type = ["rlib", "cdylib"]\n\n[patch.crates-io]\nironcalc = { path = "../patched/ironcalc" }\nironcalc_base = { path = "../patched/ironcalc_base" }\n')

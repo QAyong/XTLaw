@@ -18,6 +18,8 @@ export const configuredDefaultSaveDir = () => '/virtual/documents'
 export const configuredAuthorName = () => 'XTLaw'
 export const saveAsSuggestion = (name: string) => name
 export const recoveryCopyDiskNewer = () => false
+export const readLegacyImportSkip = () => false
+export const writeLegacyImportSkip = none
 export async function fetchRemoteImage() {
   throw new Error('SLIDES_FEATURE_UNAVAILABLE')
 }

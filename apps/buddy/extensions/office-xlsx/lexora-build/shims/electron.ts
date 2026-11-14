@@ -92,6 +92,8 @@ export const contextBridge = {
   },
 }
 export const webUtils = { getPathForFile: () => '' }
+// Chromium's native spell engine is not exposed inside the isolated plugin view.
+export const webFrame = { isWordMisspelled: (_word: string) => false, getWordSuggestions: (_word: string) => [] as string[] }
 
 export const app: any = {
   isPackaged: true,
@@ -141,4 +143,4 @@ export class WebContentsView {
   setVisible() {}
 }
 export const net: any = stub()
-export default { net, ipcMain, ipcRenderer, contextBridge, webUtils, app, webContents, BrowserWindow, dialog, shell, clipboard, nativeImage, Menu, session }
+export default { net, ipcMain, ipcRenderer, contextBridge, webUtils, webFrame, app, webContents, BrowserWindow, dialog, shell, clipboard, nativeImage, Menu, session }

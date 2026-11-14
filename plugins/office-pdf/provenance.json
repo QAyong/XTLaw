@@ -1,6 +1,6 @@
 {
   "upstream": "https://github.com/genspark-ai/genoffice/",
-  "commit": "58dfd0b5b5eb3710efac0029b0452c61dba69035",
+  "commit": "19a389b39be75f611ec21dcda4a7b91a658239d2",
   "bundledWith": "vite build via apps/buddy/extensions/office-pdf/build.mjs",
   "cjkFont": {
     "name": "runtime/NotoSansCJKsc-Regular-subset.otf",
@@ -8,6 +8,51 @@
     "sha256": "afe316799496466445bf6e59bb0f32fec8b145994daedbc1d90070932d7fd7d0"
   },
   "resources": [
+    {
+      "name": "assets/file-document-B2j6-IGZ.png",
+      "size": 618,
+      "sha256": "a4779861c9c39a3e64b59821543b291a73cf03827a57d5835b89a2dc310b1a55"
+    },
+    {
+      "name": "assets/file-excel-CIJe-48A.png",
+      "size": 706,
+      "sha256": "f2ff633623758cb6da134d5827b9165930aa73babbab8ea836542e19ada6e22a"
+    },
+    {
+      "name": "assets/file-general-BOT9NRxL.png",
+      "size": 539,
+      "sha256": "9e930544798c6154bc955cc17c7bccea7059b02286b09e213b98d7b154291ae2"
+    },
+    {
+      "name": "assets/file-image-D3xYWzWs.png",
+      "size": 753,
+      "sha256": "a204be7ec42f17fda12516180ba011e8f1e9b0d29a202f2e2f1a2d3a4fc58b76"
+    },
+    {
+      "name": "assets/file-pdf-C_c-oWwx.png",
+      "size": 778,
+      "sha256": "1041fc57a9335c35005d1d4b3a067f5ef5108ec96831e4fc0654545c3f92756d"
+    },
+    {
+      "name": "assets/file-ppt-Ce9pdEPV.png",
+      "size": 717,
+      "sha256": "37c2f583c1f7a989df942fa468ef57fb1e48ccc33d5ccee89476b837de671de6"
+    },
+    {
+      "name": "assets/file-video-ywgkEE5A.png",
+      "size": 715,
+      "sha256": "057f553841aa122f5054622280e2705edc00c8b3058d767561bfba03b57ed96d"
+    },
+    {
+      "name": "assets/file-voice-B72LqNto.png",
+      "size": 726,
+      "sha256": "a98c6d484fcb79c7017094850b84100a5dd0c6128f6f4c4e3e2626bd1ab89b6f"
+    },
+    {
+      "name": "assets/file-word-BcJkmmxu.png",
+      "size": 798,
+      "sha256": "9a52cd39002d6e7a1440ae69313207ad5df3552ec289096657af300eb7af0ebc"
+    },
     {
       "name": "assets/send-enter-off-B0IfWMyy.png",
       "size": 4247,
@@ -24,14 +69,14 @@
       "sha256": "09de584fa4dfee00badf5c3df4d498db4f0388416dc22d23fdecdf5d264541e3"
     },
     {
-      "name": "chunks/annot-delete-Bxb6DeOT.js",
-      "size": 2013,
-      "sha256": "d528cbdaae34306ba4c44b68d11d792ccfe03d668aeeb805fe9809b1e44727f3"
+      "name": "chunks/annot-delete-I84hWfP7.js",
+      "size": 2035,
+      "sha256": "a771f0d99b684d3fd9999d6bd80e3f8ad3fbb721a72171a178f27808ead42957"
     },
     {
-      "name": "chunks/entry-qQ8QeIgT.js",
-      "size": 2238080,
-      "sha256": "1a3420c24a0df2b63410a2aae1a6245b21b41e1f1b3cba408dd76dbd170e78af"
+      "name": "chunks/entry-Bq04m-pc.js",
+      "size": 2548475,
+      "sha256": "ab15db1e5ab76ee6446136a38c051bc1b21d0d95040fe09770c94aa2ce1d3afb"
     },
     {
       "name": "chunks/index.browser-ywaiAuRX.js",
@@ -40,13 +85,13 @@
     },
     {
       "name": "editor.css",
-      "size": 87063,
-      "sha256": "4de0e9d22438a3f91e54834b974e90d301e259c93a3e7ad72a715e9aff34ba82"
+      "size": 90982,
+      "sha256": "2368476ca7103b54a1aebd36ed975c2de31c6032df90e7cd4908d4be92f63305"
     },
     {
       "name": "editor.js",
       "size": 70,
-      "sha256": "ab6568fa6c326d56a64dd6f6ecf1f3ec1ad8cd108301506b07912c4c76f8b84c"
+      "sha256": "cadad578476badd248f1122468d61f6e90194fc4b9ff8aaea8ab40152d3ed276"
     },
     {
       "name": "pdf-worker.js",

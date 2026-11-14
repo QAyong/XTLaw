@@ -24,7 +24,13 @@ const edits = {
     // Permanent redaction and certificate signing need the main process and the system certificate store.
     ['data-tip={t(\'redactHint\')}', 'data-lexora-hidden="" data-tip={t(\'redactHint\')}'],
     ['data-tip={t(\'certSignHint\')}', 'data-lexora-hidden="" data-tip={t(\'certSignHint\')}'],
-    ['} else if (k === \'p\' && !e.shiftKey) {\n          e.preventDefault()\n          openPrintDlg()\n', '} else if (k === \'p\' && !e.shiftKey) {\n          e.preventDefault()\n'],
+    ['className={`rb-big${sidebar === \'compare\' ? \' active\' : \'\'}`}', 'data-lexora-hidden="" className={`rb-big${sidebar === \'compare\' ? \' active\' : \'\'}`}'],
+    ['className={`rb-big${sidebar === \'attachments\' ? \' active\' : \'\'}`}', 'data-lexora-hidden="" className={`rb-big${sidebar === \'attachments\' ? \' active\' : \'\'}`}'],
+    ['key={tool}\n                      className={`rb-big${drawTool === tool ? \' active\' : \'\'}`}\n                      disabled={readOnly}', 'key={tool}\n                      className={`rb-big${drawTool === tool ? \' active\' : \'\'}`}\n                      data-lexora-hidden={tool === \'measure\' ? \'\' : undefined}\n                      disabled={readOnly}'],
+    ['data-tip={t(\'reduceHint\')}', 'data-lexora-hidden="" data-tip={t(\'reduceHint\')}'],
+    ['data-tip={t(\'batesHint\')}', 'data-lexora-hidden="" data-tip={t(\'batesHint\')}'],
+    ['{ocrRun && (\n              <div className="pdf-toast pdf-toast-notice" role="status">', '{ocrRun && (\n              <div className="pdf-toast pdf-toast-notice" data-lexora-hidden="" role="status">'],
+    ['} else if (k === \'p\' && !e.shiftKey) {\n          e.preventDefault()\n          print.openPrintDlg()\n', '} else if (k === \'p\' && !e.shiftKey) {\n          e.preventDefault()\n'],
   ],
   [pdfFile('renderer', 'view-config.ts')]: [
     // cmaps, standard fonts and pdf.js wasm sit next to the bundle, not next to the page.

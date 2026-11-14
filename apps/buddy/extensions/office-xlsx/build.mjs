@@ -6,7 +6,7 @@ import path from 'node:path'
 import process from 'node:process'
 
 // The upstream commit every shim and stub was written against. A different commit must be reviewed first.
-export const upstream = { repository: 'https://github.com/genspark-ai/genoffice/', commit: '58dfd0b5b5eb3710efac0029b0452c61dba69035' }
+export const upstream = { repository: 'https://github.com/genspark-ai/genoffice/', commit: '19a389b39be75f611ec21dcda4a7b91a658239d2' }
 
 const here = import.meta.dirname
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex')
@@ -29,7 +29,7 @@ async function listFiles(directory, base = directory) {
 export async function build(checkout, wasmFile, destination) {
   const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: checkout, encoding: 'utf8' }).trim()
   assert.equal(head, upstream.commit, 'Unexpected GenOffice commit: review the shims before building a new version')
-  for (const dependency of ['path-browserify', 'buffer', 'vite', '@bjorn3/browser_wasi_shim'])
+  for (const dependency of ['path-browserify', 'buffer', 'vite/bin/vite.js', '@bjorn3/browser_wasi_shim'])
     await fs.access(path.join(checkout, 'node_modules', dependency)).catch(() => assert.fail(`Missing ${dependency} in the checkout (see build.mjs header)`))
   const wasm = await fs.readFile(wasmFile)
   // The config resolves workspace packages from the checkout, so it has to live inside it.

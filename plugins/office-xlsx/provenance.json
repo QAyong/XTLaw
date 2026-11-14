@@ -1,19 +1,21 @@
 {
   "upstream": "https://github.com/genspark-ai/genoffice/",
-  "commit": "58dfd0b5b5eb3710efac0029b0452c61dba69035",
+  "commit": "19a389b39be75f611ec21dcda4a7b91a658239d2",
   "bundledWith": "vite build via apps/buddy/extensions/office-xlsx/build.mjs",
   "engine": {
     "upstream": "https://github.com/genspark-ai/genoffice/",
-    "commit": "58dfd0b5b5eb3710efac0029b0452c61dba69035",
-    "rustc": "rustc 1.95.0 (59807616e 2026-04-14)",
+    "commit": "19a389b39be75f611ec21dcda4a7b91a658239d2",
+    "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
     "target": "wasm32-wasip1",
     "ironcalc": {
-      "ironcalc": "0.7.1",
-      "ironcalc_base": "0.7.1"
+      "ironcalc": "0.9.1",
+      "ironcalc_base": "0.9.1",
+      "calamine": "0.37.0",
+      "zip": "9.1.0"
     },
-    "optimizer": "wasm-opt version 132 (version_132)",
-    "size": 4115102,
-    "sha256": "2fbfae47e9e46e2220794105e9872c648788dec84b76ddaa3348cef0c2bf6d24"
+    "optimizer": "none",
+    "size": 5475678,
+    "sha256": "471c78c14abd7d691b64ccf105ae95c26af150ca94f3fd403dfeade248d8f9a7"
   },
   "resources": [
     {
@@ -102,9 +104,9 @@
       "sha256": "09de584fa4dfee00badf5c3df4d498db4f0388416dc22d23fdecdf5d264541e3"
     },
     {
-      "name": "assets/xlsx_engine-DUVqAIhA.wasm",
-      "size": 4115102,
-      "sha256": "2fbfae47e9e46e2220794105e9872c648788dec84b76ddaa3348cef0c2bf6d24"
+      "name": "assets/xlsx_engine-CRtx5nB2.wasm",
+      "size": 5475678,
+      "sha256": "471c78c14abd7d691b64ccf105ae95c26af150ca94f3fd403dfeade248d8f9a7"
     },
     {
       "name": "chunks/_lexora-empty-locale-yoD6TSFD.js",
@@ -202,9 +204,9 @@
       "sha256": "7c77afdbc7721363ce78091f0331637788dd3179434e7d89c959a5d7dab6d660"
     },
     {
-      "name": "chunks/entry-DXf3nKdS.js",
-      "size": 766371,
-      "sha256": "89153468aa0bca9553986f8e5037d7f09a04779f40078639674270b43379cc19"
+      "name": "chunks/entry-CrWBaXjP.js",
+      "size": 890813,
+      "sha256": "38e4e44140f94038db60cad90b6c624e2c15bcc69b475f69dd7f250d559c0974"
     },
     {
       "name": "chunks/es-DcaaHPU_-sYKznHcq.js",
@@ -342,9 +344,9 @@
       "sha256": "e9c801091f954f8a8d6ab7a29377e5aa49bdb47529945e5df38b9962cd8afcef"
     },
     {
-      "name": "chunks/main-Du5dKqv6.js",
-      "size": 4325413,
-      "sha256": "dc5f89cdefbccd497731ce027c99a45e4317563ba2b073f14944f0e902420a2c"
+      "name": "chunks/main-CT_4ZSIB.js",
+      "size": 4747022,
+      "sha256": "dd46638cd58ebbf1cb021fc04ad2062d87c609746324b140504ba763c0113930"
     },
     {
       "name": "chunks/ml-2xLVYkVY-CBhOFsDv.js",
@@ -512,54 +514,54 @@
       "sha256": "aa3a083c7455d2dcde50044fe2e6c1b819a3586a87e5778dcbdc1abb32ce5958"
     },
     {
-      "name": "chunks/univer-zo0c57bk.js",
-      "size": 6933250,
-      "sha256": "36bbc309317c69385caa0a21114c5f84f096238b70fffdd0c7fdbab2f8c8f83d"
+      "name": "chunks/univer-D5Q1uxPu.js",
+      "size": 6933403,
+      "sha256": "3742845de4c1f3771c3756f0ce17bedd342080b833a84f1d86f2f7287fc9ffb7"
     },
     {
-      "name": "chunks/zh-CN-BBX1rJMO.js",
-      "size": 113,
-      "sha256": "e75cbd6cf1317a62c0200cdae52de5a7ab970c718edc7123ee0e8c91bc1ef208"
-    },
-    {
-      "name": "chunks/zh-CN-BcHxTZGq.js",
-      "size": 123,
-      "sha256": "a6d3870d9e67b776dd4ec8f7ac89684740e83551d00a88dec1f68166b58e721c"
-    },
-    {
-      "name": "chunks/zh-CN-CBG4OyC7.js",
-      "size": 123,
-      "sha256": "6fffe36a744c11bbd2e1aea7168efde2934d63608e6bfb3b32b47c8576289277"
-    },
-    {
-      "name": "chunks/zh-CN-CMBv8OR2.js",
-      "size": 113,
-      "sha256": "5ecf5371dc93662d4816013cf07d83da0d38e4278a184b584da3c337f3ea2d97"
-    },
-    {
-      "name": "chunks/zh-CN-CQrtFWXr.js",
-      "size": 133,
-      "sha256": "98737ec4871ff881752f15826d9d3cf08d891aa30addbb6754cc19b0a24553eb"
-    },
-    {
-      "name": "chunks/zh-CN-CwvsyULN.js",
-      "size": 113,
-      "sha256": "56bca3e74fe4d0c799952ab09f3261010921eaf722b7ad43948974611811f076"
-    },
-    {
-      "name": "chunks/zh-CN-D2U0LHDb.js",
-      "size": 113,
-      "sha256": "9fd7df7ac1c4fea2efa236cd9e83e3aaba504b278eaa126c55ebb61374dbdabc"
-    },
-    {
-      "name": "chunks/zh-CN-DbsLJx84.js",
-      "size": 123,
-      "sha256": "b95ec8ddbf56a6902c6a2d66ec809bad25de3982294ccbbc88d790539411d410"
-    },
-    {
-      "name": "chunks/zh-CN-hle4PXn3.js",
+      "name": "chunks/zh-CN-B0tSQ2DE.js",
       "size": 183,
-      "sha256": "c3b8dd258caf9a76bf2ac59230e8d96c8702a2d02c888c009cc94d33def7e002"
+      "sha256": "71be5c102a998ad08864d2b781592a477a256037d521e89fec19b894c361f6a4"
+    },
+    {
+      "name": "chunks/zh-CN-BDP_-_zx.js",
+      "size": 123,
+      "sha256": "21f4e896054ecf98cce0a521d8f576f9183bf31b9ef5cfeae3924768606c2121"
+    },
+    {
+      "name": "chunks/zh-CN-BTwGfHIg.js",
+      "size": 123,
+      "sha256": "a141c0a783c5389635495b41a25ab2787b38f47472b4a9aeab913af01c2bd01a"
+    },
+    {
+      "name": "chunks/zh-CN-Bc4SIO-4.js",
+      "size": 113,
+      "sha256": "18ce0dc90d4ebd638c2c4458416eb9b4ca3e6516cef4cf30f4e75894c7394b1a"
+    },
+    {
+      "name": "chunks/zh-CN-CCBY-vFI.js",
+      "size": 113,
+      "sha256": "6a94c0a97b5c0a0b045fa3ab34fa86cba3d35cb8f75cca62542996a713d5598f"
+    },
+    {
+      "name": "chunks/zh-CN-CSI9auvn.js",
+      "size": 133,
+      "sha256": "b7003e1d103730b7773c70a12035c0a30f71eb99a5f7db3c7e3dc02e499bef06"
+    },
+    {
+      "name": "chunks/zh-CN-CjjyR2Re.js",
+      "size": 113,
+      "sha256": "485dead2860268ec7b0611e4433276ceecdccd441411a0ce18e9f1b7d4314f0f"
+    },
+    {
+      "name": "chunks/zh-CN-D7vb_-dR.js",
+      "size": 113,
+      "sha256": "86b2e146f062cf78b4e1ff70b9b5279f8de7c046e18eced826152944d67f2147"
+    },
+    {
+      "name": "chunks/zh-CN-G5N6AfA0.js",
+      "size": 123,
+      "sha256": "8cf9821eec30f47181a24f9547cd83620ff09726b058967b87b7b77f79c6e33e"
     },
     {
       "name": "chunks/zh-latn-pinyin-BdYb-Ey_-BpSBSv6m.js",
@@ -568,13 +570,13 @@
     },
     {
       "name": "sheets.css",
-      "size": 208610,
-      "sha256": "88b34347ae8f3fd9a29067a0e58fe26001c4d101f3a5b4de65a89398a9c2acf3"
+      "size": 212872,
+      "sha256": "bd4cddc9bf1dde1ca52bda53efda92d2cc70b6b76d4e703122fc6324cf223592"
     },
     {
       "name": "sheets.js",
       "size": 139,
-      "sha256": "baa54dd3ed267fb0c140c01a1e0eebf3f8fbf7dcb38fd22b5bea3002bdaf7a10"
+      "sha256": "d0a201d9a6256c94d674e0eff8b9c9dcce00fe02cc2172a39a50432aecf714a0"
     }
   ]
 }

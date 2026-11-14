@@ -107,7 +107,7 @@ const resolvedInitials = computed(() => {
   justify-content: center;
   border-radius: 50%;
   background: var(--buddy-accent-solid);
-  color: #ffffff;
+  color: var(--buddy-text-on-accent);
   font-weight: 600;
   letter-spacing: 0.02em;
 }

@@ -24,6 +24,7 @@ import { computed, h, onScopeDispose, shallowReactive, shallowRef } from 'vue'
 import { fileOpeningHandler } from '@/modules/files'
 import { userContentToChatComposerDocument } from '@/modules/prompt-input'
 import { desktopRouteLocations } from '@/shared/navigation/desktopRoutes'
+import { TextEditorPool } from '@/workbench/browser/TextEditorPool'
 import { TextModelPool } from '@/workbench/browser/TextModelPool'
 import { ViewRendererRegistry } from '@/workbench/browser/ViewRendererRegistry'
 import { panes, resourceKey } from '@/workbench/common/workbench'
@@ -66,6 +67,7 @@ export function useDesktopWorkbench(options: { beforeExtensionClose?: (viewId: s
   const controller = new WorkbenchController(new ContributionRegistry(), beforeClose)
   const diagnostics = new WorkbenchDiagnostics({ controller, copies, events: options.events })
   const models = new TextModelPool(copies)
+  const editors = new TextEditorPool()
   const renderers = new ViewRendererRegistry()
   registerDesktopContributions(controller, renderers, copies, () => language.value)
   const persistence = new WorkbenchPersistence(api.workbench, controller, copies, error => backupError.value = error !== null)
@@ -765,6 +767,7 @@ export function useDesktopWorkbench(options: { beforeExtensionClose?: (viewId: s
       resourceLifetime.dispose()
       await release(() => pool.flush())
       await release(() => pool.dispose())
+      await release(() => editors.dispose())
       await release(() => models.dispose())
       await release(() => copies.stop())
       if (persistence.ready)
@@ -789,7 +792,7 @@ export function useDesktopWorkbench(options: { beforeExtensionClose?: (viewId: s
     return saved
   }
   const selectionReferences = createDesktopSelectionReferences({ controller, pool, documents, language, openFile: createQuoteSourceOpener({ resources: options.resources, openInTab: openFile, openStandalone: (target, current) => createFile(target, undefined, current) }), browser: api.browser, resources: options.resources, ready: () => initialized.value, independent: () => stores.applicationSettings.config.value?.desktop.contextPanelMode === 'independent', locateFile: target => api.localChat.spaces.readFile(target), navigationVersion: () => navigationVersion })
-  return { revealOpenOfficeDocument: (target: FileTarget) => revealOpenOfficeDocument(controller, options.resources(), target), selectionReferences, documents, api, renderers, autoSave, fileOperations, fileToolbarTargets, fileView, documentSelections, closeContextFiles, readingPositions, discardTask, prepareTaskDeletion, activeTask, activeTaskId, activeResource: activity.resource, backupError, controller, copies, models, pool, persistence, initialize, flush, dispose, openTask, newTask, prepareNewTaskInput, showTaskInput, showReferencePage, startTaskWithSkill, openFile, dropResource, language, get initialized() {
+  return { revealOpenOfficeDocument: (target: FileTarget) => revealOpenOfficeDocument(controller, options.resources(), target), selectionReferences, documents, api, renderers, autoSave, fileOperations, fileToolbarTargets, fileView, documentSelections, closeContextFiles, readingPositions, discardTask, prepareTaskDeletion, activeTask, activeTaskId, activeResource: activity.resource, backupError, controller, copies, models, editors, pool, persistence, initialize, flush, dispose, openTask, newTask, prepareNewTaskInput, showTaskInput, showReferencePage, startTaskWithSkill, openFile, dropResource, language, get initialized() {
     return initialized.value
   }, get navigationVersion() {
     return navigationVersion

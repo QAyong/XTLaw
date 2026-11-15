@@ -2,6 +2,7 @@
 import type { BuddyFileQuote, BuddyResourceQuote, BuddyTextQuote } from '@buddy-shared/conversation/buddyUserContent'
 import type { JsonValue } from '@buddy-shared/workbench/workbenchState'
 import type * as Monaco from 'monaco-editor/editor/editor.api.js'
+import type { TextEditorPool } from '@/workbench/browser/TextEditorPool'
 import type { TextModelPool } from '@/workbench/browser/TextModelPool'
 import type { ResourceRef, WorkbenchView } from '@/workbench/common/workbench'
 import { resolveBuiltinFileOpening } from '@buddy-shared/files/fileOpening'
@@ -13,7 +14,7 @@ import WorkbenchMenu from '@/shared/ui/contributions/WorkbenchMenu.vue'
 import DesktopDocumentContent from '@/shared/ui/files/DesktopDocumentContent.vue'
 import DesktopDocumentToolbar from '@/shared/ui/files/DesktopDocumentToolbar.vue'
 import { fileDocumentModes, resolveFileDocumentMode } from '@/shared/ui/files/fileDocumentPresentation'
-import { observeDesktopMonacoTheme } from '@/shared/ui/monaco/desktopMonaco'
+import { observeDesktopMonacoLayout } from '@/shared/ui/monaco/desktopMonacoLayout'
 import ResourceSelectionQuoteMenu from '@/shared/ui/selection/ResourceSelectionQuoteMenu.vue'
 import { revealMonacoQuote } from '@/shared/ui/selection/revealMonacoQuote'
 import { registerMonacoResourceQuote } from '@/shared/ui/selection/useMonacoResourceQuote'
@@ -26,7 +27,7 @@ import { fileOpeningHandler } from '../model/fileOpeningHandlers'
 import { useFileOpening } from '../state/fileOpeningContext'
 import { filePreviewRenderer } from './filePreviewRenderers'
 
-const props = withDefaults(defineProps<{ view: WorkbenchView, models: TextModelPool, language: 'zh-CN' | 'en-US', writeClipboardText: (text: string) => Promise<void>, toolbarTarget?: HTMLElement | null, visible?: boolean }>(), { visible: true })
+const props = withDefaults(defineProps<{ view: WorkbenchView, models: TextModelPool, editors: TextEditorPool, language: 'zh-CN' | 'en-US', writeClipboardText: (text: string) => Promise<void>, toolbarTarget?: HTMLElement | null, visible?: boolean }>(), { visible: true })
 const { copies, controller, labels, autoSave } = useWorkbench()
 const autoSaveLabelId = useId()
 const autoSaveSwitchTheme = {
@@ -119,13 +120,15 @@ watch(identity, (_, __, onCleanup) => {
       failed.value = true
   })
 }, { immediate: true })
-watch([container, attempt, viewId, identity], async ([element, , viewId, key], _, onCleanup) => {
+watch([container, attempt, viewId, identity, () => props.visible], async ([element, , viewId, key, visible], _, onCleanup) => {
   const resource = props.view.resource
   let disposed = false
   let ownedEditor: Monaco.editor.IStandaloneCodeEditor | undefined
   let capture: ReturnType<typeof setTimeout> | undefined
   let release: (() => void) | undefined
-  let stopTheme: (() => void) | undefined
+  let releaseEditor: (() => void) | undefined
+  let stopLayout: (() => void) | undefined
+  const subscriptions: Monaco.IDisposable[] = []
   function state() {
     const view = controller.layout.views[viewId] ?? controller.navigation.find(viewId)?.view
     if (!view || resourceIdentity(view.resource) !== key)
@@ -139,6 +142,7 @@ watch([container, attempt, viewId, identity], async ([element, , viewId, key], _
       return
     disposed = true
     clearTimeout(capture)
+    stopLayout?.()
     try {
       if (save)
         state()
@@ -148,15 +152,16 @@ watch([container, attempt, viewId, identity], async ([element, , viewId, key], _
         editor = undefined
         editorReady.value = false
       }
-      stopTheme?.()
+      for (const subscription of subscriptions)
+        subscription.dispose()
       try {
-        ownedEditor?.dispose()
+        releaseEditor?.()
       }
       finally { release?.() }
     }
   }
   onCleanup(dispose)
-  if (!element)
+  if (!element || !visible)
     return
   try {
     const lease = await props.models.acquire(resource)
@@ -165,11 +170,16 @@ watch([container, attempt, viewId, identity], async ([element, , viewId, key], _
       return
     }
     release = lease.release
-    ownedEditor = lease.monaco.editor.create(element, {
+    await new Promise<void>(resolve => setTimeout(resolve, 0))
+    if (disposed)
+      return
+    const dimension = { width: element.clientWidth, height: element.clientHeight }
+    const editorLease = props.editors.acquire(lease.monaco, element, {
       model: lease.model,
       readOnly: mode.value !== 'edit' || !!copy.value?.blocked,
       domReadOnly: mode.value !== 'edit' || !!copy.value?.blocked,
-      automaticLayout: true,
+      automaticLayout: false,
+      dimension,
       fontSize: 13,
       lineHeight: 21,
       minimap: { enabled: false },
@@ -179,10 +189,12 @@ watch([container, attempt, viewId, identity], async ([element, , viewId, key], _
       padding: { top: 12, bottom: 12 },
       contextmenu: true,
     })
+    releaseEditor = editorLease.release
+    ownedEditor = editorLease.editor
     editor = ownedEditor
     if (references)
-      registerMonacoResourceQuote(ownedEditor, { source: () => quoteSource(), capture: captureMonacoQuote })
-    stopTheme = observeDesktopMonacoTheme(lease.monaco, ownedEditor)
+      subscriptions.push(registerMonacoResourceQuote(ownedEditor, { source: () => quoteSource(), capture: captureMonacoQuote }))
+    stopLayout = observeDesktopMonacoLayout(element, size => ownedEditor?.layout(size))
     if (props.view.state.editor)
       ownedEditor.restoreViewState(JSON.parse(JSON.stringify(props.view.state.editor)) as Monaco.editor.ICodeEditorViewState)
     editorReady.value = true
@@ -192,8 +204,7 @@ watch([container, attempt, viewId, identity], async ([element, , viewId, key], _
       clearTimeout(capture)
       capture = setTimeout(state, 250)
     }
-    ownedEditor.onDidChangeCursorPosition(schedule)
-    ownedEditor.onDidScrollChange(schedule)
+    subscriptions.push(ownedEditor.onDidChangeCursorPosition(schedule), ownedEditor.onDidScrollChange(schedule))
   }
   catch {
     const active = !disposed

@@ -58,14 +58,43 @@ export function installOfficeToolbarNavigation(root, signal) {
     return button;
   }
 
+  function isInFixedOverlay(element, container, overlayCache) {
+    const path = [];
+    let current = element;
+    while (current && current !== container) {
+      const cached = overlayCache.get(current);
+      if (cached !== undefined) {
+        path.forEach((node) => overlayCache.set(node, cached));
+        return cached;
+      }
+      path.push(current);
+      if (window.getComputedStyle(current).position === "fixed") {
+        path.forEach((node) => overlayCache.set(node, true));
+        return true;
+      }
+      current = current.parentElement;
+    }
+    path.forEach((node) => overlayCache.set(node, false));
+    return false;
+  }
+
   function getToolbarItemBounds(container) {
     const containerRect = container.getBoundingClientRect();
+    const overlayCache = new Map();
     return Array.from(
       container.querySelectorAll(
         "button, input, select, textarea, [role='button'], .ribbon-sep",
       ),
     )
-      .filter((item) => item.offsetParent !== null)
+      .filter((item) => {
+        if (isInFixedOverlay(item, container, overlayCache)) {
+          if (item.classList.contains(PARTIAL_ITEM_CLASS)) {
+            item.classList.remove(PARTIAL_ITEM_CLASS);
+          }
+          return false;
+        }
+        return item.offsetParent !== null;
+      })
       .map((item) => {
         const rect = item.getBoundingClientRect();
         return {

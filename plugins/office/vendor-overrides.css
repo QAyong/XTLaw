@@ -92,6 +92,29 @@
   overflow-y: hidden !important;
 }
 
+/* Mode menus must escape the clipped category row, including when the ribbon
+   is collapsed. Scope each anchor so comments and document mode stay attached
+   to their own button without changing the row's horizontal clipping. */
+.ribbon-mode-cluster .mode-menu-wrap {
+  anchor-name: --office-mode-menu;
+  anchor-scope: --office-mode-menu;
+}
+
+.ribbon-mode-cluster .mode-menu {
+  position: fixed;
+  position-anchor: --office-mode-menu;
+  top: calc(anchor(bottom) + 2px);
+  right: anchor(right);
+  left: auto;
+  position-try-fallbacks: flip-inline, flip-block, flip-block flip-inline;
+  position-visibility: anchors-visible;
+  box-sizing: border-box;
+  min-width: min(210px, calc(100vw - 16px));
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+}
+
 /* The category row is fixed. Only the command row is paged. */
 .pi-office-toolbar-tabs {
   flex: 0 0 auto;

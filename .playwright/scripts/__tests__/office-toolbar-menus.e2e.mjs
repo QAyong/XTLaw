@@ -85,6 +85,29 @@ for (const [folder, kind, tabs] of plugins) {
       console.log('iframe bounds', await iframe.boundingBox())
       console.log(kind, await row.evaluate(element => ({ viewport: innerWidth, width: element.clientWidth, scrollWidth: element.scrollWidth, scrollLeft: element.scrollLeft, ancestors: [element, element.parentElement, element.parentElement.parentElement].map(node => ({ class: node.className, width: node.getBoundingClientRect().width, left: node.getBoundingClientRect().left, display: getComputedStyle(node).display, minWidth: getComputedStyle(node).minWidth })) })))
       await last.click({ trial: true, timeout: 3000 })
+      if (kind === 'docx') {
+        for (const width of [narrowWidth, 320]) {
+          await iframe.evaluate((element, size) => { element.style.width = `${size}px`; element.style.flex = `0 0 ${size}px` }, width)
+          for (const index of [0, 1]) {
+            const wrapper = frame.locator('.ribbon-mode-cluster .mode-menu-wrap').nth(index)
+            const trigger = wrapper.locator(':scope > button')
+            const menu = wrapper.locator('.mode-menu')
+            const order = index === 0 ? [0, 1] : [0, 1, 2, 0]
+            for (const choice of order) {
+              await trigger.scrollIntoViewIfNeeded()
+              await trigger.click()
+              await expect(menu).toBeVisible()
+              await expect.poll(() => menu.evaluate(element => getComputedStyle(element).position)).toBe('fixed')
+              const items = menu.locator('button')
+              for (let item = 0; item < await items.count(); item++)
+                await items.nth(item).click({ trial: true, timeout: 3000 })
+              await page.screenshot({ path: testInfo.outputPath(`docx-${width}-menu-${index}-${choice}.png`), animations: 'disabled' })
+              await items.nth(choice).click()
+              await expect(menu).toHaveCount(0)
+            }
+          }
+        }
+      }
       await page.screenshot({ path: testInfo.outputPath(`${kind}-narrow.png`), animations: 'disabled' })
       await testInfo.attach('narrow-controls', { body: JSON.stringify(await row.locator('button').evaluateAll(items => items.map(item => ({ text: item.textContent.trim(), title: item.title, class: item.className }))), null, 2), contentType: 'application/json' })
     })

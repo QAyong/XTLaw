@@ -139,6 +139,12 @@ export async function mountPdf(options: PdfMountOptions): Promise<PdfEditor> {
       checkPath(path)
       return bytes.slice().buffer
     },
+    readFileChunk: async (path: string, start: number, end: number) => {
+      checkPath(path)
+      if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end < start)
+        throw new Error('Invalid PDF byte range')
+      return { data: bytes.slice(start, end), fileSize: bytes.length }
+    },
     save: async (request: SaveRequest) => {
       try {
         checkPath(request.path)

@@ -30,6 +30,25 @@ for (const [folder, kind, tabs] of plugins) {
         return [`toolbar.${kind}`]
       },
     }, async ({ app, page, output }) => {
+      page.on('console', message => { if (message.type() === 'error') console.log('Office console:', message.text()) })
+      await page.addInitScript(() => {
+        let api
+        Object.defineProperty(window, 'pdfApi', {
+          configurable: true,
+          get: () => api,
+          set(value) {
+            api = value && new Proxy(value, {
+              get(target, key) {
+                const item = Reflect.get(target, key)
+                return typeof item !== 'function' ? item : (...args) => {
+                  const result = Reflect.apply(item, target, args)
+                  return result?.catch ? result.catch((error) => { console.error('PDF API failed', String(key), error.stack); throw error }) : result
+                }
+              },
+            })
+          },
+        })
+      })
       const taskHash = await page.evaluate(() => location.hash)
       await page.getByRole('button', { name: '市场', exact: true }).click()
       await app.evaluate(({ dialog }, file) => {
@@ -56,12 +75,14 @@ for (const [folder, kind, tabs] of plugins) {
       await page.screenshot({ path: testInfo.outputPath(`${kind}-initial.png`), animations: 'disabled' })
       // Change only the real host iframe's width, preserving the plugin DOM and styles.
       const iframe = await frame.frameElement()
-      await iframe.evaluate(element => { element.style.width = '480px'; element.style.flex = '0 0 480px' })
+      const narrowWidth = Math.min(400, await frame.evaluate(() => innerWidth))
+      await iframe.evaluate((element, width) => { element.style.width = `${width}px`; element.style.maxWidth = '100%'; element.style.flex = `0 0 ${width}px` }, narrowWidth)
       await expect.poll(() => frame.evaluate(() => innerWidth)).toBeLessThanOrEqual(480)
       const row = frame.locator(tabs).first()
       await expect.poll(() => row.evaluate(element => getComputedStyle(element).overflowX)).toBe('auto')
       const last = row.locator('button').last()
       await last.scrollIntoViewIfNeeded()
+      console.log('iframe bounds', await iframe.boundingBox())
       console.log(kind, await row.evaluate(element => ({ viewport: innerWidth, width: element.clientWidth, scrollWidth: element.scrollWidth, scrollLeft: element.scrollLeft, ancestors: [element, element.parentElement, element.parentElement.parentElement].map(node => ({ class: node.className, width: node.getBoundingClientRect().width, left: node.getBoundingClientRect().left, display: getComputedStyle(node).display, minWidth: getComputedStyle(node).minWidth })) })))
       await last.click({ trial: true, timeout: 3000 })
       await page.screenshot({ path: testInfo.outputPath(`${kind}-narrow.png`), animations: 'disabled' })

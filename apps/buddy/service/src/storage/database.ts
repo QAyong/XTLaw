@@ -4,6 +4,7 @@ import { existsSync, mkdirSync } from 'node:fs'
 import { dirname, isAbsolute, join } from 'node:path'
 import { DatabaseSync as NodeDatabaseSync } from 'node:sqlite'
 import { isAsyncFunction } from 'node:util/types'
+import { completeProviderAuthenticationSchema } from './migrations/providerAuthenticationSchema'
 import { BUDDY_V15_CAPABILITY_OVERRIDES_SCHEMA_SQL, BUDDY_V15_CATALOG_MODEL_ID_SCHEMA_SQL, BUDDY_V15_CATALOG_SELECTION_SCHEMA_SQL, BUDDY_V15_PROVIDER_INSTANCES_SCHEMA_SQL, BUDDY_V15_REQUEST_HEADERS_SCHEMA_SQL } from './migrations/v15ModelServices'
 import { BUDDY_RUN_EVENT_CHECKPOINT_TRIGGER_NAMES } from './migrations/v23RunEventCheckpoints'
 import { BUDDY_PROVIDER_RESOLUTION_TRIGGER_NAMES } from './migrations/v39ProviderResolution'
@@ -166,6 +167,7 @@ function migrateBuddyDatabase(database: DatabaseSync, currentVersion: number): v
       continue
     applyMigration(database, migration)
   }
+  completeProviderAuthenticationSchema(database)
   assertCurrentSchema(database)
 }
 

@@ -168,6 +168,7 @@ export class ProviderService {
     this.#transaction = options.providers.transaction
     this.executionModels = new ProviderExecutionModelResolver({
       builtins: options.providers.builtins,
+      configs: options.providers.configs,
       credentialStatus: options.credentialStatus,
       metadata: this.#modelSnapshot,
       modelCatalog: this.#modelCatalog,
@@ -273,7 +274,8 @@ export class ProviderService {
       const custom = customProviders.get(id)
       const template = builtin ? this.#builtinTemplates.get(builtin.builtinProviderId) : undefined
       const state = providerStates.get(id)
-      const storedCredentialType = credentials.get(id) ?? null
+      const storedCredentialType = custom && !custom.credentialRef ? null : credentials.get(id) ?? null
+      const unauthenticated = custom?.authentication === 'none'
       const modelSummary = modelSummaries.get(id)
       const enabled = state?.enabled ?? custom?.enabled ?? Boolean(storedCredentialType)
       const enabledModelCount = modelSummary?.enabledModelCount ?? 0
@@ -289,15 +291,16 @@ export class ProviderService {
         baseUrl: custom?.baseUrl ?? provider?.baseUrl ?? null,
         canSyncModels: !plugin && Boolean(provider && syncUnavailableReason === null),
         authTypes: plugin ? [] : provider ? providerAuthTypes(provider) : custom ? ['api_key'] : [],
+        authentication: custom?.authentication ?? storedCredentialType ?? 'api_key',
         storedCredentialType,
-        status: plugin ? provider || capabilities.some(item => item.available) ? 'available' : 'unavailable' : !provider || this.#credentialStatus.availability === 'unknown' ? 'unavailable' : storedCredentialType ? 'available' : 'authentication_required',
+        status: plugin ? provider || capabilities.some(item => item.available) ? 'available' : 'unavailable' : !provider ? 'unavailable' : unauthenticated ? 'available' : this.#credentialStatus.availability === 'unknown' ? 'unavailable' : storedCredentialType ? 'available' : 'authentication_required',
         custom: Boolean(custom),
         activeRunCount: this.#activeRunsForProvider(id).length,
         added: true,
         enabled,
         enabledModelCount,
         modelCount: modelSummary?.modelCount ?? 0,
-        setupComplete: Boolean((provider || capabilities.length) && (plugin || storedCredentialType !== null)),
+        setupComplete: Boolean((provider || capabilities.length) && (plugin || unauthenticated || storedCredentialType !== null)),
         syncUnavailableReason: plugin ? 'unsupported_api' : !provider && custom ? 'unsupported_api' : syncUnavailableReason,
       })
     })
@@ -553,9 +556,9 @@ export class ProviderService {
         this.#assertProviderIdle(providerId)
       if (enabled) {
         const capabilities = this.#capabilityModels.filter(item => item.providerId === providerId && item.available)
-        if (!capabilities.some(item => item.plugin)) {
+        if (!capabilities.some(item => item.plugin) && this.#configs.findById(providerId)?.authentication !== 'none') {
           const credentials = await this.#credentialStatus.list()
-          if (!credentials.some(credential => credential.providerId === providerId))
+          if ((this.#configs.findById(providerId)?.credentialRef === null) || !credentials.some(credential => credential.providerId === providerId))
             throw new ProviderAuthenticationRequiredError()
         }
         if (!this.#modelCatalog.hasEnabledAvailableModel(providerId))
@@ -639,6 +642,8 @@ export class ProviderService {
       const discovery = await this.#modelDiscovery.discover({
         signal: this.#shutdown.signal,
         api: custom.api,
+        authentication: custom.authentication,
+        credentialRef: custom.credentialRef,
         baseUrl: custom.baseUrl,
         providerId,
       })
@@ -662,7 +667,14 @@ export class ProviderService {
       const handle = this.#authInteractions.beginLogin(providerId)
       let outcome: 'completed' | 'failed' | 'cancelled' = 'failed'
       try {
+        const custom = this.#configs.findById(providerId)
         await this.#modelRuntime.login(providerId, type, handle.interaction, this.#loginOptions)
+        if (custom) {
+          if (JSON.stringify(this.#configs.findById(providerId)) !== JSON.stringify(custom))
+            throw new ProviderUnavailableError()
+          const updated = this.#state.commit('configuration', () => this.#configs.upsert({ ...custom, authentication: 'api_key', credentialRef: providerId, updatedAt: new Date().toISOString() }))
+          this.#applyCatalog(providerId, () => this.#modelCatalog.registerCustomProvider(updated))
+        }
         const instance = this.#builtins.findById(providerId)
         if (instance) {
           if (provider.refreshModels)
@@ -759,7 +771,12 @@ export class ProviderService {
         api: parsed.data.api,
         baseUrl: parsed.data.baseUrl,
         models,
-        credentialRef: parsed.data.id,
+        authentication: parsed.data.authentication,
+        credentialRef: existing
+          ? (existing.authentication === 'none' || parsed.data.authentication === 'none') && (existing.api !== parsed.data.api || existing.baseUrl !== parsed.data.baseUrl)
+              ? null
+              : existing.credentialRef
+          : parsed.data.id,
         enabled: parsed.data.enabled,
         createdAt: existing?.createdAt ?? now,
         updatedAt: now,
@@ -890,7 +907,7 @@ export class ProviderService {
         id,
         enabled: this.#states.findByProviderId(id)?.enabled ?? false,
         presentation: { name: custom.get(id)?.displayName ?? builtin.get(id)?.displayName, description: custom.get(id)?.description },
-        execution: { api: custom.get(id)?.api, baseUrl: custom.get(id)?.baseUrl, builtin: builtin.get(id)?.builtinProviderId, headers: this.#requestHeaders.list(id) },
+        execution: { authentication: custom.get(id)?.authentication, credentialRef: custom.get(id)?.credentialRef, api: custom.get(id)?.api, baseUrl: custom.get(id)?.baseUrl, builtin: builtin.get(id)?.builtinProviderId, headers: this.#requestHeaders.list(id) },
       })),
       models: this.#modelCatalog.capture().map(({ model, execution }) => ({ model, execution: { ...execution, serviceTiers: this.executionModels.getServiceTiers({ providerId: model.providerId, modelId: model.id, api: model.api }) } })),
       defaultModel: (() => {
@@ -992,7 +1009,7 @@ export class ProviderService {
       return provider ? storedCredentialType ? null : 'authentication_required' : 'unsupported_api'
     if (!this.#modelDiscovery.supports(custom.api))
       return 'unsupported_api'
-    return storedCredentialType ? null : 'authentication_required'
+    return custom.authentication === 'none' || storedCredentialType ? null : 'authentication_required'
   }
 
   async #requireListedProvider(providerId: string): Promise<BuddyProvider> {

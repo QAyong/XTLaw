@@ -12,6 +12,7 @@ import { createProviderRepository } from '../storage/providerRepository'
 import { createProviderResolutionRepository } from '../storage/providerResolutionRepository'
 import { createWorkspaceRepository } from '../storage/workspaceRepository'
 import { AuthInteractionService } from './AuthInteractionService'
+import { createProviderCredentialAccess } from './createProviderCredentialAccess'
 import { createProviderLoginOptions } from './createProviderLoginOptions'
 import { createProviderModelRuntime } from './createProviderModelRuntime'
 import { HostCredentialStore } from './HostCredentialStore'
@@ -43,14 +44,15 @@ export async function createProviderService(
   await chmod(modelsPath, 0o600)
 
   const credentials = new HostCredentialStore(options.peer)
+  const providers = options.providers ?? createProviderRepository(options.database)
+  const credentialAccess = createProviderCredentialAccess(credentials, providers.configs)
   const modelRuntime = await ModelRuntime.create({
     allowModelNetwork: false,
     refreshOnCreate: false,
-    credentials,
+    credentials: credentialAccess,
     modelsPath,
     modelsStorePath,
   })
-  const providers = options.providers ?? createProviderRepository(options.database)
   const requestHeaders = new ProviderRequestHeaders(providers.states)
   const providerRuntime = createProviderModelRuntime(modelRuntime, requestHeaders, options.record)
   const authInteractions = new AuthInteractionService({ openExternal: async (url) => {
@@ -64,7 +66,7 @@ export async function createProviderService(
     credentials,
     credentialStatus: createProviderCredentialStatus(credentials),
     getActiveRuns: options.getActiveRuns,
-    modelDiscovery: new OpenAiCompatibleModelDiscovery({ credentials, requestHeaders, record: options.record }),
+    modelDiscovery: new OpenAiCompatibleModelDiscovery({ credentials: credentialAccess, requestHeaders, record: options.record }),
     modelRuntime: providerRuntime,
     requestHeaders,
     providers,

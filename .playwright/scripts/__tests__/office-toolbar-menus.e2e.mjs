@@ -42,14 +42,16 @@ for (const [folder, kind, tabs] of plugins) {
       await review.getByTestId('extension-confirm-install').click()
       await expect(review).toBeHidden()
       await expect.poll(() => page.evaluate(async id => (await window.lexoraDesktop.extensions.list()).some(item => item.manifest.id === id && item.enabled), manifest.id)).toBe(true)
-      await page.evaluate(hash => { location.hash = hash }, taskHash)
+      await page.evaluate((hash) => {
+        location.hash = hash
+      }, taskHash)
       await output(`toolbar.${kind}`).getByRole('button', { name: `toolbar.${kind}`, exact: true }).click()
       let frame
       await expect.poll(async () => {
         frame = page.frames().find(item => item.url().startsWith('lexora-extension:') && !item.isDetached())
         return frame && await frame.locator(tabs).first().isVisible().catch(() => false)
       }, { timeout: 15000 }).toBe(true).catch(async (error) => {
-        console.log('Office frame diagnostics', await Promise.all(page.frames().map(async item => ({ url: item.url(), text: await item.locator('body').innerText().catch(() => ''), classes: await item.locator('main').getAttribute('class').catch(() => '') }))))
+        console.log('Office frame diagnostics', await Promise.all(page.frames().map(async item => ({ url: item.url(), text: await item.locator('body').textContent().catch(() => ''), classes: await item.locator('main').getAttribute('class').catch(() => '') }))))
         throw error
       })
       await fs.writeFile(testInfo.outputPath('initial-controls.json'), JSON.stringify(await frame.locator('button').evaluateAll(items => items.slice(0, 100).map(item => ({ text: item.textContent.trim(), title: item.title, class: item.className }))), null, 2))
@@ -57,7 +59,11 @@ for (const [folder, kind, tabs] of plugins) {
       // Change only the real host iframe's width, preserving the plugin DOM and styles.
       const iframe = await frame.frameElement()
       const narrowWidth = Math.min(400, await frame.evaluate(() => innerWidth))
-      await iframe.evaluate((element, width) => { element.style.width = `${width}px`; element.style.maxWidth = '100%'; element.style.flex = `0 0 ${width}px` }, narrowWidth)
+      await iframe.evaluate((element, width) => {
+        element.style.width = `${width}px`
+        element.style.maxWidth = '100%'
+        element.style.flex = `0 0 ${width}px`
+      }, narrowWidth)
       await expect.poll(() => frame.evaluate(() => innerWidth)).toBeLessThanOrEqual(480)
       const row = frame.locator(tabs).first()
       await expect.poll(() => row.evaluate(element => getComputedStyle(element).overflowX)).toBe('auto')
@@ -72,7 +78,10 @@ for (const [folder, kind, tabs] of plugins) {
       await expect.poll(() => commands.evaluate(element => element.scrollLeft)).toBeGreaterThan(previousScroll)
       if (kind === 'docx') {
         for (const width of [narrowWidth, 320]) {
-          await iframe.evaluate((element, size) => { element.style.width = `${size}px`; element.style.flex = `0 0 ${size}px` }, width)
+          await iframe.evaluate((element, size) => {
+            element.style.width = `${size}px`
+            element.style.flex = `0 0 ${size}px`
+          }, width)
           for (const index of [0, 1]) {
             const wrapper = frame.locator('.ribbon-mode-cluster .mode-menu-wrap').nth(index)
             const trigger = wrapper.locator(':scope > button')

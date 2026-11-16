@@ -18,8 +18,11 @@ for (const [folder, kind, tabs] of plugins) {
     test.setTimeout(180000)
     const source = path.join(ROOT, 'plugins', folder)
     const manifest = JSON.parse(await fs.readFile(path.join(source, 'extension.json'), 'utf8'))
-    const archive = testInfo.outputPath(`${folder}-${manifest.version}.lexora-extension`)
-    execFileSync(process.execPath, [path.join(ROOT, 'apps/buddy/extensions/tools-run.mjs'), 'pack', source, archive], { cwd: ROOT, timeout: 45000 })
+    const archive = process.env.OFFICE_MENU_PACKAGE_DIR
+      ? path.join(process.env.OFFICE_MENU_PACKAGE_DIR, `${folder}-${manifest.version}.lexora-extension`)
+      : testInfo.outputPath(`${folder}-${manifest.version}.lexora-extension`)
+    if (!process.env.OFFICE_MENU_PACKAGE_DIR)
+      execFileSync(process.execPath, [path.join(ROOT, 'apps/buddy/extensions/tools-run.mjs'), 'pack', source, archive], { cwd: ROOT, timeout: 45000 })
     await withArtifactPreview(buddy, {
       label: `office-${kind}`,
       prepare: async (directory) => {
@@ -33,7 +36,7 @@ for (const [folder, kind, tabs] of plugins) {
         dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] })
       }, archive)
       await page.getByTestId('extension-add').click()
-      await page.getByTestId('extension-add-package').click()
+      await page.getByText('安装插件包', { exact: true }).click()
       const review = page.getByTestId('extension-install-review')
       await expect(review).toBeVisible()
       await review.getByTestId('extension-confirm-install').click()

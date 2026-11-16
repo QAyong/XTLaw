@@ -21,3 +21,13 @@
 2167 的 `.playwright/scripts/__tests__/transcript-history.e2e.mjs` 在本地基线不存在，该测试文件是在被跳过的 `b54c468c` 之后加入，故丢弃 2167 对它的上游修改，没有为了保留该测试引入 b54。新增的 `.playwright/scripts/fixtures/renderer-responsiveness.mjs` 只包含通用键盘探针和 trace 文件读取逻辑，不依赖 b54，予以保留。
 
 Provider 冲突仅吸收免认证需要的配置、校验和界面行为；保留本地插件能力、HostCredentialStore、设置组件结构与 scoped 样式。数据库冲突只保留 `completeProviderAuthenticationSchema` 的导入和末尾调用，未采用上游 schema 42 / v43Persistence 分支。
+
+## 验证
+
+- 依赖：集成 worktree 中 `pnpm install --frozen-lockfile` 通过，锁文件未再变化。安装日志有 Prisma 对当前 Node 版本的支持提示，安装仍完成。
+- 相关 Vitest：编辑器、时间线重算和免认证相关用例通过。首轮编辑器测试因 mock 未返回实际所需的 disposable 失败；修正 mock 后 `fileViewIdentity.spec.ts` 通过，未改断言。`chatTimelineReconcile.performance.spec.ts` 的基准用例按文件设置跳过。
+- 类型检查：默认堆上限下 OOM；`NODE_OPTIONS=--max-old-space-size=6144 pnpm --filter @uselexora/lexora-buddy type-check` 通过。
+- Windows 桌面：在 `D:\dev\Lexora-win` 检出本分支并执行 `electron-vite build` 后，用临时 Playwright 场景测过两件事。临时脚本未提交。
+  - 长对话中模型仍在输出时，从文件树依次打开 3 个文本文件：窗口未被记为无响应。编辑器出现耗时依次为 610、136、128 毫秒；最长的主线程长任务为 51 毫秒。这不是当初十四万到十八万 token 的现场。
+  - 流式回答结束后的残影：本地 `df782f24` 已经移除聊天视口的 `contain: strict`，上游 PR #635 未合并。同一构建上连续 3 轮输出带列表和代码块的回答，结束后立即截图，再滚动 120 像素后回到原位。三轮画面均为 1260×770，像素差都是 0。这只能说明这次没有复现残影。
+- 未跑全量测试、打包或安装包验证。

@@ -48,8 +48,11 @@ for (const [folder, kind, tabs] of plugins) {
       await expect.poll(async () => {
         frame = page.frames().find(item => item.url().startsWith('lexora-extension:') && !item.isDetached())
         return frame && await frame.locator(tabs).first().isVisible().catch(() => false)
-      }, { timeout: 45000 }).toBe(true)
-      await testInfo.attach('initial-controls', { body: JSON.stringify(await frame.locator('button').evaluateAll(items => items.slice(0, 100).map(item => ({ text: item.textContent.trim(), title: item.title, class: item.className }))), null, 2), contentType: 'application/json' })
+      }, { timeout: 15000 }).toBe(true).catch(async (error) => {
+        console.log('Office frame diagnostics', await Promise.all(page.frames().map(async item => ({ url: item.url(), text: await item.locator('body').innerText().catch(() => ''), classes: await item.locator('main').getAttribute('class').catch(() => '') }))))
+        throw error
+      })
+      await fs.writeFile(testInfo.outputPath('initial-controls.json'), JSON.stringify(await frame.locator('button').evaluateAll(items => items.slice(0, 100).map(item => ({ text: item.textContent.trim(), title: item.title, class: item.className }))), null, 2))
       await page.screenshot({ path: testInfo.outputPath(`${kind}-initial.png`), animations: 'disabled' })
       // Change only the real host iframe's width, preserving the plugin DOM and styles.
       const iframe = await frame.frameElement()
@@ -59,7 +62,8 @@ for (const [folder, kind, tabs] of plugins) {
       await expect.poll(() => row.evaluate(element => getComputedStyle(element).overflowX)).toBe('auto')
       const last = row.locator('button').last()
       await last.scrollIntoViewIfNeeded()
-      await last.click({ trial: true })
+      console.log(kind, await row.evaluate(element => ({ viewport: innerWidth, width: element.clientWidth, scrollWidth: element.scrollWidth, scrollLeft: element.scrollLeft, ancestors: [element, element.parentElement, element.parentElement.parentElement].map(node => ({ class: node.className, width: node.getBoundingClientRect().width, left: node.getBoundingClientRect().left, display: getComputedStyle(node).display, minWidth: getComputedStyle(node).minWidth })) })))
+      await last.click({ trial: true, timeout: 3000 })
       await page.screenshot({ path: testInfo.outputPath(`${kind}-narrow.png`), animations: 'disabled' })
       await testInfo.attach('narrow-controls', { body: JSON.stringify(await row.locator('button').evaluateAll(items => items.map(item => ({ text: item.textContent.trim(), title: item.title, class: item.className }))), null, 2), contentType: 'application/json' })
     })

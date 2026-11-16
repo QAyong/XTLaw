@@ -52,15 +52,17 @@ button:has(.ai-feature-icon) { display: none !important; }
   gap: 0;
   padding: 2px 8px 0 !important;
   flex-wrap: nowrap !important;
-  overflow-x: hidden !important;
+  overflow-x: auto !important;
   overflow-y: hidden !important;
 }
 
-/* The category row is fixed. Only the command row is paged. */
+/* Only the command row is paged. Allow access to the final category tabs
+   by scrolling horizontally when the pane is narrow. */
 .pi-office-toolbar-tabs {
   flex: 0 0 auto;
   min-width: 0;
-  overflow: hidden !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
 }
 
 .ribbon-tabs > .qa-btn,

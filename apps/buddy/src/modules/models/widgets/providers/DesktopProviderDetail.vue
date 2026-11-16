@@ -17,7 +17,7 @@ const props = defineProps<{
   providerId: string
 }>()
 const emit = defineEmits<{
-  continueSetup: [providerId: string]
+  continueSetup: [providerId: string, startAtConnection?: boolean]
 }>()
 const language = computed(() => props.providerSettings.language.value)
 const { t } = useBuddyI18n(language)
@@ -61,17 +61,27 @@ const visibleModels = computed(() => {
       </NButton>
     </section>
 
-    <section class="desktop-provider-detail__section">
+    <section v-if="!provider.plugin" class="desktop-provider-detail__section">
       <h3>{{ t('desktop.providers.connectionStep') }}</h3>
       <div class="desktop-provider-detail__group">
         <div class="desktop-provider-detail__row">
           <div class="desktop-provider-detail__row-copy">
             <strong>{{ t('desktop.providers.authenticationStatus') }}</strong>
-            <small>{{ provider.storedCredentialType
-              ? (provider.storedCredentialType === 'api_key' ? 'API Key' : 'OAuth')
-              : t('desktop.providers.authenticationNotConfigured') }}</small>
+            <small>{{ provider.authentication === 'none'
+              ? t('desktop.providers.noAuthentication')
+              : provider.storedCredentialType
+                ? (provider.storedCredentialType === 'api_key' ? 'API Key' : 'OAuth')
+                : t('desktop.providers.authenticationNotConfigured') }}</small>
           </div>
-          <NSpace v-if="!provider.storedCredentialType">
+          <NButton
+            v-if="provider.custom"
+            size="small"
+            :disabled="provider.activeRunCount > 0 || providerSettings.isAuthenticating.value"
+            @click="emit('continueSetup', provider.id, true)"
+          >
+            {{ t('desktop.providers.changeAuthentication') }}
+          </NButton>
+          <NSpace v-else-if="!provider.storedCredentialType">
             <NButton
               v-for="authType in provider.authTypes"
               :key="authType"
@@ -84,7 +94,7 @@ const visibleModels = computed(() => {
             </NButton>
           </NSpace>
           <NPopconfirm
-            v-else
+            v-if="provider.storedCredentialType && provider.authentication !== 'none'"
             :negative-text="t('common.cancel')"
             :positive-text="t('common.confirm')"
             @positive-click="providerSettings.clearProviderCredential(provider.id)"

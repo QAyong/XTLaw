@@ -4,7 +4,7 @@
 **状态：** 一期（改名与界面重构）已完成；二期“能力层”（MCP、技能、子代理能装能卸，2026-10-25）已实现，见第 8 节与 4.4；能力包 `includes`、推荐条目、CLI、法律检索示范包尚未做
 **已定（2026-10-25）：** 能力包的组成件点开详情才看；市场与已安装单独成页；**现有内置的技能、MCP、子代理暂不移出安装包**；“内置助手”指子代理（NPC）。
 **范围：** XTLaw 桌面端（`apps/buddy`）与 `QAyong/xtlaw-market` 市场仓库
-**承接：** [Feature-032 插件市场](feature-032-xtlaw-plugin-market.md)、[Feature-030 内置北大法宝 MCP](feature-030-pkulaw-legal-retrieval.md)、[Feature-031 搜狗微信搜索](feature-031-sogou-weixin-search.md)
+**承接：** [Feature-032 插件市场](../archive/specs/feature-032-xtlaw-plugin-market.md)、[Feature-030 内置北大法宝 MCP](feature-030-pkulaw-legal-retrieval.md)、[Feature-031 搜狗微信搜索](feature-031-sogou-weixin-search.md)
 
 > **后续需求（2026-10-28）**：自动化也可上架市场，见 [Spec-041：自动化上架市场](feature-041-automation-market.md)。该项为需求草案，尚未实现；下文原有范围与实施记录不代表已支持自动化。
 

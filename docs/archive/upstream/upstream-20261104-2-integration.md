@@ -25,7 +25,7 @@
 
 - **前置重构**：本地 `BuddyChatTranscriptViewport.vue` 把滚动逻辑内联在组件里，`useChatTranscriptViewport` 组合式函数在本地没人用（见 10-25 记录）。两者函数体逐函数一致（机械比对无差异），所以直接取上游 `f469272f5^` 的组件，行为不变；类名也跟上游用 UnoCSS 原子类（`relative h-full min-h-0`、`absolute z-3 bottom-[0.85rem] left-[50%]` 等），本地 `presetUno` 都支持且别处已在用，不需要补映射。做完这一步，`f469272f5` 在视口组件上的 4 处冲突消失，`de5b6a805` 的冲突从 8 处降到 1 处，`92cbc5bb5` 无冲突。
 - **新增依赖** `@tanstack/vue-virtual@3.13.51`（纯 JS）。`pnpm-lock.yaml` 取本地版本后用 `pnpm install` 重新生成，新增 18 行，与上游一致。
-- **过程折叠是本地专属功能**，上游没有（见 `docs/specs/feature-001-turn-process-folding.md`，由 2026-09-27、09-29 的 `54dedd474`、`48671afc7` 引入）。虚拟行滚出视口会被卸载，原来的 `collapsed`、`manuallyChanged`（`BuddyChatAgentTurn.vue`）和 `standaloneCollapsed`（`BuddyChatAgentTurnFlow.vue`）是普通 `shallowRef`，卸载后会回到默认折叠状态。改为上游的 `useChatTranscriptValue`，并新增 `BuddyChatAgentTurnFolding.spec.ts`（手动展开、手动折叠在重挂载后保留；未手动改过的仍按状态自动折叠；没有行状态存储时照常工作）。这个测试在不改 `BuddyChatAgentTurn.vue` 时会失败。
+- **过程折叠是本地专属功能**，上游没有（见 `docs/archive/specs/feature-001-turn-process-folding.md`，由 2026-09-27、09-29 的 `54dedd474`、`48671afc7` 引入）。虚拟行滚出视口会被卸载，原来的 `collapsed`、`manuallyChanged`（`BuddyChatAgentTurn.vue`）和 `standaloneCollapsed`（`BuddyChatAgentTurnFlow.vue`）是普通 `shallowRef`，卸载后会回到默认折叠状态。改为上游的 `useChatTranscriptValue`，并新增 `BuddyChatAgentTurnFolding.spec.ts`（手动展开、手动折叠在重挂载后保留；未手动改过的仍按状态自动折叠；没有行状态存储时照常工作）。这个测试在不改 `BuddyChatAgentTurn.vue` 时会失败。
 - **语义补丁**：`de5b6a805` 新增的分支直接把 `pendingRevealMessageId` 置空，会绕过本地的 `onRevealCancelled` 回调（通知定位的完成上报），改为走 `cancelPendingReveal()`。这类问题不会产生冲突。
 
 ## 冲突解决

@@ -3,7 +3,7 @@
 **日期：** 2026-10-30
 **状态：** 0.1.4 已实现并完成包校验与模拟宿主冒烟；未在宿主里实测，未做桌面实机验收；未上架市场
 **范围：** `plugins/office-pdf`、`apps/buddy/extensions/office-pdf`（构建脚本）
-**承接：** [Feature-033 文档插件契约](feature-033-document-plugin-contract.md)、[Feature-032 插件市场](feature-032-xtlaw-plugin-market.md)
+**承接：** [Feature-033 文档插件契约](feature-033-document-plugin-contract.md)、[Feature-032 插件市场](../archive/specs/feature-032-xtlaw-plugin-market.md)
 
 ## 1. 背景与决定
 

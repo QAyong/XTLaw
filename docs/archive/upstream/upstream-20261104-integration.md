@@ -38,7 +38,7 @@
 - `f469272f5` 把对话视口改成虚拟列表，新增依赖 `@tanstack/vue-virtual@3.13.51`，改 33 个文件。直接移植约 11 处冲突，主要集中在 `BuddyChatTranscriptViewport.vue`。
 - 冲突的根源是结构差异：上游自 `00feaa2c5` 起把视口逻辑放在组合式函数 `useChatTranscriptViewport` 里，本地当时只引入了引擎，组件仍把同样的逻辑内联。两者函数体逐函数一致（机械比对无差异），本地的组合式函数文件与上游父提交逐字相同，但没人引用。
 - **建议采用上游方法**：先做一个纯重构提交，把本地视口组件切到组合式函数（保留本地作用域样式），再按序移植三个提交。模拟结果：`f469272f5` 剩 `AgentTurnFlow` 4 处、`MessageList` 1 处、`useChatViewport` 1 处、`pnpm-lock.yaml` 1 处、`reading.e2e.mjs` 1 个修改/删除；`de5b6a805` 剩 `DesktopChatWorkspace.vue` 1 处；`92cbc5bb5` 无冲突。
-- 需要设计判断的只有 `BuddyChatAgentTurnFlow.vue`：本地有 XTLaw 的“过程分段折叠”（`docs/specs/feature-001-turn-process-folding.md`，折叠按钮、`topToggle`、`useChatActivityNavigation`），上游没有。虚拟行滚出视口会被卸载，本地的折叠状态（`BuddyChatAgentTurn.vue` 的 `collapsed`、`manuallyChanged`，`AgentTurnFlow` 的 `standaloneCollapsed`）是普通 `shallowRef`，卸载后会回到默认值，需要改成上游的 `useChatTranscriptValue`（按代码判断，未实测）。
+- 需要设计判断的只有 `BuddyChatAgentTurnFlow.vue`：本地有 XTLaw 的“过程分段折叠”（`docs/archive/specs/feature-001-turn-process-folding.md`，折叠按钮、`topToggle`、`useChatActivityNavigation`），上游没有。虚拟行滚出视口会被卸载，本地的折叠状态（`BuddyChatAgentTurn.vue` 的 `collapsed`、`manuallyChanged`，`AgentTurnFlow` 的 `standaloneCollapsed`）是普通 `shallowRef`，卸载后会回到默认值，需要改成上游的 `useChatTranscriptValue`（按代码判断，未实测）。
 - 其余本地功能不受影响：选区引用只在单个正文元素内取选区；应用没有页内查找；`revealActivity` 在单个回合内查找节点。
 - 建议单独分支、单独 PR，便于回退；滚动行为只能在 Windows 预览里验证，同时带入上游的 `reading.e2e.mjs`。
 - 上游新增的 7 个单测文件在 WSL 能跑。

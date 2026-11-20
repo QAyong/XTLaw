@@ -80,6 +80,7 @@ const {
   loadContextOptions,
   modelInputIssue,
   mentionActor,
+  clipboardImagePasteMessage,
   quotePasteLimitMessage,
   materials,
   removeMaterial,
@@ -410,7 +411,7 @@ function captureDraft(): WorkbenchMenuSelection {
             :is-stopping="isStopping"
             :is-sending="isSending"
             :is-local-command="isLocalCommand"
-            :issue-message="quotePasteLimitMessage ?? modelInputIssueMessage"
+            :issue-message="clipboardImagePasteMessage || quotePasteLimitMessage || modelInputIssueMessage"
             @submit="submit"
             @stop="emit('stop')"
           />

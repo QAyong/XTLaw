@@ -1,5 +1,6 @@
 import type { JSONContent } from '@tiptap/core'
 import type { ChatComposerEditorOptions } from './typing'
+import { shouldRecoverEmptyClipboardPng } from '@buddy-electron/shared/desktopClipboard'
 import { resolveBuddyQuoteReference } from '@buddy-shared/conversation/buddyInputMaterial'
 import { appendBuddyResourceQuote } from '@buddy-shared/conversation/buddyUserContent'
 import { Extension } from '@tiptap/core'
@@ -270,6 +271,7 @@ export function useChatComposerEditor(options: ChatComposerEditorOptions) {
 
   function handleEditorPaste(event: ClipboardEvent) {
     quotePasteLimitReached.value = false
+    options.onPasteStart()
     const reference = readReferenceClipboard(event.clipboardData?.getData('text/html') ?? '')
     if (reference && editor.value && !editor.value.isDestroyed && editor.value.isEditable) {
       const content = chatComposerDocumentToUserContent(editor.value.getJSON())
@@ -301,9 +303,17 @@ export function useChatComposerEditor(options: ChatComposerEditorOptions) {
       }
     }
     const files = [...(event.clipboardData?.files ?? [])]
+    if (shouldRecoverEmptyClipboardPng(files)) {
+      event.preventDefault()
+      if (event.isTrusted)
+        options.onPasteEmptyImage(event.timeStamp)
+      return true
+    }
     if (files.length) {
       event.preventDefault()
-      options.onPasteFiles(files)
+      const usable = files.filter(file => file.type !== 'image/png' || file.size !== 0)
+      if (usable.length)
+        options.onPasteFiles(usable)
       return true
     }
     if (options.pasteTextAsAttachment.value && clipboardText && !event.clipboardData?.getData(CHAT_COMPOSER_CLIPBOARD_TYPE) && shouldAttachPastedText(clipboardText)) {

@@ -139,6 +139,8 @@ export default {
   'desktop.chat.quoteTextUnavailable': '已定位原消息，但当前正文中未找到唯一对应的引用片段。',
   'desktop.chat.quoteDuplicate': '这段内容已在当前输入中引用',
   'desktop.chat.quoteLimit': '每条消息最多 16 条引用，每条最多 262,144 个字符，总计最多 1,048,576 个字符。请缩小选区或移除已有引用。',
+  'desktop.chat.clipboardImageUnavailable': '无法读取剪贴板中的图片。请重新复制后再粘贴。',
+  'desktop.chat.clipboardImageTooLarge': '剪贴板图片超过大小或尺寸限制，无法粘贴。',
   'desktop.chat.quoteUnavailable': '当前无法添加引用，请稍后重试。',
   'desktop.chat.quoteTargetPane': '分屏 {index} · {title}',
   'desktop.chat.quoteToTarget': '引用到「{title}」',

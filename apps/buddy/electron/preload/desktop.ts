@@ -11,15 +11,24 @@ import type { DesktopAppInfo, DesktopOpenTarget, DesktopOpenTargetRequest, Deskt
 import type { DesktopCommandId } from '../shared/desktopCommands'
 import type { DesktopUpdateAction, DesktopUpdateState } from '../shared/desktopUpdates'
 import type { SiteFeedState } from '../shared/siteFeed'
+import type { EmptyClipboardPngPasteEvent } from './emptyPngPaste'
 import { ipcRenderer, webUtils } from 'electron'
 import { DESKTOP_NOTIFICATION_CHANNEL } from '../../shared/notifications/desktopNotification'
 import { NOTIFICATION_SOUND_CHANNEL } from '../../shared/notifications/notificationSound'
 import { STORAGE_CHANGED, STORAGE_CHANNEL } from '../../shared/storage/storageApi'
 import { SYNC_CHANGED, SYNC_CHANNEL } from '../../shared/sync/syncApi'
 import { DESKTOP_IPC_CHANNELS } from '../shared/desktopApi'
+import { createEmptyPngPasteCapture } from './emptyPngPaste'
 import { subscribe } from './subscribe'
 
 export function createDesktopApi(): Pick<LexoraDesktopApi, 'app' | 'clipboard' | 'commands' | 'contextPanel' | 'notifications' | 'notificationSounds' | 'settings' | 'storage' | 'sync' | 'window' | 'workbench'> {
+  const emptyPngPaste = createEmptyPngPasteCapture(
+    () => ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.clipboardReadPastedImage),
+  )
+  const pasteTarget = (globalThis as { document?: { addEventListener: (type: 'paste', listener: (event: EmptyClipboardPngPasteEvent) => void, capture: true) => void } }).document
+  pasteTarget?.addEventListener('paste', (event) => {
+    emptyPngPaste.onPaste(event)
+  }, true)
   return {
     notifications: Object.freeze({
       test: () => ipcRenderer.invoke(DESKTOP_NOTIFICATION_CHANNEL, { action: 'test' }),
@@ -160,6 +169,7 @@ export function createDesktopApi(): Pick<LexoraDesktopApi, 'app' | 'clipboard' |
     clipboard: Object.freeze({
       writeImage: (png: Uint8Array) => ipcRenderer.invoke(DESKTOP_IPC_CHANNELS.clipboardWriteImage, { png }),
       getFilePath: (file: File) => webUtils.getPathForFile(file),
+      takeEmptyPastedImage: (timeStamp: number) => emptyPngPaste.take(timeStamp),
       writeText: (text: string, html?: string) => ipcRenderer.invoke(
         DESKTOP_IPC_CHANNELS.clipboardWriteText,
         { text, ...(html === undefined ? {} : { html }) },

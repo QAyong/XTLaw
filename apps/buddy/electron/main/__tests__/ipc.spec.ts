@@ -3,17 +3,19 @@ import type { LexoraConfigStore } from '../config/LexoraConfigStore'
 import { Buffer } from 'node:buffer'
 import { deferred } from '@buddy-tests/deferred'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { CLIPBOARD_IMAGE_MAX_BYTES, CLIPBOARD_PASTE_IMAGE_INVALID, CLIPBOARD_PASTE_IMAGE_TOO_LARGE, CLIPBOARD_PASTE_IMAGE_UNAVAILABLE } from '../../shared/desktopClipboard'
 import { registerDesktopIpc } from '../ipc'
 
 const electron = vi.hoisted(() => ({
   handlers: new Map<string, (event: IpcMainInvokeEvent, input?: unknown) => unknown>(),
   writeText: vi.fn(),
   write: vi.fn(),
+  read: vi.fn(),
 }))
 
 vi.mock('electron', () => ({
   app: { getVersion: () => '0.1.0', isPackaged: false },
-  clipboard: { writeText: electron.writeText, write: electron.write },
+  clipboard: { writeText: electron.writeText, write: electron.write, read: electron.read },
   ClipboardItem: class {
     readonly values: Record<string, string | Blob>
     constructor(values: Record<string, string | Blob>) { this.values = values }
@@ -27,11 +29,19 @@ beforeEach(() => {
   electron.handlers.clear()
   electron.writeText.mockReset().mockResolvedValue(undefined)
   electron.write.mockReset().mockResolvedValue(undefined)
+  electron.read.mockReset()
 })
 
 function fixture() {
   const webContents = { mainFrame: {} }
-  let window = { webContents } as unknown as BrowserWindow | null
+  const state = { focused: true, visible: true, minimized: false, destroyed: false }
+  let window = {
+    webContents,
+    isDestroyed: () => state.destroyed,
+    isVisible: () => state.visible,
+    isMinimized: () => state.minimized,
+    isFocused: () => state.focused,
+  } as unknown as BrowserWindow | null
   registerDesktopIpc({
     checkForUpdates: vi.fn(),
     configPath: '/home/example/.lexora/config.toml',
@@ -52,9 +62,17 @@ function fixture() {
   })
   const trustedEvent = { sender: webContents, senderFrame: webContents.mainFrame } as unknown as IpcMainInvokeEvent
   const untrustedEvent = { sender: {}, senderFrame: {} } as unknown as IpcMainInvokeEvent
-  return { write: electron.handlers.get('lexora:clipboard:write-text')!, writeImage: electron.handlers.get('lexora:clipboard:write-image')!, trustedEvent, untrustedEvent, close: () => {
-    window = null
-  } }
+  return {
+    state,
+    write: electron.handlers.get('lexora:clipboard:write-text')!,
+    writeImage: electron.handlers.get('lexora:clipboard:write-image')!,
+    readPastedImage: electron.handlers.get('lexora:clipboard:read-pasted-image')!,
+    trustedEvent,
+    untrustedEvent,
+    close: () => {
+      window = null
+    },
+  }
 }
 
 describe('registerDesktopIpc', () => {
@@ -137,4 +155,82 @@ describe('registerDesktopIpc', () => {
     native.mockRejectedValueOnce(new Error('Native clipboard unavailable'))
     await expect(f.write(f.trustedEvent, input)).rejects.toThrow('Native clipboard unavailable')
   })
+
+  it('reads only the foreground image/png and ignores a general read request', async () => {
+    const f = fixture()
+    const snapshot = pngSnapshot(png)
+    electron.read.mockResolvedValue([snapshot])
+    await expect(f.readPastedImage(f.trustedEvent, { path: 'C:\\secret.png', type: 'text/plain' })).resolves.toEqual(png)
+    expect(electron.read).toHaveBeenCalledExactlyOnceWith()
+    expect(snapshot.getType).toHaveBeenCalledExactlyOnceWith('image/png')
+    expect(snapshot.arrayBuffer).toHaveBeenCalledOnce()
+  })
+
+  it('rejects untrusted frames and a closed window before reading the clipboard', async () => {
+    const f = fixture()
+    const childFrame = { ...f.trustedEvent, senderFrame: {} } as IpcMainInvokeEvent
+    for (const event of [f.untrustedEvent, childFrame])
+      await expect(f.readPastedImage(event)).rejects.toThrow('Untrusted Desktop IPC sender')
+    f.close()
+    await expect(f.readPastedImage(f.trustedEvent)).rejects.toThrow('Untrusted Desktop IPC sender')
+    expect(electron.read).not.toHaveBeenCalled()
+  })
+
+  it.each(['focused', 'visible', 'minimized', 'destroyed'] as const)('rejects a paste read when the window is not foreground: %s', async (key) => {
+    const f = fixture()
+    if (key === 'focused')
+      f.state.focused = false
+    else if (key === 'visible')
+      f.state.visible = false
+    else if (key === 'minimized')
+      f.state.minimized = true
+    else f.state.destroyed = true
+    await expect(f.readPastedImage(f.trustedEvent)).rejects.toThrow(CLIPBOARD_PASTE_IMAGE_UNAVAILABLE)
+    expect(electron.read).not.toHaveBeenCalled()
+  })
+
+  it('does not return bytes when focus is lost before the image is copied', async () => {
+    const f = fixture()
+    const snapshot = pngSnapshot(png)
+    electron.read.mockImplementation(async () => {
+      f.state.focused = false
+      return [snapshot]
+    })
+    await expect(f.readPastedImage(f.trustedEvent)).rejects.toThrow(CLIPBOARD_PASTE_IMAGE_UNAVAILABLE)
+    expect(snapshot.getType).not.toHaveBeenCalled()
+    expect(snapshot.arrayBuffer).not.toHaveBeenCalled()
+  })
+
+  it('does not copy an empty, oversized, or non-png clipboard item', async () => {
+    const f = fixture()
+    const empty = pngSnapshot(png, 0)
+    electron.read.mockResolvedValueOnce([empty])
+    await expect(f.readPastedImage(f.trustedEvent)).rejects.toThrow(CLIPBOARD_PASTE_IMAGE_UNAVAILABLE)
+    expect(empty.arrayBuffer).not.toHaveBeenCalled()
+    const oversized = pngSnapshot(png, CLIPBOARD_IMAGE_MAX_BYTES + 1)
+    electron.read.mockResolvedValueOnce([oversized])
+    await expect(f.readPastedImage(f.trustedEvent)).rejects.toThrow(CLIPBOARD_PASTE_IMAGE_TOO_LARGE)
+    expect(oversized.arrayBuffer).not.toHaveBeenCalled()
+    const text = { types: ['text/plain', 'text/html'], getType: vi.fn(), arrayBuffer: vi.fn() }
+    electron.read.mockResolvedValueOnce([text])
+    await expect(f.readPastedImage(f.trustedEvent)).rejects.toThrow(CLIPBOARD_PASTE_IMAGE_UNAVAILABLE)
+    expect(text.getType).not.toHaveBeenCalled()
+    const invalid = pngSnapshot(new Uint8Array(40))
+    electron.read.mockResolvedValueOnce([invalid])
+    await expect(f.readPastedImage(f.trustedEvent)).rejects.toThrow(CLIPBOARD_PASTE_IMAGE_INVALID)
+  })
 })
+
+function pngSnapshot(bytes: Uint8Array, size = bytes.byteLength) {
+  const arrayBuffer = vi.fn(async () => {
+    const copy = new Uint8Array(bytes.byteLength)
+    copy.set(bytes)
+    return copy.buffer
+  })
+  const getType = vi.fn(async (type: string) => {
+    if (type !== 'image/png')
+      throw new Error(`unexpected clipboard type ${type}`)
+    return { size, arrayBuffer }
+  })
+  return { types: ['text/plain', 'text/html', 'image/png'], getType, arrayBuffer }
+}

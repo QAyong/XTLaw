@@ -561,6 +561,162 @@ describe('useChatRunSync', () => {
     }
   })
 
+  it('lets a snapshot-only refresh finish while an existing refresh loads run events', async () => {
+    const active = run('run-a', 'conversation-a')
+    const message = timelineMessage('message-a', active.conversationId, active.branchId, 1)
+    const pageRequested = deferred<void>()
+    const eventPage = deferred<{ events: LocalRunEvent[], nextSequence: null }>()
+    const api = createApi({ listTimeline: async () => ({
+      ...timelinePage([message], null, [active]),
+      eventWindows: [{ runId: active.id, throughSequence: 1, count: 1 }],
+    }) })
+    api.conversations.readEventPage = () => {
+      pageRequested.resolve()
+      return eventPage.promise
+    }
+    const onError = vi.fn()
+    const sync = useChatRunSync({ activeBranchId: ref(active.branchId), activeConversationId: ref(active.conversationId), api, onError })
+    const fullRefresh = sync.refreshActiveConversation()
+    try {
+      await pageRequested.promise
+      const snapshot = sync.refreshActiveConversation({ waitForEvents: false })
+      const pendingFullRefresh = Symbol('pending')
+      const snapshotOutcome = await Promise.race([
+        snapshot,
+        new Promise<typeof pendingFullRefresh>(resolve => setImmediate(() => resolve(pendingFullRefresh))),
+      ])
+      expect(snapshotOutcome).toBeUndefined()
+      expect(sync.messages.value.map(item => item.id)).toEqual([message.id])
+      expect(sync.runEventBuckets.value.get(active.id)?.events ?? []).toEqual([])
+    }
+    finally {
+      eventPage.resolve({ events: [event(active.id, 1)], nextSequence: null })
+      await fullRefresh
+      sync.dispose()
+    }
+    expect(onError).not.toHaveBeenCalled()
+  })
+
+  it('loads only the missing suffix and retains a terminal run until its compacted page arrives', async () => {
+    stubAnimationFrameWindow()
+    const active = run('run-a', 'conversation-a')
+    let sequences = [1, 2]
+    let compacted = false
+    const started = deferred<void>()
+    const gate = deferred<void>()
+    const api = createApi({ listTimeline: async () => ({
+      ...timelinePage([], null, [compacted ? { ...active, status: 'completed' } : active]),
+      eventWindows: [{ runId: active.id, throughSequence: sequences.at(-1)!, count: sequences.length }],
+    }) })
+    const cursors: number[] = []
+    api.conversations.readEventPage = async (input) => {
+      cursors.push(input.afterSequence)
+      if (compacted) {
+        started.resolve()
+        await gate.promise
+      }
+      const events = sequences.filter(n => n > input.afterSequence).map(n => event(active.id, n))
+      return { events, nextSequence: null }
+    }
+    const errors: unknown[] = []
+    const sync = useChatRunSync({ activeBranchId: ref(active.branchId), activeConversationId: ref(active.conversationId), api, onError: error => errors.push(error) })
+    try {
+      await sync.refreshActiveConversation()
+      await sync.refreshActiveConversation()
+      sequences.push(3)
+      await sync.refreshActiveConversation()
+      expect(errors).toEqual([])
+      expect(cursors).toEqual([0, 2])
+      compacted = true
+      sequences = [2, 4]
+      const refresh = sync.refreshActiveConversation()
+      await started.promise
+      expect(sync.runEventBuckets.value.get(active.id)?.events.map(row => row.sequence)).toEqual([1, 2, 3])
+      gate.resolve()
+      await refresh
+      expect(sync.runEventBuckets.value.get(active.id)?.events.map(row => row.sequence)).toEqual([2, 4])
+    }
+    finally {
+      gate.resolve()
+      sync.dispose()
+    }
+  })
+
+  it('resolves a snapshot refresh before paged events when no refresh is already running', async () => {
+    const active = run('run-a', 'conversation-a')
+    const eventsReady = deferred<void>()
+    const api = createApi({ listTimeline: async () => ({
+      ...timelinePage([], null, [active]),
+      eventWindows: [{ runId: active.id, throughSequence: 1, count: 1 }],
+    }) })
+    api.conversations.readEventPage = async () => {
+      await eventsReady.promise
+      return { events: [event(active.id, 1)], nextSequence: null }
+    }
+    const sync = useChatRunSync({
+      activeBranchId: ref(active.branchId),
+      activeConversationId: ref(active.conversationId),
+      api,
+      onError: vi.fn(),
+    })
+    try {
+      await sync.refreshActiveConversation({ waitForEvents: false })
+      expect(sync.isLoadingConversation.value).toBe(false)
+      expect(sync.runs.value.map(item => item.id)).toEqual([active.id])
+      expect(sync.runEventBuckets.value.get(active.id)?.events.map(row => row.sequence) ?? []).toEqual([])
+      eventsReady.resolve()
+      await sync.refreshActiveConversation()
+      expect(sync.runEventBuckets.value.get(active.id)?.events.map(row => row.sequence)).toEqual([1])
+    }
+    finally {
+      eventsReady.resolve()
+      sync.dispose()
+    }
+  })
+
+  it('does not commit an in-flight event page after the conversation changes', async () => {
+    const active = run('run-a', 'conversation-a')
+    const other = run('run-b', 'conversation-b')
+    const gate = deferred<void>()
+    let started = false
+    const activeConversationId = ref<string | null>(active.conversationId)
+    const activeBranchId = ref<string | null>(active.branchId)
+    const api = createApi({
+      listTimeline: async input => input.conversationId === active.conversationId
+        ? {
+            ...timelinePage([], null, [active]),
+            eventWindows: [{ runId: active.id, throughSequence: 1, count: 1 }],
+          }
+        : {
+            ...timelinePage([], null, [other]),
+            eventWindows: [{ runId: other.id, throughSequence: 1, count: 1 }],
+          },
+    })
+    api.conversations.readEventPage = async (input) => {
+      if (input.runId === active.id) {
+        started = true
+        await gate.promise
+      }
+      return { events: [event(input.runId, 1)], nextSequence: null }
+    }
+    const sync = useChatRunSync({ activeBranchId, activeConversationId, api, onError: vi.fn() })
+    try {
+      const stale = sync.refreshActiveConversation()
+      await vi.waitUntil(() => started)
+      activeConversationId.value = other.conversationId
+      activeBranchId.value = other.branchId
+      gate.resolve()
+      await stale
+      await sync.refreshActiveConversation()
+      expect(sync.runEventBuckets.value.has(active.id)).toBe(false)
+      expect(sync.runEventBuckets.value.get(other.id)?.events.map(row => row.sequence)).toEqual([1])
+    }
+    finally {
+      gate.resolve()
+      sync.dispose()
+    }
+  })
+
   it('replaces compacted events when an active run becomes terminal', async () => {
     const activeConversationId = ref<string | null>('conversation-a')
     const activeBranchId = ref<string | null>('branch-conversation-a')

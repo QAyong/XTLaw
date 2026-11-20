@@ -270,6 +270,33 @@ describe('registerLocalChatIpc', () => {
     expect(historical).toEqual([expected])
     expect(send).toHaveBeenCalledWith(LOCAL_CHAT_IPC_CHANNELS.runEvent, expected)
     expect(JSON.stringify([historical, send.mock.calls])).not.toContain('secret-value')
+
+    const request = runtime.request as ReturnType<typeof vi.fn>
+    const readEventPage = electron.handlers.get(LOCAL_CHAT_IPC_CHANNELS.conversationsReadEventPage)
+    const listTimeline = electron.handlers.get(LOCAL_CHAT_IPC_CHANNELS.conversationsListTimeline)
+    if (!readEventPage || !listTimeline)
+      throw new Error('paged history IPC handlers were not registered')
+    const page = { events: [{ ...expected, type: 'run.completed', payload: { errorCode: null } }], nextSequence: null }
+    request.mockResolvedValueOnce(page)
+    const ipcEvent = { sender: webContents, senderFrame: webContents.mainFrame } as unknown as IpcMainInvokeEvent
+    await expect(readEventPage(ipcEvent, {
+      conversationId: 'conversation-1',
+      runId: 'run-1',
+      afterSequence: 0,
+      throughSequence: 1,
+    })).resolves.toEqual(page)
+    expect(request).toHaveBeenCalledWith('runs.readEventPage', {
+      conversationId: 'conversation-1',
+      runId: 'run-1',
+      afterSequence: 0,
+      throughSequence: 1,
+    }, expect.any(Object))
+    request.mockResolvedValueOnce({ changeSets: [], eventWindows: [], items: [], nextCursor: null, outputs: [], runEvents: [], runs: [] })
+    await listTimeline(ipcEvent, { conversationId: 'conversation-1', eventView: 'paged' })
+    expect(request).toHaveBeenCalledWith('conversations.listTimeline', {
+      conversationId: 'conversation-1',
+      eventView: 'paged',
+    }, expect.any(Object))
   })
 
   it('rejects an approval response whose payload is outside the public review contract', async () => {

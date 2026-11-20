@@ -51,9 +51,25 @@ describe('workspace hydration', () => {
     expect(fixture.reads.value).toBe(2)
     expect(fixture.lifecycle.state.value.generation).toBe('runtime-2')
   })
+
+  it('refreshes task surfaces only after the first restore and clears them only when the runtime generation changes', async () => {
+    const refreshes: boolean[] = []
+    const fixture = createFixture({
+      refreshSurface: async (generationChanged) => {
+        refreshes.push(generationChanged)
+      },
+    })
+    fixture.connect('runtime-1')
+    await fixture.lifecycle.ready
+    expect(refreshes).toEqual([])
+    fixture.connect('runtime-2')
+    await vi.waitFor(() => expect(refreshes).toEqual([true]))
+    await fixture.lifecycle.retry()
+    expect(refreshes).toEqual([true, false])
+  })
 })
 
-function createFixture(options: { restore?: () => Promise<void>, failFirst?: boolean, prepareQuit?: (signal: AbortSignal) => Promise<ClosePreparation | false>, flushSurface?: () => Promise<boolean> } = {}) {
+function createFixture(options: { restore?: () => Promise<void>, failFirst?: boolean, prepareQuit?: (signal: AbortSignal) => Promise<ClosePreparation | false>, flushSurface?: () => Promise<boolean>, refreshSurface?: (generationChanged: boolean) => Promise<void> } = {}) {
   const { startup, connect, complete } = createStartupFixture()
   const reads = shallowRef(0)
   let beforeQuit = async (_requestId: string) => false
@@ -63,6 +79,7 @@ function createFixture(options: { restore?: () => Promise<void>, failFirst?: boo
   const lifecycle = scope.run(() => useDesktopLifecycle({
     prepareQuit: options.prepareQuit,
     flushSurface: options.flushSurface,
+    refreshSurface: options.refreshSurface,
     api: { app: {
       startup: { getState: async () => startup.state, onStateChanged: startup.onStateChange.bind(startup), reportLifecycle: async (report: RendererLifecycleReport) => { startup.acceptRenderer(report) } },
       onBeforeQuit: (listener: (requestId: string) => Promise<boolean>) => {

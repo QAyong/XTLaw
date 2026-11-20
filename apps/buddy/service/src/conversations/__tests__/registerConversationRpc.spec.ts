@@ -38,7 +38,7 @@ describe('registerConversationRpc', () => {
     })
     const harness = createRpcHarness()
     registerConversationRpc({
-      ...emptyConversationDependencies(conversations),
+      ...emptyConversationDependencies(database, conversations),
       rpc: harness.rpc,
       metadata: new ConversationMetadataService({
         repository: conversations,
@@ -156,7 +156,7 @@ describe('registerConversationRpc', () => {
     }
     const harness = createRpcHarness()
     registerConversationRpc({
-      ...emptyConversationDependencies(conversations),
+      ...emptyConversationDependencies(database, conversations),
       artifacts: {
         listForConversation: () => [{
           conversationId: 'conversation-1',
@@ -268,7 +268,7 @@ it('reads archived details, models, members and usage without permitting writes 
     VALUES ('usage', 'historical-run', 'answer', 'fixture', 'model', 'chat', 10, 20, 0, 0, 30, 0, 0, 0, 0, 0, ?)`).run(now)
   createConversationArchiveRepository(database).archive('archived', now)
   const harness = createRpcHarness()
-  const dependencies = emptyConversationDependencies(conversations)
+  const dependencies = emptyConversationDependencies(database, conversations)
   registerConversationRpc({ ...dependencies, rpc: harness.rpc })
   registerConversationTreeRpc({ ...dependencies, rpc: harness.rpc, database, conversations, runs })
   const scope = { conversationId: 'archived' }
@@ -285,10 +285,115 @@ it('reads archived details, models, members and usage without permitting writes 
   await expect(harness.invoke('conversations.rename', { ...scope, title: 'Must not change' })).rejects.toMatchObject({ code: 'VALIDATION_FAILED' })
   await expect(harness.invoke('conversations.setModelSelection', { ...scope, modelSelection: null })).rejects.toMatchObject({ code: 'VALIDATION_FAILED' })
   expect(conversations.findById('archived')?.title).toBe('Archived detail')
+  await expect(harness.invoke('conversations.listTimeline', { ...scope, eventView: 'paged' })).resolves.toMatchObject({
+    eventWindows: [],
+    items: expect.arrayContaining([expect.objectContaining({ id: 'answer' })]),
+    runEvents: [],
+  })
   conversations.markDeleted('archived', now)
   for (const method of ['get', 'listBranches', 'listMessages', 'listTimeline', 'listMembers', 'getModelControls', 'getTree'])
     await expect(harness.invoke(`conversations.${method}`, scope)).rejects.toMatchObject({ code: 'VALIDATION_FAILED' })
+  await expect(harness.invoke('conversations.listTimeline', { ...scope, eventView: 'paged' })).rejects.toMatchObject({ code: 'VALIDATION_FAILED' })
   await expect(harness.invoke('conversations.getNodeDetail', { ...scope, kind: 'answer', runId: 'historical-run' })).rejects.toMatchObject({ code: 'VALIDATION_FAILED' })
+})
+
+it('returns an event snapshot for a paged timeline and keeps inline events', async () => {
+  const database = openBuddyDatabase({ databasePath: ':memory:' })
+  databases.push(database)
+  const now = '2026-11-20T00:00:00.000Z'
+  const conversations = createConversationRepository(database)
+  const runs = createRunRepository(database)
+  conversations.create({ id: 'conversation', branchId: 'branch', createdAt: now, approvalPolicy: 'policy', executionProfile: 'workspace_write', spaceId: null, title: 'Paged history' })
+  conversations.createMessage({ id: 'question', conversationId: 'conversation', branchId: 'branch', role: 'user', runId: null, createdAt: now, content: { text: 'Question' } })
+  for (const id of ['good', 'bad']) {
+    runs.create({ id, conversationId: 'conversation', branchId: 'branch', triggeringMessageId: 'question', provider: 'fixture', model: 'model', purpose: 'chat', status: 'completed', startedAt: now, completedAt: now, approvalPolicy: 'policy', executionProfile: 'workspace_write', piSessionFile: null })
+    conversations.createMessage({ id: `${id}-answer`, conversationId: 'conversation', branchId: 'branch', role: 'assistant', runId: id, createdAt: now, content: { text: id } })
+  }
+  const insertEvent = database.prepare('INSERT INTO run_events (run_id, sequence, event_type, payload_json, created_at) VALUES (?, ?, ?, ?, ?)')
+  insertEvent.run('good', 1, 'run.progress', JSON.stringify({ phase: 'responding' }), now)
+  insertEvent.run('good', 2, 'output.produced', JSON.stringify({ artifactIds: ['artifact-1'], sourceToolCallId: 'tool-1', sourceToolName: 'read' }), now)
+  insertEvent.run('bad', 1, 'output.produced', JSON.stringify({ artifactIds: ['secret'], sourceToolCallId: 'hidden', sourceToolName: 'read' }), now)
+  const verified: unknown[][] = []
+  const listed: string[][] = []
+  const harness = createRpcHarness()
+  registerConversationRpc({
+    ...emptyConversationDependencies(database, conversations),
+    artifacts: {
+      listForConversation: () => [{
+        conversationId: 'conversation',
+        createdAt: now,
+        currentPath: '/private/diagram.png',
+        directoryGrantId: 'workspace-1',
+        directoryRoot: '/private',
+        id: 'artifact-1',
+        kind: 'file',
+        mimeType: 'image/png',
+        name: 'diagram.png',
+        relativePath: 'diagram.png',
+        sizeBytes: 42,
+        sourceArtifactId: null,
+        updatedAt: now,
+      }],
+    },
+    eventLog: {
+      getRecoveryFailures: () => [{ code: 'EVENT_LOG_CORRUPTED', conversationId: 'conversation', runId: 'bad' }],
+      listForRuns: (runIds) => {
+        listed.push([...runIds])
+        return runIds.includes('good')
+          ? [{
+              createdAt: now,
+              payload: { phase: 'responding' },
+              runId: 'good',
+              sequence: 1,
+              type: 'run.progress',
+            }]
+          : []
+      },
+      async verifyRun(...args) {
+        verified.push(args)
+        if (args[0] === 'bad')
+          throw new RunEventCorruptionError('bad')
+      },
+    },
+    rpc: harness.rpc,
+    runs,
+  })
+  const inline = conversationResponseSchemas.timelinePage.parse(await harness.invoke('conversations.listTimeline', { conversationId: 'conversation' }))
+  expect(inline.eventWindows).toBeUndefined()
+  expect(inline.runEvents.map(event => event.runId)).toEqual(['good'])
+  expect(listed).toEqual([['bad', 'good']])
+  const paged = conversationResponseSchemas.timelinePage.parse(await harness.invoke('conversations.listTimeline', {
+    conversationId: 'conversation',
+    eventView: 'paged',
+  }))
+  expect(paged.runEvents).toEqual([])
+  expect(paged.eventWindows).toEqual([{ runId: 'good', throughSequence: 2, count: 2 }])
+  expect(paged.outputs).toMatchObject([{ runId: 'good', sourceToolCallId: 'tool-1' }])
+  expect(paged.runs.find(run => run.id === 'bad')?.errorCode).toBe('EVENT_LOG_CORRUPTED')
+  expect(JSON.stringify(paged)).not.toContain('secret')
+  expect(listed).toHaveLength(1)
+  expect(verified.every(args => args.length === 1)).toBe(true)
+  expect(verified.flat()).toEqual(expect.arrayContaining(['good', 'bad']))
+})
+
+it('bounds paged timeline message content without shrinking an inline page', async () => {
+  const database = openBuddyDatabase({ databasePath: ':memory:' })
+  databases.push(database)
+  const conversations = createConversationRepository(database)
+  conversations.create({ id: 'conversation', branchId: 'branch', createdAt: '2026-11-20T00:00:00.000Z', approvalPolicy: 'policy', executionProfile: 'workspace_write', spaceId: null, title: 'Large messages' })
+  const text = 'x'.repeat(300_000)
+  for (const [index, id] of ['first', 'second', 'third'].entries())
+    conversations.createMessage({ id, conversationId: 'conversation', branchId: 'branch', role: 'user', runId: null, createdAt: `2026-11-20T00:00:0${index}.000Z`, content: { text } })
+  const harness = createRpcHarness()
+  registerConversationRpc({ ...emptyConversationDependencies(database, conversations), rpc: harness.rpc })
+  const inline = conversationResponseSchemas.timelinePage.parse(await harness.invoke('conversations.listTimeline', { conversationId: 'conversation' }))
+  const paged = conversationResponseSchemas.timelinePage.parse(await harness.invoke('conversations.listTimeline', { conversationId: 'conversation', eventView: 'paged' }))
+  expect(inline.items.map(item => item.id)).toEqual(['first', 'second', 'third'])
+  expect(inline.eventWindows).toBeUndefined()
+  expect(paged.items.map(item => item.id)).toEqual(['third'])
+  expect(paged.nextCursor).toEqual(expect.any(String))
+  expect(paged.eventWindows).toEqual([])
+  expect(paged.runEvents).toEqual([])
 })
 
 it('checks newly exposed history when repairing a stale projection changes the current page', async () => {
@@ -304,7 +409,7 @@ it('checks newly exposed history when repairing a stale projection changes the c
   }
   const harness = createRpcHarness()
   registerConversationRpc({
-    ...emptyConversationDependencies(conversations),
+    ...emptyConversationDependencies(database, conversations),
     rpc: harness.rpc,
     eventLog: {
       listForRuns: () => [],
@@ -324,9 +429,11 @@ it('checks newly exposed history when repairing a stale projection changes the c
 })
 
 function emptyConversationDependencies(
+  database: DatabaseSync,
   conversations: ReturnType<typeof createConversationRepository>,
 ): Omit<RegisterConversationRpcOptions, 'rpc'> {
   return {
+    database,
     artifacts: {
       listForConversation: () => [],
     },

@@ -58,6 +58,7 @@ function fixture(options: { stop?: () => Promise<number> } = {}) {
   const disposeCleanup = registerConversationCleanupRpc({ rpc, cleanup })
   const metadata = new ConversationMetadataService({ repository: conversations, assertWritable: id => mutations.assertWritable(id), resolveModelSelection: async input => input, sessions: { invalidateConversation: async () => ({ pending: 0, degraded: 0 }) } })
   const disposeConversations = registerConversationRpc({
+    database,
     rpc,
     conversations,
     metadata,

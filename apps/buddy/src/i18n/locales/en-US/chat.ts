@@ -141,6 +141,8 @@ export default {
   'desktop.chat.quoteTextUnavailable': 'The source message was located, but the quoted passage could not be uniquely matched.',
   'desktop.chat.quoteDuplicate': 'This excerpt is already quoted in the current input',
   'desktop.chat.quoteLimit': 'Up to 16 quotes per message and 262,144 characters per quote, with 1,048,576 quoted characters in total. Select less text or remove an existing quote.',
+  'desktop.chat.clipboardImageUnavailable': 'Could not read the image on the clipboard. Copy it again and paste.',
+  'desktop.chat.clipboardImageTooLarge': 'The clipboard image exceeds the size or dimension limit and cannot be pasted.',
   'desktop.chat.quoteUnavailable': 'Cannot add a quote right now. Please try again.',
   'desktop.chat.quoteTargetPane': 'Pane {index} · {title}',
   'desktop.chat.quoteToTarget': 'Quote to “{title}”',

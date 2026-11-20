@@ -3,11 +3,13 @@ import type { BuddyComposerSource } from '@buddy-shared/conversation/composerRes
 import type { BuddyServiceTier, BuddyThinkingLevel } from '@buddy-shared/conversation/modelSelection'
 import type { LocalRuntimeModelOption } from '@buddy-shared/providers/providerApi'
 import type { JSONContent } from '@tiptap/core'
+import type { Editor } from '@tiptap/vue-3'
 import type { ComposerResourceView } from '../../../state/composer/typing'
 import type { ChatComposerContextOptions, ChatComposerSessionScope, ChatComposerSubmitPayload, ChatPromptContextOption } from '@/modules/prompt-input'
 import type { WorkbenchCommandPort } from '@/shared/ui/contributions/workbenchCommands'
 import { resourceQuoteText } from '@buddy-shared/conversation/buddyResourceQuoteText'
 import { deferred } from '@buddy-tests/deferred'
+import { Slice } from '@tiptap/pm/model'
 import { EditorContent } from '@tiptap/vue-3'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createApp, defineComponent, h, nextTick, shallowRef } from 'vue'
@@ -50,6 +52,7 @@ function skillOption(name: string, description: string): ChatPromptContextOption
 async function mountComposer(options: {
   loadContextOptions?: (query: string | null, deepSearch?: boolean, scope?: ChatComposerSessionScope) => Promise<ChatComposerContextOptions>
   selectSource?: (source: BuddyComposerSource) => Promise<string | null>
+  beginImport?: (files: readonly File[], origin?: 'file' | 'clipboard') => readonly string[]
   model?: LocalRuntimeModelOption
   statusPanel?: boolean
   commands?: WorkbenchCommandPort
@@ -90,7 +93,7 @@ async function mountComposer(options: {
         selectedEffort,
         selectedServiceTier,
         loadContextOptions: options.loadContextOptions ?? (async () => ({ files: [], skills: [] })),
-        beginImport: () => [],
+        beginImport: options.beginImport ?? (() => []),
         importPastedText: async () => null,
         readResourceText: async () => '',
         selectSource: options.selectSource ?? (async () => null),
@@ -1256,4 +1259,178 @@ it('browses session groups with Tab, returns with Alt Left, and inserts a refere
   expect(flow.editor.getText()).toBe('参考 @订单讨论 的决定继续。')
   expect(chatComposerDocumentToUserContent(flow.editor.getJSON()).sessionReferences).toEqual([reference.sessionReference])
   expect(flow.sentPayloads).toEqual([])
+})
+
+function clipboardPng(width = 2, height = 2): Uint8Array {
+  const bytes = new Uint8Array(33)
+  ;[137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82].forEach((value, index) => {
+    bytes[index] = value
+  })
+  new DataView(bytes.buffer).setUint32(16, width)
+  new DataView(bytes.buffer).setUint32(20, height)
+  return bytes
+}
+
+function pasteComposerFiles(editor: Editor, files: File[], trusted = false, data: Record<string, string> = {}) {
+  if (!trusted) {
+    const event = new Event('paste', { bubbles: true, cancelable: true })
+    Object.defineProperty(event, 'clipboardData', { value: { files, getData: (type: string) => data[type] ?? '' } })
+    editor.view.dom.dispatchEvent(event)
+    return event
+  }
+  const event = {
+    isTrusted: true,
+    timeStamp: 25,
+    defaultPrevented: false,
+    preventDefault() { this.defaultPrevented = true },
+    clipboardData: { files, getData: (type: string) => data[type] ?? '' },
+  }
+  editor.view.props.handlePaste?.(editor.view, event as unknown as ClipboardEvent, Slice.empty)
+  return event
+}
+
+describe('empty clipboard image recovery', () => {
+  async function mounted(take: (timeStamp: number) => Promise<Uint8Array> | null = () => null) {
+    const imported: Array<{ files: readonly File[], origin?: 'file' | 'clipboard' }> = []
+    const previous = window.lexoraDesktop
+    window.lexoraDesktop = {
+      clipboard: {
+        getFilePath: () => '',
+        writeImage: async () => {},
+        writeText: async () => {},
+        takeEmptyPastedImage: take,
+      },
+    } as unknown as typeof window.lexoraDesktop
+    cleanups.push(() => {
+      window.lexoraDesktop = previous
+    })
+    const flow = await mountComposer({
+      beginImport: (files, origin) => {
+        imported.push({ files, origin })
+        return []
+      },
+    })
+    return { flow, imported }
+  }
+
+  it('keeps a normal image, text, and quote on the existing paste path', async () => {
+    const take = vi.fn<(timeStamp: number) => Promise<Uint8Array> | null>(() => Promise.resolve(clipboardPng()))
+    const { flow, imported } = await mounted(take)
+    const image = new File(['png-bytes'], 'shot.png', { type: 'image/png' })
+    pasteComposerFiles(flow.editor, [image], true)
+    expect(take).not.toHaveBeenCalled()
+    expect(imported).toEqual([{ files: [image], origin: 'clipboard' }])
+
+    flow.paste({ 'text/plain': 'hello' })
+    expect(flow.editor.getText()).toBe('hello')
+    expect(take).not.toHaveBeenCalled()
+
+    const quote = { id: crypto.randomUUID(), text: 'Selected paragraph', source: { kind: 'view' as const, title: 'Report.pdf', provider: 'extension:tests.office', target: { extensionId: 'tests.office', viewId: crypto.randomUUID(), viewType: 'tests.office.editor', source: null } }, locator: { version: 1, data: { documentId: 'opaque', page: 1 } } }
+    let copied = { text: '', html: '' }
+    await copyReferenceClipboard(quote, async (text, html) => {
+      copied = { text, html: html! }
+    })
+    pasteComposerFiles(flow.editor, [new File([], 'empty.png', { type: 'image/png' })], true, { 'text/plain': copied.text, 'text/html': copied.html })
+    expect(take).not.toHaveBeenCalled()
+    expect(imported).toHaveLength(1)
+    expect(chatComposerDocumentToUserContent(flow.editor.getJSON()).resourceQuotes).toEqual([quote])
+  })
+
+  it('does not read the clipboard for a synthetic empty png', async () => {
+    const take = vi.fn<(timeStamp: number) => Promise<Uint8Array> | null>(() => Promise.resolve(clipboardPng()))
+    const { flow, imported } = await mounted(take)
+    const event = pasteComposerFiles(flow.editor, [new File([], 'empty.png', { type: 'image/png' })])
+    expect(event.isTrusted).toBe(false)
+    expect(event.defaultPrevented).toBe(true)
+    expect(take).not.toHaveBeenCalled()
+    expect(imported).toEqual([])
+    expect(flow.composer.clipboardImagePasteMessage.value).toBeNull()
+  })
+
+  it('imports one recovered png for a trusted empty paste and rejects stale results', async () => {
+    const bytes = clipboardPng()
+    const pending = deferred<Uint8Array>()
+    const take = vi.fn<(timeStamp: number) => Promise<Uint8Array> | null>(() => pending.promise)
+    const { flow, imported } = await mounted(take)
+    const event = pasteComposerFiles(flow.editor, [
+      new File([], 'empty-a.png', { type: 'image/png' }),
+      new File([], 'empty-b.png', { type: 'image/png' }),
+    ], true)
+    expect(event.defaultPrevented).toBe(true)
+    expect(take).toHaveBeenCalledExactlyOnceWith(event.timeStamp)
+    expect(imported).toEqual([])
+    pending.resolve(bytes)
+    await vi.waitFor(() => expect(imported).toHaveLength(1))
+    expect(imported[0]?.origin).toBe('clipboard')
+    expect(imported[0]?.files).toHaveLength(1)
+    expect(imported[0]?.files[0]).toMatchObject({ name: 'image.png', type: 'image/png', size: bytes.byteLength })
+    expect(new Uint8Array(await imported[0]!.files[0]!.arrayBuffer())).toEqual(bytes)
+
+    const stale = deferred<Uint8Array>()
+    take.mockReturnValueOnce(stale.promise)
+    pasteComposerFiles(flow.editor, [new File([], 'empty.png', { type: 'image/png' })], true)
+    flow.draftId.value = 'draft-2'
+    flow.draftId.value = 'draft-1'
+    stale.resolve(bytes)
+    await stale.promise
+    await nextTick()
+    expect(imported).toHaveLength(1)
+    expect(flow.composer.clipboardImagePasteMessage.value).toBeNull()
+  })
+
+  it.each(['sending', 'readonly', 'closed', 'editor'] as const)('drops a recovered image after %s changes', async (change) => {
+    const pending = deferred<Uint8Array>()
+    const take = vi.fn<(timeStamp: number) => Promise<Uint8Array> | null>(() => pending.promise)
+    const { flow, imported } = await mounted(take)
+    pasteComposerFiles(flow.editor, [new File([], 'empty.png', { type: 'image/png' })], true)
+    if (change === 'sending')
+      flow.isSending.value = true
+    else if (change === 'readonly')
+      flow.editor.setEditable(false)
+    else if (change === 'closed')
+      flow.unmount()
+    else flow.editorKey.value = 'editor-2'
+    pending.resolve(clipboardPng())
+    await pending.promise
+    await nextTick()
+    expect(imported).toEqual([])
+    if (change !== 'closed')
+      expect(flow.composer.clipboardImagePasteMessage.value).toBeNull()
+  })
+
+  it('explains a failed or unarmed read without creating an empty attachment', async () => {
+    const rejected = deferred<Uint8Array>()
+    const take = vi.fn<(timeStamp: number) => Promise<Uint8Array> | null>()
+      .mockReturnValueOnce(rejected.promise)
+    const { flow, imported } = await mounted(take)
+    pasteComposerFiles(flow.editor, [new File([], 'empty.png', { type: 'image/png' })], true)
+    rejected.reject(new Error('Clipboard paste image is too large'))
+    await rejected.promise.catch(() => {})
+    await nextTick()
+    expect(imported).toEqual([])
+    expect(flow.composer.clipboardImagePasteMessage.value).toContain('超过大小或尺寸限制')
+
+    take.mockReturnValueOnce(Promise.resolve(new Uint8Array(40)))
+    pasteComposerFiles(flow.editor, [new File([], 'empty.png', { type: 'image/png' })], true)
+    await nextTick()
+    await nextTick()
+    expect(flow.composer.clipboardImagePasteMessage.value).toContain('无法读取剪贴板中的图片')
+    expect(imported).toEqual([])
+
+    take.mockReturnValueOnce(null)
+    pasteComposerFiles(flow.editor, [new File([], 'empty.png', { type: 'image/png' })], true)
+    expect(flow.composer.clipboardImagePasteMessage.value).toContain('无法读取剪贴板中的图片')
+    flow.paste({ 'text/plain': '继续输入' })
+    expect(flow.editor.getText()).toBe('继续输入')
+    expect(flow.composer.clipboardImagePasteMessage.value).toBeNull()
+  })
+
+  it('imports real files once and skips an accompanying empty png', async () => {
+    const take = vi.fn<(timeStamp: number) => Promise<Uint8Array> | null>(() => Promise.resolve(clipboardPng()))
+    const { flow, imported } = await mounted(take)
+    const image = new File(['png-bytes'], 'shot.png', { type: 'image/png' })
+    pasteComposerFiles(flow.editor, [new File([], 'empty.png', { type: 'image/png' }), image], true)
+    expect(take).not.toHaveBeenCalled()
+    expect(imported).toEqual([{ files: [image], origin: 'clipboard' }])
+  })
 })

@@ -93,6 +93,7 @@ export const DESKTOP_IPC_CHANNELS = {
   browserTakeControl: 'lexora:browser:take-control',
   clipboardWriteText: 'lexora:clipboard:write-text',
   clipboardWriteImage: 'lexora:clipboard:write-image',
+  clipboardReadPastedImage: 'lexora:clipboard:read-pasted-image',
   commandExecute: 'lexora:command:execute',
   settingsGet: 'lexora:settings:get',
   settingsUpdate: 'lexora:settings:update',
@@ -307,6 +308,7 @@ export interface LexoraDesktopApi {
     getFilePath: (file: File) => string
     writeText: (text: string, html?: string) => Promise<void>
     writeImage: (png: Uint8Array) => Promise<void>
+    takeEmptyPastedImage: (timeStamp: number) => Promise<Uint8Array> | null
   }
   commands: {
     execute: (commandId: DesktopCommandId) => Promise<void>

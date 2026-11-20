@@ -3,11 +3,14 @@ import type { BuddyInputMaterial } from '@buddy-shared/conversation/buddyInputMa
 import type { BuddyActorReference, BuddyMessageQuote } from '@buddy-shared/conversation/buddyUserContent'
 import type { BuddyComposerSource } from '@buddy-shared/conversation/composerResource'
 import type { JSONContent } from '@tiptap/core'
+import type { Editor } from '@tiptap/vue-3'
 import type { UseChatComposerOptions } from './typing'
 import type { ChatComposerSubmitPayload, ChatPromptContextOption } from '@/modules/prompt-input'
+import { classifyClipboardPng, CLIPBOARD_PASTE_IMAGE_INVALID, CLIPBOARD_PASTE_IMAGE_TOO_LARGE } from '@buddy-electron/shared/desktopClipboard'
 import { getBuddyChatCommandDefinition, isBuddyRunChatCommand, parseBuddyChatCommand } from '@buddy-shared/conversation/buddyChatCommands'
 import { composerReferencePath } from '@buddy-shared/conversation/composerReferencePath'
-import { computed, onScopeDispose, watch } from 'vue'
+import { computed, onScopeDispose, shallowRef, watch } from 'vue'
+import { useBuddyI18n } from '@/i18n/buddyI18n'
 import { CHAT_PROMPT_DIRECTIVE_NODE_NAME, getChatComposerResourceIds, serializeChatComposerContent } from '@/modules/prompt-input'
 import { addChatComposerQuote, insertChatComposerActorReference, insertChatComposerQuoteReference, insertChatComposerResources, insertChatComposerSessionReferences, insertResolvedChatComposerResource, removeChatComposerPanelResource, removeChatComposerQuote, removeChatComposerResource, removeChatComposerSessionReference } from '@/modules/prompt-input/ui'
 import { useConversationMcpPanel } from '@/modules/tasks/state/runs/conversationMcpPanel'
@@ -23,12 +26,20 @@ import { useComposerCommands } from './useComposerCommands'
 import { useComposerPastedText } from './useComposerPastedText'
 
 export function useChatComposer(options: UseChatComposerOptions) {
+  const { t } = useBuddyI18n(options.language)
   const localCommands = useComposerCommands(options.editorKey, chooseCommand)
   const conversationStatusPanel = useConversationStatusPanel()
   const conversationMcpPanel = useConversationMcpPanel()
+  const clipboardImageFailure = shallowRef<'too_large' | 'unavailable' | null>(null)
+  const clipboardImagePasteMessage = computed(() => {
+    if (clipboardImageFailure.value === 'too_large')
+      return t('desktop.chat.clipboardImageTooLarge')
+    return clipboardImageFailure.value ? t('desktop.chat.clipboardImageUnavailable') : null
+  })
   let editingSession = 0
   watch([options.draftId, options.editorKey], () => {
     editingSession += 1
+    clipboardImageFailure.value = null
   }, { flush: 'sync' })
   onScopeDispose(() => {
     editingSession += 1
@@ -47,7 +58,6 @@ export function useChatComposer(options: UseChatComposerOptions) {
     language: options.language,
     rejectedResourceIds: options.rejectedResourceIds,
     resources: options.resources,
-    onUpdateContent: options.onUpdateContent,
     onTrigger: (trigger) => { query.activeTrigger.value = trigger },
     onSuggestionKeydown: (event) => {
       if (!event.isComposing && event.keyCode !== 229 && event.key === 'ArrowLeft' && event.altKey && !event.shiftKey && !event.ctrlKey && !event.metaKey && query.activeTrigger.value?.kind === 'mention') {
@@ -67,6 +77,14 @@ export function useChatComposer(options: UseChatComposerOptions) {
       return query.handleKeydown(event)
     },
     onPasteFiles: files => attachFiles(files, 'both', 'clipboard'),
+    onPasteEmptyImage: timeStamp => recoverEmptyClipboardImage(timeStamp),
+    onPasteStart: () => {
+      clipboardImageFailure.value = null
+    },
+    onUpdateContent: (content, value) => {
+      clipboardImageFailure.value = null
+      options.onUpdateContent(content, value)
+    },
     onPasteText: pasteText,
     onPasteSessionReferences: (references, text) => {
       const current = editor.value
@@ -267,6 +285,59 @@ export function useChatComposer(options: UseChatComposerOptions) {
     insertChatComposerResources(current, options.beginImport(files, origin), placement)
   }
 
+  function recoverEmptyClipboardImage(timeStamp: number) {
+    const session = editingSession
+    const draftId = options.draftId.value
+    const editorKey = options.editorKey.value
+    const current = editor.value
+    if (!canApplyRecoveredClipboardImage(session, draftId, editorKey, current))
+      return
+    const take = window.lexoraDesktop?.clipboard?.takeEmptyPastedImage
+    let read: Promise<Uint8Array> | null = null
+    try {
+      read = typeof take === 'function' ? take(timeStamp) : null
+    }
+    catch {
+      clipboardImageFailure.value = 'unavailable'
+      return
+    }
+    if (!read) {
+      clipboardImageFailure.value = 'unavailable'
+      return
+    }
+    void read.then((bytes) => {
+      if (!canApplyRecoveredClipboardImage(session, draftId, editorKey, current))
+        return
+      try {
+        attachFiles([clipboardImageFile(bytes)], 'both', 'clipboard')
+      }
+      catch (error) {
+        if (canApplyRecoveredClipboardImage(session, draftId, editorKey, current))
+          clipboardImageFailure.value = clipboardImageFailureKind(error)
+      }
+    }, (error: unknown) => {
+      if (!canApplyRecoveredClipboardImage(session, draftId, editorKey, current))
+        return
+      clipboardImageFailure.value = clipboardImageFailureKind(error)
+    })
+  }
+
+  function canApplyRecoveredClipboardImage(
+    session: number,
+    draftId: string,
+    editorKey: string,
+    current: Editor | undefined,
+  ): current is Editor {
+    return !!current
+      && session === editingSession
+      && options.draftId.value === draftId
+      && options.editorKey.value === editorKey
+      && editor.value === current
+      && !current.isDestroyed
+      && current.isEditable
+      && !options.isSending.value
+  }
+
   function removeResource(resourceId: string) {
     const current = editor.value
     if (!current)
@@ -394,6 +465,7 @@ export function useChatComposer(options: UseChatComposerOptions) {
   }
 
   return {
+    clipboardImagePasteMessage,
     quotePasteLimitMessage,
     materials,
     removeMaterial,
@@ -439,4 +511,20 @@ export function useChatComposer(options: UseChatComposerOptions) {
     sourceOptions: query.sourceOptions,
     suggestions: query.suggestions,
   }
+}
+
+function clipboardImageFile(bytes: unknown): File {
+  if (!(bytes instanceof Uint8Array))
+    throw new Error(CLIPBOARD_PASTE_IMAGE_INVALID)
+  const verdict = classifyClipboardPng(bytes)
+  if (verdict !== 'ok')
+    throw new Error(verdict === 'too_large' ? CLIPBOARD_PASTE_IMAGE_TOO_LARGE : CLIPBOARD_PASTE_IMAGE_INVALID)
+  const copy = new Uint8Array(bytes.byteLength)
+  copy.set(bytes)
+  return new File([copy], 'image.png', { type: 'image/png' })
+}
+
+function clipboardImageFailureKind(error: unknown): 'too_large' | 'unavailable' {
+  const message = error instanceof Error ? error.message : ''
+  return message.includes(CLIPBOARD_PASTE_IMAGE_TOO_LARGE) ? 'too_large' : 'unavailable'
 }

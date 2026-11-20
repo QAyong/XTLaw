@@ -18,7 +18,7 @@ import {
   lexoraConfigPatchSchema,
   releasePageInputSchema,
 } from '../shared/desktopApiSchemas'
-import { clipboardWriteImageInputSchema } from '../shared/desktopClipboard'
+import { CLIPBOARD_PASTE_IMAGE_INVALID, CLIPBOARD_PASTE_IMAGE_UNAVAILABLE, clipboardWriteImageInputSchema, readForegroundClipboardPng } from '../shared/desktopClipboard'
 import { getDesktopCommand, isDesktopCommandId } from '../shared/desktopCommands'
 import { getSystemUserProfile } from './platform/systemProfile'
 import { readDesktopWindowState } from './window'
@@ -100,6 +100,23 @@ export function registerDesktopIpc(options: RegisterDesktopIpcOptions): void {
     await clipboard.write([new ClipboardItem({ 'image/png': new Blob([new Uint8Array(png)], { type: 'image/png' }) })])
   })
 
+  ipcMain.handle(DESKTOP_IPC_CHANNELS.clipboardReadPastedImage, async (event) => {
+    assertTrustedSender(event, options.getWindow())
+    assertClipboardPasteForeground(options.getWindow())
+    const items = await clipboard.read()
+    return readForegroundClipboardPng(items.map(item => ({
+      types: item.types,
+      getType: async (type: string) => {
+        if (type !== 'image/png')
+          throw new Error(CLIPBOARD_PASTE_IMAGE_INVALID)
+        return item.getType('image/png')
+      },
+    })), () => {
+      assertTrustedSender(event, options.getWindow())
+      assertClipboardPasteForeground(options.getWindow())
+    })
+  })
+
   ipcMain.handle(DESKTOP_IPC_CHANNELS.commandExecute, async (event, commandId: unknown) => {
     assertTrustedSender(event, options.getWindow())
     if (!isDesktopCommandId(commandId) || getDesktopCommand(commandId).execution !== 'main')
@@ -163,4 +180,9 @@ export function assertTrustedSender(event: Pick<IpcMainInvokeEvent, 'sender' | '
     || event.senderFrame !== window.webContents.mainFrame) {
     throw new Error('Untrusted Desktop IPC sender')
   }
+}
+
+function assertClipboardPasteForeground(window: BrowserWindow | null): void {
+  if (!window || window.isDestroyed() || !window.isVisible() || window.isMinimized() || !window.isFocused())
+    throw new Error(CLIPBOARD_PASTE_IMAGE_UNAVAILABLE)
 }

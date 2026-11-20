@@ -53,6 +53,8 @@ export interface ChatComposerEditorOptions {
   onTrigger: (trigger: ChatComposerTrigger | null) => void
   onSuggestionKeydown: (event: KeyboardEvent) => boolean
   onPasteFiles: (files: readonly File[]) => void
+  onPasteEmptyImage: (timeStamp: number) => void
+  onPasteStart: () => void
   onPasteText: (text: string) => void
   onPasteSessionReferences: (references: readonly BuddySessionReference[], text: string) => void
   onSubmit: () => void

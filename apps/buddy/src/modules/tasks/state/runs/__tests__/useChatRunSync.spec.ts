@@ -561,6 +561,42 @@ describe('useChatRunSync', () => {
     }
   })
 
+  it('lets a snapshot-only refresh finish while an existing refresh loads run events', async () => {
+    const active = run('run-a', 'conversation-a')
+    const message = timelineMessage('message-a', active.conversationId, active.branchId, 1)
+    const pageRequested = deferred<void>()
+    const eventPage = deferred<{ events: LocalRunEvent[], nextSequence: null }>()
+    const api = createApi({ listTimeline: async () => ({
+      ...timelinePage([message], null, [active]),
+      eventWindows: [{ runId: active.id, throughSequence: 1, count: 1 }],
+    }) })
+    api.conversations.readEventPage = () => {
+      pageRequested.resolve()
+      return eventPage.promise
+    }
+    const onError = vi.fn()
+    const sync = useChatRunSync({ activeBranchId: ref(active.branchId), activeConversationId: ref(active.conversationId), api, onError })
+    const fullRefresh = sync.refreshActiveConversation()
+    try {
+      await pageRequested.promise
+      const snapshot = sync.refreshActiveConversation({ waitForEvents: false })
+      const pendingFullRefresh = Symbol('pending')
+      const snapshotOutcome = await Promise.race([
+        snapshot,
+        new Promise<typeof pendingFullRefresh>(resolve => setImmediate(() => resolve(pendingFullRefresh))),
+      ])
+      expect(snapshotOutcome).toBeUndefined()
+      expect(sync.messages.value.map(item => item.id)).toEqual([message.id])
+      expect(sync.runEventBuckets.value.get(active.id)?.events ?? []).toEqual([])
+    }
+    finally {
+      eventPage.resolve({ events: [event(active.id, 1)], nextSequence: null })
+      await fullRefresh
+      sync.dispose()
+    }
+    expect(onError).not.toHaveBeenCalled()
+  })
+
   it('loads only the missing suffix and retains a terminal run until its compacted page arrives', async () => {
     stubAnimationFrameWindow()
     const active = run('run-a', 'conversation-a')

@@ -1059,8 +1059,9 @@ export async function startBuddyService(
           try {
             contextPanelStateSchema.parse(await options.rpc.request(contextPanelRpc.presentBrowser, source))
           }
-          catch {
+          catch (error) {
             record({ event: 'context_panel.presentation.failed', level: 'warn', errorCode: 'CONTEXT_PANEL_UNAVAILABLE' })
+            throw error
           }
         },
         connectorService,

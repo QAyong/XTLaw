@@ -39,6 +39,7 @@ import { createDesktopSelectionReferences } from './createDesktopSelectionRefere
 import { DocumentSelections } from './DocumentSelections'
 import { ExtensionDocumentRouter } from './extensionDocuments'
 import { absolute, contains, FileOperationService } from './FileOperationService'
+import { INITIAL_DRAFT_DEFERRED_KEY, runInitialDraftSettlement } from './initialDraftDeferral'
 import { createQuoteSourceOpener } from './openQuoteSourceFile'
 import { registerDesktopContributions } from './registerDesktopContributions'
 import { restoreTaskInputViews } from './restoreTaskInputViews'
@@ -577,6 +578,36 @@ export function useDesktopWorkbench(options: { beforeExtensionClose?: (viewId: s
     } })
   })
 
+  async function settleInitialDraft(source: 'startup' | 'onboarding', restored = false) {
+    await runInitialDraftSettlement({
+      source,
+      restored,
+      hasView: () => panes(controller.layout.root).some(pane => pane.view),
+      workspaceReady: () => panes(controller.layout.root).some((pane) => {
+        const view = pane.view ? controller.layout.views[pane.view] : undefined
+        return !!view && !!pool.peek(view.resource)
+      }),
+      deferred: () => controller.layout.auxiliary[INITIAL_DRAFT_DEFERRED_KEY] === true,
+      onboardingCompleted: () => stores.applicationSettings.config.value?.desktop.onboardingCompleted,
+      readWorkspace: async () => {
+        const previous = await api.localChat.workspaceState.read()
+        return previous
+          ? { activeConversationId: previous.value.activeConversationId, spaceId: previous.value.spaceId }
+          : null
+      },
+      openTask,
+      createDraft: spaceId => newTask({ spaceId }),
+      setDeferred: () => controller.setAuxiliary(INITIAL_DRAFT_DEFERRED_KEY, true),
+      clearDeferred: () => controller.removeAuxiliary(INITIAL_DRAFT_DEFERRED_KEY),
+    })
+  }
+
+  async function ensureInitialDraft() {
+    if (!initialized.value)
+      return
+    await settleInitialDraft('onboarding')
+  }
+
   async function initialize() {
     if (initialized.value)
       return
@@ -600,14 +631,7 @@ export function useDesktopWorkbench(options: { beforeExtensionClose?: (viewId: s
     // Seed before the first await so the file-manager watcher sees the restored targets as already handled.
     documentSelections.seed(resources.allTabs.value)
     await discardUnavailableTaskViews()
-    if (!restored && !panes(controller.layout.root).some(pane => pane.view)) {
-      const previous = await api.localChat.workspaceState.read()
-      const id = previous?.value.activeConversationId
-      if (id)
-        await openTask(id)
-      else
-        await newTask({ spaceId: previous?.value.spaceId })
-    }
+    await settleInitialDraft('startup', restored)
     initialized.value = true
     projections.reconcile()
     await inputs.restore(restored)
@@ -792,7 +816,7 @@ export function useDesktopWorkbench(options: { beforeExtensionClose?: (viewId: s
     return saved
   }
   const selectionReferences = createDesktopSelectionReferences({ controller, pool, documents, language, openFile: createQuoteSourceOpener({ resources: options.resources, openInTab: openFile, openStandalone: (target, current) => createFile(target, undefined, current) }), browser: api.browser, resources: options.resources, ready: () => initialized.value, independent: () => stores.applicationSettings.config.value?.desktop.contextPanelMode === 'independent', locateFile: target => api.localChat.spaces.readFile(target), navigationVersion: () => navigationVersion })
-  return { revealOpenOfficeDocument: (target: FileTarget) => revealOpenOfficeDocument(controller, options.resources(), target), selectionReferences, documents, api, renderers, autoSave, fileOperations, fileToolbarTargets, fileView, documentSelections, closeContextFiles, readingPositions, discardTask, prepareTaskDeletion, activeTask, activeTaskId, activeResource: activity.resource, backupError, controller, copies, models, editors, pool, persistence, initialize, flush, dispose, openTask, newTask, prepareNewTaskInput, showTaskInput, showReferencePage, startTaskWithSkill, openFile, dropResource, language, get initialized() {
+  return { revealOpenOfficeDocument: (target: FileTarget) => revealOpenOfficeDocument(controller, options.resources(), target), selectionReferences, documents, api, renderers, autoSave, fileOperations, fileToolbarTargets, fileView, documentSelections, closeContextFiles, readingPositions, discardTask, prepareTaskDeletion, activeTask, activeTaskId, activeResource: activity.resource, backupError, controller, copies, models, editors, pool, persistence, initialize, ensureInitialDraft, flush, dispose, openTask, newTask, prepareNewTaskInput, showTaskInput, showReferencePage, startTaskWithSkill, openFile, dropResource, language, get initialized() {
     return initialized.value
   }, get navigationVersion() {
     return navigationVersion

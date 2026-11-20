@@ -346,7 +346,15 @@ const onboarding = useDesktopOnboarding({
   settings: stores.applicationSettings,
   providers: stores.modelProviders,
   buddies: buddyDirectory,
-  onComplete: () => navigation.navigate(desktopRouteLocations.tasks()),
+  onComplete: async () => {
+    try {
+      await workbench.ensureInitialDraft()
+    }
+    catch {
+      // Keep the deferral marker. Routing stays available and the next startup retries the empty draft.
+    }
+    await navigation.navigate(desktopRouteLocations.tasks())
+  },
 })
 const featureDiscovery = useFeatureDiscovery({
   settings: stores.applicationSettings,

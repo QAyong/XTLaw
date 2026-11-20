@@ -12,7 +12,7 @@ export interface ChatRunSyncOptions {
   activeConversationId: Readonly<Ref<string | null>>
   api: {
     approvals: Pick<LocalChatApi['approvals'], 'list'>
-    conversations: Pick<LocalChatApi['conversations'], 'listTimeline'>
+    conversations: Pick<LocalChatApi['conversations'], 'listTimeline' | 'readEventPage'>
   }
   onError: (error: unknown) => void
 }
@@ -42,6 +42,6 @@ export interface ChatRunSync extends ChatRunProjectionState {
   dispose: () => void
   handleRunEvent: (event: LocalRunEvent) => void
   loadOlderMessages: () => Promise<boolean>
-  refreshActiveConversation: () => Promise<void>
+  refreshActiveConversation: (options?: { waitForEvents?: boolean }) => Promise<void>
   upsertRuns: (incoming: ReadonlyArray<LocalRun>) => void
 }

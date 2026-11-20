@@ -1710,6 +1710,7 @@ export async function startBuddyService(
       )
       register(
         registerRunRpc({
+          isConversationReadable: id => conversations.findById(id)?.deletedAt === null,
           statistics,
           isBusy,
           eventLog: options.eventLog,
@@ -1781,6 +1782,7 @@ export async function startBuddyService(
       }))
       register(
         registerConversationRpc({
+          database: options.database,
           artifacts: artifactsRepository,
           attachments: attachmentService,
           changes: changeCaptureService,

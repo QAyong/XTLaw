@@ -69,4 +69,12 @@ describe('local chat preload boundary', () => {
       referencedResourceIds: ['resource-1'],
     })
   })
+
+  it('forwards a paged run event read on the local chat channel', async () => {
+    const api = createLocalChatApi()
+    const input = { conversationId: 'conversation-1', runId: 'run-1', afterSequence: 0, throughSequence: 4 }
+    electron.invoke.mockResolvedValue({ events: [], nextSequence: null })
+    await expect(api.conversations.readEventPage(input)).resolves.toEqual({ events: [], nextSequence: null })
+    expect(electron.invoke).toHaveBeenCalledWith(LOCAL_CHAT_IPC_CHANNELS.conversationsReadEventPage, input)
+  })
 })

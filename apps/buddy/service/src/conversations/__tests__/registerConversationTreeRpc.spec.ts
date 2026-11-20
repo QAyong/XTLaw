@@ -79,4 +79,53 @@ describe('conversation tree queries', () => {
       database.close()
     }
   })
+
+  it('reads one answer as an event window without collecting its events', async () => {
+    const database = openBuddyDatabase({ databasePath: ':memory:' })
+    try {
+      const conversations = createConversationRepository(database)
+      const runs = createRunRepository(database)
+      const now = '2026-09-09T00:00:00.000Z'
+      conversations.create({ id: 'conversation', branchId: 'branch', createdAt: now, approvalPolicy: 'policy', executionProfile: 'workspace_write', spaceId: null, title: 'Detail' })
+      conversations.createMessage({ id: 'question', conversationId: 'conversation', branchId: 'branch', role: 'user', runId: null, createdAt: now, content: { text: 'Question' } })
+      runs.create({ id: 'run-1', conversationId: 'conversation', branchId: 'branch', triggeringMessageId: 'question', provider: 'provider', model: 'model', purpose: 'chat', status: 'completed', startedAt: now, completedAt: now, approvalPolicy: 'policy', executionProfile: 'workspace_write', piSessionFile: null })
+      conversations.createMessage({ id: 'answer', conversationId: 'conversation', branchId: 'branch', role: 'assistant', runId: 'run-1', createdAt: now, content: { text: 'Answer' } })
+      database.prepare('INSERT INTO run_events (run_id, sequence, event_type, payload_json, created_at) VALUES (?, ?, ?, ?, ?)').run('run-1', 1, 'run.completed', JSON.stringify({ errorCode: null }), now)
+      const verified: unknown[][] = []
+      const handlers = new Map<string, RuntimeRequestHandler>()
+      registerConversationTreeRpc({
+        database,
+        conversations,
+        runs,
+        rpc: { onRequest: (method, handler) => {
+          handlers.set(method, handler)
+          return () => handlers.delete(method)
+        } },
+        attachments: { listForConversation: () => [] },
+        artifacts: { listForConversation: () => [] },
+        changes: { listSummariesForRuns: () => [] },
+        runInputs: { findByRunId: () => null },
+        eventLog: {
+          listForRuns: () => {
+            throw new Error('paged detail must not collect events')
+          },
+          async verifyRun(...args) {
+            verified.push(args)
+          },
+        },
+      })
+      const invoke = async (method: string, input: unknown) => await handlers.get(method)!(input)
+      const page = conversationResponseSchemas.timelinePage.parse(await invoke('conversations.getNodeDetail', { conversationId: 'conversation', kind: 'answer', runId: 'run-1', eventView: 'paged' }))
+      expect(page.eventWindows).toEqual([{ runId: 'run-1', throughSequence: 1, count: 1 }])
+      expect(page.runEvents).toEqual([])
+      expect(page.outputs).toEqual([])
+      expect(verified).toEqual([['run-1']])
+      await expect(invoke('conversations.getNodeDetail', { conversationId: 'conversation', kind: 'answer', runId: 'other-run', eventView: 'paged' })).rejects.toThrow()
+      conversations.markDeleted('conversation', now)
+      await expect(invoke('conversations.getNodeDetail', { conversationId: 'conversation', kind: 'answer', runId: 'run-1', eventView: 'paged' })).rejects.toThrow()
+    }
+    finally {
+      database.close()
+    }
+  })
 })

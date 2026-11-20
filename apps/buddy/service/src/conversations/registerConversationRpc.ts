@@ -1,3 +1,4 @@
+import type { DatabaseSync } from 'node:sqlite'
 import type { AttachmentService } from '../attachments/AttachmentService'
 import type { ChangeCaptureService } from '../changes/ChangeCaptureService'
 import type { BuddyRunEvent } from '../events/BuddyRunEvent'
@@ -17,6 +18,7 @@ import { conversationsRpc } from '../../../shared/conversation/conversationApi'
 import { conversationHistoryRpc } from '../../../shared/conversation/conversationHistoryApi'
 
 import { toPublicRunEvent } from '../../../shared/runs/publicRunEvent'
+import { RUN_EVENT_PAGE_LIMITS } from '../../../shared/runs/runEventPageLimits'
 import {
   withMessageAttachments,
 } from '../attachments/publicAttachment'
@@ -33,6 +35,8 @@ import {
 } from './messagePageCursor'
 import { projectRunOutputs } from './projectRunOutputs'
 
+import { readTimelineEventSnapshot } from './timelineEventSnapshot'
+
 type ConversationRpcRepository = Pick<
   ConversationRepository,
   | 'findById'
@@ -42,6 +46,7 @@ type ConversationRpcRepository = Pick<
 > & ConversationIndexRepository & ConversationTimelineRepository
 
 export interface RegisterConversationRpcOptions {
+  database: DatabaseSync
   artifacts: Pick<ArtifactRepository, 'listForConversation'>
   attachments: Pick<AttachmentService, 'listForConversation'>
   changes: Pick<ChangeCaptureService, 'listSummariesForRuns'>
@@ -153,6 +158,7 @@ export function registerConversationRpc(options: RegisterConversationRpcOptions)
             })
           : null,
         limit: input.limit ?? 100,
+        maxContentBytes: input.eventView === 'paged' ? RUN_EVENT_PAGE_LIMITS.bytes : undefined,
       },
     )
     const readTimeline = () => {
@@ -170,10 +176,14 @@ export function registerConversationRpc(options: RegisterConversationRpcOptions)
       page.items,
       options.attachments.listForConversation(input.conversationId),
     )
-    const runEvents = options.eventLog.listForRuns(runs.map(run => run.id))
     const runIds = runs.map(run => run.id)
     const quarantined = new Set(options.eventLog.getRecoveryFailures?.().map(failure => failure.runId))
+    const snapshot = input.eventView === 'paged'
+      ? readTimelineEventSnapshot(options.database, runIds.filter(id => !quarantined.has(id)))
+      : null
+    const runEvents = snapshot ? [] : options.eventLog.listForRuns(runIds)
     return {
+      ...(snapshot ? { eventWindows: snapshot.eventWindows } : {}),
       changeSets: options.changes.listSummariesForRuns(runIds),
       items,
       nextCursor: page.nextBefore
@@ -184,7 +194,7 @@ export function registerConversationRpc(options: RegisterConversationRpcOptions)
           })
         : null,
       outputs: projectRunOutputs(
-        runEvents,
+        snapshot?.outputs ?? runEvents,
         options.artifacts.listForConversation(input.conversationId),
       ),
       runEvents: runEvents.map(toPublicRunEvent),

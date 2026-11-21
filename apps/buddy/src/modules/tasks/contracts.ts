@@ -25,7 +25,7 @@ import type { ExecutionGroups } from './model/executions/executionGroups'
 import type { ChatApprovalDecision, ChatContextUsage, ChatRunEventBuckets } from './model/runs/typing'
 import type { ChatBlocker } from './model/status/typing'
 import type { ChatComposerInteraction, ComposerResourceView } from './state/composer/typing'
-import type { DraftRestorationConflict, DraftRestorationState } from './state/drafts/typing'
+import type { DraftRestorationChoice, DraftRestorationConflict, DraftRestorationState } from './state/drafts/typing'
 import type { UserQuestionsController } from './state/runs/useUserQuestions'
 import type { SpaceDirectorySource, TaskSpaceInput } from './state/task-index/typing'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
@@ -234,7 +234,7 @@ export interface TaskDraftRestoration {
   state: State<DraftRestorationState>
   conflict: State<DraftRestorationConflict | null>
   restore: () => Promise<void>
-  resolveRemote: (targetKey: string) => Promise<boolean>
+  resolveConflict: (targetKey: string, choice: DraftRestorationChoice) => Promise<boolean>
 }
 
 export interface TaskConversationTree {

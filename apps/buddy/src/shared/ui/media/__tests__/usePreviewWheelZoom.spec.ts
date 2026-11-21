@@ -136,7 +136,13 @@ describe('preview wheel zoom', () => {
     expect(reopened.zoomIn).toHaveBeenCalledTimes(1)
   })
 
-  it('uses the real image preview toolbar and existing scale state', async () => {
+  it('shares scale state between the image viewer wheel and toolbar', async () => {
+    const imageProperties = [
+      vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(true),
+      vi.spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get').mockReturnValue(100),
+      vi.spyOn(HTMLImageElement.prototype, 'naturalHeight', 'get').mockReturnValue(100),
+    ]
+    cleanups.push(() => imageProperties.forEach(property => property.mockRestore()))
     const host = document.createElement('div')
     document.body.append(host)
     const app = createApp({
@@ -146,13 +152,20 @@ describe('preview wheel zoom', () => {
     cleanups.push(() => app.unmount())
     await nextTick()
 
-    const image = document.querySelector<HTMLImageElement>('.n-image-preview-container .n-image-preview')!
-    expect(image).not.toBeNull()
-    wheel(image, -100)
+    const stage = document.querySelector('.buddy-image-viewer__stage')!
+    Object.defineProperties(stage, {
+      clientWidth: { value: 400 },
+      clientHeight: { value: 400 },
+    })
+    const scale = document.querySelector('output[aria-label="缩放比例"]')!
+    await vi.waitFor(() => expect(scale.textContent).toBe('100%'))
+    const image = stage.querySelector('.viewer-canvas img')!
+    expect(wheel(image, -100).defaultPrevented).toBe(true)
     await nextTick()
-    expect(image.style.transform).toContain('scale(1.5)')
-    document.querySelector<HTMLButtonElement>('[data-preview-zoom="out"]')!.click()
-    expect(image.style.transform).toContain('scale(1)')
+    expect(scale.textContent).toBe('110%')
+    document.querySelector<HTMLButtonElement>('button[aria-label="缩小图片"]')!.click()
+    await nextTick()
+    expect(scale.textContent).toBe('88%')
   })
 
   it('uses the real Mermaid modal toolbar without enabling inline wheel zoom', async () => {

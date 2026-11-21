@@ -191,7 +191,11 @@ describe('dOCX editor open flow', () => {
 
 it('ships fonts but no PDF assets, workers, export routes or network permission', async () => {
   const names = await readdir(new URL('editor/assets/', plugin))
-  expect(names.filter(name => /\.(?:ttf|woff2)$/.test(name))).toHaveLength(38)
+  const provenance = JSON.parse(await readFile(new URL('provenance.json', plugin), 'utf8'))
+  const fontFiles = names.filter(name => /\.(?:ttf|woff2)$/.test(name)).map(name => `assets/${name}`).sort()
+  const recordedFonts = provenance.resources.map(resource => resource.name).filter(name => /\.(?:ttf|woff2)$/.test(name)).sort()
+  expect(fontFiles.length).toBeGreaterThan(0)
+  expect(fontFiles).toEqual(recordedFonts)
   const all = await readdir(new URL('editor/', plugin), { recursive: true })
   expect(all.some(name => /pdf.worker|pdf-lib|parse-worker/.test(name))).toBe(false)
   const renderer = await readFile(new URL('editor/editor.js', plugin), 'utf8')

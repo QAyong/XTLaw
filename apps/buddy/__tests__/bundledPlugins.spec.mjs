@@ -46,6 +46,7 @@ describe('plugin source discovery', () => {
 
   it('retains the plugin source folders with their existing package names', () => {
     expect(discoverPluginSources().map(plugin => plugin.file)).toEqual([
+      'legacy-task-cleanup.lexora-extension',
       'legal-research.lexora-extension',
       'legal-research-agent.lexora-extension',
       'office.lexora-extension',
@@ -53,6 +54,7 @@ describe('plugin source discovery', () => {
       'office-pptx.lexora-extension',
       'office-xlsx.lexora-extension',
       'pkulaw.lexora-extension',
+      'transcript-player.lexora-extension',
     ])
   })
 })

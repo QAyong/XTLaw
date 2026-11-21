@@ -1,10 +1,11 @@
 import type { LexoraDesktopApi } from '@buddy-electron/shared/desktopApi'
 import type { LocalComposerDraft } from '@buddy-shared/conversation/composerApi'
 import type { LocalConversation } from '@buddy-shared/conversation/conversationApi'
-import type { ChatDraftSnapshot, DraftRestorationConflict, DraftRestorationState } from './typing'
+import type { ChatDraftSnapshot, DraftRestorationChoice, DraftRestorationConflict, DraftRestorationState } from './typing'
 
 import type { ChatSession } from '@/modules/tasks/state/conversations/useChatSession'
 import type { useChatDrafts } from '@/modules/tasks/state/drafts/useChatDrafts'
+import { createBuddyUserContent, getBuddyUserContentResourceIds } from '@buddy-shared/conversation/buddyUserContent'
 import { computed, readonly, shallowRef, watch } from 'vue'
 import { parseDraftScopeKey } from '../../model/drafts/draftScope'
 import { createDraftValueFingerprint } from '../../model/drafts/draftValueFingerprint'
@@ -28,7 +29,13 @@ export function useTaskWorkspacePersistence(options: UseTaskWorkspacePersistence
     if (!current)
       return null
     const local = options.drafts.listSnapshots().find(snapshot => snapshot.targetKey === current.targetKey)
-    return local ? { ...current, local } : null
+    if (!local)
+      return null
+    return {
+      ...current,
+      local,
+      canUseLocal: local.draftId === current.remote.draftId || !getBuddyUserContentResourceIds(local.content).length,
+    }
   })
   let restoration: Promise<boolean> | null = null
   let hasCapturedInitialDrafts = false
@@ -100,15 +107,52 @@ export function useTaskWorkspacePersistence(options: UseTaskWorkspacePersistence
     }
   }
 
-  async function resolveRemote(targetKey: string): Promise<boolean> {
+  function readRecoveryDraft(snapshot: ChatDraftSnapshot, draftId: string) {
+    const scope = parseDraftScopeKey(snapshot.targetKey)
+    if (scope.kind !== 'message_edit' && scope.kind !== 'message_followup')
+      return options.api.composerDrafts.get(draftId)
+    return options.api.composerDrafts.open({
+      scope,
+      draftId: crypto.randomUUID(),
+      initialContent: createBuddyUserContent(),
+      initialParticipants: snapshot.participants,
+      initialExecutionConfig: { approvalPolicy: snapshot.approvalPolicy, executionProfile: snapshot.executionProfile },
+      initialModelSelection: snapshot.modelSelection,
+    })
+  }
+
+  async function resolveConflict(targetKey: string, choice: DraftRestorationChoice): Promise<boolean> {
+    const pending = conflict.value
     const current = restorationConflict.value
-    if (disposed || !current || current.targetKey !== targetKey)
+    const isCurrent = () => !disposed && conflict.value === pending && !isReadOnlyTarget(targetKey)
+    if (!current || current.targetKey !== targetKey || !isCurrent() || (choice === 'local' && !current.canUseLocal))
       return false
+    const local = current.local
     try {
-      const remote = await options.api.composerDrafts.get(current.remote.draftId)
-      if (disposed || conflict.value?.targetKey !== targetKey || !options.drafts.isUnchanged(current.local))
+      let remote = await readRecoveryDraft(local, current.remote.draftId)
+      if (!isCurrent() || !options.drafts.isUnchanged(local))
         return false
-      if (!options.drafts.confirmOpen(current.local, remote))
+      if (remote.draftId !== current.remote.draftId || remote.revision !== current.remote.revision) {
+        conflict.value = { targetKey, remote }
+        return false
+      }
+      if (choice !== 'saved') {
+        remote = await options.api.composerDrafts.save({
+          draftId: remote.draftId,
+          expectedRevision: remote.revision,
+          content: choice === 'local' ? local.content : createBuddyUserContent(),
+          executionConfig: choice === 'local' ? { approvalPolicy: local.approvalPolicy, executionProfile: local.executionProfile } : remote.executionConfig,
+          modelSelection: choice === 'local' ? local.modelSelection : remote.modelSelection,
+          participants: choice === 'local' ? local.participants : remote.participants,
+        })
+        if (!isCurrent())
+          return false
+        if (!options.drafts.isUnchanged(local)) {
+          conflict.value = { targetKey, remote }
+          return false
+        }
+      }
+      if (!options.drafts.confirmOpen(local, remote))
         return false
       options.onDraftRestored?.(targetKey)
       initialDrafts.set(targetKey, options.drafts.snapshot(targetKey))
@@ -289,7 +333,7 @@ export function useTaskWorkspacePersistence(options: UseTaskWorkspacePersistence
         void flush()
     },
     restore,
-    resolveRemote,
+    resolveConflict,
     restorationConflict: readonly(restorationConflict),
     restorationState: readonly(restorationState),
     flushPending,

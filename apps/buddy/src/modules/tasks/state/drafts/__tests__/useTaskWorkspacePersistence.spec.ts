@@ -119,11 +119,18 @@ describe('workspace Draft persistence', () => {
     expect(fixture.drafts.snapshot('global')).toMatchObject({ draftId: localId, content, revision: null })
     expect(await fixture.persistence.flushPending()).toBe(false)
     expect(fixture.saves).toEqual([])
+    expect(fixture.persistence.restorationConflict.value?.canUseLocal).toBe(false)
+    expect(await fixture.persistence.resolveConflict('global', 'local')).toBe(false)
+    expect(fixture.drafts.snapshot('global').content).toEqual(content)
+    expect(fixture.runtimeDraft('global')?.content).toEqual(createBuddyUserContent('remote input'))
     updateText(fixture.drafts, 'latest local input')
-    expect(fixture.persistence.restorationConflict.value?.local.content).toEqual(createBuddyUserContent('latest local input'))
+    expect(fixture.persistence.restorationConflict.value).toMatchObject({
+      canUseLocal: true,
+      local: { content: createBuddyUserContent('latest local input') },
+    })
     const editorKey = fixture.drafts.editorKey.value
 
-    expect(await fixture.persistence.resolveRemote('global')).toBe(true)
+    expect(await fixture.persistence.resolveConflict('global', 'saved')).toBe(true)
     expect(fixture.drafts.draftId.value).toBe('runtime-confirmed-draft')
     expect(fixture.drafts.draft.value).toBe('remote input')
     expect(fixture.drafts.editorKey.value).not.toBe(editorKey)
@@ -169,12 +176,58 @@ describe('workspace Draft persistence', () => {
     expect(await fixture.persistence.flushPending()).toBe(false)
     expect(fixture.saves).toEqual([])
 
-    expect(await fixture.persistence.resolveRemote('space:space-1')).toBe(true)
+    expect(await fixture.persistence.resolveConflict('space:space-1', 'saved')).toBe(true)
     expect(fixture.session.spaceId.value).toBe('space-2')
     expect(fixture.drafts.snapshot('space:space-1')).toMatchObject({
       draftId: 'runtime-confirmed-draft',
       content: createBuddyUserContent('unseen saved destination'),
     })
+  })
+
+  it.each(['local', 'empty'] as const)('persists the %s choice before resuming editing', async (choice) => {
+    const opening = deferred<void>()
+    const fixture = await createFixture({ beforeOpen: () => opening.promise, confirmedContent: 'saved version', hydrate: false })
+    const restoring = fixture.persistence.restore()
+    updateText(fixture.drafts, 'current version')
+    opening.resolve()
+    expect(await restoring).toBe(false)
+
+    expect(await fixture.persistence.resolveConflict('global', choice)).toBe(true)
+    const content = createBuddyUserContent(choice === 'local' ? 'current version' : '')
+    expect(fixture.drafts.snapshot('global').content).toEqual(content)
+    expect(fixture.runtimeDraft('global')?.content).toEqual(content)
+    expect(fixture.persistence.restorationState.value).toBe('ready')
+    expect(await fixture.persistence.flushPending()).toBe(true)
+    expect(fixture.saves).toHaveLength(1)
+  })
+
+  it('keeps later edits and updates the comparison if a conflict choice is saved during typing', async () => {
+    const opening = deferred<void>()
+    const saving = deferred<void>()
+    const fixture = await createFixture({
+      beforeOpen: () => opening.promise,
+      beforeSave: () => saving.promise,
+      confirmedContent: 'saved version',
+      hydrate: false,
+    })
+    const restoring = fixture.persistence.restore()
+    updateText(fixture.drafts, 'current version')
+    opening.resolve()
+    expect(await restoring).toBe(false)
+
+    const resolution = fixture.persistence.resolveConflict('global', 'local')
+    await vi.waitFor(() => expect(fixture.saves).toHaveLength(1))
+    updateText(fixture.drafts, 'later edits')
+    saving.resolve()
+
+    expect(await resolution).toBe(false)
+    expect(fixture.persistence.restorationState.value).toBe('conflict')
+    expect(fixture.persistence.restorationConflict.value).toMatchObject({
+      local: { content: createBuddyUserContent('later edits') },
+      remote: { content: createBuddyUserContent('current version'), revision: 1 },
+    })
+    expect(await fixture.persistence.resolveConflict('global', 'local')).toBe(true)
+    expect(fixture.runtimeDraft('global')?.content).toEqual(createBuddyUserContent('later edits'))
   })
 
   it('retains edits made while the user-requested remote replacement is being read', async () => {
@@ -186,7 +239,7 @@ describe('workspace Draft persistence', () => {
     opening.resolve()
     expect(await restoring).toBe(false)
     const localId = fixture.drafts.draftId.value
-    const resolution = fixture.persistence.resolveRemote('global')
+    const resolution = fixture.persistence.resolveConflict('global', 'saved')
     updateText(fixture.drafts, 'edited while replacing')
     replacing.resolve()
 

@@ -31,7 +31,7 @@ watch(language, syncBuddyDayjsLocale, { immediate: true })
     :theme="prefersDark ? darkTheme : null"
     :theme-overrides="themeOverrides"
   >
-    <NMessageProvider placement="top" closable :duration="6000">
+    <NMessageProvider placement="top" closable :duration="3000" keep-alive-on-hover>
       <NDialogProvider>
         <div class="buddy-app" :class="{ 'is-dark': prefersDark }">
           <DesktopAppProvider

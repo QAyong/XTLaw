@@ -1,8 +1,9 @@
 <script setup lang="ts">
+import type { ComponentPublicInstance } from 'vue'
 import type { ModelProvidersStore } from '@/modules/models/state/typing'
 import { Add20Regular, Info20Regular, Search20Regular } from '@vicons/fluent'
 import { NButton, NInput, NPopconfirm, NSpace, NSwitch, NTooltip } from 'naive-ui'
-import { computed, ref } from 'vue'
+import { computed, ref, useTemplateRef, watch } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import DesktopManualModelDialog from '@/modules/models/widgets/providers/DesktopManualModelDialog.vue'
 import DesktopModelCapabilityTags from '@/modules/models/widgets/providers/DesktopModelCapabilityTags.vue'
@@ -11,10 +12,13 @@ import DesktopProviderConnectionDialog from '@/modules/models/widgets/providers/
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import DesktopSegmentedControl from '@/shared/ui/segmented-control/DesktopSegmentedControl.vue'
 import { useProviderDetail } from './useProviderDetail'
+import { providerModelRowKey, useProviderModelVirtualList } from './useProviderModelVirtualList'
 
 const props = defineProps<{
   providerSettings: ModelProvidersStore
   providerId: string
+  /** Page scrollport. `undefined` keeps the full list for callers without a settings viewport. */
+  scrollElement?: HTMLElement | null
 }>()
 const emit = defineEmits<{
   continueSetup: [providerId: string, startAtConnection?: boolean]
@@ -46,6 +50,51 @@ const visibleModels = computed(() => {
   const search = query.value.trim().toLocaleLowerCase()
   return models.value.filter(model => (typeFilter.value === 'all' || model.type === typeFilter.value)
     && (!search || [model.displayName, model.modelId].some(value => value.toLocaleLowerCase().includes(search))))
+})
+const virtualized = computed(() => props.scrollElement !== undefined)
+const resultsSection = useTemplateRef<HTMLElement>('resultsSection')
+const modelsAnchor = useTemplateRef<HTMLElement>('modelsAnchor')
+const {
+  measureRow,
+  releaseFocusedRow,
+  rememberFocusedRow,
+  revealPageStart,
+  revealResults,
+  totalHeight,
+  virtualRows,
+} = useProviderModelVirtualList({
+  enabled: () => virtualized.value,
+  scrollElement: () => props.scrollElement ?? null,
+  providerId: () => props.providerId,
+  models: () => visibleModels.value,
+  anchor: () => modelsAnchor.value,
+})
+const showModelRows = computed(() => visibleModels.value.length > 0 && (!virtualized.value || !!props.scrollElement))
+const showEmpty = computed(() => visibleModels.value.length === 0 && (!virtualized.value || !!props.scrollElement))
+const renderedRows = computed(() => {
+  if (!virtualized.value || !props.scrollElement) {
+    return visibleModels.value.map((model, index) => ({
+      model,
+      index,
+      key: providerModelRowKey(props.providerId, model.modelId),
+      offset: null as number | null,
+    }))
+  }
+  return virtualRows.value
+})
+
+function bindMeasuredRow(node: ComponentPublicInstance | Element | null) {
+  if (virtualized.value && props.scrollElement)
+    measureRow(node instanceof Element ? node : null)
+}
+
+watch([query, typeFilter], () => {
+  if (props.scrollElement)
+    revealResults(resultsSection.value)
+})
+watch(() => props.providerId, () => {
+  if (props.scrollElement !== undefined)
+    revealPageStart()
 })
 </script>
 
@@ -119,7 +168,7 @@ const visibleModels = computed(() => {
       </div>
     </section>
 
-    <section class="desktop-provider-detail__section">
+    <section ref="resultsSection" class="desktop-provider-detail__section">
       <div class="desktop-provider-detail__section-heading">
         <div class="desktop-provider-detail__section-copy">
           <h3>{{ t('desktop.providers.models') }}</h3>
@@ -162,73 +211,90 @@ const visibleModels = computed(() => {
           </template>
         </NInput>
       </div>
-      <div v-if="visibleModels.length" class="desktop-provider-detail__group">
+      <div
+        ref="modelsAnchor"
+        class="desktop-provider-detail__models"
+        @focusin="rememberFocusedRow"
+        @focusout="releaseFocusedRow"
+      >
         <div
-          v-for="model in visibleModels"
-          :key="model.modelId"
-          class="desktop-provider-detail__row desktop-provider-detail__model-row"
+          v-if="showModelRows"
+          class="desktop-provider-detail__group"
+          :class="{ 'desktop-provider-detail__group--virtual': virtualized }"
+          :style="virtualized ? { height: `${totalHeight}px` } : undefined"
         >
-          <div class="desktop-provider-detail__row-copy">
-            <strong>{{ model.displayName }}</strong>
-            <small>{{ model.modelId }}</small>
-            <small v-if="model.type === 'chat'" class="desktop-provider-detail__model-parameters">
-              {{ t('desktop.providers.compactParameters', {
-                contextWindow: formatTokens(model.contextWindow),
-                maxTokens: formatTokens(model.maxTokens),
-              }) }}
-            </small>
-            <small>{{ t(`desktop.providers.modelTypes.${model.type}`) }}</small>
-            <DesktopModelCapabilityTags v-if="model.type === 'chat'" :language="language" :model="model" />
-          </div>
-          <div class="desktop-provider-detail__model-actions">
-            <template v-if="model.available">
-              <NButton size="small" @click="openModelDetail(model.modelId)">
-                {{ t('desktop.providers.manage') }}
-              </NButton>
-              <NSwitch
-                :round="false"
-                :value="model.enabled"
-                :disabled="provider.activeRunCount > 0"
-                @update:value="providerSettings.setProviderModelEnabled(provider.id, model.modelId, $event)"
-              />
-            </template>
-            <template v-else>
-              <NTooltip>
-                <template #trigger>
-                  <span
-                    class="desktop-provider-detail__model-availability"
-                    role="img"
-                    :aria-label="t('desktop.providers.notFoundInLastSync')"
-                  >
-                    <DesktopIcon :component="Info20Regular" :size="18" />
-                  </span>
-                </template>
-                {{ t('desktop.providers.modelUnavailableHint') }}
-              </NTooltip>
-              <NTooltip>
-                <template #trigger>
-                  <span>
-                    <NButton
-                      class="buddy-icon-button"
-                      quaternary
-                      size="small"
-                      :disabled="provider.activeRunCount > 0 || providerSettings.mutatingProviderId.value === provider.id"
-                      :aria-label="t('desktop.providers.removeUnavailableModel')"
-                      @click="removeUnavailableModel(model.modelId)"
+          <div
+            v-for="row in renderedRows"
+            :key="row.key"
+            :ref="bindMeasuredRow"
+            class="desktop-provider-detail__row desktop-provider-detail__model-row"
+            :class="{ 'desktop-provider-detail__model-row--last': row.index === visibleModels.length - 1 }"
+            :data-index="virtualized ? row.index : undefined"
+            :data-provider-model-key="row.key"
+            :style="row.offset === null ? undefined : { transform: `translateY(${row.offset}px)` }"
+          >
+            <div class="desktop-provider-detail__row-copy">
+              <strong>{{ row.model.displayName }}</strong>
+              <small>{{ row.model.modelId }}</small>
+              <small v-if="row.model.type === 'chat'" class="desktop-provider-detail__model-parameters">
+                {{ t('desktop.providers.compactParameters', {
+                  contextWindow: formatTokens(row.model.contextWindow),
+                  maxTokens: formatTokens(row.model.maxTokens),
+                }) }}
+              </small>
+              <small>{{ t(`desktop.providers.modelTypes.${row.model.type}`) }}</small>
+              <DesktopModelCapabilityTags v-if="row.model.type === 'chat'" :language="language" :model="row.model" />
+            </div>
+            <div class="desktop-provider-detail__model-actions">
+              <template v-if="row.model.available">
+                <NButton size="small" @click="openModelDetail(row.model.modelId)">
+                  {{ t('desktop.providers.manage') }}
+                </NButton>
+                <NSwitch
+                  :round="false"
+                  :value="row.model.enabled"
+                  :disabled="provider.activeRunCount > 0"
+                  @update:value="providerSettings.setProviderModelEnabled(provider.id, row.model.modelId, $event)"
+                />
+              </template>
+              <template v-else>
+                <NTooltip>
+                  <template #trigger>
+                    <span
+                      class="desktop-provider-detail__model-availability"
+                      role="img"
+                      :aria-label="t('desktop.providers.notFoundInLastSync')"
                     >
-                      <template #icon>
-                        <DesktopIcon name="delete" :size="16" />
-                      </template>
-                    </NButton>
-                  </span>
-                </template>
-                {{ t('desktop.providers.removeUnavailableModel') }}
-              </NTooltip>
-            </template>
+                      <DesktopIcon :component="Info20Regular" :size="18" />
+                    </span>
+                  </template>
+                  {{ t('desktop.providers.modelUnavailableHint') }}
+                </NTooltip>
+                <NTooltip>
+                  <template #trigger>
+                    <span>
+                      <NButton
+                        class="buddy-icon-button"
+                        quaternary
+                        size="small"
+                        :disabled="provider.activeRunCount > 0 || providerSettings.mutatingProviderId.value === provider.id"
+                        :aria-label="t('desktop.providers.removeUnavailableModel')"
+                        @click="removeUnavailableModel(row.model.modelId)"
+                      >
+                        <template #icon>
+                          <DesktopIcon name="delete" :size="16" />
+                        </template>
+                      </NButton>
+                    </span>
+                  </template>
+                  {{ t('desktop.providers.removeUnavailableModel') }}
+                </NTooltip>
+              </template>
+            </div>
           </div>
         </div>
       </div>
-      <p v-else class="desktop-provider-detail__empty" role="status">
+      <p v-if="showEmpty" class="desktop-provider-detail__empty" role="status">
         {{ t(models.length ? 'desktop.chat.noMatchingModels' : 'desktop.providers.noModels') }}
       </p>
     </section>
@@ -350,8 +416,21 @@ const visibleModels = computed(() => {
   padding: 0.7rem 0.9rem;
 }
 
-.desktop-provider-detail__row:last-child {
+.desktop-provider-detail__group:not(.desktop-provider-detail__group--virtual) > .desktop-provider-detail__row:last-child,
+.desktop-provider-detail__model-row--last {
   border-bottom: 0;
+}
+
+.desktop-provider-detail__group--virtual {
+  position: relative;
+}
+
+.desktop-provider-detail__group--virtual > .desktop-provider-detail__model-row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  overflow-anchor: none;
 }
 
 .desktop-provider-detail__section-heading {

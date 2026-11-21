@@ -15,10 +15,21 @@ it('marks archived history read-only and unarchives without resuming execution o
   const ready = shallowRef(true)
   const restore = vi.fn<TaskArchiveActions['restore']>().mockResolvedValue(true)
   const task = {
-    id: 'archived-task', title: 'Archived task', buddyId: 'default', activeBranchId: 'branch', activity: 'idle',
-    spaceId: null, createdAt: '2026-11-01T00:00:00Z', updatedAt: '2026-11-02T00:00:00Z', deletedAt: null,
-    archivedAt: '2026-11-02T00:00:00Z', metadataRevision: 9, approvalPolicy: 'policy', executionProfile: 'workspace_write',
-    modelSelection: null, automationOccurrence: null,
+    id: 'archived-task',
+    title: 'Archived task',
+    buddyId: 'default',
+    activeBranchId: 'branch',
+    activity: 'idle',
+    spaceId: null,
+    createdAt: '2026-11-01T00:00:00Z',
+    updatedAt: '2026-11-02T00:00:00Z',
+    deletedAt: null,
+    archivedAt: '2026-11-02T00:00:00Z',
+    metadataRevision: 9,
+    approvalPolicy: 'policy',
+    executionProfile: 'workspace_write',
+    modelSelection: null,
+    automationOccurrence: null,
   } as unknown as LocalConversation
   const actions = { ready, restore } as unknown as TaskArchiveActions
   const root = document.createElement('div')

@@ -35,7 +35,9 @@ function mount(initialState = deferred<SyncState>()) {
     state: vi.fn(() => requests.shift()!.promise),
     onChanged: vi.fn((listener: (state: SyncState) => void) => {
       changed = listener
-      return () => { changed = undefined }
+      return () => {
+        changed = undefined
+      }
     }),
   }
   Object.defineProperty(window, 'lexoraDesktop', { configurable: true, value: { sync } })
@@ -84,7 +86,7 @@ function mount(initialState = deferred<SyncState>()) {
 const fixtures: Array<() => void> = []
 afterEach(() => fixtures.splice(0).forEach(dispose => dispose()))
 
-describe('DesktopSyncSettings initial state loading', () => {
+describe('desktopSyncSettings initial state loading', () => {
   it('keeps one failure message, changes it to loading during retry, and clears it on success', async () => {
     const first = deferred<SyncState>()
     const fixture = mount(first)

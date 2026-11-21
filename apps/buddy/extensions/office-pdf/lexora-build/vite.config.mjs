@@ -24,8 +24,11 @@ const edits = {
     // Permanent redaction and certificate signing need the main process and the system certificate store.
     ['data-tip={t(\'redactHint\')}', 'data-lexora-hidden="" data-tip={t(\'redactHint\')}'],
     ['data-tip={t(\'certSignHint\')}', 'data-lexora-hidden="" data-tip={t(\'certSignHint\')}'],
+    // eslint-disable-next-line no-template-curly-in-string
     ['className={`rb-big${sidebar === \'compare\' ? \' active\' : \'\'}`}', 'data-lexora-hidden="" className={`rb-big${sidebar === \'compare\' ? \' active\' : \'\'}`}'],
+    // eslint-disable-next-line no-template-curly-in-string
     ['className={`rb-big${sidebar === \'attachments\' ? \' active\' : \'\'}`}', 'data-lexora-hidden="" className={`rb-big${sidebar === \'attachments\' ? \' active\' : \'\'}`}'],
+    // eslint-disable-next-line no-template-curly-in-string
     ['key={tool}\n                      className={`rb-big${drawTool === tool ? \' active\' : \'\'}`}\n                      disabled={readOnly}', 'key={tool}\n                      className={`rb-big${drawTool === tool ? \' active\' : \'\'}`}\n                      data-lexora-hidden={tool === \'measure\' ? \'\' : undefined}\n                      disabled={readOnly}'],
     ['data-tip={t(\'reduceHint\')}', 'data-lexora-hidden="" data-tip={t(\'reduceHint\')}'],
     ['data-tip={t(\'batesHint\')}', 'data-lexora-hidden="" data-tip={t(\'batesHint\')}'],

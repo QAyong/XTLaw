@@ -8,7 +8,9 @@ export function registerPresenterIpc() {}
 export function registerAttachmentIpc() {}
 export const exportSlidesPdf = unavailable
 export const printSlidesHtml = unavailable
-export function buildExportImagePaths(): string[] { return [] }
+export function buildExportImagePaths(): string[] {
+  return []
+}
 export function registerVideoExportIpc() {}
 export async function cleanupExpiredGeneratedPages() {}
 // font-store

@@ -75,8 +75,8 @@ import { extensionActivationOrder } from './ExtensionPackageStore'
 import { ExtensionResourceWriter } from './ExtensionResourceWriter'
 import { ExtensionScheduler } from './ExtensionScheduler'
 import { ExtensionSelectedFileWriter } from './ExtensionSelectedFileWriter'
-import { legacyOfficeQuoteLocation } from './legacyOfficeQuote'
 import { ExtensionTaskCleanupController } from './ExtensionTaskCleanupController'
+import { legacyOfficeQuoteLocation } from './legacyOfficeQuote'
 
 export interface ExtensionHost {
   call: (method: string, params: JsonValue, signal?: AbortSignal) => Promise<JsonValue>

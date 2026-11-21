@@ -404,7 +404,7 @@ describe('chat composer editing', () => {
     expect(directives).toEqual(skills.map(option => ({ type: 'prompt_directive', directive: 'skill', value: 'tables:review', skill: option.skill })))
   })
 
-  it('opens slash command suggestions with the Chinese ideographic comma and replaces the trigger on selection', async () => {
+  it('opens slash command suggestions after enabling the Chinese trigger setting', async () => {
     const flow = await mountComposer()
     flow.chineseInputTriggers.value = false
     flow.editor.view.dom.focus()
@@ -422,7 +422,7 @@ describe('chat composer editing', () => {
     expect(JSON.stringify(content)).not.toContain('、')
   })
 
-  it('opens skill suggestions with the fullwidth yuan sign and replaces the trigger on selection', async () => {
+  it('restores fullwidth yuan skill suggestions after re-enabling the Chinese trigger setting', async () => {
     const skill = skillOption('writer', 'writes prose')
     const flow = await mountComposer({ loadContextOptions: async () => ({ files: [], skills: [skill] }) })
     flow.editor.view.dom.focus()

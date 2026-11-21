@@ -140,7 +140,6 @@ function imageToolFailure(
     inspectionReferences?: boolean
   } = {},
 ) {
-
   const { diagnostic, outcome = 'failed', request, artifactIds = [], retainedOutputs = [], outputPath } = options
   let message: string
   if (outcome === 'partial') {

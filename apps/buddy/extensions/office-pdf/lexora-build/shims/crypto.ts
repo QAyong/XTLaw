@@ -1,6 +1,6 @@
-import CryptoJS from 'crypto-js'
 import { Buffer } from 'node:buffer'
 import { bytesToHex } from '@noble/hashes/utils.js'
+import CryptoJS from 'crypto-js'
 
 // Synchronous digests and AES used by password-protected PDFs. Certificate and signature APIs stay unavailable.
 const hashAlgorithms: Record<string, any> = {
@@ -20,7 +20,7 @@ function toWordArray(bytes: Uint8Array) {
 function fromWordArray(value: { words: number[], sigBytes: number }): Uint8Array {
   const bytes = new Uint8Array(value.sigBytes)
   for (let i = 0; i < bytes.length; i++)
-    bytes[i] = (value.words[i >>> 2]! >>> (24 - (i % 4) * 8)) & 0xff
+    bytes[i] = (value.words[i >>> 2]! >>> (24 - (i % 4) * 8)) & 0xFF
   return bytes
 }
 
@@ -36,8 +36,10 @@ export function createHash(algorithm: string) {
     },
     digest(encoding?: string) {
       const bytes = fromWordArray(hash.finalize())
-      if (encoding === 'hex') return bytesToHex(bytes)
-      if (encoding) throw new Error('Unsupported digest encoding')
+      if (encoding === 'hex')
+        return bytesToHex(bytes)
+      if (encoding)
+        throw new Error('Unsupported digest encoding')
       return Buffer.from(bytes)
     },
   }
@@ -55,10 +57,12 @@ type CipherMode = 'encrypt' | 'decrypt'
 
 function createAesCipher(mode: CipherMode, algorithm: string, key: Uint8Array, iv: Uint8Array | null) {
   const match = /^aes-(128|256)-(cbc|ecb)$/.exec(algorithm)
-  if (!match) throw new Error(`Unsupported cipher: ${algorithm}`)
+  if (!match)
+    throw new Error(`Unsupported cipher: ${algorithm}`)
   const keyBits = Number(match[1])
   const aesMode = match[2] === 'ecb' ? CryptoJS.mode.ECB : CryptoJS.mode.CBC
-  if (match[2] === 'cbc' && !iv) throw new Error('AES-CBC requires an IV')
+  if (match[2] === 'cbc' && !iv)
+    throw new Error('AES-CBC requires an IV')
   let autoPadding = true
   let finalized = false
   const parts: Uint8Array[] = []
@@ -69,12 +73,14 @@ function createAesCipher(mode: CipherMode, algorithm: string, key: Uint8Array, i
       return this
     },
     update(value: Uint8Array) {
-      if (finalized) throw new Error('Cipher already finalized')
+      if (finalized)
+        throw new Error('Cipher already finalized')
       parts.push(value.slice())
       return Buffer.alloc(0)
     },
     final() {
-      if (finalized) throw new Error('Cipher already finalized')
+      if (finalized)
+        throw new Error('Cipher already finalized')
       finalized = true
       const length = parts.reduce((sum, part) => sum + part.length, 0)
       const input = new Uint8Array(length)
@@ -93,7 +99,8 @@ function createAesCipher(mode: CipherMode, algorithm: string, key: Uint8Array, i
         ? CryptoJS.AES.encrypt(toWordArray(input), keyWords, options).ciphertext
         : CryptoJS.AES.decrypt(CryptoJS.lib.CipherParams.create({ ciphertext: toWordArray(input) }), keyWords, options)
       // The upstream code supplies only 128-bit or 256-bit keys for these modes.
-      if (key.length * 8 !== keyBits) throw new Error('Invalid AES key length')
+      if (key.length * 8 !== keyBits)
+        throw new Error('Invalid AES key length')
       return Buffer.from(fromWordArray(output))
     },
   }

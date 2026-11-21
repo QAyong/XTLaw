@@ -57,7 +57,9 @@ it('does not let stale or disposed refreshes overwrite current contributions', a
 
 it('deduplicates the same plugin action while allowing another action to run', async () => {
   let finishWork!: () => void
-  const work = new Promise<null>((resolve) => { finishWork = () => resolve(null) })
+  const work = new Promise<null>((resolve) => {
+    finishWork = () => resolve(null)
+  })
   const executions: string[] = []
   const scope = effectScope()
   const api = {

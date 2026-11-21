@@ -103,5 +103,5 @@ export const BUDDY_SCHEMA_MIGRATIONS: readonly BuddySchemaMigration[] = [
   // Upstream v41 user questions lands on local v43.
   { sql: BUDDY_V41_USER_QUESTIONS_SCHEMA_SQL, version: 43 },
   // The upstream v42 migration keeps its source filename and lineage, and maps to local v44.
-  { sql: BUDDY_V42_CONVERSATION_ARCHIVE_SCHEMA_SQL, version: 44 }
+  { sql: BUDDY_V42_CONVERSATION_ARCHIVE_SCHEMA_SQL, version: 44 },
 ]

@@ -1,11 +1,12 @@
 export { safeExternalUrl } from '@genoffice/electron-utils/safe-external-url'
 export const MAX_REMOTE_IMAGE_BYTES = 0
 
-const CFB_MAGIC = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]
+const CFB_MAGIC = [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1]
 const ENCRYPTED_STREAM_UTF16 = Array.from('EncryptedPackage').flatMap(character => [character.charCodeAt(0), 0])
 function containsBytes(bytes: Uint8Array, needle: number[]): boolean {
   for (let start = 0; start <= bytes.length - needle.length; start++) {
-    if (needle.every((value, index) => bytes[start + index] === value)) return true
+    if (needle.every((value, index) => bytes[start + index] === value))
+      return true
   }
   return false
 }

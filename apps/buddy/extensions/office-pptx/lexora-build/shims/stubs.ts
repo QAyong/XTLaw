@@ -23,7 +23,8 @@ export async function atomicWriteVia(path: string, write: (tempPath: string) => 
   try {
     await write(tempPath)
     const bytes = vfs.get(tempPath)
-    if (!bytes) throw new Error('SLIDES_SAVE_UNAVAILABLE')
+    if (!bytes)
+      throw new Error('SLIDES_SAVE_UNAVAILABLE')
     await vfs.write(path, bytes)
   }
   finally {

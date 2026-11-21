@@ -1,6 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite'
 import type { RuntimeRequestHandler } from '../../../../shared/runtime/rpcPeer'
 import type { RegisterRunRpcOptions } from '../registerRunRpc'
+import { Buffer } from 'node:buffer'
 import { afterEach, describe, expect, it } from 'vitest'
 import { runsRpc } from '../../../../shared/runs/runApi'
 import { RUN_EVENT_PAGE_LIMITS } from '../../../../shared/runs/runEventPageLimits'

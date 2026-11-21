@@ -17,13 +17,16 @@ async function readGitHead(checkout) {
   let gitDir = dotGit
   if (dotGitStat.isFile()) {
     const gitFile = await fs.readFile(dotGit, 'utf8')
-    const match = /^gitdir:\s*(.+)\s*$/m.exec(gitFile)
-    assert(match, 'Invalid .git file in GenOffice checkout')
-    gitDir = path.resolve(checkout, match[1])
+    const prefix = 'gitdir:'
+    const gitDirLine = gitFile.trimEnd()
+    const gitDirPath = gitDirLine.startsWith(prefix) ? gitDirLine.slice(prefix.length).trim() : ''
+    assert(gitDirPath && !/[\r\n]/.test(gitDirPath), 'Invalid .git file in GenOffice checkout')
+    gitDir = path.resolve(checkout, gitDirPath)
   }
 
   const head = (await fs.readFile(path.join(gitDir, 'HEAD'), 'utf8')).trim()
-  if (/^[a-f0-9]{40}$/i.test(head)) return head
+  if (/^[a-f0-9]{40}$/i.test(head))
+    return head
   const ref = /^ref:\s*(\S+)$/.exec(head)?.[1]
   assert(ref, 'Invalid HEAD in GenOffice checkout')
   try {

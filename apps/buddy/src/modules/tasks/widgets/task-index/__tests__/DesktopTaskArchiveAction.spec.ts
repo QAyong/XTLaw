@@ -35,11 +35,15 @@ async function mount() {
   const actions: TaskArchiveActions = { onChanged: () => () => {}, get, ready, archive, restore, delete: vi.fn(), list: vi.fn(), getPolicy: vi.fn(), setPolicy: vi.fn() }
   const root = document.createElement('div')
   document.body.append(root)
-  const app = createApp({ render: () => h(DesktopTaskArchiveAction, { actions, language: 'zh-CN', target: target.value, busy: busy.value, 'onUpdate:target': value => target.value = value, 'onUpdate:busy': value => busy.value = value }) })
+  const app = createApp({ render: () => h(DesktopTaskArchiveAction, { actions, 'language': 'zh-CN', 'target': target.value, 'busy': busy.value, 'onUpdate:target': value => target.value = value, 'onUpdate:busy': value => busy.value = value }) })
   app.mount(root)
   cleanups.push(() => app.unmount())
   await nextTick()
-  return { target, busy, ready, revision, archive, restore, get, root, archiveTask: async (value: LocalConversationSummary) => { target.value = value; await nextTick() } }
+  async function archiveTask(value: LocalConversationSummary) {
+    target.value = value
+    await nextTick()
+  }
+  return { target, busy, ready, revision, archive, restore, get, root, archiveTask }
 }
 function button(label: string) {
   return [...document.querySelectorAll<HTMLButtonElement>('button')].find(element => element.textContent?.trim() === label)

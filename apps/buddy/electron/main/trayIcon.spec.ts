@@ -1,4 +1,7 @@
+import { Buffer } from 'node:buffer'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { createDesktopTrayImage } from './trayIcon'
 
 const { createEmpty, createFromPath, addRepresentation, readFileSync } = vi.hoisted(() => {
   const addRepresentation = vi.fn()
@@ -15,8 +18,6 @@ vi.mock('electron', () => ({
   nativeImage: { createEmpty, createFromPath },
 }))
 vi.mock('node:fs', () => ({ readFileSync }))
-
-import { createDesktopTrayImage } from './trayIcon'
 
 describe('createDesktopTrayImage', () => {
   beforeEach(() => vi.clearAllMocks())

@@ -1,7 +1,7 @@
+import type { VNodeChild } from 'vue'
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from 'vitest'
 import { createApp, h } from 'vue'
-import type { VNodeChild } from 'vue'
 import DesktopTaskRow from '../DesktopTaskRow.vue'
 
 vi.mock('@/modules/tasks/taskContext', () => ({
@@ -23,13 +23,13 @@ vi.mock('naive-ui', async (importOriginal) => {
         slots.default?.(),
         props.trigger === 'click'
           ? createElement('div', { class: 'test-dropdown-options' }, (props.options as Array<{ key?: string, label?: string | (() => VNodeChild), type?: string, disabled?: boolean }>).map(option => option.type === 'divider'
-            ? createElement('hr')
-            : createElement('button', {
-                type: 'button',
-                'data-dropdown-key': option.key,
-                disabled: option.disabled,
-                onClick: () => emit('select', option.key),
-              }, [typeof option.label === 'function' ? option.label() : option.label])))
+              ? createElement('hr')
+              : createElement('button', {
+                  'type': 'button',
+                  'data-dropdown-key': option.key,
+                  'disabled': option.disabled,
+                  'onClick': () => emit('select', option.key),
+                }, [typeof option.label === 'function' ? option.label() : option.label])))
           : null,
       ])
     },

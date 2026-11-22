@@ -2,18 +2,25 @@
 import type { LocalChatApi } from '@buddy-electron/shared/localChatApi'
 import type { BuddyFileQuote, BuddyResourceQuote } from '@buddy-shared/conversation/buddyUserContent'
 import type { LocalSpaceFilePreview } from '@buddy-shared/spaces/spaceFileApi'
+import type { AnnotatedImageQuote, AnnotationQuoteCheckpoint, ImageAnnotationRect } from '@/shared/ui/files/imageAnnotation'
 import type { WorkbenchView } from '@/workbench/common/workbench'
+import { BUDDY_ATTACHMENT_TOTAL_BYTES_LIMIT } from '@buddy-shared/conversation/attachmentPolicy'
 import { resolveBuiltinFileOpening } from '@buddy-shared/files/fileOpening'
 import { taskFileTargetSchema } from '@buddy-shared/files/taskFileApi'
 import { parseLocalChatPublicError } from '@buddy-shared/runtime/localChatError'
 import { requireFileTarget } from '@buddy-shared/spaces/spaceFileApi'
-import { computed, shallowRef, useTemplateRef, watch } from 'vue'
+import { NButton, useMessage } from 'naive-ui'
+import { computed, onScopeDispose, shallowRef, useTemplateRef, watch } from 'vue'
+import { useBuddyI18n } from '@/i18n/buddyI18n'
 import WorkbenchMenu from '@/shared/ui/contributions/WorkbenchMenu.vue'
 import DesktopDocumentContent from '@/shared/ui/files/DesktopDocumentContent.vue'
 import DesktopDocumentToolbar from '@/shared/ui/files/DesktopDocumentToolbar.vue'
 import { fileDocumentModes, resolveFileDocumentMode } from '@/shared/ui/files/fileDocumentPresentation'
+import { annotatedSnapshotName, annotationExportFits, annotationQuoteAction, annotationThemeColors, bytesToBase64, createSingleFlight, imageElementCanvasReadable, isStaticAnnotatableImageName, quoteAnnotatedImage, readAnimatedPreview, renderAnnotatedPng } from '@/shared/ui/files/imageAnnotation'
+import ImageAnnotationSurface from '@/shared/ui/files/ImageAnnotationSurface.vue'
 import DesktopFileLoading from '@/shared/ui/loading/DesktopFileLoading.vue'
 import ResourceSelectionQuoteMenu from '@/shared/ui/selection/ResourceSelectionQuoteMenu.vue'
+import { useReferenceTargetPicker } from '@/shared/ui/selection/useReferenceTargetPicker'
 import { useResourceQuoteReveal } from '@/shared/ui/selection/useResourceQuoteReveal'
 import { useSelectionReferences } from '@/shared/ui/selection/workbenchSelectionReferences'
 import { useWorkbench } from '@/workbench/browser/workbenchContext'
@@ -23,11 +30,14 @@ import { fileOpeningHandler } from '../model/fileOpeningHandlers'
 import { useFileOpening } from '../state/fileOpeningContext'
 import { filePreviewRenderer } from './filePreviewRenderers'
 
-const props = withDefaults(defineProps<{ view: WorkbenchView, files: LocalChatApi['spaces'], taskFiles?: LocalChatApi['taskFiles'], language: 'zh-CN' | 'en-US', writeClipboardText: (text: string) => Promise<void>, toolbarTarget?: HTMLElement | null, visible?: boolean }>(), { visible: true })
+const props = withDefaults(defineProps<{ view: WorkbenchView, files: LocalChatApi['spaces'], taskFiles?: LocalChatApi['taskFiles'], language: 'zh-CN' | 'en-US', writeClipboardText: (text: string) => Promise<void>, toolbarTarget?: HTMLElement | null, visible?: boolean, quoteSnapshot?: (input: AnnotatedImageQuote) => Promise<boolean> }>(), { visible: true })
 const { labels, controller } = useWorkbench()
+const { t } = useBuddyI18n(() => props.language)
+const message = useMessage()
+const references = useSelectionReferences()
+const chooseTarget = useReferenceTargetPicker(() => props.language)
 const preview = shallowRef<LocalSpaceFilePreview | null>(null)
 const quoteMenu = useTemplateRef<InstanceType<typeof ResourceSelectionQuoteMenu>>('quoteMenu')
-const references = useSelectionReferences()
 function captureMonacoQuote(quote: BuddyResourceQuote) {
   return quoteMenu.value?.captureMonaco(quote) ?? null
 }
@@ -99,13 +109,200 @@ function loadPreview() {
 function captureResource() {
   return { resource: requireFileTarget(props.view.resource.data) }
 }
+const annotatable = computed(() => props.visible && mode.value === 'preview' && !!preview.value?.imageUrl && isStaticAnnotatableImageName(props.view.title) && !previewRenderer.value)
+const annotationPhase = shallowRef<'off' | 'checking' | 'on'>('off')
+const annotationCors = shallowRef(false)
+const annotationRects = shallowRef<ImageAnnotationRect[]>([])
+const annotationBusy = shallowRef(false)
+const quoteOnce = createSingleFlight()
+let annotationGeneration = 0
+let suppressQuoteResult = false
+let annotationLifetime = new AbortController()
+onScopeDispose(() => annotationLifetime.abort())
+function resetAnnotation() {
+  annotationGeneration += 1
+  annotationLifetime.abort()
+  annotationLifetime = new AbortController()
+  annotationPhase.value = 'off'
+  annotationCors.value = false
+  annotationRects.value = []
+  annotationBusy.value = false
+}
+function exitAnnotation() {
+  suppressQuoteResult = true
+  resetAnnotation()
+}
+watch([identity, () => preview.value?.imageUrl], () => {
+  if (annotationPhase.value !== 'off')
+    resetAnnotation()
+})
+watch(annotatable, (value) => {
+  if (!value && annotationPhase.value !== 'off')
+    resetAnnotation()
+})
+const quoteLabel = computed(() => {
+  const scope = references?.captureScope(props.view.id) ?? null
+  const action = annotationQuoteAction(scope)
+  if (action.kind === 'direct' && action.named) {
+    const target = scope?.targets.find(item => item.id === action.targetId)
+    return t('desktop.chat.quoteToTarget', { title: target?.pane?.title ?? target?.label ?? '' })
+  }
+  return t(action.kind === 'choose' ? 'desktop.chat.quoteChooseTarget' : 'desktop.chat.quoteToCurrent')
+})
+function previewImage(): HTMLImageElement | null {
+  const exposed = document.value?.imageElement as unknown
+  if (exposed instanceof HTMLImageElement)
+    return exposed
+  if (exposed && typeof exposed === 'object' && 'value' in exposed && exposed.value instanceof HTMLImageElement)
+    return exposed.value
+  return null
+}
+function beginAnnotation() {
+  if (!annotatable.value || annotationPhase.value !== 'off')
+    return
+  suppressQuoteResult = false
+  annotationPhase.value = 'checking'
+  annotationCors.value = true
+}
+function failAnnotation(generation: number, key: 'desktop.chat.imageAnnotationUnavailable' | 'desktop.chat.imageAnnotationAnimated' | 'desktop.chat.imageAnnotationExportFailed') {
+  if (generation !== annotationGeneration)
+    return
+  message.warning(t(key))
+  resetAnnotation()
+}
+async function resolveAnnotationPreview() {
+  const generation = annotationGeneration
+  const image = previewImage()
+  if (!image || !imageElementCanvasReadable(image) || !annotationExportFits(image.naturalWidth, image.naturalHeight)) {
+    failAnnotation(generation, 'desktop.chat.imageAnnotationUnavailable')
+    return
+  }
+  const lowerName = props.view.title.toLowerCase()
+  if (lowerName.endsWith('.webp') || lowerName.endsWith('.png')) {
+    try {
+      if (await readAnimatedPreview(image.currentSrc || image.src, annotationLifetime.signal)) {
+        failAnnotation(generation, 'desktop.chat.imageAnnotationAnimated')
+        return
+      }
+    }
+    catch {
+      if (!annotationLifetime.signal.aborted)
+        failAnnotation(generation, 'desktop.chat.imageAnnotationUnavailable')
+      return
+    }
+  }
+  if (generation === annotationGeneration && annotationPhase.value === 'checking')
+    annotationPhase.value = 'on'
+}
+function onAnnotationImageLoad() {
+  if (annotationPhase.value === 'checking')
+    void resolveAnnotationPreview()
+}
+function onAnnotationImageError() {
+  failAnnotation(annotationGeneration, 'desktop.chat.imageAnnotationUnavailable')
+}
+function commitAnnotation(rect: ImageAnnotationRect) {
+  if (annotationBusy.value || annotationPhase.value !== 'on')
+    return
+  annotationRects.value = [...annotationRects.value, rect]
+}
+function undoAnnotation() {
+  if (annotationBusy.value || annotationPhase.value !== 'on' || !annotationRects.value.length)
+    return
+  annotationRects.value = annotationRects.value.slice(0, -1)
+}
+function liveQuoteCheckpoint(generation: number, targetId: string, scopeIdentity: string, targetIdentity: string, imageUrl: string): AnnotationQuoteCheckpoint | null {
+  if (generation !== annotationGeneration || annotationPhase.value === 'off')
+    return null
+  const scope = references?.captureScope(props.view.id)
+  const target = scope?.targets.find(item => item.id === targetId)
+  if (!scope || !target || scope.sourceIdentity !== scopeIdentity || target.identity !== targetIdentity || preview.value?.imageUrl !== imageUrl)
+    return null
+  return { sourceIdentity: scopeIdentity, imageUrl, targetId, targetIdentity }
+}
+function quoteAnnotation() {
+  void quoteOnce(async () => {
+    if (annotationPhase.value !== 'on' || !annotationRects.value.length || !references || !props.quoteSnapshot)
+      return message.warning(t('desktop.chat.quoteNoTarget'))
+    const generation = annotationGeneration
+    const scope = references.captureScope(props.view.id)
+    const action = annotationQuoteAction(scope)
+    if (!scope || action.kind === 'unavailable')
+      return message.warning(t('desktop.chat.quoteNoTarget'))
+    suppressQuoteResult = false
+    annotationBusy.value = true
+    try {
+      let targetId = action.kind === 'direct' ? action.targetId : ''
+      if (action.kind === 'choose') {
+        const choice = await chooseTarget(scope, props.view.title, annotationLifetime.signal, false, false)
+        if (!choice || choice.kind !== 'view')
+          return
+        targetId = choice.id
+      }
+      const imageUrl = preview.value?.imageUrl ?? ''
+      const target = scope.targets.find(item => item.id === targetId)
+      const image = previewImage()
+      if (!target || !imageUrl || !image || generation !== annotationGeneration)
+        return
+      const checkpoint: AnnotationQuoteCheckpoint = { sourceIdentity: scope.sourceIdentity, imageUrl, targetId, targetIdentity: target.identity }
+      const marks = annotationRects.value.slice()
+      let blob: Blob
+      try {
+        blob = await renderAnnotatedPng(image, image.naturalWidth, image.naturalHeight, marks, annotationThemeColors())
+      }
+      catch {
+        if (generation === annotationGeneration && !suppressQuoteResult)
+          message.warning(t('desktop.chat.imageAnnotationExportFailed'))
+        return
+      }
+      if (blob.size > BUDDY_ATTACHMENT_TOTAL_BYTES_LIMIT) {
+        if (generation === annotationGeneration)
+          message.warning(t('desktop.chat.attachmentLimit'))
+        return
+      }
+      const base64 = bytesToBase64(new Uint8Array(await blob.arrayBuffer()))
+      const result = await quoteAnnotatedImage({
+        checkpoint,
+        readRoute: () => liveQuoteCheckpoint(generation, targetId, scope.sourceIdentity, target.identity, imageUrl),
+        receive: current => props.quoteSnapshot!({ scope, targetId, name: annotatedSnapshotName(props.view.title), base64, current }),
+      })
+      if (suppressQuoteResult || generation !== annotationGeneration)
+        return
+      const title = target.pane?.title ?? target.label
+      if (result === 'added')
+        message.success(t('desktop.chat.quoteAddedToTarget', { title }))
+      else if (result === 'stale')
+        message.warning(t('desktop.chat.quoteTargetChanged'))
+      else
+        message.warning(t('desktop.chat.attachmentImportFailed'))
+    }
+    finally {
+      if (generation === annotationGeneration)
+        annotationBusy.value = false
+    }
+  })
+}
 </script>
 
 <template>
-  <div class="file-preview">
+  <div class="file-preview" :data-image-annotation="annotationPhase">
     <Teleport v-if="visible" :to="toolbarTarget ?? 'body'" :disabled="!toolbarTarget">
       <DesktopDocumentToolbar v-model="mode" :name="String(view.resource.data.path)" :modes="modes" :language="language" :embedded="!!toolbarTarget">
         <template #actions>
+          <NButton v-if="annotatable && annotationPhase === 'off'" size="tiny" secondary data-testid="image-annotation-enter" @click="beginAnnotation">
+            {{ t('desktop.chat.imageAnnotation') }}
+          </NButton>
+          <template v-else-if="annotationPhase !== 'off'">
+            <NButton size="tiny" secondary data-testid="image-annotation-undo" :disabled="annotationPhase !== 'on' || annotationBusy || annotationRects.length === 0" @click="undoAnnotation">
+              {{ t('desktop.chat.imageAnnotationUndo') }}
+            </NButton>
+            <NButton size="tiny" secondary data-testid="image-annotation-quote" :disabled="annotationPhase !== 'on' || annotationBusy || annotationRects.length === 0" :loading="annotationBusy" @click="quoteAnnotation">
+              {{ quoteLabel }}
+            </NButton>
+            <NButton size="tiny" secondary data-testid="image-annotation-exit" @click="exitAnnotation">
+              {{ t('desktop.chat.imageAnnotationExit') }}
+            </NButton>
+          </template>
           <WorkbenchMenu v-if="target" target="resource.actions" :values="{ 'resource.scheme': view.resource.scheme }" :capture="captureResource" />
         </template>
       </DesktopDocumentToolbar>
@@ -126,11 +323,14 @@ function captureResource() {
     </p>
     <DesktopDocumentContent
       v-else
-      ref="document" :mode="mode" :name="view.title" :text="preview?.text" :image-url="preview?.imageUrl" :media-kind="preview?.kind === 'audio' || preview?.kind === 'video' ? preview.kind : null" :media-url="preview?.mediaUrl" :resolve-image="imageResolver" :visible="visible" :wrap="view.state.wrap !== false" :language="language" :write-clipboard-text="writeClipboardText"
-      :quote-source="references ? quoteSource : undefined" :prepare-quote="prepareQuote" :capture-monaco-quote="captureMonacoQuote" @preview-error="failed = true" @scroll.capture="quoteMenu?.close()"
+      ref="document" :mode="mode" :name="view.title" :text="preview?.text" :image-url="preview?.imageUrl" :image-cross-origin="annotationCors" :media-kind="preview?.kind === 'audio' || preview?.kind === 'video' ? preview.kind : null" :media-url="preview?.mediaUrl" :resolve-image="imageResolver" :visible="visible" :wrap="view.state.wrap !== false" :language="language" :write-clipboard-text="writeClipboardText"
+      :quote-source="references ? quoteSource : undefined" :prepare-quote="prepareQuote" :capture-monaco-quote="captureMonacoQuote" @preview-error="failed = true" @image-load="onAnnotationImageLoad" @annotation-image-error="onAnnotationImageError" @scroll.capture="quoteMenu?.close()"
     >
       <template v-if="previewRenderer" #preview>
         <component :is="previewRenderer.component" v-bind="previewRenderer.props" @error="failed = true" />
+      </template>
+      <template v-if="annotationPhase === 'on'" #imageOverlay>
+        <ImageAnnotationSurface :image="previewImage()" :rects="annotationRects" :disabled="annotationBusy" @commit="commitAnnotation" />
       </template>
     </DesktopDocumentContent>
     <ResourceSelectionQuoteMenu v-if="references" ref="quoteMenu" :view-id="view.id" :owner-key="`${view.id}:${identity}:${mode}`" :language="language" :visible="visible && target !== null" :write-clipboard-text="writeClipboardText" />

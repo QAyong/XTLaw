@@ -23,7 +23,9 @@ import DesktopFilePreview from '../DesktopFilePreview.vue'
 vi.mock('naive-ui', async () => {
   const { defineComponent, h } = await import('vue')
   return {
-    NButton: defineComponent({ props: ['disabled', 'loading'], setup: (props, { slots }) => () => h('button', { disabled: props.disabled || props.loading }, slots.default?.()) }),
+    useMessage: () => ({ success() {}, info() {}, warning() {}, error() {} }),
+    useDialog: () => ({ create: () => ({ destroy() {} }) }),
+    NButton: defineComponent({ props: ['disabled', 'loading'], setup: (props, { slots, attrs }) => () => h('button', { ...attrs, disabled: props.disabled || props.loading }, slots.default?.()) }),
     NSwitch: defineComponent({
       props: ['value', 'disabled', 'themeOverrides'],
       emits: ['update:value'],

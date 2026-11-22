@@ -11,6 +11,7 @@ const props = defineProps<{
   title: string
   targets: readonly ReferenceTargetOption[]
   allowClipboard: boolean
+  allowNewTask?: boolean
 }>()
 const emit = defineEmits<{ choose: [choice: ReferenceTargetChoice] }>()
 const { t } = useBuddyI18n(() => props.language)
@@ -41,8 +42,8 @@ const { t } = useBuddyI18n(() => props.language)
         {{ t('desktop.chat.quoteNoOpenPanes') }}
       </p>
     </section>
-    <div class="flex gap-3 border-t border-t-solid border-t-border pt-4">
-      <NButton type="primary" class="h-10 min-w-0 flex-1" @click="emit('choose', { kind: 'new-task' })">
+    <div v-if="allowNewTask !== false || allowClipboard" class="flex gap-3 border-t border-t-solid border-t-border pt-4">
+      <NButton v-if="allowNewTask !== false" type="primary" class="h-10 min-w-0 flex-1" @click="emit('choose', { kind: 'new-task' })">
         <template #icon>
           <DesktopIcon :component="Add20Regular" :size="18" aria-hidden="true" />
         </template>

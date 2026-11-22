@@ -8,6 +8,7 @@ import { resolveBuddyFileReader } from '../../platform/native/nativeHost'
 import { artifactsRequestSchemas, artifactsResponseSchemas } from '../../shared/artifacts/artifactApi'
 import { attachmentsRequestSchemas } from '../../shared/conversation/attachmentApi'
 import { composerResourcesRpc } from '../../shared/conversation/composerApi'
+import { applyRendererReadCors } from '../../shared/files/rendererReadCors'
 import { handleMediaRequest } from './mediaProtocol'
 import { resolveDevelopmentRendererUrl } from './security/navigationPolicy'
 
@@ -17,7 +18,7 @@ const FILE_PROTOCOL = 'lexora-file'
 
 export const attachmentSchemePrivileges: Electron.CustomScheme[] = [ATTACHMENT_PROTOCOL, ARTIFACT_PROTOCOL, FILE_PROTOCOL].map(scheme => ({
   scheme,
-  privileges: { secure: true, standard: true, stream: true, supportFetchAPI: true, corsEnabled: scheme === ARTIFACT_PROTOCOL || scheme === ATTACHMENT_PROTOCOL },
+  privileges: { secure: true, standard: true, stream: true, supportFetchAPI: true, corsEnabled: true },
 }))
 
 export function installAttachmentProtocol(runtime: BuddyServiceSupervisor): () => void {
@@ -25,15 +26,7 @@ export function installAttachmentProtocol(runtime: BuddyServiceSupervisor): () =
   const developmentUrl = resolveDevelopmentRendererUrl(process.env.ELECTRON_RENDERER_URL, app.isPackaged)
   const rendererOrigin = developmentUrl ? new URL(developmentUrl).origin : 'lexora-app://renderer'
   function allowRendererRead(handler: (request: Request) => Promise<Response>) {
-    return async (request: Request) => {
-      const response = await handler(request)
-      if (request.headers.get('origin') === rendererOrigin) {
-        response.headers.set('access-control-allow-origin', rendererOrigin)
-        response.headers.set('access-control-expose-headers', 'x-lexora-error-code')
-        response.headers.set('vary', 'Origin')
-      }
-      return response
-    }
+    return async (request: Request) => applyRendererReadCors(await handler(request), request.headers.get('origin'), rendererOrigin)
   }
   const installPreviewProtocol = (
     scheme: string,
@@ -102,7 +95,10 @@ export function installAttachmentProtocol(runtime: BuddyServiceSupervisor): () =
     artifactsRequestSchemas.artifactPreview,
   )
 
-  void protocol.handle(FILE_PROTOCOL, request => handleMediaRequest(request, runtime, fileReader))
+  void protocol.handle(FILE_PROTOCOL, async (request) => {
+    const response = await handleMediaRequest(request, runtime, fileReader)
+    return applyRendererReadCors(response, request.headers.get('origin'), rendererOrigin)
+  })
 
   return () => {
     protocol.unhandle(FILE_PROTOCOL)

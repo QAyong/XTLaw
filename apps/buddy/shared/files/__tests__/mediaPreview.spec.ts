@@ -44,3 +44,23 @@ describe('renderer media-src policy', () => {
     expect(allows(sources, 'https://example.com/clip.mp3')).toBe(false)
   })
 })
+
+describe('renderer connect-src for annotated image previews', () => {
+  const config = readFileSync(new URL('../../../electron.vite.config.ts', import.meta.url), 'utf8')
+  const hosts = /const FILE_PREVIEW_CONNECT_SRC = '([^']+)'/.exec(config)?.[1] ?? ''
+
+  it('allows only the file-manager preview hosts in production and development', () => {
+    expect(hosts).toBe('lexora-file://media lexora-file://grant-media lexora-file://task-media')
+    expect(config).toContain(`lexora-artifact://media \$` + '{FILE_PREVIEW_CONNECT_SRC};')
+    expect(config).toContain('$' + '{FILE_PREVIEW_CONNECT_SRC} ws://localhost:* ws://127.0.0.1:*;')
+    const connect = rendererDirective('connect-src').filter(source => source.startsWith('lexora-file:'))
+    expect(html).toContain(`lexora-artifact://media ${hosts};`)
+    for (const url of [
+      'lexora-file://media/?path=shot.webp',
+      'lexora-file://grant-media/?path=shot.png',
+      'lexora-file://task-media/?path=shot.jpg',
+    ])
+      expect(allows(connect, url)).toBe(true)
+    expect(allows(connect, 'lexora-file://skill-preview/?path=shot.webp')).toBe(false)
+  })
+})

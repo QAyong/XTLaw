@@ -119,11 +119,12 @@ describe('image annotation history', () => {
 describe('image annotation routes', () => {
   const checkpoint = { sourceIdentity: 'source', imageUrl: 'lexora-file://media/?path=a.png', targetId: 'task', targetIdentity: 'draft-1' }
 
-  it('chooses a direct target only when the pane ownership is clear', () => {
+  it('quotes a single clear target directly and asks to choose when several candidates exist', () => {
     const target = { id: 'task', identity: 'draft-1', label: 'Pane 1 · Notes' }
     const other = { id: 'other', identity: 'draft-2', label: 'Pane 2 · Other' }
     expect(annotationQuoteAction({ targets: [target], defaultId: 'task', isSplit: false })).toEqual({ kind: 'direct', targetId: 'task', named: false })
-    expect(annotationQuoteAction({ targets: [target, other], defaultId: 'task', isSplit: true })).toEqual({ kind: 'direct', targetId: 'task', named: true })
+    expect(annotationQuoteAction({ targets: [target], defaultId: 'task', isSplit: true })).toEqual({ kind: 'direct', targetId: 'task', named: true })
+    expect(annotationQuoteAction({ targets: [target, other], defaultId: 'task', isSplit: true })).toEqual({ kind: 'choose' })
     expect(annotationQuoteAction({ targets: [target, other], defaultId: null, isSplit: true })).toEqual({ kind: 'choose' })
     expect(annotationQuoteAction(null)).toEqual({ kind: 'unavailable' })
   })

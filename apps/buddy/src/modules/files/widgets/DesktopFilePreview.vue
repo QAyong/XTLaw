@@ -17,7 +17,7 @@ import WorkbenchMenu from '@/shared/ui/contributions/WorkbenchMenu.vue'
 import DesktopDocumentContent from '@/shared/ui/files/DesktopDocumentContent.vue'
 import DesktopDocumentToolbar from '@/shared/ui/files/DesktopDocumentToolbar.vue'
 import { fileDocumentModes, resolveFileDocumentMode } from '@/shared/ui/files/fileDocumentPresentation'
-import { annotatedSnapshotName, annotationExportFits, annotationHistoryCommit, annotationHistoryRedo, annotationHistoryUndo, annotationQuoteAction, annotationThemeColors, bytesToBase64, createSingleFlight, emptyAnnotationHistory, imageElementCanvasReadable, isStaticAnnotatableImageName, quoteAnnotatedImage, readAnimatedPreview, renderAnnotatedPng } from '@/shared/ui/files/imageAnnotation'
+import { annotatedSnapshotName, annotationExportFits, annotationHistoryCommit, annotationHistoryRedo, annotationHistoryUndo, annotationPreviewUrlAllowed, annotationQuoteAction, annotationThemeColors, bytesToBase64, createSingleFlight, emptyAnnotationHistory, imageElementCanvasReadable, isStaticAnnotatableImageName, quoteAnnotatedImage, readAnimatedPreview, renderAnnotatedPng } from '@/shared/ui/files/imageAnnotation'
 import ImageAnnotationSurface from '@/shared/ui/files/ImageAnnotationSurface.vue'
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import DesktopFileLoading from '@/shared/ui/loading/DesktopFileLoading.vue'
@@ -111,9 +111,9 @@ function loadPreview() {
 function captureResource() {
   return { resource: requireFileTarget(props.view.resource.data) }
 }
-const annotatable = computed(() => props.visible && mode.value === 'preview' && !!preview.value?.imageUrl && isStaticAnnotatableImageName(props.view.title) && !previewRenderer.value)
+const canvasPreview = computed(() => mode.value === 'preview' && !!preview.value?.imageUrl && annotationPreviewUrlAllowed(preview.value.imageUrl) && isStaticAnnotatableImageName(props.view.title) && !previewRenderer.value)
+const annotatable = computed(() => props.visible && canvasPreview.value)
 const annotationPhase = shallowRef<'off' | 'checking' | 'on'>('off')
-const annotationCors = shallowRef(false)
 const annotationHistory = shallowRef(emptyAnnotationHistory())
 const annotationRects = computed(() => annotationHistory.value.marks)
 const annotationBusy = shallowRef(false)
@@ -138,7 +138,6 @@ function resetAnnotation() {
   annotationLifetime.abort()
   annotationLifetime = new AbortController()
   annotationPhase.value = 'off'
-  annotationCors.value = false
   annotationHistory.value = emptyAnnotationHistory()
   annotationBusy.value = false
 }
@@ -166,47 +165,41 @@ const quoteLabel = computed(() => {
 function previewImage(): HTMLImageElement | null {
   return document.value?.getImageElement() ?? null
 }
-function beginAnnotation() {
-  if (!annotatable.value || annotationPhase.value !== 'off')
-    return
-  suppressQuoteResult = false
-  annotationHistory.value = emptyAnnotationHistory()
-  annotationPhase.value = 'checking'
-  annotationCors.value = true
-}
-function failAnnotation(generation: number, key: 'desktop.chat.imageAnnotationUnavailable' | 'desktop.chat.imageAnnotationAnimated' | 'desktop.chat.imageAnnotationExportFailed') {
+function failAnnotation(generation: number, key: 'desktop.chat.imageAnnotationUnavailable' | 'desktop.chat.imageAnnotationAnimated') {
   if (generation !== annotationGeneration)
     return
   message.warning(t(key))
   resetAnnotation()
 }
-async function onAnnotationImageLoad(image: HTMLImageElement) {
-  if (annotationPhase.value !== 'checking')
+async function beginAnnotation() {
+  if (!annotatable.value || annotationPhase.value !== 'off')
     return
   const generation = annotationGeneration
-  if (!imageElementCanvasReadable(image) || !annotationExportFits(image.naturalWidth, image.naturalHeight)) {
-    failAnnotation(generation, 'desktop.chat.imageAnnotationUnavailable')
-    return
-  }
-  const lowerName = props.view.title.toLowerCase()
-  if (lowerName.endsWith('.webp') || lowerName.endsWith('.png')) {
-    try {
-      if (await readAnimatedPreview(image.currentSrc || image.src, annotationLifetime.signal)) {
-        failAnnotation(generation, 'desktop.chat.imageAnnotationAnimated')
-        return
-      }
-    }
-    catch {
-      if (!annotationLifetime.signal.aborted)
-        failAnnotation(generation, 'desktop.chat.imageAnnotationUnavailable')
+  const signal = annotationLifetime.signal
+  const image = previewImage()
+  suppressQuoteResult = false
+  annotationPhase.value = 'checking'
+  try {
+    if (image && !image.complete)
+      await image.decode()
+    if (signal.aborted)
+      return
+    if (!image || !imageElementCanvasReadable(image) || !annotationExportFits(image.naturalWidth, image.naturalHeight)) {
+      failAnnotation(generation, 'desktop.chat.imageAnnotationUnavailable')
       return
     }
+    const lowerName = props.view.title.toLowerCase()
+    if ((lowerName.endsWith('.webp') || lowerName.endsWith('.png')) && await readAnimatedPreview(image.currentSrc || image.src, signal)) {
+      failAnnotation(generation, 'desktop.chat.imageAnnotationAnimated')
+      return
+    }
+    if (!signal.aborted)
+      annotationPhase.value = 'on'
   }
-  if (generation === annotationGeneration && annotationPhase.value === 'checking')
-    annotationPhase.value = 'on'
-}
-function onAnnotationImageError() {
-  failAnnotation(annotationGeneration, 'desktop.chat.imageAnnotationUnavailable')
+  catch {
+    if (!signal.aborted)
+      failAnnotation(generation, 'desktop.chat.imageAnnotationUnavailable')
+  }
 }
 function commitAnnotation(rect: ImageAnnotationRect) {
   if (annotationBusy.value || annotationPhase.value !== 'on')
@@ -222,7 +215,7 @@ function applyAnnotationHistory(command: AnnotationHistoryCommand) {
 }
 function toggleAnnotation() {
   if (annotationPhase.value === 'off')
-    beginAnnotation()
+    void beginAnnotation()
   else
     exitAnnotation()
 }
@@ -305,22 +298,6 @@ function quoteAnnotation() {
       <DesktopDocumentToolbar v-model="mode" :name="String(view.resource.data.path)" :modes="modes" :language="language" :embedded="!!toolbarTarget" :prioritize-actions="annotatable || annotationPhase !== 'off'">
         <template #actions>
           <div v-if="annotatable || annotationPhase !== 'off'" class="image-annotation-tools" role="group" :aria-label="t('desktop.chat.imageAnnotation')">
-            <NTooltip trigger="hover" :delay="350">
-              <template #trigger>
-                <span class="image-annotation-tools__slot">
-                  <NButton
-                    class="image-annotation-action buddy-icon-button" quaternary data-image-annotation-toggle
-                    :data-testid="annotationPhase === 'off' ? 'image-annotation-enter' : 'image-annotation-exit'" :aria-pressed="annotationPhase !== 'off'" :aria-label="annotationToggleLabel"
-                    :color="annotationPhase === 'off' ? undefined : 'var(--buddy-accent-on-surface)'" :theme-overrides="annotationPhase === 'off' ? annotationIconTheme : annotationSelectedTheme" @click="toggleAnnotation"
-                  >
-                    <template #icon>
-                      <DesktopIcon :component="ImageEdit20Regular" />
-                    </template>
-                  </NButton>
-                </span>
-              </template>
-              {{ annotationToggleLabel }}
-            </NTooltip>
             <template v-if="annotationPhase !== 'off'">
               <NTooltip trigger="hover" :delay="350">
                 <template #trigger>
@@ -361,6 +338,22 @@ function quoteAnnotation() {
               </NTooltip>
               <span class="image-annotation-tools__rule" aria-hidden="true" />
             </template>
+            <NTooltip trigger="hover" :delay="350">
+              <template #trigger>
+                <span class="image-annotation-tools__slot">
+                  <NButton
+                    class="image-annotation-action buddy-icon-button" quaternary data-image-annotation-toggle
+                    :data-testid="annotationPhase === 'off' ? 'image-annotation-enter' : 'image-annotation-exit'" :aria-pressed="annotationPhase !== 'off'" :aria-label="annotationToggleLabel"
+                    :color="annotationPhase === 'off' ? undefined : 'var(--buddy-accent-on-surface)'" :theme-overrides="annotationPhase === 'off' ? annotationIconTheme : annotationSelectedTheme" @click="toggleAnnotation"
+                  >
+                    <template #icon>
+                      <DesktopIcon :component="ImageEdit20Regular" />
+                    </template>
+                  </NButton>
+                </span>
+              </template>
+              {{ annotationToggleLabel }}
+            </NTooltip>
           </div>
           <WorkbenchMenu v-if="target" target="resource.actions" :values="{ 'resource.scheme': view.resource.scheme }" :capture="captureResource" />
         </template>
@@ -382,8 +375,8 @@ function quoteAnnotation() {
     </p>
     <DesktopDocumentContent
       v-else
-      ref="document" :mode="mode" :name="view.title" :text="preview?.text" :image-url="preview?.imageUrl" :image-cross-origin="annotationCors" :media-kind="preview?.kind === 'audio' || preview?.kind === 'video' ? preview.kind : null" :media-url="preview?.mediaUrl" :resolve-image="imageResolver" :visible="visible" :wrap="view.state.wrap !== false" :language="language" :write-clipboard-text="writeClipboardText"
-      :quote-source="references ? quoteSource : undefined" :prepare-quote="prepareQuote" :capture-monaco-quote="captureMonacoQuote" @preview-error="failed = true" @image-load="onAnnotationImageLoad" @annotation-image-error="onAnnotationImageError" @scroll.capture="quoteMenu?.close()"
+      ref="document" :mode="mode" :name="view.title" :text="preview?.text" :image-url="preview?.imageUrl" :image-cross-origin="canvasPreview" :media-kind="preview?.kind === 'audio' || preview?.kind === 'video' ? preview.kind : null" :media-url="preview?.mediaUrl" :resolve-image="imageResolver" :visible="visible" :wrap="view.state.wrap !== false" :language="language" :write-clipboard-text="writeClipboardText"
+      :quote-source="references ? quoteSource : undefined" :prepare-quote="prepareQuote" :capture-monaco-quote="captureMonacoQuote" @preview-error="failed = true" @scroll.capture="quoteMenu?.close()"
     >
       <template v-if="previewRenderer" #preview>
         <component :is="previewRenderer.component" v-bind="previewRenderer.props" @error="failed = true" />

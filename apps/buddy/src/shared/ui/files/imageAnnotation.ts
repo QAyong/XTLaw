@@ -346,6 +346,8 @@ export type AnnotationQuoteAction
 export function annotationQuoteAction(scope: Pick<SelectionReferenceRequest, 'targets' | 'defaultId' | 'isSplit'> | null): AnnotationQuoteAction {
   if (!scope?.targets.length)
     return { kind: 'unavailable' }
+  if (scope.targets.length > 1)
+    return { kind: 'choose' }
   const direct = getDirectSelectionReferenceTarget(scope)
   if (direct)
     return { kind: 'direct', targetId: direct.id, named: false }

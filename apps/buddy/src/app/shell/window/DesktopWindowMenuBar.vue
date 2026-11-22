@@ -160,14 +160,13 @@ const nodeProps: DropdownNodeProps = () => ({
   height: 100%;
   min-width: 0;
   align-items: center;
-  padding-left: 0.25rem;
   -webkit-app-region: no-drag;
 }
 
 .desktop-window-menu__sidebar-trigger {
   display: grid;
-  width: 1.5rem;
-  height: 1.5rem;
+  width: var(--buddy-titlebar-height);
+  height: var(--buddy-titlebar-height);
   flex: none;
   place-items: center;
   border: 0;
@@ -175,7 +174,6 @@ const nodeProps: DropdownNodeProps = () => ({
   background: transparent;
   color: var(--buddy-text-secondary);
   cursor: default;
-  margin-right: 0.125rem;
   padding: 0;
   transition: background-color 80ms ease, color 80ms ease;
 
@@ -185,8 +183,8 @@ const nodeProps: DropdownNodeProps = () => ({
   }
 
   &:focus-visible {
-    outline: 1px solid var(--buddy-focus-ring);
-    outline-offset: -1px;
+    outline: 2px solid var(--buddy-focus-ring);
+    outline-offset: -2px;
   }
 
   .desktop-icon {
@@ -197,11 +195,11 @@ const nodeProps: DropdownNodeProps = () => ({
 
 .desktop-window-menu__trigger {
   display: flex;
-  height: 1.5rem;
+  height: var(--buddy-titlebar-height);
   align-items: center;
   gap: 0.4rem;
   border: 0;
-  border-radius: 0.25rem;
+  border-radius: var(--buddy-radius-micro);
   background: transparent;
   color: var(--buddy-text-primary);
   cursor: default;

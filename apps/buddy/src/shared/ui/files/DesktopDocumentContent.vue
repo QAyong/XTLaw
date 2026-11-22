@@ -12,7 +12,7 @@ import { useQuoteHighlight } from '@/shared/ui/selection/useQuoteHighlight'
 import DesktopMonacoFile from './DesktopMonacoFile.vue'
 
 const props = withDefaults(defineProps<{ mode: FileDocumentMode | null, name: string, text?: string | null, imageUrl?: string | null, imageCrossOrigin?: boolean, mediaKind?: 'audio' | 'video' | null, mediaUrl?: string | null, resolveImage?: MarkdownImageResolver, visible?: boolean, language: BuddyLocale, writeClipboardText: (text: string) => Promise<void>, wrap?: boolean, sourceReady?: boolean, revealSource?: (quote: BuddyTextQuote) => boolean, quoteSource?: BuddyTextQuote['source'], prepareQuote?: (quote: BuddyResourceQuote, x: number, y: number) => (() => void) | null, captureMonacoQuote?: CaptureMonacoResourceQuote }>(), { wrap: true, visible: true, imageCrossOrigin: false })
-const emit = defineEmits<{ previewError: [], imageLoad: [], annotationImageError: [] }>()
+const emit = defineEmits<{ previewError: [], imageLoad: [image: HTMLImageElement], annotationImageError: [] }>()
 defineSlots<{ source?: () => unknown, preview?: () => unknown, imageOverlay?: () => unknown }>()
 const markdown = useTemplateRef<HTMLElement>('markdown')
 const image = useTemplateRef<HTMLImageElement>('image')
@@ -24,13 +24,17 @@ function reveal(quote: BuddyTextQuote) {
     return !!markdown.value && highlight.show(markdown.value, quote, markdown.value)
   return props.revealSource?.(quote) ?? monaco.value?.reveal(quote) ?? false
 }
+function onImageLoad(event: Event) {
+  if (props.imageCrossOrigin && event.currentTarget instanceof HTMLImageElement)
+    emit('imageLoad', event.currentTarget)
+}
 function onImageError() {
   if (props.imageCrossOrigin)
     emit('annotationImageError')
   else
     emit('previewError')
 }
-defineExpose({ ready, reveal, imageElement: image })
+defineExpose({ ready, reveal, getImageElement: () => image.value })
 function quoteText(event: MouseEvent) {
   if (!props.quoteSource || !props.prepareQuote || !(event.currentTarget instanceof HTMLElement))
     return
@@ -53,7 +57,7 @@ function quoteText(event: MouseEvent) {
       <DesktopMarkdownContent :content="text" :resolve-image="resolveImage" code-overflow="scroll" :language="language" :write-clipboard-text="writeClipboardText" />
     </article>
     <div v-else-if="mode === 'preview' && imageUrl" class="desktop-document-content__image">
-      <img ref="image" :key="`${imageUrl}:${imageCrossOrigin ? 'cors' : 'view'}`" :src="imageUrl" :alt="name" :crossorigin="imageCrossOrigin ? 'anonymous' : undefined" draggable="false" @load="emit('imageLoad')" @error="onImageError">
+      <img ref="image" :key="`${imageUrl}:${imageCrossOrigin ? 'cors' : 'view'}`" :crossorigin="imageCrossOrigin ? 'anonymous' : undefined" :src="imageUrl" :alt="name" draggable="false" @load="onImageLoad" @error="onImageError">
       <slot name="imageOverlay" />
     </div>
     <template v-else-if="(mode === 'source' || mode === 'edit') && text != null">

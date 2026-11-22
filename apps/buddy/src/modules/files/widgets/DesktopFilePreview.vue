@@ -150,12 +150,7 @@ const quoteLabel = computed(() => {
   return t(action.kind === 'choose' ? 'desktop.chat.quoteChooseTarget' : 'desktop.chat.quoteToCurrent')
 })
 function previewImage(): HTMLImageElement | null {
-  const exposed = document.value?.imageElement as unknown
-  if (exposed instanceof HTMLImageElement)
-    return exposed
-  if (exposed && typeof exposed === 'object' && 'value' in exposed && exposed.value instanceof HTMLImageElement)
-    return exposed.value
-  return null
+  return document.value?.getImageElement() ?? null
 }
 function beginAnnotation() {
   if (!annotatable.value || annotationPhase.value !== 'off')
@@ -170,10 +165,11 @@ function failAnnotation(generation: number, key: 'desktop.chat.imageAnnotationUn
   message.warning(t(key))
   resetAnnotation()
 }
-async function resolveAnnotationPreview() {
+async function onAnnotationImageLoad(image: HTMLImageElement) {
+  if (annotationPhase.value !== 'checking')
+    return
   const generation = annotationGeneration
-  const image = previewImage()
-  if (!image || !imageElementCanvasReadable(image) || !annotationExportFits(image.naturalWidth, image.naturalHeight)) {
+  if (!imageElementCanvasReadable(image) || !annotationExportFits(image.naturalWidth, image.naturalHeight)) {
     failAnnotation(generation, 'desktop.chat.imageAnnotationUnavailable')
     return
   }
@@ -193,10 +189,6 @@ async function resolveAnnotationPreview() {
   }
   if (generation === annotationGeneration && annotationPhase.value === 'checking')
     annotationPhase.value = 'on'
-}
-function onAnnotationImageLoad() {
-  if (annotationPhase.value === 'checking')
-    void resolveAnnotationPreview()
 }
 function onAnnotationImageError() {
   failAnnotation(annotationGeneration, 'desktop.chat.imageAnnotationUnavailable')

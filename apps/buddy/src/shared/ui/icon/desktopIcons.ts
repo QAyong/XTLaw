@@ -18,10 +18,6 @@ import navigationExtensionsUrl from './assets/navigation-extensions.svg'
 import navigationSettingsUrl from './assets/navigation-settings.svg'
 import navigationTaskUrl from './assets/navigation-task.svg'
 import notificationMarkAllReadUrl from './assets/notification-mark-all-read.svg'
-import panelLeftActiveUrl from './assets/panel-left-active.svg'
-import panelLeftUrl from './assets/panel-left.svg'
-import panelRightActiveUrl from './assets/panel-right-active.svg'
-import panelRightUrl from './assets/panel-right.svg'
 import pinOffUrl from './assets/pin-off.svg'
 import pluginAddUrl from './assets/plugin-add.svg'
 import sidebarChevronUrl from './assets/sidebar-chevron.svg'
@@ -57,10 +53,6 @@ export const DESKTOP_ICON_URLS = {
   navigationSettings: navigationSettingsUrl,
   navigationTask: navigationTaskUrl,
   notificationMarkAllRead: notificationMarkAllReadUrl,
-  panelLeft: panelLeftUrl,
-  panelLeftActive: panelLeftActiveUrl,
-  panelRight: panelRightUrl,
-  panelRightActive: panelRightActiveUrl,
   pinOff: pinOffUrl,
   pluginAdd: pluginAddUrl,
   sidebarChevron: sidebarChevronUrl,

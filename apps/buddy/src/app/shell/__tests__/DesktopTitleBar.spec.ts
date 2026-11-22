@@ -134,7 +134,7 @@ describe('desktopTitleBar', () => {
     expect(root.querySelector('[data-window-control-icon="close"]')).toBeNull()
 
     const sidebarButton = root.querySelector('.desktop-window-menu__sidebar-trigger')
-    expect(sidebarButton?.classList.contains('is-active')).toBe(true)
+    expect(sidebarButton?.getAttribute('aria-expanded')).toBe('true')
     expect(root.querySelector('[data-testid="context-panel-toggle"]')?.classList.contains('is-active')).toBe(true)
     expect(root.querySelector('[data-testid="context-panel-position-toggle"]')).not.toBeNull()
 
@@ -156,7 +156,7 @@ describe('desktopTitleBar', () => {
     expect(root.querySelector('[data-window-control-icon="close"]')).not.toBeNull()
 
     const sidebarButton = root.querySelector('.desktop-window-menu__sidebar-trigger')
-    expect(sidebarButton?.classList.contains('is-active')).toBe(false)
+    expect(sidebarButton?.getAttribute('aria-expanded')).toBe('false')
 
     app.unmount()
   })

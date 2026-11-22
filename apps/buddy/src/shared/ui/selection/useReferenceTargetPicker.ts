@@ -12,7 +12,7 @@ export function useReferenceTargetPicker(language: () => BuddyLocale) {
   const dialog = useDialog()
   let pending: (() => void) | undefined
   onScopeDispose(() => pending?.())
-  return (request: Omit<SelectionReferenceRequest, 'quote'>, title: string, signal: AbortSignal, allowClipboard: boolean, allowNewTask = true): Promise<ReferenceTargetChoice | null> => {
+  return (request: Omit<SelectionReferenceRequest, 'quote'>, title: string, signal: AbortSignal, allowClipboard: boolean): Promise<ReferenceTargetChoice | null> => {
     if (pending || signal.aborted)
       return Promise.resolve(null)
     return new Promise((resolve) => {
@@ -32,7 +32,7 @@ export function useReferenceTargetPicker(language: () => BuddyLocale) {
         title: translateBuddy(language(), 'desktop.chat.quoteChooseTarget'),
         showIcon: false,
         style: { width: 'min(420px, calc(100vw - 32px))' },
-        content: () => h(ReferenceTargetPicker, { language: language(), title, targets: request.targets, allowClipboard, allowNewTask, onChoose: finish }),
+        content: () => h(ReferenceTargetPicker, { language: language(), title, targets: request.targets, allowClipboard, onChoose: finish }),
         onClose: cancel,
         onEsc: cancel,
         onMaskClick: cancel,

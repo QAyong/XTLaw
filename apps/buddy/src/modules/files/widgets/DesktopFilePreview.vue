@@ -2,6 +2,7 @@
 import type { LocalChatApi } from '@buddy-electron/shared/localChatApi'
 import type { BuddyFileQuote, BuddyResourceQuote } from '@buddy-shared/conversation/buddyUserContent'
 import type { LocalSpaceFilePreview } from '@buddy-shared/spaces/spaceFileApi'
+import type { DropdownOption } from 'naive-ui'
 import type { AnnotatedImageQuote, AnnotationHistoryCommand, AnnotationQuoteCheckpoint, ImageAnnotationRect } from '@/shared/ui/files/imageAnnotation'
 import type { WorkbenchView } from '@/workbench/common/workbench'
 import { BUDDY_ATTACHMENT_TOTAL_BYTES_LIMIT } from '@buddy-shared/conversation/attachmentPolicy'
@@ -10,8 +11,8 @@ import { taskFileTargetSchema } from '@buddy-shared/files/taskFileApi'
 import { parseLocalChatPublicError } from '@buddy-shared/runtime/localChatError'
 import { requireFileTarget } from '@buddy-shared/spaces/spaceFileApi'
 import { ArrowRedo20Regular, ArrowUndo20Regular, ImageEdit20Regular, TextQuote20Regular } from '@vicons/fluent'
-import { NButton, NTooltip, useMessage } from 'naive-ui'
-import { computed, onScopeDispose, shallowRef, useTemplateRef, watch } from 'vue'
+import { NButton, NDropdown, NTooltip, useMessage } from 'naive-ui'
+import { computed, h, onScopeDispose, shallowRef, useTemplateRef, watch } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import WorkbenchMenu from '@/shared/ui/contributions/WorkbenchMenu.vue'
 import DesktopDocumentContent from '@/shared/ui/files/DesktopDocumentContent.vue'
@@ -22,7 +23,6 @@ import ImageAnnotationSurface from '@/shared/ui/files/ImageAnnotationSurface.vue
 import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import DesktopFileLoading from '@/shared/ui/loading/DesktopFileLoading.vue'
 import ResourceSelectionQuoteMenu from '@/shared/ui/selection/ResourceSelectionQuoteMenu.vue'
-import { useReferenceTargetPicker } from '@/shared/ui/selection/useReferenceTargetPicker'
 import { useResourceQuoteReveal } from '@/shared/ui/selection/useResourceQuoteReveal'
 import { useSelectionReferences } from '@/shared/ui/selection/workbenchSelectionReferences'
 import { useWorkbench } from '@/workbench/browser/workbenchContext'
@@ -37,7 +37,6 @@ const { labels, controller } = useWorkbench()
 const { t } = useBuddyI18n(() => props.language)
 const message = useMessage()
 const references = useSelectionReferences()
-const chooseTarget = useReferenceTargetPicker(() => props.language)
 const preview = shallowRef<LocalSpaceFilePreview | null>(null)
 const quoteMenu = useTemplateRef<InstanceType<typeof ResourceSelectionQuoteMenu>>('quoteMenu')
 function captureMonacoQuote(quote: BuddyResourceQuote) {
@@ -128,6 +127,10 @@ const annotationToggleLabel = computed(() => t(annotationPhase.value === 'off' ?
 const canUndoAnnotation = computed(() => annotationPhase.value === 'on' && !annotationBusy.value && annotationHistory.value.marks.length > 0)
 const canRedoAnnotation = computed(() => annotationPhase.value === 'on' && !annotationBusy.value && annotationHistory.value.undone.length > 0)
 const quoteReady = computed(() => annotationPhase.value === 'on' && !annotationBusy.value && annotationRects.value.length > 0)
+const annotationQuoteScope = computed(() => references?.captureScope(props.view.id) ?? null)
+const quoteAction = computed(() => annotationQuoteAction(annotationQuoteScope.value))
+const pendingQuoteScope = shallowRef<AnnotatedImageQuote['scope'] | null>(null)
+const annotationQuoteOptions = computed<DropdownOption[]>(() => pendingQuoteScope.value?.targets.map(target => ({ key: target.id, label: target.label })) ?? [])
 const quoteOnce = createSingleFlight()
 let annotationGeneration = 0
 let suppressQuoteResult = false
@@ -138,6 +141,7 @@ function resetAnnotation() {
   annotationLifetime.abort()
   annotationLifetime = new AbortController()
   annotationPhase.value = 'off'
+  closeAnnotationQuoteMenu()
   annotationHistory.value = emptyAnnotationHistory()
   annotationBusy.value = false
 }
@@ -154,14 +158,54 @@ watch(annotatable, (value) => {
     resetAnnotation()
 })
 const quoteLabel = computed(() => {
-  const scope = references?.captureScope(props.view.id) ?? null
-  const action = annotationQuoteAction(scope)
+  const action = quoteAction.value
   if (action.kind === 'direct' && action.named) {
-    const target = scope?.targets.find(item => item.id === action.targetId)
+    const target = annotationQuoteScope.value?.targets.find(item => item.id === action.targetId)
     return t('desktop.chat.quoteToTarget', { title: target?.pane?.title ?? target?.label ?? '' })
   }
   return t(action.kind === 'choose' ? 'desktop.chat.quoteChooseTarget' : 'desktop.chat.quoteToCurrent')
 })
+function closeAnnotationQuoteMenu() {
+  pendingQuoteScope.value = null
+}
+watch([annotationQuoteScope, quoteReady], ([scope, ready]) => {
+  const pending = pendingQuoteScope.value
+  if (pending && (!ready || !scope || scope.sourceIdentity !== pending.sourceIdentity || scope.targets.length !== pending.targets.length
+    || pending.targets.some(target => !scope.targets.some(current => current.id === target.id && current.identity === target.identity)))) {
+    closeAnnotationQuoteMenu()
+  }
+})
+function annotationQuoteMenuProps() {
+  return { 'class': 'buddy-selection-menu', 'role': 'menu', 'aria-label': t('desktop.chat.quoteChooseTarget'), 'data-testid': 'image-annotation-target-menu' }
+}
+function renderAnnotationQuoteLabel(option: DropdownOption) {
+  const label = String(option.label ?? '')
+  return h('span', { class: 'block max-w-60 truncate', title: label }, label)
+}
+function toggleAnnotationQuoteMenu() {
+  if (!quoteReady.value)
+    return
+  if (pendingQuoteScope.value) {
+    closeAnnotationQuoteMenu()
+    return
+  }
+  const scope = annotationQuoteScope.value
+  const action = quoteAction.value
+  if (!scope || !props.quoteSnapshot || action.kind === 'unavailable') {
+    message.warning(t('desktop.chat.quoteNoTarget'))
+    return
+  }
+  if (action.kind === 'choose')
+    pendingQuoteScope.value = scope
+  else
+    quoteAnnotation(scope, action.targetId)
+}
+function selectAnnotationQuoteTarget(targetId: string | number) {
+  const scope = pendingQuoteScope.value
+  closeAnnotationQuoteMenu()
+  if (scope && typeof targetId === 'string')
+    quoteAnnotation(scope, targetId)
+}
 function previewImage(): HTMLImageElement | null {
   return document.value?.getImageElement() ?? null
 }
@@ -228,31 +272,21 @@ function liveQuoteCheckpoint(generation: number, targetId: string, scopeIdentity
     return null
   return { sourceIdentity: scopeIdentity, imageUrl, targetId, targetIdentity }
 }
-function quoteAnnotation() {
+function quoteAnnotation(scope: AnnotatedImageQuote['scope'], targetId: string) {
   void quoteOnce(async () => {
-    if (annotationPhase.value !== 'on' || !annotationRects.value.length || !references || !props.quoteSnapshot)
-      return message.warning(t('desktop.chat.quoteNoTarget'))
+    const receive = props.quoteSnapshot
+    if (!quoteReady.value || !receive)
+      return
     const generation = annotationGeneration
-    const scope = references.captureScope(props.view.id)
-    const action = annotationQuoteAction(scope)
-    if (!scope || action.kind === 'unavailable')
-      return message.warning(t('desktop.chat.quoteNoTarget'))
+    const imageUrl = preview.value?.imageUrl
+    const target = scope.targets.find(item => item.id === targetId)
+    const image = previewImage()
+    if (!target || !imageUrl || !image || !liveQuoteCheckpoint(generation, targetId, scope.sourceIdentity, target.identity, imageUrl))
+      return message.warning(t('desktop.chat.quoteTargetChanged'))
+    const checkpoint: AnnotationQuoteCheckpoint = { sourceIdentity: scope.sourceIdentity, imageUrl, targetId, targetIdentity: target.identity }
     suppressQuoteResult = false
     annotationBusy.value = true
     try {
-      let targetId = action.kind === 'direct' ? action.targetId : ''
-      if (action.kind === 'choose') {
-        const choice = await chooseTarget(scope, props.view.title, annotationLifetime.signal, false, false)
-        if (!choice || choice.kind !== 'view')
-          return
-        targetId = choice.id
-      }
-      const imageUrl = preview.value?.imageUrl ?? ''
-      const target = scope.targets.find(item => item.id === targetId)
-      const image = previewImage()
-      if (!target || !imageUrl || !image || generation !== annotationGeneration)
-        return
-      const checkpoint: AnnotationQuoteCheckpoint = { sourceIdentity: scope.sourceIdentity, imageUrl, targetId, targetIdentity: target.identity }
       const marks = annotationRects.value.slice()
       let blob: Blob
       try {
@@ -272,7 +306,7 @@ function quoteAnnotation() {
       const result = await quoteAnnotatedImage({
         checkpoint,
         readRoute: () => liveQuoteCheckpoint(generation, targetId, scope.sourceIdentity, target.identity, imageUrl),
-        receive: current => props.quoteSnapshot!({ scope, targetId, name: annotatedSnapshotName(props.view.title), base64, current }),
+        receive: current => receive({ scope, targetId, name: annotatedSnapshotName(props.view.title), base64, current }),
       })
       if (suppressQuoteResult || generation !== annotationGeneration)
         return
@@ -324,14 +358,24 @@ function quoteAnnotation() {
                 {{ t('desktop.chat.imageAnnotationRedo') }}
               </NTooltip>
               <span class="image-annotation-tools__rule" aria-hidden="true" />
-              <NTooltip trigger="hover" :delay="350">
+              <NTooltip trigger="hover" :delay="350" :disabled="pendingQuoteScope !== null">
                 <template #trigger>
                   <span class="image-annotation-tools__slot">
-                    <NButton class="image-annotation-action buddy-icon-button" quaternary data-testid="image-annotation-quote" :disabled="!quoteReady" :loading="annotationBusy" :aria-label="quoteLabel" :color="quoteReady ? 'var(--buddy-accent-text)' : undefined" :theme-overrides="annotationIconTheme" @click="quoteAnnotation">
-                      <template #icon>
-                        <DesktopIcon :component="TextQuote20Regular" />
-                      </template>
-                    </NButton>
+                    <NDropdown
+                      trigger="manual" placement="bottom-end" size="small" :show="pendingQuoteScope !== null" :options="annotationQuoteOptions" :menu-props="annotationQuoteMenuProps"
+                      :node-props="option => ({ 'role': 'menuitem', 'aria-label': String(option.label ?? '') })" :render-label="renderAnnotationQuoteLabel"
+                      @clickoutside="closeAnnotationQuoteMenu" @update:show="closeAnnotationQuoteMenu" @select="selectAnnotationQuoteTarget"
+                    >
+                      <NButton
+                        class="image-annotation-action buddy-icon-button" quaternary data-testid="image-annotation-quote" :disabled="!quoteReady" :loading="annotationBusy" :aria-label="quoteLabel"
+                        :aria-haspopup="quoteAction.kind === 'choose' ? 'menu' : undefined" :aria-expanded="quoteAction.kind === 'choose' ? pendingQuoteScope !== null : undefined"
+                        :color="quoteReady ? 'var(--buddy-accent-text)' : undefined" :theme-overrides="annotationIconTheme" @click="toggleAnnotationQuoteMenu" @keydown.tab="closeAnnotationQuoteMenu"
+                      >
+                        <template #icon>
+                          <DesktopIcon :component="TextQuote20Regular" />
+                        </template>
+                      </NButton>
+                    </NDropdown>
                   </span>
                 </template>
                 {{ quoteLabel }}

@@ -129,6 +129,8 @@ describe('desktopTitleBar', () => {
 
     const header = root.querySelector('.desktop-title-bar')
     expect(header?.classList.contains('is-native-controls')).toBe(true)
+    expect(header?.classList.contains('is-win-native-controls')).toBe(true)
+    expect(header?.classList.contains('is-mac-native-controls')).toBe(false)
     expect(root.querySelector('[data-window-control-icon="minimize"]')).toBeNull()
     expect(root.querySelector('[data-window-control-icon="maximize"]')).toBeNull()
     expect(root.querySelector('[data-window-control-icon="close"]')).toBeNull()
@@ -141,7 +143,26 @@ describe('desktopTitleBar', () => {
     app.unmount()
   })
 
-  it('keeps custom window control buttons on non-Windows platforms', async () => {
+  it('hides custom window control buttons on darwin and reserves left traffic-light area', async () => {
+    const { app, root } = mountTitleBar({
+      contextOpen: true,
+      platform: 'darwin',
+      sidebarCollapsed: false,
+    })
+    await nextTick()
+
+    const header = root.querySelector('.desktop-title-bar')
+    expect(header?.classList.contains('is-native-controls')).toBe(true)
+    expect(header?.classList.contains('is-mac-native-controls')).toBe(true)
+    expect(header?.classList.contains('is-win-native-controls')).toBe(false)
+    expect(root.querySelector('[data-window-control-icon="minimize"]')).toBeNull()
+    expect(root.querySelector('[data-window-control-icon="maximize"]')).toBeNull()
+    expect(root.querySelector('[data-window-control-icon="close"]')).toBeNull()
+
+    app.unmount()
+  })
+
+  it('keeps custom window control buttons on linux', async () => {
     const { app, root } = mountTitleBar({
       contextOpen: false,
       platform: 'linux',

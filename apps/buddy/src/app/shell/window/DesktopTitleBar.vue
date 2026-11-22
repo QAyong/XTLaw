@@ -45,7 +45,9 @@ const updates = useDesktopUpdatesContext()
 const { t } = useBuddyI18n(() => props.language)
 const message = useMessage()
 const platform = computed(() => props.appInfo?.platform ?? 'linux')
-const usesNativeWindowControls = computed(() => platform.value === 'win32')
+const isWindows = computed(() => platform.value === 'win32')
+const isMacOS = computed(() => platform.value === 'darwin')
+const usesNativeWindowControls = computed(() => isWindows.value || isMacOS.value)
 const maximizeLabel = computed(() => isMaximized.value
   ? t('desktop.window.restore')
   : t('desktop.window.maximize'))
@@ -188,7 +190,11 @@ function applyWindowState(state: DesktopWindowState) {
 <template>
   <header
     class="desktop-title-bar"
-    :class="{ 'is-native-controls': usesNativeWindowControls }"
+    :class="{
+      'is-native-controls': usesNativeWindowControls,
+      'is-win-native-controls': isWindows,
+      'is-mac-native-controls': isMacOS,
+    }"
     @dblclick="toggleMaximize"
   >
     <div class="desktop-title-bar__safe-area">
@@ -311,10 +317,15 @@ function applyWindowState(state: DesktopWindowState) {
   justify-content: space-between;
 }
 
-.desktop-title-bar.is-native-controls .desktop-title-bar__safe-area {
+.desktop-title-bar.is-win-native-controls .desktop-title-bar__safe-area {
   left: env(titlebar-area-x, 0px);
   right: auto;
   width: env(titlebar-area-width, calc(100% - 138px));
+}
+
+.desktop-title-bar.is-mac-native-controls .desktop-title-bar__safe-area {
+  left: env(titlebar-area-x, 76px);
+  right: 0;
 }
 
 .desktop-title-bar__welcome {

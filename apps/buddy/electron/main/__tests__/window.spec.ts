@@ -187,8 +187,8 @@ describe('mouse history navigation', () => {
   })
 })
 
-describe('windows native title bar overlay', () => {
-  it('enables native titleBarOverlay on win32 and keeps frameless mode on other platforms', () => {
+describe('native title bar controls', () => {
+  it('enables native titleBarOverlay on win32, native traffic lights on darwin, and frameless mode on linux', () => {
     createDesktopWindow({
       appName: 'XTLaw Dev',
       iconPath: '/tmp/icon.png',
@@ -213,6 +213,24 @@ describe('windows native title bar overlay', () => {
       symbolColor: '#aab1ab',
       height: 31,
     })
+
+    createDesktopWindow({
+      appName: 'XTLaw Dev',
+      iconPath: '/tmp/icon.png',
+      isQuitting: () => false,
+      minimizeToTrayOnClose: () => true,
+      onCloseToQuit: vi.fn(),
+      platform: 'darwin',
+      rendererUrl: null,
+    })
+    const macWindow = electron.FakeBrowserWindow.instances.at(-1)!
+    expect(macWindow.options.titleBarStyle).toBe('hidden')
+    expect(macWindow.options.trafficLightPosition).toEqual({ x: 12, y: 10 })
+    expect(macWindow.options.titleBarOverlay).toBeUndefined()
+    expect(macWindow.options.frame).toBeUndefined()
+
+    applyDesktopWindowAppearance(macWindow as unknown as Parameters<typeof applyDesktopWindowAppearance>[0], true)
+    expect(macWindow.setTitleBarOverlay).not.toHaveBeenCalled()
 
     createDesktopWindow({
       appName: 'XTLaw Dev',

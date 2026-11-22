@@ -34,6 +34,8 @@ const LIGHT_WINDOW_BACKGROUND = '#f5f4f1'
 const DARK_TITLEBAR_SYMBOL_COLOR = '#aab1ab'
 const LIGHT_TITLEBAR_SYMBOL_COLOR = '#666e69'
 const TITLEBAR_OVERLAY_HEIGHT = 31
+const MACOS_TRAFFIC_LIGHT_POSITION = { x: 12, y: 10 } as const
+const windowsWithTitleBarOverlay = new WeakSet<BrowserWindow>()
 
 export function resolveDesktopTitleBarOverlay(dark: boolean) {
   return {
@@ -45,7 +47,8 @@ export function resolveDesktopTitleBarOverlay(dark: boolean) {
 
 export function createDesktopWindow(options: CreateDesktopWindowOptions): DesktopWindowHandle {
   const platform = options.platform ?? process.platform
-  const useNativeTitleBarOverlay = platform === 'win32'
+  const useWindowsTitleBarOverlay = platform === 'win32'
+  const useMacNativeTrafficLights = platform === 'darwin'
   const windowOptions: BrowserWindowConstructorOptions = {
     width: options.placement?.width ?? 1280,
     height: options.placement?.height ?? 820,
@@ -55,14 +58,19 @@ export function createDesktopWindow(options: CreateDesktopWindowOptions): Deskto
     minHeight: 640,
     autoHideMenuBar: true,
     backgroundColor: options.backgroundColor ?? LIGHT_WINDOW_BACKGROUND,
-    ...(useNativeTitleBarOverlay
+    ...(useWindowsTitleBarOverlay
       ? {
           titleBarStyle: 'hidden',
           titleBarOverlay: resolveDesktopTitleBarOverlay(false),
         }
-      : {
-          frame: false,
-        }),
+      : useMacNativeTrafficLights
+        ? {
+            titleBarStyle: 'hidden',
+            trafficLightPosition: MACOS_TRAFFIC_LIGHT_POSITION,
+          }
+        : {
+            frame: false,
+          }),
     icon: options.iconPath,
     show: false,
     title: options.appName,
@@ -78,6 +86,8 @@ export function createDesktopWindow(options: CreateDesktopWindowOptions): Deskto
     },
   }
   const window = new BrowserWindow(windowOptions)
+  if (useWindowsTitleBarOverlay)
+    windowsWithTitleBarOverlay.add(window)
   window.on('page-title-updated', (event) => {
     event.preventDefault()
     window.setTitle(options.appName)
@@ -204,7 +214,7 @@ export function createDesktopWindow(options: CreateDesktopWindowOptions): Deskto
 export function applyDesktopWindowAppearance(window: BrowserWindow, dark: boolean): void {
   const color = dark ? DARK_WINDOW_BACKGROUND : LIGHT_WINDOW_BACKGROUND
   window.setBackgroundColor(color)
-  if (typeof window.setTitleBarOverlay === 'function')
+  if (windowsWithTitleBarOverlay.has(window) && typeof window.setTitleBarOverlay === 'function')
     window.setTitleBarOverlay(resolveDesktopTitleBarOverlay(dark))
 }
 

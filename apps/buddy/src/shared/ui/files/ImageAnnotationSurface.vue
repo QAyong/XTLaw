@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import type { ImageAnnotationRect } from './imageAnnotation'
+import type { AnnotationHistoryCommand, ImageAnnotationRect } from './imageAnnotation'
 import { useEventListener, useResizeObserver } from '@vueuse/core'
 import { computed, shallowRef, watch } from 'vue'
-import { annotationMarkLayout, annotationPointInside, annotationRectFromDrag, displayPointToImage, imageContentRect } from './imageAnnotation'
+import { annotationHistoryShortcut, annotationMarkLayout, annotationPointInside, annotationRectFromDrag, displayPointToImage, imageContentRect } from './imageAnnotation'
 
-const props = defineProps<{ image: HTMLImageElement | null, rects: readonly ImageAnnotationRect[], disabled?: boolean }>()
-const emit = defineEmits<{ commit: [rect: ImageAnnotationRect] }>()
+const props = defineProps<{ image: HTMLImageElement | null, rects: readonly ImageAnnotationRect[], disabled?: boolean, label?: string }>()
+const emit = defineEmits<{ commit: [rect: ImageAnnotationRect], history: [command: AnnotationHistoryCommand] }>()
 const draft = shallowRef<ImageAnnotationRect | null>(null)
 const frame = shallowRef({ left: 0, top: 0, width: 0, height: 0 })
 let drag: { pointerId: number, start: { x: number, y: number } } | null = null
@@ -43,8 +43,16 @@ function point(event: PointerEvent) {
   return displayPointToImage(event.clientX, event.clientY, content, bounds)
 }
 
+function focusSurface(event: PointerEvent) {
+  if (event.currentTarget instanceof SVGElement)
+    event.currentTarget.focus({ preventScroll: true })
+}
+
 function onPointerDown(event: PointerEvent) {
-  if (props.disabled || event.button !== 0)
+  if (event.button !== 0)
+    return
+  focusSurface(event)
+  if (props.disabled)
     return
   const image = props.image
   const start = point(event)
@@ -55,6 +63,21 @@ function onPointerDown(event: PointerEvent) {
   if (event.currentTarget instanceof Element)
     event.currentTarget.setPointerCapture(event.pointerId)
   event.preventDefault()
+}
+
+function onKeydown(event: KeyboardEvent) {
+  const surface = event.currentTarget
+  if (!(surface instanceof Element) || !surface.contains(document.activeElement))
+    return
+  const command = annotationHistoryShortcut(event)
+  if (!command)
+    return
+  event.preventDefault()
+  event.stopPropagation()
+  drag = null
+  draft.value = null
+  if (!props.disabled)
+    emit('history', command)
 }
 
 function onPointerMove(event: PointerEvent) {
@@ -95,6 +118,9 @@ useEventListener(window, 'keydown', (event: KeyboardEvent) => {
     v-show="frame.width > 0 && natural.width > 0"
     class="image-annotation-surface"
     data-testid="image-annotation-surface"
+    role="group"
+    tabindex="0"
+    :aria-label="label"
     :viewBox="`0 0 ${natural.width} ${natural.height}`"
     preserveAspectRatio="none"
     :style="{ left: `${frame.left}px`, top: `${frame.top}px`, width: `${frame.width}px`, height: `${frame.height}px` }"
@@ -102,6 +128,7 @@ useEventListener(window, 'keydown', (event: KeyboardEvent) => {
     @pointermove="onPointerMove"
     @pointerup="finish($event, true)"
     @pointercancel="finish($event, false)"
+    @keydown="onKeydown"
     @contextmenu.prevent
   >
     <template v-for="(mark, index) in visible" :key="index">
@@ -125,5 +152,7 @@ useEventListener(window, 'keydown', (event: KeyboardEvent) => {
   touch-action: none;
   user-select: none;
 }
+.image-annotation-surface:focus { outline: none; }
+.image-annotation-surface:focus-visible { outline: 2px solid var(--buddy-focus-ring); outline-offset: 2px; }
 .image-annotation-surface text { text-anchor: middle; dominant-baseline: central; }
 </style>

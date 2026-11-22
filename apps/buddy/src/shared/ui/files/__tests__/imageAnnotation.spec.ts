@@ -7,7 +7,7 @@ import { shallowRef } from 'vue'
 import { receiveReferenceMaterial } from '@/app/workbench/receiveReferenceMaterial'
 import { chatComposerDocumentToUserContent, userContentToChatComposerDocument } from '@/modules/prompt-input'
 import { WorkbenchSelectionReferences } from '@/shared/ui/selection/workbenchSelectionReferences'
-import { annotatedSnapshotName, annotationExportFits, annotationMarkLayout, annotationPointInside, annotationPreviewUrlAllowed, annotationQuoteAction, annotationQuoteMatches, annotationRectFromDrag, bytesToBase64, createSingleFlight, displayPointToImage, imageContentRect, isStaticAnnotatableImageName, paintImageAnnotation, pngAnimationFlag, quoteAnnotatedImage, readAnimatedPreview, webpAnimationFlag } from '../imageAnnotation'
+import { annotatedSnapshotName, annotationExportFits, annotationHistoryCommit, annotationHistoryRedo, annotationHistoryShortcut, annotationHistoryUndo, annotationMarkLayout, annotationPointInside, annotationPreviewUrlAllowed, annotationQuoteAction, annotationQuoteMatches, annotationRectFromDrag, bytesToBase64, createSingleFlight, displayPointToImage, emptyAnnotationHistory, imageContentRect, isStaticAnnotatableImageName, paintImageAnnotation, pngAnimationFlag, quoteAnnotatedImage, readAnimatedPreview, webpAnimationFlag } from '../imageAnnotation'
 
 const bounds = { width: 200, height: 100 }
 const natural = { width: 100, height: 100 }
@@ -73,6 +73,46 @@ describe('image annotation geometry', () => {
     expect(annotationExportFits(4096, 8192)).toBe(true)
     expect(annotationExportFits(8192, 8192)).toBe(false)
     expect(annotationExportFits(16_384, 16_384)).toBe(false)
+  })
+})
+
+describe('image annotation history', () => {
+  const first = { x: 1, y: 2, width: 10, height: 12 }
+  const second = { x: 20, y: 8, width: 16, height: 14 }
+  const shortcut = (key: string, modifiers: { ctrl?: boolean, meta?: boolean, shift?: boolean, alt?: boolean, composing?: boolean } = {}) => annotationHistoryShortcut({
+    key,
+    ctrlKey: !!modifiers.ctrl,
+    metaKey: !!modifiers.meta,
+    shiftKey: !!modifiers.shift,
+    altKey: !!modifiers.alt,
+    isComposing: modifiers.composing,
+  })
+
+  it('restores the undone mark and its number, then drops redo after a new mark', () => {
+    const drawn = annotationHistoryCommit(annotationHistoryCommit(emptyAnnotationHistory(), first), second)
+    const undone = annotationHistoryUndo(drawn)
+    expect(undone.marks).toEqual([first])
+    expect(undone.undone).toEqual([second])
+    const restored = annotationHistoryRedo(undone)
+    expect(restored.marks[1]).toBe(second)
+    expect(annotationMarkLayout(restored.marks[1]!, restored.marks.length, bounds).marker).toBe('②')
+    const replaced = annotationHistoryCommit(annotationHistoryUndo(restored), { x: 40, y: 10, width: 8, height: 8 })
+    expect(replaced.undone).toEqual([])
+    expect(annotationHistoryRedo(replaced)).toBe(replaced)
+    expect(annotationHistoryUndo(emptyAnnotationHistory())).toEqual({ marks: [], undone: [] })
+  })
+
+  it('accepts the usual undo and redo chords without taking bare or alternate shortcuts', () => {
+    expect(shortcut('z', { ctrl: true })).toBe('undo')
+    expect(shortcut('Z', { meta: true })).toBe('undo')
+    expect(shortcut('z', { ctrl: true, shift: true })).toBe('redo')
+    expect(shortcut('z', { meta: true, shift: true })).toBe('redo')
+    expect(shortcut('y', { ctrl: true })).toBe('redo')
+    expect(shortcut('y', { meta: true })).toBeNull()
+    expect(shortcut('z')).toBeNull()
+    expect(shortcut('z', { ctrl: true, alt: true })).toBeNull()
+    expect(shortcut('z', { ctrl: true, composing: true })).toBeNull()
+    expect(shortcut('y', { ctrl: true, shift: true })).toBeNull()
   })
 })
 

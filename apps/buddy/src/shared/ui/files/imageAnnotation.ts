@@ -100,6 +100,55 @@ export function annotationRectFromDrag(start: AnnotationPoint, end: AnnotationPo
   return { x, y, width, height }
 }
 
+export interface AnnotationHistory {
+  marks: readonly ImageAnnotationRect[]
+  undone: readonly ImageAnnotationRect[]
+}
+
+export function emptyAnnotationHistory(): AnnotationHistory {
+  return { marks: [], undone: [] }
+}
+
+export function annotationHistoryCommit(history: AnnotationHistory, rect: ImageAnnotationRect): AnnotationHistory {
+  return { marks: [...history.marks, rect], undone: [] }
+}
+
+export function annotationHistoryUndo(history: AnnotationHistory): AnnotationHistory {
+  const rect = history.marks.at(-1)
+  if (!rect)
+    return history
+  return { marks: history.marks.slice(0, -1), undone: [...history.undone, rect] }
+}
+
+export function annotationHistoryRedo(history: AnnotationHistory): AnnotationHistory {
+  const rect = history.undone.at(-1)
+  if (!rect)
+    return history
+  return { marks: [...history.marks, rect], undone: history.undone.slice(0, -1) }
+}
+
+export type AnnotationHistoryCommand = 'undo' | 'redo'
+
+export interface AnnotationShortcutEvent {
+  key: string
+  ctrlKey: boolean
+  metaKey: boolean
+  altKey: boolean
+  shiftKey: boolean
+  isComposing?: boolean
+}
+
+export function annotationHistoryShortcut(event: AnnotationShortcutEvent): AnnotationHistoryCommand | null {
+  if (event.isComposing || event.altKey || (!event.ctrlKey && !event.metaKey))
+    return null
+  const key = event.key.toLowerCase()
+  if (key === 'z')
+    return event.shiftKey ? 'redo' : 'undo'
+  if (key === 'y' && event.ctrlKey && !event.shiftKey)
+    return 'redo'
+  return null
+}
+
 export function annotationMarker(index: number): string {
   if (index >= 1 && index <= 20)
     return String.fromCodePoint(0x245F + index)

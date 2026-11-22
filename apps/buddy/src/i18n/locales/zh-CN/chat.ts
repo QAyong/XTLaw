@@ -159,6 +159,7 @@ export default {
   'desktop.chat.quoteTargetChanged': '目标或来源已切换，请重新选择。',
   'desktop.chat.imageAnnotation': '标注',
   'desktop.chat.imageAnnotationUndo': '撤销',
+  'desktop.chat.imageAnnotationRedo': '重做',
   'desktop.chat.imageAnnotationExit': '退出标注',
   'desktop.chat.imageAnnotationAnimated': '动图暂不支持标注。请使用静态 PNG、JPEG 或 WebP。',
   'desktop.chat.imageAnnotationUnavailable': '当前预览无法导出标注，请重新打开图片后再试。',

@@ -2,22 +2,24 @@
 import type { LocalChatApi } from '@buddy-electron/shared/localChatApi'
 import type { BuddyFileQuote, BuddyResourceQuote } from '@buddy-shared/conversation/buddyUserContent'
 import type { LocalSpaceFilePreview } from '@buddy-shared/spaces/spaceFileApi'
-import type { AnnotatedImageQuote, AnnotationQuoteCheckpoint, ImageAnnotationRect } from '@/shared/ui/files/imageAnnotation'
+import type { AnnotatedImageQuote, AnnotationHistoryCommand, AnnotationQuoteCheckpoint, ImageAnnotationRect } from '@/shared/ui/files/imageAnnotation'
 import type { WorkbenchView } from '@/workbench/common/workbench'
 import { BUDDY_ATTACHMENT_TOTAL_BYTES_LIMIT } from '@buddy-shared/conversation/attachmentPolicy'
 import { resolveBuiltinFileOpening } from '@buddy-shared/files/fileOpening'
 import { taskFileTargetSchema } from '@buddy-shared/files/taskFileApi'
 import { parseLocalChatPublicError } from '@buddy-shared/runtime/localChatError'
 import { requireFileTarget } from '@buddy-shared/spaces/spaceFileApi'
-import { NButton, useMessage } from 'naive-ui'
+import { ArrowRedo20Regular, ArrowUndo20Regular, ImageEdit20Regular, TextQuote20Regular } from '@vicons/fluent'
+import { NButton, NTooltip, useMessage } from 'naive-ui'
 import { computed, onScopeDispose, shallowRef, useTemplateRef, watch } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
 import WorkbenchMenu from '@/shared/ui/contributions/WorkbenchMenu.vue'
 import DesktopDocumentContent from '@/shared/ui/files/DesktopDocumentContent.vue'
 import DesktopDocumentToolbar from '@/shared/ui/files/DesktopDocumentToolbar.vue'
 import { fileDocumentModes, resolveFileDocumentMode } from '@/shared/ui/files/fileDocumentPresentation'
-import { annotatedSnapshotName, annotationExportFits, annotationQuoteAction, annotationThemeColors, bytesToBase64, createSingleFlight, imageElementCanvasReadable, isStaticAnnotatableImageName, quoteAnnotatedImage, readAnimatedPreview, renderAnnotatedPng } from '@/shared/ui/files/imageAnnotation'
+import { annotatedSnapshotName, annotationExportFits, annotationHistoryCommit, annotationHistoryRedo, annotationHistoryUndo, annotationQuoteAction, annotationThemeColors, bytesToBase64, createSingleFlight, emptyAnnotationHistory, imageElementCanvasReadable, isStaticAnnotatableImageName, quoteAnnotatedImage, readAnimatedPreview, renderAnnotatedPng } from '@/shared/ui/files/imageAnnotation'
 import ImageAnnotationSurface from '@/shared/ui/files/ImageAnnotationSurface.vue'
+import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import DesktopFileLoading from '@/shared/ui/loading/DesktopFileLoading.vue'
 import ResourceSelectionQuoteMenu from '@/shared/ui/selection/ResourceSelectionQuoteMenu.vue'
 import { useReferenceTargetPicker } from '@/shared/ui/selection/useReferenceTargetPicker'
@@ -112,8 +114,20 @@ function captureResource() {
 const annotatable = computed(() => props.visible && mode.value === 'preview' && !!preview.value?.imageUrl && isStaticAnnotatableImageName(props.view.title) && !previewRenderer.value)
 const annotationPhase = shallowRef<'off' | 'checking' | 'on'>('off')
 const annotationCors = shallowRef(false)
-const annotationRects = shallowRef<ImageAnnotationRect[]>([])
+const annotationHistory = shallowRef(emptyAnnotationHistory())
+const annotationRects = computed(() => annotationHistory.value.marks)
 const annotationBusy = shallowRef(false)
+const annotationIconTheme = { heightMedium: '28px' }
+const annotationSelectedTheme = {
+  ...annotationIconTheme,
+  colorQuaternary: 'var(--buddy-accent-surface)',
+  colorQuaternaryHover: 'var(--buddy-accent-surface-hover)',
+  colorQuaternaryPressed: 'var(--buddy-accent-surface-pressed)',
+}
+const annotationToggleLabel = computed(() => t(annotationPhase.value === 'off' ? 'desktop.chat.imageAnnotation' : 'desktop.chat.imageAnnotationExit'))
+const canUndoAnnotation = computed(() => annotationPhase.value === 'on' && !annotationBusy.value && annotationHistory.value.marks.length > 0)
+const canRedoAnnotation = computed(() => annotationPhase.value === 'on' && !annotationBusy.value && annotationHistory.value.undone.length > 0)
+const quoteReady = computed(() => annotationPhase.value === 'on' && !annotationBusy.value && annotationRects.value.length > 0)
 const quoteOnce = createSingleFlight()
 let annotationGeneration = 0
 let suppressQuoteResult = false
@@ -125,7 +139,7 @@ function resetAnnotation() {
   annotationLifetime = new AbortController()
   annotationPhase.value = 'off'
   annotationCors.value = false
-  annotationRects.value = []
+  annotationHistory.value = emptyAnnotationHistory()
   annotationBusy.value = false
 }
 function exitAnnotation() {
@@ -156,6 +170,7 @@ function beginAnnotation() {
   if (!annotatable.value || annotationPhase.value !== 'off')
     return
   suppressQuoteResult = false
+  annotationHistory.value = emptyAnnotationHistory()
   annotationPhase.value = 'checking'
   annotationCors.value = true
 }
@@ -196,12 +211,20 @@ function onAnnotationImageError() {
 function commitAnnotation(rect: ImageAnnotationRect) {
   if (annotationBusy.value || annotationPhase.value !== 'on')
     return
-  annotationRects.value = [...annotationRects.value, rect]
+  annotationHistory.value = annotationHistoryCommit(annotationHistory.value, rect)
 }
-function undoAnnotation() {
-  if (annotationBusy.value || annotationPhase.value !== 'on' || !annotationRects.value.length)
+function applyAnnotationHistory(command: AnnotationHistoryCommand) {
+  if (annotationPhase.value !== 'on' || annotationBusy.value)
     return
-  annotationRects.value = annotationRects.value.slice(0, -1)
+  const next = command === 'undo' ? annotationHistoryUndo(annotationHistory.value) : annotationHistoryRedo(annotationHistory.value)
+  if (next !== annotationHistory.value)
+    annotationHistory.value = next
+}
+function toggleAnnotation() {
+  if (annotationPhase.value === 'off')
+    beginAnnotation()
+  else
+    exitAnnotation()
 }
 function liveQuoteCheckpoint(generation: number, targetId: string, scopeIdentity: string, targetIdentity: string, imageUrl: string): AnnotationQuoteCheckpoint | null {
   if (generation !== annotationGeneration || annotationPhase.value === 'off')
@@ -279,22 +302,66 @@ function quoteAnnotation() {
 <template>
   <div class="file-preview" :data-image-annotation="annotationPhase">
     <Teleport v-if="visible" :to="toolbarTarget ?? 'body'" :disabled="!toolbarTarget">
-      <DesktopDocumentToolbar v-model="mode" :name="String(view.resource.data.path)" :modes="modes" :language="language" :embedded="!!toolbarTarget">
+      <DesktopDocumentToolbar v-model="mode" :name="String(view.resource.data.path)" :modes="modes" :language="language" :embedded="!!toolbarTarget" :prioritize-actions="annotatable || annotationPhase !== 'off'">
         <template #actions>
-          <NButton v-if="annotatable && annotationPhase === 'off'" size="tiny" secondary data-testid="image-annotation-enter" @click="beginAnnotation">
-            {{ t('desktop.chat.imageAnnotation') }}
-          </NButton>
-          <template v-else-if="annotationPhase !== 'off'">
-            <NButton size="tiny" secondary data-testid="image-annotation-undo" :disabled="annotationPhase !== 'on' || annotationBusy || annotationRects.length === 0" @click="undoAnnotation">
-              {{ t('desktop.chat.imageAnnotationUndo') }}
-            </NButton>
-            <NButton size="tiny" secondary data-testid="image-annotation-quote" :disabled="annotationPhase !== 'on' || annotationBusy || annotationRects.length === 0" :loading="annotationBusy" @click="quoteAnnotation">
-              {{ quoteLabel }}
-            </NButton>
-            <NButton size="tiny" secondary data-testid="image-annotation-exit" @click="exitAnnotation">
-              {{ t('desktop.chat.imageAnnotationExit') }}
-            </NButton>
-          </template>
+          <div v-if="annotatable || annotationPhase !== 'off'" class="image-annotation-tools" role="group" :aria-label="t('desktop.chat.imageAnnotation')">
+            <NTooltip trigger="hover" :delay="350">
+              <template #trigger>
+                <span class="image-annotation-tools__slot">
+                  <NButton
+                    class="image-annotation-action buddy-icon-button" quaternary data-image-annotation-toggle
+                    :data-testid="annotationPhase === 'off' ? 'image-annotation-enter' : 'image-annotation-exit'" :aria-pressed="annotationPhase !== 'off'" :aria-label="annotationToggleLabel"
+                    :color="annotationPhase === 'off' ? undefined : 'var(--buddy-accent-on-surface)'" :theme-overrides="annotationPhase === 'off' ? annotationIconTheme : annotationSelectedTheme" @click="toggleAnnotation"
+                  >
+                    <template #icon>
+                      <DesktopIcon :component="ImageEdit20Regular" />
+                    </template>
+                  </NButton>
+                </span>
+              </template>
+              {{ annotationToggleLabel }}
+            </NTooltip>
+            <template v-if="annotationPhase !== 'off'">
+              <NTooltip trigger="hover" :delay="350">
+                <template #trigger>
+                  <span class="image-annotation-tools__slot">
+                    <NButton class="image-annotation-action buddy-icon-button" quaternary data-testid="image-annotation-undo" :disabled="!canUndoAnnotation" :aria-label="t('desktop.chat.imageAnnotationUndo')" :theme-overrides="annotationIconTheme" @click="applyAnnotationHistory('undo')">
+                      <template #icon>
+                        <DesktopIcon :component="ArrowUndo20Regular" />
+                      </template>
+                    </NButton>
+                  </span>
+                </template>
+                {{ t('desktop.chat.imageAnnotationUndo') }}
+              </NTooltip>
+              <NTooltip trigger="hover" :delay="350">
+                <template #trigger>
+                  <span class="image-annotation-tools__slot">
+                    <NButton class="image-annotation-action buddy-icon-button" quaternary data-testid="image-annotation-redo" :disabled="!canRedoAnnotation" :aria-label="t('desktop.chat.imageAnnotationRedo')" :theme-overrides="annotationIconTheme" @click="applyAnnotationHistory('redo')">
+                      <template #icon>
+                        <DesktopIcon :component="ArrowRedo20Regular" />
+                      </template>
+                    </NButton>
+                  </span>
+                </template>
+                {{ t('desktop.chat.imageAnnotationRedo') }}
+              </NTooltip>
+              <span class="image-annotation-tools__rule" aria-hidden="true" />
+              <NTooltip trigger="hover" :delay="350">
+                <template #trigger>
+                  <span class="image-annotation-tools__slot">
+                    <NButton class="image-annotation-action buddy-icon-button" quaternary data-testid="image-annotation-quote" :disabled="!quoteReady" :loading="annotationBusy" :aria-label="quoteLabel" :color="quoteReady ? 'var(--buddy-accent-text)' : undefined" :theme-overrides="annotationIconTheme" @click="quoteAnnotation">
+                      <template #icon>
+                        <DesktopIcon :component="TextQuote20Regular" />
+                      </template>
+                    </NButton>
+                  </span>
+                </template>
+                {{ quoteLabel }}
+              </NTooltip>
+              <span class="image-annotation-tools__rule" aria-hidden="true" />
+            </template>
+          </div>
           <WorkbenchMenu v-if="target" target="resource.actions" :values="{ 'resource.scheme': view.resource.scheme }" :capture="captureResource" />
         </template>
       </DesktopDocumentToolbar>
@@ -322,7 +389,7 @@ function quoteAnnotation() {
         <component :is="previewRenderer.component" v-bind="previewRenderer.props" @error="failed = true" />
       </template>
       <template v-if="annotationPhase === 'on'" #imageOverlay>
-        <ImageAnnotationSurface :image="previewImage()" :rects="annotationRects" :disabled="annotationBusy" @commit="commitAnnotation" />
+        <ImageAnnotationSurface :image="previewImage()" :rects="annotationRects" :disabled="annotationBusy" :label="t('desktop.chat.imageAnnotation')" @commit="commitAnnotation" @history="applyAnnotationHistory" />
       </template>
     </DesktopDocumentContent>
     <ResourceSelectionQuoteMenu v-if="references" ref="quoteMenu" :view-id="view.id" :owner-key="`${view.id}:${identity}:${mode}`" :language="language" :visible="visible && target !== null" :write-clipboard-text="writeClipboardText" />
@@ -334,4 +401,9 @@ function quoteAnnotation() {
 .file-preview__notice { display: flex; align-items: center; gap: 8px; padding: 12px; color: var(--buddy-text-secondary); font-size: 12px; }
 .file-preview__retry { border: 0; background: transparent; padding: 0; color: var(--buddy-accent-solid); cursor: pointer; text-decoration: underline; font: inherit; font-size: 12px; }
 .file-preview__retry:hover { opacity: 0.85; }
+.image-annotation-tools { display: inline-flex; flex: none; align-items: center; gap: 2px; }
+.image-annotation-tools__slot { display: inline-flex; flex: none; }
+.image-annotation-tools__rule { width: 1px; height: 14px; flex: none; margin-inline: 4px; background: var(--buddy-border-subtle); }
+.image-annotation-action.buddy-icon-button { width: 28px; height: 28px; flex: none; }
+.image-annotation-action.n-button:focus-visible { outline: 2px solid var(--buddy-focus-ring); outline-offset: 1px; }
 </style>

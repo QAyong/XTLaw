@@ -161,6 +161,7 @@ export default {
   'desktop.chat.quoteTargetChanged': 'The target or source changed. Select again.',
   'desktop.chat.imageAnnotation': 'Annotate',
   'desktop.chat.imageAnnotationUndo': 'Undo',
+  'desktop.chat.imageAnnotationRedo': 'Redo',
   'desktop.chat.imageAnnotationExit': 'Exit annotation',
   'desktop.chat.imageAnnotationAnimated': 'Animated images cannot be annotated. Use a static PNG, JPEG, or WebP image.',
   'desktop.chat.imageAnnotationUnavailable': 'This preview cannot export annotations. Reopen the image and try again.',

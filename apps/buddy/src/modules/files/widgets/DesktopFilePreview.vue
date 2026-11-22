@@ -176,11 +176,11 @@ watch([annotationQuoteScope, quoteReady], ([scope, ready]) => {
   }
 })
 function annotationQuoteMenuProps() {
-  return { 'class': 'buddy-selection-menu', 'role': 'menu', 'aria-label': t('desktop.chat.quoteChooseTarget'), 'data-testid': 'image-annotation-target-menu' }
+  return { 'class': 'buddy-selection-menu resource-selection-menu', 'role': 'menu', 'aria-label': t('desktop.chat.quoteChooseTarget'), 'data-testid': 'image-annotation-target-menu' }
 }
 function renderAnnotationQuoteLabel(option: DropdownOption) {
   const label = String(option.label ?? '')
-  return h('span', { class: 'block max-w-60 truncate', title: label }, label)
+  return h('span', { class: 'block min-w-0 w-full truncate', title: label }, label)
 }
 function toggleAnnotationQuoteMenu() {
   if (!quoteReady.value)

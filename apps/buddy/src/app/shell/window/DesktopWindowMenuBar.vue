@@ -11,10 +11,6 @@ import {
   isDesktopCommandId,
 } from '@buddy-electron/shared/desktopCommands'
 import { formatKeybinding } from '@buddy-shared/shortcuts/keybinding'
-import {
-  PanelLeftContract20Regular,
-  PanelLeftExpand20Regular,
-} from '@vicons/fluent'
 import { NDropdown, NTooltip } from 'naive-ui'
 import { computed, h, shallowRef } from 'vue'
 import { useBuddyI18n } from '@/i18n/buddyI18n'
@@ -117,16 +113,18 @@ const nodeProps: DropdownNodeProps = () => ({
         <button
           type="button"
           class="desktop-window-menu__sidebar-trigger"
+          :class="{ 'is-active': !sidebarCollapsed }"
           :aria-label="t(sidebarCollapsed ? 'desktop.layout.expandSidebar' : 'desktop.layout.collapseSidebar')"
           :aria-expanded="!sidebarCollapsed"
           aria-controls="desktop-task-sidebar"
           @click="emit('toggleSidebar')"
         >
-          <DesktopIcon :component="sidebarCollapsed ? PanelLeftExpand20Regular : PanelLeftContract20Regular" />
+          <DesktopIcon :name="sidebarCollapsed ? 'panelLeft' : 'panelLeftActive'" />
         </button>
       </template>
       {{ t(sidebarCollapsed ? 'desktop.layout.expandSidebar' : 'desktop.layout.collapseSidebar') }}
     </NTooltip>
+    <span class="desktop-window-menu__divider" aria-hidden="true" />
     <NDropdown
       v-for="menu in menuTriggers"
       :key="menu.id"
@@ -160,28 +158,35 @@ const nodeProps: DropdownNodeProps = () => ({
   height: 100%;
   min-width: 0;
   align-items: center;
-  padding-left: 0.25rem;
+  padding-left: 0.375rem;
   -webkit-app-region: no-drag;
 }
 
 .desktop-window-menu__sidebar-trigger {
   display: grid;
-  width: 1.5rem;
+  width: 1.625rem;
   height: 1.5rem;
   flex: none;
   place-items: center;
   border: 0;
-  border-radius: var(--buddy-radius-micro);
+  border-radius: 0.3125rem;
   background: transparent;
   color: var(--buddy-text-secondary);
   cursor: default;
-  margin-right: 0.125rem;
   padding: 0;
   transition: background-color 80ms ease, color 80ms ease;
 
   &:hover {
     background: var(--buddy-state-hover);
     color: var(--buddy-text-strong);
+  }
+
+  &.is-active {
+    color: var(--buddy-text-primary);
+
+    &:hover {
+      color: var(--buddy-text-strong);
+    }
   }
 
   &:focus-visible {
@@ -193,6 +198,14 @@ const nodeProps: DropdownNodeProps = () => ({
     width: 1rem;
     height: 1rem;
   }
+}
+
+.desktop-window-menu__divider {
+  width: 1px;
+  height: 0.75rem;
+  flex: none;
+  margin: 0 0.25rem;
+  background: var(--buddy-border-subtle);
 }
 
 .desktop-window-menu__trigger {

@@ -6,7 +6,6 @@ import type {
 import type { DesktopCommandId } from '@buddy-electron/shared/desktopCommands'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import { DESKTOP_COMMAND_REGISTRY, getDesktopCommand } from '@buddy-electron/shared/desktopCommands'
-import { PanelRightContract20Regular, PanelRightExpand20Regular } from '@vicons/fluent'
 import { NTooltip, useMessage } from 'naive-ui'
 import { computed, nextTick, onBeforeUnmount, onMounted, onScopeDispose, shallowRef } from 'vue'
 import { useRouter } from 'vue-router'
@@ -45,6 +44,7 @@ const updates = useDesktopUpdatesContext()
 const { t } = useBuddyI18n(() => props.language)
 const message = useMessage()
 const platform = computed(() => props.appInfo?.platform ?? 'linux')
+const usesNativeWindowControls = computed(() => platform.value === 'win32')
 const maximizeLabel = computed(() => isMaximized.value
   ? t('desktop.window.restore')
   : t('desktop.window.maximize'))
@@ -185,7 +185,11 @@ function applyWindowState(state: DesktopWindowState) {
 </script>
 
 <template>
-  <header class="desktop-title-bar" @dblclick="toggleMaximize">
+  <header
+    class="desktop-title-bar"
+    :class="{ 'is-native-controls': usesNativeWindowControls }"
+    @dblclick="toggleMaximize"
+  >
     <div class="desktop-title-bar__safe-area">
       <span v-if="minimal" class="desktop-title-bar__welcome">{{ t('onboarding.welcome') }}</span>
       <DesktopWindowMenuBar
@@ -204,75 +208,85 @@ function applyWindowState(state: DesktopWindowState) {
         @mousedown.stop
         @pointerdown.stop
       >
-        <NTooltip v-if="contextSwapAvailable" placement="bottom">
-          <template #trigger>
-            <button
-              :aria-label="t('desktop.context.swapPosition')"
-              :aria-pressed="contextSwapped"
-              class="desktop-title-bar__control"
-              data-testid="context-panel-position-toggle"
-              type="button"
-              @click="toggleContextPosition"
-            >
-              <DesktopIcon>
-                <svg class="desktop-title-bar__swap-icon" :class="{ 'is-swapped': contextSwapped }" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                  <path class="desktop-title-bar__swap-arrow is-right" d="M12.146 3.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708-.708L14.293 7H4.5a.5.5 0 0 1 0-1h9.793l-2.147-2.146a.5.5 0 0 1 0-.708Z" />
-                  <path class="desktop-title-bar__swap-arrow is-left" d="M7.854 10.146a.5.5 0 0 1 0 .708L5.707 13H15.5a.5.5 0 0 1 0 1H5.707l2.147 2.146a.5.5 0 0 1-.708.708l-3-3a.5.5 0 0 1 0-.708l3-3a.5.5 0 0 1 .708 0Z" />
-                </svg>
-              </DesktopIcon>
-            </button>
-          </template>
-          {{ t('desktop.context.swapPosition') }}
-        </NTooltip>
-        <NTooltip v-if="contextAvailable" placement="bottom">
-          <template #trigger>
-            <button
-              :aria-label="contextToggleLabel"
-              :aria-expanded="contextOpen"
-              class="desktop-title-bar__control"
-              :class="{ 'is-active': contextOpen }"
-              data-testid="context-panel-toggle"
-              type="button"
-              @click="emit('toggleContext')"
-            >
-              <DesktopIcon :component="contextOpen ? PanelRightContract20Regular : PanelRightExpand20Regular" />
-            </button>
-          </template>
-          {{ contextToggleLabel }}
-        </NTooltip>
-        <button
-          :aria-label="t('desktop.window.minimize')"
-          class="desktop-title-bar__control"
-          type="button"
-          @click="minimize"
-        >
-          <DesktopIcon data-window-control-icon="minimize" name="windowMinimize" />
-        </button>
-        <button
-          :aria-label="maximizeLabel"
-          class="desktop-title-bar__control"
-          type="button"
-          @click="toggleMaximize"
-        >
-          <DesktopIcon
-            v-if="isMaximized"
-            data-window-control-icon="restore"
-            name="windowRestore"
-          />
-          <DesktopIcon
-            v-else
-            data-window-control-icon="maximize"
-            name="windowMaximize"
-          />
-        </button>
-        <button
-          :aria-label="t('desktop.command.window.close')"
-          class="desktop-title-bar__control is-close"
-          type="button"
-          @click="executeDesktopCommand('window.close')"
-        >
-          <DesktopIcon data-window-control-icon="close" name="windowClose" />
-        </button>
+        <div v-if="contextSwapAvailable || contextAvailable" class="desktop-title-bar__toolbar">
+          <NTooltip v-if="contextSwapAvailable" placement="bottom">
+            <template #trigger>
+              <button
+                :aria-label="t('desktop.context.swapPosition')"
+                :aria-pressed="contextSwapped"
+                class="desktop-title-bar__control is-toolbar"
+                :class="{ 'is-active': contextSwapped }"
+                data-testid="context-panel-position-toggle"
+                type="button"
+                @click="toggleContextPosition"
+              >
+                <DesktopIcon>
+                  <svg class="desktop-title-bar__swap-icon" :class="{ 'is-swapped': contextSwapped }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path class="desktop-title-bar__swap-arrow is-right" d="M6.5 8.5h11m-2.75-2.75L17.5 8.5l-2.75 2.75" />
+                    <path class="desktop-title-bar__swap-arrow is-left" d="M17.5 15.5h-11m2.75-2.75L6.5 15.5l2.75 2.75" />
+                  </svg>
+                </DesktopIcon>
+              </button>
+            </template>
+            {{ t('desktop.context.swapPosition') }}
+          </NTooltip>
+          <NTooltip v-if="contextAvailable" placement="bottom">
+            <template #trigger>
+              <button
+                :aria-label="contextToggleLabel"
+                :aria-expanded="contextOpen"
+                class="desktop-title-bar__control is-toolbar"
+                :class="{ 'is-active': contextOpen }"
+                data-testid="context-panel-toggle"
+                type="button"
+                @click="emit('toggleContext')"
+              >
+                <DesktopIcon :name="contextOpen ? 'panelRightActive' : 'panelRight'" />
+              </button>
+            </template>
+            {{ contextToggleLabel }}
+          </NTooltip>
+        </div>
+        <span
+          v-if="contextSwapAvailable || contextAvailable"
+          class="desktop-title-bar__divider"
+          aria-hidden="true"
+        />
+        <template v-if="!usesNativeWindowControls">
+          <button
+            :aria-label="t('desktop.window.minimize')"
+            class="desktop-title-bar__control"
+            type="button"
+            @click="minimize"
+          >
+            <DesktopIcon data-window-control-icon="minimize" name="windowMinimize" />
+          </button>
+          <button
+            :aria-label="maximizeLabel"
+            class="desktop-title-bar__control"
+            type="button"
+            @click="toggleMaximize"
+          >
+            <DesktopIcon
+              v-if="isMaximized"
+              data-window-control-icon="restore"
+              name="windowRestore"
+            />
+            <DesktopIcon
+              v-else
+              data-window-control-icon="maximize"
+              name="windowMaximize"
+            />
+          </button>
+          <button
+            :aria-label="t('desktop.command.window.close')"
+            class="desktop-title-bar__control is-close"
+            type="button"
+            @click="executeDesktopCommand('window.close')"
+          >
+            <DesktopIcon data-window-control-icon="close" name="windowClose" />
+          </button>
+        </template>
       </div>
     </div>
 
@@ -304,6 +318,13 @@ function applyWindowState(state: DesktopWindowState) {
   justify-content: space-between;
 }
 
+.desktop-title-bar.is-native-controls .desktop-title-bar__safe-area {
+  left: env(titlebar-area-x, 0px);
+  right: auto;
+  width: env(titlebar-area-width, calc(100% - 138px));
+  padding-right: 0.25rem;
+}
+
 .desktop-title-bar__welcome {
   padding: 0 1rem;
   color: var(--buddy-text-secondary);
@@ -314,8 +335,23 @@ function applyWindowState(state: DesktopWindowState) {
   display: flex;
   height: var(--buddy-titlebar-height);
   flex: none;
+  align-items: center;
   align-self: center;
   -webkit-app-region: no-drag;
+}
+
+.desktop-title-bar__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+}
+
+.desktop-title-bar__divider {
+  width: 1px;
+  height: 0.75rem;
+  flex: none;
+  margin: 0 0.25rem;
+  background: var(--buddy-border-subtle);
 }
 
 .desktop-title-bar__swap-arrow {
@@ -341,6 +377,14 @@ function applyWindowState(state: DesktopWindowState) {
   background: transparent;
   color: var(--buddy-text-secondary);
   cursor: default;
+  padding: 0;
+  transition: background-color 80ms ease, color 80ms ease;
+
+  &.is-toolbar {
+    width: 1.625rem;
+    height: 1.5rem;
+    border-radius: 0.3125rem;
+  }
 
   &:hover {
     background: var(--buddy-state-hover);
@@ -348,12 +392,16 @@ function applyWindowState(state: DesktopWindowState) {
   }
 
   &:focus-visible {
-    outline: 2px solid var(--buddy-focus-ring);
-    outline-offset: -2px;
+    outline: 1px solid var(--buddy-focus-ring);
+    outline-offset: -1px;
   }
 
   &.is-active {
     color: var(--buddy-accent-text);
+
+    &:hover {
+      color: var(--buddy-text-strong);
+    }
   }
 
   &.is-close:hover {

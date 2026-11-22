@@ -2,6 +2,7 @@ import type { BrowserWindowConstructorOptions } from 'electron'
 import type { DesktopWindowState } from '../shared/desktopApi'
 import type { DesktopWindowPlacement } from './desktopWindowState'
 import { join } from 'node:path'
+import process from 'node:process'
 import { BrowserWindow, Menu, shell } from 'electron'
 import { DESKTOP_IPC_CHANNELS } from '../shared/desktopApi'
 import { createDesktopContextMenuTemplate } from './desktopContextMenu'
@@ -17,6 +18,7 @@ export interface CreateDesktopWindowOptions {
   onHidden?: () => void
   onPlacementChanged?: (placement: DesktopWindowPlacement) => void
   placement?: DesktopWindowPlacement | null
+  platform?: NodeJS.Platform
   rendererUrl: string | null
   backgroundColor?: string
   showOnReady?: boolean
@@ -29,8 +31,21 @@ export interface DesktopWindowHandle {
 
 const DARK_WINDOW_BACKGROUND = '#171816'
 const LIGHT_WINDOW_BACKGROUND = '#f5f4f1'
+const DARK_TITLEBAR_SYMBOL_COLOR = '#aab1ab'
+const LIGHT_TITLEBAR_SYMBOL_COLOR = '#666e69'
+const TITLEBAR_OVERLAY_HEIGHT = 31
+
+export function resolveDesktopTitleBarOverlay(dark: boolean) {
+  return {
+    color: '#00000000',
+    symbolColor: dark ? DARK_TITLEBAR_SYMBOL_COLOR : LIGHT_TITLEBAR_SYMBOL_COLOR,
+    height: TITLEBAR_OVERLAY_HEIGHT,
+  }
+}
 
 export function createDesktopWindow(options: CreateDesktopWindowOptions): DesktopWindowHandle {
+  const platform = options.platform ?? process.platform
+  const useNativeTitleBarOverlay = platform === 'win32'
   const windowOptions: BrowserWindowConstructorOptions = {
     width: options.placement?.width ?? 1280,
     height: options.placement?.height ?? 820,
@@ -40,7 +55,14 @@ export function createDesktopWindow(options: CreateDesktopWindowOptions): Deskto
     minHeight: 640,
     autoHideMenuBar: true,
     backgroundColor: options.backgroundColor ?? LIGHT_WINDOW_BACKGROUND,
-    frame: false,
+    ...(useNativeTitleBarOverlay
+      ? {
+          titleBarStyle: 'hidden',
+          titleBarOverlay: resolveDesktopTitleBarOverlay(false),
+        }
+      : {
+          frame: false,
+        }),
     icon: options.iconPath,
     show: false,
     title: options.appName,
@@ -182,6 +204,8 @@ export function createDesktopWindow(options: CreateDesktopWindowOptions): Deskto
 export function applyDesktopWindowAppearance(window: BrowserWindow, dark: boolean): void {
   const color = dark ? DARK_WINDOW_BACKGROUND : LIGHT_WINDOW_BACKGROUND
   window.setBackgroundColor(color)
+  if (typeof window.setTitleBarOverlay === 'function')
+    window.setTitleBarOverlay(resolveDesktopTitleBarOverlay(dark))
 }
 
 export function readDesktopWindowState(window: BrowserWindow): DesktopWindowState {

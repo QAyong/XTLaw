@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { createDesktopWindow } from '../window'
+import { applyDesktopWindowAppearance, createDesktopWindow } from '../window'
 
 const electron = vi.hoisted(() => {
   class FakeBrowserWindow {
@@ -10,7 +10,9 @@ const electron = vi.hoisted(() => {
     readonly loadURL = vi.fn().mockResolvedValue(undefined)
     readonly maximize = vi.fn()
     readonly removeMenu = vi.fn()
+    readonly setBackgroundColor = vi.fn()
     readonly setTitle = vi.fn()
+    readonly setTitleBarOverlay = vi.fn()
     readonly show = vi.fn()
     readonly webContents = {
       isDestroyed: () => false,
@@ -182,5 +184,47 @@ describe('mouse history navigation', () => {
     expect(back.preventDefault).toHaveBeenCalledOnce()
     expect(forward.preventDefault).toHaveBeenCalledOnce()
     expect(home.preventDefault).not.toHaveBeenCalled()
+  })
+})
+
+describe('windows native title bar overlay', () => {
+  it('enables native titleBarOverlay on win32 and keeps frameless mode on other platforms', () => {
+    createDesktopWindow({
+      appName: 'XTLaw Dev',
+      iconPath: '/tmp/icon.png',
+      isQuitting: () => false,
+      minimizeToTrayOnClose: () => true,
+      onCloseToQuit: vi.fn(),
+      platform: 'win32',
+      rendererUrl: null,
+    })
+    const winWindow = electron.FakeBrowserWindow.instances.at(-1)!
+    expect(winWindow.options.titleBarStyle).toBe('hidden')
+    expect(winWindow.options.titleBarOverlay).toEqual({
+      color: '#00000000',
+      symbolColor: '#666e69',
+      height: 31,
+    })
+    expect(winWindow.options.frame).toBeUndefined()
+
+    applyDesktopWindowAppearance(winWindow as unknown as Parameters<typeof applyDesktopWindowAppearance>[0], true)
+    expect(winWindow.setTitleBarOverlay).toHaveBeenCalledWith({
+      color: '#00000000',
+      symbolColor: '#aab1ab',
+      height: 31,
+    })
+
+    createDesktopWindow({
+      appName: 'XTLaw Dev',
+      iconPath: '/tmp/icon.png',
+      isQuitting: () => false,
+      minimizeToTrayOnClose: () => true,
+      onCloseToQuit: vi.fn(),
+      platform: 'linux',
+      rendererUrl: null,
+    })
+    const linuxWindow = electron.FakeBrowserWindow.instances.at(-1)!
+    expect(linuxWindow.options.frame).toBe(false)
+    expect(linuxWindow.options.titleBarOverlay).toBeUndefined()
   })
 })

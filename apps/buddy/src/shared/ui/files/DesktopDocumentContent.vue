@@ -4,7 +4,7 @@ import type { FileDocumentMode } from './fileDocumentPresentation'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
 import type { MarkdownImageResolver } from '@/shared/ui/markdown/markdownImage'
 import type { CaptureMonacoResourceQuote } from '@/shared/ui/selection/useMonacoResourceQuote'
-import { computed, useTemplateRef } from 'vue'
+import { computed, useTemplateRef, watch } from 'vue'
 import DesktopMarkdownContent from '@/shared/ui/markdown/DesktopMarkdownContent.vue'
 import DesktopMediaPreview from '@/shared/ui/media/DesktopMediaPreview.vue'
 import { readResourceTextSelection } from '@/shared/ui/selection/resourceQuoteSelection'
@@ -16,6 +16,16 @@ const emit = defineEmits<{ previewError: [], imageLoad: [image: HTMLImageElement
 defineSlots<{ source?: () => unknown, preview?: () => unknown, imageOverlay?: () => unknown }>()
 const markdown = useTemplateRef<HTMLElement>('markdown')
 const image = useTemplateRef<HTMLImageElement>('image')
+const annotationImage = useTemplateRef<HTMLImageElement>('annotationImage')
+watch([annotationImage, () => props.imageUrl], ([element, src]) => {
+  if (!element || !src)
+    return
+  // Set the request mode before the source and avoid reusing the ordinary preview's decoded image.
+  const url = new URL(src)
+  url.searchParams.set('v', crypto.randomUUID())
+  element.crossOrigin = 'anonymous'
+  element.src = url.href
+}, { flush: 'post' })
 const monaco = useTemplateRef<InstanceType<typeof DesktopMonacoFile>>('monaco')
 const highlight = useQuoteHighlight('buddy-resource-quote')
 const ready = computed(() => props.mode === 'preview' ? !!markdown.value : props.sourceReady ?? monaco.value?.ready ?? false)
@@ -25,16 +35,10 @@ function reveal(quote: BuddyTextQuote) {
   return props.revealSource?.(quote) ?? monaco.value?.reveal(quote) ?? false
 }
 function onImageLoad(event: Event) {
-  if (props.imageCrossOrigin && event.currentTarget instanceof HTMLImageElement)
-    emit('imageLoad', event.currentTarget)
+  if (event.currentTarget === annotationImage.value && annotationImage.value)
+    emit('imageLoad', annotationImage.value)
 }
-function onImageError() {
-  if (props.imageCrossOrigin)
-    emit('annotationImageError')
-  else
-    emit('previewError')
-}
-defineExpose({ ready, reveal, getImageElement: () => image.value })
+defineExpose({ ready, reveal, getImageElement: () => annotationImage.value ?? image.value })
 function quoteText(event: MouseEvent) {
   if (!props.quoteSource || !props.prepareQuote || !(event.currentTarget instanceof HTMLElement))
     return
@@ -57,7 +61,8 @@ function quoteText(event: MouseEvent) {
       <DesktopMarkdownContent :content="text" :resolve-image="resolveImage" code-overflow="scroll" :language="language" :write-clipboard-text="writeClipboardText" />
     </article>
     <div v-else-if="mode === 'preview' && imageUrl" class="desktop-document-content__image">
-      <img ref="image" :key="`${imageUrl}:${imageCrossOrigin ? 'cors' : 'view'}`" :crossorigin="imageCrossOrigin ? 'anonymous' : undefined" :src="imageUrl" :alt="name" draggable="false" @load="onImageLoad" @error="onImageError">
+      <img v-if="imageCrossOrigin" ref="annotationImage" :alt="name" draggable="false" @load="onImageLoad" @error="emit('annotationImageError')">
+      <img v-else ref="image" :key="imageUrl" :src="imageUrl" :alt="name" draggable="false" @error="emit('previewError')">
       <slot name="imageOverlay" />
     </div>
     <template v-else-if="(mode === 'source' || mode === 'edit') && text != null">

@@ -324,19 +324,21 @@ onScopeDispose(controller.configuration.subscribe(() => editor?.updateOptions({ 
       </button>
     </div>
     <ResourceSelectionQuoteMenu v-if="references" ref="quoteMenu" :view-id="view.id" :owner-key="`${view.id}:${identity}:${mode}`" :language="language" :visible="visible" :write-clipboard-text="writeClipboardText" />
-    <DesktopDocumentFindBar v-if="find.open.value" v-model="find.query.value" :count="find.count.value" :index="find.index.value" :capped="find.capped.value" :focus-token="find.focusToken.value" :language="language" @next="find.next()" @previous="find.previous()" @close="find.close()" @composing="find.composing.value = $event" />
-    <DesktopDocumentContent
-      ref="document" :source-ready="editorReady" :reveal-source="revealSource"
-      :mode="mode" :name="view.title" :text="copy?.text ?? ''" :resolve-image="imageResolver" :language="language" :write-clipboard-text="writeClipboardText"
-      :quote-source="references ? quoteSource('markdown') : undefined" :prepare-quote="prepareQuote" :find-open="find.open.value && searchable && mode === 'preview'" :find-query="find.query.value" :find-index="find.index.value" :find-paused="find.composing.value" @find-result="find.setResult($event.count, $event.capped)" @scroll.capture="quoteMenu?.close()"
-    >
-      <template v-if="previewRenderer" #preview>
-        <component :is="previewRenderer.component" v-bind="previewRenderer.props" @error="failed = true" />
-      </template>
-      <template #source>
-        <div ref="container" class="file-editor__monaco" data-testid="workbench-text-editor" />
-      </template>
-    </DesktopDocumentContent>
+    <div class="file-editor__document">
+      <DesktopDocumentFindBar v-if="find.open.value" v-model="find.query.value" :count="find.count.value" :index="find.index.value" :capped="find.capped.value" :focus-token="find.focusToken.value" :language="language" @next="find.next()" @previous="find.previous()" @close="find.close()" @composing="find.composing.value = $event" />
+      <DesktopDocumentContent
+        ref="document" :source-ready="editorReady" :reveal-source="revealSource"
+        :mode="mode" :name="view.title" :text="copy?.text ?? ''" :resolve-image="imageResolver" :language="language" :write-clipboard-text="writeClipboardText"
+        :quote-source="references ? quoteSource('markdown') : undefined" :prepare-quote="prepareQuote" :find-open="find.open.value && searchable && mode === 'preview'" :find-query="find.query.value" :find-index="find.index.value" :find-paused="find.composing.value" @find-result="find.setResult($event.count, $event.capped)" @scroll.capture="quoteMenu?.close()"
+      >
+        <template v-if="previewRenderer" #preview>
+          <component :is="previewRenderer.component" v-bind="previewRenderer.props" @error="failed = true" />
+        </template>
+        <template #source>
+          <div ref="container" class="file-editor__monaco" data-testid="workbench-text-editor" />
+        </template>
+      </DesktopDocumentContent>
+    </div>
     <footer v-if="mode === 'edit' || copy?.dirty || copy?.saving || copy?.error === 'FILE_SAVE_FAILED'" class="file-editor__status">
       <span role="status">{{ saveStatusText }} · UTF-8</span>
       <NButton v-if="autoSave && (autoSaveStatus === 'failed' || autoSaveStatus === 'recovered')" size="tiny" secondary :loading="copy?.saving" :disabled="copy?.loading || copy?.blocked || !!copy?.conflict" @click="autoSave.retry(view.resource)">
@@ -348,6 +350,7 @@ onScopeDispose(controller.configuration.subscribe(() => editor?.updateOptions({ 
 
 <style scoped>
 .file-editor { display: flex; flex: 1; min-height: 0; min-width: 0; flex-direction: column; }
+.file-editor__document { position: relative; display: flex; flex: 1; min-width: 0; min-height: 0; flex-direction: column; }
 .file-editor__conflict button, .file-editor__error button { padding: 3px 7px; background: var(--buddy-state-hover); border: 1px solid var(--buddy-border-subtle); border-radius: 4px; color: var(--buddy-text-secondary); cursor: pointer; }
 .file-editor__monaco { flex: 1; min-height: 0; }
 .file-editor__conflict, .file-editor__error { padding: 10px 14px; font-size: 12px; background: var(--buddy-state-hover); }

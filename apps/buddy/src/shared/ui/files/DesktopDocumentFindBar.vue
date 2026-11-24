@@ -77,7 +77,7 @@ function onKeydown(event: KeyboardEvent) {
 </template>
 
 <style scoped>
-.desktop-document-find { display: flex; flex: none; align-items: center; gap: 4px; min-height: 32px; margin: 8px 12px 0; padding: 2px 4px 2px 8px; border: 1px solid var(--buddy-border-subtle); border-radius: 6px; background: var(--buddy-surface-raised); }
+.desktop-document-find { position: absolute; z-index: 3; top: 8px; right: 12px; left: 12px; display: flex; align-items: center; gap: 4px; min-height: 32px; margin: 0; padding: 2px 4px 2px 8px; border: 1px solid var(--buddy-border-subtle); border-radius: 6px; background: var(--buddy-surface-raised); box-shadow: 0 8px 24px rgb(32 37 34 / 16%); }
 .desktop-document-find.is-empty { border-color: var(--buddy-status-warning-text); }
 .desktop-document-find:focus-within:not(.is-empty) { border-color: var(--buddy-focus-ring); }
 .desktop-document-find__input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--buddy-text-primary); font: inherit; font-size: 12px; }

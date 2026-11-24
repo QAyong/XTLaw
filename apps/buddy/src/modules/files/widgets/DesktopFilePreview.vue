@@ -461,7 +461,7 @@ function quoteAnnotation(scope: AnnotatedImageQuote['scope'], targetId: string) 
 
 <style scoped>
 .file-preview { display: flex; flex: 1; flex-direction: column; min-height: 0; overflow: auto; }
-.file-preview__document { display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; }
+.file-preview__document { position: relative; display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; }
 .file-preview__notice { display: flex; align-items: center; gap: 8px; padding: 12px; color: var(--buddy-text-secondary); font-size: 12px; }
 .file-preview__retry { border: 0; background: transparent; padding: 0; color: var(--buddy-accent-solid); cursor: pointer; text-decoration: underline; font: inherit; font-size: 12px; }
 .file-preview__retry:hover { opacity: 0.85; }

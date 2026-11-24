@@ -18,8 +18,8 @@ const { t } = useBuddyI18n(() => props.language)
     <div class="desktop-document-toolbar__row">
       <strong class="desktop-document-toolbar__name" :title="prioritizeActions ? name : undefined">{{ name }}</strong>
       <div class="desktop-document-toolbar__actions">
-        <DesktopContextAction v-if="searchable" data-testid="document-find-toggle" :icon="Search20Regular" :label="t('desktop.context.find')" :active="searchOpen === true" @click="$emit('toggleSearch')" />
         <DesktopDocumentModes v-model="mode" :modes="modes" :language="language" />
+        <DesktopContextAction v-if="searchable" data-testid="document-find-toggle" :icon="Search20Regular" :label="t('desktop.context.find')" :active="searchOpen === true" @click="$emit('toggleSearch')" />
         <slot name="actions" />
       </div>
     </div>

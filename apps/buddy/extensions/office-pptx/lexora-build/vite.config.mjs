@@ -24,6 +24,110 @@ const mainStubs = {
   'fonts': 'fonts.ts',
   'tiff-decode': 'tiff-decode.ts',
 }
+// The plugin page cannot register the Electron protocol these URLs use, and its CSP
+// allows only data: and blob: images. Convert at the point the URL is minted.
+const slideMediaPatches = [
+  [
+    `const mediaCleanup = new FinalizationRegistry<Map<string, string>>((urls) => {
+  for (const url of urls.values()) mediaSources.delete(url)
+})`,
+    `const mediaCleanup = new FinalizationRegistry<Map<string, string>>((urls) => {
+  for (const url of urls.values()) releaseSlideMediaUrl(url)
+})`,
+  ],
+  [
+    `    if (!bytes || !retained.has(bytes)) {
+      urls.delete(key)
+      mediaSources.delete(url)
+    }`,
+    `    if (!bytes || !retained.has(bytes)) {
+      releaseSlideMediaUrl(url)
+      urls.delete(key)
+    }`,
+  ],
+  [
+    `    if (!url) {
+      url = \`genoffice-slide-media://archive/\${randomUUID()}?mime=\${encodeURIComponent(mime)}\`
+      urls.set(key, url)
+      mediaSources.set(url, {
+        opened: new WeakRef(opened),
+        bytes: new WeakRef(bytes),
+        mediaRef,
+        ...(slidePath ? { slidePath } : {}),
+      })
+    }`,
+    `    if (!url) {
+      const token = \`genoffice-slide-media://archive/\${randomUUID()}?mime=\${encodeURIComponent(mime)}\`
+      const source: MediaSource = {
+        opened: new WeakRef(opened),
+        bytes: new WeakRef(bytes),
+        mediaRef,
+        ...(slidePath ? { slidePath } : {}),
+      }
+      // readSlideMedia still keys off the protocol URL; drop that key before publishing.
+      mediaSources.set(token, source)
+      const media = readSlideMedia(token)
+      mediaSources.delete(token)
+      if (!media) return undefined
+      url = browserSlideMediaUrl(media)
+      if (!url) return undefined
+      urls.set(key, url)
+      mediaSources.set(url, source)
+    }`,
+  ],
+  [
+    'export function makeMediaResolver(opened: OpenedPptx, slidePath?: string) {',
+    `/** EMF/WMF stay data URLs so the existing rasterizer and white-DC check still recognize them. */
+const METAFILE_DATA_MIME: Record<string, string> = {
+  'image/x-emf': 'image/x-emf',
+  'image/emf': 'image/x-emf',
+  'image/x-wmf': 'image/x-wmf',
+  'image/wmf': 'image/x-wmf',
+}
+const MAX_METAFILE_BYTES = Math.floor((56 * 1024 * 1024 * 3) / 4)
+
+function browserSlideMediaUrl(media: { body: Uint8Array, mime: string }): string {
+  const dataMime = METAFILE_DATA_MIME[media.mime.toLowerCase()]
+  if (dataMime) {
+    if (media.body.byteLength > MAX_METAFILE_BYTES) return ''
+    let binary = ''
+    const chunk = 0x8000
+    for (let offset = 0; offset < media.body.length; offset += chunk)
+      binary += String.fromCharCode(...media.body.subarray(offset, offset + chunk))
+    return \`data:\${dataMime};base64,\${btoa(binary)}\`
+  }
+  const copy = new Uint8Array(media.body.byteLength)
+  copy.set(media.body)
+  return URL.createObjectURL(new Blob([copy], { type: media.mime || 'application/octet-stream' }))
+}
+
+function releaseSlideMediaUrl(url: string): void {
+  if (url.startsWith('blob:')) URL.revokeObjectURL(url)
+  mediaSources.delete(url)
+}
+
+export function makeMediaResolver(opened: OpenedPptx, slidePath?: string) {`,
+  ],
+]
+
+function showSlideMediaInPage() {
+  return {
+    name: 'lexora-slide-media-blob',
+    enforce: 'pre',
+    transform(code, id) {
+      if (!id.replaceAll('\\', '/').endsWith('/apps/slides/src/main/session-state.ts'))
+        return null
+      let result = code
+      for (const [from, to] of slideMediaPatches) {
+        if (result.split(from).length !== 2)
+          throw new Error('session-state.ts no longer has the media URL this plugin rewrites (see showSlideMediaInPage)')
+        result = result.replace(from, () => to)
+      }
+      return result
+    },
+  }
+}
+
 function stubMainModules() {
   return {
     name: 'lexora-main-stubs',
@@ -45,7 +149,7 @@ function stubMainModules() {
 export default defineConfig({
   root: here,
   base: './',
-  plugins: [stubMainModules(), react()],
+  plugins: [showSlideMediaInPage(), stubMainModules(), react()],
   resolve: {
     alias: [
       { find: exact('electron'), replacement: shim('electron.ts') },

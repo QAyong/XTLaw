@@ -1,11 +1,17 @@
 <script setup lang="ts">
 import type { FileDocumentMode } from './fileDocumentPresentation'
 import type { BuddyLocale } from '@/i18n/buddyI18n'
+import { Search20Regular } from '@vicons/fluent'
+import { NTooltip } from 'naive-ui'
+import { useBuddyI18n } from '@/i18n/buddyI18n'
+import DesktopIcon from '@/shared/ui/icon/DesktopIcon.vue'
 import DesktopDocumentModes from './DesktopDocumentModes.vue'
 
-defineProps<{ name: string, path?: string, detail?: string, modes: readonly FileDocumentMode[], language: BuddyLocale, embedded?: boolean, prioritizeActions?: boolean }>()
+const props = defineProps<{ name: string, path?: string, detail?: string, modes: readonly FileDocumentMode[], language: BuddyLocale, embedded?: boolean, prioritizeActions?: boolean, searchable?: boolean, searchOpen?: boolean }>()
+defineEmits<{ toggleSearch: [] }>()
 defineSlots<{ actions?: () => unknown }>()
 const mode = defineModel<FileDocumentMode | null>({ required: true })
+const { t } = useBuddyI18n(() => props.language)
 </script>
 
 <template>
@@ -13,6 +19,14 @@ const mode = defineModel<FileDocumentMode | null>({ required: true })
     <div class="desktop-document-toolbar__row">
       <strong class="desktop-document-toolbar__name" :title="prioritizeActions ? name : undefined">{{ name }}</strong>
       <div class="desktop-document-toolbar__actions">
+        <NTooltip v-if="searchable" trigger="hover" :delay="350">
+          <template #trigger>
+            <button type="button" class="desktop-document-toolbar__find" data-testid="document-find-toggle" :aria-pressed="searchOpen === true" :aria-label="t('desktop.context.find')" @click="$emit('toggleSearch')">
+              <DesktopIcon :component="Search20Regular" :size="14" />
+            </button>
+          </template>
+          {{ t('desktop.context.find') }}
+        </NTooltip>
         <DesktopDocumentModes v-model="mode" :modes="modes" :language="language" />
         <slot name="actions" />
       </div>
@@ -32,6 +46,9 @@ const mode = defineModel<FileDocumentMode | null>({ required: true })
 .desktop-document-toolbar.is-prioritizing-actions .desktop-document-toolbar__row { flex-wrap: nowrap; }
 .desktop-document-toolbar__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 600; color: var(--buddy-text-strong); }
 .desktop-document-toolbar__actions { display: flex; flex: 0 1 auto; max-width: 100%; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px; }
+.desktop-document-toolbar__find { display: inline-grid; flex: none; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--buddy-text-secondary); cursor: pointer; }
+.desktop-document-toolbar__find:hover, .desktop-document-toolbar__find[aria-pressed='true'] { background: var(--buddy-state-hover); color: var(--buddy-text-strong); }
+.desktop-document-toolbar__find:focus-visible { outline: 2px solid var(--buddy-focus-ring); outline-offset: -1px; }
 .desktop-document-toolbar.is-prioritizing-actions .desktop-document-toolbar__actions { flex: none; max-width: none; flex-wrap: nowrap; }
 .desktop-document-toolbar__metadata { color: var(--buddy-text-muted); font-size: 10px; line-height: 12px; }
 .desktop-document-toolbar__path { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--buddy-font-mono); }

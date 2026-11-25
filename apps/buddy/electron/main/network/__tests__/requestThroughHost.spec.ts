@@ -139,18 +139,13 @@ describe('host request cookies', () => {
     return { credentials: requests[0]!.credentials, response }
   }
 
-  it('lets only sogou.com hosts use the isolated session cookie jar', async () => {
-    for (const url of ['https://weixin.sogou.com/weixin?query=a', 'https://www.sogou.com/', 'https://sogou.com/'])
-      expect((await credentialsFor(url)).credentials).toBe('include')
-  })
-
-  it('keeps every other public request stateless', async () => {
-    for (const url of ['https://example.com/', 'https://www.bing.com/search?q=a', 'https://notsogou.com/', 'https://sogou.com.example.com/'])
+  it('keeps public requests stateless', async () => {
+    for (const url of ['https://example.com/', 'https://www.sogou.com/'])
       expect((await credentialsFor(url)).credentials).toBe('omit')
   })
 
   it('never exposes set-cookie to the service layer', async () => {
-    const { response } = await credentialsFor('https://weixin.sogou.com/weixin?query=a')
+    const { response } = await credentialsFor('https://example.com/')
     expect(response.headers.has('set-cookie')).toBe(false)
   })
 })

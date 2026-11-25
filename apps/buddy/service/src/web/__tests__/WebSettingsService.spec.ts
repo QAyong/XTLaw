@@ -113,7 +113,7 @@ describe('web settings ownership', () => {
     finally { database.close() }
   })
 
-  it('appends new catalog sources when reading without resetting saved order or permissions', async () => {
+  it('drops retired sources and appends new sources without resetting saved order or permissions', async () => {
     const { service, database } = fixture()
     try {
       const repository = createWorkspaceRepository(database)
@@ -121,10 +121,11 @@ describe('web settings ownership', () => {
         search: [{ provider: 'brave', enabled: false }, { provider: 'tavily', enabled: true }, { provider: 'native', enabled: false }, { provider: 'bing', enabled: true }],
         fetch: { render: false, remote: true },
       }
-      repository.set('buddy.web', previous, '2026-09-05T00:00:00Z')
-      const expected = { ...previous, search: [...previous.search, { provider: 'google', enabled: true }, { provider: 'duckduckgo', enabled: true }, { provider: 'sogou-weixin', enabled: true }] }
+      const stored = { ...previous, search: [{ provider: 'sogou-weixin', enabled: false }, ...previous.search] }
+      repository.set('buddy.web', stored, '2026-09-05T00:00:00Z')
+      const expected = { ...previous, search: [...previous.search, { provider: 'google', enabled: true }, { provider: 'duckduckgo', enabled: true }] }
       expect(service.get()).toEqual(expected)
-      expect(repository.get('buddy.web')).toEqual(previous)
+      expect(repository.get('buddy.web')).toEqual(stored)
       expect(webSettingsSchema.safeParse(service.get()).success).toBe(true)
       await service.saveCredential({ key: 'fixture-only-key' })
       await service.save(expected)

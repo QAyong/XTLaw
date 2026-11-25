@@ -3,6 +3,7 @@ import type { WebSettings, WebSettingsSnapshot } from '../../../shared/network/w
 import type { RuntimeRpcPeerContract } from '../../../shared/runtime/rpcPeer'
 import type { WorkspaceRepository } from '../storage/workspaceRepository'
 import { randomUUID } from 'node:crypto'
+import { z } from 'zod'
 import { Emitter } from '../../../shared/events/Emitter'
 import { copyEventSnapshot } from '../../../shared/events/eventSnapshot'
 import { webRpc } from '../../../shared/network/webApi'
@@ -12,8 +13,11 @@ import { HostCredentialStoreError } from '../providers/HostCredentialStore'
 import { BuddyServiceError, parse, registerRuntimeRequest } from '../rpc/runtimeRequest'
 
 const SETTINGS_KEY = 'buddy.web'
+const retiredSogouSourceSchema = webSearchSourceSchema.extend({ provider: z.literal('sogou-weixin') })
+const storedSearchSources = z.union([webSearchSourceSchema, retiredSogouSourceSchema]).array()
+const activeSearchSources = storedSearchSources.transform(sources => sources.filter(source => source.provider !== 'sogou-weixin'))
 const storedSettingsSchema = webSettingsSchema.extend({
-  search: webSearchSourceSchema.array().refine(sources => new Set(sources.map(source => source.provider)).size === sources.length),
+  search: activeSearchSources.refine(sources => new Set(sources.map(source => source.provider)).size === sources.length),
 })
 
 export class WebSettingsService {

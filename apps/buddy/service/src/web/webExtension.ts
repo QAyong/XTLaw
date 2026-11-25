@@ -38,7 +38,7 @@ export function createWebExtension(options: WebExtensionOptions): BuddyInProcess
         ...WEB_TOOLS.search,
         label: '搜索网页',
         parameters: searchParameters,
-        description: 'Search the public web for one query without opening a browser. Default auto tries enabled sources in user-configured priority order. Provider sogou-weixin (listed in availableProviders when enabled) searches WeChat official-account articles and is never used by auto: request it explicitly only for lawyer, firm or practitioner commentary; its articles are leads and opinions, not authoritative statutes or case text, and fetched article text omits images. Results identify the real backend, availableProviders and sources; generatedSummary is model-generated, not source text. Read relevant URLs with lexora_web_fetch. Decide query decomposition and independent calls yourself.',
+        description: 'Search the public web for one query without opening a browser. Default auto tries enabled sources in user-configured priority order. Results identify the real backend, availableProviders and sources; generatedSummary is model-generated, not source text. Read relevant URLs with lexora_web_fetch. Decide query decomposition and independent calls yourself.',
         execute: async (_id, input, signal, _update, context) => {
           if (!Check(searchParameters, input))
             throw new Error('Invalid web search parameters')

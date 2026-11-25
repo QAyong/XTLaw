@@ -9,6 +9,7 @@ import type { BuddyAssistantTextPhase } from '../../../../shared/runs/assistantT
 import type { BuddyToolPresentation } from '../../../../shared/runs/runEventPresentation'
 import type { BuddyRunProgress, BuddyRunRetry } from '../../../../shared/runs/runProgress'
 import type { ModelRequestFailureCode } from '../../providers/modelRequestFailure'
+import { Buffer } from 'node:buffer'
 import { randomUUID } from 'node:crypto'
 
 import { MAX_BUDDY_MESSAGE_TEXT_LENGTH } from '../../../../shared/conversation/buddyMessageContent'
@@ -512,15 +513,15 @@ function projectMessageContentUpdate(
   if (event.type === 'text_delta' && event.delta) {
     const phase = resolvePiTextPhase(event.partial.content[event.contentIndex])
     return {
-      events: [{
+      events: splitPublicTextDelta(event.delta).map(delta => ({
         payload: {
           contentIndex: event.contentIndex,
-          delta: event.delta.slice(0, MAX_DELTA_LENGTH),
+          delta,
           messageId,
           ...(phase ? { phase } : {}),
         },
         type: 'message.delta',
-      }],
+      })),
     }
   }
   if (event.type === 'text_end') {
@@ -622,6 +623,20 @@ interface ProjectedTextBlock {
   content: TextContent
   contentIndex: number
   phase: BuddyAssistantTextPhase | undefined
+}
+
+function splitPublicTextDelta(text: string): string[] {
+  if (Buffer.byteLength(text) <= MAX_DELTA_LENGTH)
+    return [text]
+  const parts: string[] = []
+  for (let start = 0; start < text.length;) {
+    let end = Math.min(start + Math.floor(MAX_DELTA_LENGTH / 3), text.length)
+    if (end < text.length && /[\uD800-\uDBFF]/.test(text.charAt(end - 1)) && /[\uDC00-\uDFFF]/.test(text.charAt(end)))
+      end--
+    parts.push(text.slice(start, end))
+    start = end
+  }
+  return parts
 }
 
 function selectCompletedText(blocks: readonly ProjectedTextBlock[]): string {

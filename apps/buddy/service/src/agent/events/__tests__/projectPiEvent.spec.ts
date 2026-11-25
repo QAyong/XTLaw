@@ -393,6 +393,81 @@ describe('projectPiEvent product messages', () => {
     })
   })
 
+  it('splits oversized assistant text deltas into bounded UTF-8 chunks without dropping characters', () => {
+    const state = createPiEventProjectionState()
+    const text = `${'字😀'.repeat(21_846)}结尾`
+    const partial: AssistantMessage = {
+      api: 'openai-completions',
+      content: [
+        { type: 'thinking', thinking: '', thinkingSignature: 'reasoning' },
+        {
+          text: 'Inspecting the long answer.',
+          textSignature: JSON.stringify({ v: 1, id: 'commentary', phase: 'commentary' }),
+          type: 'text',
+        },
+        {
+          text,
+          textSignature: JSON.stringify({ v: 1, id: 'final', phase: 'final_answer' }),
+          type: 'text',
+        },
+      ],
+      model: 'model',
+      provider: 'fixture',
+      role: 'assistant',
+      stopReason: 'pending',
+      timestamp: 1,
+      usage: emptyUsage(),
+    }
+    const started = projectPiEvent({ type: 'message_start', message: partial }, state)
+    const messageId = (started.events[0]?.payload as { messageId?: string }).messageId
+    const projected = projectPiEvent({
+      assistantMessageEvent: { type: 'text_delta', contentIndex: 2, delta: text, partial },
+      message: partial,
+      type: 'message_update',
+    }, state)
+    const deltas = projected.events.filter(event => event.type === 'message.delta')
+    const chunks = deltas.map(event => (event.payload as { delta: string }).delta)
+    expect(chunks.length).toBeGreaterThan(1)
+    expect(chunks.join('')).toBe(text)
+    expect(projected.events.at(-1)).toEqual({
+      payload: { phase: 'model_responding', toolName: null },
+      type: 'run.progress',
+    })
+    for (const [index, event] of deltas.entries()) {
+      expect(event.payload).toMatchObject({
+        contentIndex: 2,
+        delta: chunks[index],
+        messageId,
+        phase: 'final_answer',
+      })
+      const delta = chunks[index]!
+      expect(new TextEncoder().encode(delta).byteLength).toBeLessThanOrEqual(65_536)
+      expect(delta).not.toMatch(/^[\uDC00-\uDFFF]|[\uD800-\uDBFF]$/)
+      const published = toPublicRunEvent({
+        ...event,
+        createdAt: '2026-11-21T00:00:00.000Z',
+        runId: 'delta-run',
+        sequence: index + 1,
+      })
+      expect(publicRunEventSchema.parse(published).payload).toEqual(event.payload)
+    }
+
+    const short = '短😀'
+    expect(projectPiEvent({
+      assistantMessageEvent: { type: 'text_delta', contentIndex: 2, delta: short, partial },
+      message: partial,
+      type: 'message_update',
+    }, state).events).toEqual([{
+      payload: {
+        contentIndex: 2,
+        delta: short,
+        messageId,
+        phase: 'final_answer',
+      },
+      type: 'message.delta',
+    }])
+  })
+
   it('classifies unphased tool-use text as commentary', () => {
     const state = createPiEventProjectionState()
     const message: AssistantMessage = {

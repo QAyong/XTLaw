@@ -3,6 +3,7 @@ import type { MaybeRefOrGetter } from 'vue'
 // @vitest-environment jsdom
 
 import { DEFAULT_DESKTOP_CHAT_PREFERENCES } from '@buddy-electron/shared/desktopApi'
+import { taskFileMediaUrl } from '@buddy-shared/files/mediaPreview'
 import { describe, expect, it, vi } from 'vitest'
 import { computed, createApp, createSSRApp, h, nextTick, shallowRef, toValue } from 'vue'
 import { renderToString } from 'vue/server-renderer'
@@ -152,7 +153,145 @@ describe('buddyChatMessageContent', () => {
     container.remove()
     openSpy.mockRestore()
   })
+
+  it('shows an authorized thumbnail for a workspace image and leaves ordinary file references without one', async () => {
+    const document = parseHtml(await renderContent(workspaceReferenceMessage()))
+    const photo = document.querySelector('[data-resource-card="photo"] img')
+    const previewUrl = taskFileMediaUrl({ conversationId: 'task', path: '/photos/summer #1.jpg' })
+
+    expect(photo?.getAttribute('src')).toBe(previewUrl)
+    expect(previewUrl.startsWith('lexora-file://task-media/')).toBe(true)
+    expect(document.querySelector('[data-resource-card="notes"] img:not(.buddy-file-icon)')).toBeNull()
+    expect(document.querySelector('[data-resource-card="notes"] img.buddy-file-icon')).not.toBeNull()
+    expect(document.querySelector('[data-resource-card="notes"]')?.textContent).toContain('notes.txt')
+    expect(document.querySelector('[data-resource-card="upload"] img:not(.buddy-file-icon)')?.getAttribute('src')).toBe('lexora-attachment://preview/upload-1')
+    expect(document.querySelector('.buddy-chat-user-bubble')).toBeNull()
+  })
+
+  it('keeps a legacy attachment message on its attachment preview', async () => {
+    const html = await renderContent({
+      attachments: [{
+        attachmentId: 'old-image',
+        kind: 'image',
+        mimeType: 'image/png',
+        name: 'old.png',
+        previewUrl: 'lexora-attachment://preview/old-image',
+        sizeBytes: 10,
+      }],
+      branchId: 'branch-1',
+      content: 'see the picture',
+      conversationId: 'conversation-1',
+      createdAt: '2026-08-28T00:00:00.000Z',
+      id: 'legacy-message',
+      role: 'user',
+      runId: null,
+    } as LocalMessage)
+
+    expect(html).toContain('lexora-attachment://preview/old-image')
+    expect(html).not.toContain('lexora-file://task-media/')
+  })
+
+  it('opens a workspace image through the existing preview and drops a missing image back to its file card', async () => {
+    vi.stubGlobal('matchMedia', (media: string) => ({
+      matches: false,
+      media,
+      onchange: null,
+      addListener() {},
+      removeListener() {},
+      addEventListener() {},
+      removeEventListener() {},
+      dispatchEvent: () => true,
+    }))
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    const app = createApp({
+      setup() {
+        provideChatBuddyIdentity(() => [])
+        useProvideDesktopUi({
+          language: shallowRef('zh-CN'),
+          isDark: shallowRef(false),
+          sidebarCollapsed: shallowRef(false),
+          userName: shallowRef(''),
+          chat: shallowRef({ ...DEFAULT_DESKTOP_CHAT_PREFERENCES, permissionMode: 'policy_approval' }),
+        })
+        return () => h(BuddyChatMessageContent, {
+          language: 'zh-CN',
+          message: workspaceReferenceMessage(),
+          writeClipboardText: async () => {},
+        })
+      },
+    })
+    app.mount(container)
+    await nextTick()
+
+    const previewUrl = taskFileMediaUrl({ conversationId: 'task', path: '/photos/summer #1.jpg' })
+    const photoCard = container.querySelector<HTMLElement>('[data-resource-card="photo"]')!
+    photoCard.querySelector('button')!.click()
+    await vi.waitFor(() => expect(document.querySelector('.buddy-image-viewer__stage img')?.getAttribute('src')).toBe(previewUrl))
+    expect(document.querySelector('[role="dialog"]')?.getAttribute('aria-label')).toBe('图片查看')
+    document.querySelector<HTMLButtonElement>('button[aria-label="关闭大图"]')!.click()
+    await vi.waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeNull())
+
+    container.querySelector<HTMLElement>('[data-resource-card="notes"] button')!.click()
+    await nextTick()
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+    expect(container.querySelector('[data-resource-card="notes"] img:not(.buddy-file-icon)')).toBeNull()
+
+    const missing = container.querySelector<HTMLImageElement>('[data-resource-card="gone"] img:not(.buddy-file-icon)')!
+    expect(missing.getAttribute('src')).toBe(taskFileMediaUrl({ conversationId: 'task', path: '/photos/gone.png' }))
+    missing.dispatchEvent(new Event('error'))
+    await nextTick()
+    expect(container.querySelector('[data-resource-card="gone"] img:not(.buddy-file-icon)')).toBeNull()
+    expect(container.querySelector('[data-resource-card="gone"] img.buddy-file-icon')).not.toBeNull()
+    expect(container.querySelector('[data-resource-card="gone"]')?.textContent).toContain('gone.png')
+    container.querySelector<HTMLElement>('[data-resource-card="gone"] button')!.click()
+    await nextTick()
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+    expect(container.textContent).not.toContain('重试')
+
+    container.querySelector<HTMLElement>('[data-resource-card="upload"] button')!.click()
+    await vi.waitFor(() => expect(document.querySelector('.buddy-image-viewer__stage img')?.getAttribute('src')).toBe('lexora-attachment://preview/upload-1'))
+
+    app.unmount()
+    container.remove()
+    vi.unstubAllGlobals()
+  })
 })
+
+function workspaceReferenceMessage(): LocalMessage {
+  const photo = { kind: 'file' as const, mimeType: 'image/jpeg', name: 'summer #1.jpg', path: '/photos/summer #1.jpg', sizeBytes: 2000 }
+  const notes = { kind: 'file' as const, mimeType: 'text/plain', name: 'notes.txt', path: '/photos/notes.txt', sizeBytes: 20 }
+  const missing = { kind: 'file' as const, mimeType: 'image/png', name: 'gone.png', path: '/photos/gone.png', sizeBytes: 10 }
+  return {
+    attachments: [{
+      attachmentId: 'upload-1',
+      kind: 'image',
+      mimeType: 'image/png',
+      name: 'scan.png',
+      previewUrl: null,
+      sizeBytes: 100,
+    }],
+    branchId: 'branch',
+    content: {
+      resourceSnapshots: [
+        { resourceId: 'photo', localReference: photo },
+        { resourceId: 'notes', localReference: notes },
+        { resourceId: 'gone', localReference: missing },
+        { resourceId: 'upload', attachmentId: 'upload-1' },
+      ],
+      userContent: {
+        body: [{ content: [], type: 'paragraph' }],
+        panelResourceIds: ['photo', 'notes', 'gone', 'upload'],
+        version: 1,
+      },
+    },
+    conversationId: 'task',
+    createdAt: '2026-08-28T00:00:00.000Z',
+    id: 'input',
+    role: 'user',
+    runId: null,
+  } as LocalMessage
+}
 
 function parseHtml(html: string): Document {
   return new DOMParser().parseFromString(html, 'text/html')

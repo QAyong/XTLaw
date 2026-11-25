@@ -1,5 +1,6 @@
+import { randomUUID } from 'node:crypto'
 import process from 'node:process'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { openBuddyDatabase } from '../../storage/database'
 import { MutationCoordinator } from '../MutationCoordinator'
 import { MutationRecoveryService } from '../MutationRecoveryService'
@@ -28,6 +29,42 @@ async function fixture(processIds: string[]) {
 }
 
 describe('mutation recovery evidence', () => {
+  it.each([
+    { platform: 'linux', finalState: 'settled', otherProcess: false, released: true },
+    { platform: 'linux', finalState: 'prepared', otherProcess: false, released: false },
+    { platform: 'linux', finalState: 'settled', otherProcess: true, released: false },
+    { platform: 'win32', finalState: 'settled', otherProcess: false, released: false },
+  ] as const)('rechecks v3 dispatch with $platform/$finalState and other process $otherProcess', async ({ platform, finalState, otherProcess, released }) => {
+    const database = openBuddyDatabase({ databasePath: ':memory:' })
+    cleanups.push(() => database.close())
+    const repository = createMutationRepository(database)
+    repository.createLease({ invocationId: 'invocation', runId: 'run', segmentId: 'segment', lifetime: 'external', claims: [{ kind: 'host' }] })
+    const executionId = randomUUID()
+    const dispatchId = randomUUID()
+    const processId = JSON.stringify({ kind: 'sandbox-dispatch', platform, version: 3, requestId: randomUUID(), executionId, dispatchId })
+    repository.recordProcess('invocation', processId, 'pending', { executionId, dispatchId, launchState: 'prepared' })
+    repository.recordProcess('invocation', processId, 'unknown', { executionId, dispatchId, launchState: finalState })
+    if (otherProcess)
+      repository.recordProcess('invocation', 'unverified-process', 'unknown')
+    repository.settle('invocation', 'hazard', 'OWNED_PROCESS_CLEANUP_UNCONFIRMED')
+
+    const mutations = new MutationCoordinator({ repository })
+    cleanups.push(() => mutations.dispose())
+    const verify = vi.fn(async () => ({ status: 'unknown', reason: 'receipt_missing' } as const))
+    const recovery = new MutationRecoveryService({ mutations, verify, checkpoint: async () => null })
+    await recovery.recheck()
+
+    expect(repository.isReleased('invocation')).toBe(released)
+    if (released) {
+      expect(mutations.getHazards()).toEqual([])
+      expect(verify).not.toHaveBeenCalled()
+    }
+    else {
+      expect(mutations.getHazards()).toHaveLength(1)
+      expect(verify).toHaveBeenCalledWith(processId, expect.anything())
+    }
+  })
+
   it('retains malformed dispatch identities instead of associating absent request identifiers', async () => {
     const f = await fixture([JSON.stringify({ kind: 'sandbox-dispatch' }), native('old')])
     f.mutations.recordOwnedProcessSettlement({ invocationId: 'invocation', processId: native('old'), settlement: 'released' })

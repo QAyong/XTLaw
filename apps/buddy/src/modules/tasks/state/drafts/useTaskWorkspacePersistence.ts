@@ -6,6 +6,7 @@ import type { ChatDraftSnapshot, DraftRestorationChoice, DraftRestorationConflic
 import type { ChatSession } from '@/modules/tasks/state/conversations/useChatSession'
 import type { useChatDrafts } from '@/modules/tasks/state/drafts/useChatDrafts'
 import { createBuddyUserContent, getBuddyUserContentResourceIds } from '@buddy-shared/conversation/buddyUserContent'
+import { buddyComposerDraftScopeKey } from '@buddy-shared/conversation/composerDraft'
 import { computed, readonly, shallowRef, watch } from 'vue'
 import { parseDraftScopeKey } from '../../model/drafts/draftScope'
 import { createDraftValueFingerprint } from '../../model/drafts/draftValueFingerprint'
@@ -131,6 +132,8 @@ export function useTaskWorkspacePersistence(options: UseTaskWorkspacePersistence
     try {
       let remote = await readRecoveryDraft(local, current.remote.draftId)
       if (!isCurrent() || !options.drafts.isUnchanged(local))
+        return false
+      if (buddyComposerDraftScopeKey(remote.scope) !== targetKey)
         return false
       if (remote.draftId !== current.remote.draftId || remote.revision !== current.remote.revision) {
         conflict.value = { targetKey, remote }
@@ -296,8 +299,23 @@ export function useTaskWorkspacePersistence(options: UseTaskWorkspacePersistence
     }
     catch (error) {
       const remote = await options.api.composerDrafts.get(snapshot.draftId).catch(() => null)
-      if (!remote || remote.revision !== expectedRevision + 1 || !sameDraftValue(remote, snapshot) || (taskSpace !== undefined && (remote.scope.kind !== 'task' || remote.scope.spaceId !== taskSpace)))
+      if (
+        !remote
+        || remote.draftId !== snapshot.draftId
+        || buddyComposerDraftScopeKey(remote.scope) !== snapshot.targetKey
+        || remote.revision <= expectedRevision
+        || (taskSpace !== undefined && (remote.scope.kind !== 'task' || remote.scope.spaceId !== taskSpace))
+      ) {
         throw error
+      }
+      if (!sameDraftValue(remote, snapshot)) {
+        const current = options.drafts.listSnapshots().find(draft => draft.targetKey === snapshot.targetKey)
+        if (disposed || current?.editorSessionId !== snapshot.editorSessionId || current.revision !== expectedRevision)
+          throw error
+        conflict.value = { targetKey: snapshot.targetKey, remote }
+        restorationState.value = 'conflict'
+        throw new DraftRestorationConflictError()
+      }
       if (remote.scope.kind === 'task')
         savedSpaces.set(snapshot.targetKey, remote.scope.spaceId)
       options.drafts.confirmSave(snapshot, remote)

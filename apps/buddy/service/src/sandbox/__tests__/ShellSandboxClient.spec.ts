@@ -3,6 +3,7 @@ import type { RuntimeRpcPeerContract } from '../../../../shared/runtime/rpcPeer'
 import type { SandboxClientEvent } from '../ShellSandboxClient'
 import { deferred } from '@buddy-tests/deferred'
 import { describe, expect, it } from 'vitest'
+import { RuntimeRemoteError, RuntimeRequestTimeoutError } from '../../../../platform/ipc/runtimeRpcPeer'
 import { diagnosticContext } from '../../diagnostics/diagnosticContext'
 import { observeSandboxClient } from '../observeSandboxClient'
 import { ShellSandboxClient } from '../ShellSandboxClient'
@@ -115,6 +116,20 @@ describe('sandbox client facts', () => {
     }
   })
 
+  it('settles the prepared dispatch if cancelled before the host request', async () => {
+    const f = fixture()
+    const states: string[] = []
+    const pending = f.execute({ onSettlement: ({ launchState, settlement }) => {
+      states.push(`${launchState}/${settlement}`)
+      if (launchState === 'prepared')
+        f.controller.abort()
+    } })
+    await expect(pending).rejects.toThrow()
+    expect(states).toEqual(['prepared/pending', 'settled/released'])
+    expect(f.events.map(event => event.kind)).toEqual(['requested', 'cancel-requested'])
+    await f.client.dispose()
+  })
+
   it('requires a trusted tree release receipt even when the backend returns success', async () => {
     const f = fixture()
     const states = new Map<string, string>()
@@ -199,13 +214,29 @@ describe('sandbox client facts', () => {
     expect(f.events.some(event => event.kind === 'transport-failed')).toBe(false)
   })
 
-  it('reports transport uncertainty without fabricating backend settlement', async () => {
+  it.each([
+    ['remote_rejection', new RuntimeRemoteError({ code: -32603, message: 'private transport detail' })],
+    ['timeout', new RuntimeRequestTimeoutError('host.sandbox.exec')],
+    ['transport_error', new Error('private transport detail')],
+    ['invalid_response', null],
+  ] as const)('reports %s without exposing runtime details or fabricating settlement', async (failure, error) => {
     const f = fixture()
-    const pending = f.execute()
-    f.response.reject(new Error('private transport detail'))
+    const diagnostics: unknown[] = []
+    const subscription = observeSandboxClient(f.client, event => diagnostics.push(event))
+    const states: string[] = []
+    const pending = f.execute({ onSettlement: ({ settlement }) => {
+      states.push(settlement)
+    } })
+    if (error)
+      f.response.reject(error)
+    else
+      f.response.resolve({ unexpected: 'private transport detail' })
     await expect(pending).rejects.toThrow()
+    subscription.dispose()
     await f.client.dispose()
+    expect(states).toEqual(['pending', 'unknown'])
     expect(f.events.map(event => event.kind)).toEqual(['requested', 'transport-failed', 'cancel-requested'])
-    expect(JSON.stringify(f.events)).not.toContain('private transport detail')
+    expect(diagnostics).toContainEqual(expect.objectContaining({ event: 'sandbox.transport_failed', errorCode: 'SANDBOX_TRANSPORT_FAILED', errorType: failure }))
+    expect(JSON.stringify({ events: f.events, diagnostics })).not.toContain('private transport detail')
   })
 })

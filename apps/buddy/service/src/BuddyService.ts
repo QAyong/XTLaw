@@ -1502,7 +1502,7 @@ export async function startBuddyService(
       const sourceId = randomUUID()
       let revision = 0
       const notification = service.onDidChange((event) => {
-        if (event.kind === 'delivered' || event.kind === 'dispatched')
+        if (event.kind === 'enqueued' || event.kind === 'delivered' || event.kind === 'dispatched')
           options.rpc.notify(conversationTimelineChanged.method, { sourceId, revision: ++revision, ...event.scope })
       })
       const actionInputs = service.onDidChange((event) => {

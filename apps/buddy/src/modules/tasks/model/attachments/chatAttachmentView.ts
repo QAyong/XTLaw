@@ -1,5 +1,9 @@
 import type { LocalAttachment } from '@buddy-shared/conversation/attachmentApi'
 import type { BuddyComposerResource } from '@buddy-shared/conversation/composerResource'
+import type { BuddyLocalResource } from '@buddy-shared/conversation/localResource'
+import { isImageMimeType } from '@buddy-shared/files/fileMimeTypes'
+import { taskFileMediaUrl } from '@buddy-shared/files/mediaPreview'
+import { isAbsolutePath } from '@buddy-shared/runtime/apiValidation'
 
 export { getChatImageLabels } from '@buddy-shared/conversation/imageLabels'
 
@@ -8,6 +12,14 @@ export function resolveBuddyAttachmentPreviewUrl(attachment: LocalAttachment): s
     return null
   return attachment.previewUrl
     ?? `lexora-attachment://preview/${encodeURIComponent(attachment.attachmentId)}`
+}
+
+export function resolveMessageResourcePreviewUrl(resource: LocalAttachment | BuddyLocalResource, conversationId: string): string | null {
+  if ('attachmentId' in resource)
+    return resolveBuddyAttachmentPreviewUrl(resource)
+  if (resource.kind !== 'file' || !isImageMimeType(resource.mimeType) || !isAbsolutePath(resource.path) || conversationId.trim() === '')
+    return null
+  return taskFileMediaUrl({ conversationId, path: resource.path })
 }
 
 export function resolveComposerResourcePreviewUrl(resource: BuddyComposerResource): string | null {

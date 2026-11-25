@@ -13,7 +13,7 @@ import { runWindowsSandboxProcess } from '../../../../../platform/process/window
 import { ShellSandboxError } from '../../../../../shared/permissions/shellSandbox'
 import { createWindowsSandboxPolicy } from './createPolicy'
 
-export async function runWindowsSandbox(input: SandboxBackendInput<typeof SHELL_SANDBOX_BACKEND.Windows>, options: SandboxExecutionOptions): Promise<number | null> {
+export async function runWindowsSandbox(input: SandboxBackendInput<typeof SHELL_SANDBOX_BACKEND.Windows>, options: SandboxExecutionOptions, onDispatch: () => void): Promise<number | null> {
   const environment = options.environment ?? process.env
   const httpProxy = environment.HTTP_PROXY ?? environment.http_proxy ?? ''
   const httpsProxy = environment.HTTPS_PROXY ?? environment.https_proxy ?? httpProxy
@@ -42,7 +42,7 @@ export async function runWindowsSandbox(input: SandboxBackendInput<typeof SHELL_
     const address = proxy.address()
     if (!address || typeof address === 'string')
       throw new ShellSandboxError('SANDBOX_UNAVAILABLE')
-    return await runWindowsSandboxProcess(input.backend.executable, {
+    const request = {
       command: input.command,
       cwd: input.cwd,
       shell: program.executable,
@@ -59,7 +59,9 @@ export async function runWindowsSandbox(input: SandboxBackendInput<typeof SHELL_
         path,
         proxyUrl: `http://srt:${token}@127.0.0.1:${address.port}`,
       }),
-    }, { ...options, executionId: input.executionId, dispatchId: input.dispatchId, receiptDirectory: input.receiptDirectory })
+    }
+    onDispatch()
+    return await runWindowsSandboxProcess(input.backend.executable, request, { ...options, executionId: input.executionId, dispatchId: input.dispatchId, receiptDirectory: input.receiptDirectory })
   }
   finally {
     for (const socket of connections)

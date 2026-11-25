@@ -63,8 +63,10 @@ describe('bounded conversation history index', () => {
     expect(ids(attention)).toEqual([9999, 4, 3, 2, 1, 0].map(taskId))
     expect(attention.nextCursor).toBeNull()
     expect(conversationHistoryPageSchema.safeParse(attention).success).toBe(true)
-    for (const item of attention.items)
+    for (const item of attention.items) {
       expect(item.markState).toEqual(f.marks.getState(item.conversation.id))
+      expect(item.conversation.lastActivityAt! >= item.conversation.createdAt).toBe(true)
+    }
     expect(attention.items.find(item => item.conversation.id === taskId(4))?.conversation.activity).toBe('awaiting_approval')
     expect(attention.items.find(item => item.conversation.id === taskId(0))?.conversation.modelSelection?.modelId).toBe('chosen-model')
     expect(ids(f.conversations.listHistory({ kind: 'attention', spaceId: 'archive' }))).toEqual([4, 3, 2, 1, 0].map(taskId))
@@ -124,7 +126,7 @@ describe('bounded conversation history index', () => {
       { ...query, cursor, spaceId: 'archive' },
       { ...query, cursor, excludeIds: [] },
       { kind: 'attention', cursor },
-      { ...query, cursor: Buffer.from(JSON.stringify({ ...JSON.parse(Buffer.from(cursor, 'base64url').toString()), version: 2 })).toString('base64url') },
+      { ...query, cursor: Buffer.from(JSON.stringify({ ...JSON.parse(Buffer.from(cursor, 'base64url').toString()), version: 1 })).toString('base64url') },
     ]
     for (const input of invalidQueries)
       expect(() => f.conversations.listHistory(input as ConversationHistoryQuery)).toThrowError(expect.objectContaining({ code: 'VALIDATION_FAILED' }))

@@ -395,6 +395,38 @@ describe('addressed role input', () => {
     expect(f.drafts.snapshot(f.key).content).toEqual(f.content)
   })
 
+  it('uses a new request id on explicit resend after a definitive idle-turn rejection', async () => {
+    const f = prepare()
+    f.actorInput.target.value = null
+    f.actorInput.mailboxTarget.value = null
+    f.actorInput.delivery.value = { mode: 'current', actorId: 'partner', target: null }
+    f.projectedRuns.value = []
+    const rejected = new Error(formatLocalChatPublicError({ code: 'INPUT_DELIVERY_TARGET_UNAVAILABLE', retryable: false }))
+    f.api.chat.startTurn.mockRejectedValue(rejected)
+    const payload = { content: '@Partner Continue this work', userContent: f.content }
+    expect(await f.execution.send(payload)).toBe(false)
+    expect(await f.execution.send(payload)).toBe(false)
+    const [first, second] = f.api.chat.startTurn.mock.calls
+    expect(second![0]).toEqual({ ...first![0], requestId: expect.any(String) })
+    expect(second![0].requestId).not.toBe(first![0].requestId)
+    expect(f.drafts.snapshot(f.key).content).toEqual(f.content)
+  })
+
+  it('retries the same request id after an unknown idle-turn failure', async () => {
+    const f = prepare()
+    f.actorInput.target.value = null
+    f.actorInput.mailboxTarget.value = null
+    f.actorInput.delivery.value = { mode: 'current', actorId: 'partner', target: null }
+    f.projectedRuns.value = []
+    f.api.chat.startTurn.mockRejectedValue(new Error('Connection lost'))
+    const payload = { content: '@Partner Continue this work', userContent: f.content }
+    expect(await f.execution.send(payload)).toBe(false)
+    expect(await f.execution.send(payload)).toBe(false)
+    const [first, second] = f.api.chat.startTurn.mock.calls
+    expect(second![0]).toEqual(first![0])
+    expect(f.drafts.snapshot(f.key).content).toEqual(f.content)
+  })
+
   it('retries the accepted identity after a lost acknowledgement even if the actor has already finished', async () => {
     const f = prepare()
     f.api.executions.sendDraft.mockRejectedValueOnce(new Error('Connection lost'))

@@ -56,7 +56,14 @@ export function registerSandboxHostRpc(peer: RuntimeRpcPeerContract, options: Sa
         active.get(parsed.data.requestId)?.abort()
     }),
     peer.onRequest('host.sandbox.exec', async (params) => {
-      const input = sandboxCommandSchema.parse(params)
+      const parsed = sandboxCommandSchema.safeParse(params)
+      if (!parsed.success) {
+        const identity = sandboxCancelSchema.passthrough().safeParse(params)
+        if (identity.success && accepted.has(identity.data.requestId))
+          return { ok: false, code: 'SANDBOX_BUSY' }
+        return { ok: false, code: 'SANDBOX_UNAVAILABLE', notStarted: true }
+      }
+      const input = parsed.data
       if (!Object.values<string>(OPERATING_SYSTEM).includes(process.platform))
         return { ok: false, code: 'SANDBOX_UNAVAILABLE', notStarted: true }
       if (accepted.has(input.requestId))
@@ -168,13 +175,15 @@ export function registerSandboxHostRpc(peer: RuntimeRpcPeerContract, options: Sa
               : { kind: SHELL_SANDBOX_BACKEND.MacOS },
         }
         if (windowsSandbox) {
-          dispatched = true
-          return await runSandboxCommand(sandboxProcessInputSchema.parse(command), {
+          const processInput = sandboxProcessInputSchema.parse(command)
+          const environment = {
+            ...createSandboxEnvironment(process.env, directory),
+            ...(options.proxyUrl ? createProxyEnvironment(options.proxyUrl) : {}),
+          }
+          return await runSandboxCommand(processInput, {
             signal: controller.signal,
-            environment: {
-              ...createSandboxEnvironment(process.env, directory),
-              ...(options.proxyUrl ? createProxyEnvironment(options.proxyUrl) : {}),
-            },
+            environment,
+            onWindowsDispatch: () => { dispatched = true },
             async onSettlement(record) {
               await settle({ ...record, requestId: input.requestId })
             },

@@ -7,6 +7,7 @@ import type { RuntimeRpcPeerContract } from '../../../shared/runtime/rpcPeer'
 import { Buffer } from 'node:buffer'
 import { randomUUID } from 'node:crypto'
 import process from 'node:process'
+import { RuntimeProtocolError, RuntimeRemoteError, RuntimeRequestTimeoutError } from '../../../platform/ipc/runtimeRpcPeer'
 import { Emitter } from '../../../shared/events/Emitter'
 import { copyEventSnapshot } from '../../../shared/events/eventSnapshot'
 import { sandboxLifecycleNotificationSchema } from '../../../shared/permissions/sandboxLifecycle'
@@ -18,7 +19,7 @@ type SandboxClientDetails
   = | { readonly kind: 'requested' }
     | { readonly kind: 'cancel-requested', readonly delivery: 'sent' | 'unavailable' }
     | { readonly kind: 'returned', readonly result: Readonly<SandboxResult> }
-    | { readonly kind: 'transport-failed' }
+    | { readonly kind: 'transport-failed', readonly failure: 'remote_rejection' | 'invalid_response' | 'timeout' | 'transport_error' }
     | { readonly kind: 'backend', readonly event: Readonly<SandboxLifecycleEvent> }
 
 export type SandboxClientEvent = EventSnapshot<SandboxClientDetails & { readonly requestId: string, readonly revision: number }>
@@ -80,7 +81,9 @@ export class ShellSandboxClient {
     const dispatchProcessId = JSON.stringify({ kind: 'sandbox-dispatch', platform: process.platform, version: 3, requestId, executionId, dispatchId })
     const processes = new Map<string, OwnedProcessSettlement['settlement']>()
     let noCommandStarted = false
+    let prepared = false
     let dispatched = false
+    let responseReceived = false
     let returned = false
     let cancelled = false
     let backendRevision = 0
@@ -140,11 +143,14 @@ export class ShellSandboxClient {
       if (this.#disposed || cancelled)
         throw new ShellSandboxError('SANDBOX_CANCELLED')
       await supervision?.onSettlement({ processId: dispatchProcessId, settlement: 'pending', executionId, dispatchId, launchState: 'prepared' })
+      prepared = true
       options.signal?.throwIfAborted()
       if (this.#disposed || cancelled)
         throw new ShellSandboxError('SANDBOX_CANCELLED')
       dispatched = true
-      const result = sandboxResultSchema.parse(await this.#peer.request('host.sandbox.exec', { ...input, requestId, executionId, dispatchId }, SANDBOX_RPC_TIMEOUT_MS))
+      const response = await this.#peer.request('host.sandbox.exec', { ...input, requestId, executionId, dispatchId }, SANDBOX_RPC_TIMEOUT_MS)
+      responseReceived = true
+      const result = sandboxResultSchema.parse(response)
       returned = true
       if (!result.ok && result.notStarted)
         noCommandStarted = true
@@ -155,21 +161,27 @@ export class ShellSandboxClient {
       return { exitCode: result.exitCode }
     }
     catch (error) {
-      if (dispatched && !returned)
-        publish({ kind: 'transport-failed' })
+      if (dispatched && !returned) {
+        const failure = responseReceived || error instanceof RuntimeProtocolError
+          ? 'invalid_response'
+          : error instanceof RuntimeRemoteError
+            ? 'remote_rejection'
+            : error instanceof RuntimeRequestTimeoutError ? 'timeout' : 'transport_error'
+        publish({ kind: 'transport-failed', failure })
+      }
       throw error
     }
     finally {
       if (!returned)
         cancel()
       try {
-        if (dispatched) {
+        if (prepared) {
           for (const [processId, settlement] of processes) {
             if (settlement !== 'released')
               await supervision?.onSettlement({ processId, settlement: 'unknown', executionId, dispatchId, launchState: 'settled' })
           }
           const proof = processes.size > 0 && [...processes.values()].every(state => state === 'released')
-          await supervision?.onSettlement({ processId: dispatchProcessId, settlement: proof || (returned && noCommandStarted && processes.size === 0) ? 'released' : 'unknown', executionId, dispatchId, launchState: 'settled' })
+          await supervision?.onSettlement({ processId: dispatchProcessId, settlement: !dispatched || proof || (returned && noCommandStarted && processes.size === 0) ? 'released' : 'unknown', executionId, dispatchId, launchState: 'settled' })
         }
       }
       finally {

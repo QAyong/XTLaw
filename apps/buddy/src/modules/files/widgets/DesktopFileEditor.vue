@@ -300,9 +300,9 @@ onScopeDispose(controller.configuration.subscribe(() => editor?.updateOptions({ 
           <WorkbenchMenu target="resource.actions" :values="{ 'resource.scheme': view.resource.scheme }" :capture="captureResource" />
           <div v-if="autoSave && mode === 'edit'" class="file-editor__auto-save" :title="labels.autoSaveHint">
             <span :id="autoSaveLabelId">{{ labels.autoSave }}</span>
-            <NSwitch v-model:value="autoSaveEnabled" class="file-editor__auto-save-switch" size="small" :round="false" :theme-overrides="autoSaveSwitchTheme" :disabled="!copy?.etag || copy.loading" :aria-labelledby="autoSaveLabelId" />
+            <NSwitch v-model:value="autoSaveEnabled" class="file-editor__auto-save-switch" size="small" :round="false" :theme-overrides="autoSaveSwitchTheme" :disabled="!copy?.etag" :aria-labelledby="autoSaveLabelId" />
           </div>
-          <NButton v-if="mode === 'edit' || copy?.dirty" size="tiny" secondary :loading="copy?.saving" :disabled="!copy || copy.loading || copy.saving || copy.blocked || !!copy.conflict || !copy.dirty" @click="copies.save(view.resource)">
+          <NButton v-if="mode === 'edit' || copy?.dirty" size="tiny" secondary :disabled="!copy || copy.loading || copy.saving || copy.blocked || !!copy.conflict || !copy.dirty" @click="copies.save(view.resource)">
             {{ labels.save }}
           </NButton>
         </template>

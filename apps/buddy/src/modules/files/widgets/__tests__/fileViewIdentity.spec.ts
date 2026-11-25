@@ -25,7 +25,7 @@ vi.mock('naive-ui', async () => {
   return {
     useMessage: () => ({ success() {}, info() {}, warning() {}, error() {} }),
     useDialog: () => ({ create: () => ({ destroy() {} }) }),
-    NButton: defineComponent({ props: ['disabled', 'loading'], setup: (props, { slots, attrs }) => () => h('button', { ...attrs, disabled: props.disabled || props.loading }, slots.default?.()) }),
+    NButton: defineComponent({ props: ['disabled', 'loading'], setup: (props, { slots, attrs }) => () => h('button', { ...attrs, 'data-loading': props.loading ? 'true' : undefined, 'disabled': props.disabled || props.loading }, slots.default?.()) }),
     NSwitch: defineComponent({
       props: ['value', 'disabled', 'themeOverrides'],
       emits: ['update:value'],
@@ -358,6 +358,54 @@ describe('file editor auto-save controls', () => {
       expect(f.autoSave!.enabled).toBe(false)
     }
     finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('keeps toolbar controls stable during auto save and the subsequent file refresh', async () => {
+    const target = resource('first.md')
+    const original = { text: 'first.md', etag: 'version' }
+    const updated = { text: 'edited', etag: 'saved-version' }
+    const pendingSave = Promise.withResolvers<void>()
+    const pendingRead = Promise.withResolvers<typeof updated>()
+    const readDocument = vi.fn<WorkingCopyProvider['read']>().mockResolvedValueOnce(original).mockReturnValueOnce(pendingRead.promise)
+    const save = vi.fn<WorkingCopyProvider['save']>(async () => {
+      await pendingSave.promise
+      return { status: 'saved', document: updated }
+    })
+    const f = await mount({ autoSave: true, readDocument, save })
+    await vi.waitFor(() => expect(f.editors).toHaveLength(1))
+    const toggle = f.element.querySelector<HTMLButtonElement>('[role="switch"]')!
+    const manualSave = [...f.element.querySelectorAll<HTMLButtonElement>('header button')].find(button => button.textContent === 'Save')!
+    const status = () => f.element.querySelector('footer [role="status"]')?.textContent
+
+    vi.useFakeTimers()
+    try {
+      f.copies.edit(target, updated.text)
+      await nextTick()
+      expect(manualSave.disabled).toBe(false)
+      await vi.advanceTimersByTimeAsync(1000)
+      expect(save).toHaveBeenCalledTimes(1)
+      expect(manualSave.disabled).toBe(true)
+      expect(manualSave.hasAttribute('data-loading')).toBe(false)
+      expect(status()).toBe('Saving · UTF-8')
+
+      pendingSave.resolve()
+      await vi.advanceTimersByTimeAsync(0)
+      expect(manualSave.disabled).toBe(true)
+      expect(status()).toBe('Saved · UTF-8')
+
+      const refreshing = f.copies.refresh(target)
+      await nextTick()
+      expect(f.copies.get(target)?.loading).toBe(true)
+      expect(toggle.disabled).toBe(false)
+      expect(toggle.getAttribute('aria-checked')).toBe('true')
+      pendingRead.resolve(updated)
+      await refreshing
+    }
+    finally {
+      pendingSave.resolve()
+      pendingRead.resolve(updated)
       vi.useRealTimers()
     }
   })

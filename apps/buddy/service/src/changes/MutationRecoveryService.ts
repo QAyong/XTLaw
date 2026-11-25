@@ -284,7 +284,7 @@ export class MutationRecoveryService {
     if (this.#stopped.signal.aborted || !this.#hasHazard(hazard.invocationId))
       return
     this.#options.evidence?.append({ invocationId: hazard.invocationId, kind: 'observed', outcome, reason, actor: 'system' })
-    this.#record({ event: outcome === 'active' ? 'mutation.recovery.active' : 'mutation.recovery.protected', level: 'warn', runId: hazard.runId, operationId: hazard.invocationId, errorCode: reason })
+    this.#record({ event: outcome === 'active' ? 'mutation.recovery.active' : 'mutation.recovery.protected', level: 'warn', runId: hazard.runId, operationId: hazard.invocationId, errorCode: reason.toUpperCase() })
     this.#options.onChange?.(hazard.runId)
   }
 

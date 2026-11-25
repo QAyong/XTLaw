@@ -258,7 +258,7 @@ export class MutationCoordinator {
     if (!this.#repository || processes?.size !== 1)
       return
     const processId = processes.keys().next().value
-    if (processId && this.#repository.releaseUnstartedLinuxSandboxDispatch(invocationId, processId))
+    if (processId && this.#repository.releaseUnstartedSandboxDispatch(invocationId, processId))
       processes.set(processId, 'released')
   }
 

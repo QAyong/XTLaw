@@ -26,7 +26,7 @@ export interface MutationRepository {
   recordProcess: (invocationId: string, processId: string, settlement: OwnedProcessSettlement, execution?: MutationExecutionUpdate) => void
   listUnreleased: () => StoredMutation[]
   isReleased: (invocationId: string) => boolean
-  releaseUnstartedLinuxSandboxDispatch: (invocationId: string, processId: string) => boolean
+  releaseUnstartedSandboxDispatch: (invocationId: string, processId: string) => boolean
 }
 
 const claimsSchema = z.array(z.union([
@@ -34,9 +34,9 @@ const claimsSchema = z.array(z.union([
   z.object({ kind: z.literal('host') }).strict(),
 ]))
 
-const linuxSandboxDispatchSchema = z.object({
+const sandboxDispatchIdentitySchema = z.object({
   kind: z.literal('sandbox-dispatch'),
-  platform: z.literal('linux'),
+  platform: z.enum(['linux', 'win32']),
   version: z.literal(3),
   requestId: z.uuid(),
   executionId: z.uuid(),
@@ -95,16 +95,17 @@ export function createMutationRepository(database: DatabaseSync): MutationReposi
       )
   `)
   return {
-    releaseUnstartedLinuxSandboxDispatch(invocationId, processId) {
+    releaseUnstartedSandboxDispatch(invocationId, processId) {
       let value: unknown
       try {
         value = JSON.parse(processId)
       }
       catch { return false }
-      const identity = linuxSandboxDispatchSchema.safeParse(value)
+      const identity = sandboxDispatchIdentitySchema.safeParse(value)
       if (!identity.success)
         return false
-      // Linux v3 must persist native preparation before starting its helper. A settled execution rejects late preparation.
+      // Linux v3 records native preparation before launch. Windows v3 records the supervisor before LaunchAck.
+      // A settled execution rejects late registration, and any related process row prevents this release.
       return Number(releaseDispatch.run(new Date().toISOString(), invocationId, processId, identity.data.executionId, identity.data.dispatchId).changes) === 1
     },
     isReleased(invocationId) {

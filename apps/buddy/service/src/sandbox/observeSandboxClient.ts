@@ -22,7 +22,7 @@ export function observeSandboxClient(source: Pick<ShellSandboxClient, 'onDidChan
       ...(event.kind === 'backend' ? { count: event.event.snapshot.waiting, sourceSequence: event.event.revision, sandboxProcess: event.event.snapshot.process } : {}),
       ...(cleanupFailed ? { errorCode: 'SANDBOX_CLEANUP_FAILED' } : {}),
       ...(result?.ok === false ? { errorCode: result.code } : {}),
-      ...(event.kind === 'transport-failed' ? { errorCode: 'SANDBOX_TRANSPORT_FAILED' } : {}),
+      ...(event.kind === 'transport-failed' ? { errorCode: 'SANDBOX_TRANSPORT_FAILED', errorType: event.failure } : {}),
     })
     if (event.kind === 'returned' || event.kind === 'transport-failed')
       contexts.delete(event.requestId)

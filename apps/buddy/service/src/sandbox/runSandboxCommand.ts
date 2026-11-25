@@ -5,11 +5,13 @@ import { sandboxNetworkTargetSchema, ShellSandboxError } from '../../../shared/p
 import { SHELL_SANDBOX_BACKEND } from '../../../shared/platform/identifiers'
 import { SandboxExecutionLifecycle } from './sandboxExecutionLifecycle'
 
-export async function runSandboxCommand(input: SandboxProcessInput, options: Omit<SandboxExecutionOptions, 'onStarted' | 'onProcess'> & { onLifecycle?: (event: Readonly<SandboxLifecycleEvent>) => void }): Promise<SandboxResult> {
+export async function runSandboxCommand(input: SandboxProcessInput, options: Omit<SandboxExecutionOptions, 'onStarted' | 'onProcess'> & { onLifecycle?: (event: Readonly<SandboxLifecycleEvent>) => void, onWindowsDispatch?: () => void }): Promise<SandboxResult> {
   const lifecycle = new SandboxExecutionLifecycle(options.signal, input.timeout)
   const subscription = options.onLifecycle ? lifecycle.onDidChange(options.onLifecycle) : undefined
   lifecycle.begin()
   let result: SandboxResult | undefined
+  const windows = input.backend.kind === SHELL_SANDBOX_BACKEND.Windows
+  let windowsDispatched = false
   const decisions = new Map<string, Promise<boolean>>()
   const requestNetwork = async (target: SandboxNetworkTarget) => {
     const parsed = sandboxNetworkTargetSchema.safeParse(target)
@@ -36,7 +38,10 @@ export async function runSandboxCommand(input: SandboxProcessInput, options: Omi
       },
     }
     const exitCode = input.backend.kind === SHELL_SANDBOX_BACKEND.Windows
-      ? await (await import('./backends/windows/runWindowsSandbox')).runWindowsSandbox({ ...input, backend: input.backend }, execution)
+      ? await (await import('./backends/windows/runWindowsSandbox')).runWindowsSandbox({ ...input, backend: input.backend }, execution, () => {
+          windowsDispatched = true
+          options.onWindowsDispatch?.()
+        })
       : await (await import('./backends/srt/runSrtSandbox')).runSrtSandbox({ ...input, backend: input.backend }, execution)
     if (lifecycle.signal.aborted)
       result = { ok: false, code: lifecycle.timedOut ? 'SANDBOX_TIMEOUT' : 'SANDBOX_CANCELLED' }
@@ -50,6 +55,7 @@ export async function runSandboxCommand(input: SandboxProcessInput, options: Omi
       code: lifecycle.signal.aborted
         ? lifecycle.timedOut ? 'SANDBOX_TIMEOUT' : 'SANDBOX_CANCELLED'
         : error instanceof ShellSandboxError ? error.code : lifecycle.started ? 'SANDBOX_FAILED' : 'SANDBOX_UNAVAILABLE',
+      ...(windows && !windowsDispatched ? { notStarted: true as const } : {}),
     }
     return result
   }

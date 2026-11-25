@@ -13,6 +13,13 @@ import { useChatSession } from '@/modules/tasks/state/conversations/useChatSessi
 import { useChatDrafts } from '@/modules/tasks/state/drafts/useChatDrafts'
 import { useTaskWorkspacePersistence } from '../useTaskWorkspacePersistence'
 
+interface StoredDraft {
+  content: LocalComposerDraft['content']
+  draftId: string
+  revision: number
+  scope: BuddyComposerDraftScope
+}
+
 describe('workspace Draft persistence', () => {
   it('opens archived history without creating or saving a draft and restores editing only after unarchive', async () => {
     const archived = { ...createConversation('workspace_write'), archivedAt: '2026-11-01T00:00:00.000Z' }
@@ -392,6 +399,145 @@ describe('workspace Draft persistence', () => {
     expect(fixture.drafts.isPersisted(fixture.drafts.snapshot('global'))).toBe(true)
   })
 
+  it('exposes a conflict when autosave finds a newer persisted draft with different content', async () => {
+    const fixture = await createConflictFixture({
+      beforeGet: async () => {
+        updateText(fixture.drafts, 'edited during save')
+      },
+    })
+
+    expect(await fixture.persistence.persist()).toBe(false)
+    expect(fixture.persistence.restorationState.value).toBe('conflict')
+    expect(fixture.errors).toEqual([])
+    expect(fixture.saves.map(save => buddyUserContentToText(save.content))).toEqual(['local autosave'])
+    expect(fixture.drafts.draft.value).toBe('edited during save')
+    expect(fixture.drafts.snapshot('global').revision).toBe(0)
+    expect(fixture.persistence.restorationConflict.value).toMatchObject({
+      targetKey: 'global',
+      local: { draftId: 'runtime-confirmed-draft', content: createBuddyUserContent('edited during save') },
+      remote: { draftId: 'runtime-confirmed-draft', content: createBuddyUserContent('newer saved draft'), revision: 2 },
+    })
+    expect(await fixture.persistence.flushPending()).toBe(false)
+    expect(fixture.saves).toHaveLength(1)
+  })
+
+  it('acknowledges a lost save when a newer revision contains the same draft', async () => {
+    const fixture = await createFixture({
+      confirmedContent: 'saved base',
+      afterSave: () => {
+        storedDraft(fixture.runtimeDraft('global')!).revision = 5
+        throw new Error('response lost')
+      },
+    })
+    updateText(fixture.drafts, 'same text survived')
+
+    expect(await fixture.persistence.persist()).toBe(true)
+    expect(fixture.errors).toEqual([])
+    expect(fixture.persistence.restorationState.value).toBe('ready')
+    expect(fixture.persistence.restorationConflict.value).toBeNull()
+    expect(fixture.drafts.draft.value).toBe('same text survived')
+    expect(fixture.drafts.snapshot('global').revision).toBe(5)
+    expect(fixture.drafts.isPersisted(fixture.drafts.snapshot('global'))).toBe(true)
+    expect(fixture.runtimeDraft('global')?.revision).toBe(5)
+  })
+
+  it.each([
+    {
+      label: 'draft identity',
+      diverge: (remote: StoredDraft) => {
+        remote.draftId = 'other-draft'
+      },
+    },
+    {
+      label: 'scope',
+      diverge: (remote: StoredDraft) => {
+        remote.scope = { kind: 'space', spaceId: 'other-space' }
+      },
+    },
+  ])('does not accept a newer persisted draft with a different $label', async ({ diverge }) => {
+    const fixture = await createConflictFixture({ diverge })
+
+    expect(await fixture.persistence.persist()).toBe(false)
+    expect(fixture.persistence.restorationState.value).toBe('ready')
+    expect(fixture.persistence.restorationConflict.value).toBeNull()
+    expect(fixture.errors).toHaveLength(1)
+    expect(fixture.drafts.draft.value).toBe('local autosave')
+    expect(fixture.drafts.draftId.value).toBe('runtime-confirmed-draft')
+    expect(fixture.drafts.snapshot('global').revision).toBe(0)
+    expect(fixture.drafts.isPersisted(fixture.drafts.snapshot('global'))).toBe(false)
+  })
+
+  it('does not open a conflict when the editor changes during autosave readback', async () => {
+    let acknowledged = false
+    const fixture = await createConflictFixture({
+      beforeGet: async () => {
+        const snapshot = fixture.drafts.snapshot('global')
+        acknowledged = fixture.drafts.acknowledgeSend({
+          committedRevision: (snapshot.revision ?? 0) + 1,
+          draftId: snapshot.draftId,
+          sourceRevision: snapshot.revision ?? 0,
+        }, 'global')
+      },
+    })
+    const editorKey = fixture.drafts.editorKey.value
+
+    expect(await fixture.persistence.persist()).toBe(false)
+    expect(acknowledged).toBe(false)
+    expect(fixture.persistence.restorationState.value).toBe('ready')
+    expect(fixture.persistence.restorationConflict.value).toBeNull()
+    expect(fixture.errors).toHaveLength(1)
+    expect(fixture.drafts.draft.value).toBe('local autosave')
+    expect(fixture.drafts.editorKey.value).not.toBe(editorKey)
+    expect(fixture.drafts.snapshot('global').revision).toBe(1)
+  })
+
+  it('does not accept a newer task draft persisted for a different space', async () => {
+    const fixture = await createFixture({
+      beforeSave: async () => {
+        const pending = fixture.saves.at(-1)
+        if (pending?.draftId !== 'task-1')
+          return
+        const remote = fixture.runtimeDraft('draft:task-1')
+        if (!remote)
+          throw new Error('missing task draft')
+        const stored = storedDraft(remote)
+        stored.revision = pending.expectedRevision + 2
+        stored.content = createBuddyUserContent('other space')
+        stored.scope = { kind: 'task', draftId: 'task-1', spaceId: 'other-space' }
+      },
+    })
+    expect(fixture.drafts.beginIsolated('draft:task-1', createBuddyUserContent('local task'))).toBe(true)
+    expect(await fixture.persistence.persist()).toBe(true)
+    expect(fixture.saves).toEqual([])
+    fixture.drafts.setPermissionSettings({ approvalPolicy: 'manual', executionProfile: 'workspace_write' }, 'draft:task-1')
+
+    expect(await fixture.persistence.persist()).toBe(false)
+    expect(fixture.persistence.restorationState.value).toBe('ready')
+    expect(fixture.persistence.restorationConflict.value).toBeNull()
+    expect(fixture.errors).toHaveLength(1)
+    expect(fixture.session.spaceId.value).toBeNull()
+    expect(fixture.runtimeDraft('draft:task-1')?.scope).toEqual({ kind: 'task', draftId: 'task-1', spaceId: 'other-space' })
+    expect(fixture.drafts.snapshot('draft:task-1')).toMatchObject({
+      approvalPolicy: 'manual',
+      content: createBuddyUserContent('local task'),
+      draftId: 'task-1',
+      revision: 0,
+    })
+    expect(fixture.drafts.isPersisted(fixture.drafts.snapshot('draft:task-1'))).toBe(false)
+  })
+
+  it('keeps the conflict when the saved draft scope changes before a choice is applied', async () => {
+    const fixture = await createConflictFixture()
+    expect(await fixture.persistence.persist()).toBe(false)
+    storedDraft(fixture.runtimeDraft('global')!).scope = { kind: 'space', spaceId: 'other-space' }
+
+    expect(await fixture.persistence.resolveConflict('global', 'local')).toBe(false)
+    expect(fixture.persistence.restorationState.value).toBe('conflict')
+    expect(fixture.drafts.draft.value).toBe('local autosave')
+    expect(fixture.saves).toHaveLength(1)
+    expect(fixture.runtimeDraft('global')?.content).toEqual(createBuddyUserContent('newer saved draft'))
+  })
+
   it('keeps unsaved editor state after failure and retries the latest value', async () => {
     let fail = true
     const fixture = await createFixture({ beforeSave: async () => {
@@ -556,6 +702,33 @@ async function createFixture(options: {
     saves,
     session,
   }
+}
+
+async function createConflictFixture(hooks: {
+  beforeGet?: () => Promise<void>
+  diverge?: (remote: StoredDraft) => void
+} = {}) {
+  let fixture: Awaited<ReturnType<typeof createFixture>> | undefined
+  const created = await createFixture({
+    confirmedContent: 'saved base',
+    beforeGet: hooks.beforeGet,
+    beforeSave: async () => {
+      const remote = fixture?.runtimeDraft('global')
+      if (!remote)
+        return
+      const stored = storedDraft(remote)
+      stored.revision += 2
+      stored.content = createBuddyUserContent('newer saved draft')
+      hooks.diverge?.(stored)
+    },
+  })
+  fixture = created
+  updateText(created.drafts, 'local autosave')
+  return created
+}
+
+function storedDraft(draft: LocalComposerDraft): StoredDraft {
+  return draft as unknown as StoredDraft
 }
 
 function createConversation(executionProfile: LocalConversation['executionProfile']): LocalConversation {

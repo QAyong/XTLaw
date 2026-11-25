@@ -25,5 +25,5 @@
 
 - WSL 定向 Vitest 共 11 个文件、145 项通过，包括一万条历史记录分页、活动时间和侧栏通知、草稿保存、流式事件和会话时间线。
 - 文件引擎 Rust 测试 24 项通过。改动的 TypeScript 和 Vue 文件通过 ESLint，`git diff --check` 通过。
-- Buddy 全量类型检查在本分支和原 `master` 均报告 `DesktopDocumentFindBar.vue:45` 的 TS2769。该查找栏未纳入本轮。
+- Buddy 全量类型检查最初在本分支和原 `master` 均报告 `DesktopDocumentFindBar.vue:45` 的 TS2769。后续在集成分支修复了查找栏的事件类型，复查全量类型检查通过。查找栏 ESLint 及 4 项定向测试通过。
 - 本轮代码的 Windows 桌面预览、Playwright E2E、安装包及打包未跑。浏览器三项的实测使用已有的 Windows 安装版。

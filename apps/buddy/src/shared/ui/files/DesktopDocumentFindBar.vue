@@ -42,7 +42,10 @@ function onKeydown(event: KeyboardEvent) {
   if (event.key !== 'Enter')
     return
   event.preventDefault()
-  emit(event.shiftKey ? 'previous' : 'next')
+  if (event.shiftKey)
+    emit('previous')
+  else
+    emit('next')
 }
 </script>
 

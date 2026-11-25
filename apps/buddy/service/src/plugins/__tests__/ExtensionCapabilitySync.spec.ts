@@ -38,7 +38,7 @@ function descriptor(patch: Partial<ExtensionCapabilityDescriptor> = {}): Extensi
 
 function setup() {
   database = openBuddyDatabase({ databasePath: ':memory:' })
-  buddies = new BuddiesService(createBuddyRepository(database))
+  buddies = new BuddiesService(createBuddyRepository(database), { getModelType: () => null })
   records = []
   ledger = { version: 1, entries: [] }
   descriptors = []

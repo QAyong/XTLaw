@@ -660,7 +660,11 @@ function mountTurn(nodes: ChatAgentTurnNode[], status: ChatAgentTurn['status'] =
   document.body.append(root)
   const app = createApp({
     setup: () => {
-      useProvideBuddiesContext({ api: { onChanged: () => () => {} } as unknown as LocalChatApi['buddies'], ready: shallowRef(false) })
+      useProvideBuddiesContext({
+        api: { onChanged: () => () => {} } as unknown as LocalChatApi['buddies'],
+        ready: shallowRef(false),
+        modelCatalog: { models: shallowRef([]), providers: shallowRef([]) },
+      })
       useProvideDesktopUi({
         language: shallowRef('zh-CN'),
         isDark: shallowRef(false),

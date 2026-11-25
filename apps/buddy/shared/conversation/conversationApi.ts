@@ -56,6 +56,7 @@ export const conversationSchema = z.object({
   spaceId: z.string().nullable(),
   title: z.string().nullable(),
   updatedAt: timestampSchema,
+  lastActivityAt: timestampSchema.optional(),
 }).strict()
 
 export const conversationSummarySchema = conversationSchema.extend({

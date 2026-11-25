@@ -86,7 +86,7 @@ export function useTaskIndexData(options: UseTaskIndexDataOptions) {
     }
     conversationListGeneration += 1
     conversations.value = conversations.value.map(item => item.id === conversation.id
-      ? { ...item, ...conversation }
+      ? { ...item, ...conversation, lastActivityAt: conversation.lastActivityAt ?? item.lastActivityAt }
       : item)
   }
 

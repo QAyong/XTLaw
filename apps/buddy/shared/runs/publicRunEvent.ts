@@ -69,6 +69,7 @@ const SCALAR_PAYLOAD_KEYS = new Map<string, readonly string[]>([
   ['message.block.completed', ['content', 'contentIndex', 'kind', 'messageId', 'phase']],
   ['message.block.delta', ['delta', 'contentIndex', 'kind', 'messageId', 'phase']],
   ['message.block.started', ['contentIndex', 'kind', 'messageId', 'phase']],
+  ['execution.mailbox.sent', ['kind', 'origin', 'purpose']],
   ['message.started', ['messageId', 'role']],
   ['run.cancelled', ['errorCode']],
   ['run.completed', ['errorCode']],

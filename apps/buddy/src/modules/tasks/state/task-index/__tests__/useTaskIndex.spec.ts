@@ -37,6 +37,7 @@ function fixture() {
     metadataRevision: 4,
     createdAt: '2026-09-18T00:00:00Z',
     updatedAt: '2026-09-18T00:00:00Z',
+    lastActivityAt: '2026-09-18T00:00:00Z',
     approvalPolicy: 'policy',
     executionProfile: 'workspace_write',
     modelSelection: null,
@@ -44,7 +45,10 @@ function fixture() {
   }]
   const spaceListeners = new Set<(event: SpaceChangeNotice) => void>()
   const conversationListeners = new Set<(conversation: LocalConversation) => void>()
+  const timelineListeners = new Set<() => void>()
+  const questionListeners = new Set<() => void>()
   const listeners = new Set<(event: LocalRunEvent) => void>()
+  const listCalls: number[] = []
   const beforeDelete = vi.fn(async () => true)
   const deleted: string[] = []
   const archive = vi.fn(async (id: string) => {
@@ -71,7 +75,14 @@ function fixture() {
         conversationListeners.add(listener)
         return () => conversationListeners.delete(listener)
       },
-      list: async () => savedTasks,
+      onTimelineChanged: (listener: () => void) => {
+        timelineListeners.add(listener)
+        return () => timelineListeners.delete(listener)
+      },
+      list: async () => {
+        listCalls.push(savedTasks.length)
+        return savedTasks
+      },
       listHistory: async () => ({ items: [], nextCursor: null }),
       listArchived: async () => ({ items: [], nextCursor: null }),
       get: async (id: string) => ({ ...savedTasks.find(task => task.id === id)!, archivedAt: null } as unknown as LocalConversation),
@@ -92,6 +103,10 @@ function fixture() {
     chat: { onRunEvent: (listener: (event: LocalRunEvent) => void) => {
       listeners.add(listener)
       return () => listeners.delete(listener)
+    } },
+    questions: { onChanged: (listener: () => void) => {
+      questionListeners.add(listener)
+      return () => questionListeners.delete(listener)
     } },
     executions: { list: async () => [], onChanged: () => () => {} },
     taskMarks: { list: async () => [], states: async () => [] },
@@ -118,8 +133,14 @@ function fixture() {
     selectDefaultModel() {},
     spaceId,
   }))!
-  return { index, archive, notifyConversation(conversation: LocalConversation) {
+  return { index, archive, listCalls, notifyConversation(conversation: LocalConversation) {
     conversationListeners.forEach(listener => listener(conversation))
+  }, notifyTimeline() {
+    timelineListeners.forEach(listener => listener())
+  }, notifyQuestion() {
+    questionListeners.forEach(listener => listener())
+  }, notifyRun(event: LocalRunEvent) {
+    listeners.forEach(listener => listener(event))
   }, reviseTask() {
     savedTasks = savedTasks.map(task => ({ ...task, metadataRevision: 5 }))
   }, changeSpace(value: LocalSpace, revision: number) {
@@ -164,6 +185,57 @@ describe('shared task index ownership', () => {
     f.changeSpace({ ...space(), name: 'After disposal' }, 3)
     await vi.advanceTimersByTimeAsync(60)
     expect(f.index.index.spaces.value[0]?.name).toBe('Updated by a tool')
+  })
+
+  it('refreshes the sidebar for queued input, answers, supplements and terminal runs', async () => {
+    vi.useFakeTimers()
+    const f = fixture()
+    await f.index.initialize()
+    const baseline = f.listCalls.length
+    const spacesBefore = f.listSpaces.mock.calls.length
+    f.notifyTimeline()
+    await vi.advanceTimersByTimeAsync(100)
+    expect(f.listCalls.length).toBe(baseline + 1)
+    f.notifyQuestion()
+    await vi.advanceTimersByTimeAsync(100)
+    expect(f.listCalls.length).toBe(baseline + 2)
+    const event = (type: string, sequence: number, payload: LocalRunEvent['payload'] = {}): LocalRunEvent => ({ type, runId: 'run', sequence, payload, createdAt: '2026-09-18T00:00:00Z' })
+    f.notifyRun(event('execution.mailbox.sent', 2, { kind: 'supplement', purpose: 'progress', text: 'private' }))
+    f.notifyRun(event('execution.mailbox.sent', 3, { kind: 'supplement', origin: 'user', purpose: 'question_answer' }))
+    await vi.advanceTimersByTimeAsync(100)
+    expect(f.listCalls.length).toBe(baseline + 2)
+    f.notifyRun(event('execution.mailbox.sent', 4, { kind: 'supplement', origin: 'user' }))
+    await vi.advanceTimersByTimeAsync(100)
+    expect(f.listCalls.length).toBe(baseline + 3)
+    f.notifyRun(event('execution.mailbox.sent', 5, { kind: 'answer', text: 'private' }))
+    await vi.advanceTimersByTimeAsync(100)
+    expect(f.listCalls.length).toBe(baseline + 4)
+    f.notifyRun(event('run.completed', 6))
+    await vi.advanceTimersByTimeAsync(100)
+    expect(f.listCalls.length).toBe(baseline + 5)
+    f.notifyRun(event('run.progress', 7))
+    await vi.advanceTimersByTimeAsync(100)
+    expect(f.listCalls.length).toBe(baseline + 5)
+    expect(f.listSpaces.mock.calls.length).toBe(spacesBefore)
+  })
+
+  it('keeps activity time when a conversation notice only updates metadata', async () => {
+    const f = fixture()
+    await f.index.initialize()
+    const task = f.index.index.tasks.value[0]!
+    const metadata = { ...task, title: 'Renamed', updatedAt: '2026-09-19T00:00:00.000Z' }
+    delete metadata.lastActivityAt
+    f.notifyConversation(metadata)
+    expect(f.index.index.tasks.value[0]).toMatchObject({
+      title: 'Renamed',
+      updatedAt: '2026-09-19T00:00:00.000Z',
+      lastActivityAt: '2026-09-18T00:00:00Z',
+    })
+    f.notifyConversation({ ...task, title: 'Renamed again', lastActivityAt: undefined } as LocalConversation)
+    expect(f.index.index.tasks.value[0]).toMatchObject({
+      title: 'Renamed again',
+      lastActivityAt: '2026-09-18T00:00:00Z',
+    })
   })
 
   it('updates background task activity without an open task view', async () => {

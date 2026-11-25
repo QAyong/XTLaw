@@ -162,6 +162,17 @@ describe('public run event projection', () => {
     })
   })
 
+  it('publishes only the mailbox activity classifier and drops message text', () => {
+    expect(project('execution.mailbox.sent', {
+      kind: 'supplement',
+      origin: 'user',
+      purpose: 'progress',
+      text: 'private supplement',
+      targetRunId: 'root',
+    })).toEqual({ kind: 'supplement', origin: 'user', purpose: 'progress' })
+    expect(project('execution.mailbox.sent', { kind: 'answer', text: 'private answer' })).toEqual({ kind: 'answer' })
+  })
+
   it('fails closed for unknown and obsolete event payloads', () => {
     expect(toPublicRunEvent(event('future.provider.trace', { authorization: 'Bearer private' })))
       .toEqual({ ...event('future.provider.trace', {}), payload: {} })

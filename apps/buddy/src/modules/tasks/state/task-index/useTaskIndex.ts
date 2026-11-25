@@ -27,6 +27,15 @@ interface TaskIndexOptions {
 
 const activityEvents = new Set(['approval.requested', 'approval.resolved', 'run.cancelled', 'run.completed', 'run.failed', 'run.started'])
 
+function isUserMailboxActivity(event: { type: string, payload: Record<string, unknown> }): boolean {
+  if (event.type !== 'execution.mailbox.sent')
+    return false
+  const { kind, origin, purpose } = event.payload
+  if (kind === 'answer')
+    return true
+  return kind === 'supplement' && origin === 'user' && purpose !== 'question_answer'
+}
+
 export function useTaskIndex(options: TaskIndexOptions) {
   const { api, applicationSettings } = options
   const data = useTaskIndexData({ api })
@@ -168,7 +177,7 @@ export function useTaskIndex(options: TaskIndexOptions) {
       }
     },
   }
-  const refreshActivity = useDebounceFn(() => disposed ? undefined : data.refreshIndex().catch(setError), 100)
+  const refreshActivity = useDebounceFn(() => disposed ? undefined : data.refreshConversations().catch(setError), 100)
   const spaceRevisions = new Map<string, number>()
   const refreshSpaces = useDebounceFn(() => disposed ? undefined : data.refreshSpaces().catch(setError), 50)
   const stopSpaceChanges = api.spaces.onChanged((event) => {
@@ -180,12 +189,20 @@ export function useTaskIndex(options: TaskIndexOptions) {
     void refreshSpaces()
   })
   const stopEvents = api.chat.onRunEvent((event) => {
-    if (activityEvents.has(event.type))
+    if (activityEvents.has(event.type) || isUserMailboxActivity(event))
       void refreshActivity()
+  })
+  const stopQuestions = api.questions.onChanged(() => {
+    void refreshActivity()
+  })
+  const stopTimeline = api.conversations.onTimelineChanged(() => {
+    void refreshActivity()
   })
   function dispose() {
     disposed = true
     stopEvents()
+    stopQuestions()
+    stopTimeline()
     activity.dispose()
     stopConversationChanges()
     stopSpaceChanges()

@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+// eslint-disable-next-line test/no-import-node-test -- This standalone packaging test runs with node --test.
 import { test } from 'node:test'
 import { syncMarketPlugins } from './sync.mjs'
 

@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict'
+import { Buffer } from 'node:buffer'
 import { readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
+// eslint-disable-next-line test/no-import-node-test -- This standalone packaging test runs with node --test.
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 
@@ -21,11 +23,11 @@ const asDataModule = source => `data:text/javascript;base64,${Buffer.from(source
 const stateSource = await readFile(path.join(pluginDir, 'state.ts'), 'utf8')
 const stateUrl = asDataModule(transpile(stateSource))
 const mainSource = (await readFile(path.join(pluginDir, 'main.ts'), 'utf8'))
-  .replaceAll("from './state'", `from '${stateUrl}'`)
+  .replaceAll('from \'./state\'', `from '${stateUrl}'`)
 const originalViewSource = await readFile(path.join(pluginDir, 'view.ts'), 'utf8')
 const viewSource = originalViewSource
-  .replaceAll("from './state'", `from '${stateUrl}'`)
-  .replace("stylesheet.href = new URL('./style.css', import.meta.url).href", "stylesheet.href = 'style.css'")
+  .replaceAll('from \'./state\'', `from '${stateUrl}'`)
+  .replace('stylesheet.href = new URL(\'./style.css\', import.meta.url).href', 'stylesheet.href = \'style.css\'')
 assert.ok(mainSource.includes(stateUrl), 'main.ts must resolve its real state.ts import')
 assert.ok(viewSource.includes(stateUrl), 'view.ts must resolve its real state.ts import')
 assert.notEqual(viewSource, originalViewSource, 'view harness must replace the package-relative stylesheet URL')
@@ -37,22 +39,25 @@ const [{ activate }, { initialState, readState }, { render }] = await Promise.al
 ])
 const pluginId = 'p95e8d9a8d120433d9ba2058e1c844ed0.legacy-task-cleanup'
 const preview = { total: 3, skipped: 2 }
-const progress = (phase, fields = {}) => ({
-  phase,
-  total: 3,
-  processed: 0,
-  deleted: 0,
-  pending: 0,
-  failed: 0,
-  skipped: 2,
-  errorCode: null,
-  ...fields,
-})
+function progress(phase, fields = {}) {
+  return {
+    phase,
+    total: 3,
+    processed: 0,
+    deleted: 0,
+    pending: 0,
+    failed: 0,
+    skipped: 2,
+    errorCode: null,
+    ...fields,
+  }
+}
 const tick = () => new Promise(resolve => setImmediate(resolve))
 
 async function until(predicate, label) {
   for (let i = 0; i < 50; i++) {
-    if (predicate()) return
+    if (predicate())
+      return
     await tick()
   }
   throw new Error(`Timed out waiting for ${label}`)
@@ -67,8 +72,9 @@ function createMainHarness(run) {
     extension: { id: pluginId },
     signal: lifecycle.signal,
     views: {
-      broadcast: async message => {
-        if (message?.type === 'cleanup-state') states.push(message.state)
+      broadcast: async (message) => {
+        if (message?.type === 'cleanup-state')
+          states.push(message.state)
       },
     },
     commands: {
@@ -79,11 +85,11 @@ function createMainHarness(run) {
     },
     subscriptions: { add: value => value },
     placements: {
-      show: async id => {
+      show: async (id) => {
         placementCalls.push(['show', id])
         return id
       },
-      hide: async id => {
+      hide: async (id) => {
         placementCalls.push(['hide', id])
         return id
       },
@@ -123,12 +129,12 @@ function createViewHarness() {
         return name.endsWith('.get-status') ? initialState() : true
       },
     },
-    onMessage: listener => {
+    onMessage: (listener) => {
       messageListener = listener
       return { dispose() {} }
     },
     onMountChange: () => ({ dispose() {} }),
-    onVisibilityChange: listener => {
+    onVisibilityChange: (listener) => {
       visibilityListener = listener
       return { dispose() {} }
     },
@@ -164,7 +170,7 @@ const hideCommand = `${pluginId}.hide-progress`
 test('cancel responds false to the active request; repeated cleanup and show-progress do not submit another run', async () => {
   let runCalls = 0
   let observedConfirmation
-  const harness = createMainHarness(async options => {
+  const harness = createMainHarness(async (options) => {
     runCalls++
     observedConfirmation = await options.confirm(preview, new AbortController().signal)
     const summary = progress('cancelled')
@@ -192,7 +198,7 @@ test('cancel responds false to the active request; repeated cleanup and show-pro
 
 test('true confirmation is request-bound and the final summary supplies distinct result counts', async () => {
   let runCalls = 0
-  const harness = createMainHarness(async options => {
+  const harness = createMainHarness(async (options) => {
     runCalls++
     assert.equal(await options.confirm(preview, new AbortController().signal), true)
     options.onProgress(progress('running', { processed: 1, deleted: 1, skipped: 1 }))
@@ -225,7 +231,7 @@ test('true confirmation is request-bound and the final summary supplies distinct
 test('the original taskCleanup call signal cancels an unresolved confirmation', async () => {
   const hostCall = new AbortController()
   let observedConfirmation
-  const harness = createMainHarness(async options => {
+  const harness = createMainHarness(async (options) => {
     observedConfirmation = await options.confirm(preview, hostCall.signal)
     const summary = progress('cancelled')
     options.onProgress(summary)
@@ -243,7 +249,7 @@ test('the original taskCleanup call signal cancels an unresolved confirmation', 
 
 test('extension deactivation cancels an unresolved confirmation', async () => {
   let observedConfirmation
-  const harness = createMainHarness(async options => {
+  const harness = createMainHarness(async (options) => {
     observedConfirmation = await options.confirm(preview, new AbortController().signal)
     const summary = progress('cancelled')
     options.onProgress(summary)
@@ -260,7 +266,7 @@ test('extension deactivation cancels an unresolved confirmation', async () => {
 
 test('an unknown post-confirmation failure preserves last real counts without retrying', async () => {
   let runCalls = 0
-  const harness = createMainHarness(async options => {
+  const harness = createMainHarness(async (options) => {
     runCalls++
     assert.equal(await options.confirm(preview, new AbortController().signal), true)
     options.onProgress(progress('running', { processed: 2, deleted: 1, pending: 1, failed: 0, skipped: 2 }))

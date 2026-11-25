@@ -176,6 +176,59 @@ describe('turnRequestRepository', () => {
       .toEqual({ thread_id: privateThread, pi_session_file: '/private/original.jsonl' })
   })
 
+  it('starts a fresh turn after a closed degraded run without rewriting its history', () => {
+    const database = createDatabase()
+    const repository = createTurnRequestRepository(database)
+    repository.prepare(createInput())
+    database.exec(`UPDATE runs SET status = 'failed' WHERE id = 'run-1'`)
+    database.exec(`UPDATE execution_state SET phase = 'closed', cleanup_state = 'degraded' WHERE run_id = 'run-1'`)
+    const revision = createComposerDraftRepository(database).findById('draft-1')!.revision
+    const input = {
+      ...createInput(),
+      requestId: 'request-continue',
+      requestFingerprint: 'fingerprint-continue',
+      runId: 'run-continue',
+      userMessageId: 'message-continue',
+      delivery: { mode: 'current' as const, actorId: 'default', target: null },
+      draft: { draftId: 'draft-1', expectedRevision: revision },
+    }
+    expect(repository.prepare(input)).toMatchObject({ created: true, runId: 'run-continue' })
+    expect(repository.prepare(input)).toMatchObject({ created: false, runId: 'run-continue' })
+    expect(database.prepare(`SELECT status FROM runs WHERE id = 'run-1'`).get()).toEqual({ status: 'failed' })
+    expect(database.prepare(`SELECT phase, cleanup_state FROM execution_state WHERE run_id = 'run-1'`).get())
+      .toEqual({ phase: 'closed', cleanup_state: 'degraded' })
+  })
+
+  it('keeps a fresh turn blocked while cleanup is pending and keeps explicit next delivery on a degraded target closed', () => {
+    const database = createDatabase()
+    const repository = createTurnRequestRepository(database)
+    repository.prepare(createInput())
+    database.exec(`UPDATE runs SET status = 'failed' WHERE id = 'run-1'`)
+    database.exec(`UPDATE execution_state SET phase = 'closed', cleanup_state = 'pending' WHERE run_id = 'run-1'`)
+    const revision = createComposerDraftRepository(database).findById('draft-1')!.revision
+    const blocked = {
+      ...createInput(),
+      requestId: 'request-pending',
+      requestFingerprint: 'fingerprint-pending',
+      runId: 'run-pending',
+      userMessageId: 'message-pending',
+      delivery: { mode: 'current' as const, actorId: 'default', target: null },
+      draft: { draftId: 'draft-1', expectedRevision: revision },
+    }
+    expect(() => repository.prepare(blocked)).toThrow(expect.objectContaining({ code: 'INPUT_DELIVERY_TARGET_UNAVAILABLE' }))
+    database.exec(`UPDATE execution_state SET cleanup_state = 'degraded' WHERE run_id = 'run-1'`)
+    expect(() => repository.prepare({
+      ...blocked,
+      requestId: 'request-next',
+      requestFingerprint: 'fingerprint-next',
+      runId: 'run-next',
+      userMessageId: 'message-next',
+      delivery: { mode: 'next' as const, actorId: 'default', target: { rootRunId: 'run-1', runId: 'run-1' } },
+    })).toThrow(expect.objectContaining({ code: 'INPUT_DELIVERY_TARGET_UNAVAILABLE' }))
+    expect(database.prepare(`SELECT id FROM runs`).all()).toEqual([{ id: 'run-1' }])
+    expect(createComposerDraftRepository(database).findById('draft-1')?.revision).toBe(revision)
+  })
+
   it('rejects new and retried acceptance without consuming drafts or changing requests while quarantined', () => {
     const database = createDatabase()
     const repository = createTurnRequestRepository(database)

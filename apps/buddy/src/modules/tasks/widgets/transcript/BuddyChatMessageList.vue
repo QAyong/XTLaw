@@ -31,6 +31,8 @@ import BuddyChatMessageRow from './BuddyChatMessageRow.vue'
 import BuddyChatOutline from './BuddyChatOutline.vue'
 import BuddyChatRunActivity from './BuddyChatRunActivity.vue'
 import BuddyChatTranscriptViewport from './BuddyChatTranscriptViewport.vue'
+import BuddyChatTurnChanges from './BuddyChatTurnChanges.vue'
+import BuddyChatTurnOutputs from './BuddyChatTurnOutputs.vue'
 import BuddyChatTurnResult from './BuddyChatTurnResult.vue'
 import { provideChatTranscriptPresentation } from './chatTranscriptPresentation'
 
@@ -349,6 +351,8 @@ onBeforeUnmount(clearOutlineHighlight)
               :root-run-id="executionAnchors.get(item.key)!"
               :language="language"
             />
+            <BuddyChatTurnOutputs v-if="item.turnOutputs?.artifacts.length" :data-task-result-run-id="item.turn.runId" :artifacts="item.turnOutputs.artifacts" :language="language" @open-artifact="emit('openArtifact', $event)" />
+            <BuddyChatTurnChanges v-if="item.turnChanges" :data-task-result-run-id="item.turn.runId" :change-set="item.turnChanges" :language="language" @open-changes="emit('openChanges', $event)" />
           </template>
         </BuddyChatAgentTurn>
 

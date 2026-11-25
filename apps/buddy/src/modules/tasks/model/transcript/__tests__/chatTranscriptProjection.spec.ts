@@ -433,6 +433,65 @@ describe('chat transcript projection', () => {
     const emptyChanges = projectPersistedChatTranscriptRows([user, final], [turn], outputs, [{ ...changeSet, fileCount: 0, coverage: 'partial' }])
     expect(emptyChanges[1]).not.toHaveProperty('turnChanges')
   })
+
+  it.each(['cancelled', 'failed'] as const)('places a %s notice after an in-run supplement and keeps outputs and changes on that notice', (status) => {
+    const user = { ...message('user-1', 'user'), createdAt: '2026-08-20T00:00:00.000Z' }
+    const final = { ...message('assistant-final', 'assistant'), createdAt: '2026-08-20T00:00:02.000Z', content: { text: 'Partial answer' } }
+    const supplement = { ...message('user-supplement', 'user'), createdAt: '2026-08-20T00:00:04.000Z', content: { text: 'Also cover the exception' } }
+    const run = { ...localRun('run-1', user.id, status), completedAt: '2026-08-20T00:00:06.000Z' }
+    const turn = agentTurn(run, [], final.id)
+    const output: LocalRunOutput = {
+      artifacts: [{
+        artifactId: 'generated-image-1',
+        conversationId: 'conversation-1',
+        createdAt: '2026-08-20T00:00:02.000Z',
+        kind: 'file',
+        mimeType: 'image/png',
+        name: 'generated-image.png',
+        path: '/workspace/generated-image.png',
+        previewUrl: null,
+        runId: run.id,
+        sizeBytes: 12_345,
+        sourceArtifactId: null,
+        sourceToolCallId: 'tool-image-1',
+        updatedAt: '2026-08-20T00:00:02.000Z',
+      }],
+      createdAt: '2026-08-20T00:00:02.000Z',
+      runId: run.id,
+      sourceToolCallId: 'tool-image-1',
+    }
+    const changeSet: LocalChangeSetSummary = {
+      changeSetId: 'changes-1',
+      conversationId: 'conversation-1',
+      coverage: 'complete',
+      fileCount: 2,
+      runId: run.id,
+      status: 'completed',
+      updatedAt: '2026-08-20T00:00:03.000Z',
+    }
+
+    const rows = projectPersistedChatTranscriptRows([user, final, supplement], [turn], [output], [changeSet])
+    expect(rows.map(row => row.key)).toEqual([
+      'message:user-1',
+      'message:assistant-final',
+      'message:user-supplement',
+      `agent-turn:${run.id}`,
+    ])
+    expect(rows[1]).toMatchObject({ turnOutputs: null, isIntermediate: true })
+    expect(rows[1]).not.toHaveProperty('turnChanges')
+    expect(rows[1]).not.toHaveProperty('resultRunId')
+    expect(rows[1]).not.toHaveProperty('ownsResultActions')
+    expect(rows[3]).toMatchObject({
+      kind: 'agent-turn',
+      ownsResultActions: true,
+      turnChanges: changeSet,
+      turnOutputs: { runId: run.id, artifacts: output.artifacts },
+    })
+
+    const emptyChanges = projectPersistedChatTranscriptRows([user, final, supplement], [turn], [output], [{ ...changeSet, fileCount: 0, coverage: 'partial' }])
+    expect(emptyChanges[3]).not.toHaveProperty('turnChanges')
+    expect(emptyChanges[3]).toMatchObject({ turnOutputs: { runId: run.id, artifacts: output.artifacts } })
+  })
 })
 
 function runEvent(

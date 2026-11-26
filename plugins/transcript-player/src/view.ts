@@ -98,6 +98,7 @@ export async function render(context: ViewContext, container: HTMLElement) {
   let expanded = false
   let hasTranscript = false
   let split = 60
+  let resizeFrame = 0
   let loading = false
   let loadedName = ''
   let saved: SavedSubtitle | null = null
@@ -170,7 +171,13 @@ export async function render(context: ViewContext, container: HTMLElement) {
     split = Math.min(75, Math.max(30, value))
     root.style.setProperty('--player-split', `${split}%`)
     separator.setAttribute('aria-valuenow', String(Math.round(split)))
-    art?.emit('resize')
+    // 拖动时每帧最多通知一次播放器重算尺寸。
+    if (!resizeFrame) {
+      resizeFrame = window.requestAnimationFrame(() => {
+        resizeFrame = 0
+        art?.emit('resize')
+      })
+    }
   }
   separator.addEventListener('pointerdown', (event) => {
     if (event.button !== 0) return
@@ -181,7 +188,8 @@ export async function render(context: ViewContext, container: HTMLElement) {
   separator.addEventListener('pointermove', (event) => {
     if (!separator.hasPointerCapture(event.pointerId)) return
     const bounds = root.getBoundingClientRect()
-    if (bounds.width) setSplit((event.clientX - bounds.left) / bounds.width * 100)
+    // 列宽取整到整像素，避免右边缘落在小数像素上闪烁。
+    if (bounds.width) setSplit(Math.round(event.clientX - bounds.left) / bounds.width * 100)
   }, { signal })
   const endResize = () => root.classList.remove('is-resizing')
   separator.addEventListener('lostpointercapture', endResize, { signal })
@@ -229,6 +237,7 @@ export async function render(context: ViewContext, container: HTMLElement) {
   }, { signal })
 
   signal.addEventListener('abort', () => {
+    window.cancelAnimationFrame(resizeFrame)
     context.signal.removeEventListener('abort', stop)
     art?.pause()
     art?.destroy()

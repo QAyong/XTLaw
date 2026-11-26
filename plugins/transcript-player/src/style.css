@@ -27,7 +27,7 @@
 .player-root button { cursor: pointer; }
 .player-root :focus-visible { outline: 2px solid var(--lexora-focus, var(--lexora-accent-solid, #365edc)); outline-offset: 2px; }
 .player-root ::selection { background: var(--lexora-selected, var(--player-selection)); color: var(--lexora-text, #202124); }
-.player-media { position: relative; min-width: 0; min-height: 0; background: #000; }
+.player-media { position: relative; min-width: 0; min-height: 0; overflow: hidden; background: #000; }
 .player-canvas, .player-canvas .art-video-player { width: 100%; height: 100%; }
 .player-separator {
   z-index: 1;
@@ -46,8 +46,9 @@
 .player-root.is-bare { display: flex; align-items: center; justify-content: center; container-type: size; }
 .player-root.is-bare .player-media { flex: 0 0 auto; }
 .player-root.is-bare:not(.is-audio) .player-media {
-  width: min(100cqw, calc(100cqh * var(--player-ratio, 1.7778)));
-  height: min(100cqh, calc(100cqw / var(--player-ratio, 1.7778)));
+  /* 取整到整像素，边缘不再落在半个像素上。 */
+  width: round(down, min(100cqw, calc(100cqh * var(--player-ratio, 1.7778))), 1px);
+  height: round(down, min(100cqh, calc(100cqw / var(--player-ratio, 1.7778))), 1px);
 }
 .player-root.is-bare.is-audio .player-media { width: 100%; height: min(100cqh, 170px); }
 .is-audio .player-media { background: var(--lexora-background, #fff); }

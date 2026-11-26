@@ -480,13 +480,16 @@ export async function render(context: ViewContext, container: HTMLElement) {
     art.on('video:pause', syncReader)
     art.on('video:ended', syncReader)
     art.on('subtitle', shown => { if (loadedName) setToggle(shown ? 'on' : 'off') })
-    art.on('video:loadedmetadata', () => {
-      // 无字幕收起面板时，播放区按视频原始比例居中；音频没有画面，跳过。
-      const { videoWidth, videoHeight } = art!.video
+    const video = art.video
+    const updateVideoRatio = () => {
+      const { videoWidth, videoHeight } = video
       if (!videoWidth || !videoHeight) return
-      root.style.setProperty('--player-ratio', String(Math.min(4, Math.max(0.25, videoWidth / videoHeight))))
+      root.style.setProperty('--player-ratio', String(videoWidth / videoHeight))
       art?.emit('resize')
-    })
+    }
+    art.on('video:loadedmetadata', updateVideoRatio)
+    video.addEventListener('resize', updateVideoRatio, { signal })
+    updateVideoRatio()
     const restored = restoreSubtitle().catch(() => {})
     if (typeof context.references?.onReveal === 'function') {
       const registration = context.references.onReveal(async (input, requestSignal) => {

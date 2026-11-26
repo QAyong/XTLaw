@@ -46,12 +46,11 @@
 .player-root.is-bare { display: flex; align-items: center; justify-content: center; container-type: size; }
 .player-root.is-bare .player-media { flex: 0 0 auto; }
 .player-root.is-bare:not(.is-audio) .player-media {
-  /* 取整到整像素，边缘不再落在半个像素上。 */
-  width: round(down, min(100cqw, calc(100cqh * var(--player-ratio, 1.7778))), 1px);
-  height: round(down, min(100cqh, calc(100cqw / var(--player-ratio, 1.7778))), 1px);
+  /* 由同一个比例确定两边，避免宽高分别取整后在视频边缘留缝。 */
+  width: min(100cqw, calc(100cqh * var(--player-ratio, 1.77777778)));
+  aspect-ratio: var(--player-ratio, 1.77777778);
+  background: transparent;
 }
-/* 无字幕布局里播放区居中，位置可能落在半个像素上；去掉黑色底，边缘最坏只露出页面背景，不再有黑线。 */
-.player-root.is-bare:not(.is-audio) .player-media { background: transparent; }
 .player-root.is-bare:not(.is-audio) .player-canvas .art-video-player { --art-background-color: transparent; background: transparent; }
 .player-root.is-bare.is-audio .player-media { width: 100%; height: min(100cqh, 170px); }
 .is-audio .player-media { background: var(--lexora-background, #fff); }

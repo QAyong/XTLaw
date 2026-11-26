@@ -96,6 +96,7 @@ export async function render(context: ViewContext, container: HTMLElement) {
   let toggleButton: HTMLElement | undefined
   let expandButton: HTMLButtonElement | undefined
   let expanded = false
+  let hasTranscript = false
   let split = 60
   let loading = false
   let loadedName = ''
@@ -155,6 +156,7 @@ export async function render(context: ViewContext, container: HTMLElement) {
   })
   const menuAppearance = context.onEnvironmentChange(selectionToolbar.dismiss)
   signal.addEventListener('abort', () => menuAppearance.dispose(), { once: true })
+  layout()
 
   function referenceForSelection(selection: TranscriptSelection) {
     if (loading || locating || !saved || !loadedName || !context.resource) throw new Error('请等待字幕加载完成后重新选择。')
@@ -193,12 +195,20 @@ export async function render(context: ViewContext, container: HTMLElement) {
     setSplit(value)
   }, { signal })
 
+  // 没有字幕时收起文字记录，播放器在页面里居中；有字幕且未全屏播放时才展开。
+  function layout() {
+    const shown = hasTranscript && !expanded
+    root.classList.toggle('is-bare', !hasTranscript)
+    selectionToolbar.dismiss()
+    reader.element.hidden = !shown
+    separator.hidden = !shown || audio
+    art?.emit('resize')
+  }
+
   function setExpanded(value: boolean) {
     expanded = value
     root.classList.toggle('is-expanded', value)
-    selectionToolbar.dismiss()
-    reader.element.hidden = value
-    separator.hidden = value || audio
+    layout()
     if (expandButton) {
       const label = value ? '退出全屏播放' : '全屏播放'
       expandButton.title = value ? `${label}（Esc）` : `${label}（当前页签）`
@@ -292,6 +302,8 @@ export async function render(context: ViewContext, container: HTMLElement) {
       activeSignal.throwIfAborted()
       if (!cues.length || cues.length > 20000) {
         reader.setCues([])
+        hasTranscript = false
+        layout()
         loadedName = ''
         player.subtitle.show = false
         setToggle('empty')
@@ -299,6 +311,9 @@ export async function render(context: ViewContext, container: HTMLElement) {
         else saved = null
         throw new Error(cues.length ? '字幕超过 20,000 句，请拆分后加载。' : '没有读到有效字幕，请检查内容后重试。')
       }
+      // 先展开面板再写入字幕，滚动定位才能量到正确的位置。
+      hasTranscript = true
+      layout()
       reader.setCues(cues)
       reader.update(player.currentTime, player.playing)
       loadedName = file.name
@@ -314,6 +329,8 @@ export async function render(context: ViewContext, container: HTMLElement) {
         // switch() may already have replaced the track before it fails or is
         // cancelled. Never keep the previous text against that different track.
         reader.setCues([])
+        hasTranscript = false
+        layout()
         loadedName = ''
         saved = null
         player.subtitle.show = false
@@ -454,6 +471,13 @@ export async function render(context: ViewContext, container: HTMLElement) {
     art.on('video:pause', syncReader)
     art.on('video:ended', syncReader)
     art.on('subtitle', shown => { if (loadedName) setToggle(shown ? 'on' : 'off') })
+    art.on('video:loadedmetadata', () => {
+      // 无字幕收起面板时，播放区按视频原始比例居中；音频没有画面，跳过。
+      const { videoWidth, videoHeight } = art!.video
+      if (!videoWidth || !videoHeight) return
+      root.style.setProperty('--player-ratio', String(Math.min(4, Math.max(0.25, videoWidth / videoHeight))))
+      art?.emit('resize')
+    })
     const restored = restoreSubtitle().catch(() => {})
     if (typeof context.references?.onReveal === 'function') {
       const registration = context.references.onReveal(async (input, requestSignal) => {

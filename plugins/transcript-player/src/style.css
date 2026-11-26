@@ -41,6 +41,15 @@
 .player-root.is-resizing { user-select: none; cursor: col-resize; }
 .player-root.is-expanded { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
 .player-root.is-audio:not(.is-expanded) { grid-template-columns: minmax(0, 1fr); grid-template-rows: min(180px, 45%) minmax(0, 1fr); }
+/* 无字幕：文字记录收起，播放组件在页面里上下居中，留白沿用页面背景色。
+   容器查询单位按页面大小计算，视频按原始比例缩放，既不被拉伸也不超出页面。 */
+.player-root.is-bare { display: flex; align-items: center; justify-content: center; container-type: size; }
+.player-root.is-bare .player-media { flex: 0 0 auto; }
+.player-root.is-bare:not(.is-audio) .player-media {
+  width: min(100cqw, calc(100cqh * var(--player-ratio, 1.7778)));
+  height: min(100cqh, calc(100cqw / var(--player-ratio, 1.7778)));
+}
+.player-root.is-bare.is-audio .player-media { width: 100%; height: min(100cqh, 170px); }
 .is-audio .player-media { background: var(--lexora-background, #fff); }
 .is-audio .transcript-panel { border-top: 1px solid var(--lexora-border, #dedfe3); }
 .player-audio-cover { position: absolute; inset: 0 0 66px; display: flex; align-items: center; justify-content: center; gap: 14px; padding: 16px 24px; pointer-events: none; }
@@ -106,7 +115,9 @@
   color: #fff;
   font: 13px/1.5 system-ui, sans-serif;
 }
-.transcript-panel { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
+.transcript-panel { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; animation: transcript-in 0.18s ease-out; }
+@keyframes transcript-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .transcript-panel { animation: none; } }
 .transcript-tabs { display: flex; flex: 0 0 auto; gap: 24px; padding: 0 20px; border-bottom: 1px solid var(--lexora-border, #dedfe3); }
 .transcript-tab {
   position: relative;

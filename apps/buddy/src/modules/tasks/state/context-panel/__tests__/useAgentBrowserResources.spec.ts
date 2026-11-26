@@ -74,7 +74,6 @@ function fixture(mode: 'task' | 'space' | 'independent' = 'task') {
     autoCollapse: shallowRef(false),
     linkOpening: shallowRef('in-app'),
     files: { resolve: async () => { throw new Error('Unexpected file') } },
-    openFile: async () => { throw new Error('Unexpected file') },
   }
   const panel = f.scope.run(() => useTaskResourcePanel(panelOptions))!
   return {

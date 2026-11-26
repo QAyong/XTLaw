@@ -34,7 +34,6 @@ interface TaskResourcePanelOptions extends UseTaskContextPanelOptions {
     open: (resource: FileOpeningResource, provider: FileOpeningProvider, current: () => boolean, signal: AbortSignal) => Promise<void>
   }
   files: { resolve: (input: TaskFileLink) => Promise<TaskFile> }
-  openFile: (file: TaskFile, source: ContextPanelSource | undefined, provider: FileOpeningProvider | null, current: () => boolean, signal: AbortSignal) => Promise<void>
   onError: (error?: unknown) => void
   // Where an output sits inside the directory it was written to; the file manager opens that directory as its root (Spec-044).
   artifactFileRoot?: (artifactId: string) => Promise<ArtifactFileRoot>
@@ -383,24 +382,27 @@ export function useTaskResourcePanel(options: TaskResourcePanelOptions) {
       act(() => taskContext.locateFile({ conversationId: located.conversationId, root: located.root, path: located.path }, located.kind, source))
   }
 
-  // An output inside the task's space is just a space file: open it in the file manager so it gets the file preview, editing and document plugins.
-  function openInTaskSpace(artifact: LocalArtifact): boolean {
-    const source = { conversationId: artifact.conversationId, runId: artifact.runId }
-    if (artifact.conversationId !== options.activeConversationId.value)
+  // Files and folders in the active task space use its space-file target; everything else uses the authorized directory root.
+  function openInTaskSpace(conversationId: string, path: string, kind: 'file' | 'directory', source?: ContextPanelSource): boolean {
+    if (conversationId !== options.activeConversationId.value)
       return false
-    if (artifact.kind === 'directory' && taskContext.canOpenDirectory(artifact.path)) {
-      act(() => taskContext.openDirectory(artifact.path, source))
+    if (kind === 'directory' && taskContext.canOpenDirectory(path)) {
+      act(() => taskContext.openDirectory(path, source))
       return true
     }
-    if (artifact.kind === 'file' && taskContext.canPreviewFile(artifact.path)) {
+    if (kind === 'file' && taskContext.canPreviewFile(path)) {
       act(() => {
-        const target = resolveChatToolFileTarget(options.activeSpace?.value ?? null, artifact.path)
+        const target = resolveChatToolFileTarget(options.activeSpace?.value ?? null, path)
         if (!target || !options.revealOpenOfficeDocument?.(target))
-          taskContext.previewFile(artifact.path, source, !!target && isOfficePath(target.path))
+          taskContext.previewFile(path, source, !!target && isOfficePath(target.path))
       })
       return true
     }
     return false
+  }
+
+  function openArtifactInTaskSpace(artifact: LocalArtifact): boolean {
+    return openInTaskSpace(artifact.conversationId, artifact.path, artifact.kind, { conversationId: artifact.conversationId, runId: artifact.runId })
   }
 
   // An output outside the task's space (a granted folder, the task's own workspace, another task's space) opens in a tab rooted at the directory it was written to.
@@ -455,31 +457,39 @@ export function useTaskResourcePanel(options: TaskResourcePanelOptions) {
     })
   }
 
-  // Every output opens in the file manager (Spec-035, Spec-044): a space file in its space, anything else in a tab rooted at the directory it was written to.
-  // Not for a browser output, a type the user assigned to a plugin, or an "open with" that names the browser or a plugin.
-  async function openInFileManager(artifact: LocalArtifact, providerId?: string): Promise<boolean> {
-    operation.value += 1
-    const requestCurrent = currentOperation()
+  // Browser and explicit extension providers keep their own openers. Built-in readers and ordinary files go through the file manager.
+  async function resolveFileManagerOpening(name: string, kind: 'file' | 'directory', providerId: string | undefined, current: () => boolean): Promise<'file-manager' | 'resource' | 'abort'> {
     try {
       await options.fileOpening?.ensureReady()
     }
     catch (error) {
-      if (requestCurrent())
+      if (current())
         options.onError(error)
-      return true
+      return 'abort'
     }
-    if (!requestCurrent())
-      return true
-    const opening = artifact.kind === 'file'
-      ? options.fileOpening?.resolve(artifact.name, 'standalone') ?? resolveBuiltinFileOpening(artifact.name, 'standalone')
+    if (!current())
+      return 'abort'
+    const opening = kind === 'file'
+      ? options.fileOpening?.resolve(name, 'standalone') ?? resolveBuiltinFileOpening(name, 'standalone')
       : null
     const provider = providerId ? opening?.candidates?.find(candidate => candidate.id === providerId) ?? null : opening?.provider ?? null
-    // An unknown provider is reported by openResource.
+    // An unknown provider is reported by openResource, which preserves the existing FILE_OPENER_UNAVAILABLE error.
     if (providerId && !provider)
+      return 'resource'
+    return provider?.renderer === 'browser' || (provider?.renderer === 'extension' && (providerId || !provider.implicit))
+      ? 'resource'
+      : 'file-manager'
+  }
+
+  async function openInFileManager(artifact: LocalArtifact, providerId?: string): Promise<boolean> {
+    operation.value += 1
+    const requestCurrent = currentOperation()
+    const destination = await resolveFileManagerOpening(artifact.name, artifact.kind, providerId, requestCurrent)
+    if (destination === 'abort')
+      return true
+    if (destination === 'resource')
       return false
-    if (provider?.renderer === 'browser' || (provider?.renderer === 'extension' && (providerId || !provider.implicit)))
-      return false
-    return openInTaskSpace(artifact) || await openInGrantedDirectory(artifact, requestCurrent)
+    return openArtifactInTaskSpace(artifact) || await openInGrantedDirectory(artifact, requestCurrent)
   }
 
   async function openArtifact(target: string | LocalArtifact, providerId?: string): Promise<void> {
@@ -607,9 +617,26 @@ export function useTaskResourcePanel(options: TaskResourcePanelOptions) {
     const isCurrent = currentOperation()
     try {
       const file = await options.files.resolve({ conversationId, href: path })
-      if (isCurrent()) {
-        await openResource({ name: file.name, kind: file.kind, source: { kind: 'task', target: file.target }, context }, (provider, current, signal) => options.openFile(file, context, provider, current, signal), providerId)
+      if (!isCurrent())
+        return
+      const destination = await resolveFileManagerOpening(file.name, file.kind, providerId, isCurrent)
+      if (destination === 'abort')
+        return
+      if (destination === 'file-manager') {
+        if (openInTaskSpace(file.target.conversationId, file.target.path, file.kind, context))
+          return
+        const target = { conversationId: file.target.conversationId, root: file.root, path: file.relativePath }
+        act(() => {
+          if (file.kind === 'directory')
+            taskContext.openGrantedDirectory(target, context)
+          else if (!options.revealOpenOfficeDocument?.(target))
+            taskContext.openGrantedFile(target, context, isOfficePath(target.path))
+        })
+        return
       }
+      await openResource({ name: file.name, kind: file.kind, source: { kind: 'task', target: file.target }, context }, () => {
+        throw new Error('FILE_OPENER_UNAVAILABLE')
+      }, providerId)
     }
     catch (error) {
       if (isCurrent())

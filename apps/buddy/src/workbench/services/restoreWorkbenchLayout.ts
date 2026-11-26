@@ -31,6 +31,10 @@ export function restoreWorkbenchLayout(value: unknown): WorkbenchLayout {
       location = 'mount'
     if (!['main', 'context', 'mount'].includes(String(location)))
       continue
+    if (view.resource.scheme === 'task-file'
+      || (location === 'context' && ['file', 'file-preview'].includes(view.resource.scheme) && typeof view.state.contextTabId !== 'string')) {
+      continue
+    }
     views[id] = { ...structuredClone(view), location } as unknown as WorkbenchView
     const presentation = workbenchPresentationSchema.safeParse(view.presentation)
     if (presentation.success)

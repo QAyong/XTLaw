@@ -433,7 +433,7 @@ export function useDesktopWorkbench(options: { beforeExtensionClose?: (viewId: s
       return
     return activateTask(resource, options.taskIndex.index.tasks.value.find(task => task.id === resource.id)?.title ?? labels().newTask, { paneId, direction: position === 'center' ? undefined : position, move: true })
   }
-  function fileView(target: FileTarget, tabId?: string) {
+  function fileView(target: FileTarget, tabId: string) {
     return Object.values(controller.layout.views).find(view => ['file', 'file-preview'].includes(view.resource.scheme)
       && view.resource.id === fileTargetKey(target)
       && view.state.contextTabId === tabId)
@@ -474,7 +474,7 @@ export function useDesktopWorkbench(options: { beforeExtensionClose?: (viewId: s
     }
   }
 
-  function openFile(target: FileTarget, tabId?: string) {
+  function openFile(target: FileTarget, tabId: string) {
     const key = JSON.stringify([tabId, fileTargetKey(target)])
     const pending = openingFiles.get(key)
     if (pending)
@@ -483,8 +483,8 @@ export function useDesktopWorkbench(options: { beforeExtensionClose?: (viewId: s
     openingFiles.set(key, opening)
     return opening
   }
-  async function createFile(target: FileTarget, tabId?: string, current: () => boolean = () => true) {
-    if (!current())
+  async function createFile(target: FileTarget, tabId: string, current: () => boolean = () => true) {
+    if (!current() || !options.resources().hasTab(tabId))
       return null
     if (!documents.loaded) {
       await documents.whenReady()
@@ -513,11 +513,8 @@ export function useDesktopWorkbench(options: { beforeExtensionClose?: (viewId: s
       }
     }
     const previous = fileView(target, tabId)
-    if (previous) {
-      if (!tabId)
-        controller.focus(previous.id)
+    if (previous)
       return openDocument(previous.id)
-    }
     let resource: ResourceRef = { scheme: 'file', id: fileTargetKey(target), data: { ...target, canonicalRoot: fileOperations.root(target) } }
     const provider = (options.fileOpening?.resolve(target.path, 'inline') ?? resolveBuiltinFileOpening(target.path, 'inline')).provider
     if (fileOpeningHandler(provider)?.input === 'resource' && !copies.get(resource))
@@ -536,18 +533,11 @@ export function useDesktopWorkbench(options: { beforeExtensionClose?: (viewId: s
       }
       if (!current())
         return null
-      if (tabId && !options.resources().hasTab(tabId)) {
+      if (!options.resources().hasTab(tabId)) {
         copies.release(resource)
         return null
       }
-      if (tabId)
-        return await openDocument(await controller.open(resource, target.path.split('/').at(-1) ?? target.path, { duplicate: true, focus: false, state: { contextTabId: tabId } }))
-      const existing = options.resources().tabs.value.find(tab => tab.kind === 'view' && resourceKey(controller.layout.views[tab.viewId]?.resource ?? { scheme: '', id: '', data: {} }) === resourceKey(resource))
-      if (existing?.kind === 'view') {
-        controller.focus(existing.viewId)
-        return await openDocument(existing.viewId)
-      }
-      return await openDocument(await controller.open(resource, target.path.split('/').at(-1) ?? target.path, { duplicate: true }))
+      return await openDocument(await controller.open(resource, target.path.split('/').at(-1) ?? target.path, { duplicate: true, focus: false, state: { contextTabId: tabId } }))
     }
     finally { release() }
   }
@@ -815,7 +805,7 @@ export function useDesktopWorkbench(options: { beforeExtensionClose?: (viewId: s
     await inputs.flush().catch(options.onError)
     return saved
   }
-  const selectionReferences = createDesktopSelectionReferences({ controller, pool, documents, language, openFile: createQuoteSourceOpener({ resources: options.resources, openInTab: openFile, openStandalone: (target, current) => createFile(target, undefined, current) }), browser: api.browser, resources: options.resources, ready: () => initialized.value, independent: () => stores.applicationSettings.config.value?.desktop.contextPanelMode === 'independent', locateFile: target => api.localChat.spaces.readFile(target), navigationVersion: () => navigationVersion })
+  const selectionReferences = createDesktopSelectionReferences({ controller, pool, documents, language, openFile: createQuoteSourceOpener({ resources: options.resources, openInTab: openFile }), browser: api.browser, resources: options.resources, ready: () => initialized.value, independent: () => stores.applicationSettings.config.value?.desktop.contextPanelMode === 'independent', locateFile: target => api.localChat.spaces.readFile(target), navigationVersion: () => navigationVersion })
   return { revealOpenOfficeDocument: (target: FileTarget) => revealOpenOfficeDocument(controller, options.resources(), target), selectionReferences, documents, api, renderers, autoSave, fileOperations, fileToolbarTargets, fileView, documentSelections, closeContextFiles, readingPositions, discardTask, prepareTaskDeletion, activeTask, activeTaskId, activeResource: activity.resource, backupError, controller, copies, models, editors, pool, persistence, initialize, ensureInitialDraft, flush, dispose, openTask, newTask, prepareNewTaskInput, showTaskInput, showReferencePage, startTaskWithSkill, openFile, dropResource, language, get initialized() {
     return initialized.value
   }, get navigationVersion() {

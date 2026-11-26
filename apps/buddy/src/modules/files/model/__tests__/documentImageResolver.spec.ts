@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fileImageResolver, taskFileImageResolver } from '../documentImageResolver'
+import { fileImageResolver } from '../documentImageResolver'
 
 describe('document image resolvers', () => {
   it('serves a granted directory image through its real root', () => {
@@ -15,13 +15,6 @@ describe('document image resolvers', () => {
     const url = new URL(resolve('b.png')!)
     expect(url.hostname).toBe('media')
     expect(Object.fromEntries(url.searchParams)).toEqual({ spaceId: 's1', directoryId: 'd1', revision: '3', path: 'notes/b.png' })
-  })
-
-  it('serves a task file image by its absolute path', () => {
-    const resolve = taskFileImageResolver({ conversationId: 'c1', path: 'C:\\work\\report\\a.md' })
-    const url = new URL(resolve('img/b.png')!)
-    expect(url.hostname).toBe('task-media')
-    expect(Object.fromEntries(url.searchParams)).toEqual({ conversationId: 'c1', path: 'C:\\work\\report\\img\\b.png' })
   })
 
   it('does not rewrite remote or escaping addresses', () => {

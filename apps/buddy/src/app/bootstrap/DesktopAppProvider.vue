@@ -181,17 +181,6 @@ const resources = useTaskResourcePanel({
   control: api.contextPanel,
   browser: api.browser,
   files: api.localChat.taskFiles,
-  openFile: async (file, source, provider, current, signal) => {
-    if (!current())
-      return
-    const state = { mode: provider?.renderer === 'text' ? 'source' : 'preview', fileOpeningProvider: provider?.id ?? null, ...(source ? { contextSource: { ...source } } : {}) }
-    const id = await workbench.controller.open({ scheme: 'task-file', id: JSON.stringify([file.target.conversationId, file.target.path]), data: { ...file.target, kind: file.kind } }, file.name, { location: 'context', state, signal })
-    if (!id)
-      throw new Error('FILE_OPENER_UNAVAILABLE')
-    const view = workbench.controller.layout.views[id]
-    if (view)
-      workbench.controller.updateView(id, { state: { ...view.state, ...state } })
-  },
   fileOpening: {
     ensureReady: fileOpening.ensureReady,
     resolve: fileOpening.resolve,

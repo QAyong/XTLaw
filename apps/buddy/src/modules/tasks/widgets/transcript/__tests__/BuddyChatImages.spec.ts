@@ -29,7 +29,7 @@ const cleanups: (() => void)[] = []
 afterEach(() => cleanups.splice(0).forEach(cleanup => cleanup()))
 
 function file(conversationId: string): TaskFile {
-  return { target: { conversationId, path: `/workspace/${conversationId}/cat.png` }, name: 'cat.png', kind: 'file', mimeType: 'image/png', sizeBytes: 20, updatedAt: '2026-08-28T00:00:00.000Z' }
+  return { target: { conversationId, path: `/workspace/${conversationId}/cat.png` }, root: `/workspace/${conversationId}`, relativePath: 'cat.png', name: 'cat.png', kind: 'file', mimeType: 'image/png', sizeBytes: 20, updatedAt: '2026-08-28T00:00:00.000Z' }
 }
 
 function mount(kind: 'message' | 'narration', resolve: (link: TaskFileLink) => Promise<TaskFile>, content = '![Cat](cat.png)') {

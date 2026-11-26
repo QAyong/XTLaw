@@ -8,9 +8,8 @@ const target: SpaceFileTarget = { spaceId: 'space', directoryId: 'directory', re
 function fixture(opened: ReturnType<TaskResourcePanel['openQuoteSourceFile']>) {
   const openQuoteSourceFile = vi.fn(() => opened)
   const openInTab = vi.fn(async () => 'view')
-  const openStandalone = vi.fn(async () => 'standalone')
-  const open = createQuoteSourceOpener({ resources: () => ({ openQuoteSourceFile }) as unknown as TaskResourcePanel, openInTab, openStandalone })
-  return { open, openQuoteSourceFile, openInTab, openStandalone }
+  const open = createQuoteSourceOpener({ resources: () => ({ openQuoteSourceFile }) as unknown as TaskResourcePanel, openInTab })
+  return { open, openQuoteSourceFile, openInTab }
 }
 
 describe('opening the source of a quote', () => {
@@ -29,7 +28,6 @@ describe('opening the source of a quote', () => {
     expect(accept).toHaveBeenCalledWith('files-1')
     expect(f.openInTab).toHaveBeenCalledWith({ ...target, revision: 2 }, 'files-1')
     expect(order).toEqual(['accept', 'open'])
-    expect(f.openStandalone).not.toHaveBeenCalled()
   })
 
   it('returns the editor that was already open without opening anything else', async () => {
@@ -38,11 +36,10 @@ describe('opening the source of a quote', () => {
     expect(f.openInTab).not.toHaveBeenCalled()
   })
 
-  it('opens on its own when the file is not in the task space', async () => {
+  it('returns null when no available file manager target exists', async () => {
     const f = fixture(null)
-    const current = () => true
-    expect(await f.open(target, current)).toBe('standalone')
-    expect(f.openStandalone).toHaveBeenCalledWith(target, current)
+    expect(await f.open(target, () => true)).toBeNull()
+    expect(f.openInTab).not.toHaveBeenCalled()
   })
 
   it('stops when the locate scope no longer accepts the tab', async () => {

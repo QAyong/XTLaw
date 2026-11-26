@@ -4,7 +4,6 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { taskFileMediaUrl } from '../../../../shared/files/mediaPreview'
 import { taskFileSchema } from '../../../../shared/files/taskFileApi'
 import { ArtifactFileAccess } from '../../artifacts/ArtifactFileAccess'
 import { ArtifactService } from '../../artifacts/ArtifactService'
@@ -31,13 +30,12 @@ afterEach(async () => {
 })
 
 describe('task file service', () => {
-  it.each(['note.md', 'index.html', 'program.ts', 'report.pdf', 'slides.pptx', 'custom.unknown', 'README'])('resolves and reads unregistered %s files without publishing artifacts', async (name) => {
+  it.each(['note.md', 'index.html', 'program.ts', 'report.pdf', 'slides.pptx', 'custom.unknown', 'README'])('resolves unregistered %s files to their authorized root without publishing artifacts', async (name) => {
     const f = await fixture()
     const path = join(f.workspace, name)
     await writeFile(path, 'local content')
     const file = await f.service.resolve({ conversationId, href: name })
-    expect(taskFileSchema.parse(file)).toMatchObject({ target: { conversationId, path }, name, kind: 'file', sizeBytes: 13 })
-    expect(await f.service.read(file.target)).toMatchObject({ kind: 'text', text: 'local content' })
+    expect(taskFileSchema.parse(file)).toMatchObject({ target: { conversationId, path }, root: f.workspace, relativePath: name, name, kind: 'file', sizeBytes: 13 })
     expect(f.artifacts.listForConversation(conversationId)).toEqual([])
   })
 
@@ -48,8 +46,7 @@ describe('task file service', () => {
     await writeFile(path, 'encoded name')
     for (const href of [encodeURIComponent(name), `./${encodeURIComponent(name)}#view`, pathToFileURL(path).href, `sandbox:${pathToFileURL(path).pathname}`]) {
       const file = await f.service.resolve({ conversationId, href })
-      expect(file.target.path).toBe(path)
-      expect(await f.service.read(file.target)).toMatchObject({ text: 'encoded name' })
+      expect(file).toMatchObject({ target: { path }, root: f.workspace, relativePath: name })
       expect(await f.service.locate(file.target)).toEqual({ path, kind: 'file' })
     }
     for (const href of ['https://example.com/index.html', 'file://other-host/file.txt', 'bad%encoding', '#fragment']) {
@@ -62,9 +59,10 @@ describe('task file service', () => {
     const folder = join(f.workspace, 'folder')
     await mkdir(folder)
     const directory = await f.service.resolve({ conversationId, href: 'folder' })
-    expect(directory).toMatchObject({ kind: 'directory', mimeType: 'inode/directory', target: { conversationId, path: folder } })
+    expect(directory).toMatchObject({ kind: 'directory', mimeType: 'inode/directory', target: { conversationId, path: folder }, root: f.workspace, relativePath: 'folder' })
+    const rootDirectory = await f.service.resolve({ conversationId, href: f.workspace })
+    expect(rootDirectory).toMatchObject({ kind: 'directory', root: f.workspace, relativePath: '' })
     expect(await f.service.locate(directory.target)).toEqual({ path: folder, kind: 'directory' })
-    await expect(f.service.read(directory.target)).rejects.toMatchObject({ code: 'VALIDATION_FAILED' })
     const path = join(f.workspace, 'note.txt')
     await writeFile(path, 'note')
     await expect(f.service.resolveBrowser({ conversationId, path })).rejects.toMatchObject({ code: 'VALIDATION_FAILED' })
@@ -75,18 +73,10 @@ describe('task file service', () => {
     const f = await fixture()
     const target = { conversationId, path: join(f.workspace, 'missing.html') }
     await expect(f.service.resolve({ conversationId, href: 'missing.html' })).rejects.toMatchObject({ code: 'FILE_NOT_FOUND' })
-    for (const invoke of [() => f.service.read(target), () => f.service.locate(target), () => f.service.resolveMedia(target), () => f.service.resolveBrowser(target)])
+    for (const invoke of [() => f.service.locate(target), () => f.service.resolveMedia(target), () => f.service.resolveBrowser(target)])
       await expect(invoke()).rejects.toMatchObject({ code: 'FILE_NOT_FOUND' })
     await rm(f.workspace, { recursive: true })
     await expect(f.service.resolve({ conversationId, href: 'missing.html' })).rejects.toMatchObject({ code: 'FILE_NOT_FOUND' })
-  })
-
-  it('does not misreport an unavailable native reader as a missing target file', async () => {
-    const f = await fixture()
-    const path = join(f.workspace, 'note.txt')
-    await writeFile(path, 'content')
-    vi.stubEnv('LEXORA_BUDDY_FILE_READER', join(f.root, 'missing-reader'))
-    await expect(f.service.read({ conversationId, path })).rejects.toMatchObject({ code: 'BOUNDED_FILE_READER_UNAVAILABLE' })
   })
 
   it.each(['task', 'space'] as const)('skips missing and replaced additional %s grants without blocking valid files', async (owner) => {
@@ -126,7 +116,7 @@ describe('task file service', () => {
       await expect(f.service.resolve({ conversationId, href: join(root, 'index.txt') })).rejects.toMatchObject({ code: 'PATH_OUTSIDE_GRANTED_DIRECTORY' })
   })
 
-  it('revalidates grants for reads, browser entries and media, and blocks symlink escapes', async () => {
+  it('revalidates authorized locations, browser entries and media, and blocks symlink escapes', async () => {
     const f = await fixture()
     const extra = join(f.root, 'extra')
     await mkdir(extra)
@@ -140,10 +130,9 @@ describe('task file service', () => {
     const file = await f.service.resolve({ conversationId, href: 'escape.html' })
     expect(file.target.path).toBe(path)
     expect(await f.service.resolveBrowser(file.target)).toEqual({ entryPath: path, rootPath: extra })
-    expect(await f.service.read({ conversationId, path: media })).toMatchObject({ kind: 'video', mediaUrl: taskFileMediaUrl({ conversationId, path: media }) })
     expect(await f.service.resolveMedia({ conversationId, path: media })).toMatchObject({ path: media, root: extra, mimeType: 'video/mp4' })
     f.conversationGrants.revokeAll(conversationId, createdAt)
-    for (const invoke of [() => f.service.read(file.target), () => f.service.locate(file.target), () => f.service.resolveBrowser(file.target), () => f.service.resolveMedia({ conversationId, path: media })])
+    for (const invoke of [() => f.service.locate(file.target), () => f.service.resolveBrowser(file.target), () => f.service.resolveMedia({ conversationId, path: media })])
       await expect(invoke()).rejects.toMatchObject({ code: 'PATH_OUTSIDE_GRANTED_DIRECTORY' })
   })
 
@@ -163,7 +152,7 @@ describe('task file service', () => {
     await writeFile(other, 'other')
     await rm(path)
     await symlink(other, path)
-    await expect(f.service.read(file.target)).rejects.toMatchObject({ code: 'DIRECTORY_NOT_AUTHORIZED' })
+    await expect(f.service.locate(file.target)).rejects.toMatchObject({ code: 'DIRECTORY_NOT_AUTHORIZED' })
   })
 
   it('uses current Space directories without widening links to historical artifact grants', async () => {
@@ -212,7 +201,7 @@ describe('task file service', () => {
     f.conversations.setSpace({ id: conversationId, spaceId: 'space', updatedAt: createdAt })
     const file = await f.service.resolve({ conversationId, href: 'index.html' })
     f.spaces.update({ id: 'space', name: 'Files', memoryScope: 'space_only', updatedAt: createdAt, primaryDirectory: null, additionalDirectories: [], event: { id: 'revoked', spaceId: 'space', createdAt, eventType: 'space.config.updated', payload: {} } })
-    for (const invoke of [() => f.service.read(file.target), () => f.service.locate(file.target), () => f.service.resolveBrowser(file.target), () => f.service.resolveMedia({ conversationId, path: media })])
+    for (const invoke of [() => f.service.locate(file.target), () => f.service.resolveBrowser(file.target), () => f.service.resolveMedia({ conversationId, path: media })])
       await expect(invoke()).rejects.toMatchObject({ code: 'PATH_OUTSIDE_GRANTED_DIRECTORY' })
   })
 
@@ -236,7 +225,7 @@ describe('task file service', () => {
     const ordinary = join(f.workspace, 'ordinary.txt')
     await writeFile(ordinary, 'ordinary')
     f.conversations.markDeleted(conversationId, createdAt)
-    await expect(f.service.read({ conversationId, path: ordinary })).rejects.toMatchObject({ code: 'DIRECTORY_NOT_AUTHORIZED' })
+    await expect(f.service.locate({ conversationId, path: ordinary })).rejects.toMatchObject({ code: 'DIRECTORY_NOT_AUTHORIZED' })
   })
 
   it('does not return file content when access is revoked after the initial validation', async () => {
@@ -252,7 +241,7 @@ describe('task file service', () => {
       f.conversationGrants.revokeAll(conversationId, createdAt)
       return location
     })
-    await expect(f.service.read({ conversationId, path })).rejects.toMatchObject({ code: 'PATH_OUTSIDE_GRANTED_DIRECTORY' })
+    await expect(f.service.locate({ conversationId, path })).rejects.toMatchObject({ code: 'PATH_OUTSIDE_GRANTED_DIRECTORY' })
   })
 })
 

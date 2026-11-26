@@ -7,7 +7,6 @@ import type { AnnotatedImageQuote, AnnotationHistoryCommand, AnnotationQuoteChec
 import type { WorkbenchView } from '@/workbench/common/workbench'
 import { BUDDY_ATTACHMENT_TOTAL_BYTES_LIMIT } from '@buddy-shared/conversation/attachmentPolicy'
 import { resolveBuiltinFileOpening } from '@buddy-shared/files/fileOpening'
-import { taskFileTargetSchema } from '@buddy-shared/files/taskFileApi'
 import { parseLocalChatPublicError } from '@buddy-shared/runtime/localChatError'
 import { requireFileTarget } from '@buddy-shared/spaces/spaceFileApi'
 import { ArrowRedo20Regular, ArrowUndo20Regular, ImageEdit20Regular, TextQuote20Regular } from '@vicons/fluent'
@@ -30,12 +29,12 @@ import { useResourceQuoteReveal } from '@/shared/ui/selection/useResourceQuoteRe
 import { useSelectionReferences } from '@/shared/ui/selection/workbenchSelectionReferences'
 import { useWorkbench } from '@/workbench/browser/workbenchContext'
 
-import { fileImageResolver, taskFileImageResolver } from '../model/documentImageResolver'
+import { fileImageResolver } from '../model/documentImageResolver'
 import { fileOpeningHandler } from '../model/fileOpeningHandlers'
 import { useFileOpening } from '../state/fileOpeningContext'
 import { filePreviewRenderer } from './filePreviewRenderers'
 
-const props = withDefaults(defineProps<{ view: WorkbenchView, files: LocalChatApi['spaces'], taskFiles?: LocalChatApi['taskFiles'], language: 'zh-CN' | 'en-US', writeClipboardText: (text: string) => Promise<void>, toolbarTarget?: HTMLElement | null, visible?: boolean, quoteSnapshot?: (input: AnnotatedImageQuote) => Promise<boolean> }>(), { visible: true })
+const props = withDefaults(defineProps<{ view: WorkbenchView, files: LocalChatApi['spaces'], language: 'zh-CN' | 'en-US', writeClipboardText: (text: string) => Promise<void>, toolbarTarget?: HTMLElement | null, visible?: boolean, quoteSnapshot?: (input: AnnotatedImageQuote) => Promise<boolean> }>(), { visible: true })
 const { labels, controller } = useWorkbench()
 const { t } = useBuddyI18n(() => props.language)
 const message = useMessage()
@@ -51,21 +50,15 @@ function prepareQuote(quote: BuddyResourceQuote, x: number, y: number) {
 const failed = shallowRef(false)
 const missing = shallowRef(false)
 const opening = useFileOpening()
-const taskTarget = computed(() => props.view.resource.scheme === 'task-file' ? taskFileTargetSchema.parse({ conversationId: props.view.resource.data.conversationId, path: props.view.resource.data.path }) : null)
-const target = computed(() => taskTarget.value ? null : requireFileTarget(props.view.resource.data))
-const directory = computed(() => taskTarget.value !== null && props.view.resource.data.kind === 'directory')
-const imageResolver = computed(() => taskTarget.value ? taskFileImageResolver(taskTarget.value) : target.value ? fileImageResolver(target.value) : undefined)
-const provider = computed(() => {
-  const location = taskTarget.value ? 'standalone' : 'inline'
-  const resolved = opening?.resolve(props.view.title, location) ?? resolveBuiltinFileOpening(props.view.title, location)
-  return (taskTarget.value && typeof props.view.state.fileOpeningProvider === 'string' ? resolved.candidates.find(provider => provider.id === props.view.state.fileOpeningProvider) : null) ?? resolved.provider
-})
+const target = computed(() => requireFileTarget(props.view.resource.data))
+const imageResolver = computed(() => fileImageResolver(target.value))
+const provider = computed(() => (opening?.resolve(props.view.title, 'inline') ?? resolveBuiltinFileOpening(props.view.title, 'inline')).provider)
 const previewRenderer = computed(() => filePreviewRenderer({ provider: provider.value, ownerId: props.view.id, target: target.value, source: 'file', resourceReady: true, text: preview.value?.text ?? undefined, name: props.view.title, visible: props.visible, language: props.language }))
 const modes = computed(() => fileDocumentModes({ preview: !!fileOpeningHandler(provider.value)?.preview, source: preview.value?.kind === 'text', edit: false }))
 const mode = computed({ get: () => resolveFileDocumentMode(props.view.state.mode, modes.value), set: value => controller.updateView(props.view.id, { state: { ...props.view.state, mode: value } }) })
 const searchable = computed(() => {
   const value = preview.value
-  if (!value || directory.value || failed.value || value.kind !== 'text')
+  if (!value || failed.value || value.kind !== 'text')
     return false
   if (mode.value === 'preview' && previewRenderer.value)
     return false
@@ -103,12 +96,8 @@ watch([identity, attempt], async (_, __, onCleanup) => {
   preview.value = null
   failed.value = false
   missing.value = false
-  if (directory.value)
-    return
   try {
-    const value = taskTarget.value && props.taskFiles
-      ? await props.taskFiles.read(taskTarget.value)
-      : await props.files.readFile(requireFileTarget(props.view.resource.data))
+    const value = await props.files.readFile(requireFileTarget(props.view.resource.data))
     if (active)
       preview.value = value
   }
@@ -427,11 +416,7 @@ function quoteAnnotation(scope: AnnotatedImageQuote['scope'], targetId: string) 
         </template>
       </DesktopDocumentToolbar>
     </Teleport>
-    <div v-if="directory" class="grid gap-2 p-4 text-muted">
-      <strong>{{ view.title }}</strong>
-      <span>{{ view.resource.data.path }}</span>
-    </div>
-    <div v-else-if="failed" class="file-preview__notice" role="alert">
+    <div v-if="failed" class="file-preview__notice" role="alert">
       <span>{{ missing ? labels.fileMissing : labels.failed }}</span>
       <button type="button" class="file-preview__retry" @click="loadPreview">
         {{ labels.retry }}

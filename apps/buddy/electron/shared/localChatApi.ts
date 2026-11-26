@@ -99,7 +99,6 @@ export const LOCAL_CHAT_IPC_CHANNELS = {
   spaceFilesCancel: 'lexora:buddy:space-files:cancel',
   spaceFilesChanged: 'lexora:buddy:space-files:changed',
   taskFilesResolve: 'lexora:buddy:task-files:resolve',
-  taskFilesRead: 'lexora:buddy:task-files:read',
   taskFilesReveal: 'lexora:buddy:task-files:reveal',
   spaceFilesList: 'lexora:buddy:space-files:list',
   spaceFilesRead: 'lexora:buddy:space-files:read',
@@ -439,7 +438,6 @@ export interface LocalChatApi {
   }
   taskFiles: {
     resolve: (link: TaskFileLink) => Promise<TaskFile>
-    read: (target: TaskFileTarget) => Promise<FilePreview>
     revealFile: (target: TaskFileTarget) => Promise<void>
   }
   spaces: {

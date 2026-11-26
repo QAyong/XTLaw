@@ -50,6 +50,9 @@
   width: round(down, min(100cqw, calc(100cqh * var(--player-ratio, 1.7778))), 1px);
   height: round(down, min(100cqh, calc(100cqw / var(--player-ratio, 1.7778))), 1px);
 }
+/* 无字幕布局里播放区居中，位置可能落在半个像素上；去掉黑色底，边缘最坏只露出页面背景，不再有黑线。 */
+.player-root.is-bare:not(.is-audio) .player-media { background: transparent; }
+.player-root.is-bare:not(.is-audio) .player-canvas .art-video-player { --art-background-color: transparent; background: transparent; }
 .player-root.is-bare.is-audio .player-media { width: 100%; height: min(100cqh, 170px); }
 .is-audio .player-media { background: var(--lexora-background, #fff); }
 .is-audio .transcript-panel { border-top: 1px solid var(--lexora-border, #dedfe3); }

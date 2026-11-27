@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer'
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -41,6 +42,40 @@ export function verifyDesktopResources(directory, targetId) {
   return { executablePath, resources }
 }
 
+function verifyPiRuntimeAssets(entries, archive, asar) {
+  const findEntry = suffix => entries.find(entry => entry === suffix || entry.endsWith(`/${suffix}`))
+  const requiredPackages = [
+    ['@earendil-works/pi-coding-agent', '1.6.1'],
+    ['@earendil-works/pi-codemode', '1.6.1'],
+  ]
+  for (const [name, version] of requiredPackages) {
+    const packagePath = findEntry(`node_modules/${name}/package.json`)
+    if (!packagePath)
+      throw new Error(`Desktop archive is missing ${name}`)
+    const pkg = JSON.parse(asar.extractFile(archive, normalize(packagePath)).toString('utf8'))
+    if (pkg.version !== version)
+      throw new Error(`Desktop archive ${name} must be ${version}`)
+  }
+  const requiredAssets = [
+    'node_modules/@earendil-works/pi-coding-agent/dist/utils/image-resize.js',
+    'node_modules/@earendil-works/pi-coding-agent/dist/utils/image-resize-worker.js',
+    'node_modules/quickjs-wasi/quickjs.wasm',
+    'node_modules/@silvia-odwyer/photon-node/photon_rs_bg.wasm',
+  ]
+  for (const suffix of requiredAssets) {
+    if (!findEntry(suffix))
+      throw new Error(`Desktop archive is missing ${suffix}`)
+  }
+  for (const [suffix, name] of [
+    ['node_modules/quickjs-wasi/quickjs.wasm', 'quickjs-wasi'],
+    ['node_modules/@silvia-odwyer/photon-node/photon_rs_bg.wasm', 'Photon'],
+  ]) {
+    const wasm = asar.extractFile(archive, normalize(findEntry(suffix)))
+    if (!Buffer.from(wasm).subarray(0, 4).equals(Buffer.from([0, 97, 115, 109])))
+      throw new Error(`Desktop archive ${name} asset is not a WebAssembly module`)
+  }
+}
+
 export function verifyDesktopDirectory(directory, targetId, cwd = repoRoot) {
   const platform = resolveBuildTarget(targetId)
   const { executablePath, resources } = verifyDesktopResources(directory, targetId)
@@ -49,6 +84,7 @@ export function verifyDesktopDirectory(directory, targetId, cwd = repoRoot) {
   const asar = createRequire(builder.resolve('app-builder-lib'))('@electron/asar')
   const archive = join(resources, 'app.asar')
   const entries = asar.listPackage(archive).map(entry => entry.replaceAll('\\', '/').replace(/^\//, ''))
+  verifyPiRuntimeAssets(entries, archive, asar)
   for (const entry of ['main/index.js', 'main/buddy-service.js', 'preload/index.cjs', 'renderer/index.html']) {
     if (!entries.includes(`.output/build/electron/${entry}`))
       throw new Error(`Desktop archive is missing ${entry}`)

@@ -330,7 +330,12 @@ describe('native conversation tree', () => {
 
   it('freezes parallel actor inputs at caller admission and gives NPCs no public history', async () => {
     const f = await createFixture()
-    const parent = f.run('batch-parent', 'b0', 'q1')
+    const parentInput = 'PUBLIC_BATCH_PARENT_INPUT'
+    const parent = f.run('batch-parent', 'b0', parentInput)
+    const requestMessages = () => {
+      const request = JSON.parse(f.requests.at(-1)!) as Context
+      return JSON.stringify(request.messages.filter(message => message.role !== 'system').map(message => message.content))
+    }
     const a = f.child(parent, 'batch-a', f.actor('A'))
     f.publish(a, 'batch-a-answer', 'PUBLIC_SIBLING_ANSWER')
     f.complete(a)
@@ -339,14 +344,16 @@ describe('native conversation tree', () => {
     const openedB = await f.open(b)
     await openedB.cursor.begin(openedB.session.session, b.id)
     await openedB.session.session.prompt('EXPLICIT_CHILD_TASK')
-    expect(f.requests.at(-1)).toContain('q1')
-    expect(f.requests.at(-1)).not.toContain('PUBLIC_SIBLING_ANSWER')
+    expect(requestMessages()).toContain(parentInput)
+    expect(requestMessages()).not.toContain('PUBLIC_SIBLING_ANSWER')
     const npc = f.npc(parent, 'fresh-npc')
     const openedNpc = await f.open(npc)
     await openedNpc.cursor.begin(openedNpc.session.session, npc.id)
     await openedNpc.session.session.prompt('ONLY_NPC_TASK')
-    expect(f.requests.at(-1)).not.toContain('PUBLIC_SIBLING_ANSWER')
-    expect(f.requests.at(-1)).not.toContain('q1')
+    const npcMessages = requestMessages()
+    expect(npcMessages).toContain('ONLY_NPC_TASK')
+    expect(npcMessages).not.toContain('PUBLIC_SIBLING_ANSWER')
+    expect(npcMessages).not.toContain(parentInput)
     expect(f.repository.getPublicSnapshot(npc.id)).toBe(0)
     await Promise.all([openedB, openedNpc].map(entry => entry.session.shutdown('quit')))
   })

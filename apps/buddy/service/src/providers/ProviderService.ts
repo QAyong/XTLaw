@@ -62,6 +62,7 @@ export interface ProviderModelRuntime extends ProviderModelCatalogRuntime {
   login: ModelRuntime['login']
   logout: ModelRuntime['logout']
   refresh: ModelRuntime['refresh']
+  waitForRefreshes?: () => Promise<void>
   registerNativeProvider: ModelRuntime['registerNativeProvider']
   unregisterProvider: (providerId: string) => void
   getAvailable: ModelRuntime['getAvailable']
@@ -961,6 +962,7 @@ export class ProviderService {
       }
       catch (error) { failures.push(error) }
       await this.whenIdle()
+      await this.#modelRuntime.waitForRefreshes?.()
       try {
         await this.#credentials?.dispose()
       }

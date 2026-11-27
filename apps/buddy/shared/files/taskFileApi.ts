@@ -1,7 +1,6 @@
 import type { RuntimeRequestContract } from '../runtime/apiContract'
 import { z } from 'zod'
 import { idSchema, isAbsolutePath, timestampSchema } from '../runtime/apiValidation'
-import { filePreviewSchema } from './filePreview'
 import { mediaPreviewLocationSchema } from './mediaPreview'
 
 export const taskFileTargetSchema = z.object({
@@ -16,6 +15,8 @@ export const taskFileLinkSchema = z.object({
 
 export const taskFileSchema = z.object({
   target: taskFileTargetSchema,
+  root: z.string().min(1).max(4096).refine(isAbsolutePath),
+  relativePath: z.string().max(32_768).refine(path => path === '' || (!path.startsWith('/') && !path.includes('\\') && path.split('/').every(segment => segment !== '' && segment !== '.' && segment !== '..'))),
   name: z.string().min(1),
   kind: z.enum(['file', 'directory']),
   mimeType: z.string().min(1),
@@ -29,7 +30,6 @@ export type TaskFile = z.infer<typeof taskFileSchema>
 
 export const taskFilesRpc = {
   resolve: { method: 'taskFiles.resolve', input: taskFileLinkSchema, response: taskFileSchema },
-  read: { method: 'taskFiles.read', input: taskFileTargetSchema, response: filePreviewSchema },
   locate: { method: 'taskFiles.locate', input: taskFileTargetSchema, response: z.object({ path: z.string().refine(isAbsolutePath), kind: z.enum(['file', 'directory']) }).strict() },
   resolveMedia: { method: 'taskFiles.resolveMedia', input: taskFileTargetSchema, response: mediaPreviewLocationSchema },
   resolveBrowser: { method: 'taskFiles.resolveBrowser', input: taskFileTargetSchema, response: z.object({ entryPath: z.string().refine(isAbsolutePath), rootPath: z.string().refine(isAbsolutePath) }).strict() },

@@ -14,7 +14,6 @@ function fixture(overrides: Partial<PanelOptions> = {}) {
     autoCollapse: shallowRef(true),
     linkOpening: shallowRef('in-app'),
     files: { resolve: async () => { throw new Error('Unexpected file resolution') } },
-    openFile: async () => { throw new Error('Unexpected file opening') },
     browser: {
       navigate: async () => state('session', 'task-a'),
       onStateChanged: () => () => {},

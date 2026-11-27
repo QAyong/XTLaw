@@ -6,8 +6,6 @@ import { resolveBuiltinFileOpening } from '@buddy-shared/files/fileOpening'
 import { describe, expect, it, vi } from 'vitest'
 import { nextTick, shallowRef } from 'vue'
 import { useTaskResourcePanel } from '@/modules/tasks/state/context-panel/useTaskResourcePanel'
-import { ContributionRegistry } from '@/workbench/services/ContributionRegistry'
-import { WorkbenchController } from '@/workbench/services/WorkbenchController'
 import { deferred } from '../../../../../../__tests__/deferred'
 import { contextPanelFixture } from './contextPanelFixture'
 
@@ -34,15 +32,15 @@ function fixture() {
   }])
   const mode = shallowRef<'task' | 'space' | 'independent'>('task')
   const { scope, options } = contextPanelFixture({ activeConversationId, mode, scopeSpaceIds: shallowRef(new Map([['task:conversation', 'space'], ['task:other', 'space']])) })
-  const files = { resolve: async ({ conversationId, href }: { conversationId: string, href: string }): Promise<TaskFile> => ({ target: { conversationId, path: `/workspace/${href}` }, name: href, kind: 'file', mimeType: 'application/octet-stream', sizeBytes: 10, updatedAt: '2026-09-08T00:00:00.000Z' }) }
-  const documents: string[] = []
+  const files = { resolve: async ({ conversationId, href }: { conversationId: string, href: string }): Promise<TaskFile> => {
+    const path = href.startsWith('/') ? href : `/workspace/${href}`
+    const root = path.startsWith('/workspace/') ? '/workspace' : path.slice(0, path.lastIndexOf('/')) || '/'
+    return { target: { conversationId, path }, root, relativePath: path === root ? '' : path.slice(root.length + 1), name: href.split(/[\\/]/).at(-1) ?? href, kind: 'file', mimeType: 'application/octet-stream', sizeBytes: 10, updatedAt: '2026-09-08T00:00:00.000Z' }
+  } }
   const fileOpening = { ensureReady: async () => {}, resolve: resolveBuiltinFileOpening, open: vi.fn(async () => {}) }
-  const openFile = vi.fn<Parameters<typeof useTaskResourcePanel>[0]['openFile']>(async (file, _source, provider) => {
-    documents.push(`${file.name}:${provider?.id}`)
-  })
-  const panel = scope.run(() => useTaskResourcePanel({ ...options, artifactFileRoot: async () => ({ conversationId: 'conversation', root: '/workspace', path: 'page.html', kind: 'file' }), autoCollapse: shallowRef(false), linkOpening, spaces: shallowRef([]), activeRunId: shallowRef(null), browser, changeSets: shallowRef([]), runOutputs, files, fileOpening, openFile }))!
+  const panel = scope.run(() => useTaskResourcePanel({ ...options, artifactFileRoot: async () => ({ conversationId: 'conversation', root: '/workspace', path: 'page.html', kind: 'file' }), autoCollapse: shallowRef(false), linkOpening, spaces: shallowRef([]), activeRunId: shallowRef(null), browser, changeSets: shallowRef([]), runOutputs, files, fileOpening }))!
   const release = () => gate.resolve({ sessionId: 'session', conversationId: 'conversation' } as DesktopBrowserState)
-  return { activeConversationId, mode, browser, linkOpening, panel, release, runOutputs, scope, files, documents, fileOpening, openFile, onError: options.onError, sessionOpen: () => sessionOpen }
+  return { activeConversationId, mode, browser, linkOpening, panel, release, runOutputs, scope, files, fileOpening, onError: options.onError, sessionOpen: () => sessionOpen }
 }
 
 describe('resource panel operations', () => {
@@ -149,15 +147,14 @@ describe('resource panel operations', () => {
     expect(f.panel.canPreviewFile('report.md')).toBe(true)
   })
 
-  it('uses the host-selected opener instead of the built-in HTML browser default', async () => {
+  it('routes a host-selected built-in text opener through the granted-directory file manager', async () => {
     const name = 'page.html'
     const f = fixture()
     f.runOutputs.value = []
     const selected = resolveBuiltinFileOpening('report.txt', 'standalone').provider!
     f.fileOpening.resolve = () => ({ ...resolveBuiltinFileOpening(name, 'standalone'), provider: selected })
     await f.panel.previewFile(name)
-    expect(f.documents).toEqual([`${name}:lexora.text`])
-    expect(f.panel.activeTab.value).toBeNull()
+    expect(f.panel.activeTab.value).toMatchObject({ kind: 'files', target: { conversationId: 'conversation', root: '/workspace', path: 'page.html' } })
   })
 
   it.each(['task', 'space', 'independent'] as const)('discards a late file resolution after changing tasks in %s mode', async (mode) => {
@@ -167,43 +164,9 @@ describe('resource panel operations', () => {
     f.files.resolve = () => pending.promise
     const opening = f.panel.previewFile('report.md')
     f.activeConversationId.value = 'other'
-    pending.resolve({ target: { conversationId: 'conversation', path: '/workspace/report.md' }, name: 'report.md', kind: 'file', mimeType: 'text/markdown', sizeBytes: 8, updatedAt: '2026-09-08T00:00:00.000Z' })
+    pending.resolve({ target: { conversationId: 'conversation', path: '/workspace/report.md' }, root: '/workspace', relativePath: 'report.md', name: 'report.md', kind: 'file', mimeType: 'text/markdown', sizeBytes: 8, updatedAt: '2026-09-08T00:00:00.000Z' })
     await opening
-    expect(f.documents).toEqual([])
     expect(f.panel.tabs.value).toEqual([])
-  })
-
-  it.each(['task change', 'panel close'])('cancels a file open queued behind another view close after %s', async (action) => {
-    const f = fixture()
-    f.panel.toggle()
-    const registry = new ContributionRegistry()
-    registry.register('files', scope => scope.view({ id: 'file', renderer: 'file', label: 'File', locations: ['context'], supports: () => true, multiple: true }))
-    const entered = deferred<void>()
-    const gate = deferred<boolean>()
-    const controller = new WorkbenchController(registry, async () => {
-      entered.resolve()
-      return gate.promise
-    })
-    const old = (await controller.open({ scheme: 'task-file', id: 'old', data: {} }, 'Old', { location: 'context' }))!
-    const closing = controller.close(old)
-    await entered.promise
-    const queued = deferred<void>()
-    f.openFile.mockImplementation(async (file, _source, _provider, _current, signal) => {
-      const pending = controller.open({ scheme: 'task-file', id: file.target.path, data: {} }, file.name, { location: 'context', signal })
-      queued.resolve()
-      await pending
-    })
-    const opening = f.panel.previewFile('report.md')
-    await queued.promise
-    if (action === 'task change')
-      f.activeConversationId.value = 'other'
-    else
-      f.panel.toggle()
-    gate.resolve(true)
-    await Promise.all([closing, opening])
-    expect(Object.values(controller.layout.views)).toEqual([])
-    expect(f.onError).not.toHaveBeenCalled()
-    await controller.dispose()
   })
 
   it('reports a missing file without creating a resource tab', async () => {
@@ -214,7 +177,6 @@ describe('resource panel operations', () => {
     }
     await f.panel.previewFile('missing.md')
     expect(f.onError).toHaveBeenCalledWith(error)
-    expect(f.documents).toEqual([])
     expect(f.panel.tabs.value).toEqual([])
   })
 
@@ -364,5 +326,16 @@ describe('resource panel operations', () => {
     expect(await f.panel.closeTab('browser:conversation')).toBe(false)
     expect(f.panel.activeTab.value?.kind).toBe('browser')
     expect(f.panel.tabs.value.map(tab => tab.kind)).toEqual(['browser'])
+  })
+
+  it('reports file-opening initialization failure in previewFile without opening a file manager tab', async () => {
+    const f = fixture()
+    const error = new Error('file opening failed')
+    f.fileOpening.ensureReady = async () => {
+      throw error
+    }
+    await f.panel.previewFile('report.md')
+    expect(f.onError).toHaveBeenCalledWith(error)
+    expect(f.panel.tabs.value).toEqual([])
   })
 })

@@ -28,8 +28,8 @@ function quoteSnapshot(input: AnnotatedImageQuote) {
 </script>
 
 <template>
-  <template v-if="visible || retainsPreview || typeof view.state.contextTabId !== 'string'">
-    <DesktopFilePreview v-if="view.type === 'files.preview'" :view="view" :files="workbench.api.localChat.spaces" :task-files="workbench.api.localChat.taskFiles" :language="workbench.language.value" :write-clipboard-text="clipboard.writeText" :toolbar-target="toolbarTarget" :visible="visible" :quote-snapshot="quoteSnapshot" />
+  <template v-if="visible || retainsPreview">
+    <DesktopFilePreview v-if="view.type === 'files.preview'" :view="view" :files="workbench.api.localChat.spaces" :language="workbench.language.value" :write-clipboard-text="clipboard.writeText" :toolbar-target="toolbarTarget" :visible="visible" :quote-snapshot="quoteSnapshot" />
     <DesktopFileEditor v-else :view="view" :models="workbench.models" :editors="workbench.editors" :language="workbench.language.value" :write-clipboard-text="clipboard.writeText" :toolbar-target="toolbarTarget" :visible="visible" />
   </template>
 </template>

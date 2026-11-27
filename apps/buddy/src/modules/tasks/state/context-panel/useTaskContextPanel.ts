@@ -206,15 +206,15 @@ export function useTaskContextPanel(options: UseTaskContextPanelOptions) {
     previewTarget(target, directory, source, treeVisible)
   }
 
-  // The target at the task space's current directory revision, or null when the file is not in the task's space.
+  // Resolve a saved quote against any currently available space directory and refresh its revision.
   function resolveSpaceFile(target: FileTarget): { target: SpaceFileTarget, directory: LocalSpaceAdditionalDirectory } | null {
-    // A granted directory has no entry in the task's space; its files open through their own tab.
-    if (isGrantFileTarget(target))
+    if (isGrantFileTarget(target) || !target.path)
       return null
-    const space = options.activeSpace?.value ?? null
-    const directory = space?.id === target.spaceId ? getActiveSpaceDirectories(space).find(directory => directory.id === target.directoryId) : undefined
+    const space = options.spaces.value.find(space => space.id === target.spaceId)
+      ?? (options.activeSpace?.value?.id === target.spaceId ? options.activeSpace.value : undefined)
+    const directory = getActiveSpaceDirectories(space).find(directory => directory.id === target.directoryId)
     // The saved revision can be older than the directory's; the file itself is checked by the caller's read.
-    return directory && target.path ? { target: { ...target, revision: directory.revision }, directory } : null
+    return directory ? { target: { ...target, revision: directory.revision }, directory } : null
   }
 
   // Opens a file the caller already has a target for (a quote's source) the way a card does, in the file manager tab.

@@ -1,6 +1,7 @@
 import type { DesktopBrowserApi } from '@buddy-electron/shared/desktopApi'
 import type { ArtifactFileRoot, LocalArtifact } from '@buddy-shared/artifacts/artifactApi'
 import type { FileOpeningProvider } from '@buddy-shared/files/fileOpening'
+import type { TaskFile } from '@buddy-shared/files/taskFileApi'
 import type { LocalSpace } from '@buddy-shared/spaces/spaceApi'
 import type { FileTarget, SpaceFileTarget } from '@buddy-shared/spaces/spaceFileApi'
 // @vitest-environment jsdom
@@ -53,7 +54,7 @@ function folder(overrides: Partial<LocalArtifact> = {}): LocalArtifact {
   return artifact({ artifactId: 'folder', kind: 'directory', mimeType: 'inode/directory', name: 'reports', path: '/workspace/docs/reports', sizeBytes: 0, ...overrides })
 }
 
-function fixture(activeSpace: LocalSpace | null = space(), extra: { providers?: FileOpeningProvider[], defaults?: Record<string, { standalone?: string }>, outputs?: LocalArtifact[], revealOpenOfficeDocument?: (target: FileTarget) => boolean, artifactFileRoot?: (artifactId: string) => Promise<ArtifactFileRoot> } = {}) {
+function fixture(activeSpace: LocalSpace | null = space(), extra: { providers?: FileOpeningProvider[], defaults?: Record<string, { standalone?: string }>, outputs?: LocalArtifact[], spaces?: LocalSpace[], resolveFile?: (conversationId: string, href: string) => Promise<TaskFile>, revealOpenOfficeDocument?: (target: FileTarget) => boolean, artifactFileRoot?: (artifactId: string) => Promise<ArtifactFileRoot> } = {}) {
   const browser: Pick<DesktopBrowserApi, 'onStateChanged' | 'onGuestsChanged' | 'listGuests' | 'ensureSession' | 'close' | 'openArtifact' | 'openFile' | 'navigate'> = {
     onGuestsChanged: () => () => {},
     listGuests: async () => [],
@@ -65,15 +66,23 @@ function fixture(activeSpace: LocalSpace | null = space(), extra: { providers?: 
     openFile: async () => { throw new Error('unexpected browser file link') },
   }
   const activeConversationId = shallowRef<string | null>('conversation')
-  const { scope, options } = contextPanelFixture({ activeConversationId, activeSpace: shallowRef(activeSpace), spaces: shallowRef(activeSpace ? [activeSpace] : []), runOutputs: shallowRef(extra.outputs ? [{ runId: 'run', createdAt: now, sourceToolCallId: 'tool', artifacts: extra.outputs }] : []) })
+  const { scope, options } = contextPanelFixture({ activeConversationId, activeSpace: shallowRef(activeSpace), spaces: shallowRef(extra.spaces ?? (activeSpace ? [activeSpace] : [])), runOutputs: shallowRef(extra.outputs ? [{ runId: 'run', createdAt: now, sourceToolCallId: 'tool', artifacts: extra.outputs }] : []) })
   const open = vi.fn(async () => {})
-  const openFile = vi.fn(async (_file: { name: string, kind: string }) => {})
-  const files = { resolve: async ({ conversationId, href }: { conversationId: string, href: string }) => ({ target: { conversationId, path: href }, name: href.split('/').at(-1)!, kind: 'file' as const, mimeType: 'application/octet-stream', sizeBytes: 10, updatedAt: now }) }
+  const files = { resolve: async ({ conversationId, href }: { conversationId: string, href: string }): Promise<TaskFile> => {
+    if (extra.resolveFile)
+      return extra.resolveFile(conversationId, href)
+    const path = href.startsWith('/') ? href : `/workspace/${href}`
+    const spaceRoot = activeSpace?.primaryDirectory?.root ?? activeSpace?.workspaceDirectory?.root
+    const root = spaceRoot && (path === spaceRoot || path.startsWith(`${spaceRoot}/`))
+      ? spaceRoot
+      : path.slice(0, path.lastIndexOf('/')) || '/'
+    return { target: { conversationId, path }, root, relativePath: path === root ? '' : path.slice(root.length + 1), name: path.split('/').at(-1)!, kind: 'file', mimeType: 'application/octet-stream', sizeBytes: 10, updatedAt: now }
+  } }
   const fileOpening = extra.providers
     ? { ensureReady: async () => {}, resolve: (name: string, location: 'standalone') => resolveFileOpening({ providers: [...builtinFileOpeningProviders, ...extra.providers!], defaults: extra.defaults ?? {} }, name, location), open }
     : undefined
-  const panel = scope.run(() => useTaskResourcePanel({ ...options, artifactFileRoot: extra.artifactFileRoot ?? outputFileRoot, ...(fileOpening ? { fileOpening } : {}), ...(extra.revealOpenOfficeDocument ? { revealOpenOfficeDocument: extra.revealOpenOfficeDocument } : {}), autoCollapse: shallowRef(false), linkOpening: shallowRef('in-app'), files, openFile, browser }))!
-  return { panel, open, openFile, activeConversationId, onError: options.onError as unknown as ReturnType<typeof vi.fn> }
+  const panel = scope.run(() => useTaskResourcePanel({ ...options, artifactFileRoot: extra.artifactFileRoot ?? outputFileRoot, ...(fileOpening ? { fileOpening } : {}), ...(extra.revealOpenOfficeDocument ? { revealOpenOfficeDocument: extra.revealOpenOfficeDocument } : {}), autoCollapse: shallowRef(false), linkOpening: shallowRef('in-app'), files, browser }))!
+  return { panel, open, activeConversationId, onError: options.onError as unknown as ReturnType<typeof vi.fn> }
 }
 
 describe('locating task outputs', () => {
@@ -145,13 +154,31 @@ describe('opening task outputs', () => {
     expect(panel.activeTab.value).toMatchObject({ kind: 'files', target: { path: 'brief.docx' }, tree: { visible: true } })
   })
 
-  // Only a link that points to a registered output goes through openArtifact and the file manager; any other path link uses the shared task file opener.
-  it.each(['report.docx', 'report.xlsx', 'report.pptx'])('opens an Office path link with no output card through the task file opener, not the file manager: %s', async (name) => {
-    const { panel, openFile } = fixture()
+  it.each(['report.docx', 'report.xlsx', 'report.pptx'])('opens an Office path link without an output card in the file manager: %s', async (name) => {
+    const { panel } = fixture()
     await panel.previewFile(`/workspace/${name}`)
-    expect(openFile).toHaveBeenCalledOnce()
-    expect(openFile.mock.calls[0]![0]).toMatchObject({ name, kind: 'file' })
-    expect(panel.allTabs.value).toHaveLength(0)
+    expect(panel.activeTab.value).toMatchObject({ kind: 'files', target: { spaceId: 'space', directoryId: 'directory', path: name }, tree: { visible: true } })
+  })
+
+  it('opens a non-artifact file outside the task space in its authorized directory root', async () => {
+    const { panel } = fixture()
+    await panel.previewFile('/work/out/report.md')
+    expect(panel.activeTab.value).toMatchObject({ kind: 'files', target: { conversationId: 'conversation', root: '/work/out', path: 'report.md' }, tree: { visible: false } })
+  })
+
+  it('opens a non-artifact directory link in its authorized directory root', async () => {
+    const folder = '/work/out/reports'
+    const { panel } = fixture(space(), { resolveFile: async conversationId => ({ target: { conversationId, path: folder }, root: '/work/out', relativePath: 'reports', name: 'reports', kind: 'directory', mimeType: 'inode/directory', sizeBytes: 0, updatedAt: now }) })
+    await panel.previewFile(folder)
+    expect(panel.activeTab.value).toMatchObject({ kind: 'files', target: { conversationId: 'conversation', root: '/work/out', path: '' }, expand: { path: 'reports' }, tree: { visible: true } })
+  })
+
+  it('reuses Office document reveal for a non-artifact file inside the task space', async () => {
+    const reveal = vi.fn(() => true)
+    const { panel } = fixture(space(), { revealOpenOfficeDocument: reveal })
+    await panel.previewFile('/workspace/brief.docx')
+    expect(reveal).toHaveBeenCalledWith({ spaceId: 'space', directoryId: 'directory', revision: 1, path: 'brief.docx' })
+    expect(panel.allTabs.value).toEqual([])
   })
 
   it('shows the tree again when an Office card is opened after a plain file card folded it', async () => {
@@ -163,10 +190,9 @@ describe('opening task outputs', () => {
   })
 
   it('opens a chat link that points to a registered output in the file manager', async () => {
-    const { panel, openFile } = fixture(space(), { outputs: [artifact()] })
+    const { panel } = fixture(space(), { outputs: [artifact()] })
     await panel.previewFile('/workspace/docs/report.md')
     expect(panel.activeTab.value).toMatchObject({ kind: 'files', target: { path: 'docs/report.md' }, tree: { visible: false } })
-    expect(openFile).not.toHaveBeenCalled()
   })
 
   it('opens with a built-in provider the user picked in the file manager, like it does without one', async () => {
@@ -340,6 +366,20 @@ describe('opening task outputs', () => {
       expect(panel.allTabs.value).toHaveLength(0)
       expect(open).toHaveBeenCalledWith(expect.objectContaining({ name: 'brief.docx' }), reader, expect.any(Function), expect.any(AbortSignal))
     })
+
+    it('routes a user-assigned extension opener for a non-artifact file through the plugin', async () => {
+      const { panel, open } = fixture(space(), { providers: [office, reader], defaults: { '.docx': { standalone: reader.id } } })
+      await panel.previewFile('/workspace/brief.docx')
+      expect(panel.allTabs.value).toHaveLength(0)
+      expect(open).toHaveBeenCalledWith(expect.objectContaining({ name: 'brief.docx', source: { kind: 'task', target: { conversationId: 'conversation', path: '/workspace/brief.docx' } } }), reader, expect.any(Function), expect.any(AbortSignal))
+    })
+
+    it('routes an explicitly selected extension opener for a non-artifact file through the plugin', async () => {
+      const { panel, open } = fixture(space(), { providers: [office, reader] })
+      await panel.previewFile('/workspace/brief.docx', undefined, reader.id)
+      expect(panel.allTabs.value).toHaveLength(0)
+      expect(open).toHaveBeenCalledWith(expect.objectContaining({ name: 'brief.docx' }), reader, expect.any(Function), expect.any(AbortSignal))
+    })
   })
 
   describe('in a space without a local folder', () => {
@@ -373,6 +413,10 @@ describe('opening task outputs', () => {
 
 describe('opening the source file of a quote (Spec-043)', () => {
   const quoted = (path: string, revision = 1): SpaceFileTarget => ({ spaceId: 'space', directoryId: 'directory', revision, path })
+  const otherSpace = (): LocalSpace => {
+    const value = space()
+    return { ...value, id: 'other', name: 'Other', primaryDirectory: { ...value.primaryDirectory!, id: 'other-directory', spaceId: 'other', root: '/other', canonicalRoot: '/other', revision: 4 } }
+  }
 
   it('opens a plain file in the file manager tab with the tree folded, like an output card', () => {
     const { panel } = fixture()
@@ -412,6 +456,17 @@ describe('opening the source file of a quote (Spec-043)', () => {
     expect(panel.allTabs.value.some(tab => tab.kind === 'files')).toBe(false)
   })
 
+  it('opens a quote from another available space using that directory root and current revision', () => {
+    const other = otherSpace()
+    const target = { spaceId: 'other', directoryId: 'other-directory', revision: 1, path: 'brief.docx' }
+    const reveal = vi.fn(() => false)
+    const { panel } = fixture(space(), { spaces: [space(), other], revealOpenOfficeDocument: reveal })
+    const opened = panel.openQuoteSourceFile(target)
+    expect(reveal).toHaveBeenCalledWith({ ...target, revision: 4 })
+    expect(opened).toMatchObject({ target: { ...target, revision: 4 }, tabId: panel.activeTab.value?.id })
+    expect(panel.activeTab.value).toMatchObject({ kind: 'files', target: { spaceId: 'other', directoryId: 'other-directory', revision: 4, path: 'brief.docx' }, tree: { visible: true } })
+  })
+
   it('only looks for an open editor for Office files', () => {
     const reveal = vi.fn(() => true)
     const { panel } = fixture(space(), { revealOpenOfficeDocument: reveal })
@@ -420,12 +475,20 @@ describe('opening the source file of a quote (Spec-043)', () => {
   })
 
   it.each([
-    ['another space', { ...quoted('a.md'), spaceId: 'other' }],
-    ['another directory', { ...quoted('a.md'), directoryId: 'other' }],
+    ['unavailable space', { ...quoted('a.md'), spaceId: 'other' }],
+    ['unavailable directory', { ...quoted('a.md'), directoryId: 'other' }],
     ['no path', quoted('')],
-  ])('returns null for %s so the caller opens it on its own', (_name, target) => {
+  ])('returns null for a quote in an unavailable %s', (_name, target) => {
     const { panel } = fixture()
     expect(panel.openQuoteSourceFile(target)).toBeNull()
+    expect(panel.allTabs.value).toHaveLength(0)
+  })
+
+  it('returns null when the target space directory has been revoked', () => {
+    const value = otherSpace()
+    const revoked = { ...value, primaryDirectory: { ...value.primaryDirectory!, revokedAt: now } }
+    const { panel } = fixture(space(), { spaces: [space(), revoked] })
+    expect(panel.openQuoteSourceFile({ spaceId: 'other', directoryId: 'other-directory', revision: 4, path: 'a.md' })).toBeNull()
     expect(panel.allTabs.value).toHaveLength(0)
   })
 

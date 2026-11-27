@@ -1,14 +1,11 @@
 import type { TaskFile, TaskFileLink, TaskFileTarget } from '../../../shared/files/taskFileApi'
 import type { TaskFileAccess } from './TaskFileAccess'
 import { stat } from 'node:fs/promises'
-import { basename } from 'node:path'
-import { BoundedFileReadError } from '../../../platform/filesystem/boundedFile'
+import { basename, relative, sep } from 'node:path'
 import { inferFileMimeType } from '../../../shared/files/fileMimeTypes'
 import { FILE_IMAGE_PREVIEW_MAX_BYTES } from '../../../shared/files/filePreview'
-import { taskFileMediaUrl } from '../../../shared/files/mediaPreview'
 import { GrantedPathError } from '../directories/resolveGrantedPath'
 import { BuddyServiceError } from '../rpc/runtimeRequest'
-import { readFilePreview } from './readFilePreview'
 import { resolveMediaPreview } from './resolveMediaPreview'
 
 export class TaskFileService {
@@ -28,6 +25,8 @@ export class TaskFileService {
       await this.revalidate(target, location)
       return {
         target,
+        root: location.root,
+        relativePath: relative(location.root, location.path).split(sep).join('/'),
         name: basename(location.path) || location.path,
         kind: metadata.isDirectory() ? 'directory' : 'file',
         mimeType: metadata.isDirectory() ? 'inode/directory' : inferFileMimeType(location.path),
@@ -35,13 +34,6 @@ export class TaskFileService {
         updatedAt: metadata.mtime.toISOString(),
       }
     })
-  }
-
-  read(target: TaskFileTarget) {
-    return this.withTarget(target, location => readFilePreview(location.root, location.path, {
-      image: taskFileMediaUrl(target),
-      media: taskFileMediaUrl(target),
-    }))
   }
 
   locate(target: TaskFileTarget): Promise<{ path: string, kind: 'file' | 'directory' }> {
@@ -90,7 +82,7 @@ async function withFileErrors<T>(action: () => Promise<T>): Promise<T> {
   catch (error) {
     if (error instanceof GrantedPathError && error.code === 'PATH_NOT_FOUND')
       throw new BuddyServiceError('FILE_NOT_FOUND')
-    const failure = (error instanceof BoundedFileReadError && error.code === 'BOUNDED_FILE_READ_FAILED' ? error.cause : error) as NodeJS.ErrnoException | undefined
+    const failure = error as NodeJS.ErrnoException | undefined
     if (failure?.code === 'ENOENT' || failure?.code === 'ENOTDIR')
       throw new BuddyServiceError('FILE_NOT_FOUND')
     throw error

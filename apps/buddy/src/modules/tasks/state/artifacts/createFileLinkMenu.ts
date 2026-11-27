@@ -8,7 +8,7 @@ import type { FileLinkMenuAction } from '@/shared/ui/markdown/fileLinkMenu'
 import { localFileLinkPath } from '@buddy-shared/files/fileLink'
 import { fileOpeningTitle } from '@buddy-shared/files/fileOpening'
 import { translateBuddy } from '@/i18n/buddyI18n'
-import { resolveChatToolFileTarget } from '../../model/transcript/chatToolFileTarget'
+import { resolveChatToolDirectoryTarget, resolveChatToolFileTarget } from '../../model/transcript/chatToolFileTarget'
 
 interface FileLinkMenuOptions {
   resources: TaskResourcePanel
@@ -50,7 +50,6 @@ export function createFileLinkMenu(options: FileLinkMenuOptions) {
     if (!current())
       return []
     const opening = options.opening.resolve(name, 'standalone')
-    const spaceTarget = resolveChatToolFileTarget(task?.session.activeSpace.value ?? null, href)
     return [
       { key: 'open', label: t('desktop.fileLink.open'), run: run(() => options.resources.previewFile(href, source)) },
       ...(opening.candidates.length && artifact?.kind !== 'directory'
@@ -70,14 +69,21 @@ export function createFileLinkMenu(options: FileLinkMenuOptions) {
             await options.artifacts.referenceFile(conversationId, file.target.path)
         }
       }) },
-      { key: 'locate', label: t('desktop.artifacts.locate'), disabled: artifact ? !options.artifacts.canLocate(artifact) : !spaceTarget, run: run(async () => {
+      { key: 'locate', label: t('desktop.artifacts.locate'), disabled: artifact ? !options.artifacts.canLocate(artifact) : false, run: run(async () => {
         if (artifact) {
           await options.artifacts.execute('locate', artifact)
         }
         else {
           const file = await resolve()
-          if (current() && spaceTarget)
-            options.resources.locateFile(spaceTarget, file.kind, source)
+          if (!current())
+            return
+          const activeSpace = task && conversationId === task.session.activeTaskId.value ? task.session.activeSpace.value : null
+          const spaceTarget = file.kind === 'directory'
+            ? resolveChatToolDirectoryTarget(activeSpace, file.target.path)
+            : resolveChatToolFileTarget(activeSpace, file.target.path)
+          const target = spaceTarget
+            ?? { conversationId: file.target.conversationId, root: file.root, path: file.relativePath }
+          options.resources.locateFile(target, file.kind, source)
         }
       }) },
       { key: 'reveal', label: t('desktop.artifacts.reveal'), run: run(async () => {

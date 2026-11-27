@@ -15,7 +15,6 @@ function createResourcePanel(overrides: Parameters<typeof contextPanelFixture>[0
     autoCollapse: shallowRef(false),
     linkOpening: shallowRef('in-app'),
     files: { resolve: async () => { throw new Error('Unexpected file resolution') } },
-    openFile: async () => { throw new Error('Unexpected file opening') },
     browser: {
       onStateChanged: () => () => {},
       onGuestsChanged: () => () => {},

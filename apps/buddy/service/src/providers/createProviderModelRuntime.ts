@@ -23,6 +23,13 @@ export function createProviderModelRuntime(runtime: ModelRuntime, headers: Provi
     login: runtime.login.bind(runtime),
     logout: runtime.logout.bind(runtime),
     refresh: runtime.refresh.bind(runtime),
+    async waitForRefreshes() {
+      let pending: Promise<void>
+      do {
+        pending = refreshing
+        await pending
+      } while (pending !== refreshing)
+    },
     unregisterProvider: runtime.unregisterProvider.bind(runtime),
     registerNativeProvider: provider => runtime.registerNativeProvider(withProviderRequestHeaders(withProviderStream(provider, record), headers)),
     registerProvider: (id, { authentication, ...config }) => {

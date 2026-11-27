@@ -158,9 +158,34 @@ describe('workbench resource ownership', () => {
     const restored = restoreWorkbenchLayout({ version: 1, views: { one: view('one', 'task'), two: view('two', 'task'), file: view('file', 'file'), history: view('history', 'task-index') }, root: { kind: 'pane', id: 'original', views: ['one', 'two', 'file'], active: 'file' }, docks: { left: { pane: { kind: 'pane', id: 'dock', views: ['history'], active: 'history' } } } })
     expect(restored.version).toBe(2)
     expect(panes(restored.root).map(pane => pane.view)).toEqual(['one'])
-    expect(restored.views.file?.location).toBe('context')
+    expect(restored.views.file).toBeUndefined()
     expect(restored.views.history).toBeUndefined()
     expect(restoreWorkbenchLayout({ version: 20 })).toMatchObject({ version: 2, views: {} })
+  })
+
+  it('drops legacy standalone file previews while retaining attached file previews and other context views', () => {
+    const view = (id: string, scheme: string, location: 'main' | 'context', state: Record<string, unknown> = {}) => ({ id, type: scheme, title: id, resource: { scheme, id, data: {} }, location, state })
+    const restored = restoreWorkbenchLayout({
+      version: 2,
+      views: {
+        task: view('task', 'task', 'main'),
+        taskFile: view('taskFile', 'task-file', 'context', { contextTabId: 'files-1' }),
+        standaloneFile: view('standaloneFile', 'file', 'context'),
+        standalonePreview: view('standalonePreview', 'file-preview', 'context'),
+        attachedFile: view('attachedFile', 'file', 'context', { contextTabId: 'files-1' }),
+        attachedPreview: view('attachedPreview', 'file-preview', 'context', { contextTabId: 'files-1' }),
+        execution: view('execution', 'execution', 'context'),
+        extension: view('extension', 'extension', 'context'),
+      },
+      root: { kind: 'pane', id: 'main', view: 'task' },
+    })
+    expect(restored.views).not.toHaveProperty('taskFile')
+    expect(restored.views).not.toHaveProperty('standaloneFile')
+    expect(restored.views).not.toHaveProperty('standalonePreview')
+    expect(restored.views).toHaveProperty('attachedFile')
+    expect(restored.views).toHaveProperty('attachedPreview')
+    expect(restored.views).toHaveProperty('execution')
+    expect(restored.views).toHaveProperty('extension')
   })
 
   it('keeps context views outside task geometry and retains the last task focus', async () => {

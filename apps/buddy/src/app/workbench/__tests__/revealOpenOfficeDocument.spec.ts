@@ -56,12 +56,9 @@ function fixture() {
       throw new Error('unexpected file resolution')
     },
   }
-  const openFile = async () => {
-    throw new Error('unexpected file opening')
-  }
   let panel: TaskResourcePanel
   const reveal = vi.fn((file: FileTarget) => revealOpenOfficeDocument(controller, panel, file))
-  panel = scope.run(() => useTaskResourcePanel({ ...options, artifactFileRoot: async () => ({ conversationId: 'conversation', root: '/elsewhere', path: 'report.docx', kind: 'file' }), autoCollapse: shallowRef(false), linkOpening: shallowRef('in-app'), files, openFile, browser, revealOpenOfficeDocument: reveal }))!
+  panel = scope.run(() => useTaskResourcePanel({ ...options, artifactFileRoot: async () => ({ conversationId: 'conversation', root: '/elsewhere', path: 'report.docx', kind: 'file' }), autoCollapse: shallowRef(false), linkOpening: shallowRef('in-app'), files, browser, revealOpenOfficeDocument: reveal }))!
   const projection = new ContextTabProjection(controller, () => panel, () => true)
   onTestFinished(async () => {
     projection.dispose()
